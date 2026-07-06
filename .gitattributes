@@ -1,0 +1,16 @@
+# Normalise text to LF
+* text=auto eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.py   text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.tm   text eol=lf
+*.txt  text eol=lf
+
+# Binaries
+*.png  binary
+*.jpg  binary
+*.ico  binary
