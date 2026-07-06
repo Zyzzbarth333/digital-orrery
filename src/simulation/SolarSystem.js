@@ -4,9 +4,7 @@ import * as Astronomy from 'astronomy-engine';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { CelestialBody } from './CelestialBody.js';
 import { TimeController } from './TimeController.js';
-// import { Spacecraft } from './Spacecraft.js';
-import { OrbitalMechanics } from './OrbitalMechanics.js'; 
-// import { EnhancedSpacecraft } from './spacecraft/EnhancedSpacecraft.js';
+import { OrbitalMechanics } from './OrbitalMechanics.js';
 import { SpacecraftFactory } from './spacecraft/SpacecraftFactory.js';
 import { SpacecraftControlPanel } from '../ui/SpacecraftControlPanel.js';
 import { ManoeuvreManager } from './spacecraft/ManoeuvreNode.js';
@@ -768,16 +766,17 @@ export class SolarSystem {
     // Remove highlights
     if (this.selectedBody && this.selectedBody.setHighlight) {
       this.selectedBody.setHighlight(false);
-  // Hide spacecraft control panel
-  if (this.spacecraftControlPanel) {
-    this.spacecraftControlPanel.hide();
-  }
-}
-    
+    }
+
+    // Hide spacecraft control panel (always, not only when a body was highlighted)
+    if (this.spacecraftControlPanel) {
+      this.spacecraftControlPanel.hide();
+    }
+
     // Clear selection
     this.selectedBody = null;
     this.selectedSpacecraft = null;
-    
+
     // Hide details panel
     this.detailsPanel.classList.add('hidden');
   }

@@ -1,6 +1,7 @@
 // src/simulation/spacecraft/ManoeuvreNode.js
 import * as THREE from 'three';
 import { AU_TO_KM, GRAVITATIONAL_PARAMETERS } from '../../utils/constants.js';
+import { propagate } from '../../physics/orbital.js';
 
 /**
  * Represents a planned manoeuvre at a specific point in the orbit
@@ -65,81 +66,23 @@ export class ManoeuvreNode {
   }
   
   propagateOrbit(position, velocity, time) {
-    // Simplified Kepler propagation
-    // In reality, would use more sophisticated numerical integration
-    
-    const mu = GRAVITATIONAL_PARAMETERS.sun / 1e9; // km³/s²
-    const r0 = position.clone();
-    const v0 = velocity.clone();
-    
-    // Convert to orbital elements
-    const elements = this.calculateOrbitalElements(r0, v0, mu);
-    
-    // Mean motion
-    const n = Math.sqrt(mu / Math.pow(elements.a, 3));
-    
-    // Propagate mean anomaly
-    const M0 = elements.M;
-    const M = M0 + n * time;
-    
-    // Solve Kepler's equation (simplified)
-    const E = this.solveKeplersEquation(M, elements.e);
-    
-    // True anomaly
-    const nu = 2 * Math.atan2(
-      Math.sqrt(1 + elements.e) * Math.sin(E / 2),
-      Math.sqrt(1 - elements.e) * Math.cos(E / 2)
+    // Real analytic Kepler propagation via the verified orbital core
+    // (src/physics/orbital.js). The app stores position in AU and velocity in
+    // km/s; the core works in km and km/s, so convert on the way in and out.
+    const mu = GRAVITATIONAL_PARAMETERS.sun / 1e9; // km^3/s^2
+    const rKm = [position.x * AU_TO_KM, position.y * AU_TO_KM, position.z * AU_TO_KM];
+    const vKms = [velocity.x, velocity.y, velocity.z];
+
+    const state = propagate(rKm, vKms, time, mu);
+
+    const position_new = new THREE.Vector3(
+      state.r[0] / AU_TO_KM,
+      state.r[1] / AU_TO_KM,
+      state.r[2] / AU_TO_KM
     );
-    
-    // Position and velocity in orbital frame
-    const r = elements.a * (1 - elements.e * Math.cos(E));
-    const vr = Math.sqrt(mu * elements.a) * elements.e * Math.sin(E) / r;
-    const vt = Math.sqrt(mu * elements.a) * Math.sqrt(1 - elements.e * elements.e) / r;
-    
-    // Convert back to inertial frame
-    // This is simplified - real implementation would use rotation matrices
-    const position_new = r0.clone().normalize().multiplyScalar(r * AU_TO_KM);
-    const velocity_new = v0.clone(); // Simplified
-    
+    const velocity_new = new THREE.Vector3(state.v[0], state.v[1], state.v[2]);
+
     return { position: position_new, velocity: velocity_new };
-  }
-  
-  calculateOrbitalElements(r, v, mu) {
-    // Standard orbital mechanics calculations
-    const rMag = r.length() * AU_TO_KM;
-    const vMag = v.length();
-    
-    // Specific energy
-    const energy = vMag * vMag / 2 - mu / rMag;
-    
-    // Semi-major axis
-    const a = -mu / (2 * energy);
-    
-    // Angular momentum
-    const h = new THREE.Vector3().crossVectors(r.clone().multiplyScalar(AU_TO_KM), v);
-    const hMag = h.length();
-    
-    // Eccentricity
-    const eVec = v.clone().cross(h).divideScalar(mu).sub(r.clone().normalize());
-    const e = eVec.length();
-    
-    // Mean anomaly (simplified)
-    const M = 0; // Would calculate from current position
-    
-    return { a: a / AU_TO_KM, e, M };
-  }
-  
-  solveKeplersEquation(M, e, tolerance = 1e-6) {
-    // Newton-Raphson method
-    let E = M;
-    let delta = 1;
-    
-    while (Math.abs(delta) > tolerance) {
-      delta = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
-      E -= delta;
-    }
-    
-    return E;
   }
   
   /**

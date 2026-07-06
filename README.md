@@ -1,307 +1,136 @@
-# 🌌 Interplanetary Simulation
+# digital-orrery
 
-A realistic, web-based solar system simulation with spacecraft mission planning capabilities. Built with Three.js and real astronomical data.
+A web-based, real-time 3D solar-system simulator with interactive interplanetary mission planning. It is built in vanilla JavaScript on Three.js and uses the astronomy-engine library for JPL-grade planetary ephemerides. The simulator renders the Sun and nine planets at ephemeris-accurate positions, launches spacecraft with a chosen delta-V, propagates them under Newtonian gravity, and provides transfer planning (Hohmann and Lambert), manoeuvre nodes, launch-window analysis, and a full spacecraft-subsystems model covering power, thermal, comms, attitude and propulsion.
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-2.1.0-green.svg)
-![Three.js](https://img.shields.io/badge/three.js-r177-orange.svg)
+The name nods to the orrery, a mechanical model of the solar system, and in particular to the Digital Orrery, the special-purpose computer built in the 1980s to integrate the long-term dynamics of the outer planets.
 
-## 🎥 Demo
+## Physics and accuracy
 
-[Live Demo](#) | [Video Walkthrough](#) | [Screenshots](#)
+The simulator is honest about where it sits on the fidelity scale. The goal is to move toward and beyond KSP-grade patched-conic-plus-n-body fidelity, and the codebase is being built out to get there rather than claiming to be there already.
 
-## ✨ Features
+What is high-fidelity today:
 
-### Current Features ✅
-- **Accurate Solar System Model**
-  - Real planetary positions using NASA JPL ephemeris data
-  - SPICE-precision constants for all planetary bodies
-  - Logarithmic scaling for visual clarity
-  - Realistic orbital mechanics
-  - Planet rotation and axial tilts
+- **Gravitational parameters** are SPICE-precision GM constants for the Sun and all planets, held in `src/utils/constants.js`.
+- **Planetary positions** come from astronomy-engine, which provides JPL-grade ephemerides, so the Sun and planets sit where they actually are for a given date.
+- **Spacecraft propagation** is a genuine Newtonian n-body integration. Spacecraft respond to the gravity of the Sun and the planets, not to a single central body.
+- **Orbital-mechanics core.** `src/physics/orbital.js` provides analytic Kepler propagation and a universal-variable Lambert solver. Both are textbook-correct and verified numerically against reference cases from Curtis and Vallado. Run the checks with:
 
-- **Advanced Spacecraft System**
-  - Enhanced spacecraft with full systems simulation:
-    - Power generation and battery management
-    - Thermal control with radiators
-    - Communications with realistic data rates
-    - Propulsion with fuel consumption
-    - Attitude control (RCS and reaction wheels)
-  - Real physics simulation with gravitational calculations
-  - Trajectory visualization with persistent trails
-  - Factory pattern for easy spacecraft creation
+  ```bash
+  node src/physics/orbital.test.mjs
+  ```
 
-- **Trajectory Planning System**
-  - Interactive trajectory planner interface
-  - Hohmann transfers with delta-v calculations
-  - Direct and gravity assist trajectories
-  - Fuel requirement estimates
-  - Launch window calculations
-  - 3D trajectory preview
+What is still approximate:
 
-- **Manoeuvre Planning System**
-  - Add manoeuvre nodes to plan burns
-  - Real-time trajectory preview
-  - Delta-V calculations with fuel requirements
-  - Burn duration estimates
-  - Visual node markers in 3D space
+- The trajectory-planner UI still uses some simplified transfer estimates rather than driving every number from the verified core.
+- Gravity assists are modelled coarsely and should not be treated as mission-grade.
 
-- **Time Control System**
-  - Variable time acceleration (real-time to 100,000x)
-  - Pause/resume functionality
-  - Jump to specific dates
-  - Mission elapsed time tracking
+In short, the constants, ephemerides, n-body integration and the Kepler/Lambert core are solid; the planning UI on top of them is where the remaining approximations live.
 
-- **Visual Features**
-  - Dynamic Level of Detail (LOD) for performance
-  - Atmospheric effects on terrestrial planets
-  - Saturn's rings
-  - 10,000+ background stars
-  - Orbit line toggling
-  - Enhanced spacecraft visuals with solar panels, antennas, and status lights
+## Accuracy roadmap
 
-- **User Interface**
-  - Click-to-select planets and spacecraft
-  - Real-time telemetry display
-  - Advanced spacecraft control panel
-  - Mission control panel with presets
-  - Keyboard shortcuts
-  - Mobile touch support
+The following changes would push fidelity further, roughly in order of impact:
 
-## 🚀 Quick Start
+- [ ] Wire the Lambert core in `src/physics/orbital.js` into the porkchop delta-V grid so the planner reads directly from the verified solver.
+- [ ] Add patched-conic sphere-of-influence transitions so trajectories hand off correctly between central bodies.
+- [ ] Replace the fixed-step integrator with a higher-order integrator using adaptive step control.
+- [ ] Validate propagated trajectories against SPICE ephemerides using the reference under `python/`.
+
+## Quick start
 
 ### Prerequisites
-- Node.js (v20+ recommended, v22 also supported)
-- npm or yarn
-- Modern web browser with WebGL support (Chrome recommended)
 
-### Installation
+- Node.js 20+ and npm
+- A modern browser with WebGL support
+
+### Install and run
 
 ```bash
-# Clone the repository
-git clone https://github.com/Zyzzbarth333/interplanetary-sim.git
-cd interplanetary-sim
-
-# Install dependencies
+git clone https://github.com/Zyzzbarth333/digital-orrery.git
+cd digital-orrery
 npm install
-
-# Start development server
 npm run dev
+```
 
-# Build for production
+`npm run dev` starts the Vite development server. To produce a production build:
+
+```bash
 npm run build
 ```
 
-### Development Options
+## Controls
 
-#### Local Development (Recommended)
-```cmd
-# Use Command Prompt (not PowerShell)
-cd C:\Users\[YourUser]\interplanetary-sim
-npm install
-npm run dev
-```
+### Keyboard
 
-#### DevContainer Development
-1. Install VS Code Remote - Containers extension
-2. Open project in VS Code
-3. F1 → "Dev Containers: Reopen in Container"
-4. Wait for container to build
-5. Terminal will open inside container
-6. Run `npm install` and `npm run dev`
+| Key | Action |
+| --- | --- |
+| `Space` | Pause and resume |
+| `+` / `-` | Speed time up and down |
+| `1` to `9` | Launch preset missions |
+| `H` | Show help |
+| `O` | Toggle orbit lines |
+| `L` | Toggle labels |
+| `M` | Mission control panel |
+| `N` | Add manoeuvre node (with a spacecraft selected) |
+| `B` | Trajectory planner |
+| `T` | Cycle time display format |
+| `F` | Toggle fullscreen |
+| `P` | Take a screenshot |
 
-#### WSL Development
-```bash
-# In WSL Ubuntu
-cd ~/projects
-git clone https://github.com/Zyzzbarth333/interplanetary-sim.git
-cd interplanetary-sim
-npm install
-npm run dev
-```
+### Mouse
 
-### Basic Usage
+- Left-drag: rotate the view
+- Right-drag: pan
+- Scroll: zoom in and out
+- Click: select a planet or spacecraft
 
-1. **Navigation**
-   - Left click + drag: Rotate view
-   - Right click + drag: Pan
-   - Scroll: Zoom in/out
-   - Click planets: Focus and select
-
-2. **Keyboard Controls**
-   - `Space`: Pause/Resume
-   - `+/-`: Speed up/down time
-   - `1-9`: Launch preset missions
-   - `H`: Show help
-   - `O`: Toggle orbits
-   - `L`: Toggle labels
-   - `M`: Mission control panel
-   - `N`: Add manoeuvre node (with spacecraft selected)
-   - `A`: Cycle attitude mode
-   - `F`: Fullscreen
-   - `P`: Screenshot
-   - `B`: Trajectory planner
-   - `T`: Cycle time display format
-
-3. **Launching Spacecraft**
-   - Press `1-9` for preset missions
-   - Or use Mission Control panel (`M`)
-   - Or use Trajectory Planner (`B`)
-   - Click spacecraft to track and control
-
-## 🏗️ Architecture
+## Project structure
 
 ```
-interplanetary-sim/
-├── src/
-│   ├── simulation/
-│   │   ├── SolarSystem.js         # Main simulation controller
-│   │   ├── CelestialBody.js       # Planet/moon representation
-│   │   ├── TimeController.js      # Time management system
-│   │   ├── OrbitalMechanics.js    # Physics calculations
-│   │   ├── PhysicsTest.js         # Physics validation suite
-│   │   ├── spacecraft/
-│   │   │   ├── EnhancedSpacecraft.js  # Advanced spacecraft
-│   │   │   ├── SpacecraftSystems.js   # Realistic subsystems
-│   │   │   └── ManoeuvreNode.js      # Manoeuvre planning
-│   │   └── trajectory/
-│   │       └── TrajectoryPlanner.js   # Mission planning tools
-│   ├── ui/
-│   │   └── SpacecraftControlPanel.js  # Advanced controls
-│   ├── utils/
-│   │   └── constants.js           # SPICE-precision constants
-│   ├── main.js                    # Application entry point
-│   └── style.css                  # UI styling
-├── public/                        # Static assets
-├── .devcontainer/                 # DevContainer configuration
-│   ├── devcontainer.json         
-│   └── Dockerfile                
-├── index.html                     # Entry HTML
-├── vite.config.js                # Vite configuration
-└── package.json                  # Project dependencies
+digital-orrery/
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ simulation/
+â”‚   â”‚   â”œâ”€â”€ SolarSystem.js          # Main simulation controller
+â”‚   â”‚   â”œâ”€â”€ CelestialBody.js        # Planet and body representation
+â”‚   â”‚   â”œâ”€â”€ TimeController.js       # Time management
+â”‚   â”‚   â”œâ”€â”€ OrbitalMechanics.js     # In-sim orbital calculations
+â”‚   â”‚   â”œâ”€â”€ PhysicsTest.js          # In-browser energy and Kepler checks
+â”‚   â”‚   â”œâ”€â”€ spacecraft/
+â”‚   â”‚   â”‚   â”œâ”€â”€ BaseSpacecraft.js    # Spacecraft model
+â”‚   â”‚   â”‚   â”œâ”€â”€ SpacecraftFactory.js # Spacecraft construction
+â”‚   â”‚   â”‚   â”œâ”€â”€ SpacecraftSystems.js # Power, thermal, comms, attitude, propulsion
+â”‚   â”‚   â”‚   â””â”€â”€ ManoeuvreNode.js     # Manoeuvre planning
+â”‚   â”‚   â””â”€â”€ trajectory/
+â”‚   â”‚       â””â”€â”€ TrajectoryPlanner.js # Transfer and launch-window tools
+â”‚   â”œâ”€â”€ physics/
+â”‚   â”‚   â”œâ”€â”€ orbital.js               # Kepler propagation and Lambert solver
+â”‚   â”‚   â””â”€â”€ orbital.test.mjs         # Node verification against Curtis/Vallado
+â”‚   â”œâ”€â”€ ui/
+â”‚   â”‚   â””â”€â”€ SpacecraftControlPanel.js
+â”‚   â”œâ”€â”€ utils/
+â”‚   â”‚   â””â”€â”€ constants.js             # SPICE-precision constants
+â”‚   â”œâ”€â”€ main.js                      # Application entry point
+â”‚   â””â”€â”€ style.css
+â”œâ”€â”€ python/                          # Offline NASA SPICE reference
+â”œâ”€â”€ .devcontainer/                   # Dev container configuration
+â”œâ”€â”€ index.html
+â”œâ”€â”€ vite.config.js
+â””â”€â”€ package.json
 ```
 
-### Key Technologies
-- **Three.js r177**: 3D graphics and rendering
-- **Astronomy Engine**: Accurate ephemeris calculations
-- **Vite 5.4**: Build tool and dev server
-- **CSS3**: Modern UI with animations
-- **ES6 Modules**: Clean code organization
+The `python/` subtree holds an offline NASA SPICE reference used to check the JavaScript propagation against SPICE ephemerides.
 
-## 📚 API Documentation
+## Testing
 
-### Launching Spacecraft
-```javascript
-// Launch spacecraft with enhanced systems
-const spacecraft = simulation.launchSpacecraft(
-  'Mission-Name',
-  'earth',              // Launch from
-  new THREE.Vector3(0, 3.6, 0)  // Delta-V (km/s)
-);
+- **Physics core.** Run the Kepler and Lambert verification outside the browser:
 
-// Add manoeuvre nodes
-const node = spacecraft.addManoeuvreNode(86400); // 1 day from now
-node.setDeltaV(0, 2, 0); // 2 km/s prograde burn
+  ```bash
+  node src/physics/orbital.test.mjs
+  ```
 
-// Control spacecraft systems
-spacecraft.systems.attitude.mode = 'PROGRADE';
-spacecraft.systems.power.consumers.instruments = 500; // Watts
-```
+  This checks the analytic propagation and the universal-variable Lambert solver against published reference cases.
 
-### Time Control
-```javascript
-// Set specific date
-simulation.timeController.setDate(new Date('2025-12-25'));
+- **In-browser checks.** `PhysicsTest` runs energy-conservation and Kepler checks against the live simulation, covering orbit stability and conservation over the integration.
 
-// Change time scale
-simulation.timeController.setPresetSpeed('day'); // 1 day/second
-simulation.timeController.setTimeScale(100);     // Custom scale
+## Licence
 
-// Pause/resume
-simulation.timeController.togglePause();
-```
-
-### Camera Control
-```javascript
-// Focus on objects
-simulation.focusOnBody(simulation.bodies.get('mars'));
-simulation.focusOnSpacecraft(spacecraft);
-
-// Take screenshot
-simulation.takeScreenshot();
-```
-
-## 📈 Performance
-
-### Optimization Techniques
-- Level of Detail (LOD) for distant objects
-- Orbit line culling based on camera distance
-- Efficient trajectory point management
-- WebGL state caching
-- RequestAnimationFrame throttling
-- Vite dependency pre-bundling
-
-### Benchmarks
-- 60 FPS with 9 planets + 10 spacecraft
-- < 150MB memory usage
-- 2ms physics calculations per frame
-- Works on mobile devices
-
-## 🧪 Testing
-
-```javascript
-// Run physics validation tests in console
-const test = new PhysicsTest(simulation);
-test.runAllTests();
-```
-
-Tests include:
-- Circular orbit stability
-- Hohmann transfer accuracy
-- Energy conservation
-- Escape velocity calculations
-
-## 🐛 Known Issues
-
-- [ ] Three.js warning about multiple instances (harmless)
-- [ ] Initial load time in DevContainer can be slow
-- [ ] Edge browser may have stricter security for DevContainers (use Chrome)
-- [ ] Touch controls need improvement on small screens
-
-## 🤝 Contributing
-
-We welcome contributions! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style
-- ES6+ JavaScript
-- Meaningful variable names
-- JSDoc comments for public methods
-- Consistent formatting
-
-## 📜 License
-
-This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- NASA JPL for ephemeris data and SPICE toolkit
-- Three.js community for excellent documentation
-- Astronomy Engine for accurate calculations
-- KSP for inspiration
-
-## 📞 Contact
-
-- GitHub Issues: [Report bugs or request features](https://github.com/Zyzzbarth333/interplanetary-sim/issues)
-- GitHub: [@Zyzzbarth333](https://github.com/Zyzzbarth333)
-
----
-
-Made with 🚀 by Zyzzbarth333
-
-*"The cosmos is within us. We are made of star-stuff." - Carl Sagan*
+MIT. See [LICENSE](LICENSE).

@@ -42,4 +42,7 @@ dist-ssr
 # SPICE kernel directories
 kernels/
 
-earth_comp.ipynbnode_modules/.vite/
+# ...but the metakernel is a small text config we do want to track
+!python/data/metakernel.tm
+
+node_modules/.vite/
