@@ -20,6 +20,7 @@
 // origin), so they stay small near the camera where shadows matter.
 
 import * as THREE from 'three';
+import { ATMO_FUNCS, ATMO_UNIFORMS, atmosphereUniforms, type AtmosphereParams } from './atmosphere';
 
 export const MAX_OCCLUDERS = 4;
 
@@ -57,6 +58,8 @@ uniform sampler2D cloudMap;   uniform float useCloud; uniform float cloudScale;
 uniform float invExposure;    // 1 / renderer exposure, for display-level emission
 uniform sampler2D ringMap;    uniform float useRing;   // rings' optical depth, for their shadow
 uniform float ringInner;      uniform float ringOuter; // render units
+uniform float useAtmo;        uniform float unitKm;
+${ATMO_UNIFORMS}
 
 varying vec3 vWorld;
 varying vec3 vNormal;
@@ -70,6 +73,8 @@ float visibleFraction(float a, float b, float c) {
              - 0.5 * sqrt(max((-c + a + b) * (c + a - b) * (c - a + b) * (c + a + b), 0.0));
   return clamp(1.0 - lens / (PI * a2), 0.0, 1.0);
 }
+
+${ATMO_FUNCS}
 
 // Sample an equirectangular map without a seam at +-180 deg: take the
 // texture-coordinate derivatives from whichever of u or u + 0.5 (wrapped) is
@@ -160,7 +165,16 @@ void main() {
     }
   }
 
-  vec3 colour = refl * irradiance * brdf * shade;
+  // Sunlight that reaches the ground through the atmosphere (reddened and
+  // dimmed near the terminator). The view path's extinction and the sky's
+  // own light come from the atmosphere shell drawn over the planet.
+  vec3 sunT = vec3(1.0);
+  if (useAtmo > 0.5 && mu0Geo > -0.1) {
+    vec3 pk = normalize(vWorld - bodyCentre) * (atmoRg + 0.01);
+    sunT = atmoSunTransmittance(pk, s);
+  }
+
+  vec3 colour = refl * irradiance * brdf * shade * sunT;
   if (useNight > 0.5) {
     float dark = 1.0 - smoothstep(-0.12, 0.05, mu0Geo * shade);
     colour += sampleMap(nightMap, uv).rgb * nightLevel * dark * (1.0 - cloudCover) * invExposure;
@@ -214,6 +228,8 @@ export function makeBodyMaterial(colour: number, geometricAlbedo: number, airles
       cloudMap: { value: blank }, useCloud: { value: 0 }, cloudScale: { value: 1 },
       invExposure: { value: 1 },
       ringMap: { value: blank }, useRing: { value: 0 }, ringInner: { value: 0 }, ringOuter: { value: 0 },
+      useAtmo: { value: 0 }, unitKm: { value: 1000 },
+      ...atmosphereUniforms(NO_ATMOSPHERE, 1),
     },
   });
   m.userData.geometricAlbedo = geometricAlbedo;
@@ -231,6 +247,16 @@ function setFlatColour(m: THREE.ShaderMaterial, colour: number): void {
   const c = new THREE.Color(colour);
   const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
   (m.uniforms.albedo.value as THREE.Color).copy(c).multiplyScalar(scaleFor(m, lum));
+}
+
+const NO_ATMOSPHERE: AtmosphereParams = {
+  topKm: 1, rayleigh: [0, 0, 0], rayleighHKm: 1, mieScatter: [0, 0, 0], mieExtinct: [0, 0, 0],
+  mieHKm: 1, mieG: 0, ozone: [0, 0, 0], ozoneCentreKm: 0, ozoneHalfWidthKm: 1, source: '',
+};
+
+export function applyAtmosphere(m: THREE.ShaderMaterial, a: AtmosphereParams, groundKm: number): void {
+  Object.assign(m.uniforms, atmosphereUniforms(a, groundKm));
+  m.uniforms.useAtmo.value = 1;
 }
 
 export function clearCloud(m: THREE.ShaderMaterial): void { m.uniforms.useCloud.value = 0; }

@@ -2,7 +2,7 @@
 
 A web-based, real-time 3D solar-system simulator with interactive interplanetary mission planning. The physics is plain JavaScript checked against NASA's SPICE toolkit and the DE442 ephemeris; the front end is TypeScript, React and three.js. It draws the Sun, planets and Moon at true scale and at their real positions for any date, propagates spacecraft under n-body gravity with finite burns in a Web Worker, and plans transfers with a Lambert solver and porkchop grids.
 
-The front end is being rebuilt from scratch. It now draws the solar system with real surface maps and relief, Saturn's rings from Cassini measurements, the real star field, and Earth's clouds as satellites saw them on the sim date; spacecraft, launches and the planner return in milestone 2, and atmospheres next. The physics modules and their tests are unchanged.
+The front end is being rebuilt from scratch. It now draws the solar system with real surface maps and relief, Saturn's rings from Cassini measurements, the real star field, and Earth's clouds as satellites saw them on the sim date, under a physically based atmosphere; spacecraft, launches and the planner return in milestone 2. The physics modules and their tests are unchanged.
 
 The name nods to the orrery, a mechanical model of the solar system, and in particular to the Digital Orrery, the special-purpose computer built in the 1980s to integrate the long-term dynamics of the outer planets.
 

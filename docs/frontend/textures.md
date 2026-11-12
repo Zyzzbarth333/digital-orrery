@@ -106,8 +106,8 @@ tops) is set to reflectance 0.9, and the rest scales linearly. For the Blue
 Marble that scale is 0.98, so the map is already close to linear
 reflectance. Bare ocean then reflects a few per cent and looks near-black,
 as it does without an atmosphere: the blue of Earth from space is Rayleigh
-scattering, which the corrected-reflectance imagery also removes, and which
-comes with the atmosphere model.
+scattering, which the corrected-reflectance imagery also removes and the
+[atmosphere model](atmospheres.md) adds back.
 
 ## Saturn's rings
 

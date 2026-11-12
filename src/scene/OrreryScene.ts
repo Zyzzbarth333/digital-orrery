@@ -16,7 +16,7 @@
 // (x_ecl, z_ecl, -y_ecl).
 //
 // Light: the Sun is the only light, falling off as 1/d^2, with eclipses
-// (bodyMaterial.ts). The exposure is metered for sunlight at the camera's
+// (bodyMaterial.ts) and Earth's atmosphere (atmosphere.ts). The exposure is metered for sunlight at the camera's
 // distance from the Sun, like a camera on a spacecraft there. True-scale
 // bodies are usually far below a pixel, so each has a constant-size marker
 // and label in an HTML overlay.
@@ -26,10 +26,11 @@ import { helioStateEcl, eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
 import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
-import { makeBodyMaterial, MAX_OCCLUDERS, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
+import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStars } from './stars';
 import { DailyEarth } from './clouds';
+import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { loadJson, loadManifest, SurfaceLoader, type Manifest } from './surfaces';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
@@ -87,6 +88,7 @@ export class OrreryScene {
   private rings: THREE.Mesh | null = null;
   private stars: THREE.Mesh | null = null;
   readonly dailyEarth = new DailyEarth();
+  private atmospheres = new Map<BodyKey, THREE.Mesh>();
   private unloadedSurfaces = new Set<BodyKey>();
   private earthResolved = false;
   private sunGlow: THREE.Sprite;
@@ -104,12 +106,14 @@ export class OrreryScene {
   private el = 0.5;
 
   private sunViewPending = false;
+  private sunViewPhase = 0.35;
 
   onFocusChange: (key: BodyKey) => void = () => {};
 
-  // Put the camera on the Sun's side of the focused body, slightly off the
-  // Sun line so the terminator shows (applied on the next frame).
-  viewFromSun(): void { this.sunViewPending = true; }
+  // Put the camera at phase angle `phase` (rad) from the Sun as seen from
+  // the focused body: about 0.35 shows the day side with a little
+  // terminator, pi/2 the terminator edge-on (applied on the next frame).
+  viewFromSun(phase = 0.35): void { this.sunViewPending = true; this.sunViewPhase = phase; }
 
   constructor(private container: HTMLElement, private overlay: HTMLElement, private clock: SimClock) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
@@ -152,6 +156,17 @@ export class OrreryScene {
     }));
     this.sunGlow.scale.setScalar((SUN_RADIUS_KM * 8) / UNIT_KM);
     this.scene.add(this.sunGlow);
+
+    // Atmospheres: a scattering shell, and the same medium on the surface's
+    // sunlight.
+    const atmos: Partial<Record<BodyKey, AtmosphereParams>> = { earth: EARTH_ATMOSPHERE };
+    for (const [key, a] of Object.entries(atmos) as [BodyKey, AtmosphereParams][]) {
+      const R = BODY_BY_KEY[key].radiusKm;
+      const shell = makeAtmosphere(a, R, UNIT_KM);
+      this.scene.add(shell);
+      this.atmospheres.set(key, shell);
+      applyAtmosphere(this.materials.get(key)!, a, R);
+    }
 
     this.surfaces = new SurfaceLoader(this.renderer);
     this.dailyEarth.onChange = (tex) => {
@@ -291,7 +306,7 @@ export class OrreryScene {
     const f = this.states[this.focus].r;
     if (this.sunViewPending && this.focus !== 'sun') {
       const d = Math.hypot(f[0], f[1], f[2]);
-      this.az = Math.atan2(-f[1], -f[0]) + 0.35;
+      this.az = Math.atan2(-f[1], -f[0]) + this.sunViewPhase;
       this.el = Math.asin(-f[2] / d) + 0.15;
       this.sunViewPending = false;
     }
@@ -352,6 +367,19 @@ export class OrreryScene {
     const dCamAu = Math.max(0.2, Math.hypot(cam[0], cam[1], cam[2]) / AU_KM);
     this.renderer.toneMappingExposure = EXPOSURE_1AU * dCamAu * dCamAu;
     for (const m of this.materials.values()) m.uniforms.invExposure.value = 1 / this.renderer.toneMappingExposure;
+
+    for (const [key, shell] of this.atmospheres) {
+      const p = this.meshes.get(key)!.position;
+      shell.position.copy(p);
+      const u = (shell.material as THREE.ShaderMaterial).uniforms;
+      (u.centre.value as THREE.Vector3).copy(p);
+      (u.sunDir.value as THREE.Vector3).copy(sunPos).sub(p).normalize();
+      u.irradiance.value = this.materials.get(key)!.uniforms.irradiance.value;
+      u.inside.value = p.length() * UNIT_KM < (u.atmoRt.value as number) ? 1 : 0;
+      // From inside, the shell's far side lies behind the planet: draw it
+      // regardless of depth (the shader stops each ray at the ground).
+      (shell.material as THREE.ShaderMaterial).depthTest = u.inside.value < 0.5;
+    }
 
     if (this.rings) {
       const sat = this.materials.get('saturn')!;
