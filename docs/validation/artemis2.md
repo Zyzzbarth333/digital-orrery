@@ -305,6 +305,65 @@ The remaining differences have clear sources:
 - **The entry angle:** our plan meets the entry time but chooses its angle
   freely. NASA's entry angle wasn't published, so it couldn't be a target.
 
+#### How far it can be tuned
+
+**What else NASA published.** A research pass read NASA's three trajectory
+sources and checked every figure against the source:
+- AAS 23-062,
+  [*Optimized trajectory correction burn placement*](https://ntrs.nasa.gov/api/citations/20230000223/downloads/Artemis2OptTrajDesignFinal.pdf);
+- AAS 25-100,
+  [*Performance impacts to the Artemis II trajectory*](https://ntrs.nasa.gov/api/citations/20250000050/downloads/Artemis2TrajOpt.pdf);
+- the [press kit](https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf).
+
+It found:
+- **The corrections are nominally zero** in the free-return design: one
+  injection burn, with corrections only for dispersions, budgeted under
+  10 m/s (3σ) (AAS 25-100). That is how this plan is built.
+- **The entry interface is constrained to tight 3σ dispersions:** 0.12° in
+  flight-path angle, 5.3 m/s in speed and 25.6 km downrange (AAS 25-100).
+  The nominal angle is not stated anywhere.
+- **The high Earth orbit is about 115 × 44,525 statute miles**
+  (185 × 71,656 km) (press kit). The flown pre-TLI orbit used here is
+  194 × 70,456 km. Its orientation isn't published, so the start still has
+  to come from the data.
+- **Not published:** the injection burn's Δv as flown, its steering,
+  Orion's mass, and the entry flight-path angle and speed.
+
+So the plan already meets every published target. Two tests probe what is
+left:
+- **Ignition time.** NASA gives "about 23:49"; the plan takes the
+  least-Δv time, 23:50:23. The minimum is shallow:
+
+  | Ignition | Burn | Duration | Direction from the flown burn |
+  | --- | --- | --- | --- |
+  | 23:49:00 | 1,303.7 ft/s | 356.6 s | 6.0° |
+  | 23:49:30 | 1,283.0 ft/s | 351.3 s | 2.3° |
+  | 23:49:50 (Orion's actual ignition) | 1,275.2 ft/s | 349.3 s | 0.14° |
+  | 23:50:23 (least Δv, the plan) | 1,270.7 ft/s | 348.2 s | 3.6° |
+
+  At Orion's actual ignition time, the design reproduces its burn: 1,275.2
+  ft/s against NASA's planned 1,274, 349.3 s against 5 min 49 s, and a
+  direction 0.14° from the flown one. Orion lit 33 s before the least-Δv time, which
+  costs 1.3 m/s, so NASA chose ignition on other grounds; the papers
+  weigh navigation and correction-burn placement.
+- **The entry angle.** Carried down to 121.92 km, the flown entry angle is
+  −5.92°. Designing with that instead
+  (`node src/physics/artemis2.design.mjs --flown-entry-angle`) changes
+  almost nothing: 1,269.4 ft/s from 23:50:22, still 3.6° from the flown
+  burn. Entry moves to 23:54:20 against the flown 23:53:31. No ignition
+  time fixes that: at a fixed entry angle, the time from the flyby to entry
+  is set. The 50 s are the return leg's real corrections (3.4 m/s) and
+  venting push.
+
+**Conclusion.** The design is tuned to the limit of what NASA published.
+Each remaining difference has a named source:
+- the ignition time NASA chose;
+- an entry angle it didn't publish;
+- in-flight corrections and venting the plan can't foresee.
+
+A larger model, more effort or more agents would not change this. The
+missing inputs are information, and the computation is deterministic.
+
 ## What the errors come from
 
 1. **Earth's J2, now in the kernel.**

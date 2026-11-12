@@ -28,9 +28,15 @@
 //      that needs the least delta-v (a parabola through three designs,
 //      refined once), as mission design does.
 //
-//   node src/physics/artemis2.design.mjs     (about a minute)
+//   node src/physics/artemis2.design.mjs     (about 20 s)
 // writes src/physics/fixtures/artemis2_design.json and
 // public/missions/artemis2-plan.json (the plan, for the app).
+//
+//   node src/physics/artemis2.design.mjs --flown-entry-angle
+// designs instead with the one figure NASA did not publish, the entry
+// flight-path angle, taken from the flown trajectory (-5.919 deg at 121.92
+// km), and writes nothing: the test of whether that figure explains the
+// remaining differences (it does not; see the docs).
 
 import fs from 'node:fs';
 import { createState, advance } from './nbody.js';
@@ -152,7 +158,10 @@ function newton3(x, f, tol, maxIt = 40) {
 
 // The design for one ignition time. seed: a nearby solution, or null for a
 // Lambert first guess (two-body, impulsive, to the Moon's centre).
-export function designFor(ignitionMs, seed = null) {
+// entry: which member of the free-return family to take: { by: 'time' }
+// (entry interface at NASA's time) or { by: 'fpa', deg } (at a published
+// flight-path angle; the entry time is then a result to compare).
+export function designFor(ignitionMs, seed = null, entry = { by: 'time' }) {
   let x = seed?.dv;
   if (!x) {
     const tMid = ignitionMs + TARGETS.planSeconds * 500;
@@ -175,7 +184,11 @@ export function designFor(ignitionMs, seed = null) {
       memo.set(deg, out);
       return out;
     };
-    const g = (deg) => { const m = member(deg); return m.f.ei ? (m.f.ei.ms - TARGETS.eiMs) / 1000 : 1e9; };
+    const g = (deg) => {
+      const m = member(deg);
+      if (!m.f.ei) return 1e9;
+      return entry.by === 'fpa' ? (m.f.ei.fpa - entry.deg) * 100 : (m.f.ei.ms - TARGETS.eiMs) / 1000;
+    };
     let lo = (seed?.theta ?? 184.5) - 0.5, hi = (seed?.theta ?? 184.5) + 2, glo = g(lo), ghi = g(hi);
     if (glo > 0 === ghi > 0) { lo = 184; hi = 186.5; glo = g(lo); ghi = g(hi); }
     for (let k = 0; k < 40 && hi - lo > 1e-5; k++) {
@@ -192,11 +205,11 @@ export function designFor(ignitionMs, seed = null) {
 
 // The ignition time that needs the least delta-v: a parabola through three
 // designs, then once more about its vertex.
-export function design() {
+export function design(entry = { by: 'time' }) {
   let pts = [Date.parse('2026-04-02T23:49:30Z'), Date.parse('2026-04-02T23:50:10Z'), Date.parse('2026-04-02T23:50:50Z')];
   let seed = null;
   const tried = [];
-  const run = (ms) => { const d = designFor(ms, seed); seed = d; tried.push(d); return d; };
+  const run = (ms) => { const d = designFor(ms, seed, entry); seed = d; tried.push(d); return d; };
   let ds = pts.map(run);
   for (let round = 0; round < 2; round++) {
     const [a, b, c] = ds, [x0, x1, x2] = pts.map((p) => (p - pts[1]) / 1000), [y0, y1, y2] = ds.map((d) => d.mag);
@@ -253,7 +266,13 @@ export function compareWithFlown(d) {
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+export const FLOWN_ENTRY_FPA = -5.919;    // deg, the BET carried down to 121.92 km
+
+if (import.meta.url === `file://${process.argv[1]}` && process.argv.includes('--flown-entry-angle')) {
+  const { best, tried } = design({ by: 'fpa', deg: FLOWN_ENTRY_FPA });
+  for (const d of tried) console.log(`  ignition ${new Date(d.ignitionMs).toISOString().slice(11, 19)}: ${(d.mag * 1000).toFixed(3)} m/s`);
+  console.log(`at the flown entry angle: ignition ${new Date(best.ignitionMs).toISOString().slice(11, 19)}, ${(best.mag * 1e6 / 304.8).toFixed(1)} ft/s over ${best.seconds.toFixed(1)} s, direction ${best.dv.map((v) => (v / best.mag).toFixed(3)).join(' ')}; entry ${new Date(best.ei.ms).toISOString().slice(11, 19)} at ${best.ei.fpa.toFixed(3)} deg; flyby ${best.flyby.altitude.toFixed(2)} km at ${best.flyby.utc.slice(11, 19)}`);
+} else if (import.meta.url === `file://${process.argv[1]}`) {
   const t0 = performance.now();
   const { best, tried } = design();
   const cmp = compareWithFlown(best);
