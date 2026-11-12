@@ -5,7 +5,10 @@
  * SPK of the JSC/FOD/NAV best estimated trajectory (BET revF), and the
  * Moon's geocentric state from DE442 at the same instants.
  *
- *   usage: artemis2_ref <output.json> <step seconds>
+ *   usage: artemis2_ref <output.json> <step seconds> [<from UTC> <to UTC>]...
+ *
+ * With windows, only those spans are sampled (the burn fixture: 10 s steps
+ * around each burn). Without, the whole trajectory.
  *
  * The SPK is in continuous segments that break at manoeuvres; each sample
  * records its segment, and the segments' bounds are written too. Times are
@@ -36,7 +39,7 @@ static void die_if_failed(const char *what) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 3) { fprintf(stderr, "usage: %s <output.json> <step seconds>\n", argv[0]); return 1; }
+  if (argc < 3 || (argc - 3) % 2) { fprintf(stderr, "usage: %s <output.json> <step seconds> [<from UTC> <to UTC>]...\n", argv[0]); return 1; }
   const double step = atof(argv[2]);
   if (!(step > 0)) { fprintf(stderr, "step must be positive\n"); return 1; }
   char outpath[4096], cwd[2048];
@@ -61,6 +64,15 @@ int main(int argc, char **argv) {
   die_if_failed("spkcov_c");
   const int nwin = (int)wncard_c(&cover);
 
+  /* Requested windows (ET), or one covering everything. */
+  const int nreq = argc > 3 ? (argc - 3) / 2 : 1;
+  double req[2 * MAXWIN];
+  if (nreq > MAXWIN) { fprintf(stderr, "too many windows\n"); return 1; }
+  if (argc > 3) {
+    for (int k = 0; k < 2 * nreq; k++) str2et_c(argv[3 + k], &req[k]);
+    die_if_failed("str2et_c(window)");
+  } else { req[0] = -1e300; req[1] = 1e300; }
+
   FILE *f = fopen(outpath, "w");
   if (!f) { perror(outpath); return 1; }
   char tk[128];
@@ -79,10 +91,14 @@ int main(int argc, char **argv) {
   }
   fprintf(f, "  ],\n  \"states\": [\n");
   int first = 1;
-  for (int i = 0; i < nwin; i++) {
+  for (int i = 0; i < nwin; i++)
+  for (int w = 0; w < nreq; w++) {
     double a, b;
     wnfetd_c(&cover, i, &a, &b);
-    /* Samples on the step grid inside the segment, plus its two ends. */
+    if (req[2 * w] > a) a = req[2 * w];
+    if (req[2 * w + 1] < b) b = req[2 * w + 1];
+    if (!(a < b)) continue;
+    /* Samples on the step grid inside the segment (and window), plus its two ends. */
     for (double et = a;; ) {
       double s[6], lt, m[6];
       char u[40];

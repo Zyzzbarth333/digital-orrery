@@ -160,7 +160,7 @@ export function advanceEncke(state, tEnd, opts) {
     cpos[0] = rP[0] + rx; cpos[1] = rP[1] + ry; cpos[2] = rP[2] + rz;
     perturbation(cpos, rP, aP, key, mu, bodies, muSun, pert);
     if (extraAccel) {
-      extraAccel(t, cpos, extra, mid);
+      extraAccel(t, cpos, extra, mid, null);
       pert[0] += extra[0]; pert[1] += extra[1]; pert[2] += extra[2];
     }
     lastThrust = extraAccel ? len3(extra[0], extra[1], extra[2]) : 0;

@@ -147,11 +147,15 @@ export function primaryOf(r, bodies, muSun) {
 //   sunRadius   km (default 695,700); closer than this is an impact on 'sun'
 //   breakpoints sorted times (forward advances only) that steps must end on
 //               exactly, e.g. where a burn starts or stops
-//   extraAccel(t, r, out, mid)   optional non-gravitational acceleration
+//   extraAccel(t, r, out, mid, v)   optional non-gravitational acceleration
 //               (thrust). mid is the midpoint of the current step: with steps
 //               ending on breakpoints, a burn is on for a step when mid lies
 //               inside it, so it switches on and off at exact times rather
 //               than at whichever stage time happens to straddle the edge.
+//               v is the craft's heliocentric velocity, for burns steered
+//               relative to it (in Cowell, where every thrusting craft is,
+//               it is the integrator's current velocity; Encke, which runs
+//               only while thrust is negligible, passes null).
 //
 //   encke       (default true) inside a body's sphere of influence, while
 //               the motion is nearly Keplerian (perturbation ratio below
@@ -192,7 +196,7 @@ function enckeSuits(state, opts, dir) {
   const P = bodies.find((b) => b.key === state.primary);
   if (!P || !P.eph || !P.eph.acceleration) return false;
   let thrust = null;
-  if (opts.extraAccel) { thrust = [0, 0, 0]; opts.extraAccel(state.t, state.r, thrust, state.t + 1e-9 * dir); }
+  if (opts.extraAccel) { thrust = [0, 0, 0]; opts.extraAccel(state.t, state.r, thrust, state.t + 1e-9 * dir, state.v); }
   return perturbationRatio(state.r, state.t, P, bodies, opts.muSun, thrust) < ENCKE_IN;
 }
 
@@ -214,7 +218,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   const acc = (t, r, out) => {
     accelHeliocentric(r, bodiesAt(t), muSun, out);
     if (extraAccel) {
-      extraAccel(t, r, extra, mid);
+      extraAccel(t, r, extra, mid, state.v);
       out[0] += extra[0]; out[1] += extra[1]; out[2] += extra[2];
     }
     return out;

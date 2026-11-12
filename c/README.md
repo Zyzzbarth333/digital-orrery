@@ -54,7 +54,10 @@ cmake --build c/build
 c/build/artemis2_ref src/physics/fixtures/artemis2_bet.json 600
 ```
 
-The second argument is the sampling step in seconds.
+The second argument is the sampling step in seconds. Pairs of UTC times
+after it restrict sampling to those windows; the burn fixture
+(`artemis2_burns.json`) is the windows around each burn at 5 s, with the
+command in [docs/validation/artemis2.md](../docs/validation/artemis2.md#regenerate).
 
 ## DE442's Earth and Moon for the app
 
