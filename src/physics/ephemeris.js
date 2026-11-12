@@ -27,6 +27,7 @@ const BODIES = {
   uranus: Astronomy.Body.Uranus,
   neptune: Astronomy.Body.Neptune,
   pluto: Astronomy.Body.Pluto,
+  moon: Astronomy.Body.Moon,
 };
 
 const EQJ_TO_ECL = Astronomy.Rotation_EQJ_ECL();
