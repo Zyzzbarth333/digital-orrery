@@ -1,0 +1,109 @@
+# Ephemerides, barycentres and GM values
+
+## Two ephemeris sources
+
+| | Used by | Accuracy |
+| --- | --- | --- |
+| **DE442** through SPICE (`python/data/metakernel.tm`) | the reference fixture, the C generator, the Python scripts | JPL's fit to radar, spacecraft tracking and occultations; the reference |
+| **astronomy-engine** (`src/physics/ephemeris.js`) | the browser app and the n-body kernel today | measured against DE442: within 2.5×10⁻⁵ of the distance and 1.3 m/s for Venus, Earth and Mars; within 9.3×10⁻⁵ and 9.5 m/s for all eight planets (`porkchop.test.mjs` case 1) |
+
+Reading DE442's Chebyshev data directly in the browser, so the app runs on
+the reference ephemeris itself, is planned for the exact-ephemeris phase.
+
+## What DE442 contains, and what the satellite kernels add
+
+DE442 (JPL, February 2025) integrates the Sun, planets, Moon and 343 asteroids
+together and fits them to observations. It updates DE440 with Uranus
+occultation data, more Mars orbiter ranging and four more years of Juno
+ranging. Its file gives:
+
+- the Sun, Mercury, Venus, Earth and the Moon as **bodies**, and
+- Mars to Pluto only as **system barycentres** (the planet and its moons
+  together).
+
+Planet centres and moons come from NAIF's satellite kernels, each giving
+bodies relative to their system barycentre. SPICE chains them:
+
+$$
+\mathbf r_\text{Io/SSB} = \mathbf r_\text{Io/Jupiter bary}\ (\texttt{jup365}) + \mathbf r_\text{Jupiter bary/SSB}\ (\texttt{de442}).
+$$
+
+The meta-kernel loads `mar099s`, `jup365`, `sat441`, `ura184_part-3`,
+`nep097`, `plu060` and JPL's `sb441-n16` (the 16 perturber asteroids). Load
+order matters: SPICE uses the last-loaded kernel that covers a body, and every
+satellite kernel carries its own older copy of the barycentres, so
+**`de442.bsp` is loaded last**. Checked with CSPICE: with everything loaded,
+the Sun, every system barycentre, Earth and the Moon are identical to DE442
+alone, and all 29 planet centres, major moons and asteroids tried resolve
+against the SSB. Together the files cover 1995-2049, set by the short-span
+Mars file.
+
+### DE442 against DE440
+
+Position differences from the same CSPICE build (2000-2040):
+
+| Body | Change |
+| --- | --- |
+| Mercury, Venus, Earth, Moon | under 20 m |
+| Mars barycentre | up to 0.32 km |
+| Jupiter barycentre | 3-14 km (Juno ranging) |
+| Saturn barycentre | under 0.4 km |
+| Neptune barycentre | 60-640 km |
+| Uranus barycentre | 360-2,900 km (new occultation data) |
+
+## GM must match what the position is
+
+A body placed at its **system barycentre** must pull with the **system's**
+GM (planet plus moons). A planet-only GM there leaves out the moons. This was
+a bug until the DE442 change: the kernel used planet-only values (NAIF
+`599`, `699`, ...) at barycentre positions, so the pull was too weak by
+
+$$
+\frac{\mu_\text{system}}{\mu_\text{planet}} - 1 = 2.07\times10^{-4}\ (\text{Jupiter}),\quad
+2.47\times10^{-4}\ (\text{Saturn}),\quad 2.08\times10^{-4}\ (\text{Neptune}).
+$$
+
+`src/physics/bodies.js` now uses:
+
+| Body in the kernel | Position | GM (km³/s²) |
+| --- | --- | --- |
+| Sun | Sun centre (origin) | 1.32712440041253311×10¹¹ |
+| Mercury, Venus | planet (no moons) | 2.20318685514×10⁴, 3.24858592×10⁵ |
+| Earth | Earth centre (399) | 3.98600435543531×10⁵ |
+| Moon | Moon centre (301) | 4.90280010414135×10³ |
+| Mars to Neptune | system barycentre | DE442 system values |
+
+(`constants.js` keeps the planet-only GMs for planet-centred uses such as
+escape from the planet itself.)
+
+### Where the DE442 GMs come from
+
+NAIF publishes `gm_de440.tpc` but no `gm_de442.tpc`. DE442's technical
+comments (`spk/planets/de442_tech-comments.txt`) list each GM in AU³/day².
+`python/data/gm_de442.tpc` converts them:
+
+$$
+\mu\ [\text{km}^3/\text{s}^2] = \mu\ [\text{AU}^3/\text{day}^2]\times\frac{(149\,597\,870.7)^3}{86\,400^2}.
+$$
+
+The result matches the same table's km³/s² column to its printed precision
+(worst 2.9×10⁻¹¹ relative). In DE's numbering GM3 is the Earth itself (NAIF
+399) and GMB the Earth-Moon barycentre (NAIF 3). `nbody.test.mjs` case 12
+checks every kernel GM against the value SPICE reads from that file (worst
+5.9×10⁻¹⁶) and that the giant planets carry their moons.
+
+## Next: planet systems inside their sphere of influence
+
+From far away a planet system is one mass at its barycentre. Close in, the
+moons matter (the Galilean moons near Jupiter, Titan near Saturn). The plan is
+to switch, inside a planet's sphere of influence, from the barycentre to the
+planet and its major moons as separate bodies with their own GMs, using
+positions from the satellite kernels.
+
+## Sources
+
+- R. S. Park et al., "The JPL Planetary and Lunar Ephemerides DE440 and
+  DE441", *Astronomical Journal* 161:105 (2021); DE442 technical comments
+  (NAIF, 2025).
+- NAIF generic kernels: `spk/planets`, `spk/satellites` and their
+  `aa_summaries.txt`; JPL Solar System Dynamics, `sb441-n16`.
