@@ -37,9 +37,9 @@ $$
 $$
 
 and the transpose goes back. `helioStateEcl` and `eclToEqj` use
-astronomy-engine's own rotation; `OrbitalMechanics.calculateOrbitalElements`
-uses the matrix above with the same $\varepsilon$, so orbital inclinations are
-measured from the ecliptic.
+astronomy-engine's own rotation (the same $\varepsilon$); a craft's
+heliocentric orbital elements are taken in the ecliptic, so their
+inclinations are measured from it.
 
 ### Scene frame (rendering only)
 

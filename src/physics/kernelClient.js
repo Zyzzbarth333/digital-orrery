@@ -1,4 +1,4 @@
-// src/simulation/spacecraft/KernelClient.js
+// src/physics/kernelClient.js
 //
 // Main-thread side of the spacecraft kernel. Runs kernelHost in a Web Worker
 // so the n-body sub-stepping never blocks rendering, and falls back to running
@@ -11,7 +11,7 @@
 // span, so a slow step makes physics late, never wrong. Results go back to the
 // crafts, which drop any computed from a state they have changed since.
 
-import { createKernelHost } from '../../physics/kernelHost.js';
+import { createKernelHost } from './kernelHost.js';
 
 export class KernelClient {
   constructor({ useWorker = true, replyTimeoutMs = 2000 } = {}) {
@@ -25,7 +25,7 @@ export class KernelClient {
     this.worker = null;
     if (useWorker && typeof Worker !== 'undefined') {
       try {
-        this.worker = new Worker(new URL('../../physics/kernel.worker.js', import.meta.url), { type: 'module' });
+        this.worker = new Worker(new URL('./kernel.worker.js', import.meta.url), { type: 'module' });
         this.worker.onmessage = (e) => this.onReply(e.data);
         this.worker.onerror = (e) => this.fallBack(`worker error: ${e.message || e}`);
         this.worker.onmessageerror = () => this.fallBack('worker reply could not be read');
@@ -45,13 +45,13 @@ export class KernelClient {
     this.mode = 'main-thread';
     // Anything in flight is lost; the crafts resend from their own state and
     // take back the thrust those requests carried.
-    for (const craft of this.inflight.values()) craft.onKernelRequestDropped?.();
+    for (const craft of this.inflight.values()) craft.dropped?.();
     this.busy = false;
     this.inflight.clear();
   }
 
-  // crafts: objects with kernelId, buildKernelRequest(), applyKernelResult(res)
-  // and onKernelRequestDropped().
+  // crafts: objects with id, buildRequest(), applyResult(res) and dropped()
+  // (src/physics/craft.js).
   tick(crafts) {
     if (this.busy) {
       // A Worker that never answers would otherwise freeze every craft.
@@ -64,7 +64,7 @@ export class KernelClient {
     const reqs = [];
     this.inflight.clear();
     for (const craft of crafts) {
-      const req = craft.buildKernelRequest();
+      const req = craft.buildRequest();
       if (req) { reqs.push(req); this.inflight.set(req.id, craft); }
     }
     if (reqs.length === 0) return false;
@@ -92,7 +92,7 @@ export class KernelClient {
         this.fallBack(`bad reply: ${reply && (reply.error || reply.type)}`);
       } else {
         console.warn(`KernelClient: kernel failed: ${reply && (reply.error || reply.type)}`);
-        for (const craft of this.inflight.values()) craft.onKernelRequestDropped?.();
+        for (const craft of this.inflight.values()) craft.dropped?.();
         this.inflight.clear();
       }
       return;
@@ -100,7 +100,7 @@ export class KernelClient {
     this.lastMs = reply.ms;
     for (const res of reply.crafts) {
       const craft = this.inflight.get(res.id);
-      if (craft) craft.applyKernelResult(res);
+      if (craft) craft.applyResult(res);
     }
     this.inflight.clear();
   }

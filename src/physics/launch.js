@@ -1,4 +1,4 @@
-// src/simulation/spacecraft/launch.js
+// src/physics/launch.js
 //
 // Where a launched craft starts. A launch is given as the hyperbolic excess
 // velocity v_inf the craft should leave the planet with. Launches use

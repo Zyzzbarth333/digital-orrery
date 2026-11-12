@@ -129,11 +129,11 @@ orbit, the true longitude.
 Validated against NAIF `oscltx_c` on the fixture cases ($e$ to 2×10⁻¹⁵,
 angles to 10⁻¹²°) and against Curtis Ex 4.3 and 4.7.
 
-`OrbitalMechanics.calculateOrbitalElements` (used by the app) converts the
-scene state to ecliptic km and calls `rvToElements`, so inclinations are from
-the ecliptic. The previous implementation mixed AU and km in $\mathbf h$, which
-made $(\mathbf v\times\mathbf h)/\mu$ about 1.5×10⁸ too small and every orbit
-read $e \approx 1$. For a parabola ($a = \infty$) periapsis comes from
+`Craft.elements()` (`src/physics/craft.js`) calls `rvToElements` on the
+state relative to the craft's primary: about the Sun in the ecliptic frame,
+so inclinations are from the ecliptic; about a planet in the J2000 equatorial
+frame, which for Earth is its mean equator. (An earlier helper mixed AU and
+km in $\mathbf h$, which made every orbit read $e \approx 1$.) For a parabola ($a = \infty$) periapsis comes from
 $h^2/\bigl(\mu(1+e)\bigr)$; for a radial orbit ($h = 0$) the inclination is
 reported as 0.
 
