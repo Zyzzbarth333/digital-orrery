@@ -81,3 +81,14 @@ tests (it shares no code with the models).
 - Against real mission telemetry (NAIF mission kernels, e.g. MSL cruise).
 - Anything with non-spherical gravity, drag or radiation pressure (not
   modelled yet).
+
+## Body orientation (`orientation.test.mjs`)
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| Earth axes (precession, nutation, sidereal time) | CSPICE `pxform_c` to ITRF93 | 0.0016° (180 m at the surface) |
+| Moon axes (IAU model) | CSPICE to MOON_ME (DE440 libration) | 0.0036° (110 m) |
+| Mercury, Venus, Pluto, Sun | CSPICE to IAU frames (pck00011) | under 0.0011° |
+| Mars | CSPICE to IAU_MARS (Konopliv 2026) | 0.027° (1.6 km) |
+| Jupiter to Neptune (rotation models) | CSPICE to IAU frames | under 0.065° |
+

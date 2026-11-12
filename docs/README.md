@@ -13,6 +13,7 @@ they come from, and how each part is checked.
 | [Lambert's problem](physics/lambert.md) | Universal-variable Lambert, the zero-revolution branch, bracketing for transfers over 180° |
 | [The n-body kernel](physics/nbody-kernel.md) | Force model and indirect term, leapfrog and Yoshida, step size, budget, events, Hermite interpolation, the Web Worker and drawing |
 | [Burns, launches and the porkchop](physics/burns-and-launch.md) | Finite burns and the rocket equation, manoeuvre nodes, the departure hyperbola, C3 and porkchop grids |
+| [Body orientation](physics/orientation.md) | Body-fixed frames, Earth's rotation, the IAU pole and prime-meridian model, checks against CSPICE |
 
 ## Front end
 
