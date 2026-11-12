@@ -102,6 +102,77 @@ pass straight through it. When the budget runs out the advance stops short
 and reports `complete: false`; the app carries on from there next frame and
 shows that physics is behind the clock.
 
+## Encke's method
+
+Inside a body's sphere of influence the craft mostly follows a two-body
+conic about it, and the Cowell integrator above spends nearly all its steps
+following that conic. Encke's method follows the conic exactly and
+integrates only the small deviation from it. Code: `src/physics/encke.js`.
+
+Relative to the primary $P$, the craft is at
+$\boldsymbol\rho = \boldsymbol\rho_\text{ref} + \boldsymbol\delta$, where
+$\boldsymbol\rho_\text{ref}(t)$ is a two-body conic about $P$, propagated by
+universal variables (`keplerStep`, a warm-started Newton solve of the same
+equations as `propagate`, which it falls back on). Subtracting the conic's
+equation of motion from the craft's,
+
+$$
+\ddot{\boldsymbol\delta} = \frac{\mu_P}{|\boldsymbol\rho_\text{ref}|^3}
+\left[(1 - g)\,\boldsymbol\rho - \boldsymbol\delta\right] + \mathbf a_\text{pert},
+\qquad g = \frac{|\boldsymbol\rho_\text{ref}|^3}{|\boldsymbol\rho|^3} = (1 + q)^{-3/2},
+\qquad q = \frac{\boldsymbol\delta\cdot(\boldsymbol\delta + 2\boldsymbol\rho_\text{ref})}{|\boldsymbol\rho_\text{ref}|^2},
+$$
+
+with $1 - g$ evaluated in Battin's form
+
+$$
+1 - g = \frac{q\,(3 + 3q + q^2)}{\left((1+q)^{3/2} + 1\right)(1+q)^{3/2}},
+$$
+
+which never subtracts two nearly equal numbers. The perturbation is the
+craft's heliocentric acceleration without $P$'s direct pull, minus the
+primary's own acceleration:
+
+$$
+\mathbf a_\text{pert} = -\mu_\odot\frac{\mathbf r}{|\mathbf r|^3}
+- \mu_P\frac{\mathbf r_P}{|\mathbf r_P|^3}
++ \sum_{j\ne P}\mu_j\left[\frac{\mathbf r_j - \mathbf r}{|\mathbf r_j - \mathbf r|^3} - \frac{\mathbf r_j}{|\mathbf r_j|^3}\right]
++ \mathbf a_\text{thrust} - \ddot{\mathbf r}_P .
+$$
+
+$\ddot{\mathbf r}_P$ is taken from the same ephemeris that places $P$ (the
+second derivative of its Hermite cubic), so $\mathbf r = \mathbf r_P +
+\boldsymbol\rho$ obeys exactly the Cowell equation $\ddot{\mathbf r} =
+\mathbf a(\mathbf r)$. Using the force model's acceleration for $P$ instead
+leaves a fictitious force of about $10^{-10}$ km/s², which measured 23 km
+after 10 days at GEO.
+
+**Steps.** $\boldsymbol\delta$ is advanced by Dormand–Prince 5(4) with error
+control: the step grows or shrinks so the embedded error estimate stays
+under `tolKm` (default $10^{-6}$ km per step) in position, and that over the
+local dynamical time in velocity. Steps end on the primary's ephemeris nodes
+(where $\ddot{\mathbf r}_P$ jumps), with the end stages a nanosecond inside
+the step so each uses the cubic of the interval it crosses; they are capped,
+as in Cowell, at 1 % of every other body's dynamical time, and at 1 % of the
+primary's on a conic whose periapsis is inside it, so impacts are caught as
+tightly as before. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
+the conic is re-anchored on the current state (rectification).
+
+**When it is used.** Encke pays only while the motion is nearly Keplerian,
+so the kernel chooses by the perturbation ratio
+$\varepsilon = |\mathbf a_\text{pert}|\,|\boldsymbol\rho|^2/\mu_P$: Encke below
+$10^{-5}$, Cowell above $3\times10^{-5}$ (the gap stops it flip-flopping).
+Low Earth orbit is about $10^{-7}$; GEO and beyond, where the Sun and Moon
+matter, and any craft under thrust are Cowell. On a high elliptical orbit
+the kernel switches each revolution: Encke through perigee, Cowell near
+apogee. Leaving the sphere of influence returns the craft to Cowell as
+before.
+
+**Limits.** This is for the point-mass force model. With Earth's oblateness
+(J2, about $10^{-3}$ of the central pull in low orbit) low orbits are no
+longer nearly Keplerian about a point mass; the efficient path then is a
+J2-aware reference orbit or averaged elements, not this conic.
+
 ## Events
 
 Checked at the end of each step:
