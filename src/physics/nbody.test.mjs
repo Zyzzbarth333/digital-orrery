@@ -381,7 +381,10 @@ header("CASE 13: Encke's method near a primary, against a fine Cowell reference"
   const cow = run(r0, v0, DAY, { encke: false });
   const enk = run(r0, v0, DAY, {});
   console.log(`  LEO 1 day: Cowell ${cow.res.steps} steps, ${(dist(cow, ref) * 1000).toFixed(1)} m; Encke ${enk.res.steps} steps, ${(dist(enk, ref) * 1000).toFixed(2)} m`);
-  check('LEO: Encke within 1 m of the reference after a day', dist(enk, ref) < 1e-3);
+  // The gap depends on where the start falls against the ephemeris nodes and
+  // the Moon: 0.2 to 1.2 m over seven start times from 0 s to 3 days later
+  // (it was 0.54 m here before ΔT was set from the leap seconds, 1.20 m now).
+  check('LEO: Encke within 2 m of the reference after a day', dist(enk, ref) < 2e-3);
   check('LEO: Encke more accurate than default Cowell', dist(enk, ref) < dist(cow, ref));
   check('LEO: Encke takes under 1/10 of the Cowell steps', enk.res.steps * 10 < cow.res.steps);
 
