@@ -277,6 +277,126 @@ console.log('='.repeat(60));
 }
 
 console.log('='.repeat(60));
+console.log('CASE 10: Curtis (4th ed.) worked examples');
+console.log('='.repeat(60));
+{
+  // Expected values: the book's worked examples, using full-precision
+  // recomputes where the book rounds intermediate values (numbers from the
+  // engineering-resources orrery pack, cases KEP-03..06, ELM-01..02, LAM-02).
+  const mu = 398600.0;
+  const D2R = 1.0 / DEG;
+  const theta = (s) => { const el = rvToElements(s.r, s.v, mu); return el.nu * DEG; };
+
+  // Ex 3.4 (KEP-03): parabola, vp = 10 km/s, 6 h after perigee.
+  {
+    const s = propagate([7972.0, 0.0, 0.0], [0.0, 10.0, 0.0], 21600.0, mu);
+    const r = s ? norm(s.r) : NaN;
+    const th = s ? Math.atan2(s.r[1], s.r[0]) * DEG : NaN;
+    console.log(`  Ex 3.4  parabola:   r = ${r.toFixed(1)} km  theta = ${th.toFixed(3)} deg`);
+    check('Ex 3.4 parabola r = 86,977 km (0.1%)', Math.abs(r - 86977) / 86977 < 1e-3);
+    check('Ex 3.4 parabola theta = 144.754 deg (0.01)', Math.abs(th - 144.754) < 0.01);
+  }
+  // Ex 3.5 (KEP-04): hyperbola rp = 6678 km, vp = 15 km/s, from theta = 100 deg for 3 h.
+  {
+    const h = 6678.0 * 15.0, e = h * h / (mu * 6678.0) - 1.0;
+    const s0 = elementsToRv({ h, e, i: 0, raan: 0, argp: 0, nu: 100 * D2R }, mu);
+    const s = propagate(s0.r, s0.v, 10800.0, mu);
+    const r = norm(s.r), vr = (s.r[0] * s.v[0] + s.r[1] * s.v[1]) / r, vperp = h / r;
+    console.log(`  Ex 3.5  hyperbola:  r = ${r.toFixed(1)} km  theta = ${theta(s).toFixed(3)} deg  ` +
+      `v_r = ${vr.toFixed(4)}  v_perp = ${vperp.toFixed(5)} km/s`);
+    check('Ex 3.5 r = 163,180 km (10 km)', Math.abs(r - 163180) < 10);
+    check('Ex 3.5 theta = 107.78 deg (0.01)', Math.abs(theta(s) - 107.78) < 0.01);
+    // The book prints v_r = 10.496 from rounded intermediates; the exact
+    // value at this theta is (mu/h) e sin(theta) = 10.4944. Check the identity
+    // tightly and the book's figure to its rounding.
+    const vrExact = (mu / h) * e * Math.sin(theta(s) * D2R);
+    check('Ex 3.5 v_r equals (mu/h) e sin(theta) (1e-9)', Math.abs(vr - vrExact) < 1e-9);
+    check('Ex 3.5 v_r = 10.496 (book, 2e-3), v_perp = 0.61386 km/s (1e-3)',
+      Math.abs(vr - 10.496) < 2e-3 && Math.abs(vperp - 0.61386) < 1e-3);
+  }
+  // Ex 3.6 (KEP-05): hyperbola r0 = 10,000 km, v0 = 10 km/s, theta0 = 30 deg, 1 h.
+  {
+    const s0 = elementsToRv({ h: 95154, e: 1.4682, i: 0, raan: 0, argp: 0, nu: 30 * D2R }, mu);
+    const s = propagate(s0.r, s0.v, 3600.0, mu);
+    console.log(`  Ex 3.6  hyperbola:  r0 = ${norm(s0.r).toFixed(1)} km  theta = ${theta(s).toFixed(3)} deg`);
+    check('Ex 3.6 theta = 100.04 deg (0.01)', Math.abs(theta(s) - 100.04) < 0.01);
+  }
+  // Ex 3.7 (KEP-06): r0 = [7000, -12124, 0], v0 = [2.6679, 4.6210, 0], 1 h.
+  {
+    const s = propagate([7000.0, -12124.0, 0.0], [2.6679, 4.6210, 0.0], 3600.0, mu);
+    const er = vecErr(s.r, [-3297.77, 7413.40, 0]), ev = vecErr(s.v, [-8.2976, -0.96405, 0]);
+    console.log(`  Ex 3.7  ellipse:    r = ${fmt(s.r)}  v = ${fmt(s.v)}`);
+    check('Ex 3.7 r within 1.5 km, v within 2e-3 km/s', er < 1.5 && ev < 2e-3);
+  }
+  // Ex 4.3 (ELM-01): state vector to elements.
+  {
+    const el = rvToElements([-6045.0, -3490.0, 2500.0], [-3.457, 6.618, 2.533], mu);
+    console.log(`  Ex 4.3  elements:   h=${el.h.toFixed(1)} e=${el.e.toFixed(6)} i=${(el.i * DEG).toFixed(3)} ` +
+      `RAAN=${(el.raan * DEG).toFixed(3)} argp=${(el.argp * DEG).toFixed(4)} theta=${(el.nu * DEG).toFixed(4)}`);
+    check('Ex 4.3 h within 5 km^2/s, e within 1e-4',
+      Math.abs(el.h - 58311.7) < 5 && Math.abs(el.e - 0.171212) < 1e-4);
+    check('Ex 4.3 i, RAAN, argp, theta within 0.05 deg',
+      Math.abs(el.i * DEG - 153.249) < 0.05 && Math.abs(el.raan * DEG - 255.279) < 0.05 &&
+      Math.abs(el.argp * DEG - 20.0683) < 0.05 && Math.abs(el.nu * DEG - 28.4456) < 0.05);
+  }
+  // Ex 4.7 (ELM-02): hyperbolic elements to state vector.
+  {
+    const s = elementsToRv({ h: 80000, e: 1.4, i: 30 * D2R, raan: 40 * D2R, argp: 60 * D2R, nu: 30 * D2R }, mu);
+    console.log(`  Ex 4.7  state:      r = ${fmt(s.r)}  v = ${fmt(s.v)}`);
+    check('Ex 4.7 r within 1 km, v within 5e-3 km/s',
+      vecErr(s.r, [-4039.9, 4814.56, 3628.62]) < 1 && vecErr(s.v, [-10.386, -4.77192, 1.74388]) < 5e-3);
+  }
+  // Ex 5.3 (LAM-02): hyperbolic Lambert (z < 0), 5 deg apart, 13.5 h.
+  {
+    const r2m = 146378.0, a5 = 5 * D2R;
+    const sol = lambert([273378.0, 0, 0], [r2m * Math.cos(a5), r2m * Math.sin(a5), 0], 48600.0, mu, true);
+    const el = rvToElements([273378.0, 0, 0], sol.v1, mu);
+    console.log(`  Ex 5.3  Lambert:    z = ${sol.z.toFixed(5)}  v1 = ${fmt(sol.v1)}  e = ${el.e.toFixed(5)}`);
+    check('Ex 5.3 v1 within 1e-3 km/s', vecErr(sol.v1, [-2.4356, 0.26741, 0]) < 1e-3);
+    check('Ex 5.3 e = 1.0506 (1e-4), z < 0', Math.abs(el.e - 1.0506) < 1e-4 && sol.z < 0);
+  }
+}
+
+console.log('='.repeat(60));
+console.log('CASE 11: propagate regressions (old element-based failures)');
+console.log('='.repeat(60));
+{
+  const mu = 398600.4418;
+  // Parabola whose e rounds to 0.9999999999999998: the old code returned a
+  // confident wrong state.
+  const vPar = Math.sqrt(2 * mu / 7000.0);
+  const p = propagate([7000.0, 0, 0], [0, vPar, 0], 3600.0, mu);
+  const pRef = propagateRK([7000.0, 0, 0], [0, vPar, 0], 3600.0, mu);
+  const ePar = vecErr(p.r, pRef) / norm(pRef);
+  console.log(`  near-exact parabola: rel err vs RK4 = ${ePar.toExponential(3)}`);
+  check('near-exact parabola matches RK4 (<1e-8)', ePar < 1e-8);
+  // Hyperbola from perigee: the old code diverged (|r| = 1.1e20 km at 1e5 s).
+  const r0 = [6678.0, 0, 0], v0 = [0, 15.0, 0];
+  const E0 = 112.5 - mu / 6678.0, h0 = 6678.0 * 15.0;
+  let worstE = 0, worstH = 0;
+  for (const dt of [1e3, 1e5, 1e6, 1e8, -1e5]) {
+    const s = propagate(r0, v0, dt, mu);
+    const r = norm(s.r), v = norm(s.v);
+    worstE = Math.max(worstE, Math.abs((v * v / 2 - mu / r - E0) / E0));
+    worstH = Math.max(worstH, Math.abs((s.r[0] * s.v[1] - s.r[1] * s.v[0] - h0) / h0));
+  }
+  const hRef = propagateRK(r0, v0, 1e5, mu);
+  const eHyp = vecErr(propagate(r0, v0, 1e5, mu).r, hRef) / norm(hRef);
+  console.log(`  hyperbola dt 1e3..1e8 s: worst rel energy err ${worstE.toExponential(2)}, ` +
+    `worst rel h err ${worstH.toExponential(2)}; at 1e5 s vs RK4 ${eHyp.toExponential(3)}`);
+  check('hyperbola conserves energy and h to 1e-10 up to dt = 1e8 s', worstE < 1e-10 && worstH < 1e-10);
+  check('hyperbola at dt = 1e5 s matches RK4 (<1e-8)', eHyp < 1e-8);
+  // Ellipse: 1000 periods plus a quarter equals a quarter period.
+  const T = 2 * Math.PI * Math.sqrt(6778.0 ** 3 / mu);
+  const vc = Math.sqrt(mu / 6778.0);
+  const q1 = propagate([6778.0, 0, 0], [0, vc, 0], 1000.25 * T, mu);
+  const q0 = propagate([6778.0, 0, 0], [0, vc, 0], 0.25 * T, mu);
+  const eRev = vecErr(q1.r, q0.r);
+  console.log(`  1000.25 vs 0.25 periods: difference ${eRev.toExponential(3)} km`);
+  check('many-revolution propagation keeps precision (<1e-6 km)', eRev < 1e-6);
+}
+
+console.log('='.repeat(60));
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);
   process.exit(1);

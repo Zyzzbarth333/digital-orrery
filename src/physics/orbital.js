@@ -7,13 +7,14 @@
 // Units (consistent throughout): distance km, velocity km/s, time s,
 // gravitational parameter mu in km^3/s^2. Angles in radians.
 //
-// Methods follow Curtis, "Orbital Mechanics for Engineering Students":
+// Methods follow Curtis, "Orbital Mechanics for Engineering Students" (4th ed.):
 //   Kepler solve  -> Algorithm 3.1 (Newton-Raphson)
+//   propagate     -> Algorithms 3.3/3.4 (universal variables, Lagrange f and g)
 //   rv->elements  -> Algorithm 4.1/4.2
 //   elements->rv  -> Algorithm 4.5 (perifocal -> ECI, 3-1-3)
 //   Lambert       -> Algorithm 5.2 (universal variables, zero-rev)
-// This module is a 1:1 port of a Python reference that was numerically
-// verified against textbook cases (see orbital.test.mjs).
+// Verified in orbital.test.mjs against the book's worked examples, NAIF CSPICE
+// with DE440 (fixtures/spice_reference.json) and an independent integrator.
 
 const TWO_PI = 2.0 * Math.PI;
 
@@ -163,41 +164,99 @@ export function elementsToRv(el, mu) {
   return { r: apply(Q, rp), v: apply(Q, vp) };
 }
 
-// -------- real Kepler propagation --------
-// rv -> elements, advance mean anomaly M by n*dt, solve Kepler, elements -> rv.
-// This replaces the app's fake propagation. Handles ellipses; hyperbolic orbits
-// are propagated via the hyperbolic Kepler equation.
+// -------- two-body propagation (Curtis Algorithms 3.3 and 3.4) --------
+// Universal-variable Kepler propagation with Lagrange f and g. One code path
+// covers ellipses, parabolas and hyperbolas, so there is no element or
+// mean-anomaly conversion to go singular at e = 1.
+//
+// Root finding: the universal Kepler equation t(chi) is monotonic in chi
+// (dt/dchi = r / sqrt(mu) > 0), so the root is bracketed first and then
+// solved by Newton steps that fall back to bisection when a step leaves the
+// bracket or an evaluation overflows. The previous element-based version
+// returned NaN for e = 1 exactly, gave wrong states when e rounded to just
+// below 1, and diverged on hyperbolas for large dt.
+//
+// For ellipses dt is first reduced modulo the period, so many-revolution
+// propagation keeps full precision. Negative dt propagates backwards.
+// Returns { r, v }, or null if the solve fails (not seen in testing).
 export function propagate(rVec, vVec, dt, mu) {
-  const el = rvToElements(rVec, vVec, mu);
-  const a = el.a, e = el.e;
-  if (e >= 1.0) {
-    // hyperbolic mean motion and Kepler solve: M = e*sinh(F) - F
-    const n = Math.sqrt(mu / Math.pow(-a, 3));
-    const M = el.M + n * dt;
-    let F = M;
-    for (let iter = 0; iter < 100; iter++) {
-      const f = e * Math.sinh(F) - F - M;
-      const fp = e * Math.cosh(F) - 1.0;
-      const dF = f / fp;
-      F -= dF;
-      if (Math.abs(dF) < 1e-13) break;
-    }
-    const nu = 2.0 * Math.atan2(
-      Math.sqrt(e + 1.0) * Math.sinh(F / 2.0),
-      Math.sqrt(e - 1.0) * Math.cosh(F / 2.0)
-    );
-    el.nu = nu;
-    return elementsToRv(el, mu);
+  const r0 = norm(rVec);
+  const v0 = norm(vVec);
+  const sqrtMu = Math.sqrt(mu);
+  const vr0 = dot(rVec, vVec) / r0;
+  const alpha = 2.0 / r0 - (v0 * v0) / mu;          // 1/a (0 for a parabola)
+
+  // Ellipse: remove whole periods.
+  if (alpha > 0.0) {
+    const T = TWO_PI / (sqrtMu * Math.pow(alpha, 1.5));
+    dt = dt - T * Math.round(dt / T);
   }
-  const n = Math.sqrt(mu / Math.pow(a, 3));   // mean motion
-  const M = el.M + n * dt;
-  const E = solveKepler(M, e);
-  const nu = 2.0 * Math.atan2(
-    Math.sqrt(1.0 + e) * Math.sin(E / 2.0),
-    Math.sqrt(1.0 - e) * Math.cos(E / 2.0)
-  );
-  el.nu = nu;
-  return elementsToRv(el, mu);
+  if (dt === 0.0) return { r: [...rVec], v: [...vVec] };
+
+  const k1 = r0 * vr0 / sqrtMu;
+  const k2 = 1.0 - alpha * r0;
+  const target = sqrtMu * dt;
+  // sqrt(mu)*t(chi) and its derivative r(chi). Overflow (deep hyperbola) is
+  // mapped to +/-Infinity in the direction of chi, keeping t monotonic.
+  const T = (x) => {
+    const z = alpha * x * x;
+    const val = k1 * x * x * stumpffC(z) + k2 * x * x * x * stumpffS(z) + r0 * x;
+    return Number.isNaN(val) ? Math.sign(x) * Infinity : val;
+  };
+  const R = (x) => {
+    const z = alpha * x * x;
+    return k1 * x * (1.0 - z * stumpffS(z)) + k2 * x * x * stumpffC(z) + r0;
+  };
+
+  // Bracket [lo, hi] around the root, starting from Curtis' initial guess.
+  const sgn = Math.sign(dt);
+  let guess = sqrtMu * Math.abs(alpha) * Math.abs(dt);
+  if (!(guess > 0.0) || !Number.isFinite(guess)) guess = Math.abs(target) / r0;
+  let near = 0.0;
+  let far = sgn * Math.max(guess, 1e-12);
+  for (let k = 0; k < 400 && sgn * (T(far) - target) < 0.0; k++) {
+    near = far;
+    far *= 2.0;
+  }
+  let lo = Math.min(near, far), hi = Math.max(near, far);
+  if (!(T(lo) <= target && T(hi) >= target)) return null;
+
+  // Newton with a bisection step whenever Newton would leave the bracket or
+  // is not at least halving it (far from the root on a hyperbola, t(chi)
+  // grows exponentially and plain Newton creeps).
+  let x = 0.5 * (lo + hi);
+  let stepOld = hi - lo;
+  let converged = false;
+  for (let iter = 0; iter < 300; iter++) {
+    const Fx = T(x) - target;
+    if (Math.abs(Fx) <= 1e-14 * Math.max(Math.abs(target), r0 * Math.abs(x), 1.0)) { converged = true; break; }
+    if (Fx < 0.0) lo = x; else hi = x;
+    if (hi - lo <= 1e-15 * Math.max(1.0, Math.abs(x))) { converged = true; break; }
+    const d = R(x);
+    const newtonOk = Number.isFinite(Fx) && d > 0.0 && Number.isFinite(d);
+    const xn = newtonOk ? x - Fx / d : NaN;
+    if (!(xn > lo && xn < hi) || Math.abs(xn - x) > 0.5 * stepOld) {
+      stepOld = hi - lo;
+      x = 0.5 * (lo + hi);
+    } else {
+      stepOld = Math.abs(xn - x);
+      x = xn;
+    }
+  }
+  if (!converged) return null;
+
+  // Lagrange coefficients (Curtis Eqs. 3.69, 3.70)
+  const z = alpha * x * x;
+  const Cz = stumpffC(z), Sz = stumpffS(z);
+  const f = 1.0 - (x * x / r0) * Cz;
+  const g = dt - (x * x * x / sqrtMu) * Sz;
+  const r = add(scale(rVec, f), scale(vVec, g));
+  const rn = norm(r);
+  const fdot = (sqrtMu / (rn * r0)) * (alpha * x * x * x * Sz - x);
+  const gdot = 1.0 - (x * x / rn) * Cz;
+  const v = add(scale(rVec, fdot), scale(vVec, gdot));
+  if (!r.every(Number.isFinite) || !v.every(Number.isFinite)) return null;
+  return { r, v };
 }
 
 // -------- Stumpff functions C(z), S(z) (series near z=0 for stability) --------
