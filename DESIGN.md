@@ -157,6 +157,19 @@ sit on black nomenclature strips. The signature is the provenance column:
 every value in the data plate has a tag naming its source. Original: the
 lineage is real NASA hardware, not any game's or film's interface.
 
+### Lineage
+
+The look sits in the "NASA-punk" lineage that Bethesda's art team named for
+Starfield (art director Istvan Pely, Hypebeast, August 2023). We take its
+principles, not its interface:
+
+- over-engineered, functional hardware that makes survival believable;
+- a period piece set in the future, with a 1970s–80s, pre-CGI feel;
+- physical, labelled buttons you want to press, rather than holograms;
+- familiarity first, so a new world reads at once.
+
+Starfield's own logo, colour stripe, fonts and screen layouts are not used.
+
 Product truth is in [PRODUCT.md](PRODUCT.md).
 
 ## Colors
