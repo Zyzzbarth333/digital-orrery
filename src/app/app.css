@@ -377,3 +377,13 @@ details.section[open] > summary::after { content: '−'; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------------- NASA Trajectory Browser comparison ---------------- */
+.tb-table { width: 100%; border-collapse: collapse; margin: 6px 0 var(--u); font: 12px var(--sans); font-variant-numeric: tabular-nums; }
+.tb-table th { font: 10px/1.4 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--engrave); text-align: right; padding: 4px 4px 6px; border-bottom: 1px solid var(--seam-strong); white-space: nowrap; }
+.tb-table th:first-child, .tb-table td:first-child { text-align: left; }
+.tb-table td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--seam); white-space: nowrap; }
+.tb-table tbody tr { cursor: pointer; }
+.tb-table tbody tr:hover td { background: rgba(18, 17, 16, 0.06); }
+.tb-table tbody tr:focus-visible { outline: 2px solid var(--key); outline-offset: -2px; }
+.tb-table tbody tr[aria-selected='true'] td { background: var(--window); color: var(--phosphor); }

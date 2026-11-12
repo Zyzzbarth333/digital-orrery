@@ -152,6 +152,38 @@ correction burns the n-body flight misses the two-body plan (the 2026
 window passes Mars at about 470,000 km, `craft.test.mjs`); targeting is
 next on the physics roadmap.
 
+## NASA's Trajectory Browser
+
+Under the porkchop, the PLANNER tab shows what NASA Ames's
+[Trajectory Browser](https://trajbrowser.arc.nasa.gov) lists for the chosen
+planet, rendezvous or flyby:
+- **NASA's optima:** the lowest eight per-opportunity optima from 2026 to
+  2040, with their route, so gravity assists such as EVM show.
+- **Ours:** for each direct one, our own transfer between NASA's two dates
+  (`transfer()` in `src/physics/trajsearch.js`, up to two revolutions round
+  the Sun), under NASA's conventions, with the difference in percent. The
+  same dates mean any difference is the modelling alone; its tooltip gives
+  our C3 and the revolutions.
+
+A row can be shown on the grid (a 120-day span around its launch) or flown:
+- **Flying a row** flies our cheapest Lambert arc between NASA's dates
+  (multi-revolution where that is cheaper). Flying a grid cell keeps the
+  grid's direct arc.
+- **"Open on NASA's site"** posts the same search to the browser in a new
+  tab.
+
+How the data gets in:
+- **The browser can't be queried from a page.** It answers only form posts
+  and sends no cross-origin headers.
+- **So it's fetched ahead of time.** `npm run fetch:trajbrowser`
+  (`src/physics/trajbrowser.fetch.mjs`) fetches its results once and writes
+  `public/trajbrowser/planets.json`. It's paced 15 s apart and cached in
+  `~/.cache/digital-orrery/trajbrowser`, so reruns don't repeat finished
+  queries.
+- **Per-planet limits matter.** The browser takes launch years 2010–2040
+  and Δv up to 20 km/s. Each planet's search uses its own flight-time and
+  Δv limits, because the browser's one-per-year optima depend on both.
+
 ## Links
 
 | Parameter | Effect |

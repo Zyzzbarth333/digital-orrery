@@ -23,6 +23,7 @@ tests (it shares no code with the models).
 | `lambert` | Curtis Ex 5.2, 5.3 | 5×10⁻⁵ km/s, 10⁻³ km/s |
 | `lambert`, 920-cell Earth to Mars grid (461 Type II) | independent RK4 | every cell solved; worst endpoint 5.5×10⁻⁹ |
 | `lambert`, real MSL dates | DE442 states, RK4 | reaches Mars to 2×10⁻¹¹; C3 = 10.69 km²/s² |
+| `lambertRevs`, 300 random geometries, 1 and 2 revolutions, both branches | flown by `propagate` | every one reaches r₂; worst 5.8×10⁻⁹ relative |
 
 ## Ephemeris and porkchop (`porkchop.test.mjs`)
 
@@ -33,6 +34,17 @@ tests (it shares no code with the models).
 | astronomy-engine, all eight planets | DE442 | 9.3×10⁻⁵, 9.5 m/s |
 | porkchop cell on MSL dates | DE442 Lambert | C3 agrees to 10⁻⁴ |
 | 2011 Mars window | physical | all 11,011 cells solved; minimum C3 9.00 km²/s² inside the grid |
+
+## Trajectory search (`trajsearch.test.mjs`)
+
+Against NASA Ames's Trajectory Browser, its 2026–2040 optima for the seven
+other planets (`public/trajbrowser/planets.json`).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| `transfer`, NASA's own dates, every direct route (54) | the browser's total Δv | all solved; 53 compared, mean 3.0 %, worst 4.5 % (Saturn); fast Jupiter flybys up to 8.8 % (NASA patches at the sphere of influence) |
+| the same, excluded | | one with Earth and the planet within 5° of a line through the Sun; one (Mars, 2026-03-13) at the 1-revolution minimum flight time, 1.2 % one day longer |
+| `searchTransfers`, Venus and Mars rendezvous | the browser's per-opportunity optima | every one found; worst 3.1 % and 8 days (Venus), 3.0 % and 2 days (Mars) |
 
 ## n-body kernel (`nbody.test.mjs`)
 

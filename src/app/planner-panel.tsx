@@ -10,7 +10,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import type { GridRequest } from './porkchop.worker';
-import { transferBetween } from '../physics/porkchop.js';
+import { TrajBrowserPanel } from './trajbrowser-panel';
+import { transfer } from '../physics/trajsearch.js';
 import { helioStateEcl, eclToEqj } from '../physics/ephemeris.js';
 import { GRAVITATIONAL_PARAMETERS as GM, PLANETS } from '../utils/constants.js';
 
@@ -20,11 +21,14 @@ interface Grid {
   minC3: { iDep: number; iTof: number } | null; ms: number; req: GridRequest;
 }
 
-const DESTS: { key: string; name: string; tof: [number, number] }[] = [
+export const DESTS: { key: string; name: string; tof: [number, number] }[] = [
+  { key: 'mercury', name: 'Mercury', tof: [60, 250] },
   { key: 'venus', name: 'Venus', tof: [80, 260] },
   { key: 'mars', name: 'Mars', tof: [120, 450] },
   { key: 'jupiter', name: 'Jupiter', tof: [500, 1200] },
   { key: 'saturn', name: 'Saturn', tof: [1000, 2600] },
+  { key: 'uranus', name: 'Uranus', tof: [2000, 4380] },
+  { key: 'neptune', name: 'Neptune', tof: [3000, 4380] },
 ];
 const DAY = 86400;
 const G = GM as Record<string, number>, P = PLANETS as Record<string, { radius: number }>;
@@ -110,17 +114,23 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
     return { depMs, arrMs: depMs + tof * DAY * 1000, tof, c3: grid.c3[k], vinfArr: grid.vinfArr[k], dv: grid.dvTotal[k] };
   })() : null;
 
-  const fly = () => {
-    if (!cell || !Number.isFinite(cell.c3)) return;
-    const E = helioStateEcl('earth', new Date(cell.depMs)), A = helioStateEcl(dest, new Date(cell.arrMs));
-    const t = transferBetween(E, A, cell.tof * DAY, G.sun / 1e9, { mu: G.earth / 1e9, rPark: P.earth.radius + 200 }, { mu: G[dest] / 1e9, rPark: P[dest].radius + 400, capture: true });
+  // Fly the Lambert arc between two dates (the grid's direct arc, or for
+  // NASA's dates the cheapest of up to two revolutions round the Sun): set the clock to the departure and launch
+  // onto the departure hyperbola with the arc's v_inf.
+  const flyDates = (depMs: number, arrMs: number, maxRevs = 2) => {
+    const t = transfer({ stateOf: helioStateEcl, muSun: G.sun / 1e9, to: dest, departure: { mu: G.earth / 1e9, rPark: P.earth.radius + 200 }, arrival: { mu: G[dest] / 1e9, rPeri: P[dest].radius + 400 }, maxRevs }, depMs, (arrMs - depMs) / (DAY * 1000));
     if (!t) return;
-    clock.setTime(cell.depMs);
-    const vInf = eclToEqj([0, 1, 2].map((i) => t.v1[i] - E.v[i])) as [number, number, number];
-    const craft = mission.launchDeparture(cell.depMs, vInf, `${d.name} ${iso(cell.depMs)}`);
-    mission.setPlan(craft, dest, d.name, cell.arrMs);
+    clock.setTime(depMs);
+    const vInf = eclToEqj(t.vinfDepVec) as [number, number, number];
+    const craft = mission.launchDeparture(depMs, vInf, `${d.name} ${iso(depMs)}`);
+    mission.setPlan(craft, dest, d.name, arrMs);
     onFlown(craft.id);
   };
+  const fly = () => { if (cell && Number.isFinite(cell.c3)) flyDates(cell.depMs, cell.arrMs, 0); };
+  // A window picked from NASA's list: set the grid around it and compute.
+  const pendingCompute = useRef(false);
+  const showWindow = (startMs: number, spanDays: number) => { setStartIso(iso(startMs)); setSpan(spanDays); pendingCompute.current = true; };
+  useEffect(() => { if (pendingCompute.current && ready) { pendingCompute.current = false; compute(); } });
 
   const onCanvas = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!grid) return;
@@ -184,6 +194,7 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
           </div>
         </>
       )}
+      <TrajBrowserPanel dest={dest} destName={d.name} tof={d.tof} onWindow={showWindow} onFly={flyDates} />
     </div>
   );
 }
