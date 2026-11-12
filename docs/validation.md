@@ -114,12 +114,36 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The app's Moon vs DE442 | under 1 m (DE442 table) |
 | Calibration: Earth's J3/J4, other planets' tides, empirical push models | none helps; the gravity model is complete for this mission ([calibration](validation/artemis2.md#calibration-what-does-not-help)) |
 
+## NASA's 6-DOF check cases (`nesc.test.mjs`)
+
+NASA's orbital check cases for 6-DOF simulations (NESC,
+NASA/TM-2015-218675): 25 cases of a rigid vehicle in Earth orbit for 8
+hours, each run by four NASA simulations (sims A to D). `sixdof.js` runs
+every one ([A 6-DOF vehicle in Earth orbit](physics/sixdof.md)).
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Position after 8 h, every case without MET drag (21 cases: point mass, 4×4 and 8×8 GEM-T1, Sun and Moon, burns, torque pulses, torque-free and gravity-gradient rotation) | the closest NASA tool | within 1.0 mm; the tools' own spread is up to 350 m |
+| The four drag cases (MET density from sim B) | the four tools | 0.35–0.61 m, inside the tools' own spread (0.56–79 m) |
+| Earth-fixed position (IAU 1976 precession, IAU 1980 nutation) | the closest tool | within 1.1×10⁻⁹ of the distance (7 mm in low orbit) |
+| Gravitation, geodetic height | the tool closest in position | 1.3×10⁻⁹ m/s², 0.6 mm |
+| Body rates and attitude, every case but the full one | the closest tool | 5×10⁻¹⁴ rad/s, 3×10⁻⁹ deg |
+| Full case (8×8, Sun, Moon, drag, gravity gradient) | the closest tool | 0.35 m; 8×10⁻⁸ rad/s; 0.002° |
+| Torque-free tumbling ISS, 8 h | constancy of energy and angular momentum | 3×10⁻¹⁴, 4×10⁻¹⁴ |
+| Geopotential, random 8×8 field | gradient of an independent Legendre sum | 7×10⁻⁹ (finite differences) |
+| IAU 1980 nutation | NAIF CSPICE `zzwahr` (one-off) | 10⁻¹⁹ rad |
+| The app's kernel, case 2 (Earth as the central body) | sim B | 4 mm after 8 h |
+| The app's kernel, case 4 (heliocentric, as the app runs it) | sim B | 0.62 m, from the Earth table's acceleration ripple (10⁻⁸ m/s²) |
+
 ## Not yet validated
 
 - Against JPL Horizons, GMAT or Orekit trajectories.
 - Against other missions' trajectories (NAIF mission kernels, e.g. MSL cruise).
-- The planets' J2, higher harmonics, drag and radiation pressure (not
-  modelled yet).
+- The planets' J2, and radiation pressure (not modelled yet). The Earth's
+  higher harmonics and drag are modelled and checked in `sixdof.js`, but
+  not yet in the app's kernel.
+- The MET atmosphere itself (not public; the drag cases use NASA's
+  density).
 
 ## Body orientation (`orientation.test.mjs`)
 
