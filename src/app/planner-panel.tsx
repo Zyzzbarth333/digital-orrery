@@ -61,9 +61,12 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
 
   const d = DESTS.find((x) => x.key === dest)!;
   const auto = useRef(autoPlan !== null);
+  const depStartMs = Date.parse(`${startIso}T00:00:00Z`);
+  const problem = !Number.isFinite(depStartMs) ? 'a departure date'
+    : !(depStartMs >= Date.UTC(1900, 0, 1) && depStartMs <= Date.UTC(2150, 0, 1)) ? 'a date between 1900 and 2150 (the ephemeris range)'
+      : !(span >= 30 && span <= 3650) ? 'a span from 30 to 3,650 days' : null;
   const compute = () => {
-    const depStartMs = Date.parse(`${startIso}T00:00:00Z`);
-    if (!Number.isFinite(depStartMs)) return;
+    if (problem) return;
     const depStep = Math.max(1, Math.round(span / 120)), tofStep = Math.max(1, Math.round((d.tof[1] - d.tof[0]) / 80));
     if (!worker.current) return;
     setBusy(true);
@@ -98,6 +101,8 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
     mark(pick, '#7fe06a');
   }, [grid, pick]);
 
+  const c3Min = grid && grid.minC3 ? grid.c3[grid.minC3.iTof * grid.nDep + grid.minC3.iDep] : null;
+  const atEdge = !!grid?.minC3 && (grid.minC3.iDep === 0 || grid.minC3.iDep === grid.nDep - 1 || grid.minC3.iTof === 0 || grid.minC3.iTof === grid.nTof - 1);
   const cell = grid && pick ? (() => {
     const k = pick.iTof * grid.nDep + pick.iDep;
     const depMs = grid.req.depStartMs + grid.depDays[pick.iDep] * DAY * 1000;
@@ -130,42 +135,52 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
       <h3 className="strip">Transfer from Earth</h3>
       <div className="form-grid">
         <label className="num"><span className="engraved">To</span>
-          <select className="input" value={dest} onChange={(e) => { setDest(e.target.value); setGrid(null); }}>
+          <select className="input select" value={dest} onChange={(e) => { setDest(e.target.value); setGrid(null); }}>
             {DESTS.map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
           </select>
         </label>
         <label className="num"><span className="engraved">Depart from</span>
-          <input className="input" type="date" value={startIso} onChange={(e) => setStartIso(e.target.value)} />
+          <input className="input" type="text" inputMode="numeric" placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" aria-invalid={!Number.isFinite(depStartMs)} value={startIso} onChange={(e) => setStartIso(e.target.value)} />
         </label>
         <label className="num"><span className="engraved">Over</span>
-          <input className="input" type="number" step={30} value={span} onChange={(e) => setSpan(Number(e.target.value))} /><span className="unit">d</span>
+          <input className="input" type="number" step={30} min={30} max={3650} aria-invalid={!(span >= 30 && span <= 3650)} value={span} onChange={(e) => setSpan(Number(e.target.value))} /><span className="unit">d</span>
         </label>
       </div>
       <div className="keys-row">
-        <button className="key" onClick={compute} disabled={busy}>{busy ? 'Computing…' : 'Compute grid'}</button>
-        <span className="hint">flight {d.tof[0]}–{d.tof[1]} d</span>
+        <button className="key" onClick={compute} disabled={busy || !!problem}>{busy ? 'Computing…' : 'Compute grid'}</button>
+        <span className="hint">{problem ? `Needs ${problem}` : `flight ${d.tof[0]}–${d.tof[1]} d`}</span>
       </div>
       {grid && (
         <figure className="porkchop">
-          <canvas ref={canvas} onClick={onCanvas} aria-label={`Porkchop grid to ${d.name}: departure date across, time of flight up, shaded by C3`} />
+          <div className="pc-frame">
+            <span className="pc-y" aria-hidden="true"><b>{grid.tofDays[grid.tofDays.length - 1]} d</b><i>Flight time</i><b>{grid.tofDays[0]} d</b></span>
+            <canvas ref={canvas} onClick={onCanvas} aria-label={`Porkchop grid to ${d.name}: departure date across, time of flight up, shaded by C3`} />
+          </div>
+          <div className="pc-x" aria-hidden="true"><span>{iso(grid.req.depStartMs)}</span><i>Departure</i><span>{iso(grid.req.depStartMs + grid.depDays[grid.depDays.length - 1] * DAY * 1000)}</span></div>
+          {c3Min !== null && (
+            <div className="pc-ramp" aria-hidden="true"><i /><span>C3 {fmt(c3Min, 1)}</span><span>{fmt(c3Min * 2.8, 0)}</span><span>≥ {fmt(c3Min * 8, 0)} km²/s²</span></div>
+          )}
+          {atEdge && <p className="status lag">The minimum sits at the edge of the grid: widen the span or move the start to see the whole window.</p>}
           <figcaption>
-            <span>{iso(grid.req.depStartMs)} → departure → {iso(grid.req.depStartMs + grid.req.depSpanDays * DAY * 1000)}</span>
-            <span>{grid.nDep * grid.nTof} Lambert arcs in {fmt(grid.ms / 1000, 1)} s · amber = low C3 · square = minimum</span>
+            <span>{grid.nDep * grid.nTof} Lambert arcs in {grid.ms < 1000 ? `${Math.max(1, Math.round(grid.ms))} ms` : `${fmt(grid.ms / 1000, 1)} s`}</span>
           </figcaption>
         </figure>
       )}
-      {cell && (
+      {cell && !Number.isFinite(cell.c3) && (
+        <p className="status bad">No transfer here: the Lambert solver found no reliable arc for this pair of dates (usually a transfer angle very close to 180°). Pick a neighbouring cell.</p>
+      )}
+      {cell && Number.isFinite(cell.c3) && (
         <>
           <table className="readout"><tbody>
-            <tr><th scope="row">Depart</th><td className="value">{iso(cell.depMs)}</td><td className="src"><span className="src-tag" title="astronomy-engine states, Lambert arc">AE</span></td></tr>
+            <tr><th scope="row">Depart</th><td className="value">{iso(cell.depMs)}</td><td className="src"><span className="src-tag derived" title="the grid cell you picked">grid</span></td></tr>
             <tr><th scope="row">Arrive</th><td className="value">{iso(cell.arrMs)} · {cell.tof} d</td><td className="src"><span className="src-tag" title="zero-revolution prograde Lambert arc (src/physics/orbital.js)">Lambert</span></td></tr>
-            <tr><th scope="row">C3</th><td className="value">{fmt(cell.c3, 2)} km²/s²</td><td className="src"><span className="src-tag" title="departure v-infinity squared">Lambert</span></td></tr>
-            <tr><th scope="row">Arrival v∞</th><td className="value">{fmt(cell.vinfArr, 3)} km/s</td><td className="src"><span className="src-tag" title="excess speed at the destination">Lambert</span></td></tr>
-            <tr><th scope="row">Δv total</th><td className="value">{fmt(cell.dv, 3)} km/s</td><td className="src"><span className="src-tag derived" title="from a 200 km parking orbit, into a 400 km capture orbit">2-body</span></td></tr>
+            <tr><th scope="row" title="launch energy: the departure excess speed squared">C3</th><td className="value">{fmt(cell.c3, 2)} km²/s²</td><td className="src"><span className="src-tag" title="departure v-infinity squared">Lambert</span></td></tr>
+            <tr><th scope="row" title="hyperbolic excess speed (v-infinity) on arrival">Arrival v-inf</th><td className="value">{fmt(cell.vinfArr, 3)} km/s</td><td className="src"><span className="src-tag" title="excess speed at the destination">Lambert</span></td></tr>
+            <tr><th scope="row" title="departure burn plus capture burn">Δv total</th><td className="value">{fmt(cell.dv, 3)} km/s<span className="alt">200 km parking orbit → 400 km circular capture</span></td><td className="src"><span className="src-tag derived" title="from a 200 km parking orbit, into a 400 km capture orbit">2-body</span></td></tr>
           </tbody></table>
           <div className="keys-row">
-            <button className="key run" aria-pressed={false} onClick={fly} disabled={!Number.isFinite(cell.c3)}>Fly this</button>
-            <span className="hint">sets the clock to the departure</span>
+            <button className="key primary" onClick={fly} disabled={!Number.isFinite(cell.c3)}>Fly this</button>
+            <span className="hint">Jumps the clock to {iso(cell.depMs)} (BACK undoes it) and launches</span>
           </div>
         </>
       )}

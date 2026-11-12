@@ -8,6 +8,7 @@
 // They are drawing aids, kept out of the exposure and tone mapping.
 
 import * as THREE from 'three';
+import { orbitTrailMaterial } from './orbitTrail';
 
 type V3 = [number, number, number];
 
@@ -39,10 +40,25 @@ function lineOf(colour: number, opacity: number): THREE.Line {
 }
 
 function setPoints(line: THREE.Line, pts: V3[], unitKm: number): void {
-  const arr = new Float32Array(Math.max(1, pts.length) * 3);
-  pts.forEach((p, i) => { arr[3 * i] = p[0] / unitKm; arr[3 * i + 1] = p[2] / unitKm; arr[3 * i + 2] = -p[1] / unitKm; });
+  const n = Math.max(1, pts.length);
+  const arr = new Float32Array(n * 3), u = new Float32Array(n);
+  pts.forEach((p, i) => {
+    arr[3 * i] = p[0] / unitKm; arr[3 * i + 1] = p[2] / unitKm; arr[3 * i + 2] = -p[1] / unitKm;
+    u[i] = n > 1 ? i / (n - 1) - 1 : 0;           // age along the trail: newest 0, oldest -1
+  });
   line.geometry.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  line.geometry.setAttribute('u', new THREE.BufferAttribute(u, 1));
   line.geometry.setDrawRange(0, pts.length);
+}
+
+// The flown path glows at the craft and fades with age (orbitTrail.ts).
+function trailOf(colour: number): THREE.Line {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+  g.setAttribute('u', new THREE.BufferAttribute(new Float32Array(1), 1));
+  const line = new THREE.Line(g, orbitTrailMaterial(colour, 0.12, 0.25));
+  line.frustumCulled = false;
+  return line;
 }
 
 export class CraftLayer {
@@ -63,7 +79,7 @@ export class CraftLayer {
         marker.innerHTML = '<span class="glyph"></span><span class="name"></span>';
         marker.addEventListener('click', () => this.onPick(v.id));
         this.overlay.appendChild(marker);
-        d = { conic: lineOf(0xffb22e, 0.75), trail: lineOf(0xecd9b0, 0.45), marker, version: -1 };
+        d = { conic: lineOf(0xffb22e, 0.55), trail: trailOf(0xffcf7a), marker, version: -1 };
         this.scene.add(d.conic, d.trail);
         this.drawn.set(v.id, d);
       }

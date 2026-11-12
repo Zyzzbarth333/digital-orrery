@@ -44,6 +44,9 @@ export function App() {
     sc.onCraftPick = (id) => { followCraft(id); setTab('mission'); };
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
     const [kind, a, b] = (init.craft ?? '').split(',');
+    // React's development double-mount builds the scene twice: a craft
+    // launched for the first one is followed by the second too.
+    if (launched.current && mission.selected) sc.focusOnCraft(mission.selected.id);
     if ((kind === 'orbit' || kind === 'departure') && !launched.current) {
       launched.current = true;                    // once, whatever React's mounts do
       const c = kind === 'orbit'
@@ -77,7 +80,8 @@ export function App() {
 
   return (
     <div className="app">
-      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady} />
+      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady}
+        onFrame={(t, jumps) => mission.frame(t, jumps)} />
       <TimeBand clock={clock} mission={mission} />
       <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); setTab('target'); }} />
       <Plate clock={clock} focus={focus} mission={mission} tab={tab} setTab={setTab} onFocusCraft={followCraft} autoPlan={init.plan} />

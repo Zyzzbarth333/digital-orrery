@@ -25,6 +25,10 @@ they come from, and how each part is checked.
 | [Atmospheres](frontend/atmospheres.md) | Rayleigh, Mie and ozone single scattering along the view ray, sunlight reddening on the ground, checks |
 | [Surface maps, rings, stars and daily Earth](frontend/textures.md) | Every source and its credit, map layout, relief from elevation, night lights, GIBS daily imagery, the Cassini ring profile, the star map |
 
+## Usability
+
+[UX review](ux/review.md): personas, scenarios and a heuristic evaluation of the console, with what was fixed.
+
 ## Checks and performance
 
 [Validation](validation.md): every check, its reference and the measured

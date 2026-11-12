@@ -70,6 +70,7 @@ export class Mission {
     this.lastJumps = jumps;
     for (const c of this.crafts) c.advanceClock(t, jumped);
     this.client.tick(this.crafts);
+    this.checkAlarm();
     // Closest approach so far to a planned destination (its system barycentre).
     for (const c of this.crafts) {
       const p = this.plans.get(c.id);
@@ -131,7 +132,18 @@ export class Mission {
     return this.add(name ?? `Probe ${++this.count}`, st.r as V3, st.v as V3, timeMs);
   }
 
+  // Removal can be undone: the last craft removed is kept until the next.
+  lastRemoved: Craft | null = null;
+  restore(): void {
+    const c = this.lastRemoved;
+    if (!c) return;
+    this.lastRemoved = null;
+    this.crafts.push(c);
+    this.select(c.id);
+  }
+
   remove(c: Craft): void {
+    this.lastRemoved = c;
     this.crafts = this.crafts.filter((x) => x !== c);
     if (this.snap.selected === c.id) this.select(this.crafts.at(-1)?.id ?? null);
     else this.emit(true);
@@ -169,6 +181,23 @@ export class Mission {
         thrusting: c.thrusting(), crashed: c.crashed, selected: c.id === this.snap.selected,
       };
     });
+  }
+
+  // Warnings: a craft that crashed or that the kernel refused. The light
+  // stays while such a craft exists; the master alarm sounds when a new one
+  // appears and stays until acknowledged.
+  private warned = new Set<number>();
+  alarm = false;
+  get warning(): boolean { return this.crafts.some((c) => c.crashed || !!c.error); }
+  get warningText(): string {
+    const c = this.crafts.find((x) => x.crashed || x.error);
+    return c ? (c.crashed ? `${c.name}: impact on ${c.impactBody}` : `${c.name}: ${c.error}`) : '';
+  }
+  acknowledge(): void { this.alarm = false; this.emit(true); }
+  private checkAlarm(): void {
+    for (const c of this.crafts) {
+      if ((c.crashed || c.error) && !this.warned.has(c.id)) { this.warned.add(c.id); this.alarm = true; }
+    }
   }
 
   // Any craft behind the clock by more than a minute (the kernel's step

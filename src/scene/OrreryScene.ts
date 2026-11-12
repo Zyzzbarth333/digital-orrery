@@ -31,6 +31,7 @@ import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStars } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
+import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { loadJson, loadManifest, SurfaceLoader, type Manifest } from './surfaces';
 
@@ -102,7 +103,7 @@ export class OrreryScene {
   // Camera about the focused body: distance (km), azimuth and elevation (rad)
   // in the ecliptic frame.
   focus: BodyKey = 'sun';
-  private dist = 5.0e8;
+  private dist = 1.6e9;          // wide enough to frame Saturn at the start
   private az = -1.2;
   private el = 0.5;
 
@@ -113,6 +114,7 @@ export class OrreryScene {
   // Spacecraft: the mission steps on each frame (after the clock), the scene
   // draws what craftSource returns, and the camera can follow one craft.
   onFrame: (timeMs: number, jumps: number) => void = () => {};
+  onContextLost: (lost: boolean) => void = () => {};
   craftSource: () => CraftView[] = () => [];
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
@@ -208,6 +210,11 @@ export class OrreryScene {
     });
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
+    // The GPU can drop the WebGL context (sleep, driver reset, memory
+    // pressure): say so rather than show a black view, and carry on when the
+    // browser restores it.
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.onContextLost(true); });
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => this.onContextLost(false));
     this.attachControls();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
@@ -234,7 +241,7 @@ export class OrreryScene {
     this.focusCraftId = null;
     this.focus = key;
     const r = BODY_BY_KEY[key].radiusKm;
-    this.dist = key === 'sun' ? 5.0e8 : Math.max(r * 8, 2.0e4);
+    this.dist = key === 'sun' ? 1.6e9 : Math.max(r * 8, 2.0e4);
     this.onFocusChange(key);
   }
 
@@ -273,18 +280,22 @@ export class OrreryScene {
     const b = BODY_BY_KEY[key];
     if (!b.parent || !b.periodDays) return null;
     const pts = new Float32Array((ORBIT_SAMPLES + 1) * 3);
+    const us = new Float32Array(ORBIT_SAMPLES + 1);
     const span = b.periodDays * 86400e3;
     for (let i = 0; i <= ORBIT_SAMPLES; i++) {
       const d = new Date(tMs - span / 2 + (span * i) / ORBIT_SAMPLES);
       const rel = sub(bodyState(key, d).r, bodyState(b.parent, d).r);
       toRender(rel, this.tmp);
       pts.set([this.tmp.x, this.tmp.y, this.tmp.z], i * 3);
+      us[i] = i / ORBIT_SAMPLES - 0.5;          // time offset from the centre, in periods
     }
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-    // A drawing aid, not light: kept out of the exposure and tone mapping.
-    const mat = new THREE.LineBasicMaterial({ color: b.colour, transparent: true, opacity: 0.35, toneMapped: false });
-    return new THREE.Line(geom, mat);
+    geom.setAttribute('u', new THREE.BufferAttribute(us, 1));
+    // A faint whole orbit with a glowing trail behind the body (orbitTrail.ts).
+    const line = new THREE.Line(geom, orbitTrailMaterial(b.colour));
+    line.frustumCulled = false;
+    return line;
   }
 
   private updateOrbits(tMs: number, now: number): void {
@@ -342,7 +353,10 @@ export class OrreryScene {
     this.updateLighting(sunPos, cam, date);
     for (const b of BODIES) {
       const o = this.orbits.get(b.key);
-      if (o && b.parent) o.line.position.copy(this.meshes.get(b.parent)!.position);
+      if (o && b.parent) {
+        o.line.position.copy(this.meshes.get(b.parent)!.position);
+        (o.line.material as THREE.ShaderMaterial).uniforms.now.value = (tMs - o.epochMs) / (b.periodDays! * 86400e3);
+      }
     }
 
     this.craftLayer.place(crafts, cam, UNIT_KM);
@@ -424,6 +438,17 @@ export class OrreryScene {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     const pxPerRad = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
     const screen = new Map<BodyKey, [number, number]>();
+    // Discs big enough to hide what lies behind them: x, y, radius in px,
+    // distance from the camera.
+    const discs: [number, number, number, number][] = [];
+    for (const b of BODIES) {
+      const p = this.meshes.get(b.key)!.position;
+      const ndc = this.tmp.copy(p).project(this.camera);
+      if (ndc.z > 1 || ndc.z < -1) continue;
+      const rPx = (b.radiusKm / UNIT_KM / p.length()) * pxPerRad;
+      if (rPx > 4) discs.push([((ndc.x + 1) / 2) * w, ((1 - ndc.y) / 2) * h, rPx, p.length()]);
+    }
+    const named: { el: HTMLDivElement; x: number; y: number; key: BodyKey; r: number }[] = [];
     for (const b of BODIES) {
       const el = this.labels.get(b.key)!;
       const p = this.meshes.get(b.key)!.position;
@@ -440,8 +465,13 @@ export class OrreryScene {
       if (ps && b.key !== this.focus && Math.hypot(x - ps[0], y - ps[1]) < 14) {
         el.style.display = 'none'; continue;
       }
+      // A body behind a nearer body's disc is out of sight: so is its label.
+      if (discs.some(([dx, dy, dr, dd]) => dd < distRender && Math.hypot(x - dx, y - dy) < dr)) {
+        el.style.display = 'none'; continue;
+      }
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
+      named.push({ el, x, y, key: b.key, r: b.radiusKm });
       el.classList.toggle('resolved', radiusPx > 4);
       if (b.key === 'earth') this.earthResolved = radiusPx > 3;
       if (radiusPx > 3 && this.unloadedSurfaces.has(b.key) && this.manifest) {
@@ -450,6 +480,17 @@ export class OrreryScene {
         void this.surfaces.apply(b.key, entry, this.materials.get(b.key)!, new Date(this.clock.snapshot.timeMs));
       }
       el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null);
+    }
+    // Names that would overprint one another: the focus keeps its name, then
+    // the larger body; the smaller keeps only its marker (its name shows on
+    // hover). Boxes are estimated from the name's length at 9 px Michroma.
+    named.sort((a, b) => Number(b.key === this.focus) - Number(a.key === this.focus) || b.r - a.r);
+    const boxes: [number, number, number, number][] = [];
+    for (const n of named) {
+      const box: [number, number, number, number] = [n.x, n.y - 9, n.x + 22 + 9 * n.key.length, n.y + 9];
+      const hit = boxes.some((o) => box[0] < o[2] && o[0] < box[2] && box[1] < o[3] && o[1] < box[3]);
+      n.el.classList.toggle('quiet', hit);
+      if (!hit) boxes.push(box);
     }
   }
 
