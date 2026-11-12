@@ -8,19 +8,23 @@
 // and attitude. The app's own n-body kernel also flies the point-mass and
 // the Sun-and-Moon cases.
 //
-// The drag cases use NASA's atmosphere density along the path (sim B's,
-// every 60 s), because the MET model that made it is not public.
+// The atmosphere is the Marshall Engineering Thermosphere as NASA's sims
+// B and C ran it (MET-1999, atmosphereMET.js, built from NASA's published
+// listings): checked against sim B's recorded density and temperature, and
+// used for the drag cases.
 //
 // Fixture: fixtures/nesc_orbital.json (npm run fetch:nesc).
 
 import './deNode.js';
 import fs from 'node:fs';
-import { runCase, CASES, MU, initialState, ORBITS, EPOCH_MS, VEHICLES } from './nesc.lib.mjs';
+import { runCase, CASES, MU, initialState, ORBITS, EPOCH_MS, VEHICLES, RE, FLATTENING } from './nesc.lib.mjs';
 import { geopotential, normFactor } from './geopotential.js';
 import { rotationalInvariants } from './rigidbody.js';
 import { createState, advance } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
 import { helioStateEqj } from './ephemeris.js';
+import { metAtmosphere } from './atmosphereMET.js';
+import { geodetic } from './sixdof.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
@@ -36,23 +40,15 @@ const R2D = 180 / Math.PI;
 const BAD = { '05B': ['A'], '06A': ['D'] };
 const BAD_ATTITUDE = { 11: ['D'] };
 
-// NASA's density for a drag case, smooth in time: 4-point Lagrange
-// interpolation of its logarithm between the 60 s samples.
-function densityOf(key) {
-  const rho = fx.cases[key].densityB;
-  if (!rho) return null;
-  const lr = rho.map((x) => Math.log(x));
-  return (t) => {
-    const u = t / 60, i = Math.max(1, Math.min(lr.length - 3, Math.floor(u)));
-    let s = 0;
-    for (let a = i - 1; a <= i + 2; a++) {
-      let w = 1;
-      for (let b = i - 1; b <= i + 2; b++) if (b !== a) w *= (u - b) / (a - b);
-      s += w * lr[a];
-    }
-    return Math.exp(s);
-  };
-}
+// The MET atmosphere at the vehicle: geodetic latitude, longitude and
+// height on the cases' ellipsoid, the case's solar flux (one value, used as
+// both the daily and the 162-day mean F10.7) and ap.
+const SOLAR = { '05A': [70, 0], '05C': [250, 25] };     // every other case 128.8, 15.7
+const metAt = (key, t, ecef) => {
+  const [f107, ap] = SOLAR[key] ?? [128.8, 15.7], g = geodetic(ecef, RE, FLATTENING);
+  return metAtmosphere({ ms: EPOCH_MS + t * 1000, lat: g.lat * R2D, lon: g.lon * R2D, alt: g.h / 1e3, f107, ap });
+};
+const densityOf = (key) => (t, r, ecef) => metAt(key, t, ecef).rho;
 
 header('CASES: sixdof.js against the four NASA simulations (8 hours each)');
 console.log('  case  closest tool: position, Earth-fixed (relative), rates, attitude | tools\' own spread | ours to each tool (m)');
@@ -88,15 +84,16 @@ for (const key of Object.keys(CASES)) {
   console.log(`  ${key.padEnd(4)}  ${R.r.toExponential(1).padStart(7)} m ${R.ecef.toExponential(1).padStart(7)}   ${R.w.toExponential(1).padStart(7)} rad/s ${(R.a * R2D).toExponential(1).padStart(7)} deg | ${R.spreadMin.toExponential(1)} to ${R.spreadMax.toExponential(1)} m | ${tools.map((t) => `${t} ${per[t].dr.toPrecision(2)}`).join('  ')}  ${CASES[key].title}`);
 }
 
-// The cases whose drag uses NASA's MET density: they agree to about a
-// metre, inside the tools' own spread, because the density is only known
-// at 60 s samples. Every other case is exact to within a few mm.
+// The cases with drag in the MET atmosphere agree with sim B, the tool
+// whose MET version (1999) atmosphereMET.js reproduces, to a few mm; the
+// other tools ran other MET versions and differ by metres (sim A, MET-2007:
+// 24 to 77 m). Every other case is exact to within a few mm.
 const drag = ['06B', '07C', '07D', '11'];
 const exact = Object.keys(CASES).filter((k) => !drag.includes(k));
 const worst = (keys, f) => Math.max(...keys.map((k) => results[k][f]));
-console.log(`  without MET drag: worst ${(worst(exact, 'r') * 1e3).toFixed(2)} mm to the closest tool; with it: worst ${worst(drag, 'r').toFixed(2)} m`);
+console.log(`  without MET drag: worst ${(worst(exact, 'r') * 1e3).toFixed(2)} mm to the closest tool; with it: worst ${(Math.max(...drag.map((k) => results[k].per.B.dr)) * 1e3).toFixed(2)} mm to sim B`);
 check('every case without MET drag within 5 mm of a NASA tool after 8 h', worst(exact, 'r') < 5e-3);
-check('the MET-drag cases within the NASA tools\' own spread (and under 2 m)', drag.every((k) => results[k].r <= results[k].spreadMax && results[k].r < 2));
+check('the MET-drag cases, in our MET-1999, within 1 cm of sim B (MET-1999) after 8 h', drag.every((k) => results[k].per.B.dr < 0.01));
 console.log(`  Earth-fixed: worst ${worst(exact, 'ecef').toExponential(1)} of the distance; gravitation: worst ${worst(exact, 'g').toExponential(1)} m/s^2; geodetic height: worst ${(worst(exact, 'alt') * 1e3).toFixed(1)} mm`);
 check('Earth-fixed positions within 2e-9 of the distance of a tool (1.4 cm in low orbit; IAU 1976/1980 rotation, no polar motion), drag aside', worst(exact, 'ecef') < 2e-9);
 // (In the drag cases the vehicles are up to a metre apart, and gravity
@@ -107,6 +104,40 @@ const rot = Object.keys(CASES).filter((k) => k !== '11');
 check('body rates within 1e-10 rad/s of a tool in every case but the full one', worst(rot, 'w') < 1e-10);
 check('attitude within 1e-6 deg of a tool in every case but the full one', worst(rot, 'a') * R2D < 1e-6);
 check('full case: rates within 1e-7 rad/s and attitude within 0.01 deg of a tool (sim D aside)', results['11'].w < 1e-7 && results['11'].a * R2D < 0.01);
+
+header('ATMOSPHERE: atmosphereMET.js against NASA\'s MET');
+{
+  // NASA's own worked examples. MET-V 2.0 (NASA/TM-2002-211786 4.3), printed
+  // to 4 or 5 digits: 350 km, 45 N 120 W, 1969-01-20 19:11 UTC, F10.7 136,
+  // mean 155, ap 9.
+  const a = metAtmosphere({ ms: Date.UTC(1969, 0, 20, 19, 11), lat: 45, lon: -120, alt: 350, f107: 136, f107bar: 155, ap: 9 });
+  const pub = [[a.Texo, 1031.207, 'exospheric T'], [a.T, 1019.849, 'T'], [a.rho, 0.9123e-11, 'density'], [a.M, 17.110, 'molecular mass'],
+    [a.n.N2, 0.3289e14, 'N2'], [a.n.O2, 0.1660e13, 'O2'], [a.n.O, 0.2811e15, 'O'], [a.n.Ar, 0.5398e10, 'Ar'], [a.n.He, 0.5449e13, 'He'], [a.p, 0.4521e-5, 'pressure']];
+  const wA = Math.max(...pub.map(([x, y]) => Math.abs(x / y - 1)));
+  console.log(`  MET-V 2.0 sample: Texo ${a.Texo.toFixed(3)} K, T ${a.T.toFixed(3)} K, rho ${a.rho.toExponential(4)} kg/m^3; worst of 10 outputs ${wA.toExponential(1)} (NASA prints 4 to 7 digits)`);
+  check('NASA\'s MET-V 2.0 sample reproduced to its printed digits (5e-4)', wA < 5e-4);
+  // MET-88 (NASA CR-179359): 200 km, 0 N 0 E, 1987-10-27 14:00, F10.7 230,
+  // ap 400. MET-88 had an older Sun and Simpson's rule, so 1e-4.
+  const b = metAtmosphere({ ms: Date.UTC(1987, 9, 27, 14, 0), lat: 0, lon: 0, alt: 200, f107: 230, ap: 400 });
+  const wB = Math.max(Math.abs(b.Texo / 2105.903 - 1), Math.abs(b.T / 1495.590 - 1), Math.abs(b.rho / 4.656589e-10 - 1), Math.abs(b.M / 23.34522 - 1));
+  console.log(`  MET-88 test case: Texo ${b.Texo.toFixed(3)} K, T ${b.T.toFixed(3)} K, rho ${b.rho.toExponential(6)} kg/m^3; worst ${wB.toExponential(1)}`);
+  check('NASA\'s MET-88 test case within 1e-4 (an older Sun and integrator)', wB < 1e-4);
+
+  // Along the check cases' orbit, every 60 s for 8 hours: our MET at our
+  // vehicle's position (within mm of sim B's) against sim B's recorded
+  // density and temperature.
+  let wr = 0, wt = 0;
+  for (const key of Object.keys(fx.cases).filter((k) => fx.cases[k].metB)) {
+    const { rho, T } = fx.cases[key].metB;
+    const ours = runCase(key, { density: drag.includes(key) ? densityOf(key) : null, outEvery: 60 });
+    let cr = 0, ct = 0;
+    ours.forEach((s, i) => { const m = metAt(key, s.t, s.ecef); cr = Math.max(cr, Math.abs(m.rho / rho[i] - 1)); ct = Math.max(ct, Math.abs(m.T - T[i])); });
+    console.log(`  ${key.padEnd(4)} F10.7 ${(SOLAR[key] ?? [128.8])[0].toString().padStart(5)}: density within ${cr.toExponential(1)}, temperature within ${(ct * 1e3).toFixed(2)} mK of sim B (481 samples)  ${CASES[key].title}`);
+    wr = Math.max(wr, cr); wt = Math.max(wt, ct);
+  }
+  check('MET density within 1e-5 of sim B along cases 5A-C and the drag cases', wr < 1e-5);
+  check('MET temperature within 2 mK of sim B along the same', wt < 2e-3);
+}
 
 header('MODELS: the geopotential and torque-free rotation, independently');
 {
@@ -170,14 +201,12 @@ header("THE APP'S KERNEL: cases 2 and 4 in nbody.js");
   const B4 = fx.cases['04'].tools.B.at(-1);
   const d4 = dist(s4.r.map((x, i) => (x - E8.r[i]) * 1e3), B4.r);
   console.log(`  case 4, kernel (heliocentric, Encke near the Earth, every body, DE442 table) after 8 h: ${d4.toFixed(3)} m from sim B`);
-  // An orbit about the Earth follows the table's Earth. The first table
-  // (the Earth fitted directly) held position to 0.5 m but its
-  // acceleration only to 1e-8 m/s^2, and gave 0.62 m here; fitted through
-  // the Earth-Moon barycentre (deTable.js) it gives 0.12 m, the floor of
-  // DE442's own records (its Earth's acceleration scatters by 3e-9 m/s^2)
-  // in a heliocentric frame. sixdof.js, with the same Sun and Moon but the
-  // Earth at the origin, matches sim B to 1 mm.
-  check('case 4 by the kernel within 0.25 m of sim B (the floor of DE442\'s records)', d4 < 0.25);
+  // History: with the primary's acceleration taken from the ephemeris, an
+  // orbit about the Earth followed the table's Earth: 0.62 m here on the
+  // first table (the Earth fitted directly), 0.12 m on the barycentre fit
+  // (the floor of DE442's own records). Encke's tidal form (encke.js) keeps
+  // the ephemeris's acceleration out of the motion about the Earth.
+  check('case 4 by the kernel within 2 cm of sim B', d4 < 0.02);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');

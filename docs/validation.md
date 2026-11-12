@@ -63,9 +63,9 @@ other planets (`public/trajbrowser/planets.json`).
 | finite burn, no gravity | rocket equation | Δv 2.8×10⁻⁹ km/s; position 2.4×10⁻³ km after 10 days |
 | kernel GMs | SPICE `gm_de442.tpc` | 5.9×10⁻¹⁶ |
 | Worker message handling | direct advance | identical |
-| Encke, low Earth orbit with J2, 1 day | Cowell at 1/20 the step | 1.20 m (default Cowell: 5.1 m), 1,134 steps (Cowell: 9,795) |
+| Encke, low Earth orbit with J2, 1 day | Cowell at 1/20 the step | 0.77 m (default Cowell: 5.4 m), 1,134 steps (Cowell: 9,795); the reference follows the ephemeris's acceleration noise, Encke's tidal form does not |
 | Encke, forward then back a day | start state | 0.86 m |
-| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.088 km (default Cowell: 1.93 km), 793 steps (1,282) |
+| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.18 km (default Cowell: 1.91 km), 792 steps (1,283); 0.088 km in Encke's ephemeris form, which shares the reference's frame |
 | Encke, suborbital path | Cowell | impact on Earth at the same time (310.8 s) |
 | `keplerStep` | `propagate` | 1.2×10⁻¹⁴ relative |
 
@@ -133,7 +133,7 @@ every one ([A 6-DOF vehicle in Earth orbit](physics/sixdof.md)).
 | Geopotential, random 8×8 field | gradient of an independent Legendre sum | 7×10⁻⁹ (finite differences) |
 | IAU 1980 nutation | NAIF CSPICE `zzwahr` (one-off) | 10⁻¹⁹ rad |
 | The app's kernel, case 2 (Earth as the central body) | sim B | 4 mm after 8 h |
-| The app's kernel, case 4 (heliocentric, as the app runs it) | sim B | 0.12 m (0.62 m before the Earth table was refitted through the Earth-Moon barycentre) |
+| The app's kernel, case 4 (heliocentric, as the app runs it) | sim B | 5 mm (0.62 m on the first Earth table; 0.12 m on its barycentre refit, before Encke took the tidal form) |
 
 ## Not yet validated
 

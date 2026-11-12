@@ -103,19 +103,24 @@ What is not reproduced:
 
 The n-body kernel flies two of the cases too:
 - **Case 2:** the Earth as its central body; 4 mm from sim B after 8 h.
-- **Case 4:** heliocentric, exactly as the app runs it; 0.12 m.
+- **Case 4:** heliocentric, exactly as the app runs it; 5 mm.
 
-Case 4 found a flaw in the app's Earth table. The first table held the
-Earth's position to 0.5 m, but its acceleration rippled by 10⁻⁸ m/s² and
-jumped where its segments met, and an orbit about the Earth follows the
-table's Earth. That first table gave 0.62 m.
-- **The fix:** the table is now fitted through the Earth-Moon barycentre,
-  as JPL stores it ([DE442 in the app](ephemerides-and-gm.md#de442-in-the-app)).
-- **What's left:** the 0.12 m is the floor of DE442's own records (its
-  Earth's acceleration scatters by about 3×10⁻⁹ m/s²), felt through the
-  heliocentric frame.
-- **For comparison:** with the same Sun and Moon but the Earth at the
-  origin, `sixdof.js` matches sim B to 1 mm.
+Case 4 found two problems in the kernel, each fixed:
+- **The Earth table.** The first table held the Earth's position to 0.5 m,
+  but its acceleration rippled by 10⁻⁸ m/s² and jumped where its segments
+  met. That gave 0.62 m. It is now fitted through the Earth-Moon barycentre,
+  as JPL stores it ([DE442 in the app](ephemerides-and-gm.md#de442-in-the-app)),
+  which gave 0.12 m.
+- **Encke's frame.** That 0.12 m was the floor of DE442's own records: its
+  Earth's acceleration scatters by about 3×10⁻⁹ m/s² about the forces on
+  it, and Encke's method followed it. It does so by subtracting the
+  Earth's acceleration as the ephemeris gives it. Encke now subtracts the
+  force model's acceleration instead, so the Sun and the other bodies act
+  only by their tides ([Encke's method](nbody-kernel.md#enckes-method)).
+  That gives 5 mm.
+
+For comparison: with the same Sun and Moon but the Earth at the origin,
+`sixdof.js` matches sim B to 1 mm.
 
 ## Sources
 

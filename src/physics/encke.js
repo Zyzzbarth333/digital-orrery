@@ -12,17 +12,25 @@
 //
 // (Battin's form, which never subtracts two nearly equal accelerations), and
 //
-//   a_pert = -muSun r/|r|^3 - mu_P rP/|rP|^3
-//            + sum_{j != P} mu_j [ (r_j - r)/|r_j - r|^3 - r_j/|r_j|^3 ]
+//   a_pert = muSun (rP/|rP|^3 - r/|r|^3)
+//            + sum_{j != P} mu_j [ (r_j - r)/|r_j - r|^3 - (r_j - rP)/|r_j - rP|^3 ]
 //            + sum_j a_J2,j  (the primary's J2 too: zonal.js)
-//            + thrust - rP''(t),
+//            + thrust,
 //
-// the craft's heliocentric acceleration without P's direct pull, minus the
-// primary's acceleration rP'' from the same ephemeris that places it (the
-// second derivative of its Hermite cubic). So r = rP + rho obeys exactly the
-// Cowell kernel's equation r'' = a(r). (Using the force model's acceleration
-// for P instead leaves a fictitious force of ~1e-10 km/s^2: 23 km after 10
-// days at GEO.)
+// the craft's acceleration less the primary's, both from the force model:
+// each body acts only by its tide across rho (perturbationTidal). The
+// ephemeris places the primary and the other bodies, but its acceleration
+// never enters the motion about the primary. That matters: a Chebyshev
+// ephemeris holds position far better than acceleration (DE442's Earth
+// scatters by 3e-9 m/s^2 about the forces on it), and a craft in orbit about
+// the Earth would otherwise follow that scatter. On NASA's Sun-and-Moon
+// check case (nesc.test.mjs) this takes the kernel from 0.12 m to 5 mm
+// after 8 hours. The older form, { tidal: false }, subtracts instead the
+// primary's acceleration from the ephemeris (the second derivative of its
+// Hermite cubic), so r = rP + rho obeys exactly the Cowell kernel's
+// heliocentric equation; the two differ by the ephemeris's own fitting
+// noise. (With astronomy-engine's Earth, before the DE442 table, the
+// difference was ~1e-10 km/s^2: 23 km after 10 days at GEO.)
 //
 // The conic is carried from step to step with keplerStep (universal
 // variables, warm-started Newton), and re-anchored on the current state
@@ -66,9 +74,11 @@ const RECTIFY = 1e-4;
 const len3 = (x, y, z) => Math.sqrt(x * x + y * y + z * z);
 const SAFETY = 0.9;
 
-// Perturbation acceleration a_pert (above) at heliocentric craft position
-// c, primary P at rP with ephemeris acceleration aP, into out. thrustOut, if
-// given, receives the thrust part.
+// The older perturbation ({ tidal: false }): the craft's heliocentric
+// acceleration without P's direct pull, minus P's ephemeris acceleration aP,
+//   -muSun c/|c|^3 - mu_P rP/|rP|^3
+//   + sum_{j != P} mu_j [ (r_j - c)/|r_j - c|^3 - r_j/|r_j|^3 ] + J2 - aP,
+// at heliocentric craft position c, primary P at rP, into out.
 function perturbation(c, rP, aP, key, mu, bodies, muSun, out) {
   const c2 = c[0] * c[0] + c[1] * c[1] + c[2] * c[2];
   const p2 = rP[0] * rP[0] + rP[1] * rP[1] + rP[2] * rP[2];
@@ -87,6 +97,36 @@ function perturbation(c, rP, aP, key, mu, bodies, muSun, out) {
     const q2 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
     const ke = b.mu / (e2 * Math.sqrt(e2)), kj = b.mu / (q2 * Math.sqrt(q2));
     out[0] += ke * ex - kj * p[0]; out[1] += ke * ey - kj * p[1]; out[2] += ke * ez - kj * p[2];
+  }
+  return out;
+}
+
+// The same perturbation in tidal form: the craft's acceleration less the
+// primary's, both from the force model, so each body pulls only by its
+// tide across rho = c - rP:
+//   a_pert = muSun (rP/|rP|^3 - c/|c|^3)
+//            + sum_{j != P} mu_j [ (r_j - c)/|r_j - c|^3 - (r_j - rP)/|r_j - rP|^3 ]
+//            + sum_j a_J2,j(c)
+// (the indirect terms r_j/|r_j|^3 cancel). The ephemeris then only places
+// the primary and the other bodies; its acceleration, which carries the
+// fitting noise of its Chebyshev records (3e-9 m/s^2 for DE442's Earth),
+// never enters the motion about the primary.
+function perturbationTidal(c, rP, key, bodies, muSun, out) {
+  const c2 = c[0] * c[0] + c[1] * c[1] + c[2] * c[2];
+  const p2 = rP[0] * rP[0] + rP[1] * rP[1] + rP[2] * rP[2];
+  const kc = muSun / (c2 * Math.sqrt(c2)), kp = muSun / (p2 * Math.sqrt(p2));
+  out[0] = kp * rP[0] - kc * c[0]; out[1] = kp * rP[1] - kc * c[1]; out[2] = kp * rP[2] - kc * c[2];
+  for (let j = 0; j < bodies.length; j++) {
+    const b = bodies[j];
+    const p = b.r;
+    const ex = p[0] - c[0], ey = p[1] - c[1], ez = p[2] - c[2];
+    const e2 = ex * ex + ey * ey + ez * ez;
+    if (b.j2 && e2 < b.j2Cut2) addJ2(-ex, -ey, -ez, e2, b, out);
+    if (b.key === key) continue;
+    const fx = p[0] - rP[0], fy = p[1] - rP[1], fz = p[2] - rP[2];
+    const f2 = fx * fx + fy * fy + fz * fz;
+    const ke = b.mu / (e2 * Math.sqrt(e2)), kf = b.mu / (f2 * Math.sqrt(f2));
+    out[0] += ke * ex - kf * fx; out[1] += ke * ey - kf * fy; out[2] += ke * ez - kf * fz;
   }
   return out;
 }
@@ -122,14 +162,15 @@ function conicStep(r0, v0, dt, mu, rOut, vOut) {
 
 // opts: bodiesAt, muSun, tolKm (default 1e-7 km per step), hMax, eta
 // (other-body step fraction, default 0.01), maxSteps, breakpoints,
-// extraAccel(t, r, out, mid), sunRadius, primaryOf.
+// extraAccel(t, r, out, mid), sunRadius, primaryOf, tidal (default true:
+// the tidal perturbation above; false for the ephemeris form).
 // Returns { steps, events, complete, left }: left is true when the craft
 // left the primary's sphere of influence or the motion stopped being nearly
 // Keplerian; advance() then continues with the right integrator.
 export function advanceEncke(state, tEnd, opts) {
   const {
     bodiesAt, muSun, tolKm = 1e-7, hMax = 86400, eta = 0.01, maxSteps = 200000,
-    breakpoints = null, extraAccel = null, sunRadius = 695700, primaryOf,
+    breakpoints = null, extraAccel = null, sunRadius = 695700, primaryOf, tidal = true,
   } = opts;
   const key = state.primary;
   const bodies0 = () => bodiesAt(state.t);
@@ -150,7 +191,7 @@ export function advanceEncke(state, tEnd, opts) {
   const f = (t, yy, rr, out, rv) => {
     const bodies = bodiesAt(t);
     P.eph.position(t, rP);
-    P.eph.acceleration(t, aP);
+    if (!tidal) P.eph.acceleration(t, aP);
     const dx = yy[0], dy = yy[1], dz = yy[2];
     const rx = rr[0] + dx, ry = rr[1] + dy, rz = rr[2] + dz;
     const rr2 = rr[0] * rr[0] + rr[1] * rr[1] + rr[2] * rr[2];
@@ -159,7 +200,8 @@ export function advanceEncke(state, tEnd, opts) {
     const oneMinusG = q * (3 + 3 * q + q * q) / ((s32 + 1) * s32);
     const k = mu / (rr2 * Math.sqrt(rr2));
     cpos[0] = rP[0] + rx; cpos[1] = rP[1] + ry; cpos[2] = rP[2] + rz;
-    perturbation(cpos, rP, aP, key, mu, bodies, muSun, pert);
+    if (tidal) perturbationTidal(cpos, rP, key, bodies, muSun, pert);
+    else perturbation(cpos, rP, aP, key, mu, bodies, muSun, pert);
     if (extraAccel) {
       // The craft's heliocentric velocity, for burns steered relative to it:
       // the primary's, the reference conic's and the deviation's.

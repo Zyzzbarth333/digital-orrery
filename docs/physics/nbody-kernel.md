@@ -173,28 +173,42 @@ $$
 $$
 
 which never subtracts two nearly equal numbers. The perturbation is the
-craft's heliocentric acceleration without $P$'s direct pull, minus the
-primary's own acceleration:
+craft's acceleration less the primary's, both from the force model, so the
+Sun and every other body act only by their tides across
+$\boldsymbol\rho$ (the indirect terms cancel):
 
 $$
-\mathbf a_\text{pert} = -\mu_\odot\frac{\mathbf r}{|\mathbf r|^3}
-- \mu_P\frac{\mathbf r_P}{|\mathbf r_P|^3}
-+ \sum_{j\ne P}\mu_j\left[\frac{\mathbf r_j - \mathbf r}{|\mathbf r_j - \mathbf r|^3} - \frac{\mathbf r_j}{|\mathbf r_j|^3}\right]
-+ \mathbf a_\text{thrust} - \ddot{\mathbf r}_P .
+\mathbf a_\text{pert} = \mu_\odot\left[\frac{\mathbf r_P}{|\mathbf r_P|^3} - \frac{\mathbf r}{|\mathbf r|^3}\right]
++ \sum_{j\ne P}\mu_j\left[\frac{\mathbf r_j - \mathbf r}{|\mathbf r_j - \mathbf r|^3} - \frac{\mathbf r_j - \mathbf r_P}{|\mathbf r_j - \mathbf r_P|^3}\right]
++ \mathbf a_{J_2} + \mathbf a_\text{thrust} .
 $$
 
-$\ddot{\mathbf r}_P$ is taken from the same ephemeris that places $P$ (the
-second derivative of its Hermite cubic), so $\mathbf r = \mathbf r_P +
-\boldsymbol\rho$ obeys exactly the Cowell equation $\ddot{\mathbf r} =
-\mathbf a(\mathbf r)$. Using the force model's acceleration for $P$ instead
-leaves a fictitious force of about $10^{-10}$ km/s², which measured 23 km
-after 10 days at GEO.
+The ephemeris places $P$ and the other bodies, but its acceleration never
+enters the motion about $P$:
+- **Why it matters:** a Chebyshev ephemeris holds position far better than
+  acceleration. DE442's own Earth scatters by about $3\times10^{-9}$ m/s²
+  about the forces on it, and an orbit about the Earth would follow that.
+- **On NASA's check case:** with the Sun and Moon on, the kernel's low
+  orbit comes out 5 mm from NASA's tools after 8 hours in this form, and
+  0.12 m with the primary's acceleration taken from the ephemeris
+  ([6-DOF](sixdof.md#the-apps-kernel-on-the-same-cases)).
+- **The older form** (`tidal: false`) subtracts the primary's acceleration
+  from the ephemeris instead (the second derivative of its Hermite cubic).
+  Then $\mathbf r = \mathbf r_P + \boldsymbol\rho$ obeys exactly the
+  heliocentric Cowell equation $\ddot{\mathbf r} = \mathbf a(\mathbf r)$.
+  The two forms differ by the ephemeris's fitting noise. When the Earth
+  came from astronomy-engine that difference was about $10^{-10}$ km/s²
+  (23 km after 10 days at GEO), which is why the ephemeris form came
+  first.
+- **Cowell stays heliocentric,** so a fine Cowell run is no longer an exact
+  reference for Encke: they differ by that same noise (0.18 km after 10
+  days on a high orbit, `nbody.test.mjs`).
 
 **Steps.** $\boldsymbol\delta$ is advanced by Dormand–Prince 5(4) with error
 control: the step grows or shrinks so the embedded error estimate stays
 under `tolKm` (default $10^{-7}$ km per step) in position, and that over the
 local dynamical time in velocity. Steps end on the primary's ephemeris nodes
-(where $\ddot{\mathbf r}_P$ jumps), with the end stages a nanosecond inside
+(where the Hermite cubic changes), with the end stages a nanosecond inside
 the step so each uses the cubic of the interval it crosses; they are capped,
 as in Cowell, at 1 % of every other body's dynamical time, and at 1 % of the
 primary's on a conic whose periapsis is inside it, so impacts are caught as

@@ -12,8 +12,9 @@
 // ~/.cache/digital-orrery/nesc (needs the unzip command), then keeps, for
 // each case and tool, every hour of the states the test compares
 // (nesc.test.mjs), the tools' own pairwise differences over all samples,
-// and, for the drag cases, sim B's atmosphere density every 60 s (the MET
-// model that produced it is not public; the test uses NASA's density).
+// and, for the cases that record or use the MET atmosphere (5A to 5C and
+// the drag cases), sim B's density and temperature every 60 s, which
+// atmosphereMET.js is checked against.
 
 import fs from 'node:fs';
 import dns from 'node:dns';
@@ -24,7 +25,7 @@ const URL_ZIP = 'https://nescacademy.nasa.gov/src/flightsim/Datasets/Orbital_che
 const CACHE = `${process.env.HOME}/.cache/digital-orrery/nesc`;
 const CASES_DIR = `${CACHE}/cases/Orbital_checkcases`;
 const EVERY = 3600;                       // s between kept samples
-const DRAG = ['06B', '07C', '07D', '11'];  // cases whose drag uses the MET density
+const MET = ['05A', '05B', '05C', '06B', '07C', '07D', '11'];  // MET cases: atmosphere only, or drag in it
 
 if (!fs.existsSync(CASES_DIR)) {
   fs.mkdirSync(`${CACHE}/raw`, { recursive: true });
@@ -48,7 +49,7 @@ function readTool(file) {
       t: x[0], r: V(x, col, 'eiPosition_m_'), v: V(x, col, 'eiVelocity_m_s_'), ecef: V(x, col, 'gePosition_m_'),
       omega: ['Roll', 'Pitch', 'Yaw'].map((a) => x[col(`bodyAngularRateWrtEi_rad_s_${a}`)]),
       euler: ['Roll', 'Pitch', 'Yaw'].map((a) => x[col(`eulerAngleWrtEi_rad_${a}`)]),
-      alt: x[col('altitudeMsl_m')], rho: x[col('airDensity_kg_m3')], g: V(x, col, 'eiGravitation_m_s2_'),
+      alt: x[col('altitudeMsl_m')], rho: x[col('airDensity_kg_m3')], T: x[col('ambientTemperature_dgK')], g: V(x, col, 'eiGravitation_m_s2_'),
     };
   });
 }
@@ -75,7 +76,10 @@ for (const dir of fs.readdirSync(CASES_DIR).sort()) {
   const keep = (rows) => rows.filter((x) => Math.abs(x.t / EVERY - Math.round(x.t / EVERY)) * EVERY < 1e-3 && x.t <= 28800 + 1e-3)
     .map((x) => ({ t: sig(x.t), r: x.r.map(sig), v: x.v.map(sig), ecef: x.ecef.map(sig), omega: x.omega.map(sig), euler: x.euler.map(sig), alt: sig(x.alt), g: x.g.map(sig) }));
   out.cases[key] = { spread, tools: Object.fromEntries(letters.map((s) => [s, keep(tools[s])])) };
-  if (DRAG.includes(key)) out.cases[key].densityB = tools.B.filter((x) => x.t <= 28800 + 1e-3).map((x) => sig(x.rho));
+  if (MET.includes(key)) {
+    const B = tools.B.filter((x) => x.t <= 28800 + 1e-3), sig9 = (x) => Number(x.toPrecision(9));
+    out.cases[key].metB = { every: 60, rho: B.map((x) => sig9(x.rho)), T: B.map((x) => sig9(x.T)) };
+  }
   console.log(`${key.padEnd(4)} tools ${letters.join('')}, spread ${Object.entries(spread).map(([k, v]) => `${k} ${v.toPrecision(3)} m`).join(', ')}`);
 }
 const path = new URL('./fixtures/nesc_orbital.json', import.meta.url);

@@ -431,8 +431,10 @@ header("CASE 13: Encke's method near a primary, against a fine Cowell reference"
   // the Moon: 0.2 to 1.2 m over seven start times from 0 s to 3 days later
   // (point masses; 0.54 m here before ΔT was set from the leap seconds,
   // 1.20 m after). With J2 and Encke's tolerance at 1e-7 km it was 1.20 m,
-  // 0.54 m on the DE442 table, and 0.91 m once the table's Earth came from
-  // the Earth-Moon barycentre.
+  // 0.54 m on the DE442 table, 0.91 m once the table's Earth came from the
+  // Earth-Moon barycentre, and 0.77 m with Encke's tidal form (the
+  // reference here is heliocentric Cowell, which follows the ephemeris's
+  // acceleration noise, so neither is exact).
   check('LEO: Encke within 2 m of the reference after a day', dist(enk, ref) < 2e-3);
   check('LEO: Encke more accurate than default Cowell', dist(enk, ref) < dist(cow, ref));
   // With Earth's J2 the deviation from the reference conic grows ~100 times

@@ -29,7 +29,9 @@ they come from DE442 itself.
     table's Earth. NASA's Sun-and-Moon check case
     ([6-DOF](sixdof.md#the-apps-kernel-on-the-same-cases)) flown by the
     kernel was 0.62 m off after 8 hours on the old table and 0.12 m on
-    this one.
+    this one. The rest was DE442's own floor, which Encke's tidal form
+    keeps out of the motion about the Earth: 5 mm
+    ([Encke's method](nbody-kernel.md#enckes-method)).
 - **The file:** `public/ephemeris/de442-earth-moon-2000-2050.bin`, 1.4 MB
   (format 2).
 - **Accuracy:** checked between the fitting nodes against `spkezr_c`:
