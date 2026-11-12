@@ -46,3 +46,6 @@ kernels/
 !python/data/metakernel.tm
 
 node_modules/.vite/
+
+# CSPICE reference build output
+c/build/
