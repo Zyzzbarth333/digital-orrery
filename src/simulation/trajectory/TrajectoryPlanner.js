@@ -1137,7 +1137,8 @@ export class TrajectoryPlanner {
         tc.setDate(dep);
         this.simulation.updateBodyPositions();
       }
-      spacecraft = this.simulation.launchSpacecraft(spacecraftName, depBody, null, { vInfEqj });
+      const parkingAltitude = parseFloat(document.getElementById('departure-altitude').value) || 200;
+      spacecraft = this.simulation.launchSpacecraft(spacecraftName, depBody, null, { vInfEqj, parkingAltitude });
     } else {
       // Hohmann estimate: v_inf along the prograde (along-track, y) axis of
       // the RSW frame launchSpacecraft takes. It used to go on x (radial) and

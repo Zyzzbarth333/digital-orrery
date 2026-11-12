@@ -9,7 +9,7 @@ import { SpacecraftFactory } from './spacecraft/SpacecraftFactory.js';
 import { SpacecraftControlPanel } from '../ui/SpacecraftControlPanel.js';
 import { ManoeuvreManager } from './spacecraft/ManoeuvreNode.js';
 import { KernelClient } from './spacecraft/KernelClient.js';
-import { escapeStart } from './spacecraft/launch.js';
+import { escapeStart, departureHyperbola } from './spacecraft/launch.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
 import { 
   PLANETS,
@@ -890,8 +890,11 @@ export class SolarSystem {
   // Launch a craft from a planet. deltaV (radial, along-track, cross-track,
   // km/s) is the hyperbolic excess velocity relative to the planet; or pass
   // opts.vInfEqj, an inertial v_inf vector (heliocentric J2000 equatorial,
-  // km/s), as the planner does to fly a Lambert arc. The craft starts on the
-  // escape hyperbola (launch.js) from the planet's ephemeris state now.
+  // km/s), as the planner does to fly a Lambert arc. The craft starts at the
+  // periapsis of the departure hyperbola (launch.js departureHyperbola) on a
+  // circular parking orbit opts.parkingAltitude km up (default 200), in the
+  // lowest-inclination plane, from the planet's ephemeris state now. Zero
+  // v_inf, or a body without GM, uses the radial start (escapeStart).
   launchSpacecraft(name, fromBody, deltaV, opts = {}) {
     const launchBody = this.bodies.get(fromBody);
     if (!launchBody) {
@@ -915,12 +918,18 @@ export class SolarSystem {
       const vi = OrbitalMechanics.convertDeltaV(deltaV || new THREE.Vector3(0, 0, 0), posScene, velScene);
       vInfEqj = [vi.x, -vi.z, vi.y];
     }
-    const start = escapeStart({
-      planetR: planet.r, planetV: planet.v, vInf: vInfEqj,
-      mu: (GRAVITATIONAL_PARAMETERS[fromBody] || 0) / 1e9,
-      radius: PLANETS[fromBody]?.radius || 0,
-      muSun: GRAVITATIONAL_PARAMETERS.sun / 1e9,
-    });
+    const mu = (GRAVITATIONAL_PARAMETERS[fromBody] || 0) / 1e9;
+    const radius = PLANETS[fromBody]?.radius || 0;
+    const vInfMag = Math.hypot(vInfEqj[0], vInfEqj[1], vInfEqj[2]);
+    const start = (mu > 0 && radius > 0 && vInfMag > 1e-6)
+      ? departureHyperbola({
+        planetR: planet.r, planetV: planet.v, vInf: vInfEqj, mu,
+        rp: radius + (opts.parkingAltitude ?? 200),
+      })
+      : escapeStart({
+        planetR: planet.r, planetV: planet.v, vInf: vInfEqj, mu, radius,
+        muSun: GRAVITATIONAL_PARAMETERS.sun / 1e9,
+      });
     const position = new THREE.Vector3(start.r[0], start.r[2], -start.r[1]).multiplyScalar(1 / AU_TO_KM);
     const velocity = new THREE.Vector3(start.v[0], start.v[2], -start.v[1]);
     
