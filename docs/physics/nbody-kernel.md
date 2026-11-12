@@ -158,12 +158,20 @@ primary's on a conic whose periapsis is inside it, so impacts are caught as
 tightly as before. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
 the conic is re-anchored on the current state (rectification).
 
-**When it is used.** Encke pays only while the motion is nearly Keplerian,
-so the kernel chooses by the perturbation ratio
-$\varepsilon = |\mathbf a_\text{pert}|\,|\boldsymbol\rho|^2/\mu_P$: Encke below
-$10^{-5}$, Cowell above $3\times10^{-5}$ (the gap stops it flip-flopping).
-Low Earth orbit is about $10^{-7}$; GEO and beyond, where the Sun and Moon
-matter, and any craft under thrust are Cowell. On a high elliptical orbit
+**When it is used.** Encke pays only while the motion is nearly Keplerian.
+The kernel judges that by the size of the tides rather than their momentary
+value, which passes through zero twice an orbit as the geometry turns (at
+GEO it swings between $1.6\times10^{-6}$ and $6\times10^{-5}$ in a day and
+made the kernel switch integrators twice an orbit):
+
+$$
+\varepsilon = \frac{|\boldsymbol\rho|^2}{\mu_P}\left(\sum_j \frac{2\mu_j|\boldsymbol\rho|}{(d_j - |\boldsymbol\rho|)^3} + |\mathbf a_\text{thrust}|\right),
+$$
+
+over the Sun and every other body, $d_j$ its distance from the primary.
+Encke below $10^{-5}$, Cowell above $3\times10^{-5}$ (the gap stops it
+flip-flopping). Low Earth orbit is about $2\times10^{-7}$; GEO, at about
+$5\times10^{-5}$, and beyond, and any craft under thrust are Cowell. On a high elliptical orbit
 the kernel switches each revolution: Encke through perigee, Cowell near
 apogee. Leaving the sphere of influence returns the craft to Cowell as
 before.

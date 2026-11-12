@@ -32,10 +32,13 @@
 // inside the primary by 1 % of the primary's, so the end-of-step impact check
 // is as tight as in the Cowell kernel.
 //
-// Encke pays only while the motion is nearly Keplerian. The kernel uses it
-// while the perturbation ratio |a_pert| / (mu / |rho|^2) is below ENCKE_IN
-// and returns to Cowell above ENCKE_OUT (hysteresis): low orbits (~1e-7) are
-// Encke, GEO and beyond (~5e-5 and up) and any thrusting craft are Cowell.
+// Encke pays only while the motion is nearly Keplerian. The kernel judges
+// that by the size of the tides, not their momentary value (which passes
+// through zero twice an orbit as the geometry turns): the ratio
+//   ( sum_j 2 mu_j rho / (d_j - rho)^3 + |thrust| ) / (mu / rho^2)
+// over the Sun and every other body, d_j its distance from the primary.
+// Encke below ENCKE_IN, Cowell above ENCKE_OUT (hysteresis): low Earth orbit
+// ~2e-7 is Encke; GEO ~5e-5 and beyond, and thrusting craft, are Cowell.
 
 import { keplerStep, propagate } from './orbital.js';
 
@@ -57,6 +60,8 @@ const E = [71 / 57600, 0, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 
 export const ENCKE_IN = 1e-5;
 export const ENCKE_OUT = 3e-5;
 const RECTIFY = 1e-4;
+// Math.hypot is several times slower than this in V8, and runs per stage.
+const len3 = (x, y, z) => Math.sqrt(x * x + y * y + z * z);
 const SAFETY = 0.9;
 
 // Perturbation acceleration a_pert (above) at heliocentric craft position
@@ -82,14 +87,26 @@ function perturbation(c, rP, aP, key, mu, bodies, muSun, out) {
   return out;
 }
 
-// |a_pert| / (mu / |rho|^2) for a heliocentric state r at time t, thrust
-// included. Used by advance() to choose between Encke and Cowell.
+// The tidal ratio (above) at distance rho from the primary at rP.
+function tideRatio(rho, rP, key, mu, bodies, muSun, thrustMag) {
+  const dS = Math.max(len3(rP[0], rP[1], rP[2]) - rho, 1);
+  let tide = 2 * muSun * rho / (dS * dS * dS);
+  for (let j = 0; j < bodies.length; j++) {
+    const b = bodies[j];
+    if (b.key === key) continue;
+    const d = Math.max(len3(b.r[0] - rP[0], b.r[1] - rP[1], b.r[2] - rP[2]) - rho, 1);
+    tide += 2 * b.mu * rho / (d * d * d);
+  }
+  return (tide + thrustMag) * rho * rho / mu;
+}
+
+// The tidal ratio for a heliocentric state r at time t, thrust included.
+// Used by advance() to choose between Encke and Cowell.
 export function perturbationRatio(r, t, P, bodies, muSun, thrust = null) {
-  const rP = P.eph.position(t), aP = P.eph.acceleration(t);
-  const a = perturbation(r, rP, aP, P.key, P.mu, bodies, muSun, [0, 0, 0]);
-  if (thrust) { a[0] += thrust[0]; a[1] += thrust[1]; a[2] += thrust[2]; }
-  const d2 = (r[0] - rP[0]) ** 2 + (r[1] - rP[1]) ** 2 + (r[2] - rP[2]) ** 2;
-  return Math.hypot(a[0], a[1], a[2]) * d2 / P.mu;
+  const rP = P.eph.position(t);
+  const rho = len3(r[0] - rP[0], r[1] - rP[1], r[2] - rP[2]);
+  const th = thrust ? len3(thrust[0], thrust[1], thrust[2]) : 0;
+  return tideRatio(rho, rP, P.key, P.mu, bodies, muSun, th);
 }
 
 function conicStep(r0, v0, dt, mu, rOut, vOut) {
@@ -123,7 +140,7 @@ export function advanceEncke(state, tEnd, opts) {
   const y = [0, 0, 0, 0, 0, 0];
 
   const extra = [0, 0, 0], pert = [0, 0, 0], cpos = [0, 0, 0];
-  let mid = state.t, lastRatio = 0;
+  let mid = state.t, lastThrust = 0;
   // d/dt of [delta, delta'] at time t, with the conic at rr.
   const f = (t, yy, rr, out) => {
     const bodies = bodiesAt(t);
@@ -133,7 +150,7 @@ export function advanceEncke(state, tEnd, opts) {
     const rx = rr[0] + dx, ry = rr[1] + dy, rz = rr[2] + dz;
     const rr2 = rr[0] * rr[0] + rr[1] * rr[1] + rr[2] * rr[2];
     const q = (dx * (dx + 2 * rr[0]) + dy * (dy + 2 * rr[1]) + dz * (dz + 2 * rr[2])) / rr2;
-    const s32 = Math.pow(1 + q, 1.5);
+    const s32 = (1 + q) * Math.sqrt(1 + q);
     const oneMinusG = q * (3 + 3 * q + q * q) / ((s32 + 1) * s32);
     const k = mu / (rr2 * Math.sqrt(rr2));
     cpos[0] = rP[0] + rx; cpos[1] = rP[1] + ry; cpos[2] = rP[2] + rz;
@@ -142,8 +159,7 @@ export function advanceEncke(state, tEnd, opts) {
       extraAccel(t, cpos, extra, mid);
       pert[0] += extra[0]; pert[1] += extra[1]; pert[2] += extra[2];
     }
-    const rho2 = rx * rx + ry * ry + rz * rz;
-    lastRatio = Math.hypot(pert[0], pert[1], pert[2]) * rho2 / mu;
+    lastThrust = extraAccel ? len3(extra[0], extra[1], extra[2]) : 0;
     out[0] = yy[3]; out[1] = yy[4]; out[2] = yy[5];
     out[3] = k * (oneMinusG * rx - dx) + pert[0];
     out[4] = k * (oneMinusG * ry - dy) + pert[1];
@@ -159,7 +175,7 @@ export function advanceEncke(state, tEnd, opts) {
   const SR = Array.from({ length: 7 }, () => [0, 0, 0]);   // conic position at each stage
   const nR = [0, 0, 0], nV = [0, 0, 0];                     // conic at the step's end
   const yt = [0, 0, 0, 0, 0, 0];
-  let rhoN = Math.hypot(cR[0], cR[1], cR[2]);
+  let rhoN = len3(cR[0], cR[1], cR[2]);
   let h = Math.min(hMax, 0.01 * Math.sqrt(rhoN ** 3 / mu));
   let fsal = false;
   const D = P.eph.spacing;
@@ -172,10 +188,10 @@ export function advanceEncke(state, tEnd, opts) {
   const refreshSoi = () => {
     const bs = bodiesAt(state.t);
     const p = bs.find((b) => b.key === key);
-    soiP = Math.hypot(p.r[0], p.r[1], p.r[2]) * Math.pow(mu / muSun, 0.4);
+    soiP = len3(p.r[0], p.r[1], p.r[2]) * Math.pow(mu / muSun, 0.4);
     soiKids = kids.map((k) => {
       const b = bs.find((x) => x.key === k.key);
-      return Math.hypot(b.r[0] - p.r[0], b.r[1] - p.r[1], b.r[2] - p.r[2]) * Math.pow(b.mu / mu, 0.4);
+      return len3(b.r[0] - p.r[0], b.r[1] - p.r[1], b.r[2] - p.r[2]) * Math.pow(b.mu / mu, 0.4);
     });
     soiAge = 0;
   };
@@ -196,7 +212,7 @@ export function advanceEncke(state, tEnd, opts) {
       const vx = cV[0] + y[3], vy = cV[1] + y[4], vz = cV[2] + y[5];
       const hx = ry * vz - rz * vy, hy = rz * vx - rx * vz, hz = rx * vy - ry * vx;
       const h2 = hx * hx + hy * hy + hz * hz;
-      const rn = Math.hypot(rx, ry, rz);
+      const rn = len3(rx, ry, rz);
       const energy = 0.5 * (vx * vx + vy * vy + vz * vz) - mu / rn;
       const ecc = Math.sqrt(Math.max(0, 1 + 2 * energy * h2 / (mu * mu)));
       if (P.radius > 0 && (h2 / mu) / (1 + ecc) < P.radius) cap = Math.min(cap, 0.01 * Math.sqrt(rn ** 3 / mu));
@@ -255,14 +271,14 @@ export function advanceEncke(state, tEnd, opts) {
       state.r[i] = rP[i] + cR[i] + y[i];
       state.v[i] = vP[i] + cV[i] + y[3 + i];
     }
-    rhoN = Math.hypot(cR[0] + y[0], cR[1] + y[1], cR[2] + y[2]);
-    const ratio = lastRatio;                    // from stage 6, at the step's end
+    rhoN = len3(cR[0] + y[0], cR[1] + y[1], cR[2] + y[2]);
+    const ratio = tideRatio(rhoN, rP, key, mu, bodiesAt(state.t), muSun, lastThrust);
 
     // On a node or a burn edge the acceleration jumps: the stored first
     // stage (taken just inside the step that ended) is stale.
     if (last && state.t !== tEnd) { mid = state.t + 1e-9 * dir; fsal = false; }
 
-    if (Math.hypot(y[0], y[1], y[2]) > RECTIFY * rhoN) {
+    if (len3(y[0], y[1], y[2]) > RECTIFY * rhoN) {
       for (let i = 0; i < 3; i++) { cR[i] += y[i]; cV[i] += y[3 + i]; }
       y.fill(0);
       fsal = false;
