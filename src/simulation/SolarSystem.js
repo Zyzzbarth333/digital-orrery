@@ -13,7 +13,8 @@ import {
   VISUAL_SETTINGS,
   AU_TO_KM,
   SECONDS_PER_MINUTE,
-  DELTA_V
+  DELTA_V,
+  GRAVITATIONAL_PARAMETERS
 } from '../utils/constants.js';
 
 /* ===================================
@@ -895,22 +896,26 @@ export class SolarSystem {
     // Calculate the planet's orbital velocity
     const planetVelocity = this.calculateOrbitalVelocity(launchBody);
     
-    // Offset the launch position
-    if (planetVelocity.length() > 0) {
-      const launchDirection = planetVelocity.clone().normalize();
-      const launchOffset = 0.00005; // AU
-      position.add(launchDirection.multiplyScalar(launchOffset));
-    }
-    
-    // Convert delta-v from RSW to inertial coordinates
-    const deltaV_inertial = OrbitalMechanics.convertDeltaV(
+    // The delta-v (radial, along-track, cross-track) is the hyperbolic excess
+    // velocity v_inf the craft should leave the planet with. The kernel applies
+    // the planet's gravity, so the craft starts on that escape hyperbola at the
+    // edge of the planet's sphere of influence, on the outbound asymptote, with
+    // the speed energy conservation gives there: sqrt(v_inf^2 + 2 mu / R).
+    // The planet then slows it to v_inf as it climbs out.
+    const vInf = OrbitalMechanics.convertDeltaV(
       deltaV || new THREE.Vector3(0, 0, 0),
       position,
       planetVelocity
     );
-    
-    // Add the delta-v to planet's velocity
-    const velocity = planetVelocity.clone().add(deltaV_inertial);
+    const muPlanet = (GRAVITATIONAL_PARAMETERS[fromBody] || 0) / 1e9;   // km^3/s^2
+    const muSun = GRAVITATIONAL_PARAMETERS.sun / 1e9;
+    const soiKm = position.length() * AU_TO_KM * Math.pow(muPlanet / muSun, 0.4);
+    const outward = vInf.lengthSq() > 0
+      ? vInf.clone().normalize()
+      : planetVelocity.clone().normalize();
+    const speed = Math.sqrt(vInf.lengthSq() + (soiKm > 0 ? 2 * muPlanet / soiKm : 0));
+    position.add(outward.clone().multiplyScalar(soiKm / AU_TO_KM));
+    const velocity = planetVelocity.clone().add(outward.multiplyScalar(speed));
     
     // *** CREATE ENHANCED SPACECRAFT ***
     const systemConfig = {
@@ -1012,8 +1017,13 @@ export class SolarSystem {
     
     // Update spacecraft
     if (!this.timeController.isPaused && deltaTime) {
+      const now = this.timeController.currentDate;
       this.spacecraft.forEach(craft => {
-        craft.update(deltaTime, this.bodies);
+        craft.update(deltaTime, this.bodies, now);
+        if (craft.crashed && !craft.crashNotified) {
+          craft.crashNotified = true;
+          this.showNotification(`${craft.name} impacted ${craft.primaryBody ?? 'a body'}`);
+        }
       });
     }
     
