@@ -361,6 +361,59 @@ header('CASE 12: kernel GMs match SPICE (DE442), with system GMs at barycentres'
   check('giant planets use system GMs (moons included)', moons.every((x) => x > 1e-4));
 }
 
+header("CASE 13: Encke's method near a primary, against a fine Cowell reference");
+{
+  // Reference: the Cowell kernel with a 20x finer step (4th order: ~1.6e5x
+  // smaller error). Encke must match it more closely than the default Cowell
+  // run does, in far fewer steps, and hand over to Cowell where the motion
+  // stops being nearly Keplerian.
+  const sys = solarSystemBodies({ epochMs: Date.UTC(2026, 10, 12) });
+  const E = sys.bodiesAt(0).find((b) => b.key === 'earth');
+  const rE = E.eph.position(0), vE = E.eph.velocity(0), MU = E.mu;
+  const opts = { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 5e7 };
+  const run = (r, v, T, o) => { const st = createState(r, v, 0); const res = advance(st, T, { ...opts, ...o }); return { st, res }; };
+  const dist = (a, b) => Math.hypot(a.st.r[0] - b.st.r[0], a.st.r[1] - b.st.r[1], a.st.r[2] - b.st.r[2]);
+
+  // Low Earth orbit, 400 km, inclined, one day.
+  const R = 6778, V = Math.sqrt(MU / R);
+  const r0 = [rE[0] + R, rE[1], rE[2]], v0 = [vE[0], vE[1] + V * Math.cos(0.4), vE[2] + V * Math.sin(0.4)];
+  const ref = run(r0, v0, DAY, { encke: false, eta: 0.0005 });
+  const cow = run(r0, v0, DAY, { encke: false });
+  const enk = run(r0, v0, DAY, {});
+  console.log(`  LEO 1 day: Cowell ${cow.res.steps} steps, ${(dist(cow, ref) * 1000).toFixed(1)} m; Encke ${enk.res.steps} steps, ${(dist(enk, ref) * 1000).toFixed(2)} m`);
+  check('LEO: Encke within 1 m of the reference after a day', dist(enk, ref) < 1e-3);
+  check('LEO: Encke more accurate than default Cowell', dist(enk, ref) < dist(cow, ref));
+  check('LEO: Encke takes under 1/10 of the Cowell steps', enk.res.steps * 10 < cow.res.steps);
+
+  // Back again: a day backwards returns to the start.
+  const back = createState(enk.st.r, enk.st.v, DAY);
+  advance(back, 0, opts);
+  const ret = Math.hypot(back.r[0] - r0[0], back.r[1] - r0[1], back.r[2] - r0[2]);
+  console.log(`  LEO forward then back a day: ${(ret * 1000).toFixed(2)} m from the start`);
+  check('LEO: forward then backward a day returns within 1 m', ret < 1e-3);
+
+  // High orbit, perigee 300 km, apogee at the Moon's distance: Encke near
+  // perigee, Cowell where the Sun and Moon matter (perturbation ratio).
+  const ra = 386678, rp = 6678;
+  const h0 = [rE[0] + rp, rE[1], rE[2]], hv = [vE[0], vE[1] + Math.sqrt(2 * MU * ra / (rp * (rp + ra))), vE[2]];
+  const href = run(h0, hv, 10 * DAY, { encke: false, eta: 0.0005 });
+  const hcow = run(h0, hv, 10 * DAY, { encke: false });
+  const henk = run(h0, hv, 10 * DAY, {});
+  console.log(`  HEO 10 days: Cowell ${hcow.res.steps} steps, ${dist(hcow, href).toFixed(2)} km; hybrid ${henk.res.steps} steps, ${dist(henk, href).toFixed(3)} km`);
+  check('HEO: hybrid at least 5x more accurate than default Cowell, in no more steps',
+    dist(henk, href) * 5 < dist(hcow, href) && henk.res.steps <= hcow.res.steps);
+
+  // A suborbital path (periapsis 3,000 km below the surface) still hits, at
+  // the same time as in the Cowell kernel to within a step.
+  const s0 = [rE[0] + 6678, rE[1], rE[2]], sv = [vE[0] - 0.5, vE[1] + 6.2, vE[2]];
+  const scow = run(s0, sv, DAY, { encke: false });
+  const senk = run(s0, sv, DAY, {});
+  const ic = scow.res.events.find((e) => e.type === 'impact'), ie = senk.res.events.find((e) => e.type === 'impact');
+  console.log(`  suborbital: impact at ${ic && ic.t.toFixed(1)} s (Cowell), ${ie && ie.t.toFixed(1)} s (hybrid)`);
+  check('suborbital: the hybrid reports the impact on Earth within 2 s of Cowell',
+    ic && ie && ie.body === 'earth' && Math.abs(ie.t - ic.t) < 2);
+}
+
 console.log('='.repeat(60));
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);

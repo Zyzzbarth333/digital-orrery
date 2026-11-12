@@ -25,6 +25,11 @@
 // The step is eta times the shortest local dynamical time sqrt(d^3/mu) over
 // the Sun and every body, so it shrinks near a planet and grows in cruise.
 //
+// Inside a body's sphere of influence, while the motion is nearly Keplerian,
+// advance() hands the craft to Encke's method (encke.js): the two-body conic
+// is followed exactly and only the deviation is integrated, with error
+// control, in far fewer steps.
+//
 // Events: an impact (closer to the Sun or a body than its radius) stops the
 // advance; a change of primary (the body whose sphere of influence holds the
 // craft) is reported and the advance continues.
@@ -33,6 +38,8 @@
 // runs out the advance stops short of tEnd and says so (complete: false), and
 // the caller continues from state.t next time. A stretched step near a planet
 // can pass straight through it.
+
+import { advanceEncke, perturbationRatio, ENCKE_IN } from './encke.js';
 
 const W_CBRT2 = Math.cbrt(2.0);
 const YOSHIDA_W1 = 1.0 / (2.0 - W_CBRT2);
@@ -143,10 +150,54 @@ export function primaryOf(r, bodies, muSun) {
 //               inside it, so it switches on and off at exact times rather
 //               than at whichever stage time happens to straddle the edge.
 //
+//   encke       (default true) inside a body's sphere of influence, while
+//               the motion is nearly Keplerian (perturbation ratio below
+//               ENCKE_IN), use Encke's method with error-controlled steps
+//               (encke.js). Needs bodies with a Hermite ephemeris; off for
+//               fixedStep and 'leapfrog'.
+//   tolKm       Encke's per-step position tolerance (default 1e-6 km)
+//
 // Returns { steps, events, complete }. complete is false when the budget ran
 // out (state.t is then short of tEnd) or an impact stopped the advance.
 // events holds { type: 'impact', body, t } and { type: 'primary', from, to, t }.
 export function advance(state, tEnd, opts) {
+  const { bodiesAt, muSun, method = 'yoshida4', fixedStep = null, maxSteps = 200000 } = opts;
+  const useEncke = opts.encke !== false && !fixedStep && method === 'yoshida4';
+  if (!useEncke) return advanceCowell(state, tEnd, opts, false);
+  if (state.primary === null) state.primary = primaryOf(state.r, bodiesAt(state.t), muSun);
+  const dir = tEnd >= state.t ? 1 : -1;
+  let steps = 0;
+  const events = [];
+  for (;;) {
+    const sub = { ...opts, maxSteps: maxSteps - steps, primaryOf };
+    const res = enckeSuits(state, opts, dir)
+      ? advanceEncke(state, tEnd, sub)
+      : advanceCowell(state, tEnd, sub, true);
+    steps += res.steps;
+    events.push(...res.events);
+    if (!res.left) return { steps, events, complete: res.complete };
+    if (dir * (tEnd - state.t) <= 0) return { steps, events, complete: true };
+  }
+}
+
+// Whether Encke's method suits the craft now: inside a body's sphere of
+// influence, with an ephemeris that has accelerations, and nearly Keplerian
+// motion (thrust counts as a perturbation, so a burning craft is Cowell).
+function enckeSuits(state, opts, dir) {
+  if (state.primary === 'sun' || state.primary === null) return false;
+  const bodies = opts.bodiesAt(state.t);
+  const P = bodies.find((b) => b.key === state.primary);
+  if (!P || !P.eph || !P.eph.acceleration) return false;
+  let thrust = null;
+  if (opts.extraAccel) { thrust = [0, 0, 0]; opts.extraAccel(state.t, state.r, thrust, state.t + 1e-9 * dir); }
+  return perturbationRatio(state.r, state.t, P, bodies, opts.muSun, thrust) < ENCKE_IN;
+}
+
+// The heliocentric (Cowell) integrator. With stopOnEntry, it returns
+// { left: true } as soon as Encke's method suits the craft (it has entered a
+// body's sphere of influence on a nearly Keplerian path), so advance() can
+// switch to it.
+function advanceCowell(state, tEnd, opts, stopOnEntry) {
   const {
     bodiesAt, muSun, method = 'yoshida4', eta = 0.01, hMax = 86400.0,
     fixedStep = null, maxSteps = 200000, extraAccel = null, sunRadius = 695700.0,
@@ -224,10 +275,16 @@ export function advance(state, tEnd, opts) {
         return { steps, events, complete: false };
       }
     }
+    const prevPrimary = state.primary;
     const p = primaryOf(r, now, muSun);
     if (p !== state.primary) {
       events.push({ type: 'primary', from: state.primary, to: p, t: state.t });
       state.primary = p;
+    }
+    // Whether Encke now suits: checked every 16 steps (the ratio changes
+    // slowly, and the check costs about as much as a step).
+    if (stopOnEntry && state.primary !== 'sun' && (p !== prevPrimary || steps % 16 === 0) && enckeSuits(state, opts, dir)) {
+      return { steps, events, complete: dir * (tEnd - state.t) <= 0, left: true };
     }
   }
   return { steps, events, complete: true };
@@ -276,6 +333,39 @@ export class HermiteEphemeris {
     const h01 = -2 * s3 + 3 * s2, h11 = s3 - s2;
     for (let i = 0; i < 3; i++) {
       out[i] = h00 * n0.r[i] + h10 * D * n0.v[i] + h01 * n1.r[i] + h11 * D * n1.v[i];
+    }
+    return out;
+  }
+
+  // Acceleration at time t: the second derivative of the same cubic
+  // (linear within an interval). Encke's method subtracts this from the
+  // craft's acceleration, so the craft moves relative to the primary exactly
+  // as the Cowell kernel's does relative to the same ephemeris.
+  acceleration(t, out = [0, 0, 0]) {
+    const D = this.spacing;
+    const k = Math.floor(t / D);
+    const s = t / D - k;
+    const n0 = this.node(k), n1 = this.node(k + 1);
+    const a00 = 12 * s - 6, a10 = 6 * s - 4, a01 = -12 * s + 6, a11 = 6 * s - 2;
+    for (let i = 0; i < 3; i++) {
+      out[i] = (a00 * n0.r[i] + a01 * n1.r[i]) / (D * D) + (a10 * n0.v[i] + a11 * n1.v[i]) / D;
+    }
+    return out;
+  }
+
+  // Velocity at time t: the derivative of the same cubic, so it matches
+  // position() exactly (continuous across nodes, equal to the node
+  // velocities at the nodes).
+  velocity(t, out = [0, 0, 0]) {
+    const D = this.spacing;
+    const k = Math.floor(t / D);
+    const s = t / D - k;
+    const n0 = this.node(k), n1 = this.node(k + 1);
+    const s2 = s * s;
+    const d00 = 6 * s2 - 6 * s, d10 = 3 * s2 - 4 * s + 1;
+    const d01 = -6 * s2 + 6 * s, d11 = 3 * s2 - 2 * s;
+    for (let i = 0; i < 3; i++) {
+      out[i] = (d00 * n0.r[i] + d01 * n1.r[i]) / D + d10 * n0.v[i] + d11 * n1.v[i];
     }
     return out;
   }
