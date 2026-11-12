@@ -310,6 +310,17 @@ export class HermiteEphemeris {
     this.spacing = spacing;
     this.maxNodes = maxNodes;
     this.nodes = new Map();
+    // The interval used last: most calls stay in it, so they skip the map.
+    this.lastK = NaN; this.lastN0 = null; this.lastN1 = null;
+  }
+
+  // Nodes k and k+1 (the interval [k, k+1] in units of spacing).
+  pair(k) {
+    if (k !== this.lastK) {
+      this.lastN0 = this.node(k);
+      this.lastN1 = this.node(k + 1);
+      this.lastK = k;
+    }
   }
 
   node(k) {
@@ -327,7 +338,8 @@ export class HermiteEphemeris {
     const D = this.spacing;
     const k = Math.floor(t / D);
     const s = t / D - k;
-    const n0 = this.node(k), n1 = this.node(k + 1);
+    this.pair(k);
+    const n0 = this.lastN0, n1 = this.lastN1;
     const s2 = s * s, s3 = s2 * s;
     const h00 = 2 * s3 - 3 * s2 + 1, h10 = s3 - 2 * s2 + s;
     const h01 = -2 * s3 + 3 * s2, h11 = s3 - s2;
@@ -345,7 +357,8 @@ export class HermiteEphemeris {
     const D = this.spacing;
     const k = Math.floor(t / D);
     const s = t / D - k;
-    const n0 = this.node(k), n1 = this.node(k + 1);
+    this.pair(k);
+    const n0 = this.lastN0, n1 = this.lastN1;
     const a00 = 12 * s - 6, a10 = 6 * s - 4, a01 = -12 * s + 6, a11 = 6 * s - 2;
     for (let i = 0; i < 3; i++) {
       out[i] = (a00 * n0.r[i] + a01 * n1.r[i]) / (D * D) + (a10 * n0.v[i] + a11 * n1.v[i]) / D;
@@ -360,7 +373,8 @@ export class HermiteEphemeris {
     const D = this.spacing;
     const k = Math.floor(t / D);
     const s = t / D - k;
-    const n0 = this.node(k), n1 = this.node(k + 1);
+    this.pair(k);
+    const n0 = this.lastN0, n1 = this.lastN1;
     const s2 = s * s;
     const d00 = 6 * s2 - 6 * s, d10 = 3 * s2 - 4 * s + 1;
     const d01 = -6 * s2 + 6 * s, d11 = 3 * s2 - 2 * s;

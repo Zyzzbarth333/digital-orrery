@@ -23,24 +23,27 @@ const E = sys.bodiesAt(0).find((b) => b.key === 'earth');
 const rE = E.eph.position(0), vE = E.eph.velocity(0), MU = E.mu, DAY = 86400;
 const orbit = (R, inc) => [[rE[0] + R, rE[1], rE[2]], [vE[0], vE[1] + Math.sqrt(MU / R) * Math.cos(inc), vE[2] + Math.sqrt(MU / R) * Math.sin(inc)]];
 const scenarios = [
-  ['low Earth orbit (400 km)', ...orbit(6778, 0.4), DAY],
-  ['GEO', ...orbit(42164, 0), 10 * DAY],
-  ['heliocentric cruise', [rE[0] + 3e6, rE[1], rE[2]], [vE[0], vE[1] + 3, vE[2]], 30 * DAY],
+  ["low Earth orbit (400 km)", ...orbit(6778, 0.4)],
+  ["GEO", ...orbit(42164, 0)],
+  ["heliocentric cruise", [rE[0] + 3e6, rE[1], rE[2]], [vE[0], vE[1] + 3, vE[2]]],
 ];
-for (const [name, r, v, T] of scenarios) {
-  const rate = (o) => {
-    let best = Infinity, steps = 0;
-    for (let k = 0; k < 4; k++) {
-      const st = createState(r, v, 0);
-      // CPU time of this process, so other load on the machine skews it less.
-      const c0 = process.cpuUsage();
-      steps = advance(st, T, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e8, ...o }).steps;
-      const c1 = process.cpuUsage(c0);
-      best = Math.min(best, (c1.user + c1.system) / 1000);
-    }
-    return { days: (T / DAY) / (best / 1000), steps: steps / (T / DAY) };
-  };
-  const c = rate({ encke: false }), e = rate({});
-  console.log(`kernel ${name.padEnd(26)} Cowell ${c.days.toFixed(0).padStart(6)} sim days/s (${c.steps.toFixed(0)} steps/day)` +
-    ` | hybrid ${e.days.toFixed(0).padStart(6)} sim days/s (${e.steps.toFixed(0)} steps/day)`);
+// Steady forward running, as in the app: the clock always moves into new
+// days, so ephemeris nodes are fetched as it goes. Advance 90 days in 10-day
+// chunks and report the median of the last five (after V8 has compiled the
+// hot code), as CPU time of this process (other load skews it less).
+const steady = (r, v, o) => {
+  const st = createState(r, v, 0);
+  const perDay = [];
+  for (let c = 0; c < 9; c++) {
+    const c0 = process.cpuUsage();
+    advance(st, st.t + 10 * DAY, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e8, ...o });
+    const u = process.cpuUsage(c0);
+    perDay.push((u.user + u.system) / 1000 / 10);
+  }
+  const tail = perDay.slice(4).sort((a, b) => a - b);
+  return 1000 / tail[2];                       // sim days per CPU second
+};
+for (const [name, r, v] of scenarios) {
+  const c = steady(r, v, { encke: false }), e = steady(r, v, {});
+  console.log(`kernel ${name.padEnd(26)} Cowell ${c.toFixed(0).padStart(7)} sim days/s | hybrid ${e.toFixed(0).padStart(7)} sim days/s`);
 }
