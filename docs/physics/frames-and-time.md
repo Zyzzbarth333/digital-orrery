@@ -43,15 +43,15 @@ measured from the ecliptic.
 
 ### Scene frame (rendering only)
 
-three.js is $y$-up, and the scene draws EQJ in AU with
+three.js is $y$-up. The scene draws the **ecliptic** frame with ecliptic north
+up, in units of 1000 km, relative to the camera (a floating origin):
 
 $$
-(x, y, z)_\text{scene} = \frac{1}{\text{AU}}\,(x, z, -y)_\text{EQJ},
-\qquad \text{AU} = 149\,597\,870.7\ \text{km (IAU 2012)}.
+(x, y, z)_\text{render} = \frac{1}{1000\ \text{km}}\,(x, z, -y)_\text{ecliptic} - \text{camera}.
 $$
 
-Velocities use the same axis map without the AU scaling. Nothing in
-`src/physics/` uses scene coordinates.
+Velocities use the same axis map without the scaling. Nothing in
+`src/physics/` uses scene coordinates; see [the 3D scene](../frontend/scene.md).
 
 ## Centre: the Sun now, the solar-system barycentre next
 

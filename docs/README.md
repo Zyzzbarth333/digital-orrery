@@ -14,6 +14,12 @@ they come from, and how each part is checked.
 | [The n-body kernel](physics/nbody-kernel.md) | Force model and indirect term, leapfrog and Yoshida, step size, budget, events, Hermite interpolation, the Web Worker and drawing |
 | [Burns, launches and the porkchop](physics/burns-and-launch.md) | Finite burns and the rocket equation, manoeuvre nodes, the departure hyperbola, C3 and porkchop grids |
 
+## Front end
+
+| Page | Covers |
+| --- | --- |
+| [The 3D scene](frontend/scene.md) | True scale, the render frame, the floating origin, camera, orbit lines, lighting, time |
+
 ## Checks
 
 [Validation](validation.md): every check, its reference and the measured
