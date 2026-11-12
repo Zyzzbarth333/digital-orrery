@@ -1,10 +1,26 @@
 // src/simulation/spacecraft/BaseSpacecraft.js
 import * as THREE from 'three';
 import { 
-  G, AU_TO_METERS, AU_TO_KM, SECONDS_PER_DAY,
+  AU_TO_KM, SECONDS_PER_DAY,
   SPACECRAFT_DEFAULTS, GRAVITATIONAL_PARAMETERS, VISUAL_SETTINGS
 } from '../../utils/constants.js';
 import { OrbitalMechanics } from '../OrbitalMechanics.js';
+import { advance, createState, accelHeliocentric } from '../../physics/nbody.js';
+import { solarSystemBodies } from '../../physics/bodies.js';
+
+// One body set (planets and Moon, interpolated astronomy-engine states) shared
+// by every spacecraft. Kernel time is seconds from J2000 (UTC 2000-01-01 12:00).
+const KERNEL_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
+let kernelBodies = null;
+function getKernelBodies() {
+  if (!kernelBodies) kernelBodies = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  return kernelBodies;
+}
+
+// The scene is three.js y-up with astronomy-engine's EQJ axes mapped as
+// (x, z, -y); the kernel works in EQJ km. These convert between the two.
+function sceneToEqj(v, scale = 1) { return [v.x * scale, -v.z * scale, v.y * scale]; }
+function eqjToScene(a, target, scale = 1) { return target.set(a[0] * scale, a[2] * scale, -a[1] * scale); }
 import { SpacecraftSystems } from './SpacecraftSystems.js';
 import { ManoeuvreNode } from './ManoeuvreNode.js';
 
@@ -258,7 +274,8 @@ export class BaseSpacecraft {
      UNIFIED UPDATE METHOD
      =================================== */
   
-  update(deltaTime, bodies) {
+  update(deltaTime, bodies, currentDate) {
+    if (this.crashed) return;
     const dt = deltaTime * SECONDS_PER_DAY;
     this.missionElapsedTime += dt;
     
@@ -268,17 +285,14 @@ export class BaseSpacecraft {
       this.checkManoeuvreExecution(dt);
     }
     
-    // Physics update
-    this.acceleration = this.calculateTotalAcceleration(bodies, dt);
+    // Thrust over this frame (m/s^2, scene axes), held constant while the
+    // kernel sub-steps; fuel is drawn for the whole frame as before.
+    const thrust = new THREE.Vector3();
+    if (this.engineOn && this.fuelMass > 0) thrust.add(this.calculateThrustAcceleration(dt));
+    if (this.executingManoeuvre && this.systems) thrust.add(this.calculateManoeuvreThrust(dt));
     
-    // Add manoeuvre thrust if executing
-    if (this.executingManoeuvre && this.systems) {
-      const thrustAccel = this.calculateManoeuvreThrust(dt);
-      this.acceleration.add(thrustAccel);
-    }
-    
-    // Integrate motion
-    this.integrateMotion(dt);
+    // Gravity and motion: the n-body kernel (src/physics/nbody.js).
+    this.integrateMotion(dt, thrust, currentDate);
     
     // Update visuals
     this.updateVisuals();
@@ -293,63 +307,65 @@ export class BaseSpacecraft {
     }
   }
   
-  calculateTotalAcceleration(bodies, dt) {
-    const totalAcceleration = new THREE.Vector3();
-    
-    // Gravitational acceleration
-    const gravAccel = this.calculateGravitationalAcceleration(bodies);
-    totalAcceleration.add(gravAccel);
-    
-    // Thrust acceleration
-    if (this.engineOn && this.fuelMass > 0) {
-      const thrustAccel = this.calculateThrustAcceleration(dt);
-      totalAcceleration.add(thrustAccel);
+  // Advance the craft from where its physics last stopped to the sim clock
+  // with the kernel: the Sun, planets and Moon at their ephemeris positions
+  // throughout, sub-stepped by distance to the nearest body. The state is read
+  // from this.position/this.velocity each frame, so instantaneous changes made
+  // elsewhere (a manoeuvre's delta-v) are picked up.
+  //
+  // If the frame needs more sub-steps than the budget allows (very high warp
+  // near a planet), the craft stops short and catches up over later frames;
+  // physicsLagSeconds says how far behind the clock it is. A clock jump (reset,
+  // a date set directly) is not integrated: the craft keeps its state and is
+  // re-anchored to the new time, and clockJumped is set.
+  integrateMotion(dt, thrust, currentDate) {
+    const sys = getKernelBodies();
+    const tEnd = currentDate
+      ? (currentDate.getTime() - KERNEL_EPOCH_MS) / 1000
+      : (this.kernelTime ?? 0) + dt;
+    if (this.kernelTime !== undefined) {
+      const expected = dt + (this.physicsLagSeconds || 0);
+      const actual = tEnd - this.kernelTime;
+      if (Math.abs(actual - expected) > Math.max(1.0, 1e-6 * Math.abs(expected))) {
+        this.kernelTime = tEnd;
+        this.physicsLagSeconds = 0;
+        this.clockJumped = true;
+        console.warn(`${this.name}: sim clock jumped by ${((actual - expected) / 86400).toFixed(2)} d; ` +
+          'the craft keeps its state at the new time rather than being integrated across the jump');
+        return;
+      }
     }
-    
-    return totalAcceleration;
-  }
-  
-  calculateGravitationalAcceleration(bodies) {
-    const acceleration = new THREE.Vector3();
-    
-    bodies.forEach((body, key) => {
-      if (!body.data || !body.data.mass) return;
-      
-      // Get body position properly - handle different body structures
-      let bodyPos;
-      if (body.position && body.position.isVector3) {
-        bodyPos = body.position;
-      } else if (body.group && body.group.position) {
-        bodyPos = body.group.position;
-      } else if (body.mesh && body.mesh.position) {
-        bodyPos = body.mesh.position;
-      } else {
-        return; // Skip if no valid position found
-      }
-      
-      const r = bodyPos.clone().sub(this.position);
-      const distanceAU = r.length();
-      
-      // Safety threshold
-      if (distanceAU < 0.01 || !isFinite(distanceAU)) {
-        return;
-      }
-      
-      const distanceMeters = distanceAU * AU_TO_METERS;
-      const mu = GRAVITATIONAL_PARAMETERS[key] || (G * body.data.mass);
-      const accelMagnitude = mu / (distanceMeters * distanceMeters);
-      
-      if (!isFinite(accelMagnitude)) {
-        return;
-      }
-      
-      const accelDirection = r.normalize();
-      acceleration.add(accelDirection.multiplyScalar(accelMagnitude));
+    const tStart = this.kernelTime ?? tEnd - dt;
+    const state = createState(sceneToEqj(this.position, AU_TO_KM), sceneToEqj(this.velocity), tStart);
+    state.primary = this.primaryBody ?? null;
+    const thrustKm = sceneToEqj(thrust, 1e-3);                 // m/s^2 -> km/s^2
+    const extraAccel = (thrust.lengthSq() > 0)
+      ? (t, r, out) => { out[0] = thrustKm[0]; out[1] = thrustKm[1]; out[2] = thrustKm[2]; return out; }
+      : null;
+    const res = advance(state, tEnd, {
+      bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, maxSteps: 20000,
     });
-    
-    return acceleration;
+    this.kernelTime = state.t;
+    this.primaryBody = state.primary;
+    this.physicsLagSeconds = Math.max(0, tEnd - state.t);
+    eqjToScene(state.r, this.position, 1 / AU_TO_KM);
+    eqjToScene(state.v, this.velocity);
+    // Acceleration for telemetry, in m/s^2 like before.
+    const a = accelHeliocentric(state.r, sys.bodiesAt(state.t), sys.muSun);
+    eqjToScene(a, this.acceleration, 1e3).add(thrust);
+    for (const ev of res.events) {
+      if (ev.type === 'impact') {
+        this.crashed = true;
+        this.impactBody = ev.body;
+        this.physicsLagSeconds = 0;
+        this.engineOn = false;
+        console.warn(`${this.name}: impact on ${ev.body}`);
+      } else if (ev.type === 'primary') {
+        console.info(`${this.name}: now in the sphere of influence of ${ev.to}`);
+      }
+    }
   }
-  
+
   calculateThrustAcceleration(dt) {
     if (this.fuelMass <= 0) {
       this.engineOn = false;
@@ -382,15 +398,6 @@ export class BaseSpacecraft {
     
     return this.executingManoeuvre.thrustDirection.clone()
       .multiplyScalar(accelMag);
-  }
-  
-  integrateMotion(dt) {
-    // Velocity Verlet integration
-    const deltaV = this.acceleration.clone().multiplyScalar(dt / 1000);
-    this.velocity.add(deltaV);
-    
-    const deltaP = this.velocity.clone().multiplyScalar(dt / AU_TO_KM);
-    this.position.add(deltaP);
   }
   
   updateVisuals() {
