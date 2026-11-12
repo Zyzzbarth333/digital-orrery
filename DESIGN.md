@@ -1,61 +1,169 @@
-# Design
+---
+name: digital-orrery
+description: A flight console whose every number shows where it came from.
+colors:
+  ground: "#12110e"
+  panel: "#1a1915"
+  panel-raised: "#23211c"
+  rule: "#34312a"
+  rule-strong: "#4a463c"
+  text: "#ece6d6"
+  text-muted: "#b2aa98"
+  text-faint: "#8d8676"
+  accent: "#ffb22e"
+  accent-ink: "#1a1203"
+  warn: "#ff6a4d"
+typography:
+  heading:
+    fontFamily: "B612, system-ui, sans-serif"
+    fontSize: "22px"
+    fontWeight: 700
+    lineHeight: 1.2
+    letterSpacing: "0.01em"
+  clock:
+    fontFamily: "B612, system-ui, sans-serif"
+    fontSize: "18px"
+    fontWeight: 400
+    lineHeight: 1.45
+    letterSpacing: "0.01em"
+  body:
+    fontFamily: "B612, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.45
+    letterSpacing: "0em"
+  section-title:
+    fontFamily: "B612, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 700
+    lineHeight: 1.45
+    letterSpacing: "0.08em"
+  code:
+    fontFamily: "B612 Mono, ui-monospace, monospace"
+    fontSize: "10px"
+    fontWeight: 400
+    lineHeight: 1.6
+    letterSpacing: "0em"
+rounded:
+  none: "0px"
+spacing:
+  unit: "8px"
+  sm: "8px"
+  md: "16px"
+components:
+  button:
+    backgroundColor: "{colors.panel-raised}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.none}"
+    padding: "0 10px"
+    height: "28px"
+  button-pressed:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accent-ink}"
+    rounded: "{rounded.none}"
+  body-row:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.text-muted}"
+    height: "32px"
+    padding: "0 16px"
+  body-row-current:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.accent}"
+  source-tag:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.text-muted}"
+    typography: "{typography.code}"
+    rounded: "{rounded.none}"
+    padding: "0 5px"
+---
 
-The console around the sky. Recorded from the built interface
-(`src/app/app.css`, `src/app/panels.tsx`); product truth is in
-[PRODUCT.md](PRODUCT.md).
+# Design System: digital-orrery
 
-## World
+## Overview
 
-A flight console whose every number shows where it came from: solid,
-square-cornered panels on a warm graphite ground framing the true-scale sky,
-with one phosphor-amber accent. Original; no film references.
+A flight console framing the true-scale sky: a full-width time band, a
+full-height body rail and a ruled data plate, solid and square-cornered on a
+warm graphite ground, with one phosphor-amber accent. Its signature is the
+provenance column: each value in the data plate carries a tag naming its
+source. This records the console as built in `src/app/app.css` and
+`src/app/panels.tsx`; a stronger retro-futurist world is being chosen and
+will replace it. Product truth is in [PRODUCT.md](PRODUCT.md).
 
-## Type
+## Colors
 
-- **B612** (Airbus cockpit face, OFL): labels, headings and all numbers. Its
-  digits share one advance width, so columns align and the clock never
-  jitters.
-- **B612 Mono**: codes only (source tags, key caps).
-- Scale: 22 px plate heading (700), 18 px clock, 13 px body and values, 11 px
-  section titles (700, uppercase, 0.08em) and secondary lines, 10 px tags.
+### Primary
 
-## Colour
+- **accent** `#ffb22e`, phosphor amber: selection, keyboard focus, the
+  current body, the pressed run button. 9.8:1 on the panel.
 
-| Token | Value | Use | Contrast on panel |
-| --- | --- | --- | --- |
-| `--ground` | #12110e | page ground | |
-| `--panel` | #1a1915 | band, rail, plate | |
-| `--panel-raised` | #23211c | hover, controls | |
-| `--rule` / `--rule-strong` | #34312a / #4a463c | 1 px hairlines, control borders | |
-| `--text` | #ece6d6 | primary text | 14.1:1 |
-| `--text-muted` | #b2aa98 | labels, units | 7.6:1 |
-| `--text-faint` | #8d8676 | secondary lines, notes | 4.9:1 |
-| `--accent` | #ffb22e | selection, focus, active state, running clock | 9.8:1 |
-| `--accent-ink` | #1a1203 | text on amber | 10.3:1 on amber |
-| `--warn` | #ff6a4d | state only | |
+### Neutral
 
-Body swatches in the rail and scene keep each body's own colour.
+- **ground** `#12110e`, **panel** `#1a1915`, **panel-raised** `#23211c`:
+  warm graphite, never neutral grey.
+- **text** `#ece6d6` (14.1:1), **text-muted** `#b2aa98` (7.6:1),
+  **text-faint** `#8d8676` (4.9:1), all on the panel.
+- **rule** `#34312a`, **rule-strong** `#4a463c`: 1 px hairlines and control
+  borders.
+
+### Named Rules
+
+- **warn** `#ff6a4d` is a state colour only, never decoration.
+- Body swatches keep each body's own colour.
+
+## Typography
+
+B612, the Airbus cockpit face (SIL OFL, self-hosted), sets labels and every
+number: its digits share one advance width, so values align and the clock
+never jitters. B612 Mono sets codes only (source tags, key caps).
+
+### Hierarchy
+
+- Plate heading 22 px, 700. Clock 18 px. Body and values 13 px. Section
+  titles 11 px, 700, uppercase, tracked 0.08em. Tags and keys 10 px mono.
 
 ## Layout
 
-- Desktop: a 48 px time band across the top; a 184 px body rail, the sky,
-  and a 360 px data plate below it (CSS grid; the sky takes the middle cell,
-  so the focused body is centred in what is visible).
-- 8 px spacing unit; square corners; 1 px hairlines; no shadows, no blur.
-- Under 720 px: the band wraps, the rail becomes a horizontal strip under
-  the sky, and the plate sits below with its data behind "Show data".
+- Desktop grid: a 48 px band across the top; a 184 px rail, the sky in the
+  middle cell (so the focused body is centred in what is visible) and a
+  360 px plate.
+- 8 px spacing unit.
+- Under 720 px the band wraps, the rail becomes a horizontal strip under the
+  sky, and the plate sits below with its data behind "Show data".
 
-## Signature: the provenance column
+## Elevation & Depth
 
-Each readout in the data plate has a source tag beside its value: solid for
-data (AE = astronomy-engine, DE442, the satellite kernel such as sat441,
-IAU, NSSDCA), dashed for values worked out here (d/c, GM/R², rounded).
-Hovering a tag gives the detail.
+Flat. Panels are separated by 1 px hairlines, never by shadows or blur.
 
-## Controls and states
+## Shapes
 
-Standard web controls restyled: buttons (`.btn`, 28 px), the rate `select`,
-list buttons with `aria-current`, a pressed run button in amber. Focus is a
-1 px amber outline. Keyboard: Space run or pause, ← → rate, ↑ ↓ body,
-N now. Motion is none beyond the sky itself; `prefers-reduced-motion`
-disables transitions.
+Square corners everywhere (0 px radius). Body swatches and markers are
+squares.
+
+## Components
+
+### Buttons
+
+28 px high, raised panel fill, 1 px strong rule. The run button is pressed
+(amber fill, dark ink) while time runs.
+
+### Chips
+
+The source tag: 10 px mono in a 1 px box, solid for data, dashed for values
+worked out in the app; hover for detail.
+
+### Inputs / Fields
+
+The rate select: a native select restyled to the button's box, with a drawn
+caret.
+
+### Navigation
+
+The body rail: list buttons with `aria-current`; the current body is amber
+on an amber wash.
+
+## Do's and Don'ts
+
+- Do show a value's source beside it.
+- Do keep true scale; markers and lines are aids and look like it.
+- Don't use glass, blur, gradients or rounded cards.
+- Don't use colour for decoration; amber means "selected or active".
