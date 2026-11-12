@@ -80,12 +80,24 @@ tests (it shares no code with the models).
 | `gm_de442.tpc` against DE442's published km³/s² table | 2.9×10⁻¹¹ (its printed precision) |
 | DE442 against DE440, 2000-2040 | inner planets < 20 m; Jupiter 3-14 km; Uranus up to 2,900 km |
 
+## Real flight: Artemis II (`artemis2.validate.mjs`)
+
+Orion's coast arcs flown by the kernel against JSC's reconstructed
+trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
+
+| Check | Result |
+| --- | --- |
+| Closest approach to the Moon, from the flown state 20 h before | 6,546.1 km vs 6,545.0 km flown; 8 s early |
+| Coast arcs away from Earth, 0.6–2.1 days | 8–81 km at the end (JSC's 1σ: 0.2–1 km) |
+| First arc after translunar injection | 969 km (no J2); 42 km with J2 added |
+| The app's Moon vs DE442 | 9–13 km |
+
 ## Not yet validated
 
 - Against JPL Horizons, GMAT or Orekit trajectories.
-- Against real mission telemetry (NAIF mission kernels, e.g. MSL cruise).
+- Against other missions' trajectories (NAIF mission kernels, e.g. MSL cruise).
 - Anything with non-spherical gravity, drag or radiation pressure (not
-  modelled yet).
+  modelled yet; Artemis II shows J2 is the largest gap near Earth).
 
 ## Body orientation (`orientation.test.mjs`)
 

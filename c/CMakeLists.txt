@@ -17,3 +17,12 @@ target_compile_options(orrery_spice_ref PRIVATE -O2 -Wall -Wextra)
 # The tool loads python/data/metakernel.tm, whose kernel paths are relative to python/.
 target_compile_definitions(orrery_spice_ref PRIVATE
   ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")
+
+# The Artemis II reference (docs/validation/artemis2.md): Orion's
+# reconstructed trajectory sampled from NAIF's SPK.
+add_executable(artemis2_ref artemis2_ref.c)
+target_include_directories(artemis2_ref PRIVATE "${CSPICE_ROOT}/include")
+target_link_libraries(artemis2_ref PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
+target_compile_options(artemis2_ref PRIVATE -O2 -Wall -Wextra)
+target_compile_definitions(artemis2_ref PRIVATE
+  ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")
