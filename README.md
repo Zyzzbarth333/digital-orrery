@@ -13,7 +13,7 @@ What is high-fidelity today:
 - **Gravitational parameters** are SPICE-precision GM constants for the Sun and all planets, held in `src/utils/constants.js`.
 - **Planetary positions** come from astronomy-engine, which provides JPL-grade ephemerides, so the Sun and planets sit where they actually are for a given date.
 - **Spacecraft propagation** is a genuine Newtonian n-body integration. Spacecraft respond to the gravity of the Sun and the planets, not to a single central body.
-- **Orbital-mechanics core.** `src/physics/orbital.js` provides universal-variable two-body propagation (one code path for ellipses, parabolas and hyperbolas) and a universal-variable Lambert solver with a bracketed root solve. Both are checked against worked examples from Curtis, *Orbital Mechanics for Engineering Students* (4th ed.), against NAIF CSPICE (`prop2b_c`, `oscltx_c`) with the DE440 ephemeris, and against an independent numerical integrator. Run the checks with:
+- **Orbital-mechanics core.** `src/physics/orbital.js` provides universal-variable two-body propagation (one code path for ellipses, parabolas and hyperbolas) and a universal-variable Lambert solver with a bracketed root solve. Both are checked against worked examples from Curtis, *Orbital Mechanics for Engineering Students* (4th ed.). Propagation and the state-to-elements conversion are also checked against NAIF CSPICE (`prop2b_c`, `oscltx_c`). SPICE has no Lambert solver, so the Lambert solver is checked on the real MSL launch and arrival geometry from the DE440 ephemeris and on transfer grids flown by an independent numerical integrator. Run the checks with:
 
   ```bash
   node src/physics/orbital.test.mjs
