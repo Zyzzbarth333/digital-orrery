@@ -13,8 +13,10 @@
 //   rv->elements  -> Algorithm 4.1/4.2
 //   elements->rv  -> Algorithm 4.5 (perifocal -> ECI, 3-1-3)
 //   Lambert       -> Algorithm 5.2 (universal variables, zero-rev)
-// Verified in orbital.test.mjs against the book's worked examples, NAIF CSPICE
-// with DE440 (fixtures/spice_reference.json) and an independent integrator.
+// Verified in orbital.test.mjs: propagate and rvToElements against NAIF CSPICE
+// (prop2b_c, oscltx_c; fixtures/spice_reference.json), lambert on the real MSL
+// geometry from DE440 and on grids flown by an independent integrator, and all
+// of them against the book's worked examples.
 
 const TWO_PI = 2.0 * Math.PI;
 

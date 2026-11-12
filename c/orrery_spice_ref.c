@@ -106,12 +106,14 @@ int main(int argc, char **argv) {
   }
   /* Resolve the output path before changing directory. */
   char outpath[4096];
-  if (argv[1][0] == '/') snprintf(outpath, sizeof outpath, "%s", argv[1]);
+  int n;
+  if (argv[1][0] == '/') n = snprintf(outpath, sizeof outpath, "%s", argv[1]);
   else {
     char cwd[2048];
     if (!getcwd(cwd, sizeof cwd)) { perror("getcwd"); return 1; }
-    snprintf(outpath, sizeof outpath, "%s/%s", cwd, argv[1]);
+    n = snprintf(outpath, sizeof outpath, "%s/%s", cwd, argv[1]);
   }
+  if (n < 0 || n >= (int)sizeof outpath) { fprintf(stderr, "output path too long\n"); return 1; }
 
   erract_c("SET", 0, "RETURN");
   errprt_c("SET", 0, "NONE");
@@ -120,8 +122,15 @@ int main(int argc, char **argv) {
   furnsh_c("data/metakernel.tm");
   die_if_failed("furnsh_c(data/metakernel.tm)");
 
-  FILE *f = fopen(outpath, "w");
-  if (!f) { perror(outpath); return 1; }
+  /* Write to <out>.tmp and rename at the end, so a failed run never leaves a
+     truncated fixture in place of the good one. */
+  char tmppath[4200];
+  if (snprintf(tmppath, sizeof tmppath, "%s.tmp", outpath) >= (int)sizeof tmppath) {
+    fprintf(stderr, "output path too long\n");
+    return 1;
+  }
+  FILE *f = fopen(tmppath, "w");
+  if (!f) { perror(tmppath); return 1; }
 
   const double muSun = get_gm("SUN");
   const double muEarth = get_gm("EARTH");
@@ -191,7 +200,8 @@ int main(int argc, char **argv) {
     }
   }
   fprintf(f, "  ]\n}\n");
-  fclose(f);
+  if (ferror(f) | fclose(f)) { perror(tmppath); remove(tmppath); return 1; }
+  if (rename(tmppath, outpath) != 0) { perror(outpath); remove(tmppath); return 1; }
   fprintf(stderr, "wrote %s (%d two-body cases)\n", outpath, total);
   return 0;
 }

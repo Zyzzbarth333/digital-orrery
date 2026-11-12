@@ -35,15 +35,18 @@ console.log('='.repeat(60));
   const el = rvToElements(r0, v0, mu);
   console.log(`  a=${el.a.toFixed(4)} km  e=${el.e.toExponential(4)}  period=${el.period.toFixed(4)} s`);
 
-  const full = propagate(r0, v0, el.period, mu);
+  // Two half periods chained (a full period would be reduced to dt = 0 and
+  // return the input unchanged, which tests nothing).
+  const half = propagate(r0, v0, 0.5 * el.period, mu);
+  const full = propagate(half.r, half.v, 0.5 * el.period, mu);
   const perr = vecErr(full.r, r0);
   const verr = vecErr(full.v, v0);
-  console.log(`  full-period pos err = ${perr.toExponential(4)} km   vel err = ${verr.toExponential(4)} km/s`);
+  console.log(`  two half periods: pos err = ${perr.toExponential(4)} km   vel err = ${verr.toExponential(4)} km/s`);
 
   const q = propagate(r0, v0, el.period / 4.0, mu);
   const ang = Math.atan2(q.r[1], q.r[0]) * DEG;
   console.log(`  quarter-period angle = ${ang.toFixed(4)} deg`);
-  check('full-period returns to start (<1 km)', perr < 1.0);
+  check('two half periods return to start (<1e-6 km)', perr < 1e-6);
   check('quarter-period ~90 deg', Math.abs(ang - 90.0) < 1.0);
 }
 
@@ -264,7 +267,11 @@ console.log('='.repeat(60));
     const dla = Math.asin(vinfDep[2] / norm(vinfDep)) * DEG;   // J2000 is equatorial
     const h = [rE[1] * sol.v1[2] - rE[2] * sol.v1[1], rE[2] * sol.v1[0] - rE[0] * sol.v1[2],
       rE[0] * sol.v1[1] - rE[1] * sol.v1[0]];
-    const dtheta = Math.acos((rE[0] * rM[0] + rE[1] * rM[1] + rE[2] * rM[2]) / (norm(rE) * norm(rM))) * DEG;
+    // Transfer angle measured in the direction of motion: past 180 deg when
+    // r1 x r2 points against the transfer's angular momentum.
+    const c12 = [rE[1] * rM[2] - rE[2] * rM[1], rE[2] * rM[0] - rE[0] * rM[2], rE[0] * rM[1] - rE[1] * rM[0]];
+    const acute = Math.acos((rE[0] * rM[0] + rE[1] * rM[1] + rE[2] * rM[2]) / (norm(rE) * norm(rM))) * DEG;
+    const dtheta = (h[0] * c12[0] + h[1] * c12[1] + h[2] * c12[2]) >= 0 ? acute : 360 - acute;
     const endErr = vecErr(propagateRK(rE, sol.v1, m.tof_s, mu), rM) / norm(rM);
     console.log(`  tof = ${(m.tof_s / 86400).toFixed(3)} d   transfer angle = ${dtheta.toFixed(2)} deg`);
     console.log(`  C3 = ${c3.toFixed(3)} km^2/s^2   DLA = ${dla.toFixed(2)} deg   ` +
@@ -390,10 +397,10 @@ console.log('='.repeat(60));
   const T = 2 * Math.PI * Math.sqrt(6778.0 ** 3 / mu);
   const vc = Math.sqrt(mu / 6778.0);
   const q1 = propagate([6778.0, 0, 0], [0, vc, 0], 1000.25 * T, mu);
-  const q0 = propagate([6778.0, 0, 0], [0, vc, 0], 0.25 * T, mu);
-  const eRev = vecErr(q1.r, q0.r);
-  console.log(`  1000.25 vs 0.25 periods: difference ${eRev.toExponential(3)} km`);
-  check('many-revolution propagation keeps precision (<1e-6 km)', eRev < 1e-6);
+  const q0 = propagateRK([6778.0, 0, 0], [0, vc, 0], 0.25 * T, mu);   // independent
+  const eRev = vecErr(q1.r, q0);
+  console.log(`  1000.25 periods vs RK4 over 0.25: difference ${eRev.toExponential(3)} km`);
+  check('many-revolution propagation keeps precision (<1e-4 km vs RK4)', eRev < 1e-4);
 }
 
 console.log('='.repeat(60));

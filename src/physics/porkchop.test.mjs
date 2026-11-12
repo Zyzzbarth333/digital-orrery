@@ -35,6 +35,7 @@ const KEY = {
   'URANUS BARYCENTER': 'uranus', 'NEPTUNE BARYCENTER': 'neptune',
 };
 const INNER = new Set(['venus', 'earth', 'mars']);
+let mslC3 = NaN;   // set by case 2 from the DE440 states, used by case 3
 
 console.log('='.repeat(60));
 console.log('CASE 1: astronomy-engine vs DE440 (heliocentric J2000)');
@@ -67,6 +68,7 @@ console.log('='.repeat(60));
   const sE = m.earth_at_launch.state, sM = m.mars_at_arrival.state;
   const ref = lambert(sE.slice(0, 3), sM.slice(0, 3), m.tof_s, muSun, true);
   const c3Ref = norm(diff(ref.v1, sE.slice(3))) ** 2;
+  mslC3 = c3Ref;
   const vinfArrRef = norm(diff(ref.v2, sM.slice(3)));
 
   const launch = new Date('2011-11-26T15:02:00Z');
@@ -113,7 +115,7 @@ console.log('='.repeat(60));
   check('min total dV is a basin inside the grid, not on an edge', interior(mt));
   check('min-C3 departure falls in Oct-Dec 2011 (the 2011 window)',
     mc.departure >= new Date('2011-10-01') && mc.departure < new Date('2012-01-01'));
-  check('MSL launch C3 is above the grid minimum', mc.c3 <= 10.69);
+  check('MSL launch C3 (case 2) is not below the grid minimum', mc.c3 <= mslC3);
   check('grid runs in under 3 s', ms < 3000);
 }
 

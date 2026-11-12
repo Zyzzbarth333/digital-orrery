@@ -195,6 +195,10 @@ export class TrajectoryPlanner {
     `;
     
     document.body.appendChild(this.plannerPanel);
+    // The panel has transform and backdrop-filter, which make it the
+    // containing block for position: fixed descendants. Keep the tooltip on
+    // <body> so clientX/clientY place it in viewport coordinates.
+    document.body.appendChild(document.getElementById('porkchop-tooltip'));
     this.addStyles();
     this.setupEventListeners();
     this.hide();
@@ -534,6 +538,10 @@ export class TrajectoryPlanner {
       document.getElementById('porkchop-tooltip').classList.add('hidden');
     });
     canvas.addEventListener('click', (e) => this.onPorkchopClick(e));
+    // Hit-testing reads the current layout, so redraw whenever it changes.
+    window.addEventListener('resize', () => {
+      if (this.porkchop && this.plannerPanel.style.display !== 'none') this.drawPorkchop();
+    });
 
     // Set default departure date to today
     const today = new Date().toISOString().split('T')[0];
@@ -874,10 +882,13 @@ export class TrajectoryPlanner {
       this.porkchopSelected = null;
       this.drawPorkchop();
       const m = this.porkchop.minTotal;
+      const g = this.porkchop;
+      const onEdge = m && (m.iDep === 0 || m.iDep === g.nDep - 1 || m.iTof === 0 || m.iTof === g.nTof - 1);
       readout.textContent = m
         ? `Minimum ΔV ${m.dvTotal.toFixed(2)} km/s: depart ${this.fmtDate(m.departure)}, ` +
-          `${m.tofDays} d (${this.porkchop.nDep}×${this.porkchop.nTof} Lambert solves, ` +
-          `${this.porkchop.elapsedMs.toFixed(0)} ms)`
+          `${m.tofDays} d (${g.nDep}×${g.nTof} Lambert solves, ${g.elapsedMs.toFixed(0)} ms)` +
+          (onEdge ? '. This is on the edge of the grid, so a lower minimum may lie ' +
+            'outside it: try an earlier departure date.' : '')
         : 'No transfers found in this window.';
     }, 0);
   }
@@ -952,8 +963,11 @@ export class TrajectoryPlanner {
     const d = new Date(Date.UTC(g.depStart.getUTCFullYear(), g.depStart.getUTCMonth() + 1, 1));
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
+    // Cell i covers [i, i+1) * cw with its centre at departure depDays[i], so
+    // a tick for day t sits at (t / step + 0.5) * cw.
+    const depStep = g.nDep > 1 ? g.depDays[1] - g.depDays[0] : 1;
     for (; (d.getTime() - t0) / dayMs <= spanDays; d.setUTCMonth(d.getUTCMonth() + monthsStep)) {
-      const x = L.left + ((d.getTime() - t0) / dayMs) / spanDays * pw;
+      const x = L.left + (((d.getTime() - t0) / dayMs) / depStep + 0.5) * cw;
       ctx.fillRect(x, L.top + ph, 1, 4);
       ctx.fillText(`${months[d.getUTCMonth()]} ’${String(d.getUTCFullYear()).slice(2)}`, x, L.top + ph + 6);
     }
@@ -965,7 +979,8 @@ export class TrajectoryPlanner {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let t = Math.ceil(tofLo / yStep) * yStep; t <= tofHi; t += yStep) {
-      const y = L.top + ph - (t - tofLo) / (tofHi - tofLo) * ph;
+      const tofStep = g.nTof > 1 ? g.tofDays[1] - g.tofDays[0] : 1;
+      const y = L.top + ph - ((t - tofLo) / tofStep + 0.5) * chh;
       ctx.fillRect(L.left - 4, y, 4, 1);
       ctx.fillText(`${t} d`, L.left - 6, y);
     }
@@ -1079,7 +1094,6 @@ export class TrajectoryPlanner {
       ],
       lambert: { r1: depState.r, v1: t.v1, tofSec: c.tofDays * SECONDS_PER_DAY, arrivalDate: c.arrival },
     };
-    document.getElementById('departure-date').value = this.fmtDate(c.departure);
     this.currentPlan = {
       ...result,
       departure: g.depKey,

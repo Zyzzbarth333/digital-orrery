@@ -76,6 +76,7 @@ export class ManoeuvreNode {
     const state = propagate(rKm, vKms, time, mu);
     if (!state) {
       // Solver could not converge (not seen in testing): keep the current state.
+      console.warn('ManoeuvreNode: two-body propagation did not converge; prediction shows the current state');
       return { position: position.clone(), velocity: velocity.clone() };
     }
 
