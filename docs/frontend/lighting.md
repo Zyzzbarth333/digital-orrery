@@ -115,6 +115,6 @@ multiple scattering in the dense rings.
 
 Not modelled yet: sunlight refracted by Earth's atmosphere into its umbra
 (the copper colour of a lunar eclipse, $10^{-4}$ to $10^{-6}$ of full Moon
-brightness, so near-black at a daylight exposure), atmospheres and their
-scattering. Surface maps, relief and night lights are in
+brightness, so near-black at a daylight exposure). Earth's atmosphere is
+in [atmospheres](atmospheres.md); surface maps, relief and night lights in
 [textures](textures.md).
