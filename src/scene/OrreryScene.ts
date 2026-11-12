@@ -154,7 +154,7 @@ export class OrreryScene {
     this.surfaces = new SurfaceLoader(this.renderer);
     this.dailyEarth.onChange = (tex) => {
       const m = this.materials.get('earth')!;
-      if (tex) applySurfaceMaps(m, { cloud: tex, cloudMeanLuminance: this.dailyEarth.meanLuminance });
+      if (tex) applySurfaceMaps(m, { cloud: tex, cloudWhiteLuminance: this.dailyEarth.whiteLuminance });
       else clearCloud(m);
     };
     void loadManifest().then((m) => {

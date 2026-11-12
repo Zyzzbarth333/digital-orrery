@@ -51,3 +51,7 @@ node_modules/.vite/
 
 # CSPICE reference build output
 c/build/
+
+# Python bytecode
+__pycache__/
+*.pyc

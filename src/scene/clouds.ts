@@ -6,8 +6,9 @@
 // night) the image is transparent and the Blue Marble shows. The mosaic is
 // one image per UTC day from polar orbiters crossing the equator around
 // 10:30 (Terra) or 13:30 (VIIRS satellites) local time, so it is "the weather that
-// day", not that minute. It is dropped when the sim moves more than a day
-// from it, and not fetched while time runs faster than a day per second.
+// day", not that minute. At "now" it is yesterday's, the latest complete
+// day. It is dropped when the sim moves well away from its day, and not
+// fetched while time runs faster than a day per second.
 
 import * as THREE from 'three';
 
@@ -39,7 +40,7 @@ export class DailyEarth {
   private day: string | null = null;      // the day loaded or loading
   private loadedDayMs = NaN;
   texture: THREE.Texture | null = null;
-  meanLuminance = 0.18;
+  whiteLuminance = 1;
   credit = '';
   onChange: (tex: THREE.Texture | null) => void = () => {};
 
@@ -48,13 +49,16 @@ export class DailyEarth {
   update(simMs: number, rateSimPerReal: number, nowMs = Date.now()): void {
     if (!this.enabled) return;
     // Drop a stale image so the wrong day's weather is never shown.
-    if (this.texture && Math.abs(simMs - this.loadedDayMs - DAY_MS / 2) > 1.5 * DAY_MS) {
+    if (this.texture && Math.abs(simMs - this.loadedDayMs - DAY_MS / 2) > 2 * DAY_MS) {
       this.texture.dispose(); this.texture = null; this.loadedDayMs = NaN; this.onChange(null);
     }
     if (Math.abs(rateSimPerReal) > 86400) return;
-    // GIBS publishes a day's mosaic within about a day; ask for yesterday at most.
-    const dayMs = Math.floor(simMs / DAY_MS) * DAY_MS;
-    if (dayMs > nowMs - DAY_MS) return;
+    // Today's mosaic is still filling in, so a sim time in the last day uses
+    // yesterday's, the latest complete one; a future date gets none.
+    const latest = Math.floor(nowMs / DAY_MS) * DAY_MS - DAY_MS;
+    let dayMs = Math.floor(simMs / DAY_MS) * DAY_MS;
+    if (dayMs > latest + DAY_MS) return;
+    dayMs = Math.min(dayMs, latest);
     const day = new Date(dayMs).toISOString().slice(0, 10);
     if (day === this.day) return;
     const layer = GIBS_LAYERS.find((l) => day >= l.firstDay);
@@ -63,7 +67,7 @@ export class DailyEarth {
     this.loader.loadAsync(gibsUrl(layer.id, day)).then((tex) => {
       if (this.day !== day) { tex.dispose(); return; }
       tex.colorSpace = THREE.SRGBColorSpace;
-      this.meanLuminance = meanLinearLuminance(tex.image as CanvasImageSource);
+      this.whiteLuminance = brightLuminance(tex.image as CanvasImageSource);
       tex.wrapS = THREE.RepeatWrapping;
       this.texture?.dispose();
       this.texture = tex;
@@ -74,28 +78,34 @@ export class DailyEarth {
   }
 }
 
-// Mean linear luminance over the sphere where the image has data (rows
-// weighted by cos latitude; pure black is no data), so the image can be
-// scaled to Earth's geometric albedo like the other maps.
-function meanLinearLuminance(img: CanvasImageSource): number {
+// Linear luminance of the brightest 0.5 % of the image over the sphere
+// (rows weighted by cos latitude; pure black is no data), the cloud tops,
+// which the shader calibrates to reflectance 0.9.
+function brightLuminance(img: CanvasImageSource): number {
   const w = 256, h = 128;
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const g = c.getContext('2d', { willReadFrequently: true });
-  if (!g) return 0.18;
+  if (!g) return 1;
   g.drawImage(img, 0, 0, w, h);
   const d = g.getImageData(0, 0, w, h).data;
   const lin = (v: number) => { const x = v / 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
-  let sum = 0, wsum = 0;
+  const lums: number[] = [], wts: number[] = [];
+  let wsum = 0;
   for (let y = 0; y < h; y++) {
     const wt = Math.cos((0.5 - (y + 0.5) / h) * Math.PI);
     for (let x = 0; x < w; x++) {
       const i = 4 * (y * w + x);
       const r = lin(d[i]), gg = lin(d[i + 1]), b = lin(d[i + 2]);
       if (Math.max(r, gg, b) < 0.003) continue;
-      sum += wt * (0.2126 * r + 0.7152 * gg + 0.0722 * b);
+      lums.push(0.2126 * r + 0.7152 * gg + 0.0722 * b);
+      wts.push(wt);
       wsum += wt;
     }
   }
-  return wsum > 0 ? sum / wsum : 0.18;
+  if (!lums.length) return 1;
+  const order = lums.map((_, i) => i).sort((a, b) => lums[a] - lums[b]);
+  let acc = 0;
+  for (const i of order) { acc += wts[i]; if (acc >= 0.995 * wsum) return lums[i]; }
+  return lums[order[order.length - 1]];
 }

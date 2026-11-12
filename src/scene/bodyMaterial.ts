@@ -174,11 +174,16 @@ void main() {
 export interface SurfaceMaps {
   day?: THREE.Texture;
   dayMeanLuminance?: number;   // mean linear luminance of the day map
+  dayWhiteLuminance?: number;  // or: luminance of its brightest 0.5 %, calibrated to reflectance 0.9
   normal?: THREE.Texture;
   night?: THREE.Texture;
   cloud?: THREE.Texture;
-  cloudMeanLuminance?: number;  // mean linear luminance of the cloud/daily image where it has data
+  cloudWhiteLuminance?: number; // luminance of the daily image's brightest 0.5 %, set to reflectance 0.9
 }
+
+// Earth's images are calibrated to the visible reflectance of thick cloud
+// tops and fresh snow, about 0.9 (docs/frontend/textures.md#earth).
+const BRIGHT_REFLECTANCE = 0.9;
 
 const blank = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
 blank.needsUpdate = true;
@@ -239,12 +244,14 @@ export function applySurfaceMaps(m: THREE.ShaderMaterial, maps: SurfaceMaps): vo
   const u = m.uniforms;
   if (maps.day) {
     u.dayMap.value = maps.day; u.useDay.value = 1;
-    (u.albedo.value as THREE.Color).setScalar(scaleFor(m, maps.dayMeanLuminance ?? 0.18));
+    (u.albedo.value as THREE.Color).setScalar(maps.dayWhiteLuminance
+      ? BRIGHT_REFLECTANCE / maps.dayWhiteLuminance
+      : scaleFor(m, maps.dayMeanLuminance ?? 0.18));
   }
   if (maps.normal) { u.normalMap.value = maps.normal; u.useNormal.value = 1; }
   if (maps.night) { u.nightMap.value = maps.night; u.useNight.value = 1; }
   if (maps.cloud) {
     u.cloudMap.value = maps.cloud; u.useCloud.value = 1;
-    u.cloudScale.value = scaleFor(m, maps.cloudMeanLuminance ?? 0.18);
+    u.cloudScale.value = BRIGHT_REFLECTANCE / (maps.cloudWhiteLuminance ?? 1);
   }
 }

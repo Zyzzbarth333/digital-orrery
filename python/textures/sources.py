@@ -32,10 +32,16 @@ def save_tmp(img: Image.Image, src: Path, name: str) -> Path:
 # ------------------------------------------------------------------ Earth
 
 def earth(src, out, colour_map, heights_km, normal_map):
-    months, lums = [], []
+    # Earth is calibrated, not albedo-normalised: a cloud-free map scaled to
+    # the whole planet's albedo would make the ground far too bright. The
+    # brightest 0.5 % (Antarctic and Greenland snow) is set to reflectance
+    # 0.9, the visible reflectance of fresh snow, and the rest scales with it.
+    from build_textures import bright_luminance
+    months, whites = [], []
     for m in range(1, 13):
         rel = f"earth/day-{m:02d}.webp"
-        lums.append(colour_map(src / f"earth_day_{m:02d}.jpg", out / rel, 5400))
+        colour_map(src / f"earth_day_{m:02d}.jpg", out / rel, 5400)
+        whites.append(bright_luminance(Image.open(src / f"earth_day_{m:02d}.jpg")))
         months.append(rel)
     # Night lights: the Black Marble 2016 greyscale (lights only), tinted to
     # the colour of mostly sodium and LED street lighting. A display layer.
@@ -53,7 +59,7 @@ def earth(src, out, colour_map, heights_km, normal_map):
     normal_map(h, 6371.0084, out / "earth/normal.webp", 8192)
     return {
         "dayMonthly": months,
-        "dayMeanLuminance": float(np.mean(lums)),
+        "dayWhiteLuminance": float(np.mean(whites)),
         "night": "earth/night.webp",
         "normal": "earth/normal.webp",
         "credit": "Blue Marble Next Generation (Reto Stöckli), Black Marble 2016: NASA Earth Observatory. "
@@ -131,24 +137,42 @@ def giant(name, file, width):
 
 def rings(src, out, colour_map, heights_km, normal_map):
     """Saturn's normal optical depth from the Cassini UVIS 126 Tau egress
-    occultation, 10 km bins (PDS Rings Node, COUVIS_8001)."""
+    occultation, 10 km bins (PDS Rings Node, COUVIS_8001). Columns (from
+    the .LBL): 0 radius km, 3 mean signal, 4 normal optical depth, 5 maximum
+    detectable depth, 8 unocculted star model. A depth of -1 means
+    unconstrained, which this profile uses for three different things:
+      - signal flagged missing (-1): a data gap, filled by interpolation;
+      - signal at or above the unocculted star: a clear gap, tau = 0;
+      - inside the C ring's inner edge (74,490 km): the D ring, tau = 0.
+    Where tau reaches 95 % of the maximum detectable depth the measurement
+    has saturated (the B ring core); those bins are set to 5, effectively
+    opaque, since the true depth is only known to exceed the limit."""
     import json
-    radius, tau = [], []
-    for line in (src / "saturn_uvis_tau10km.tab").read_text().splitlines():
-        parts = [p.strip() for p in line.split(",")]
-        if len(parts) < 4:
-            continue
-        r, t = float(parts[0]), float(parts[3])
-        tmax = float(parts[4]) if len(parts) > 4 else float("inf")
-        radius.append(r)
-        tau.append(min(t, tmax) if np.isfinite(t) else tmax)
+    a = np.array([[float(x) for x in line.split(",")]
+                  for line in (src / "saturn_uvis_tau10km.tab").read_text().splitlines() if line.strip()])
+    r, signal, tau, tmax, star = a[:, 0], a[:, 3], a[:, 4].copy(), a[:, 5], a[:, 8]
+    unconstrained = tau < 0
+    clear = unconstrained & ((signal >= 0.95 * star) | (r < 74490.0))
+    missing = unconstrained & ~clear
+    tau[clear] = 0.0
+    saturated = (~unconstrained) & (tmax > 0) & (tau >= 0.95 * tmax)
+    tau[saturated] = 5.0
+    good = ~missing
+    tau[missing] = np.interp(r[missing], r[good], tau[good])
+    print(f"  {len(r)} bins: {clear.sum()} clear, {missing.sum()} missing (interpolated), "
+          f"{saturated.sum()} saturated (set to 5)")
+    # Resample onto an even 10 km grid for the texture.
+    step = 10.0
+    grid = np.arange(r[0], r[-1] + step / 2, step)
+    tg = np.interp(grid, r, tau)
     p = out / "saturn" / "rings_tau.json"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"innerKm": radius[0], "stepKm": radius[1] - radius[0],
-                             "tau": [round(max(t, 0.0), 4) for t in tau]}))
-    print(f"  wrote {p.relative_to(out.parent.parent)}  {len(tau)} bins {radius[0]:.0f}-{radius[-1]:.0f} km")
-    return {"saturn": {"tau": "saturn/rings_tau.json", "innerKm": radius[0], "outerKm": radius[-1],
-                       "credit": "Cassini UVIS occultation optical depth: NASA PDS Ring-Moon Systems Node."}}
+    p.write_text(json.dumps({"innerKm": float(grid[0]), "stepKm": step,
+                             "tau": [round(float(t), 4) for t in tg]}))
+    print(f"  wrote {p.relative_to(out.parent.parent)}  {len(tg)} bins {grid[0]:.0f}-{grid[-1]:.0f} km")
+    return {"saturn": {"tau": "saturn/rings_tau.json", "innerKm": float(grid[0]), "outerKm": float(grid[-1]),
+                       "credit": "Cassini UVIS 126 Tau occultation optical depth (Colwell et al.): "
+                                 "NASA PDS Ring-Moon Systems Node."}}
 
 
 BODIES = {

@@ -13,6 +13,7 @@ export interface SurfaceEntry {
   day?: string;                 // path under textures/
   dayMonthly?: string[];        // 12 paths, January first (Earth)
   dayMeanLuminance?: number;    // mean linear luminance of the day map(s)
+  dayWhiteLuminance?: number;   // Earth: luminance of the brightest 0.5 %, set to reflectance 0.9
   normal?: string;
   night?: string;
   credit: string;
@@ -77,7 +78,9 @@ export class SurfaceLoader {
       if (this.month.get(key) === m) return;
       this.month.set(key, m);
       const day = await this.load(entry.dayMonthly[m], true);
-      if (this.month.get(key) === m) applySurfaceMaps(material, { day, dayMeanLuminance: entry.dayMeanLuminance });
+      if (this.month.get(key) === m) {
+        applySurfaceMaps(material, { day, dayMeanLuminance: entry.dayMeanLuminance, dayWhiteLuminance: entry.dayWhiteLuminance });
+      }
     } else if (entry.day && !this.month.has(key)) {
       this.month.set(key, -1);
       applySurfaceMaps(material, { day: await this.load(entry.day, true), dayMeanLuminance: entry.dayMeanLuminance });

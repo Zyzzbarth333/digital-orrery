@@ -55,6 +55,19 @@ def area_mean_luminance(img: Image.Image) -> float:
     return float((lum * w).sum() / (w.sum() * 1024))
 
 
+def bright_luminance(img: Image.Image, q: float = 99.5) -> float:
+    """Linear luminance at the q-th percentile over the sphere (rows
+    weighted by cos lat): the brightest targets, for calibrating Earth."""
+    small = img.convert("RGB").resize((1024, 512), Image.Resampling.BOX)
+    lin = srgb_to_linear(np.asarray(small))
+    lum = (0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]).ravel()
+    lat = (0.5 - (np.arange(512) + 0.5) / 512) * math.pi
+    w = np.repeat(np.cos(lat), 1024)
+    order = np.argsort(lum)
+    cw = np.cumsum(w[order]) / w.sum()
+    return float(lum[order][np.searchsorted(cw, q / 100.0)])
+
+
 def roll_to_minus180(img: Image.Image, west_edge_deg: float) -> Image.Image:
     """Shift columns so the west edge is at -180 deg east longitude."""
     if abs(((west_edge_deg + 180.0) % 360.0)) < 1e-9:
