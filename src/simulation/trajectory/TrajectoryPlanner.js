@@ -3,8 +3,19 @@ import * as THREE from 'three';
 import { 
   AU_TO_KM, 
   GRAVITATIONAL_PARAMETERS,
-  SECONDS_PER_DAY 
+  SECONDS_PER_DAY,
+  PLANETS
 } from '../../utils/constants.js';
+import { porkchopGrid, transferBetween, range } from '../../physics/porkchop.js';
+import { helioStateEcl, eclToEqj } from '../../physics/ephemeris.js';
+import { hohmann, propagate } from '../../physics/orbital.js';
+
+// Sequential blue ramp (light = low cost). On the planner's dark surface the
+// cheapest transfers read brightest; costly cells recede into the panel.
+const PORKCHOP_RAMP = [
+  '#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5',
+  '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b',
+];
 
 /**
  * Advanced trajectory planning system
@@ -169,16 +180,25 @@ export class TrajectoryPlanner {
       
       <!-- Porkchop Plot -->
       <div id="porkchop-plot" class="plot-section hidden">
-        <h4>Launch Window Analysis</h4>
-        <canvas id="porkchop-canvas" width="400" height="300"></canvas>
-        <div class="plot-legend">
-          <span class="low-dv">Low ΔV</span>
-          <span class="high-dv">High ΔV</span>
+        <div class="porkchop-head">
+          <h4>Launch window</h4>
+          <select id="porkchop-metric">
+            <option value="dvTotal">Total ΔV</option>
+            <option value="c3">Departure C3</option>
+          </select>
         </div>
+        <canvas id="porkchop-canvas" width="410" height="300"></canvas>
+        <div id="porkchop-legend" class="porkchop-legend"></div>
+        <div id="porkchop-readout" class="porkchop-readout">Hover a cell for its transfer; click to select it.</div>
+        <div id="porkchop-tooltip" class="porkchop-tooltip hidden"></div>
       </div>
     `;
     
     document.body.appendChild(this.plannerPanel);
+    // The panel has transform and backdrop-filter, which make it the
+    // containing block for position: fixed descendants. Keep the tooltip on
+    // <body> so clientX/clientY place it in viewport coordinates.
+    document.body.appendChild(document.getElementById('porkchop-tooltip'));
     this.addStyles();
     this.setupEventListeners();
     this.hide();
@@ -397,28 +417,71 @@ export class TrajectoryPlanner {
         padding: 20px;
       }
       
-      #porkchop-canvas {
-        width: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 5px;
-      }
-      
-      .plot-legend {
+      .porkchop-head {
         display: flex;
         justify-content: space-between;
-        margin-top: 10px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .porkchop-head h4 { margin: 0; }
+
+      #porkchop-metric {
+        padding: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        border-radius: 3px;
         font-size: 12px;
       }
-      
-      .low-dv {
-        color: #00ff00;
+
+      #porkchop-canvas {
+        width: 100%;
+        display: block;
+        cursor: crosshair;
       }
-      
-      .high-dv {
-        color: #ff0000;
+
+      .porkchop-legend {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.7);
       }
-      
+
+      .porkchop-legend .ramp {
+        display: flex;
+        flex: 1;
+        height: 8px;
+        gap: 1px;
+      }
+
+      .porkchop-legend .ramp span { flex: 1; border-radius: 1px; }
+
+      .porkchop-readout {
+        margin-top: 8px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.7);
+        font-family: 'Consolas', monospace;
+        min-height: 2.6em;
+      }
+
+      .porkchop-tooltip {
+        position: fixed;
+        pointer-events: none;
+        background: rgba(20, 20, 20, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 4px;
+        padding: 6px 8px;
+        font-size: 12px;
+        line-height: 1.4;
+        font-family: 'Consolas', monospace;
+        color: #fff;
+        z-index: 1001;
+        white-space: nowrap;
+      }
+
       .hidden {
         display: none;
       }
@@ -465,6 +528,21 @@ export class TrajectoryPlanner {
       this.visualizeTrajectory();
     });
     
+    // Porkchop: metric toggle, hover readout, click to select
+    document.getElementById('porkchop-metric').addEventListener('change', () => {
+      if (this.porkchop) this.drawPorkchop();
+    });
+    const canvas = document.getElementById('porkchop-canvas');
+    canvas.addEventListener('mousemove', (e) => this.onPorkchopHover(e));
+    canvas.addEventListener('mouseleave', () => {
+      document.getElementById('porkchop-tooltip').classList.add('hidden');
+    });
+    canvas.addEventListener('click', (e) => this.onPorkchopClick(e));
+    // Hit-testing reads the current layout, so redraw whenever it changes.
+    window.addEventListener('resize', () => {
+      if (this.porkchop && this.plannerPanel.style.display !== 'none') this.drawPorkchop();
+    });
+
     // Set default departure date to today
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('departure-date').value = today;
@@ -692,7 +770,8 @@ export class TrajectoryPlanner {
     isFinite(fuel) && fuel > 0 ? fuel.toFixed(0) + ' kg' : 'N/A';
     
     // Arrival velocity
-    document.getElementById('arrival-velocity').textContent = result.deltaV.arrival.toFixed(2) + ' km/s';
+    const vArr = Number.isFinite(result.arrivalVinf) ? result.arrivalVinf : result.deltaV.arrival;
+    document.getElementById('arrival-velocity').textContent = vArr.toFixed(2) + ' km/s';
     
     // Maneuver sequence
     const sequenceDiv = document.getElementById('maneuver-sequence');
@@ -746,62 +825,288 @@ export class TrajectoryPlanner {
     }
   
   /**
-   * Find optimal launch window (simplified porkchop plot)
+   * Launch-window (porkchop) grid from the verified Lambert solver.
+   * Departure axis: one synodic period from the selected departure date.
+   * Time-of-flight axis: 0.4x to 1.6x the Hohmann time between the two orbits.
    */
   findLaunchWindow() {
-    const departure = document.getElementById('departure-body').value;
-    const arrival = document.getElementById('arrival-body').value;
-    
-    // Show porkchop plot section
+    const depKey = document.getElementById('departure-body').value;
+    const arrKey = document.getElementById('arrival-body').value;
+    const readout = document.getElementById('porkchop-readout');
     document.getElementById('porkchop-plot').classList.remove('hidden');
-    
-    // Generate porkchop data
+
+    const depData = PLANETS[depKey], arrData = PLANETS[arrKey];
+    if (depKey === arrKey || !depData || !arrData) {
+      readout.textContent = 'Pick two different planets.';
+      return;
+    }
+
+    const muSun = GRAVITATIONAL_PARAMETERS.sun / 1e9;          // km^3/s^2
+    const muDep = GRAVITATIONAL_PARAMETERS[depKey] / 1e9;
+    const muArr = GRAVITATIONAL_PARAMETERS[arrKey] / 1e9;
+    const depAlt = parseFloat(document.getElementById('departure-altitude').value) || 0;
+    const arrAlt = parseFloat(document.getElementById('arrival-altitude').value) || 0;
+    const capture = Number.isFinite(muArr);                     // no GM => flyby only
+
+    const dateStr = document.getElementById('departure-date').value;
+    const depStart = dateStr ? new Date(dateStr + 'T00:00:00Z') : new Date();
+
+    // Axes. Integer-day steps let arrival states repeat across the grid (cached).
+    const T1 = depData.orbitalPeriod, T2 = arrData.orbitalPeriod;
+    const synodic = 1.0 / Math.abs(1.0 / T1 - 1.0 / T2);
+    const depSpan = Math.min(Math.max(synodic, 365), 1100);
+    const h = hohmann(depData.semiMajorAxis * AU_TO_KM, arrData.semiMajorAxis * AU_TO_KM, muSun);
+    const tH = h.tof / SECONDS_PER_DAY;
+    const depStep = Math.max(1, Math.round(depSpan / 120));
+    const tofMin = Math.max(20, Math.round(0.4 * tH));
+    const tofMax = Math.round(1.6 * tH);
+    const tofStep = Math.max(1, Math.round((tofMax - tofMin) / 90));
+
+    readout.textContent = 'Computing…';
+    // Let the panel paint before the (synchronous) grid runs.
+    setTimeout(() => {
+      const t0 = performance.now();
+      this.porkchop = porkchopGrid({
+        stateOf: helioStateEcl,
+        departure: { key: depKey, mu: muDep, rPark: depData.radius + depAlt },
+        arrival: { key: arrKey, mu: capture ? muArr : 1, rPark: arrData.radius + arrAlt, capture },
+        muSun,
+        depStart,
+        depDays: range(0, depSpan, depStep),
+        tofDays: range(tofMin, tofMax, tofStep),
+      });
+      this.porkchop.depKey = depKey;
+      this.porkchop.arrKey = arrKey;
+      this.porkchop.capture = capture;
+      this.porkchop.elapsedMs = performance.now() - t0;
+      this.porkchopSelected = null;
+      this.drawPorkchop();
+      const m = this.porkchop.minTotal;
+      const g = this.porkchop;
+      const onEdge = m && (m.iDep === 0 || m.iDep === g.nDep - 1 || m.iTof === 0 || m.iTof === g.nTof - 1);
+      readout.textContent = m
+        ? `Minimum ΔV ${m.dvTotal.toFixed(2)} km/s: depart ${this.fmtDate(m.departure)}, ` +
+          `${m.tofDays} d (${g.nDep}×${g.nTof} Lambert solves, ${g.elapsedMs.toFixed(0)} ms)` +
+          (onEdge ? '. This is on the edge of the grid, so a lower minimum may lie ' +
+            'outside it: try an earlier departure date.' : '')
+        : 'No transfers found in this window.';
+    }, 0);
+  }
+
+  fmtDate(d) {
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Plot geometry in CSS pixels (the canvas is scaled for devicePixelRatio).
+  porkchopLayout() {
     const canvas = document.getElementById('porkchop-canvas');
-    const ctx = canvas.getContext('2d');
-    
-    // Clear canvas
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Generate grid of departure/arrival dates
-    const startDate = new Date();
-    const dayRange = 365; // Check 1 year
-    const dayStep = 10; // Every 10 days
-    
-    const cellSize = canvas.width / (dayRange / dayStep);
-    
-    for (let depDay = 0; depDay < dayRange; depDay += dayStep) {
-      for (let arrDay = depDay + 30; arrDay < dayRange; arrDay += dayStep) {
-        // Simple approximation of delta-v based on synodic period
-        const transferAngle = ((arrDay - depDay) / 365) * 360;
-        const optimalAngle = 180; // Hohmann transfer
-        const angleDiff = Math.abs(transferAngle - optimalAngle);
-        
-        // Color based on angle difference
-        const quality = Math.max(0, 1 - angleDiff / 180);
-        const r = Math.floor(255 * (1 - quality));
-        const g = Math.floor(255 * quality);
-        
-        ctx.fillStyle = `rgb(${r}, ${g}, 0)`;
-        ctx.fillRect(
-          (depDay / dayRange) * canvas.width,
-          (arrDay / dayRange) * canvas.height,
-          cellSize,
-          cellSize
-        );
+    const w = canvas.clientWidth || 410;
+    const hgt = Math.round(w * 0.72);
+    return { canvas, w, h: hgt, left: 46, right: 10, top: 10, bottom: 34 };
+  }
+
+  drawPorkchop() {
+    const g = this.porkchop;
+    if (!g) return;
+    const L = this.porkchopLayout();
+    const dpr = window.devicePixelRatio || 1;
+    L.canvas.width = Math.round(L.w * dpr);
+    L.canvas.height = Math.round(L.h * dpr);
+    L.canvas.style.height = L.h + 'px';
+    const ctx = L.canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, L.w, L.h);
+
+    const metric = document.getElementById('porkchop-metric').value;
+    const values = g[metric];
+    const best = metric === 'c3' ? g.minC3 : g.minTotal;
+    const unit = metric === 'c3' ? 'km²/s²' : 'km/s';
+    if (!best) return;
+
+    // Bands: 13 ramp steps from the minimum up to roughly the 30th percentile,
+    // so the basins get the resolution and costly cells fall off the ramp.
+    const finite = Array.from(values).filter(Number.isFinite).sort((a, b) => a - b);
+    const lo = best[metric === 'c3' ? 'c3' : 'dvTotal'];
+    const p30 = finite[Math.floor(0.3 * (finite.length - 1))];
+    const band = this.niceStep((p30 - lo) / PORKCHOP_RAMP.length);
+    this.porkchopScale = { lo, band, unit, metric };
+
+    const pw = L.w - L.left - L.right, ph = L.h - L.top - L.bottom;
+    const cw = pw / g.nDep, chh = ph / g.nTof;
+    for (let j = 0; j < g.nTof; j++) {
+      for (let i = 0; i < g.nDep; i++) {
+        const v = values[j * g.nDep + i];
+        if (!Number.isFinite(v)) continue;
+        const k = Math.floor((v - lo) / band);
+        if (k >= PORKCHOP_RAMP.length) continue;              // costly: leave the surface
+        ctx.fillStyle = PORKCHOP_RAMP[Math.max(0, k)];
+        // TOF increases upward; overlap by 0.5 px to avoid seams.
+        ctx.fillRect(L.left + i * cw, L.top + ph - (j + 1) * chh, cw + 0.5, chh + 0.5);
       }
     }
-    
-    // Add labels
-    ctx.fillStyle = '#fff';
-    ctx.font = '12px Arial';
-    ctx.fillText('Departure →', 10, canvas.height - 10);
-    ctx.save();
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Arrival →', -canvas.height + 10, 20);
-    ctx.restore();
+
+    // Axes (recessive) and ticks.
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(L.left, L.top); ctx.lineTo(L.left, L.top + ph); ctx.lineTo(L.left + pw, L.top + ph);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+    // x: month ticks, at most ~5 labels.
+    const dayMs = SECONDS_PER_DAY * 1000;
+    const t0 = g.depStart.getTime();
+    const spanDays = g.depDays[g.depDays.length - 1];
+    const monthsStep = Math.max(1, Math.ceil(spanDays / 30.44 / 5));
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const d = new Date(Date.UTC(g.depStart.getUTCFullYear(), g.depStart.getUTCMonth() + 1, 1));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    // Cell i covers [i, i+1) * cw with its centre at departure depDays[i], so
+    // a tick for day t sits at (t / step + 0.5) * cw.
+    const depStep = g.nDep > 1 ? g.depDays[1] - g.depDays[0] : 1;
+    for (; (d.getTime() - t0) / dayMs <= spanDays; d.setUTCMonth(d.getUTCMonth() + monthsStep)) {
+      const x = L.left + (((d.getTime() - t0) / dayMs) / depStep + 0.5) * cw;
+      ctx.fillRect(x, L.top + ph, 1, 4);
+      ctx.fillText(`${months[d.getUTCMonth()]} ’${String(d.getUTCFullYear()).slice(2)}`, x, L.top + ph + 6);
+    }
+    ctx.fillText('Departure', L.left + pw / 2, L.top + ph + 20);
+
+    // y: time-of-flight ticks.
+    const tofLo = g.tofDays[0], tofHi = g.tofDays[g.tofDays.length - 1];
+    const yStep = this.niceStep((tofHi - tofLo) / 5);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let t = Math.ceil(tofLo / yStep) * yStep; t <= tofHi; t += yStep) {
+      const tofStep = g.nTof > 1 ? g.tofDays[1] - g.tofDays[0] : 1;
+      const y = L.top + ph - ((t - tofLo) / tofStep + 0.5) * chh;
+      ctx.fillRect(L.left - 4, y, 4, 1);
+      ctx.fillText(`${t} d`, L.left - 6, y);
+    }
+
+    // Minimum marker: white ring with a dark surface ring, direct label.
+    const mx = L.left + (best.iDep + 0.5) * cw;
+    const my = L.top + ph - (best.iTof + 0.5) * chh;
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.beginPath(); ctx.arc(mx, my, 5, 0, 2 * Math.PI); ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(mx, my, 5, 0, 2 * Math.PI); ctx.stroke();
+    const label = `min ${lo.toFixed(2)} ${unit}`;
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    const tw = ctx.measureText(label).width;
+    const lx = mx + 10 + tw > L.left + pw ? mx - 10 - tw : mx + 10;
+    ctx.textAlign = 'left';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';                     // halo keeps it legible on light cells
+    ctx.strokeText(label, lx, my);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, lx, my);
+
+    // Selected cell.
+    if (this.porkchopSelected) {
+      const s = this.porkchopSelected;
+      ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff';
+      ctx.strokeRect(L.left + s.iDep * cw - 2, L.top + ph - (s.iTof + 1) * chh - 2, cw + 4, chh + 4);
+    }
+
+    // Legend: the ramp with its end values.
+    const hi = lo + band * PORKCHOP_RAMP.length;
+    const name = metric === 'c3' ? 'C3' : 'ΔV';
+    document.getElementById('porkchop-legend').innerHTML =
+      `<span>${name} ${lo.toFixed(1)}</span><span class="ramp">` +
+      PORKCHOP_RAMP.map((c) => `<span style="background:${c}"></span>`).join('') +
+      `</span><span>${hi.toFixed(1)} ${unit}</span>`;
   }
-  
+
+  // 1, 2, 2.5 or 5 times a power of ten, at least x.
+  niceStep(x) {
+    if (!(x > 0)) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(x)));
+    for (const m of [1, 2, 2.5, 5, 10]) if (m * p >= x) return m * p;
+    return 10 * p;
+  }
+
+  porkchopCellAt(e) {
+    const g = this.porkchop;
+    if (!g) return null;
+    const L = this.porkchopLayout();
+    const rect = L.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const pw = L.w - L.left - L.right, ph = L.h - L.top - L.bottom;
+    const i = Math.floor((x - L.left) / pw * g.nDep);
+    const j = Math.floor((L.top + ph - y) / ph * g.nTof);
+    if (i < 0 || i >= g.nDep || j < 0 || j >= g.nTof) return null;
+    const idx = j * g.nDep + i;
+    const dayMs = SECONDS_PER_DAY * 1000;
+    const departure = new Date(g.depStart.getTime() + g.depDays[i] * dayMs);
+    return {
+      iDep: i, iTof: j, idx, departure,
+      arrival: new Date(departure.getTime() + g.tofDays[j] * dayMs),
+      tofDays: g.tofDays[j],
+      c3: g.c3[idx], vinfArr: g.vinfArr[idx], dvDep: g.dvDep[idx],
+      dvArr: g.dvArr[idx], dvTotal: g.dvTotal[idx], type: g.type[idx],
+    };
+  }
+
+  onPorkchopHover(e) {
+    const tip = document.getElementById('porkchop-tooltip');
+    const c = this.porkchopCellAt(e);
+    if (!c) { tip.classList.add('hidden'); return; }
+    tip.innerHTML = Number.isFinite(c.dvTotal)
+      ? `Depart ${this.fmtDate(c.departure)}<br>Arrive ${this.fmtDate(c.arrival)} (${c.tofDays} d)<br>` +
+        `C3 ${c.c3.toFixed(2)} km²/s²  v∞ arr ${c.vinfArr.toFixed(2)} km/s<br>` +
+        `ΔV ${c.dvDep.toFixed(2)} + ${c.dvArr.toFixed(2)} = <b>${c.dvTotal.toFixed(2)}</b> km/s<br>` +
+        `Type ${c.type === 1 ? 'I' : 'II'}`
+      : `Depart ${this.fmtDate(c.departure)}, ${c.tofDays} d<br>No transfer (degenerate geometry)`;
+    tip.style.left = (e.clientX + 14) + 'px';
+    tip.style.top = (e.clientY + 14) + 'px';
+    tip.classList.remove('hidden');
+  }
+
+  onPorkchopClick(e) {
+    const c = this.porkchopCellAt(e);
+    if (!c || !Number.isFinite(c.dvTotal)) return;
+    const g = this.porkchop;
+    this.porkchopSelected = c;
+    this.drawPorkchop();
+
+    // Full Lambert solution for the 3D preview.
+    const depState = helioStateEcl(g.depKey, c.departure);
+    const arrState = helioStateEcl(g.arrKey, c.arrival);
+    const depData = PLANETS[g.depKey], arrData = PLANETS[g.arrKey];
+    const depAlt = parseFloat(document.getElementById('departure-altitude').value) || 0;
+    const arrAlt = parseFloat(document.getElementById('arrival-altitude').value) || 0;
+    const t = transferBetween(depState, arrState, c.tofDays * SECONDS_PER_DAY,
+      GRAVITATIONAL_PARAMETERS.sun / 1e9,
+      { mu: GRAVITATIONAL_PARAMETERS[g.depKey] / 1e9, rPark: depData.radius + depAlt },
+      { mu: g.capture ? GRAVITATIONAL_PARAMETERS[g.arrKey] / 1e9 : 1, rPark: arrData.radius + arrAlt, capture: g.capture });
+    if (!t) return;
+
+    const result = {
+      deltaV: { launch: t.dvDep, arrival: t.dvArr, total: t.dvTotal },
+      arrivalVinf: t.vinfArr,
+      transferTime: c.tofDays,
+      maneuvers: [
+        { time: 0, location: g.depKey + ' orbit', deltaV: t.dvDep, direction: 'Prograde' },
+        ...(g.capture ? [{ time: c.tofDays, location: g.arrKey + ' orbit', deltaV: t.dvArr, direction: 'Retrograde' }] : []),
+      ],
+      lambert: { r1: depState.r, v1: t.v1, tofSec: c.tofDays * SECONDS_PER_DAY, arrivalDate: c.arrival },
+    };
+    this.currentPlan = {
+      ...result,
+      departure: g.depKey,
+      arrival: g.arrKey,
+      departureDate: c.departure,
+      trajectoryType: 'LAMBERT',
+    };
+    this.displayResults(result);
+    document.getElementById('porkchop-readout').textContent =
+      `Selected: depart ${this.fmtDate(c.departure)}, ${c.tofDays} d, C3 ${c.c3.toFixed(2)} km²/s², ` +
+      `ΔV ${t.dvTotal.toFixed(2)} km/s (Type ${t.type === 1 ? 'I' : 'II'})`;
+  }
+
   /**
    * Execute the planned trajectory
    */
@@ -871,6 +1176,10 @@ export class TrajectoryPlanner {
    */
 visualizeTrajectory() {
   if (!this.currentPlan) return;
+  if (this.currentPlan.lambert) {
+    this.visualizeLambertArc();
+    return;
+  }
   
   // Get bodies
   const depBody = this.simulation.bodies.get(this.currentPlan.departure);
@@ -960,4 +1269,48 @@ visualizeTrajectory() {
   this.simulation.controls.target.copy(center);
   this.simulation.controls.update();
 }
+
+  /**
+   * 3D preview of the selected Lambert arc: the solver's departure state
+   * propagated with the two-body core, drawn in the scene's frame (EQJ AU,
+   * mapped to three.js as (x, z, -y)), with the target at its real arrival
+   * position from the ephemeris.
+   */
+  visualizeLambertArc() {
+    const L = this.currentPlan.lambert;
+    const mu = GRAVITATIONAL_PARAMETERS.sun / 1e9;
+    const toScene = (rEcl) => {
+      const q = eclToEqj(rEcl);
+      return new THREE.Vector3(q[0] / AU_TO_KM, q[2] / AU_TO_KM, -q[1] / AU_TO_KM);
+    };
+    const points = [];
+    const segments = 200;
+    for (let k = 0; k <= segments; k++) {
+      const s = propagate(L.r1, L.v1, (k / segments) * L.tofSec, mu);
+      if (s) points.push(toScene(s.r));
+    }
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(points),
+      new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 0.8, transparent: true })
+    );
+    line.name = 'TrajectoryPreview';
+
+    const arr = helioStateEcl(this.currentPlan.arrival, L.arrivalDate);
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.05, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5 })
+    );
+    marker.position.copy(toScene(arr.r));
+    marker.name = 'FutureMarsPosition';
+
+    for (const name of ['TrajectoryPreview', 'FutureMarsPosition']) {
+      const old = this.simulation.scene.getObjectByName(name);
+      if (old) this.simulation.scene.remove(old);
+    }
+    this.simulation.scene.add(line);
+    this.simulation.scene.add(marker);
+    this.simulation.camera.position.set(0, 3, 3);
+    this.simulation.controls.target.set(0, 0, 0);
+    this.simulation.controls.update();
+  }
 }

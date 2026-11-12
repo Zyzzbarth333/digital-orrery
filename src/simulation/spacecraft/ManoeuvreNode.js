@@ -74,6 +74,11 @@ export class ManoeuvreNode {
     const vKms = [velocity.x, velocity.y, velocity.z];
 
     const state = propagate(rKm, vKms, time, mu);
+    if (!state) {
+      // Solver could not converge (not seen in testing): keep the current state.
+      console.warn('ManoeuvreNode: two-body propagation did not converge; prediction shows the current state');
+      return { position: position.clone(), velocity: velocity.clone() };
+    }
 
     const position_new = new THREE.Vector3(
       state.r[0] / AU_TO_KM,
