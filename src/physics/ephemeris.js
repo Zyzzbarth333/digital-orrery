@@ -57,8 +57,14 @@ export function helioStateEcl(key, date) {
 const ECL_TO_EQJ = Astronomy.Rotation_ECL_EQJ();
 
 // Rotate an ecliptic J2000 vector [x, y, z] back to equatorial J2000 (EQJ),
-// the frame the scene is drawn in.
+// the frame the n-body kernel uses.
 export function eclToEqj(v) {
   const r = Astronomy.RotateVector(ECL_TO_EQJ, new Astronomy.Vector(v[0], v[1], v[2], new Astronomy.AstroTime(0)));
+  return [r.x, r.y, r.z];
+}
+
+// Rotate an equatorial J2000 (EQJ) vector [x, y, z] into ecliptic J2000.
+export function eqjToEcl(v) {
+  const r = Astronomy.RotateVector(EQJ_TO_ECL, new Astronomy.Vector(v[0], v[1], v[2], new Astronomy.AstroTime(0)));
   return [r.x, r.y, r.z];
 }

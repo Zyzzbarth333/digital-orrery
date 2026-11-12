@@ -87,8 +87,34 @@ sizes and shapes. Checked visually at astronomy-engine's peak times for the
 the northern hemisphere) and the total lunar eclipse of 3 March (11:33:40
 UTC, Moon fully in the umbra).
 
+## Saturn's rings
+
+The rings are a thin layer of particles in Saturn's equatorial plane, with
+measured normal optical depth $\tau(r)$ ([textures](textures.md#saturns-rings)).
+With $\mu_0$ and $\mu$ the cosines of the Sun's and the viewer's angles to
+the ring normal, single scattering by such a layer (the classical
+plane-parallel result) gives the reflectance
+
+$$
+\frac{I}{F} = A\,\frac{\mu_0}{\mu_0 + \mu}\left[1 - e^{-\tau(1/\mu_0 + 1/\mu)}\right]
+\quad\text{(lit face)},
+\qquad
+\frac{I}{F} = A\,\frac{\mu_0}{\mu - \mu_0}\left[e^{-\tau/\mu} - e^{-\tau/\mu_0}\right]
+\quad\text{(unlit face)},
+$$
+
+so the unlit face glows faintly by light passed through the layer, as it
+does in Cassini images. What lies behind the rings shows through by
+$e^{-\tau/\mu}$ along the line of sight, and the rings' shadow on Saturn
+dims the sunlight by $e^{-\tau/\mu_0}$ where the ray to the Sun crosses the
+ring plane. $A$ (single-scattering albedo times the phase factor) is 1, so
+the opaque B ring has $I/F \approx 0.5$ face-on at low phase; the particles
+are drawn a pale tan. Saturn's shadow on the rings uses the eclipse formula
+above. Not modelled: the strong backscatter (opposition surge) and
+multiple scattering in the dense rings.
+
 Not modelled yet: sunlight refracted by Earth's atmosphere into its umbra
 (the copper colour of a lunar eclipse, $10^{-4}$ to $10^{-6}$ of full Moon
 brightness, so near-black at a daylight exposure), atmospheres and their
-scattering, ring shadows, and surface texture. These come with the realism
-milestone.
+scattering. Surface maps, relief and night lights are in
+[textures](textures.md).

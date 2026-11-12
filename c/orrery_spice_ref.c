@@ -222,7 +222,36 @@ int main(int argc, char **argv) {
       fprintf(f, "}%s\n", (e == 2 && b == 7) ? "" : ",");
     }
   }
-  fprintf(f, "  ]\n}\n");
+  fprintf(f, "  ],\n");
+
+  /* ---- body orientation: the J2000 -> body-fixed rotation (row-major) ----
+     Earth is ITRF93 from the high-precision Earth PCK (precession, nutation,
+     UT1 and polar motion); the Moon is MOON_ME, the mean-Earth/polar-axis
+     frame the LRO maps are made in; the rest are the IAU frames from
+     pck00011 (Mars from Konopliv 2026). */
+  {
+    const char *keys[] = {"sun", "mercury", "venus", "earth", "moon", "mars", "jupiter",
+                          "saturn", "uranus", "neptune", "pluto"};
+    const char *frames[] = {"IAU_SUN", "IAU_MERCURY", "IAU_VENUS", "ITRF93", "MOON_ME", "IAU_MARS",
+                            "IAU_JUPITER", "IAU_SATURN", "IAU_URANUS", "IAU_NEPTUNE", "IAU_PLUTO"};
+    const char *oepochs[] = {"2000 JAN 01 12:00:00 UTC", "2011 NOV 26 15:02:00 UTC",
+                             "2026 AUG 12 17:45:47 UTC", "2026 NOV 01 00:00:00 UTC"};
+    fprintf(f, "  \"orientation\": [\n");
+    for (int e = 0; e < 4; e++) {
+      SpiceDouble et, m[3][3];
+      str2et_c(oepochs[e], &et);
+      die_if_failed(oepochs[e]);
+      for (int b = 0; b < 11; b++) {
+        pxform_c("J2000", frames[b], et, m);
+        die_if_failed(frames[b]);
+        fprintf(f, "    {\"utc\": \"%s\", \"body\": \"%s\", \"frame\": \"%s\", ",
+                oepochs[e], keys[b], frames[b]);
+        put_vec(f, "m", &m[0][0], 9, 0);
+        fprintf(f, "}%s\n", (e == 3 && b == 10) ? "" : ",");
+      }
+    }
+    fprintf(f, "  ]\n}\n");
+  }
   if (ferror(f) | fclose(f)) { perror(tmppath); remove(tmppath); return 1; }
   if (rename(tmppath, outpath) != 0) { perror(outpath); remove(tmppath); return 1; }
   fprintf(stderr, "wrote %s (%d two-body cases)\n", outpath, total);
