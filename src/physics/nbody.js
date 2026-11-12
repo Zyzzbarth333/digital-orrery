@@ -135,7 +135,13 @@ export function primaryOf(r, bodies, muSun) {
 //   maxSteps    step budget for this call (default 200,000). When it runs out
 //               the advance stops early with complete: false.
 //   sunRadius   km (default 695,700); closer than this is an impact on 'sun'
-//   extraAccel(t, r, out)   optional non-gravitational acceleration (thrust)
+//   breakpoints sorted times (forward advances only) that steps must end on
+//               exactly, e.g. where a burn starts or stops
+//   extraAccel(t, r, out, mid)   optional non-gravitational acceleration
+//               (thrust). mid is the midpoint of the current step: with steps
+//               ending on breakpoints, a burn is on for a step when mid lies
+//               inside it, so it switches on and off at exact times rather
+//               than at whichever stage time happens to straddle the edge.
 //
 // Returns { steps, events, complete }. complete is false when the budget ran
 // out (state.t is then short of tEnd) or an impact stopped the advance.
@@ -144,15 +150,17 @@ export function advance(state, tEnd, opts) {
   const {
     bodiesAt, muSun, method = 'yoshida4', eta = 0.01, hMax = 86400.0,
     fixedStep = null, maxSteps = 200000, extraAccel = null, sunRadius = 695700.0,
+    breakpoints = null,
   } = opts;
   const integrate = METHODS[method];
   if (!integrate) throw new Error(`nbody: unknown method '${method}'`);
 
   const extra = [0, 0, 0];
+  let mid = state.t;
   const acc = (t, r, out) => {
     accelHeliocentric(r, bodiesAt(t), muSun, out);
     if (extraAccel) {
-      extraAccel(t, r, extra);
+      extraAccel(t, r, extra, mid);
       out[0] += extra[0]; out[1] += extra[1]; out[2] += extra[2];
     }
     return out;
@@ -164,6 +172,8 @@ export function advance(state, tEnd, opts) {
   const a = acc(state.t, r, [0, 0, 0]);
   if (state.primary === null) state.primary = primaryOf(r, bodiesAt(state.t), muSun);
   let steps = 0;
+  let bp = 0;   // next breakpoint index (forward only)
+  const bps = (breakpoints && dir > 0) ? breakpoints : null;
 
   while (dir * (tEnd - state.t) > 0) {
     const bodies = bodiesAt(state.t);
@@ -180,16 +190,24 @@ export function advance(state, tEnd, opts) {
       }
       h = Math.min(eta * tau, hMax);
     }
-    const remaining = dir * (tEnd - state.t);
+    let remaining = dir * (tEnd - state.t);
+    if (bps) {
+      while (bp < bps.length && bps[bp] <= state.t) bp++;
+      if (bp < bps.length && bps[bp] < tEnd) remaining = bps[bp] - state.t;
+    }
     if (steps >= maxSteps) return { steps, events, complete: false };
     // The last step lands exactly on tEnd. Comparing against a fixed epsilon
     // instead fails once t is large: at t ~ 1e8 s a leftover of 1e-8 s is
     // below one ulp, t stops advancing and the loop drifts r without time.
     const last = h >= remaining;
     if (last) h = remaining;
-
+    const landing = last ? state.t + dir * remaining : null;
+    mid = state.t + 0.5 * dir * h;
+    // A step that lands on a breakpoint changes which burn is active, so the
+    // acceleration carried into the next step must be the one on the far side.
     state.t = integrate(state.t, r, v, a, dir * h, acc);
-    if (last) state.t = tEnd;
+    if (last) state.t = landing;
+    if (bps && last && state.t !== tEnd) { mid = state.t + 1e-9; acc(state.t, r, a); }
     steps++;
 
     // Events, checked at the end of each step.
