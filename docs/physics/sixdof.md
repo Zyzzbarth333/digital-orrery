@@ -103,14 +103,19 @@ What is not reproduced:
 
 The n-body kernel flies two of the cases too:
 - **Case 2:** the Earth as its central body; 4 mm from sim B after 8 h.
-- **Case 4:** heliocentric, exactly as the app runs it; 0.62 m.
+- **Case 4:** heliocentric, exactly as the app runs it; 0.12 m.
 
-The case 4 gap is the app's Earth table, not the kernel. `deTable.js`'s
-Chebyshev fit holds the Earth's heliocentric position to 0.5 m. Its
-acceleration, though, ripples by about 10⁻⁸ m/s² against the force model,
-and jumps at the joins between segments. An orbit about the Earth follows
-the table's Earth. With the same Sun and Moon but the Earth at the origin,
-`sixdof.js` matches sim B to 1 mm.
+Case 4 found a flaw in the app's Earth table. The first table held the
+Earth's position to 0.5 m, but its acceleration rippled by 10⁻⁸ m/s² and
+jumped where its segments met, and an orbit about the Earth follows the
+table's Earth. That first table gave 0.62 m.
+- **The fix:** the table is now fitted through the Earth-Moon barycentre,
+  as JPL stores it ([DE442 in the app](ephemerides-and-gm.md#de442-in-the-app)).
+- **What's left:** the 0.12 m is the floor of DE442's own records (its
+  Earth's acceleration scatters by about 3×10⁻⁹ m/s²), felt through the
+  heliocentric frame.
+- **For comparison:** with the same Sun and Moon but the Earth at the
+  origin, `sixdof.js` matches sim B to 1 mm.
 
 ## Sources
 

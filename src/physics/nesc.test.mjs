@@ -170,12 +170,14 @@ header("THE APP'S KERNEL: cases 2 and 4 in nbody.js");
   const B4 = fx.cases['04'].tools.B.at(-1);
   const d4 = dist(s4.r.map((x, i) => (x - E8.r[i]) * 1e3), B4.r);
   console.log(`  case 4, kernel (heliocentric, Encke near the Earth, every body, DE442 table) after 8 h: ${d4.toFixed(3)} m from sim B`);
-  // The limit is the app's Earth table (deTable.js), not the kernel: its
-  // Chebyshev fit holds the Earth's position to 0.5 m but its acceleration
-  // only to about 1e-8 m/s^2 (more at segment joins), and an orbit about
-  // the Earth follows the table's Earth. sixdof.js, with the same Sun and
-  // Moon but the Earth at the origin, matches sim B to 1 mm.
-  check('case 4 by the kernel within 1 m of sim B (limited by the Earth table\'s acceleration)', d4 < 1);
+  // An orbit about the Earth follows the table's Earth. The first table
+  // (the Earth fitted directly) held position to 0.5 m but its
+  // acceleration only to 1e-8 m/s^2, and gave 0.62 m here; fitted through
+  // the Earth-Moon barycentre (deTable.js) it gives 0.12 m, the floor of
+  // DE442's own records (its Earth's acceleration scatters by 3e-9 m/s^2)
+  // in a heliocentric frame. sixdof.js, with the same Sun and Moon but the
+  // Earth at the origin, matches sim B to 1 mm.
+  check('case 4 by the kernel within 0.25 m of sim B (the floor of DE442\'s records)', d4 < 0.25);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');

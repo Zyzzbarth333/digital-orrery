@@ -133,7 +133,7 @@ every one ([A 6-DOF vehicle in Earth orbit](physics/sixdof.md)).
 | Geopotential, random 8×8 field | gradient of an independent Legendre sum | 7×10⁻⁹ (finite differences) |
 | IAU 1980 nutation | NAIF CSPICE `zzwahr` (one-off) | 10⁻¹⁹ rad |
 | The app's kernel, case 2 (Earth as the central body) | sim B | 4 mm after 8 h |
-| The app's kernel, case 4 (heliocentric, as the app runs it) | sim B | 0.62 m, from the Earth table's acceleration ripple (10⁻⁸ m/s²) |
+| The app's kernel, case 4 (heliocentric, as the app runs it) | sim B | 0.12 m (0.62 m before the Earth table was refitted through the Earth-Moon barycentre) |
 
 ## Not yet validated
 
