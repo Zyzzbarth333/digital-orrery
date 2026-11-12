@@ -14,6 +14,32 @@
 
 import * as Astronomy from 'astronomy-engine';
 
+// Time scales. The app's clock is UTC; astronomy-engine takes UT and adds
+// its ΔT = TT - UT, which past the end of its tables is an extrapolation:
+// 75.2 s for 2026 against the true 69.2 s, so every body was computed 6 s
+// late (180 km along Earth's orbit, 6 km along the Moon's; found by the
+// Artemis II validation, docs/validation/artemis2.md). From 1972 ΔT is set
+// from the leap-second table instead: TT - UTC = 32.184 s + (TAI - UTC),
+// treating UTC as UT1 (they differ by under 0.9 s). Before 1972 the
+// library's Espenak-Meeus model stands. Table: NAIF naif0012.tls.
+const LEAP_SECONDS = [
+  ['1972-01-01', 10], ['1972-07-01', 11], ['1973-01-01', 12], ['1974-01-01', 13], ['1975-01-01', 14],
+  ['1976-01-01', 15], ['1977-01-01', 16], ['1978-01-01', 17], ['1979-01-01', 18], ['1980-01-01', 19],
+  ['1981-07-01', 20], ['1982-07-01', 21], ['1983-07-01', 22], ['1985-07-01', 23], ['1988-01-01', 24],
+  ['1990-01-01', 25], ['1991-01-01', 26], ['1992-07-01', 27], ['1993-07-01', 28], ['1994-07-01', 29],
+  ['1996-01-01', 30], ['1997-07-01', 31], ['1999-01-01', 32], ['2006-01-01', 33], ['2009-01-01', 34],
+  ['2012-07-01', 35], ['2015-07-01', 36], ['2017-01-01', 37],
+].map(([d, s]) => [(Date.parse(`${d}T00:00:00Z`) - Date.UTC(2000, 0, 1, 12)) / 86400e3, s]);
+
+// ΔT in seconds for ut in days from J2000 (astronomy-engine's convention).
+export function deltaT(ut) {
+  if (ut < LEAP_SECONDS[0][0]) return Astronomy.DeltaT_EspenakMeeus(ut);
+  let tai = LEAP_SECONDS[0][1];
+  for (const [d, s] of LEAP_SECONDS) if (ut >= d) tai = s;
+  return 32.184 + tai;
+}
+Astronomy.SetDeltaTFunction(deltaT);
+
 const AU_KM = 149597870.7;
 const AU_PER_DAY_TO_KMS = AU_KM / 86400.0;
 

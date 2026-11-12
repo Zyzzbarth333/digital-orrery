@@ -24,6 +24,7 @@
 // orientation.test.mjs.
 
 import * as Astronomy from 'astronomy-engine';
+import './ephemeris.js';               // sets astronomy-engine's ΔT from the leap seconds
 
 const AE_BODY = {
   sun: Astronomy.Body.Sun, mercury: Astronomy.Body.Mercury, venus: Astronomy.Body.Venus,

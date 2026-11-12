@@ -39,3 +39,19 @@ The fixture holds:
 
 The output is deterministic (a fixed-seed generator picks the two-body cases), so regenerating it with
 the same toolkit and kernels gives the same file.
+
+## Artemis II reference
+
+`artemis2_ref.c` samples Orion's reconstructed trajectory for
+[docs/validation/artemis2.md](../docs/validation/artemis2.md). It needs the
+kernels above plus NAIF's two Artemis II SPKs from
+<https://naif.jpl.nasa.gov/pub/naif/ARTEMIS/kernels/spk/>
+(`art002_rec_260402_260410_jsc_bet_revf.bsp` and its `_gapfill` file, about
+5.7 MB together) in `python/data/kernels/spk/missions/artemis2/`.
+
+```bash
+cmake --build c/build
+c/build/artemis2_ref src/physics/fixtures/artemis2_bet.json 600
+```
+
+The second argument is the sampling step in seconds.
