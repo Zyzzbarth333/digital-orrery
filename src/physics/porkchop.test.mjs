@@ -120,6 +120,19 @@ console.log('='.repeat(60));
 }
 
 console.log('='.repeat(60));
+console.log('CASE 4: signed Hohmann excess speed');
+console.log('='.repeat(60));
+{
+  const { hohmannVinf } = await import('./porkchop.js');
+  const AUk = 149597870.7, muS = SPICE.meta.gm.sun;
+  const toMars = hohmannVinf(AUk, 1.523679 * AUk, muS), toVenus = hohmannVinf(AUk, 0.723332 * AUk, muS);
+  console.log(`  Earth to Mars ${toMars.toFixed(3)} km/s, Earth to Venus ${toVenus.toFixed(3)} km/s`);
+  // Curtis Ex 8.3: Earth to Mars departure v_inf 2.943 km/s (circular, coplanar).
+  check('Earth to Mars is outward, +2.94 km/s (Curtis Ex 8.3: 2.943)', Math.abs(toMars - 2.943) < 0.005);
+  check('Earth to Venus is inward: negative, about -2.5 km/s', toVenus < 0 && Math.abs(toVenus + 2.495) < 0.01);
+}
+
+console.log('='.repeat(60));
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);
   process.exit(1);

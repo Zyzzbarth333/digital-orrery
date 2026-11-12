@@ -8,6 +8,9 @@
 
 import { useState } from 'react';
 import { useClock, type SimClock } from './clock';
+import { useMission, type Mission } from './mission';
+import { MissionPanel } from './mission-panel';
+import { PlannerPanel } from './planner-panel';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { bodyState } from '../scene/OrreryScene';
 
@@ -31,8 +34,9 @@ function Lamp({ on, label, title }: { on: boolean; label: string; title: string 
   return <span className="lamp" data-on={on} title={title}><i aria-hidden="true" />{label}</span>;
 }
 
-export function TimeBand({ clock }: { clock: SimClock }) {
+export function TimeBand({ clock, mission }: { clock: SimClock; mission: Mission }) {
   const s = useClock(clock);
+  useMission(mission);
   const iso = new Date(s.timeMs).toISOString();
   const live = Math.abs(s.timeMs - Date.now()) < 60e3;
   return (
@@ -57,12 +61,14 @@ export function TimeBand({ clock }: { clock: SimClock }) {
       <div className="lamps">
         <Lamp on={s.playing} label="Run" title="Time is running" />
         <Lamp on={live} label="Live" title="The sim clock is within a minute of now" />
+        <Lamp on={mission.stepping} label="Kernel" title="The n-body kernel is stepping a craft" />
+        <span className="lamp caution-lamp" data-on={mission.lagging} title="A craft is more than a minute behind the clock (the kernel catches up rather than take unsafe steps)"><i aria-hidden="true" />Lag</span>
       </div>
     </header>
   );
 }
 
-export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: BodyKey; onSelect: (k: BodyKey) => void }) {
+export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: BodyKey | null; onSelect: (k: BodyKey) => void }) {
   const s = useClock(clock);
   const date = new Date(s.timeMs);
   return (
@@ -111,9 +117,34 @@ function Readout({ rows }: { rows: Row[] }) {
 
 const AE = 'astronomy-engine; within 1e-4 of the Sun distance of DE442, checked with CSPICE';
 
+export type PlateTab = 'target' | 'mission' | 'planner';
+
+// The right-hand plate: three tabs on the same panel.
+export function Plate({ clock, focus, mission, tab, setTab, onFocusCraft, autoPlan = null }: {
+  clock: SimClock; focus: BodyKey; mission: Mission; tab: PlateTab; setTab: (t: PlateTab) => void; onFocusCraft: (id: number) => void; autoPlan?: string | null;
+}) {
+  const [collapsed, setCollapsed] = useState(true);
+  const tabs: [PlateTab, string][] = [['target', 'Target'], ['mission', 'Mission'], ['planner', 'Planner']];
+  return (
+    <aside className="plate screw" aria-label="Readouts" data-collapsed={collapsed}>
+      <span className="pnl" aria-hidden="true">R1</span>
+      <div className="tabs" role="tablist" aria-label="Plate">
+        {tabs.map(([k, label]) => (
+          <button key={k} role="tab" id={`tab-${k}`} aria-selected={tab === k} aria-controls={`panel-${k}`} className="key tab" onClick={() => setTab(k)}>{label}</button>
+        ))}
+        <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show' : 'Hide'}</button>
+      </div>
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="tab-panel">
+        {tab === 'target' && <DataPlate clock={clock} focus={focus} />}
+        {tab === 'mission' && <MissionPanel clock={clock} mission={mission} onFocusCraft={onFocusCraft} />}
+        {tab === 'planner' && <PlannerPanel clock={clock} mission={mission} autoPlan={autoPlan} onFlown={(id) => { setTab('mission'); onFocusCraft(id); }} />}
+      </div>
+    </aside>
+  );
+}
+
 export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey }) {
   const s = useClock(clock);
-  const [collapsed, setCollapsed] = useState(true);
   const b = BODY_BY_KEY[focus];
   const date = new Date(s.timeMs);
   const st = bodyState(focus, date);
@@ -156,14 +187,10 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
   }
   const kind = focus === 'sun' ? 'Star, at the centre of the frame' : focus === 'moon' ? 'Moon of Earth' : focus === 'pluto' ? 'Dwarf planet' : 'Planet';
   return (
-    <aside className="plate screw" aria-label={`${b.name} data`} data-collapsed={collapsed}>
-      <span className="pnl" aria-hidden="true">R1</span>
+    <div className="tab-body">
       <div className="plate-head">
         <h2>{b.name}</h2>
         <p className="engraved">{kind}</p>
-        <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>
-          {collapsed ? 'Show data' : 'Hide data'}
-        </button>
       </div>
       <p className="strip" aria-hidden="true">Readout · source</p>
       <Readout rows={rows} />
@@ -171,6 +198,6 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
         <p>Each value&apos;s tag names its source; a dashed tag is worked out here. Hover a tag for detail.</p>
         <p><kbd>Space</kbd> run · <kbd>←</kbd><kbd>→</kbd> rate · <kbd>↑</kbd><kbd>↓</kbd> body · <kbd>N</kbd> now. Drag to turn, scroll to zoom.</p>
       </div>
-    </aside>
+    </div>
   );
 }

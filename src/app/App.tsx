@@ -1,14 +1,19 @@
 // src/app/App.tsx
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SimClock } from './clock';
 import { SceneView } from '../scene/SceneView';
-import { BodyRail, DataPlate, RATES, TimeBand } from './panels';
+import { BodyRail, Plate, RATES, TimeBand, type PlateTab } from './panels';
+import { Mission } from './mission';
+import type { OrreryScene } from '../scene/OrreryScene';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 
 // Optional start state from the URL: ?focus=mars&t=2030-01-01T00:00Z&view=sun
-// (or &phase=90: the camera at that angle from the Sun, seen from the body)
-function initialState(): { focus: BodyKey; timeMs: number; sunView: boolean; phaseDeg: number } {
+// (or &phase=90: the camera at that angle from the Sun, seen from the body).
+// Missions too: &craft=orbit,400,51.6 (altitude km, inclination deg) or
+// &craft=departure,2.95,prograde (v_inf km/s, direction), followed by the
+// camera; &plan=mars opens the planner and computes the grid.
+function initialState(): { focus: BodyKey; timeMs: number; sunView: boolean; phaseDeg: number; craft: string | null; plan: string | null } {
   const q = new URLSearchParams(window.location.search);
   const f = q.get('focus');
   const t = Date.parse(q.get('t') ?? '');
@@ -17,6 +22,8 @@ function initialState(): { focus: BodyKey; timeMs: number; sunView: boolean; pha
     timeMs: Number.isFinite(t) ? t : Date.now(),
     sunView: q.get('view') === 'sun' || q.has('phase'),
     phaseDeg: Number(q.get('phase') ?? 20),
+    craft: q.get('craft'),
+    plan: q.get('plan'),
   };
 }
 
@@ -24,6 +31,27 @@ export function App() {
   const init = useMemo(initialState, []);
   const clock = useMemo(() => new SimClock(init.timeMs), [init]);
   const [focus, setFocus] = useState<BodyKey>(init.focus);
+  const [tab, setTab] = useState<PlateTab>(init.plan ? 'planner' : init.craft ? 'mission' : 'target');
+  const mission = useMemo(() => new Mission(), []);
+  const scene = useRef<OrreryScene | null>(null);
+  const launched = useRef(false);
+  const [following, setFollowing] = useState<number | null>(null);
+  const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); };
+  const onReady = (sc: OrreryScene) => {
+    scene.current = sc;
+    sc.onFrame = (t, jumps) => mission.frame(t, jumps);
+    sc.craftSource = () => mission.views();
+    sc.onCraftPick = (id) => { followCraft(id); setTab('mission'); };
+    if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
+    const [kind, a, b] = (init.craft ?? '').split(',');
+    if ((kind === 'orbit' || kind === 'departure') && !launched.current) {
+      launched.current = true;                    // once, whatever React's mounts do
+      const c = kind === 'orbit'
+        ? mission.launchOrbit(clock.snapshot.timeMs, Number(a) || 400, Number(b) || 0)
+        : mission.launchDeparture(clock.snapshot.timeMs, { speed: Number(a) || 3, dir: (['prograde', 'retrograde', 'outward', 'inward'].includes(b) ? b : 'prograde') as 'prograde' });
+      followCraft(c.id);
+    }
+  };
 
   // Keyboard: Space runs or pauses, left/right step the rate, up/down move
   // through the bodies, N jumps to now. Ignored while a form control has focus.
@@ -49,11 +77,10 @@ export function App() {
 
   return (
     <div className="app">
-      <SceneView clock={clock} focus={focus} onFocusChange={setFocus}
-        onReady={init.sunView ? (scene) => scene.viewFromSun((init.phaseDeg * Math.PI) / 180) : undefined} />
-      <TimeBand clock={clock} />
-      <BodyRail clock={clock} focus={focus} onSelect={setFocus} />
-      <DataPlate clock={clock} focus={focus} />
+      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady} />
+      <TimeBand clock={clock} mission={mission} />
+      <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); setTab('target'); }} />
+      <Plate clock={clock} focus={focus} mission={mission} tab={tab} setTab={setTab} onFocusCraft={followCraft} autoPlan={init.plan} />
     </div>
   );
 }

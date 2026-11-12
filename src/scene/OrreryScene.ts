@@ -30,6 +30,7 @@ import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, appl
 import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStars } from './stars';
 import { DailyEarth } from './clouds';
+import { CraftLayer, type CraftView } from './craftLayer';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { loadJson, loadManifest, SurfaceLoader, type Manifest } from './surfaces';
 
@@ -109,6 +110,13 @@ export class OrreryScene {
   private sunViewPhase = 0.35;
 
   onFocusChange: (key: BodyKey) => void = () => {};
+  // Spacecraft: the mission steps on each frame (after the clock), the scene
+  // draws what craftSource returns, and the camera can follow one craft.
+  onFrame: (timeMs: number, jumps: number) => void = () => {};
+  craftSource: () => CraftView[] = () => [];
+  onCraftPick: (id: number) => void = () => {};
+  focusCraftId: number | null = null;
+  private craftLayer!: CraftLayer;
 
   // Put the camera at phase angle `phase` (rad) from the Sun as seen from
   // the focused body: about 0.35 shows the day side with a little
@@ -199,6 +207,7 @@ export class OrreryScene {
       }
     });
 
+    this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
     this.attachControls();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
@@ -216,7 +225,13 @@ export class OrreryScene {
     return el;
   }
 
+  focusOnCraft(id: number): void {
+    this.focusCraftId = id;
+    this.dist = 2.0e4;
+  }
+
   focusOn(key: BodyKey): void {
+    this.focusCraftId = null;
     this.focus = key;
     const r = BODY_BY_KEY[key].radiusKm;
     this.dist = key === 'sun' ? 5.0e8 : Math.max(r * 8, 2.0e4);
@@ -240,7 +255,7 @@ export class OrreryScene {
     });
     el.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const minDist = BODY_BY_KEY[this.focus].radiusKm * 1.2;
+      const minDist = this.focusCraftId !== null ? 0.05 : BODY_BY_KEY[this.focus].radiusKm * 1.2;
       this.dist = Math.max(minDist, Math.min(2.0e10, this.dist * Math.exp(e.deltaY * 0.0015)));
     }, { passive: false });
   }
@@ -297,13 +312,16 @@ export class OrreryScene {
     this.lastFrame = now;
     const tMs = this.clock.snapshot.timeMs;
     const date = new Date(tMs);
+    this.onFrame(tMs, this.clock.snapshot.jumps);
+    const crafts = this.craftSource();
+    const followed = this.focusCraftId === null ? null : crafts.find((c) => c.id === this.focusCraftId) ?? null;
 
     for (const b of BODIES) this.states[b.key] = bodyState(b.key, date);
     if (this.earthResolved) this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
     this.updateOrbits(tMs, now);
 
-    // Camera position in km (ecliptic), relative to the focused body.
-    const f = this.states[this.focus].r;
+    // Camera position in km (ecliptic), relative to the focused body or craft.
+    const f = followed ? followed.rEcl : this.states[this.focus].r;
     if (this.sunViewPending && this.focus !== 'sun') {
       const d = Math.hypot(f[0], f[1], f[2]);
       this.az = Math.atan2(-f[1], -f[0]) + this.sunViewPhase;
@@ -327,12 +345,15 @@ export class OrreryScene {
       if (o && b.parent) o.line.position.copy(this.meshes.get(b.parent)!.position);
     }
 
+    this.craftLayer.place(crafts, cam, UNIT_KM);
+
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(toRender([-offset[0], -offset[1], -offset[2]], this.tmp));
     this.camera.updateMatrixWorld();
 
     this.renderer.render(this.scene, this.camera);
     this.placeLabels();
+    this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
 
   // Per-body sunlight and shadow casters, and the camera's exposure.
@@ -428,13 +449,14 @@ export class OrreryScene {
         const entry = this.manifest.bodies[b.key]!;
         void this.surfaces.apply(b.key, entry, this.materials.get(b.key)!, new Date(this.clock.snapshot.timeMs));
       }
-      el.classList.toggle('focused', b.key === this.focus);
+      el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null);
     }
   }
 
   dispose(): void {
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
+    this.craftLayer.dispose();
     for (const el of this.labels.values()) el.remove();
     this.renderer.dispose();
     this.renderer.domElement.remove();

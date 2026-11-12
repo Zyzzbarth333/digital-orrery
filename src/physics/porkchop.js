@@ -123,3 +123,10 @@ export function range(start, stop, step) {
   for (let k = 0; k <= n; k++) out.push(start + k * step);
   return out;
 }
+
+// Hohmann departure excess speed from a circular orbit r1 to r2 about a
+// body of parameter mu, signed: positive along the departure body's motion
+// (outward, r2 > r1), negative against it (inward, r2 < r1).
+export function hohmannVinf(r1, r2, mu) {
+  return Math.sqrt(mu / r1) * (Math.sqrt((2 * r2) / (r1 + r2)) - 1);
+}

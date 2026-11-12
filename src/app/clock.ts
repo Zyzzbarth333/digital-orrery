@@ -11,6 +11,7 @@ export interface ClockState {
   timeMs: number;        // sim time, UTC milliseconds since 1970
   rate: number;          // sim seconds per real second
   playing: boolean;
+  jumps: number;         // times the clock was set rather than run
 }
 
 export class SimClock {
@@ -19,7 +20,7 @@ export class SimClock {
   private lastNotify = 0;
 
   constructor(start = Date.now()) {
-    this.state = { timeMs: start, rate: 1, playing: true };
+    this.state = { timeMs: start, rate: 1, playing: true, jumps: 0 };
   }
 
   get snapshot(): ClockState {
@@ -49,8 +50,10 @@ export class SimClock {
     this.emit();
   }
 
+  // Setting the time is a jump: spacecraft are re-anchored at the new time
+  // rather than integrated across the gap (src/physics/craft.js).
   setTime(timeMs: number): void {
-    this.state = { ...this.state, timeMs };
+    this.state = { ...this.state, timeMs, jumps: this.state.jumps + 1 };
     this.emit();
   }
 
