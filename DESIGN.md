@@ -259,6 +259,27 @@ values worked out in the app. Hover a tag for its source detail.
 The clock and rate sit in recessed black readout windows. Rate is a native
 select dressed as a window, with a drawn caret.
 
+### Tabs
+
+The plate's TARGET, MISSION and PLANNER tabs are keys that stay pressed: the
+selected one is window black with amber engraving.
+
+### Number inputs
+
+Inputs are small recessed readout windows: window black, pale-amber
+numerals, an engraved label above, and the unit beside.
+
+### Spacecraft and the porkchop
+
+- **Craft marker:** a 9 px square turned 45° in amber; filled when
+  selected, orange while burning, red and struck through after an impact.
+- **Craft lines:** the osculating conic in amber (0.75), the flown trail in
+  pale amber (0.45).
+- **Porkchop:** shaded on the console's own ramp, from sheen through amber,
+  key orange and engraving to window black, so low C3 glows. The minimum is
+  outlined in ink and the picked cell in lamp green.
+- **LAG lamp:** lights caution yellow.
+
 ### Navigation
 
 The body rail: list buttons with `aria-current`. The current body inverts to
