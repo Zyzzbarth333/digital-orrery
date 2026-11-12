@@ -44,6 +44,9 @@ export function App() {
     sc.onCraftPick = (id) => { followCraft(id); setTab('mission'); };
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
     const [kind, a, b] = (init.craft ?? '').split(',');
+    // React's development double-mount builds the scene twice: a craft
+    // launched for the first one is followed by the second too.
+    if (launched.current && mission.selected) sc.focusOnCraft(mission.selected.id);
     if ((kind === 'orbit' || kind === 'departure') && !launched.current) {
       launched.current = true;                    // once, whatever React's mounts do
       const c = kind === 'orbit'

@@ -21,6 +21,7 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame }: Pro
   const overlayRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<OrreryScene | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [lost, setLost] = useState(false);
 
   useEffect(() => {
     let scene: OrreryScene;
@@ -43,6 +44,7 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame }: Pro
       return () => clearInterval(timer);
     }
     scene.onFocusChange = onFocusChange;
+    scene.onContextLost = setLost;
     sceneRef.current = scene;
     onReady?.(scene);
     return () => { scene.dispose(); sceneRef.current = null; };
@@ -58,6 +60,11 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame }: Pro
   return (
     <div className="scene-host" ref={hostRef}>
       <div className="scene-overlay" ref={overlayRef} />
+      {lost && !failed && (
+        <div className="scene-error caution" role="alert">
+          The graphics card dropped the 3D view (this happens after sleep or a driver reset). It comes back when the browser restores it; the panels and the clock keep running.
+        </div>
+      )}
       {failed && (
         <div className="scene-error caution" role="alert">
           The 3D view needs WebGL, which this browser could not start. The data panels still work.
