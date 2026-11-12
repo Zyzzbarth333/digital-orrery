@@ -8,6 +8,7 @@ import { OrbitalMechanics } from './OrbitalMechanics.js';
 import { SpacecraftFactory } from './spacecraft/SpacecraftFactory.js';
 import { SpacecraftControlPanel } from '../ui/SpacecraftControlPanel.js';
 import { ManoeuvreManager } from './spacecraft/ManoeuvreNode.js';
+import { KernelClient } from './spacecraft/KernelClient.js';
 import { 
   PLANETS,
   VISUAL_SETTINGS,
@@ -35,6 +36,9 @@ export class SolarSystem {
     // Simulation objects
     this.bodies = new Map();
     this.spacecraft = [];
+    // Spacecraft physics (src/physics/kernelHost.js), in a Web Worker when one
+    // is available, on this thread otherwise.
+    this.kernel = new KernelClient();
     this.timeController = new TimeController();
 
     this.spacecraftControlPanel = null;
@@ -943,6 +947,7 @@ export class SolarSystem {
     );
     
     // Add to scene and tracking
+    spacecraft.kernelManaged = true;
     this.spacecraft.push(spacecraft);
     this.scene.add(spacecraft.mesh);
     this.scene.add(spacecraft.trajectoryLine);
@@ -1043,6 +1048,9 @@ export class SolarSystem {
           this.showNotification(`${craft.name} kept its state across the time jump`);
         }
       });
+      // Send this frame's physics requests (skipped while the last batch is
+      // still being computed; the next request then covers the longer span).
+      this.kernel.tick(this.spacecraft.filter((c) => c.kernelManaged && !c.crashed), now);
     }
     
     // Update UI
