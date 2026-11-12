@@ -258,7 +258,10 @@ header('CASE 9: escape from the edge of Earth\'s sphere of influence');
   const sys = solarSystemBodies({ epochMs });
   const E0 = helioStateEqj('earth', new Date(epochMs));
   const muE = sys.bodiesAt(0).find((b) => b.key === 'earth').mu;
-  const R = norm(E0.r) * Math.pow(muE / sys.muSun, 0.4);
+  // Start at 95 % of the sphere-of-influence radius: exactly on it, whether
+  // the craft begins inside comes down to rounding (a 1e-10 change in Earth's
+  // GM, DE440 to DE442, flipped it), and the exit event would test nothing.
+  const R = 0.95 * norm(E0.r) * Math.pow(muE / sys.muSun, 0.4);
   const vinf = 3.0, u = [E0.v[0], E0.v[1], E0.v[2]].map((x) => x / norm(E0.v));
   const s0 = Math.sqrt(vinf * vinf + 2 * muE / R);
   const st = createState(E0.r.map((x, i) => x + R * u[i]), E0.v.map((x, i) => x + s0 * u[i]), 0);
@@ -266,7 +269,7 @@ header('CASE 9: escape from the edge of Earth\'s sphere of influence');
   const E1 = helioStateEqj('earth', new Date(epochMs + 20 * DAY * 1000));
   const vrel = norm(sub(st.v, E1.v));
   const left = res.events.find((e) => e.type === 'primary' && e.from === 'earth');
-  console.log(`  SOI radius ${R.toFixed(0)} km; start ${s0.toFixed(3)} km/s; after 20 d ${vrel.toFixed(3)} km/s relative to Earth`);
+  console.log(`  start at ${R.toFixed(0)} km (0.95 SOI); start ${s0.toFixed(3)} km/s; after 20 d ${vrel.toFixed(3)} km/s relative to Earth`);
   check('relative speed has fallen to v_inf within 10%', Math.abs(vrel - vinf) / vinf < 0.1);
   check('leaving Earth\'s sphere of influence is reported', !!left);
 }
@@ -336,6 +339,26 @@ header('CASE 11: finite burns start and stop at exact times');
   try { stepCraft(free, { id: 1, version: 0, r: r0, v: v0, t: 0, tEnd, burns: [{ ...burn, t1: t0 + m0 / mdot + 1 }] }); }
   catch { refused = true; }
   check('a burn that would leave no mass is refused', refused);
+}
+
+header('CASE 12: kernel GMs match SPICE (DE442), with system GMs at barycentres');
+{
+  const { readFileSync } = await import('node:fs');
+  const { bodyConstants, MU_SUN } = await import('./bodies.js');
+  const { GRAVITATIONAL_PARAMETERS } = await import('../utils/constants.js');
+  const gm = JSON.parse(readFileSync(new URL('./fixtures/spice_reference.json', import.meta.url), 'utf8')).meta.gm;
+  let worst = 0;
+  for (const k of ['mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']) {
+    worst = Math.max(worst, Math.abs(bodyConstants(k).mu - gm[k]) / gm[k]);
+  }
+  worst = Math.max(worst, Math.abs(MU_SUN - gm.sun) / gm.sun);
+  console.log(`  kernel vs SPICE GM, worst relative difference ${worst.toExponential(2)}`);
+  check('every kernel GM equals the value SPICE reads from gm_de442.tpc (<1e-15)', worst < 1e-15);
+  // Giant planets sit at their system barycentres, so they need the system
+  // GM: the planet-only value in constants.js leaves out the moons.
+  const moons = ['jupiter', 'saturn', 'neptune'].map((k) => bodyConstants(k).mu / (GRAVITATIONAL_PARAMETERS[k] / 1e9) - 1);
+  console.log(`  system / planet-only GM - 1: Jupiter ${moons[0].toExponential(2)}, Saturn ${moons[1].toExponential(2)}, Neptune ${moons[2].toExponential(2)}`);
+  check('giant planets use system GMs (moons included)', moons.every((x) => x > 1e-4));
 }
 
 console.log('='.repeat(60));

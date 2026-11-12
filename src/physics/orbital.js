@@ -15,7 +15,7 @@
 //   Lambert       -> Algorithm 5.2 (universal variables, zero-rev)
 // Verified in orbital.test.mjs: propagate and rvToElements against NAIF CSPICE
 // (prop2b_c, oscltx_c; fixtures/spice_reference.json), lambert on the real MSL
-// geometry from DE440 and on grids flown by an independent integrator, and all
+// geometry from DE442 and on grids flown by an independent integrator, and all
 // of them against the book's worked examples.
 
 const TWO_PI = 2.0 * Math.PI;

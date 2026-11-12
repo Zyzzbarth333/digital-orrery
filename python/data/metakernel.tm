@@ -9,10 +9,18 @@ KPL/MK
    (https://naif.jpl.nasa.gov/pub/naif/generic_kernels/) and place them under
    python/data/kernels/ using the layout in KERNELS_TO_LOAD:
 
-      lsk/naif0012.tls    <- generic_kernels/lsk/naif0012.tls
-      pck/pck00011.tpc    <- generic_kernels/pck/pck00011.tpc
-      pck/gm_de440.tpc    <- generic_kernels/pck/gm_de440.tpc
-      spk/de440.bsp       <- generic_kernels/spk/planets/de440.bsp
+      lsk/naif0012.tls                  <- generic_kernels/lsk/
+      pck/pck00011_n0066.tpc            <- generic_kernels/pck/ (IAU orientation,
+                                           N0066+ toolkit format)
+      pck/earth_latest_high_prec.bpc    <- generic_kernels/pck/ (precise Earth
+                                           orientation; NAIF updates it often)
+      pck/moon_pa_de440_200625.bpc      <- generic_kernels/pck/ (lunar libration)
+      fk/moon_de440_250416.tf           <- generic_kernels/fk/satellites/
+      pck/mars_konopliv_2026_n0066_v1.tpc <- generic_kernels/pck/ (Mars rotation)
+      spk/de442.bsp                     <- generic_kernels/spk/planets/
+
+   gm_de442.tpc is in this repo (python/data/): DE442's GM values, taken
+   from NAIF's de442_tech-comments.txt because NAIF ships no gm_de442.tpc.
 
    SPICE resolves PATH_VALUES relative to the process working directory, not
    to this file. Run the Python reference scripts from the python/ directory
@@ -27,14 +35,18 @@ KPL/MK
 
 \begindata
 
-   PATH_SYMBOLS    = ( 'KERNELS' )
-   PATH_VALUES     = ( './data/kernels' )
+   PATH_SYMBOLS    = ( 'KERNELS', 'DATA' )
+   PATH_VALUES     = ( './data/kernels', './data' )
 
    KERNELS_TO_LOAD = (
        '$KERNELS/lsk/naif0012.tls'
-       '$KERNELS/pck/pck00011.tpc'
-       '$KERNELS/pck/gm_de440.tpc'
-       '$KERNELS/spk/de440.bsp'
+       '$KERNELS/pck/pck00011_n0066.tpc'
+       '$DATA/gm_de442.tpc'
+       '$KERNELS/pck/earth_latest_high_prec.bpc'
+       '$KERNELS/pck/moon_pa_de440_200625.bpc'
+       '$KERNELS/fk/moon_de440_250416.tf'
+       '$KERNELS/pck/mars_konopliv_2026_n0066_v1.tpc'
+       '$KERNELS/spk/de442.bsp'
    )
 
 \begintext

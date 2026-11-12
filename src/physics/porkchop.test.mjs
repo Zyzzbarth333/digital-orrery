@@ -4,7 +4,7 @@
 // Needs `npm install` (astronomy-engine). Run with:
 //     node src/physics/porkchop.test.mjs
 // Reference values come from src/physics/fixtures/spice_reference.json
-// (CSPICE + DE440, see c/README.md).
+// (CSPICE + DE442, see c/README.md).
 
 import { readFileSync } from 'node:fs';
 import { lambert } from './orbital.js';
@@ -35,10 +35,10 @@ const KEY = {
   'URANUS BARYCENTER': 'uranus', 'NEPTUNE BARYCENTER': 'neptune',
 };
 const INNER = new Set(['venus', 'earth', 'mars']);
-let mslC3 = NaN;   // set by case 2 from the DE440 states, used by case 3
+let mslC3 = NaN;   // set by case 2 from the DE442 states, used by case 3
 
 console.log('='.repeat(60));
-console.log('CASE 1: astronomy-engine vs DE440 (heliocentric J2000)');
+console.log('CASE 1: astronomy-engine vs DE442 (heliocentric J2000)');
 console.log('='.repeat(60));
 {
   let worstInnerR = 0, worstInnerV = 0, worstAllR = 0, worstAllV = 0;
@@ -60,7 +60,7 @@ console.log('='.repeat(60));
 }
 
 console.log('='.repeat(60));
-console.log('CASE 2: MSL cell, astronomy-engine vs DE440 states');
+console.log('CASE 2: MSL cell, astronomy-engine vs DE442 states');
 console.log('='.repeat(60));
 {
   const m = SPICE.msl;
@@ -77,11 +77,11 @@ console.log('='.repeat(60));
   const dep = { mu: GRAVITATIONAL_PARAMETERS.earth / 1e9, rPark: PLANETS.earth.radius + 200 };
   const arr = { mu: GRAVITATIONAL_PARAMETERS.mars / 1e9, rPark: PLANETS.mars.radius + 400, capture: true };
   const t = transferBetween(helioStateEcl('earth', launch), helioStateEcl('mars', arrive), tof, muSun, dep, arr);
-  console.log(`  DE440:            C3 = ${c3Ref.toFixed(4)} km^2/s^2   arrival v_inf = ${vinfArrRef.toFixed(4)} km/s`);
+  console.log(`  DE442:            C3 = ${c3Ref.toFixed(4)} km^2/s^2   arrival v_inf = ${vinfArrRef.toFixed(4)} km/s`);
   console.log(`  astronomy-engine: C3 = ${t.c3.toFixed(4)} km^2/s^2   arrival v_inf = ${t.vinfArr.toFixed(4)} km/s`);
   console.log(`  tof SPICE ${(m.tof_s / DAY).toFixed(4)} d vs UTC ${(tof / DAY).toFixed(4)} d`);
-  check('C3 agrees with DE440 within 0.02 km^2/s^2', Math.abs(t.c3 - c3Ref) < 0.02);
-  check('arrival v_inf agrees with DE440 within 5 m/s', Math.abs(t.vinfArr - vinfArrRef) < 5e-3);
+  check('C3 agrees with DE442 within 0.02 km^2/s^2', Math.abs(t.c3 - c3Ref) < 0.02);
+  check('arrival v_inf agrees with DE442 within 5 m/s', Math.abs(t.vinfArr - vinfArrRef) < 5e-3);
   check('MSL arc is Type I', t.type === 1);
 }
 

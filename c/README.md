@@ -1,6 +1,6 @@
 # CSPICE reference generator
 
-`orrery_spice_ref.c` uses NAIF's CSPICE toolkit and the DE440 ephemeris to write
+`orrery_spice_ref.c` uses NAIF's CSPICE toolkit and the DE442 ephemeris to write
 `src/physics/fixtures/spice_reference.json`. The JavaScript tests (`node src/physics/orbital.test.mjs`)
 read that file, so they need neither SPICE nor a build to run, but every number they check against comes
 from JPL's own toolkit.
@@ -12,7 +12,7 @@ The fixture holds:
 - the heliocentric J2000 states of Earth at MSL's launch (2011-11-26 15:02 UTC) and of the Mars system
   barycentre at its arrival (2012-08-06 05:17 UTC), from `spkezr_c`;
 - the states of Mercury to Neptune at three epochs, for checking astronomy-engine;
-- the toolkit version, the kernels, and the Sun's and Earth's GM from `gm_de440.tpc`.
+- the toolkit version, every kernel loaded, and the GM of each body the JS kernel uses, from `python/data/gm_de442.tpc` (system barycentres for Mercury to Neptune, the Earth and Moon themselves).
 
 ## Regenerate
 
