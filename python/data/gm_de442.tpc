@@ -1,0 +1,36 @@
+KPL/PCK
+
+\begintext
+
+   GM values (km^3/s^2) consistent with the DE442 planetary ephemeris.
+
+   Source: NAIF, generic_kernels/spk/planets/de442_tech-comments.txt
+   (Feb 2025), table 'Mass parameter (GM) for Sun, Moon, and Planets'.
+   Converted from its AU^3/day^2 column with AU = 149,597,870.7 km and
+   day = 86,400 s; the result matches that table's km^3/s^2 column to
+   its printed precision (worst 2.9e-11 relative).
+
+   NAIF publishes gm_de440.tpc but no gm_de442.tpc; this file fills that
+   gap so DE442 positions are used with DE442 masses. Numbering follows
+   gm_de440.tpc: DE's GM3 is the Earth (399), GMB the Earth-Moon
+   barycentre (3), GMM the Moon (301), GM1/2 both barycentre and planet
+   for Mercury and Venus (no moons). Generated for digital-orrery.
+
+\begindata
+
+     BODY1_GM       = ( 2.20318685514000026E+04 )
+     BODY199_GM     = ( 2.20318685514000026E+04 )
+     BODY2_GM       = ( 3.24858592000000004E+05 )
+     BODY299_GM     = ( 3.24858592000000004E+05 )
+     BODY3_GM       = ( 4.03503235647672089E+05 )
+     BODY399_GM     = ( 3.98600435543530795E+05 )
+     BODY301_GM     = ( 4.90280010414134904E+03 )
+     BODY4_GM       = ( 4.28283758157561024E+04 )
+     BODY5_GM       = ( 1.26712764099999979E+08 )
+     BODY6_GM       = ( 3.79405848417999968E+07 )
+     BODY7_GM       = ( 5.79455639999999851E+06 )
+     BODY8_GM       = ( 6.83652710058039892E+06 )
+     BODY9_GM       = ( 9.75500000000000000E+02 )
+     BODY10_GM      = ( 1.32712440041253311E+11 )
+
+\begintext

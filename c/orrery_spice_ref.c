@@ -2,12 +2,12 @@
  * orrery_spice_ref.c
  *
  * Generates reference data for digital-orrery's JavaScript physics core from
- * NAIF's CSPICE toolkit and the DE440 ephemeris. Writes one JSON file that
+ * NAIF's CSPICE toolkit and the DE442 ephemeris. Writes one JSON file that
  * src/physics/orbital.test.mjs reads, so the JS tests run without SPICE
  * installed but are still checked against it.
  *
  * Contents:
- *   meta         toolkit version, kernels, frame, GM values (gm_de440.tpc)
+ *   meta         toolkit version, the kernels loaded, frame, GM values
  *   twobody      deterministic set of initial states (elliptic, near-parabolic,
  *                hyperbolic; built with conics_c), each propagated with
  *                prop2b_c and converted to elements with oscltx_c
@@ -136,11 +136,34 @@ int main(int argc, char **argv) {
   const double muEarth = get_gm("EARTH");
 
   /* ---- meta ---- */
-  fprintf(f, "{\n  \"meta\": {\"generator\": \"c/orrery_spice_ref.c\", \"toolkit\": \"%s\", "
-             "\"kernels\": [\"naif0012.tls\", \"pck00011.tpc\", \"gm_de440.tpc\", \"de440.bsp\"], "
-             "\"frame\": \"J2000\", \"units\": \"km, km/s, s, km^3/s^2, rad\", "
-             "\"gm\": {\"sun\": %.17g, \"earth\": %.17g}},\n",
-          tkvrsn_c("TOOLKIT"), muSun, muEarth);
+  /* Provenance: every kernel actually loaded, as file names. */
+  fprintf(f, "{\n  \"meta\": {\"generator\": \"c/orrery_spice_ref.c\", \"toolkit\": \"%s\", \"kernels\": [",
+          tkvrsn_c("TOOLKIT"));
+  {
+    SpiceInt count;
+    ktotal_c("ALL", &count);
+    int written = 0;
+    for (SpiceInt i = 0; i < count; i++) {
+      SpiceChar file[1024], type[32], source[1024];
+      SpiceInt handle;
+      SpiceBoolean found;
+      kdata_c(i, "ALL", sizeof file, sizeof type, sizeof source, file, type, source, &handle, &found);
+      if (!found || strcmp(type, "META") == 0) continue;
+      const char *base = strrchr(file, '/');
+      fprintf(f, "%s\"%s\"", written++ ? ", " : "", base ? base + 1 : file);
+    }
+  }
+  fprintf(f, "], \"frame\": \"J2000\", \"units\": \"km, km/s, s, km^3/s^2, rad\", "
+             "\"gm\": {\"sun\": %.17g, \"earth\": %.17g", muSun, muEarth);
+  /* Every GM the JS kernel uses, as SPICE reads it from the loaded kernels:
+     system barycentres for Mercury..Neptune, the Earth and Moon themselves. */
+  {
+    const char *keys[] = {"mercury", "venus", "moon", "mars", "jupiter", "saturn", "uranus", "neptune"};
+    const char *names[] = {"MERCURY BARYCENTER", "VENUS BARYCENTER", "MOON", "MARS BARYCENTER",
+                           "JUPITER BARYCENTER", "SATURN BARYCENTER", "URANUS BARYCENTER", "NEPTUNE BARYCENTER"};
+    for (int i = 0; i < 8; i++) fprintf(f, ", \"%s\": %.17g", keys[i], get_gm(names[i]));
+  }
+  fprintf(f, "}},\n");
 
   /* ---- two-body cases ---- */
   fprintf(f, "  \"twobody\": [\n");

@@ -44,6 +44,8 @@ kernels/
 
 # ...but the metakernel is a small text config we do want to track
 !python/data/metakernel.tm
+# DE442 GM values derived from NAIF's de442_tech-comments.txt (small text kernel)
+!python/data/gm_de442.tpc
 
 node_modules/.vite/
 

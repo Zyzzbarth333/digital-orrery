@@ -9,7 +9,8 @@ It is a reference, not a runtime dependency of the web app. The two entry points
 - `spice_body_params.py` - queries and prints body physical and orientation parameters (RADII, GM, POLE_RA, POLE_DEC, PM, nutation-precession terms) for a hierarchy of barycenters, the Sun, planets, satellites, an asteroid and a comet.
 - `solar_system_reference.py` - an interactive Matplotlib 3D viewer of planetary orbits driven by SPICE `spkpos`, with a time slider, play/pause and hover tooltips.
 - `parameters.py` - a small simulation-configuration module (start/end epochs, timestep, constants) used as shared setup.
-- `data/metakernel.tm` - the SPICE meta-kernel listing the NAIF kernels to load. It uses a relative kernel path (`./data/kernels`), resolved from the working directory.
+- `data/metakernel.tm` - the SPICE meta-kernel listing the NAIF kernels to load. It uses relative paths (`./data/kernels`, `./data`), resolved from the working directory.
+- `data/gm_de442.tpc` - DE442's GM values as a text kernel (see below).
 - `requirements.txt` - Python dependencies (spiceypy, numpy, matplotlib).
 
 ## NAIF kernels are not included
@@ -18,27 +19,37 @@ The SPICE kernels are large binary data files and are NOT committed to this repo
 
 Archive: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
 
-The meta-kernel (`data/metakernel.tm`) loads four kernels, resolved relative to `python/data/kernels/`:
+The meta-kernel (`data/metakernel.tm`) loads these, resolved relative to `python/data/kernels/` (all from NAIF's generic kernels archive, checked current on 12 Nov 2026):
 
-| File | NAIF archive path | Size |
-| --- | --- | --- |
-| `lsk/naif0012.tls` | `lsk/naif0012.tls` | 5 KB |
-| `pck/pck00011.tpc` | `pck/pck00011.tpc` | 131 KB |
-| `pck/gm_de440.tpc` | `pck/gm_de440.tpc` | 12 KB |
-| `spk/de440.bsp` | `spk/planets/de440.bsp` | 120 MB |
+| File | NAIF archive path | Size | What it is |
+| --- | --- | --- | --- |
+| `lsk/naif0012.tls` | `lsk/naif0012.tls` | 5 KB | Leap seconds (no new leap second since 2017) |
+| `pck/pck00011_n0066.tpc` | `pck/pck00011_n0066.tpc` | 132 KB | IAU sizes and orientation, in the format for toolkit N0066 and later |
+| `pck/earth_latest_high_prec.bpc` | `pck/earth_latest_high_prec.bpc` | 5 MB | Precise Earth orientation (NAIF refreshes it often) |
+| `pck/moon_pa_de440_200625.bpc` | `pck/moon_pa_de440_200625.bpc` | 13 MB | Lunar libration |
+| `fk/moon_de440_250416.tf` | `fk/satellites/moon_de440_250416.tf` | 19 KB | Lunar frames |
+| `pck/mars_konopliv_2026_n0066_v1.tpc` | `pck/mars_konopliv_2026_n0066_v1.tpc` | 20 KB | Mars rotation (Konopliv 2026) |
+| `spk/de442.bsp` | `spk/planets/de442.bsp` | 120 MB | Planetary ephemeris DE442 (Feb 2025; MD5 `446656322267e7b819a26cb08a0d8718`) |
+
+`python/data/gm_de442.tpc` is in the repository: DE442's GM values, converted from the table in NAIF's `spk/planets/de442_tech-comments.txt`, because NAIF publishes `gm_de440.tpc` but no `gm_de442.tpc`.
 
 From the `python/` directory:
 
 ```
-mkdir -p data/kernels/lsk data/kernels/pck data/kernels/spk
+mkdir -p data/kernels/lsk data/kernels/pck data/kernels/spk data/kernels/fk
 B=https://naif.jpl.nasa.gov/pub/naif/generic_kernels
-curl -fL -o data/kernels/lsk/naif0012.tls $B/lsk/naif0012.tls
-curl -fL -o data/kernels/pck/pck00011.tpc $B/pck/pck00011.tpc
-curl -fL -o data/kernels/pck/gm_de440.tpc $B/pck/gm_de440.tpc
-curl -fL -o data/kernels/spk/de440.bsp    $B/spk/planets/de440.bsp
+curl -fL -o data/kernels/lsk/naif0012.tls                   $B/lsk/naif0012.tls
+curl -fL -o data/kernels/pck/pck00011_n0066.tpc             $B/pck/pck00011_n0066.tpc
+curl -fL -o data/kernels/pck/earth_latest_high_prec.bpc     $B/pck/earth_latest_high_prec.bpc
+curl -fL -o data/kernels/pck/moon_pa_de440_200625.bpc       $B/pck/moon_pa_de440_200625.bpc
+curl -fL -o data/kernels/fk/moon_de440_250416.tf            $B/fk/satellites/moon_de440_250416.tf
+curl -fL -o data/kernels/pck/mars_konopliv_2026_n0066_v1.tpc $B/pck/mars_konopliv_2026_n0066_v1.tpc
+curl -fL -o data/kernels/spk/de442.bsp                      $B/spk/planets/de442.bsp
 ```
 
-This covers the Sun, planets, Moon and planetary barycentres, plus body radii, orientation and GM values. Satellite, asteroid and comet ephemerides (for example `spk/satellites/jup365.bsp`, about 1.1 GB) need extra SPKs: download them and add their paths to `KERNELS_TO_LOAD` only when you need them. SPICE stops at the first listed kernel that is missing.
+DE442 against DE440: the inner planets and the Moon move by under 20 m (2000-2040), Mars's barycentre by up to 0.3 km, Jupiter's by 3-14 km (Juno ranging), Saturn's by under 0.4 km, Neptune's by 60-640 km and Uranus's by 360-2,900 km (new Uranus occultation data).
+
+Satellite, asteroid and comet ephemerides need extra SPKs: download them and add their paths to `KERNELS_TO_LOAD` only when you need them. SPICE stops at the first listed kernel that is missing.
 
 ## Setup
 
