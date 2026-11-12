@@ -87,6 +87,8 @@ export class OrreryScene {
   private rings: THREE.Mesh | null = null;
   private stars: THREE.Mesh | null = null;
   readonly dailyEarth = new DailyEarth();
+  private unloadedSurfaces = new Set<BodyKey>();
+  private earthResolved = false;
   private sunGlow: THREE.Sprite;
   private states = {} as Record<BodyKey, BodyState>;
   private raf = 0;
@@ -160,11 +162,9 @@ export class OrreryScene {
     void loadManifest().then((m) => {
       this.manifest = m;
       if (!m) return;
-      const date = new Date(this.clock.snapshot.timeMs);
-      for (const [key, entry] of Object.entries(m.bodies) as [BodyKey, NonNullable<Manifest['bodies'][BodyKey]>][]) {
-        const mat = this.materials.get(key);
-        if (mat) void this.surfaces.apply(key, entry, mat, date);
-      }
+      // A body's maps load the first time its disc is more than a few pixels
+      // across (placeLabels), so GPU memory goes only to what is seen.
+      for (const key of Object.keys(m.bodies) as BodyKey[]) this.unloadedSurfaces.add(key);
       const ring = m.rings?.saturn;
       if (ring) {
         void loadJson<RingProfile>(ring.tau).then((profile) => {
@@ -263,13 +263,16 @@ export class OrreryScene {
       const o = this.orbits.get(b.key);
       const period = b.periodDays * 86400e3;
       // Resample when the sim has moved 5 % of a period (the orbit precesses
-      // and the drawn span should stay centred), at most twice a second.
+      // and the drawn span should stay centred), at most twice a second per
+      // line and one line per frame (each costs about 3 ms), so time warp
+      // does not stall a frame.
       if (o && (Math.abs(tMs - o.epochMs) < 0.05 * period || now - o.sampledAt < 500)) continue;
       const line = this.sampleOrbit(b.key, tMs);
       if (!line) continue;
       if (o) { this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose(); }
       this.scene.add(line);
       this.orbits.set(b.key, { line, epochMs: tMs, sampledAt: now });
+      return;
     }
   }
 
@@ -281,7 +284,7 @@ export class OrreryScene {
     const date = new Date(tMs);
 
     for (const b of BODIES) this.states[b.key] = bodyState(b.key, date);
-    this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
+    if (this.earthResolved) this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
     this.updateOrbits(tMs, now);
 
     // Camera position in km (ecliptic), relative to the focused body.
@@ -328,7 +331,7 @@ export class OrreryScene {
       (m.uniforms.toBody.value as THREE.Matrix3).copy(m3);
       (m.uniforms.bodyCentre.value as THREE.Vector3).copy(this.meshes.get(key)!.position);
       const entry = this.manifest?.bodies[key];
-      if (entry?.dayMonthly) void this.surfaces.updateDay(key, entry, m, date);
+      if (entry?.dayMonthly && !this.unloadedSurfaces.has(key)) void this.surfaces.updateDay(key, entry, m, date);
       const r = this.states[key].r;
       const dAu = Math.hypot(r[0], r[1], r[2]) / AU_KM;
       const u = m.uniforms;
@@ -391,6 +394,12 @@ export class OrreryScene {
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
       el.classList.toggle('resolved', radiusPx > 4);
+      if (b.key === 'earth') this.earthResolved = radiusPx > 3;
+      if (radiusPx > 3 && this.unloadedSurfaces.has(b.key) && this.manifest) {
+        this.unloadedSurfaces.delete(b.key);
+        const entry = this.manifest.bodies[b.key]!;
+        void this.surfaces.apply(b.key, entry, this.materials.get(b.key)!, new Date(this.clock.snapshot.timeMs));
+      }
       el.classList.toggle('focused', b.key === this.focus);
     }
   }

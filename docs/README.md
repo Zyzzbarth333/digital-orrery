@@ -23,10 +23,11 @@ they come from, and how each part is checked.
 | [Lighting](frontend/lighting.md) | Inverse-square sunlight and exposure, albedo and scattering laws, eclipses, ring photometry |
 | [Surface maps, rings, stars and daily Earth](frontend/textures.md) | Every source and its credit, map layout, relief from elevation, night lights, GIBS daily imagery, the Cassini ring profile, the star map |
 
-## Checks
+## Checks and performance
 
 [Validation](validation.md): every check, its reference and the measured
-result.
+result. [Performance](performance.md): what each part costs and the plan
+for the slow parts.
 
 ## Conventions
 
