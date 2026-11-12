@@ -233,7 +233,8 @@ header('CASE 6: launches, orbital elements and flying a Lambert plan');
   const Ee = OrbitalMechanics.calculateOrbitalElements(sceneV(E0.r, 1 / AU_TO_KM), sceneV(E0.v), GM.sun / 1e9);
   check(`Earth's elements: a ${Ee.semiMajorAxis.toFixed(4)} AU, e ${Ee.eccentricity.toFixed(4)}, i ${Ee.inclination.toFixed(3)} deg`,
     Math.abs(Ee.semiMajorAxis - 1) < 0.002 && Math.abs(Ee.eccentricity - 0.0167) < 0.003 && Ee.inclination < 0.01);
-  // The launches PhysicsTest makes in the browser, flown here headless.
+  // Five launches checked headless (the in-browser PhysicsTest is gone with
+  // the old front end).
   const launch = (rsw, days) => {
     const vi = OrbitalMechanics.convertDeltaV(new THREE.Vector3(...rsw), sceneV(E0.r, 1 / AU_TO_KM), sceneV(E0.v));
     const vInfEqj = [vi.x, -vi.z, vi.y];
@@ -286,7 +287,7 @@ header('CASE 6: launches, orbital elements and flying a Lambert plan');
   check('the flown Lambert plan passes Mars within 500,000 km, within 12 days of the plan', best.d < 5e5 && Math.abs(best.day - tof) < 12);
 }
 
-header('CASE 7: review regressions (burns across clock jumps, fuel checks, plan v_inf)');
+header('CASE 7: review regressions (burns across clock jumps, fuel checks)');
 {
   // A burn cut short by a backward clock jump must not be flown again when
   // the clock passes its old times (it used to burn 333 kg and ~527 m/s twice).
@@ -315,15 +316,8 @@ header('CASE 7: review regressions (burns across clock jumps, fuel checks, plan 
   check('an undeliverable node is refused without spending an ignition or fuel',
     n.manoeuvreNodes.length === 0 && n.systems.propulsion.main.ignitionsUsed === ign0 &&
     n.systems.propulsion.main.fuel === 500 && n.burns.length === 0);
-  // The planner's Hohmann v_inf is signed: inward transfers launch retrograde.
-  const { TrajectoryPlanner } = await import('../trajectory/TrajectoryPlanner.js');
-  const { PLANETS } = await import('../../utils/constants.js');
-  const fakeSim = { bodies: new Map(Object.keys(PLANETS).map((k) => [k, { data: PLANETS[k] }])) };
-  const hoh = (a, b) => quiet(() => TrajectoryPlanner.prototype.calculateHohmannTransfer.call({ simulation: fakeSim }, a, b, 200, 400));
-  const toVenus = hoh('earth', 'venus'), toMars = hoh('earth', 'mars');
-  console.log(`  planner v_inf: Earth->Venus ${toVenus.vInfDeparture.toFixed(3)} km/s, Earth->Mars ${toMars.vInfDeparture.toFixed(3)} km/s`);
-  check('Earth->Venus launches retrograde (negative along-track v_inf), Earth->Mars prograde',
-    toVenus.vInfDeparture < 0 && toMars.vInfDeparture > 0);
+  // The planner's signed Hohmann v_inf check returns with the planner,
+  // rebuilt in TypeScript in front-end milestone 2.
 }
 
 console.log('='.repeat(60));
