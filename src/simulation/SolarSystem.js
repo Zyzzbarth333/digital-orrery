@@ -1043,6 +1043,10 @@ export class SolarSystem {
         } else if (!lagging) {
           craft.lagNotified = false;
         }
+        if (craft.kernelError && !craft.kernelErrorNotified) {
+          craft.kernelErrorNotified = true;
+          this.showNotification(`${craft.name}: physics stopped (${craft.kernelError})`);
+        }
         if (craft.clockJumped) {
           craft.clockJumped = false;
           this.showNotification(`${craft.name} kept its state across the time jump`);
@@ -1050,7 +1054,7 @@ export class SolarSystem {
       });
       // Send this frame's physics requests (skipped while the last batch is
       // still being computed; the next request then covers the longer span).
-      this.kernel.tick(this.spacecraft.filter((c) => c.kernelManaged && !c.crashed), now);
+      this.kernel.tick(this.spacecraft.filter((c) => c.kernelManaged && !c.crashed && !c.kernelError));
     }
     
     // Update UI

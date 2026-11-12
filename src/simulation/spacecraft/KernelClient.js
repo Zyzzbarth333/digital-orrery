@@ -14,8 +14,10 @@
 import { createKernelHost } from '../../physics/kernelHost.js';
 
 export class KernelClient {
-  constructor({ useWorker = true } = {}) {
+  constructor({ useWorker = true, replyTimeoutMs = 2000 } = {}) {
     this.busy = false;
+    this.sentAt = 0;
+    this.replyTimeoutMs = replyTimeoutMs;
     this.inflight = new Map();
     this.lastMs = 0;            // kernel time for the last batch
     this.mode = 'main-thread';
@@ -26,6 +28,7 @@ export class KernelClient {
         this.worker = new Worker(new URL('../../physics/kernel.worker.js', import.meta.url), { type: 'module' });
         this.worker.onmessage = (e) => this.onReply(e.data);
         this.worker.onerror = (e) => this.fallBack(`worker error: ${e.message || e}`);
+        this.worker.onmessageerror = () => this.fallBack('worker reply could not be read');
         this.mode = 'worker';
       } catch (err) {
         this.fallBack(`worker unavailable: ${err.message || err}`);
@@ -40,32 +43,58 @@ export class KernelClient {
     this.worker = null;
     this.host = this.host || createKernelHost();
     this.mode = 'main-thread';
-    // Anything in flight is lost; the crafts resend from their own state.
+    // Anything in flight is lost; the crafts resend from their own state and
+    // take back the thrust those requests carried.
+    for (const craft of this.inflight.values()) craft.onKernelRequestDropped?.();
     this.busy = false;
     this.inflight.clear();
   }
 
-  // crafts: objects with kernelId, buildKernelRequest(date), applyKernelResult(res).
-  tick(crafts, date) {
-    if (this.busy) return false;
+  // crafts: objects with kernelId, buildKernelRequest(), applyKernelResult(res)
+  // and onKernelRequestDropped().
+  tick(crafts) {
+    if (this.busy) {
+      // A Worker that never answers would otherwise freeze every craft.
+      if (this.worker && performance.now() - this.sentAt > this.replyTimeoutMs) {
+        this.fallBack(`no reply in ${this.replyTimeoutMs} ms`);
+      } else {
+        return false;
+      }
+    }
     const reqs = [];
     this.inflight.clear();
     for (const craft of crafts) {
-      const req = craft.buildKernelRequest(date);
+      const req = craft.buildKernelRequest();
       if (req) { reqs.push(req); this.inflight.set(req.id, craft); }
     }
     if (reqs.length === 0) return false;
     this.busy = true;
+    this.sentAt = performance.now();
     const msg = { type: 'step', crafts: reqs };
-    if (this.worker) this.worker.postMessage(msg);
-    else this.onReply(this.host.handle(msg));
+    if (this.worker) {
+      this.worker.postMessage(msg);
+    } else {
+      let reply;
+      try {
+        reply = this.host.handle(msg);
+      } catch (err) {
+        reply = { type: 'error', error: String(err && err.message || err) };
+      }
+      this.onReply(reply);
+    }
     return true;
   }
 
   onReply(reply) {
     this.busy = false;
     if (!reply || reply.type !== 'stepped') {
-      this.fallBack(`bad reply: ${reply && (reply.error || reply.type)}`);
+      if (this.worker) {
+        this.fallBack(`bad reply: ${reply && (reply.error || reply.type)}`);
+      } else {
+        console.warn(`KernelClient: kernel failed: ${reply && (reply.error || reply.type)}`);
+        for (const craft of this.inflight.values()) craft.onKernelRequestDropped?.();
+        this.inflight.clear();
+      }
       return;
     }
     this.lastMs = reply.ms;

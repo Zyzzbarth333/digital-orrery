@@ -18,6 +18,8 @@
 //     accel      km/s^2 at the returned state, gravity plus thrust
 //     complete   false if the step budget ran out (t < tEnd) or an impact
 //                stopped the advance
+//   A craft whose step throws (a bad state, a time outside the ephemeris)
+//   comes back as { id, version, error } instead, and the others still step.
 
 import { advance, createState, accelHeliocentric } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
@@ -33,6 +35,13 @@ export function kernelSeconds(date) {
 
 // Advance one craft. sys is a body set from solarSystemBodies().
 export function stepCraft(sys, req) {
+  // NaN does not throw anywhere in the kernel: it would integrate quietly and
+  // come back as a 'complete' NaN state. Refuse it here instead.
+  const finite = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+  if (!finite(req.r) || !finite(req.v) || !Number.isFinite(req.t) || !Number.isFinite(req.tEnd) ||
+      (req.thrust && !finite(req.thrust))) {
+    throw new Error('non-finite craft state, time or thrust');
+  }
   const state = createState(req.r, req.v, req.t);
   state.primary = req.primary ?? null;
   const th = req.thrust;
@@ -60,7 +69,13 @@ export function createKernelHost() {
       if (!msg || msg.type !== 'step') return { type: 'error', error: `unknown message ${msg && msg.type}` };
       if (!sys) sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
       const t0 = Date.now();
-      const crafts = msg.crafts.map((req) => stepCraft(sys, req));
+      const crafts = msg.crafts.map((req) => {
+        try {
+          return stepCraft(sys, req);
+        } catch (err) {
+          return { id: req.id, version: req.version, error: String(err && err.message || err) };
+        }
+      });
       return { type: 'stepped', crafts, ms: Date.now() - t0 };
     },
   };
