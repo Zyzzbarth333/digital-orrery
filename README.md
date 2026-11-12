@@ -69,7 +69,10 @@ npm run build
 - Drag: rotate the view about the focused body
 - Scroll: zoom in and out
 - Click a label or a name in the list: focus that body
-- Time bar: play or pause, choose a rate (real time to one year per second), or jump back to now
+- Header: the RUN key runs or holds time; choose a rate (real time to one year per second), or jump back to now with NOW
+- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now
+
+The data plate gives each value with its source (the provenance column): a solid tag for data, a dashed one for values worked out in the app; hover a tag for detail.
 
 A link can set the starting view: `?focus=moon&t=2026-03-03T11:33:40Z&view=sun` (`view=sun` puts the camera on the sunlit side).
 
@@ -106,7 +109,7 @@ digital-orrery/
 
 ## Credits
 
-Surface maps, data and imagery: NASA Earth Observatory (Blue Marble, Black Marble); NOAA NCEI (ETOPO 2022); NASA Global Imagery Browse Services (GIBS), part of NASA ESDIS (daily Earth imagery); NASA's Scientific Visualization Studio (CGI Moon Kit, Deep Star Maps 2020; Gaia DR2: ESA/Gaia/DPAC); NASA/JPL, USGS Astrogeology (Viking Mars mosaic); NASA/GSFC MOLA Science Team; NASA/JHUAPL/Carnegie Institution of Washington (MESSENGER); NASA/JHUAPL/SwRI (New Horizons); NASA/JPL/Space Science Institute (Cassini Jupiter map); NASA PDS Ring-Moon Systems Node (Cassini UVIS ring occultation); Solar System Scope, CC BY 4.0 (Venus clouds, Saturn, Uranus and Neptune maps). Ephemerides and frames: NASA JPL / NAIF SPICE (DE442 and the satellite kernels) and astronomy-engine (MIT). Details in [docs/frontend/textures.md](docs/frontend/textures.md).
+Surface maps, data and imagery: NASA Earth Observatory (Blue Marble, Black Marble); NOAA NCEI (ETOPO 2022); NASA Global Imagery Browse Services (GIBS), part of NASA ESDIS (daily Earth imagery); NASA's Scientific Visualization Studio (CGI Moon Kit, Deep Star Maps 2020; Gaia DR2: ESA/Gaia/DPAC); NASA/JPL, USGS Astrogeology (Viking Mars mosaic); NASA/GSFC MOLA Science Team; NASA/JHUAPL/Carnegie Institution of Washington (MESSENGER); NASA/JHUAPL/SwRI (New Horizons); NASA/JPL/Space Science Institute (Cassini Jupiter map); NASA PDS Ring-Moon Systems Node (Cassini UVIS ring occultation); Solar System Scope, CC BY 4.0 (Venus clouds, Saturn, Uranus and Neptune maps). Ephemerides and frames: NASA JPL / NAIF SPICE (DE442 and the satellite kernels) and astronomy-engine (MIT). Fonts: B612 and B612 Mono (Airbus) and Michroma (Vernon Adams), SIL Open Font License 1.1, via Fontsource. Details in [docs/frontend/textures.md](docs/frontend/textures.md).
 
 ## Licence
 

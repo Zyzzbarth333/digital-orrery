@@ -47,7 +47,7 @@ export function SceneView({ clock, focus, onFocusChange, onReady }: Props) {
     <div className="scene-host" ref={hostRef}>
       <div className="scene-overlay" ref={overlayRef} />
       {failed && (
-        <div className="scene-error" role="alert">
+        <div className="scene-error caution" role="alert">
           The 3D view needs WebGL, which this browser could not start. The data panels still work.
           <small>{failed}</small>
         </div>
