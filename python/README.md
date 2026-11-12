@@ -9,7 +9,7 @@ It is a reference, not a runtime dependency of the web app. The two entry points
 - `spice_body_params.py` - queries and prints body physical and orientation parameters (RADII, GM, POLE_RA, POLE_DEC, PM, nutation-precession terms) for a hierarchy of barycenters, the Sun, planets, satellites, an asteroid and a comet.
 - `solar_system_reference.py` - an interactive Matplotlib 3D viewer of planetary orbits driven by SPICE `spkpos`, with a time slider, play/pause and hover tooltips.
 - `parameters.py` - a small simulation-configuration module (start/end epochs, timestep, constants) used as shared setup.
-- `data/metakernel.tm` - the SPICE meta-kernel listing the NAIF kernels to load. It uses a relative kernel path (`./kernels`).
+- `data/metakernel.tm` - the SPICE meta-kernel listing the NAIF kernels to load. It uses a relative kernel path (`./data/kernels`), resolved from the working directory.
 - `requirements.txt` - Python dependencies (spiceypy, numpy, matplotlib).
 
 ## NAIF kernels are not included
@@ -18,31 +18,27 @@ The SPICE kernels are large binary data files and are NOT committed to this repo
 
 Archive: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
 
-The meta-kernel (`data/metakernel.tm`) expects the following files, resolved relative to `python/data/kernels/`:
+The meta-kernel (`data/metakernel.tm`) loads four kernels, resolved relative to `python/data/kernels/`:
 
-Leapseconds (lsk):
-- `lsk/naif0012.tls`
+| File | NAIF archive path | Size |
+| --- | --- | --- |
+| `lsk/naif0012.tls` | `lsk/naif0012.tls` | 5 KB |
+| `pck/pck00011.tpc` | `pck/pck00011.tpc` | 131 KB |
+| `pck/gm_de440.tpc` | `pck/gm_de440.tpc` | 12 KB |
+| `spk/de440.bsp` | `spk/planets/de440.bsp` | 120 MB |
 
-Planetary constants and orientation (pck):
-- `pck/pck00011.tpc`
-- `pck/gm_de440.tpc`
-- `pck/earth_620120_240827.bpc`
-- `pck/mars_iau2000_v1.tpc`
-- `pck/moon_pa_de440_200625.bpc`
+From the `python/` directory:
 
-Ephemerides (spk):
-- `spk/de440.bsp`
-- `spk/ceres_1900_2100.bsp`
-- `spk/codes_300ast_20100725.bsp`
-- `spk/jupiter/jup344.bsp`, `jup344-s2003_j24.bsp`, `jup346.bsp`, `jup365.bsp`
-- `spk/mars/mar097.bsp`
-- `spk/neptune/nep095.bsp`, `nep097.bsp`, `nep097xl-801.bsp`, `nep097xl-899.bsp`, `nep101xl.bsp`, `nep101xl-802.bsp`, `nep104.bsp`, `nep105.bsp`
-- `spk/pluto/plu060.bsp`
-- `spk/saturn/sat393_daphnis.bsp`, `sat415.bsp`, `sat441.bsp`, `sat454.bsp`
-- `spk/uranus/ura111.bsp`, `ura111l.bsp`, `ura111xl-701.bsp` to `ura111xl-705.bsp`, `ura111xl-799.bsp`, `ura115.bsp`, `ura116.bsp`, `ura117.bsp`
-- `spk/comets/ison.bsp`, `siding_spring_8-19-14.bsp`, `siding_spring_s46.bsp`
+```
+mkdir -p data/kernels/lsk data/kernels/pck data/kernels/spk
+B=https://naif.jpl.nasa.gov/pub/naif/generic_kernels
+curl -fL -o data/kernels/lsk/naif0012.tls $B/lsk/naif0012.tls
+curl -fL -o data/kernels/pck/pck00011.tpc $B/pck/pck00011.tpc
+curl -fL -o data/kernels/pck/gm_de440.tpc $B/pck/gm_de440.tpc
+curl -fL -o data/kernels/spk/de440.bsp    $B/spk/planets/de440.bsp
+```
 
-If you only need the core planets and the Sun (enough for `solar_system_reference.py` with its default body list), `lsk/naif0012.tls`, `pck/pck00011.tpc`, `pck/gm_de440.tpc` and `spk/de440.bsp` are sufficient. To load only that subset, trim `KERNELS_TO_LOAD` in `data/metakernel.tm` to the kernels you have downloaded.
+This covers the Sun, planets, Moon and planetary barycentres, plus body radii, orientation and GM values. Satellite, asteroid and comet ephemerides (for example `spk/satellites/jup365.bsp`, about 1.1 GB) need extra SPKs: download them and add their paths to `KERNELS_TO_LOAD` only when you need them. SPICE stops at the first listed kernel that is missing.
 
 ## Setup
 
@@ -62,7 +58,7 @@ pip install -r requirements.txt
 
 ## Running
 
-Run both scripts from the `python/` directory so that the relative kernel path (`./kernels`, referenced from `data/metakernel.tm`) resolves to `python/data/kernels/`.
+Run the scripts from the `python/` directory. SPICE resolves the meta-kernel's relative path (`./data/kernels`) from the working directory, not from the meta-kernel's own location, so this is what makes it point at `python/data/kernels/`.
 
 Body parameters report:
 
