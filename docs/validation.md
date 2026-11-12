@@ -96,6 +96,7 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The same arcs once the real flight's steady push is estimated from each arc's first half | 0.1–17 km |
 | First arc after translunar injection | 13 km (957 km with point masses only) |
 | The app's Moon vs DE442 | under 1 m (DE442 table) |
+| Calibration: Earth's J3/J4, other planets' tides, empirical push models | none helps; the gravity model is complete for this mission ([calibration](validation/artemis2.md#calibration-what-does-not-help)) |
 
 ## Not yet validated
 

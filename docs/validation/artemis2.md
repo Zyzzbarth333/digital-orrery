@@ -168,6 +168,58 @@ translunar injection and goes to entry interface eight days later.
    - TT − UTC now comes from the leap-second table (`timescale.js`), and
      the DE442 table runs on TDB derived the same way.
 
+## Calibration: what does not help
+
+The remaining error is the steady push. These experiments asked whether
+anything in the app's reach removes it. `src/physics/artemis2.calibrate.mjs`
+reproduces them; it is not part of `npm test`.
+
+**More bodies.** The kernel already has the Sun, all eight planets and the
+Moon. What another body adds to a craft near Earth is its tide. At Orion's
+farthest from Earth (411,000 km) during the mission, the largest is
+Jupiter's, 2.3×10⁻⁴ µm/s². Venus, Mercury and Saturn are under 3×10⁻⁵ and
+the rest smaller. All are thousands of times smaller than the push, so
+neither more bodies, nor asteroids, nor relativity would change the
+result.
+
+**More of Earth's gravity.** Earth's next zonal harmonics, J3 and J4
+(EGM2008), are the only gravity terms of the push's size, and only close to
+Earth. Added (as the gradient of the potential), they change the final
+approach from 0.418 to 0.417 km and the first arc from 13.3 to 14.7 km. That
+is no help, so they are not in the kernel.
+
+**An empirical push model.** Navigation teams model unknown forces as an
+estimated acceleration. Four forms were tried, each estimated by least
+squares:
+- constant in inertial axes;
+- along the Sun line only;
+- constant in a Sun–ecliptic frame;
+- along the Sun line plus along Earth's radial.
+
+| Fitted on one arc, predicting the next | No model | Inertial | Sunward | Sun frame | Sun + Earth-radial |
+| --- | --- | --- | --- | --- | --- |
+| Outbound → flyby | 21 km | 20 | 21 | 19 | 21 |
+| Flyby → return | 49 km | 26 | 46 | 26 | 33 |
+| Return → between corrections | 4.1 km | 6.3 | 4.1 | 6.3 | 3.8 |
+| Between corrections → final approach | 0.4 km | 0.7 | 0.4 | 0.7 | 0.7 |
+
+No form helps consistently, because the push's direction changes from one
+arc to the next. Each arc's push leans toward the Sun, but its other
+components vary, as Orion's attitude does between burns.
+
+Fitted on the whole mission up to 5 or 6 April and then flown on to entry
+with the burns, each form ends 1,700–2,800 km off, against 238 km with none.
+The lunar flyby magnifies any small error in the push, so an estimate from
+before the flyby does not carry past it.
+
+**So the gravity model is complete for this mission.** What remains is
+Orion itself, venting and firing thrusters as its attitude changes, which
+JSC's fit takes from Orion's logs. A real mission holds kilometres by
+re-measuring its position from tracking every few hours, not with a better
+force model. Doing better here would mean using the flown data during the
+flight, as orbit determination does. That is a different feature from a
+predictive simulator.
+
 ## Regression checks
 
 `artemis2.validate.mjs` runs in `npm test`, and fails if:
@@ -194,5 +246,6 @@ node src/physics/artemis2.validate.mjs
 
 - Let a user load this mission in the app, fly it with these burns, and
   watch the residual grow.
-- Model the steady push as an empirical acceleration in a Sun-relative
-  frame, as navigation teams do, and see how far ahead one estimate holds.
+- Orbit determination: re-estimate the craft's state from the flown
+  trajectory at intervals, as a navigation team would from tracking, and
+  show how close that keeps the replay.
