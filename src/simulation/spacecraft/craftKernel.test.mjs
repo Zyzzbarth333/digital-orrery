@@ -27,12 +27,16 @@ const toScene = (a, s = 1) => [a[0] * s, a[2] * s, -a[1] * s];
 const quiet = (fn) => { const w = console.warn, i = console.info, l = console.log; console.warn = console.info = console.log = () => {}; try { return fn(); } finally { console.warn = w; console.info = i; console.log = l; } };
 
 const START = new Date('2026-11-04T00:00:00Z');
+// Scene bodies as the app passes them; the systems model falls back to
+// defaults when the Sun is not in the map.
+const NO_BODIES = new Map();
 const E0 = helioStateEqj('earth', START);
 // A craft in a circular orbit of radius rk km about Earth, or heliocentric.
-function makeCraft(name, { rk = null, managed = false } = {}) {
+function makeCraft(name, { rk = null, managed = false, enhanced = false } = {}) {
   let r = [E0.r[0] * 1.01, E0.r[1] * 1.01, E0.r[2] * 1.01], v = [...E0.v];
   if (rk) { const vc = Math.sqrt(398600.4355 / rk); r = [E0.r[0] + rk, E0.r[1], E0.r[2]]; v = [E0.v[0], E0.v[1] + vc, E0.v[2]]; }
-  const c = quiet(() => new BaseSpacecraft(name, { position: toScene(r, 1 / AU_TO_KM), velocity: toScene(v) }));
+  const c = quiet(() => new BaseSpacecraft(name, { position: toScene(r, 1 / AU_TO_KM), velocity: toScene(v) },
+    enhanced ? { type: 'enhanced' } : {}));
   c.kernelManaged = managed;
   return c;
 }
@@ -44,7 +48,7 @@ header('CASE 1: managed through the client vs stepped directly');
   const client = new KernelClient();
   for (let f = 1; f <= 40; f++) {
     const d = at(f * 43200);
-    quiet(() => { a.update(0.5, null, d); b.update(0.5, null, d); client.tick([b]); });
+    quiet(() => { a.update(0.5, NO_BODIES, d); b.update(0.5, NO_BODIES, d); client.tick([b]); });
   }
   check(`client runs on the main thread in Node (mode ${client.mode})`, client.mode === 'main-thread');
   check('exact states agree to the bit after 20 days', norm(diff(a.kState.r, b.kState.r)) === 0 && a.kState.t === b.kState.t);
@@ -58,7 +62,7 @@ header('CASE 2: drawn state carried forward along the primary\'s two-body orbit'
     let worst = 0;
     for (let f = 1; f <= 60; f++) {
       const d = at(f * frameS);
-      quiet(() => { a.update(frameS / 86400, null, d); b.update(frameS / 86400, null, d); client.tick([b]); });
+      quiet(() => { a.update(frameS / 86400, NO_BODIES, d); b.update(frameS / 86400, NO_BODIES, d); client.tick([b]); });
       worst = Math.max(worst, a.position.distanceTo(b.position) * AU_TO_KM);
     }
     console.log(`  ${label.padEnd(26)} drawn vs exact: worst ${worst.toFixed(3)} km over 60 frames`);
@@ -82,7 +86,7 @@ header('CASE 2b: drawn state with replies a frame late (as from the Worker)');
     let pending = null, worst = 0;
     for (let f = 1; f <= 40; f++) {
       const d = at(f * frameS);
-      quiet(() => { a.update(frameS / 86400, null, d); b.update(frameS / 86400, null, d); });
+      quiet(() => { a.update(frameS / 86400, NO_BODIES, d); b.update(frameS / 86400, NO_BODIES, d); });
       worst = Math.max(worst, a.position.distanceTo(b.position) * AU_TO_KM);
       if (pending) quiet(() => b.applyKernelResult(host.handle({ type: 'step', crafts: [pending] }).crafts[0]));
       pending = b.buildKernelRequest();
@@ -103,7 +107,7 @@ header('CASE 3: results computed from an old state are dropped');
 {
   const host = createKernelHost();
   const c = makeCraft('burn', { managed: true });
-  quiet(() => c.update(0.5, null, at(43200)));
+  quiet(() => c.update(0.5, NO_BODIES, at(43200)));
   const req = c.buildKernelRequest();
   const res = host.handle({ type: 'step', crafts: [req] }).crafts[0];
   const vBefore = [...c.kState.v];
@@ -114,36 +118,65 @@ header('CASE 3: results computed from an old state are dropped');
   check('the result is not applied twice', (quiet(() => c.applyKernelResult(res)), c.kState.t === req.t));
 }
 
-header('CASE 4: thrust impulse is delivered whatever the request pattern');
+header('CASE 4: finite burns are independent of the frame rate');
 {
+  // The same burn flown with hour-long frames and with day-long frames must
+  // end in the same place: burns are timed segments, not per-frame thrust.
+  const run = (frameS, setup, days = 4, managedClient = null, enhanced = false) => {
+    const c = makeCraft('burn', { managed: !!managedClient, enhanced });
+    quiet(() => c.update(0, NO_BODIES, START));                  // anchor the clock at START
+    quiet(() => setup(c));
+    for (let t = frameS; t <= days * 86400 + 1e-6; t += frameS) {
+      quiet(() => { c.update(frameS / 86400, NO_BODIES, at(t)); if (managedClient) managedClient.tick([c]); });
+    }
+    return c;
+  };
+  // Manual engine on until the tank runs dry (5 kN on 1000 + 200 kg, ve 3000 m/s: 120 s).
+  const manual = (c) => { c.mass = 1000; c.fuelMass = 200; c.thrustPower = 5000; c.exhaustVelocity = 3000;
+    if (c.systems) c.systems.propulsion.main.fuel = 0; c.setThrust(new THREE.Vector3(0, 0, -1), true); };
+  const h = run(3600, manual), d = run(86400, manual);
+  const burn = h.burns.length ? h.burns[0] : null;
+  check('the manual engine is off once the tank is dry, and all fuel is drawn', !h.engineOn && h.fuelMass === 0 && d.fuelMass === 0);
+  const dm = norm(diff(h.kState.r, d.kState.r)), dv = norm(diff(h.kState.v, d.kState.v)) * 1000;
+  console.log(`  manual burn to empty, hour vs day frames: |dr| ${dm.toExponential(2)} km, |dv| ${dv.toExponential(2)} m/s`);
+  // Same burn either way; what differs is the cruise step sequence over four
+  // days (eta = 0.01), so the bound is the kernel's accuracy, not round-off.
+  check('a manual burn ends in the same state with hour or day frames (<0.1 km, <1e-4 m/s)', dm < 0.1 && dv < 1e-4);
+  // A manoeuvre node 5000 s in: 0.8 km/s prograde.
+  const node = (c) => { const n = c.addManoeuvreNode(5000); n.setDeltaV(0, 0.8, 0); };
+  const h2 = run(3600, node, 4, null, true), d2 = run(86400, node, 4, null, true), m2 = run(600, node, 4, null, true);
+  const main0 = 500, used = main0 - h2.systems.propulsion.main.fuel;
+  const ve = h2.systems.propulsion.main.specificImpulse * 9.80665;
+  const mStart = h2.mass + h2.fuelMass + main0;
+  const usedWant = mStart * (1 - Math.exp(-800 / ve));
+  console.log(`  node burn: fuel used ${used.toFixed(3)} kg, rocket equation ${usedWant.toFixed(3)} kg; ` +
+    `hour vs day |dr| ${norm(diff(h2.kState.r, d2.kState.r)).toExponential(2)} km, 10 min vs day ${norm(diff(m2.kState.r, d2.kState.r)).toExponential(2)} km`);
+  check('the node burn draws the rocket-equation fuel for its delta-v (<1e-6 kg)', Math.abs(used - usedWant) < 1e-6);
+  check('the node burn ends in the same state with 10 min, hour or day frames (<0.1 km)',
+    norm(diff(h2.kState.r, d2.kState.r)) < 0.1 && norm(diff(m2.kState.r, d2.kState.r)) < 0.1);
+  check('the manoeuvre is complete and the throttle back to zero',
+    h2.executingManoeuvre === null && h2.systems.propulsion.main.throttle === 0 && h2.manoeuvreNodes.length === 0);
+  // A request lost mid-burn (Worker failure) loses nothing: the next request
+  // starts from the same state and sends the same burn.
+  const c = makeCraft('dropped', { managed: true });
   const host = createKernelHost();
-  const step = (c) => { const r = c.buildKernelRequest(); if (r) quiet(() => c.applyKernelResult(host.handle({ type: 'step', crafts: [r] }).crafts[0])); };
-  const T = new THREE.Vector3(0, 0, -0.01);                        // 0.01 m/s^2
-  const runs = { every: makeCraft('every', { managed: true }), batched: makeCraft('batched', { managed: true }),
-    dropped: makeCraft('dropped', { managed: true }) };
-  for (const c of Object.values(runs)) c.recordKernelFrame(0, new THREE.Vector3(), START);
-  for (let f = 1; f <= 12; f++) {
-    const d = at(f * 3600);
-    for (const c of Object.values(runs)) c.recordKernelFrame(3600, T, d);
-    step(runs.every);
-    if (f % 4 === 0) step(runs.batched);
-    if (f === 5) { runs.dropped.buildKernelRequest(); runs.dropped.onKernelRequestDropped(); }   // lost in a fallback
-    else if (f % 2 === 0) step(runs.dropped);
+  quiet(() => { c.update(0, NO_BODIES, START); manual(c); });
+  for (let f = 1; f <= 48; f++) {
+    quiet(() => c.update(1 / 24, NO_BODIES, at(f * 3600)));
+    const req = c.buildKernelRequest();
+    if (f === 1) { c.onKernelRequestDropped(); continue; }       // lost in a fallback
+    if (req) quiet(() => c.applyKernelResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]));
   }
-  step(runs.dropped);
-  const dvB = norm(diff(runs.every.kState.v, runs.batched.kState.v)) * 1000;
-  const dvD = norm(diff(runs.every.kState.v, runs.dropped.kState.v)) * 1000;
-  console.log(`  12 h of 0.01 m/s^2 (432 m/s): every hour vs every 4 h ${dvB.toExponential(2)} m/s; with a dropped request ${dvD.toExponential(2)} m/s`);
-  check('sending every 4 h delivers the same delta-v as every hour', dvB < 1e-6);
-  check('a request lost to a fallback gives its thrust back', dvD < 1e-6);
+  const ref = run(3600, manual, 2);
+  check('a request lost mid-burn changes nothing (<1e-3 km)', norm(diff(c.kState.r, ref.kState.r)) < 1e-3);
 }
 
 header('CASE 5: clock jumps, impacts and errors');
 {
   const c = makeCraft('jump', { managed: false });
-  for (let f = 1; f <= 5; f++) quiet(() => c.update(1, null, at(f * 86400)));
+  for (let f = 1; f <= 5; f++) quiet(() => c.update(1, NO_BODIES, at(f * 86400)));
   const before = c.position.clone();
-  quiet(() => c.update(1, null, at(-360 * 86400)));          // Reset: a year back
+  quiet(() => c.update(1, NO_BODIES, at(-360 * 86400)));          // Reset: a year back
   check('a backward clock jump keeps the state and re-anchors it', c.clockJumped && before.distanceTo(c.position) === 0 &&
     Math.abs(c.kState.t - c.lastClockT) < 1e-9);
 
@@ -152,7 +185,7 @@ header('CASE 5: clock jumps, impacts and errors');
   d.kState = null;
   d.velocity.set(...toScene([E0.v[0], E0.v[1], E0.v[2]]));
   const client = new KernelClient();
-  for (let f = 1; f <= 20 && !d.crashed; f++) quiet(() => { d.update(1800 / 86400, null, at(f * 1800)); client.tick([d]); });
+  for (let f = 1; f <= 20 && !d.crashed; f++) quiet(() => { d.update(1800 / 86400, NO_BODIES, at(f * 1800)); client.tick([d]); });
   const drawnKm = d.position.clone().multiplyScalar(AU_TO_KM).distanceTo(new THREE.Vector3(...toScene(d.kState.r)));
   check(`an impact is reported (${d.impactBody})`, d.crashed && d.impactBody === 'earth');
   check('the crashed craft is drawn at the impact point', drawnKm < 1e-6);
@@ -161,13 +194,13 @@ header('CASE 5: clock jumps, impacts and errors');
   // is free for the next request.
   const bad = makeCraft('bad', { managed: true }), good = makeCraft('good', { managed: true });
   const client2 = new KernelClient();
-  quiet(() => { bad.update(0.5, null, at(43200)); good.update(0.5, null, at(43200)); });
+  quiet(() => { bad.update(0.5, NO_BODIES, at(43200)); good.update(0.5, NO_BODIES, at(43200)); });
   bad.kState.r = [NaN, NaN, NaN];
   quiet(() => client2.tick([bad, good]));
   check('a NaN state comes back as an error, and the craft stops requesting', !!bad.kernelError && bad.buildKernelRequest() === null);
   check('the other craft still stepped and the client is not stuck', good.kState.t > 0 && !client2.busy);
   const late = makeCraft('nan-time', { managed: true });
-  quiet(() => late.update(0.5, null, at(43200)));
+  quiet(() => late.update(0.5, NO_BODIES, at(43200)));
   late.kState.t = NaN;
   check('a NaN physics time is flagged instead of freezing silently', late.buildKernelRequest() === null && !!late.kernelError);
 }

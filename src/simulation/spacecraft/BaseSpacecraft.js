@@ -283,21 +283,22 @@ export class BaseSpacecraft {
     const dt = deltaTime * SECONDS_PER_DAY;
     this.missionElapsedTime += dt;
     
-    // Enhanced systems update
+    // The sim clock for this frame (also detects clock jumps).
+    this.recordKernelFrame(dt, currentDate);
+    
+    // Enhanced systems update; a manoeuvre node due this frame starts its burn
+    // at the node's own time, not at the frame.
     if (this.systems) {
       this.systems.update(this, { bodies }, dt);
       this.checkManoeuvreExecution(dt);
     }
     
-    // Thrust over this frame (m/s^2, scene axes); fuel is drawn for the whole
-    // frame as before.
-    const thrust = new THREE.Vector3();
-    if (this.engineOn && this.fuelMass > 0) thrust.add(this.calculateThrustAcceleration(dt));
-    if (this.executingManoeuvre && this.systems) thrust.add(this.calculateManoeuvreThrust(dt));
+    // Burns: fuel drawn for the time each was on this frame, and burns that
+    // ended (time up, tank dry, engine off) closed off.
+    this.updateBurns();
     
-    // Gravity and motion: the n-body kernel. Record this frame for it, and
-    // without a KernelClient step right away on this thread.
-    this.recordKernelFrame(dt, thrust, currentDate);
+    // Gravity and motion: the n-body kernel. Without a KernelClient, step
+    // right away on this thread.
     if (!this.kernelManaged) {
       const req = this.buildKernelRequest();
       if (req) this.applyKernelResult(stepCraft(getSyncBodies(), req));
@@ -340,38 +341,96 @@ export class BaseSpacecraft {
       primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun),
     };
     this.stateVersion = 0;
-    this.pendingImpulse = [0, 0, 0];      // km/s of thrust not yet sent
+    this.burns = this.burns || [];
     this.lastClockT = tNow - dt;
     this.physicsLagSeconds = 0;
   }
   
   // Called every frame. A clock jump (reset, a date set directly) is not
-  // integrated: the craft keeps its state, re-anchored at the new time, and
-  // any result still in flight is dropped through the version number.
-  recordKernelFrame(dt, thrust, currentDate) {
+  // integrated: the craft keeps its state, re-anchored at the new time, any
+  // result still in flight is dropped through the version number, and burns
+  // in progress are cancelled.
+  recordKernelFrame(dt, currentDate) {
     const tNow = currentDate ? kernelSeconds(currentDate) : (this.lastClockT ?? 0) + dt;
     this.ensureKernelState(tNow, dt);
     this.lastDt = dt;
+    this.prevClockT = this.lastClockT;
     const expected = this.lastClockT + dt;
     if (Math.abs(tNow - expected) > Math.max(1.0, 1e-6 * Math.abs(dt))) {
       this.kState.t = tNow;
-      this.pendingImpulse = [0, 0, 0];
       this.physicsLagSeconds = 0;
       this.stateVersion++;
-      this.lastRequestThrust = null;      // a jump drops thrust in flight on purpose
+      this.cancelBurns(this.lastClockT);
+      this.prevClockT = tNow;            // no fuel is drawn across the jump
       this.clockJumped = true;
       console.warn(`${this.name}: sim clock jumped by ${((tNow - expected) / 86400).toFixed(2)} d; ` +
         'the craft keeps its state at the new time rather than being integrated across the jump');
-    } else if (thrust.lengthSq() > 0) {
-      const th = sceneToEqj(thrust, 1e-3);                  // m/s^2 -> km/s^2
-      for (let i = 0; i < 3; i++) this.pendingImpulse[i] += th[i] * dt;
     }
     this.lastClockT = tNow;
   }
   
-  // A request to advance from kState to the sim clock. Thrust is the impulse
-  // gathered since the last request spread over the span, so a request that
-  // covers several frames (the Worker was busy) delivers the same delta-v.
+  /* ===================================
+     BURNS
+     A burn is a segment of absolute kernel time: { t0, t1, dir (EQJ unit),
+     F (N), m0 (kg at t0), mdot (kg/s), tank, kind }. The kernel ends steps on
+     t0 and t1 and applies F / m(t), so a burn starts and stops at its own
+     times whatever the frame rate, and every request that overlaps it sends
+     it, so nothing is lost when a request is dropped or split.
+     =================================== */
+  
+  // Fuel left in a tank: 'main' (the propulsion system) or 'basic' (fuelMass).
+  tankFuel(tank) {
+    return tank === 'main' ? this.systems.propulsion.main.fuel : this.fuelMass;
+  }
+  
+  drawFuel(tank, kg) {
+    if (tank === 'main') this.systems.propulsion.main.fuel = Math.max(0, this.systems.propulsion.main.fuel - kg);
+    else this.fuelMass = Math.max(0, this.fuelMass - kg);
+  }
+  
+  // Start a burn at kernel time t0. Returns the burn, or null if there is no
+  // fuel. It ends at duration (if given), or when the tank runs dry.
+  startBurn({ t0, dirScene, F, ve, tank, kind, duration = Infinity }) {
+    const fuel = this.tankFuel(tank);
+    const mdot = F / ve;
+    if (!(fuel > 0) || !(mdot > 0) || !(dirScene.lengthSq() > 0)) return null;
+    // Whole craft: dry mass plus both tanks.
+    const m0 = this.mass + this.fuelMass + (this.systems ? this.systems.propulsion.main.fuel : 0);
+    const d = sceneToEqj(dirScene.clone().normalize());
+    const burn = { t0, t1: t0 + Math.min(duration, fuel / mdot), dir: d, F, m0, mdot, tank, kind };
+    this.burns.push(burn);
+    return burn;
+  }
+  
+  // End burns still on at time t (the engine switched off, a clock jump).
+  cancelBurns(t, kind = null) {
+    for (const b of this.burns) {
+      if ((kind === null || b.kind === kind) && b.t1 > t) b.t1 = Math.max(b.t0, t);
+    }
+    if (kind === null || kind === 'manual') this.engineOn = false;
+    if ((kind === null || kind === 'node') && this.executingManoeuvre) this.completeManoeuvre();
+  }
+  
+  // Each frame: draw fuel for the time each burn was on since the last frame,
+  // close finished burns, and keep the thrust indicator honest.
+  updateBurns() {
+    const a = this.prevClockT ?? this.lastClockT, b = this.lastClockT;
+    let on = false;
+    for (const burn of this.burns) {
+      const overlap = Math.min(b, burn.t1) - Math.max(a, burn.t0);
+      if (overlap > 0) this.drawFuel(burn.tank, burn.mdot * overlap);
+      if (burn.t0 <= b && b < burn.t1) on = true;
+    }
+    if (this.engineOn && !this.burns.some((x) => x.kind === 'manual' && b < x.t1)) this.engineOn = false;
+    if (this.executingManoeuvre && b >= this.executingManoeuvre.burn.t1) this.completeManoeuvre();
+    if (this.thrustIndicator) this.thrustIndicator.visible = on;
+    // Burns the physics has finished with and the clock has passed can go.
+    const done = Math.min(this.kState ? this.kState.t : -Infinity, b);
+    this.burns = this.burns.filter((x) => x.t1 > done);
+  }
+  
+  // A request to advance from kState to the sim clock, with every burn that
+  // overlaps that span.
   buildKernelRequest() {
     if (this.crashed || this.kernelError || !this.kState) return null;
     const tEnd = this.lastClockT;
@@ -382,25 +441,20 @@ export class BaseSpacecraft {
       return null;
     }
     if (!(span > 0)) return null;
-    const thrust = this.pendingImpulse.map((x) => x / span);
-    this.pendingImpulse = [0, 0, 0];
-    this.lastRequestThrust = thrust;
-    this.lastRequestSpan = span;
+    const burns = this.burns
+      .filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
+      .map(({ t0, t1, dir, F, m0, mdot }) => ({ t0, t1, dir, F, m0, mdot }));
     return {
       id: this.kernelId, version: this.stateVersion,
       r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd,
-      primary: this.kState.primary, thrust,
+      primary: this.kState.primary, burns,
     };
   }
   
   // A request whose result will never be used (dropped as stale, or lost when
-  // the Worker failed): take back the thrust impulse it carried, whose fuel
-  // was already drawn, so the next request delivers it.
-  onKernelRequestDropped() {
-    if (!this.lastRequestThrust) return;
-    for (let i = 0; i < 3; i++) this.pendingImpulse[i] += this.lastRequestThrust[i] * this.lastRequestSpan;
-    this.lastRequestThrust = null;
-  }
+  // the Worker failed). Nothing to undo: burns are tied to absolute times, so
+  // the next request, which starts from the same kState, sends them again.
+  onKernelRequestDropped() {}
 
   applyKernelResult(res) {
     if (this.crashed) return;
@@ -412,16 +466,13 @@ export class BaseSpacecraft {
       return;
     }
     // Computed from a state this craft has since changed (a burn, a jump).
-    if (res.version !== this.stateVersion) { this.onKernelRequestDropped(); return; }
+    if (res.version !== this.stateVersion) return;
     this.kState = { r: res.r, v: res.v, t: res.t, primary: res.primary, accel: res.accel };
     this.primaryBody = res.primary;
     const impact = res.events.find((ev) => ev.type === 'impact');
-    // Budget ran out: the craft is behind the clock and catches up next time.
-    // Thrust meant for the part not reached goes back into the next request.
+    // Budget ran out: the craft is behind the clock and catches up next time
+    // (the burns it has not reached yet are still in the schedule).
     this.physicsLagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
-    if (this.physicsLagSeconds > 0 && this.lastRequestThrust) {
-      for (let i = 0; i < 3; i++) this.pendingImpulse[i] += this.lastRequestThrust[i] * this.physicsLagSeconds;
-    }
     for (const ev of res.events) {
       if (ev.type === 'impact') {
         this.crashed = true;
@@ -450,7 +501,14 @@ export class BaseSpacecraft {
     if (!this.kState) return;
     let dtx = this.lastClockT - this.kState.t;
     if (!(dtx > 0) || this.crashed) dtx = 0;
-    dtx = Math.min(dtx, 30 * SECONDS_PER_DAY);
+    const { r: rd, v: vd } = this.carryForward(Math.min(dtx, 30 * SECONDS_PER_DAY));
+    eqjToScene(rd, this.position, 1 / AU_TO_KM);
+    eqjToScene(vd, this.velocity);
+    eqjToScene(this.kState.accel, this.acceleration, 1e3);
+  }
+
+  // kState carried forward by dtx seconds (EQJ km, km/s): see updateDisplayState.
+  carryForward(dtx) {
     let rd = this.kState.r, vd = this.kState.v;
     if (dtx > 0) {
       // Within three spheres of influence of a planet, its pull changes too
@@ -509,45 +567,9 @@ export class BaseSpacecraft {
         }
       }
     }
-    eqjToScene(rd, this.position, 1 / AU_TO_KM);
-    eqjToScene(vd, this.velocity);
-    eqjToScene(this.kState.accel, this.acceleration, 1e3);
+    return { r: rd, v: vd };
   }
 
-  calculateThrustAcceleration(dt) {
-    if (this.fuelMass <= 0) {
-      this.engineOn = false;
-      this.thrustIndicator.visible = false;
-      return new THREE.Vector3();
-    }
-    
-    const fuelBurnRate = this.thrustPower / (this.exhaustVelocity * 9.81);
-    const fuelUsed = Math.min(fuelBurnRate * dt, this.fuelMass);
-    this.fuelMass -= fuelUsed;
-    
-    const currentMass = this.mass + this.fuelMass;
-    const acceleration = this.thrustVector.clone()
-      .normalize()
-      .multiplyScalar(this.thrustPower / currentMass);
-    
-    this.thrustIndicator.visible = true;
-    return acceleration;
-  }
-  
-  calculateManoeuvreThrust(dt) {
-    if (!this.executingManoeuvre || !this.systems || 
-        this.systems.propulsion.main.throttle === 0) {
-      return new THREE.Vector3();
-    }
-    
-    const thrust = this.systems.propulsion.main.thrust;
-    const totalMass = this.mass + this.systems.propulsion.main.fuel;
-    const accelMag = thrust / totalMass;
-    
-    return this.executingManoeuvre.thrustDirection.clone()
-      .multiplyScalar(accelMag);
-  }
-  
   updateVisuals() {
     this.mesh.position.copy(this.position);
     
@@ -663,20 +685,15 @@ export class BaseSpacecraft {
       nextNode.timeFromNow -= dt;
       
       if (nextNode.timeFromNow <= 0) {
-        this.startManoeuvre(nextNode);
+        // timeFromNow has run past zero by however much of this frame came
+        // after the node: the burn starts at the node's own time.
+        this.startManoeuvre(nextNode, this.lastClockT + nextNode.timeFromNow);
       }
     }
-    
-    if (this.executingManoeuvre) {
-      this.executingManoeuvre.timeRemaining -= dt;
-      
-      if (this.executingManoeuvre.timeRemaining <= 0) {
-        this.completeManoeuvre();
-      }
-    }
+    // Completion is checked in updateBurns(), against the burn's end time.
   }
   
-  startManoeuvre(node) {
+  startManoeuvre(node, tStart = this.lastClockT) {
     const result = this.systems.executeBurn(
       node.deltaV.length(),
       node.burnDuration,
@@ -689,9 +706,14 @@ export class BaseSpacecraft {
       return;
     }
     
+    // The burn's frame from the state at the node's time, not at the end of
+    // the frame it fell in (a day-long frame turns the velocity ~1 degree).
+    const at = this.kState
+      ? this.carryForward(Math.max(0, tStart - this.kState.t))
+      : { r: sceneToEqj(this.position, AU_TO_KM), v: sceneToEqj(this.velocity) };
     const frame = OrbitalMechanics.getOrbitalReferenceFrame(
-      this.position,
-      this.velocity
+      eqjToScene(at.r, new THREE.Vector3(), 1 / AU_TO_KM),
+      eqjToScene(at.v, new THREE.Vector3())
     );
     
     const thrustDirection = new THREE.Vector3()
@@ -700,10 +722,27 @@ export class BaseSpacecraft {
       .addScaledVector(frame.normal, node.deltaV.z)
       .normalize();
     
+    // Duration from the craft's mass now, so the burn delivers exactly the
+    // node's delta-v: m0 (1 - exp(-dv / ve)) kg at mdot = F / ve.
+    const main = this.systems.propulsion.main;
+    const ve = main.specificImpulse * 9.80665;                // m/s
+    const m0 = this.mass + this.fuelMass + main.fuel;
+    const dvMs = node.deltaV.length() * 1000;
+    const duration = m0 * (1 - Math.exp(-dvMs / ve)) / (main.thrust / ve);
+    const burn = this.startBurn({
+      t0: tStart, dirScene: thrustDirection, F: main.thrust, ve, tank: 'main', kind: 'node', duration,
+    });
+    if (!burn) {
+      console.error('Manoeuvre failed: no fuel in the main tank');
+      main.throttle = 0;
+      this.removeManoeuvreNode(node);
+      return;
+    }
     this.executingManoeuvre = {
       node,
+      burn,
       thrustDirection,
-      timeRemaining: node.burnDuration,
+      timeRemaining: burn.t1 - burn.t0,
       totalDeltaV: node.deltaV.clone()
     };
     
@@ -876,14 +915,20 @@ export class BaseSpacecraft {
     console.log(`Maneuver applied: ${deltaV.toFixed(2)} km/s`);
   }
   
+  // Manual engine: on starts a burn at the current sim time along direction
+  // (scene axes), which runs until it is switched off or the tank is dry;
+  // off ends it now. Propellant flow is thrust / exhaust velocity (m/s).
   setThrust(direction, on = true) {
-    this.engineOn = on;
-    
-    if (on && direction) {
-      this.thrustVector = direction.normalize();
+    if (on && direction) this.thrustVector = direction.clone().normalize();
+    const t = this.lastClockT ?? 0;
+    this.cancelBurns(t, 'manual');
+    if (on) {
+      const burn = this.kState ? this.startBurn({
+        t0: t, dirScene: this.thrustVector, F: this.thrustPower, ve: this.exhaustVelocity, tank: 'basic', kind: 'manual',
+      }) : null;
+      this.engineOn = !!burn;
     }
-    
-    this.thrustIndicator.visible = on;
+    this.thrustIndicator.visible = this.engineOn;
   }
   
   clearTrajectory() {
