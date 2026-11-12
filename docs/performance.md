@@ -7,13 +7,13 @@ Node 20, November 2026), and what is planned to make the slow parts fast.
 
 | Work | Cost | Notes |
 | --- | --- | --- |
-| Ten body states (one frame) | 0.06 ms | astronomy-engine, every frame |
+| Ten body states (one frame) | 0.04 ms | every frame; Earth and the Moon from the DE442 table, the rest astronomy-engine |
 | Ten body orientations (one frame) | 0.01 ms | every frame |
 | One orbit line (361 samples) | 2.4–2.8 ms | resampled at most one line per frame |
 | Kernel, low Earth orbit, Cowell | about 50 sim days per second | 9,776 steps per sim day |
-| Kernel, low Earth orbit, with Encke | about 600 sim days per second | 326 steps per sim day, 11x more accurate; about 4.5 µs per step |
+| Kernel, low Earth orbit, with Encke | about 220 sim days per second | 1,134 steps per sim day with Earth's J2 (326 with point masses, about 600 sim days per second); 4x more accurate than Cowell |
 | Kernel, GEO | about 850 sim days per second | Cowell (perturbed beyond Encke's range) |
-| Ephemeris for the kernel (astronomy-engine) | 1.6 ms per sim day | almost all the Moon, at hourly nodes |
+| Ephemeris for the kernel | under 1.6 ms per sim day | the Moon at hourly nodes, now from the DE442 table |
 
 Kernel speeds are steady forward running, as in the app: 90 days in 10-day
 chunks, the median of the last five (after V8 has compiled the hot code),

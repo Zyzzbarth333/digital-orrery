@@ -4,6 +4,7 @@
 // efficiency work is measured, not guessed. Run: npm run bench
 // (Node; a browser on the same machine is usually within a factor of 2.)
 
+import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import { helioStateEcl } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
 const keys = ['mercury','venus','earth','moon','mars','jupiter','saturn','uranus','neptune','pluto'];

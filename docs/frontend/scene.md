@@ -13,11 +13,13 @@ HTML marker (a ring and its name) at its projected position. The ring hides
 once the body's disc is wider than 4 px, and a moon's marker hides while it
 sits within 14 px of its planet's, unless the moon is focused.
 
-Positions come from `helioStateEcl` in `src/physics/ephemeris.js`
-(astronomy-engine), re-read every frame. Against DE442 through CSPICE this is
-within 1×10⁻⁴ of each planet's distance from the Sun; see
-[validation](../validation.md#ephemeris-and-porkchop-porkchoptestmjs). A DE442
-reader in the browser is on the roadmap.
+Positions come from `helioStateEcl` in `src/physics/ephemeris.js`, re-read
+every frame:
+- **Earth and the Moon:** DE442 itself, through a Chebyshev table, within a
+  metre ([ephemerides](../physics/ephemerides-and-gm.md#de442-in-the-app)).
+- **The other planets:** astronomy-engine, within 1×10⁻⁴ of each planet's
+  distance from the Sun against DE442; see
+  [validation](../validation.md#ephemeris-and-porkchop-porkchoptestmjs).
 
 ## Frame and units
 

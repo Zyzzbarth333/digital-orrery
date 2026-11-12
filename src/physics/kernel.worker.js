@@ -5,10 +5,14 @@
 // module worker, which Vite bundles on its own.
 
 import { createKernelHost } from './kernelHost.js';
+import { loadDeTable } from './deLoad.js';
 
 const host = createKernelHost();
+// DE442's Earth and Moon before the first step (deTable.js).
+const ready = loadDeTable();
 
-self.onmessage = (e) => {
+self.onmessage = async (e) => {
+  await ready;
   let reply;
   try {
     reply = host.handle(e.data);

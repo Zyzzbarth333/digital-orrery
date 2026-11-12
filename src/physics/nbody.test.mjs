@@ -5,6 +5,7 @@
 // `npm install` for astronomy-engine). Run with:
 //     node src/physics/nbody.test.mjs
 
+import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import { advance, createState, accelHeliocentric, heliocentricEnergy } from './nbody.js';
 import { propagate, rvToElements } from './orbital.js';
 

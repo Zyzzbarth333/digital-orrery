@@ -55,3 +55,18 @@ c/build/artemis2_ref src/physics/fixtures/artemis2_bet.json 600
 ```
 
 The second argument is the sampling step in seconds.
+
+## DE442's Earth and Moon for the app
+
+`de_cheb.c` fits the Chebyshev series that the app uses for Earth and the
+Moon ([docs/physics/ephemerides-and-gm.md](../docs/physics/ephemerides-and-gm.md#de442-in-the-app)),
+from the same kernels as the reference generator:
+
+```bash
+cmake --build c/build
+c/build/de_cheb public/ephemeris/de442-earth-moon-2000-2050.bin 2000 2051
+```
+
+The arguments are the first year and the year after the last. It prints the
+worst position error per body, checked between the fitting nodes against
+`spkezr_c`.

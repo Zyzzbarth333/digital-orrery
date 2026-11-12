@@ -28,7 +28,8 @@ tests (it shares no code with the models).
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| astronomy-engine, Venus/Earth/Mars | DE442 via CSPICE | 2.5×10⁻⁵ relative, 1.3 m/s |
+| the app's Earth (DE442 Chebyshev table), 4 epochs, from UTC | DE442 via CSPICE | 0.09 m (2.2 m at J2000, whose UTC is rounded to 1 ms) |
+| astronomy-engine, Venus/Earth/Mars | DE442 via CSPICE | 2.3×10⁻⁵ relative, 1.3 m/s |
 | astronomy-engine, all eight planets | DE442 | 9.3×10⁻⁵, 9.5 m/s |
 | porkchop cell on MSL dates | DE442 Lambert | C3 agrees to 10⁻⁴ |
 | 2011 Mars window | physical | all 11,011 cells solved; minimum C3 9.00 km²/s² inside the grid |
@@ -89,10 +90,12 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 
 | Check | Result |
 | --- | --- |
-| Closest approach to the Moon, from the flown state 20 h before | 6,546.1 km vs 6,545.0 km flown; 7 s early |
-| Coast arcs away from Earth, 0.6–2.1 days | 8–81 km at the end (JSC's 1σ: 0.2–1 km) |
-| First arc after translunar injection | 42 km (969 km with point masses only) |
-| The app's Moon vs DE442 | 9–13 km |
+| Closest approach to the Moon, from the flown state 20 h before | 6,543.5 km vs 6,545.0 km flown; 4 s early |
+| The whole mission in one run from just after TLI, with the five real burns | flyby 6,544.3 km (predicted 4 days ahead), 50 s early; entry interface 25 s late and 144 km to the side |
+| Coast arcs, 0.2–2.1 days | 0.4–49 km at the end (JSC's 1σ: 0.2–1 km) |
+| The same arcs once the real flight's steady push is estimated from each arc's first half | 0.1–17 km |
+| First arc after translunar injection | 13 km (957 km with point masses only) |
+| The app's Moon vs DE442 | under 1 m (DE442 table) |
 
 ## Not yet validated
 

@@ -5,6 +5,7 @@
 // Prints PASS/FAIL with numeric errors for each of the four reference cases
 // and exits with code 1 if any case fails.
 
+import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import { readFileSync } from 'node:fs';
 import { rvToElements, elementsToRv, propagate, lambert, hohmann } from './orbital.js';
 

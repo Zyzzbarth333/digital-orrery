@@ -2,15 +2,20 @@
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+import { loadDeTable } from '../physics/deLoad.js';
 import '@fontsource/michroma/400.css';
 import '@fontsource/b612/400.css';
 import '@fontsource/b612/700.css';
 import '@fontsource/b612-mono/400.css';
 import './app.css';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+// DE442's Earth and Moon go in before the app is even imported, so nothing
+// caches an astronomy-engine position for them first.
+void loadDeTable().then(async () => {
+  const { App } = await import('./App');
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

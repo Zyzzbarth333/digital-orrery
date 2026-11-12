@@ -26,3 +26,12 @@ target_link_libraries(artemis2_ref PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
 target_compile_options(artemis2_ref PRIVATE -O2 -Wall -Wextra)
 target_compile_definitions(artemis2_ref PRIVATE
   ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")
+
+# DE442's Earth and Moon as Chebyshev series for the app
+# (docs/physics/ephemerides-and-gm.md).
+add_executable(de_cheb de_cheb.c)
+target_include_directories(de_cheb PRIVATE "${CSPICE_ROOT}/include")
+target_link_libraries(de_cheb PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
+target_compile_options(de_cheb PRIVATE -O2 -Wall -Wextra)
+target_compile_definitions(de_cheb PRIVATE
+  ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")
