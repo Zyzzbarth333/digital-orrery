@@ -5,17 +5,21 @@ import {
   SPACECRAFT_DEFAULTS, GRAVITATIONAL_PARAMETERS, VISUAL_SETTINGS
 } from '../../utils/constants.js';
 import { OrbitalMechanics } from '../OrbitalMechanics.js';
-import { advance, createState, accelHeliocentric } from '../../physics/nbody.js';
-import { solarSystemBodies } from '../../physics/bodies.js';
+import { solarSystemBodies, bodyConstants } from '../../physics/bodies.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, stepCraft } from '../../physics/kernelHost.js';
+import { propagate } from '../../physics/orbital.js';
+import { primaryOf, accelHeliocentric } from '../../physics/nbody.js';
+import { helioStateEqj } from '../../physics/ephemeris.js';
 
-// One body set (planets and Moon, interpolated astronomy-engine states) shared
-// by every spacecraft. Kernel time is seconds from J2000 (UTC 2000-01-01 12:00).
-const KERNEL_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
-let kernelBodies = null;
-function getKernelBodies() {
-  if (!kernelBodies) kernelBodies = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
-  return kernelBodies;
+// Body set for crafts stepped on this thread (no KernelClient: scripts and
+// tests). Crafts in the app are stepped by the KernelClient, usually in a
+// Web Worker, through the same stepCraft.
+let syncBodies = null;
+function getSyncBodies() {
+  if (!syncBodies) syncBodies = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  return syncBodies;
 }
+let nextKernelId = 1;
 
 // The scene is three.js y-up with astronomy-engine's EQJ axes mapped as
 // (x, z, -y); the kernel works in EQJ km. These convert between the two.
@@ -285,14 +289,20 @@ export class BaseSpacecraft {
       this.checkManoeuvreExecution(dt);
     }
     
-    // Thrust over this frame (m/s^2, scene axes), held constant while the
-    // kernel sub-steps; fuel is drawn for the whole frame as before.
+    // Thrust over this frame (m/s^2, scene axes); fuel is drawn for the whole
+    // frame as before.
     const thrust = new THREE.Vector3();
     if (this.engineOn && this.fuelMass > 0) thrust.add(this.calculateThrustAcceleration(dt));
     if (this.executingManoeuvre && this.systems) thrust.add(this.calculateManoeuvreThrust(dt));
     
-    // Gravity and motion: the n-body kernel (src/physics/nbody.js).
-    this.integrateMotion(dt, thrust, currentDate);
+    // Gravity and motion: the n-body kernel. Record this frame for it, and
+    // without a KernelClient step right away on this thread.
+    this.recordKernelFrame(dt, thrust, currentDate);
+    if (!this.kernelManaged) {
+      const req = this.buildKernelRequest();
+      if (req) this.applyKernelResult(stepCraft(getSyncBodies(), req));
+    }
+    this.updateDisplayState();
     
     // Update visuals
     this.updateVisuals();
@@ -307,63 +317,201 @@ export class BaseSpacecraft {
     }
   }
   
-  // Advance the craft from where its physics last stopped to the sim clock
-  // with the kernel: the Sun, planets and Moon at their ephemeris positions
-  // throughout, sub-stepped by distance to the nearest body. The state is read
-  // from this.position/this.velocity each frame, so instantaneous changes made
-  // elsewhere (a manoeuvre's delta-v) are picked up.
-  //
-  // If the frame needs more sub-steps than the budget allows (very high warp
-  // near a planet), the craft stops short and catches up over later frames;
-  // physicsLagSeconds says how far behind the clock it is. A clock jump (reset,
-  // a date set directly) is not integrated: the craft keeps its state and is
-  // re-anchored to the new time, and clockJumped is set.
-  integrateMotion(dt, thrust, currentDate) {
-    const sys = getKernelBodies();
-    const tEnd = currentDate
-      ? (currentDate.getTime() - KERNEL_EPOCH_MS) / 1000
-      : (this.kernelTime ?? 0) + dt;
-    if (this.kernelTime !== undefined) {
-      const expected = dt + (this.physicsLagSeconds || 0);
-      const actual = tEnd - this.kernelTime;
-      if (Math.abs(actual - expected) > Math.max(1.0, 1e-6 * Math.abs(expected))) {
-        this.kernelTime = tEnd;
-        this.physicsLagSeconds = 0;
-        this.clockJumped = true;
-        console.warn(`${this.name}: sim clock jumped by ${((actual - expected) / 86400).toFixed(2)} d; ` +
-          'the craft keeps its state at the new time rather than being integrated across the jump');
-        return;
-      }
+  /* ===================================
+     KERNEL STATE
+     The exact physics state lives in this.kState (heliocentric J2000
+     equatorial km, km/s, at kernel time kState.t). this.position,
+     this.velocity and this.acceleration are what is drawn and read by the
+     rest of the app: kState carried forward to the sim clock.
+     =================================== */
+  
+  ensureKernelState(tNow, dt) {
+    if (this.kState) return;
+    this.kernelId = this.kernelId ?? nextKernelId++;
+    const r = sceneToEqj(this.position, AU_TO_KM);
+    const sys = getSyncBodies();
+    // The primary and the acceleration are known from the start, so even the
+    // first frames, before any kernel result, are drawn along the right orbit
+    // with the right pull (a zero acceleration here reads as the Sun's pull
+    // reversed to the carry-forward below).
+    const bodies = sys.bodiesAt(tNow - dt);
+    this.kState = {
+      r, v: sceneToEqj(this.velocity), t: tNow - dt,
+      primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun),
+    };
+    this.stateVersion = 0;
+    this.pendingImpulse = [0, 0, 0];      // km/s of thrust not yet sent
+    this.lastClockT = tNow - dt;
+    this.physicsLagSeconds = 0;
+  }
+  
+  // Called every frame. A clock jump (reset, a date set directly) is not
+  // integrated: the craft keeps its state, re-anchored at the new time, and
+  // any result still in flight is dropped through the version number.
+  recordKernelFrame(dt, thrust, currentDate) {
+    const tNow = currentDate ? kernelSeconds(currentDate) : (this.lastClockT ?? 0) + dt;
+    this.ensureKernelState(tNow, dt);
+    this.lastDt = dt;
+    const expected = this.lastClockT + dt;
+    if (Math.abs(tNow - expected) > Math.max(1.0, 1e-6 * Math.abs(dt))) {
+      this.kState.t = tNow;
+      this.pendingImpulse = [0, 0, 0];
+      this.physicsLagSeconds = 0;
+      this.stateVersion++;
+      this.lastRequestThrust = null;      // a jump drops thrust in flight on purpose
+      this.clockJumped = true;
+      console.warn(`${this.name}: sim clock jumped by ${((tNow - expected) / 86400).toFixed(2)} d; ` +
+        'the craft keeps its state at the new time rather than being integrated across the jump');
+    } else if (thrust.lengthSq() > 0) {
+      const th = sceneToEqj(thrust, 1e-3);                  // m/s^2 -> km/s^2
+      for (let i = 0; i < 3; i++) this.pendingImpulse[i] += th[i] * dt;
     }
-    const tStart = this.kernelTime ?? tEnd - dt;
-    const state = createState(sceneToEqj(this.position, AU_TO_KM), sceneToEqj(this.velocity), tStart);
-    state.primary = this.primaryBody ?? null;
-    const thrustKm = sceneToEqj(thrust, 1e-3);                 // m/s^2 -> km/s^2
-    const extraAccel = (thrust.lengthSq() > 0)
-      ? (t, r, out) => { out[0] = thrustKm[0]; out[1] = thrustKm[1]; out[2] = thrustKm[2]; return out; }
-      : null;
-    const res = advance(state, tEnd, {
-      bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, maxSteps: 20000,
-    });
-    this.kernelTime = state.t;
-    this.primaryBody = state.primary;
-    this.physicsLagSeconds = Math.max(0, tEnd - state.t);
-    eqjToScene(state.r, this.position, 1 / AU_TO_KM);
-    eqjToScene(state.v, this.velocity);
-    // Acceleration for telemetry, in m/s^2 like before.
-    const a = accelHeliocentric(state.r, sys.bodiesAt(state.t), sys.muSun);
-    eqjToScene(a, this.acceleration, 1e3).add(thrust);
+    this.lastClockT = tNow;
+  }
+  
+  // A request to advance from kState to the sim clock. Thrust is the impulse
+  // gathered since the last request spread over the span, so a request that
+  // covers several frames (the Worker was busy) delivers the same delta-v.
+  buildKernelRequest() {
+    if (this.crashed || this.kernelError || !this.kState) return null;
+    const tEnd = this.lastClockT;
+    const span = tEnd - this.kState.t;
+    if (Number.isNaN(span)) {
+      // A corrupted time would otherwise freeze the craft without a word.
+      this.kernelError = 'non-finite physics time';
+      return null;
+    }
+    if (!(span > 0)) return null;
+    const thrust = this.pendingImpulse.map((x) => x / span);
+    this.pendingImpulse = [0, 0, 0];
+    this.lastRequestThrust = thrust;
+    this.lastRequestSpan = span;
+    return {
+      id: this.kernelId, version: this.stateVersion,
+      r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd,
+      primary: this.kState.primary, thrust,
+    };
+  }
+  
+  // A request whose result will never be used (dropped as stale, or lost when
+  // the Worker failed): take back the thrust impulse it carried, whose fuel
+  // was already drawn, so the next request delivers it.
+  onKernelRequestDropped() {
+    if (!this.lastRequestThrust) return;
+    for (let i = 0; i < 3; i++) this.pendingImpulse[i] += this.lastRequestThrust[i] * this.lastRequestSpan;
+    this.lastRequestThrust = null;
+  }
+
+  applyKernelResult(res) {
+    if (this.crashed) return;
+    // The kernel could not step this craft (bad state, time outside the
+    // ephemeris): stop asking, and let the app say so.
+    if (res.error) {
+      this.kernelError = res.error;
+      console.warn(`${this.name}: kernel error: ${res.error}`);
+      return;
+    }
+    // Computed from a state this craft has since changed (a burn, a jump).
+    if (res.version !== this.stateVersion) { this.onKernelRequestDropped(); return; }
+    this.kState = { r: res.r, v: res.v, t: res.t, primary: res.primary, accel: res.accel };
+    this.primaryBody = res.primary;
+    const impact = res.events.find((ev) => ev.type === 'impact');
+    // Budget ran out: the craft is behind the clock and catches up next time.
+    // Thrust meant for the part not reached goes back into the next request.
+    this.physicsLagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
+    if (this.physicsLagSeconds > 0 && this.lastRequestThrust) {
+      for (let i = 0; i < 3; i++) this.pendingImpulse[i] += this.lastRequestThrust[i] * this.physicsLagSeconds;
+    }
     for (const ev of res.events) {
       if (ev.type === 'impact') {
         this.crashed = true;
         this.impactBody = ev.body;
-        this.physicsLagSeconds = 0;
         this.engineOn = false;
         console.warn(`${this.name}: impact on ${ev.body}`);
+        // update() returns early once crashed, so draw the impact point now.
+        this.updateDisplayState();
+        this.updateVisuals();
+        this.updateTrajectory();
       } else if (ev.type === 'primary') {
         console.info(`${this.name}: now in the sphere of influence of ${ev.to}`);
       }
     }
+  }
+  
+  // Draw at the sim clock. kState is usually a frame or more behind it (the
+  // Worker answers a frame late, and skips frames while busy), so it is carried
+  // forward along a two-body orbit about the craft's primary, with the
+  // primary's own position from the ephemeris at the clock time. That is exact
+  // for an unperturbed orbit; drawing kState as it is would leave a craft near
+  // Earth one frame behind Earth's own motion (43,000 km at a day a second).
+  // A straight-line r + v dt + a dt^2/2 is far worse in low orbit at warp.
+  // Not carried forward after an impact, or more than 30 days.
+  updateDisplayState() {
+    if (!this.kState) return;
+    let dtx = this.lastClockT - this.kState.t;
+    if (!(dtx > 0) || this.crashed) dtx = 0;
+    dtx = Math.min(dtx, 30 * SECONDS_PER_DAY);
+    let rd = this.kState.r, vd = this.kState.v;
+    if (dtx > 0) {
+      // Within three spheres of influence of a planet, its pull changes too
+      // fast across a frame to be a correction to a solar orbit, so carry the
+      // craft forward around that planet instead.
+      let key = this.kState.primary;
+      if (!key || key === 'sun') {
+        const sys = getSyncBodies();
+        for (const b of sys.bodiesAt(this.kState.t)) {
+          if (b.parent) continue;
+          const d = Math.hypot(rd[0] - b.r[0], rd[1] - b.r[1], rd[2] - b.r[2]);
+          const soi = Math.hypot(b.r[0], b.r[1], b.r[2]) * Math.pow(b.mu / sys.muSun, 0.4);
+          if (d < 3 * soi) { key = b.key; break; }
+        }
+      }
+      if (!key || key === 'sun') {
+        const muSun = GRAVITATIONAL_PARAMETERS.sun / 1e9;
+        const st = propagate(rd, vd, dtx, muSun);
+        if (st) {
+          // The planets' pull, taken from the kernel's acceleration minus the
+          // Sun's, added to second order: a craft just outside a planet's
+          // sphere of influence still feels the planet.
+          const r0 = this.kState.r, a = this.kState.accel;
+          const k = -muSun / Math.pow(Math.hypot(r0[0], r0[1], r0[2]), 3);
+          const ap = [0, 1, 2].map((i) => a[i] - k * r0[i]);
+          rd = st.r.map((x, i) => x + 0.5 * ap[i] * dtx * dtx);
+          vd = st.v.map((x, i) => x + ap[i] * dtx);
+        }
+      } else {
+        const t0 = new Date(KERNEL_EPOCH_MS + this.kState.t * 1000);
+        const t1 = new Date(KERNEL_EPOCH_MS + (this.kState.t + dtx) * 1000);
+        const P0 = helioStateEqj(key, t0), P1 = helioStateEqj(key, t1);
+        const rel = propagate(
+          [0, 1, 2].map((i) => rd[i] - P0.r[i]), [0, 1, 2].map((i) => vd[i] - P0.v[i]),
+          dtx, bodyConstants(key).mu
+        );
+        if (rel) {
+          // Everything but the primary's two-body pull, relative to the
+          // primary (the Moon near Earth, the Sun's tide), to second order:
+          // the craft's kernel acceleration minus the primary's own
+          // heliocentric acceleration minus the primary's pull on the craft.
+          const sys = getSyncBodies();
+          const bodies = sys.bodiesAt(this.kState.t);
+          const P = bodies.find((b) => b.key === key);
+          let ap = [0, 0, 0];
+          if (P) {
+            const r0 = this.kState.r, a = this.kState.accel;
+            const aP = accelHeliocentric(P.r, bodies.filter((b) => b !== P), sys.muSun);
+            const kp = -P.mu / Math.pow(Math.hypot(P.r[0], P.r[1], P.r[2]), 3);
+            const d = [0, 1, 2].map((i) => r0[i] - P.r[i]);
+            const k2 = -P.mu / Math.pow(Math.hypot(d[0], d[1], d[2]), 3);
+            ap = [0, 1, 2].map((i) => a[i] - (aP[i] + kp * P.r[i]) - k2 * d[i]);
+          }
+          rd = [0, 1, 2].map((i) => rel.r[i] + P1.r[i] + 0.5 * ap[i] * dtx * dtx);
+          vd = [0, 1, 2].map((i) => rel.v[i] + P1.v[i] + ap[i] * dtx);
+        }
+      }
+    }
+    eqjToScene(rd, this.position, 1 / AU_TO_KM);
+    eqjToScene(vd, this.velocity);
+    eqjToScene(this.kState.accel, this.acceleration, 1e3);
   }
 
   calculateThrustAcceleration(dt) {
@@ -719,6 +867,12 @@ export class BaseSpacecraft {
   applyManeuver(deltaV, direction) {
     const dv = direction.normalize().multiplyScalar(deltaV);
     this.velocity.add(dv);
+    // Apply it to the exact state too, and drop any result computed without it.
+    if (this.kState) {
+      const d = sceneToEqj(dv);
+      for (let i = 0; i < 3; i++) this.kState.v[i] += d[i];
+      this.stateVersion++;
+    }
     console.log(`Maneuver applied: ${deltaV.toFixed(2)} km/s`);
   }
   

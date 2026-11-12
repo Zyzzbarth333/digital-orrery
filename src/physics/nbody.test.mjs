@@ -271,6 +271,32 @@ header('CASE 9: escape from the edge of Earth\'s sphere of influence');
   check('leaving Earth\'s sphere of influence is reported', !!left);
 }
 
+header('CASE 10: kernel host (the Worker\'s message handling)');
+{
+  const { createKernelHost, KERNEL_EPOCH_MS, kernelSeconds } = await import('./kernelHost.js');
+  const host = createKernelHost();
+  const t0 = kernelSeconds(new Date('2026-11-04T00:00:00Z'));
+  const E0 = helioStateEqj('earth', new Date('2026-11-04T00:00:00Z'));
+  const r0 = [E0.r[0] + 6778, E0.r[1], E0.r[2]], v0 = [E0.v[0], E0.v[1] + 7.6686, E0.v[2]];
+  const reply = host.handle({ type: 'step', crafts: [
+    { id: 7, version: 3, r: r0, v: v0, t: t0, tEnd: t0 + 3600, primary: null, thrust: [0, 0, 0] },
+    { id: 8, version: 1, r: r0, v: v0, t: t0, tEnd: t0 + 30 * DAY, primary: null, thrust: [0, 0, 0], maxSteps: 100 },
+  ] });
+  // The same advance done directly.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const st = createState(r0, v0, t0);
+  advance(st, t0 + 3600, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 20000 });
+  const [a, b] = reply.crafts;
+  const d = norm(sub(a.r, st.r));
+  console.log(`  host vs direct advance: ${d.toExponential(2)} km; ids ${a.id},${b.id}; versions ${a.version},${b.version}`);
+  check('host result equals a direct advance (same body set and steps)', d === 0);
+  check('id and version pass through unchanged', a.id === 7 && a.version === 3 && b.id === 8 && b.version === 1);
+  check('a budget shortfall comes back as complete: false with t < tEnd', !b.complete && b.t < b.tEnd && b.steps === 100);
+  check('the result carries the acceleration at the returned state', a.accel.every(Number.isFinite) && norm(a.accel) > 0);
+  check('an unknown message is answered with an error, not a throw',
+    host.handle({ type: 'nope' }).type === 'error');
+}
+
 console.log('='.repeat(60));
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);
