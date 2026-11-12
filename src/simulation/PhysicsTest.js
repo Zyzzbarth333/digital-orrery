@@ -1,238 +1,115 @@
 // src/simulation/PhysicsTest.js
+//
+// In-browser checks against the live simulation: launch a craft from Earth,
+// let the n-body kernel fly it, then read its heliocentric elements. Run from
+// the console with `new PhysicsTest(app.simulation).runAllTests()`.
+//
+// Launches start on the escape hyperbola (spacecraft/launch.js) with the
+// given delta-v as the hyperbolic excess speed, and Earth's gravity acts, so
+// each test lets the craft climb out of Earth's sphere of influence (30 days)
+// before measuring: heliocentric elements read while the craft is still deep
+// in Earth's well include Earth's potential and are not the transfer orbit.
+// The node test src/simulation/spacecraft/craftKernel.test.mjs checks the
+// same cases headless.
+
 import * as THREE from 'three';
 import { OrbitalMechanics } from './OrbitalMechanics.js';
-import { AU_TO_KM, GRAVITATIONAL_PARAMETERS } from '../utils/constants.js';
+import { AU_TO_KM } from '../utils/constants.js';
 
 export class PhysicsTest {
   constructor(simulation) {
     this.sim = simulation;
     this.results = [];
   }
-  
+
   async runAllTests() {
-    console.log('🧪 Running Physics Validation Tests...\n');
-    
-    // Clear any existing spacecraft
+    console.log('Running physics validation tests...\n');
     this.sim.spacecraft.forEach(s => this.sim.removeSpacecraft(s));
-    
-    // Run tests sequentially
-    await this.testCircularOrbit();
-    await this.delay(4000);
-    
+
+    await this.testZeroExcessSpeed();
     await this.testProgradeBoost();
-    await this.delay(4000);
-    
     await this.testRetrogradeBoost();
-    await this.delay(4000);
-    
     await this.testHohmannTransfer();
-    await this.delay(4000);
-    
     await this.testEscapeVelocity();
-    
-    // Display results summary
+
     this.displayResults();
   }
-  
-  async testCircularOrbit() {
-    console.log('Test 1: Circular Orbit - No Delta-V');
-    
-    // Launch with zero delta-v (should maintain Earth's orbit)
-    const craft = this.sim.launchSpacecraft(
-      'Circular-Test',
-      'earth',
-      new THREE.Vector3(0, 0, 0)
-    );
-    
-    const initial = craft.getOrbitalElements();
-    console.log('Initial:', {
-      a: initial.semiMajorAxis.toFixed(3) + ' AU',
-      e: initial.eccentricity.toFixed(4)
-    });
-    
-    // Speed up time and wait
-    this.sim.timeController.setTimeScale(100);
-    this.sim.timeController.play();
-    
-    return new Promise(resolve => {
-      setTimeout(() => {
-        this.sim.timeController.pause();
-        const final = craft.getOrbitalElements();
-        
-        const drift = Math.abs(final.semiMajorAxis - initial.semiMajorAxis);
-        const pass = drift < 0.001 && final.eccentricity < 0.02;
-        
-        this.results.push({
-          test: 'Circular Orbit',
-          expected: 'Maintain 1.0 AU circular orbit',
-          actual: `a=${final.semiMajorAxis.toFixed(3)} AU, e=${final.eccentricity.toFixed(4)}`,
-          pass: pass
-        });
-        
-        console.log(pass ? '✅ PASS' : '❌ FAIL');
-        this.sim.removeSpacecraft(craft);
-        resolve();
-      }, 3650); // 365 days at 100x
-    });
+
+  // Fly the sim for `days` at `days` per second, then pause.
+  async flyFor(days) {
+    const tc = this.sim.timeController;
+    tc.setTimeScale(days);
+    tc.play();
+    await this.delay(1000);
+    tc.pause();
   }
-  
+
+  earthDistanceAU() {
+    const earth = this.sim.bodies.get('earth');
+    const p = earth && (earth.group ? earth.group.position : earth.mesh.position);
+    return p ? p.length() : 1.0;
+  }
+
+  async launchAndClimb(name, rsw, days = 30) {
+    const craft = this.sim.launchSpacecraft(name, 'earth', new THREE.Vector3(...rsw));
+    const earthAU = this.earthDistanceAU();
+    await this.flyFor(days);
+    return { craft, earthAU, el: craft.getOrbitalElements() };
+  }
+
+  record(test, expected, actual, pass, craft) {
+    this.results.push({ test, expected, actual, pass });
+    console.log(`${test}: ${actual} -> ${pass ? 'PASS' : 'FAIL'}`);
+    this.sim.removeSpacecraft(craft);
+  }
+
+  async testZeroExcessSpeed() {
+    // v_inf = 0 is a parabolic escape: the craft drifts onto a solar orbit
+    // just outside Earth's (about a = 1.03 AU, e = 0.04 after a year).
+    const { craft, el } = await this.launchAndClimb('Zero-vinf', [0, 0, 0], 365);
+    this.record('Zero excess speed', 'Near Earth\'s orbit after a year: |a - 1| < 0.06 AU, e < 0.07',
+      `a=${el.semiMajorAxis.toFixed(3)} AU, e=${el.eccentricity.toFixed(3)}`,
+      Math.abs(el.semiMajorAxis - 1) < 0.06 && el.eccentricity < 0.07, craft);
+  }
+
   async testProgradeBoost() {
-    console.log('\nTest 2: Prograde Boost - 5 km/s');
-    
-    const craft = this.sim.launchSpacecraft(
-      'Prograde-Test',
-      'earth',
-      new THREE.Vector3(0, 5, 0) // 5 km/s prograde
-    );
-    
-    const elements = craft.getOrbitalElements();
-    
-    // Expected: higher apoapsis, same periapsis
-    const pass = elements.apoapsis > 1.5 && 
-                 Math.abs(elements.periapsis - 1.0) < 0.1 &&
-                 elements.eccentricity > 0.2;
-    
-    this.results.push({
-      test: 'Prograde Boost',
-      expected: 'Raise apoapsis, periapsis ≈ 1 AU',
-      actual: `Ap=${elements.apoapsis.toFixed(2)} AU, Pe=${elements.periapsis.toFixed(2)} AU, e=${elements.eccentricity.toFixed(3)}`,
-      pass: pass
-    });
-    
-    console.log('Orbit:', {
-      apoapsis: elements.apoapsis.toFixed(2) + ' AU',
-      periapsis: elements.periapsis.toFixed(2) + ' AU',
-      eccentricity: elements.eccentricity.toFixed(3)
-    });
-    console.log(pass ? '✅ PASS' : '❌ FAIL');
-    
-    this.sim.removeSpacecraft(craft);
+    const { craft, earthAU, el } = await this.launchAndClimb('Prograde-Test', [0, 5, 0]);
+    this.record('Prograde 5 km/s', 'Ap > 1.5 AU, Pe at Earth\'s distance, e > 0.2',
+      `Ap=${el.apoapsis.toFixed(2)} AU, Pe=${el.periapsis.toFixed(3)} AU (Earth ${earthAU.toFixed(3)}), e=${el.eccentricity.toFixed(3)}`,
+      el.apoapsis > 1.5 && Math.abs(el.periapsis - earthAU) < 0.03 && el.eccentricity > 0.2, craft);
   }
-  
+
   async testRetrogradeBoost() {
-    console.log('\nTest 3: Retrograde Boost - 5 km/s');
-    
-    const craft = this.sim.launchSpacecraft(
-      'Retrograde-Test',
-      'earth',
-      new THREE.Vector3(0, -5, 0) // 5 km/s retrograde
-    );
-    
-    const elements = craft.getOrbitalElements();
-    
-    // Expected: lower periapsis, same apoapsis
-    const pass = elements.periapsis < 0.8 && 
-                 Math.abs(elements.apoapsis - 1.0) < 0.1 &&
-                 elements.eccentricity > 0.2;
-    
-    this.results.push({
-      test: 'Retrograde Boost',
-      expected: 'Lower periapsis, apoapsis ≈ 1 AU',
-      actual: `Ap=${elements.apoapsis.toFixed(2)} AU, Pe=${elements.periapsis.toFixed(2)} AU, e=${elements.eccentricity.toFixed(3)}`,
-      pass: pass
-    });
-    
-    console.log('Orbit:', {
-      apoapsis: elements.apoapsis.toFixed(2) + ' AU',
-      periapsis: elements.periapsis.toFixed(2) + ' AU',
-      eccentricity: elements.eccentricity.toFixed(3)
-    });
-    console.log(pass ? '✅ PASS' : '❌ FAIL');
-    
-    this.sim.removeSpacecraft(craft);
+    const { craft, earthAU, el } = await this.launchAndClimb('Retrograde-Test', [0, -5, 0]);
+    this.record('Retrograde 5 km/s', 'Pe < 0.8 AU, Ap at Earth\'s distance, e > 0.2',
+      `Pe=${el.periapsis.toFixed(2)} AU, Ap=${el.apoapsis.toFixed(3)} AU (Earth ${earthAU.toFixed(3)}), e=${el.eccentricity.toFixed(3)}`,
+      el.periapsis < 0.8 && Math.abs(el.apoapsis - earthAU) < 0.03 && el.eccentricity > 0.2, craft);
   }
-  
+
   async testHohmannTransfer() {
-    console.log('\nTest 4: Earth-Mars Hohmann Transfer');
-    
-    // Calculate Hohmann transfer
-    const transfer = OrbitalMechanics.calculateHohmannTransfer(
-      1.0 * AU_TO_KM,   // Earth
-      1.524 * AU_TO_KM  // Mars
-    );
-    
-    console.log('Calculated transfer:', {
-      deltaV: transfer.departure.toFixed(3) + ' km/s',
-      time: transfer.transferTime.toFixed(0) + ' days'
-    });
-    
-    const craft = this.sim.launchSpacecraft(
-      'Mars-Transfer',
-      'earth',
-      new THREE.Vector3(0, transfer.departure, 0)
-    );
-    
-    const elements = craft.getOrbitalElements();
-    
-    // Expected: apoapsis at Mars, periapsis at Earth
-    const pass = Math.abs(elements.apoapsis - 1.524) < 0.05 &&
-                 Math.abs(elements.periapsis - 1.0) < 0.05;
-    
-    this.results.push({
-      test: 'Hohmann Transfer',
-      expected: 'Pe=1.0 AU, Ap=1.524 AU',
-      actual: `Pe=${elements.periapsis.toFixed(3)} AU, Ap=${elements.apoapsis.toFixed(3)} AU`,
-      pass: pass
-    });
-    
-    console.log('Transfer orbit:', {
-      apoapsis: elements.apoapsis.toFixed(3) + ' AU (Mars)',
-      periapsis: elements.periapsis.toFixed(3) + ' AU (Earth)'
-    });
-    console.log(pass ? '✅ PASS' : '❌ FAIL');
-    
-    this.sim.removeSpacecraft(craft);
+    // v_inf for a 1.0 -> 1.524 AU Hohmann transfer. Earth's real orbit is
+    // eccentric (0.983-1.017 AU), so the apoapsis lands near, not on, 1.524.
+    const transfer = OrbitalMechanics.calculateHohmannTransfer(1.0 * AU_TO_KM, 1.524 * AU_TO_KM);
+    const { craft, earthAU, el } = await this.launchAndClimb('Mars-Transfer', [0, transfer.departure, 0]);
+    this.record('Hohmann to Mars', 'Ap = 1.524 +/- 0.06 AU, Pe at Earth\'s distance',
+      `Ap=${el.apoapsis.toFixed(3)} AU, Pe=${el.periapsis.toFixed(3)} AU (Earth ${earthAU.toFixed(3)})`,
+      Math.abs(el.apoapsis - 1.524) < 0.06 && Math.abs(el.periapsis - earthAU) < 0.03, craft);
   }
-  
+
   async testEscapeVelocity() {
-    console.log('\nTest 5: Solar Escape Velocity');
-    
-    // Earth's orbital velocity is ~30 km/s
-    // Escape from 1 AU needs ~42 km/s
-    // So we need ~12 km/s prograde
-    const craft = this.sim.launchSpacecraft(
-      'Escape-Test',
-      'earth',
-      new THREE.Vector3(0, 12.3, 0)
-    );
-    
-    const elements = craft.getOrbitalElements();
-    
-    // Expected: eccentricity ≥ 1 (parabolic/hyperbolic)
-    const pass = elements.eccentricity >= 0.98;
-    
-    this.results.push({
-      test: 'Escape Velocity',
-      expected: 'e ≥ 1.0 (escape trajectory)',
-      actual: `e=${elements.eccentricity.toFixed(3)}`,
-      pass: pass
-    });
-    
-    console.log('Orbit:', {
-      eccentricity: elements.eccentricity.toFixed(3),
-      type: elements.eccentricity < 1 ? 'Elliptical' : 'Hyperbolic/Parabolic'
-    });
-    console.log(pass ? '✅ PASS' : '❌ FAIL');
-    
-    this.sim.removeSpacecraft(craft);
+    // Earth moves at ~30 km/s and solar escape at 1 AU is ~42 km/s.
+    const { craft, el } = await this.launchAndClimb('Escape-Test', [0, 12.3, 0]);
+    this.record('Solar escape 12.3 km/s', 'e >= 1 (escape from the Sun)',
+      `e=${el.eccentricity.toFixed(3)}`, el.eccentricity >= 1, craft);
   }
-  
+
   displayResults() {
-    console.log('\n📊 TEST RESULTS SUMMARY:');
+    console.log('\nTEST RESULTS SUMMARY:');
     console.table(this.results);
-    
     const passed = this.results.filter(r => r.pass).length;
-    const total = this.results.length;
-    
-    console.log(`\nTotal: ${passed}/${total} tests passed`);
-    
-    if (passed === total) {
-      console.log('✅ All physics tests passed! Orbital mechanics working correctly.');
-    } else {
-      console.log('⚠️ Some tests failed. Check coordinate system implementation.');
-    }
+    console.log(`\nTotal: ${passed}/${this.results.length} tests passed`);
   }
-  
+
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }

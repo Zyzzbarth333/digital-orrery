@@ -654,6 +654,7 @@ export class TrajectoryPlanner {
         arrival: dv_capture_burn,
         total: dv_launch + dv_capture_burn
       },
+      vInfDeparture: v_infinity_dep,
       transferTime: transferTime,
       maneuvers: [
         {
@@ -1116,29 +1117,40 @@ export class TrajectoryPlanner {
       return;
     }
     
-    // Launch spacecraft
     const depBody = this.currentPlan.departure;
-    const firstManeuver = this.currentPlan.maneuvers[0];
-    
-    // Create delta-v vector (simplified - assumes prograde)
-    const deltaV = new THREE.Vector3(firstManeuver.deltaV, 0, 0);
-    
-    // Use enhanced spacecraft if available
     const spacecraftName = `Mission-${this.currentPlan.arrival.toUpperCase()}`;
+    const L = this.currentPlan.lambert;
+    let spacecraft;
     
-    const spacecraft = this.simulation.launchSpacecraft(
-      spacecraftName,
-      depBody,
-      deltaV
-    );
+    if (L) {
+      // A Lambert plan from the porkchop: launch at its departure date with
+      // its exact v_inf (the arc's departure velocity minus the planet's).
+      const dep = this.currentPlan.departureDate;
+      const planet = helioStateEcl(depBody, dep);
+      const vInfEqj = eclToEqj([0, 1, 2].map((i) => L.v1[i] - planet.v[i]));
+      const tc = this.simulation.timeController;
+      if (Math.abs(tc.currentDate.getTime() - dep.getTime()) > 1000) {
+        tc.setDate(dep);
+        this.simulation.updateBodyPositions();
+      }
+      spacecraft = this.simulation.launchSpacecraft(spacecraftName, depBody, null, { vInfEqj });
+    } else {
+      // Hohmann estimate: v_inf along the prograde (along-track, y) axis of
+      // the RSW frame launchSpacecraft takes. It used to go on x (radial) and
+      // to use the parking-orbit burn instead of v_inf.
+      const vInf = this.currentPlan.vInfDeparture ?? this.currentPlan.maneuvers[0].deltaV;
+      spacecraft = this.simulation.launchSpacecraft(spacecraftName, depBody, new THREE.Vector3(0, vInf, 0));
+    }
     
     if (!spacecraft) {
       alert('Failed to launch spacecraft');
       return;
     }
     
-    // Schedule remaining maneuvers
-    this.currentPlan.maneuvers.slice(1).forEach(maneuver => {
+    // Schedule remaining maneuvers. Not for a Lambert plan: a burn timed for
+    // arrival and pointed relative to the Sun is not a capture; patched-conic
+    // capture at the target is not modelled yet.
+    (L ? [] : this.currentPlan.maneuvers.slice(1)).forEach(maneuver => {
     if (spacecraft.addManoeuvreNode) {
         const node = spacecraft.addManoeuvreNode(maneuver.time * SECONDS_PER_DAY);
         
@@ -1166,8 +1178,10 @@ export class TrajectoryPlanner {
     this.simulation.focusOnSpacecraft(spacecraft);
     
     // Show notification
-    this.simulation.showNotification(
-      `Trajectory executed: ${spacecraftName} launched to ${this.currentPlan.arrival}!`
+    this.simulation.showNotification(L
+      ? `${spacecraftName} launched on the Lambert arc to ${this.currentPlan.arrival}, ` +
+        `arriving ${this.fmtDate(L.arrivalDate)} (no capture burn: not modelled yet)`
+      : `Trajectory executed: ${spacecraftName} launched to ${this.currentPlan.arrival}!`
     );
   }
   

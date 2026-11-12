@@ -205,6 +205,63 @@ header('CASE 5: clock jumps, impacts and errors');
   check('a NaN physics time is flagged instead of freezing silently', late.buildKernelRequest() === null && !!late.kernelError);
 }
 
+header('CASE 6: launches, orbital elements and flying a Lambert plan');
+{
+  const { escapeStart } = await import('./launch.js');
+  const { OrbitalMechanics } = await import('../OrbitalMechanics.js');
+  const { GRAVITATIONAL_PARAMETERS: GM, PLANETS } = await import('../../utils/constants.js');
+  const sceneV = (a, s = 1) => new THREE.Vector3(a[0] * s, a[2] * s, -a[1] * s);
+  // Elements of Earth's own state: the old code read e ~ 1 for every orbit.
+  const Ee = OrbitalMechanics.calculateOrbitalElements(sceneV(E0.r, 1 / AU_TO_KM), sceneV(E0.v), GM.sun / 1e9);
+  check(`Earth's elements: a ${Ee.semiMajorAxis.toFixed(4)} AU, e ${Ee.eccentricity.toFixed(4)}, i ${Ee.inclination.toFixed(3)} deg`,
+    Math.abs(Ee.semiMajorAxis - 1) < 0.002 && Math.abs(Ee.eccentricity - 0.0167) < 0.003 && Ee.inclination < 0.01);
+  // The launches PhysicsTest makes in the browser, flown here headless.
+  const launch = (rsw, days) => {
+    const vi = OrbitalMechanics.convertDeltaV(new THREE.Vector3(...rsw), sceneV(E0.r, 1 / AU_TO_KM), sceneV(E0.v));
+    const st = escapeStart({ planetR: E0.r, planetV: E0.v, vInf: [vi.x, -vi.z, vi.y], mu: GM.earth / 1e9,
+      radius: PLANETS.earth.radius, muSun: GM.sun / 1e9 });
+    const c = quiet(() => new BaseSpacecraft('l', { position: sceneV(st.r, 1 / AU_TO_KM).toArray(), velocity: sceneV(st.v).toArray() }));
+    quiet(() => c.update(0, NO_BODIES, START));
+    for (let k = 1; k <= days; k++) quiet(() => c.update(1, NO_BODIES, at(k * 86400)));
+    return c.getOrbitalElements();
+  };
+  const earthAU = norm(E0.r) / AU_TO_KM;
+  const hoh = OrbitalMechanics.calculateHohmannTransfer(AU_TO_KM, 1.524 * AU_TO_KM).departure;
+  const z = launch([0, 0, 0], 365), p = launch([0, 5, 0], 30), r = launch([0, -5, 0], 30), h = launch([0, hoh, 0], 30), e = launch([0, 12.3, 0], 30);
+  console.log(`  zero: a ${z.semiMajorAxis.toFixed(3)} e ${z.eccentricity.toFixed(3)} | prograde: Ap ${p.apoapsis.toFixed(2)} Pe ${p.periapsis.toFixed(3)} | ` +
+    `retrograde: Pe ${r.periapsis.toFixed(2)} Ap ${r.apoapsis.toFixed(3)} | Hohmann: Ap ${h.apoapsis.toFixed(3)} | escape: e ${e.eccentricity.toFixed(3)} (Earth at ${earthAU.toFixed(3)} AU)`);
+  check('zero v_inf drifts onto an orbit near Earth\'s (|a - 1| < 0.06, e < 0.07)', Math.abs(z.semiMajorAxis - 1) < 0.06 && z.eccentricity < 0.07);
+  check('prograde 5 km/s raises apoapsis, periapsis at Earth', p.apoapsis > 1.5 && Math.abs(p.periapsis - earthAU) < 0.03 && p.eccentricity > 0.2);
+  check('retrograde 5 km/s lowers periapsis, apoapsis at Earth', r.periapsis < 0.8 && Math.abs(r.apoapsis - earthAU) < 0.03 && r.eccentricity > 0.2);
+  check('Hohmann v_inf reaches Mars\'s distance (Ap 1.524 +/- 0.06)', Math.abs(h.apoapsis - 1.524) < 0.06 && Math.abs(h.periapsis - earthAU) < 0.03);
+  check('12.3 km/s prograde escapes the Sun (e >= 1, apoapsis infinite)', e.eccentricity >= 1 && e.apoapsis === Infinity);
+
+  // Execute Plan for the 2026 porkchop minimum: launch with the Lambert arc's
+  // exact v_inf and fly it through the n-body kernel. With no correction
+  // burns it should pass Mars within its neighbourhood near the planned date
+  // (a wrong frame or axis for v_inf misses by tens of millions of km).
+  const { transferBetween } = await import('../../physics/porkchop.js');
+  const { helioStateEcl, eclToEqj } = await import('../../physics/ephemeris.js');
+  const dep = new Date('2026-11-04T00:00:00Z'), tof = 308;
+  const Ed = helioStateEcl('earth', dep), Ma = helioStateEcl('mars', new Date(dep.getTime() + tof * 864e5));
+  const t = transferBetween(Ed, Ma, tof * 86400, GM.sun / 1e9, { mu: GM.earth / 1e9, rPark: 6571 }, { mu: GM.mars / 1e9, rPark: 3790, capture: true });
+  const Eq = helioStateEqj('earth', dep);
+  const st = escapeStart({ planetR: Eq.r, planetV: Eq.v, vInf: eclToEqj([0, 1, 2].map((i) => t.v1[i] - Ed.v[i])),
+    mu: GM.earth / 1e9, radius: PLANETS.earth.radius, muSun: GM.sun / 1e9 });
+  const c = quiet(() => new BaseSpacecraft('plan', { position: sceneV(st.r, 1 / AU_TO_KM).toArray(), velocity: sceneV(st.v).toArray() }));
+  quiet(() => c.update(0, NO_BODIES, dep));
+  let best = { d: Infinity, day: 0 };
+  for (let day = 0.25; day <= tof + 30; day += 0.25) {
+    const d = new Date(dep.getTime() + day * 864e5);
+    quiet(() => c.update(0.25, NO_BODIES, d));
+    const M = helioStateEqj('mars', d);
+    const dist = norm(diff(c.kState.r, M.r));
+    if (dist < best.d) best = { d: dist, day };
+  }
+  console.log(`  2026 Lambert plan flown by the kernel: closest to Mars ${(best.d / 1e3).toFixed(0)}k km on day ${best.day} (planned ${tof})`);
+  check('the flown Lambert plan passes Mars within 1.5 million km, within 30 days of the plan', best.d < 1.5e6 && Math.abs(best.day - tof) < 30);
+}
+
 console.log('='.repeat(60));
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);
