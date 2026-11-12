@@ -26,6 +26,10 @@ What is still approximate:
 
 In short, the constants, ephemerides, n-body integration and the Kepler/Lambert core are solid; the planning UI on top of them is where the remaining approximations live.
 
+## Documentation
+
+[`docs/`](docs/README.md) explains the physics with the maths: frames and time, ephemerides and GM values, two-body propagation, Lambert's problem, the n-body kernel, burns and launches, and a [validation](docs/validation.md) table of every check and its result.
+
 ## Accuracy roadmap
 
 The following changes would push fidelity further, roughly in order of impact:
