@@ -22,10 +22,15 @@
 // and label in an HTML overlay.
 
 import * as THREE from 'three';
-import { helioStateEcl } from '../physics/ephemeris.js';
+import { helioStateEcl, eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
+import { bodyAxesEqj } from '../physics/orientation.js';
 import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
-import { makeBodyMaterial, MAX_OCCLUDERS } from './bodyMaterial';
+import { makeBodyMaterial, MAX_OCCLUDERS, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
+import { makeRings } from './rings';
+import { makeStars } from './stars';
+import { DailyEarth } from './clouds';
+import { loadManifest, SurfaceLoader, type Manifest } from './surfaces';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
 const ORBIT_SAMPLES = 360;
@@ -48,6 +53,15 @@ function sub(a: Vec3, b: Vec3): Vec3 {
   return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 }
 
+// Rotation taking a render-frame direction to J2000 equatorial.
+function renderToEqj(): THREE.Matrix3 {
+  const cols = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map(([x, y, z]) => eclToEqj([x, -z, y]) as Vec3);
+  return new THREE.Matrix3().set(
+    cols[0][0], cols[1][0], cols[2][0],
+    cols[0][1], cols[1][1], cols[2][1],
+    cols[0][2], cols[1][2], cols[2][2]);
+}
+
 export function bodyState(key: BodyKey, date: Date): BodyState {
   if (key === 'sun') return { r: [0, 0, 0], v: [0, 0, 0] };
   return helioStateEcl(key, date) as BodyState;
@@ -68,6 +82,11 @@ export class OrreryScene {
   private labels = new Map<BodyKey, HTMLDivElement>();
   private materials = new Map<BodyKey, THREE.ShaderMaterial>();
   private occluderKeys = new Map<BodyKey, BodyKey[]>();
+  private manifest: Manifest | null = null;
+  private surfaces: SurfaceLoader;
+  private rings: THREE.Mesh | null = null;
+  private stars: THREE.Mesh | null = null;
+  readonly dailyEarth = new DailyEarth();
   private sunGlow: THREE.Sprite;
   private states = {} as Record<BodyKey, BodyState>;
   private raf = 0;
@@ -131,6 +150,38 @@ export class OrreryScene {
     }));
     this.sunGlow.scale.setScalar((SUN_RADIUS_KM * 8) / UNIT_KM);
     this.scene.add(this.sunGlow);
+
+    this.surfaces = new SurfaceLoader(this.renderer);
+    this.dailyEarth.onChange = (tex) => {
+      const m = this.materials.get('earth')!;
+      if (tex) applySurfaceMaps(m, { cloud: tex, cloudMeanLuminance: this.dailyEarth.meanLuminance });
+      else clearCloud(m);
+    };
+    void loadManifest().then((m) => {
+      this.manifest = m;
+      if (!m) return;
+      const date = new Date(this.clock.snapshot.timeMs);
+      for (const [key, entry] of Object.entries(m.bodies) as [BodyKey, NonNullable<Manifest['bodies'][BodyKey]>][]) {
+        const mat = this.materials.get(key);
+        if (mat) void this.surfaces.apply(key, entry, mat, date);
+      }
+      const ring = m.rings?.saturn;
+      if (ring) {
+        void this.surfaces.load(ring.map, true).then((tex) => {
+          tex.wrapS = THREE.ClampToEdgeWrapping;
+          this.rings = makeRings(tex, ring.innerKm, ring.outerKm, UNIT_KM);
+          this.scene.add(this.rings);
+          applyRingShadow(this.materials.get('saturn')!, tex, ring.innerKm / UNIT_KM, ring.outerKm / UNIT_KM);
+        });
+      }
+      const stars = m.stars;
+      if (stars) {
+        void this.surfaces.load(stars.map, true).then((tex) => {
+          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, stars.gain ?? 1);
+          this.scene.add(this.stars);
+        });
+      }
+    });
 
     this.attachControls();
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -229,6 +280,7 @@ export class OrreryScene {
     const date = new Date(tMs);
 
     for (const b of BODIES) this.states[b.key] = bodyState(b.key, date);
+    this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
     this.updateOrbits(tMs, now);
 
     // Camera position in km (ecliptic), relative to the focused body.
@@ -250,7 +302,7 @@ export class OrreryScene {
     }
     const sunPos = this.meshes.get('sun')!.position;
     this.sunGlow.position.copy(sunPos);
-    this.updateLighting(sunPos, cam);
+    this.updateLighting(sunPos, cam, date);
     for (const b of BODIES) {
       const o = this.orbits.get(b.key);
       if (o && b.parent) o.line.position.copy(this.meshes.get(b.parent)!.position);
@@ -265,8 +317,17 @@ export class OrreryScene {
   };
 
   // Per-body sunlight and shadow casters, and the camera's exposure.
-  private updateLighting(sunPos: THREE.Vector3, cam: Vec3): void {
+  private updateLighting(sunPos: THREE.Vector3, cam: Vec3, date: Date): void {
+    const m3 = new THREE.Matrix3();
     for (const [key, m] of this.materials) {
+      // Body-fixed axes in render coordinates; the rows of the render ->
+      // body-fixed rotation.
+      const [X, Y, Z] = (bodyAxesEqj(key, date) as Vec3[]).map((a) => toRender(eqjToEcl(a) as Vec3, new THREE.Vector3()).normalize());
+      m3.set(X.x, X.y, X.z, Y.x, Y.y, Y.z, Z.x, Z.y, Z.z);
+      (m.uniforms.toBody.value as THREE.Matrix3).copy(m3);
+      (m.uniforms.bodyCentre.value as THREE.Vector3).copy(this.meshes.get(key)!.position);
+      const entry = this.manifest?.bodies[key];
+      if (entry?.dayMonthly) void this.surfaces.updateDay(key, entry, m, date);
       const r = this.states[key].r;
       const dAu = Math.hypot(r[0], r[1], r[2]) / AU_KM;
       const u = m.uniforms;
@@ -286,6 +347,21 @@ export class OrreryScene {
     // view from beside the Sun is not exposed for its photosphere).
     const dCamAu = Math.max(0.2, Math.hypot(cam[0], cam[1], cam[2]) / AU_KM);
     this.renderer.toneMappingExposure = EXPOSURE_1AU * dCamAu * dCamAu;
+    for (const m of this.materials.values()) m.uniforms.invExposure.value = 1 / this.renderer.toneMappingExposure;
+
+    if (this.rings) {
+      const sat = this.materials.get('saturn')!;
+      const pole = new THREE.Vector3(0, 0, 1).applyMatrix3((sat.uniforms.toBody.value as THREE.Matrix3).clone().transpose());
+      const p = this.meshes.get('saturn')!.position;
+      this.rings.position.copy(p);
+      this.rings.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pole.normalize());
+      const u = (this.rings.material as THREE.ShaderMaterial).uniforms;
+      u.irradiance.value = sat.uniforms.irradiance.value;
+      (u.sunPos.value as THREE.Vector3).copy(sunPos);
+      u.sunRadius.value = SUN_RADIUS_KM / UNIT_KM;
+      (u.planetPos.value as THREE.Vector3).copy(p);
+      u.planetRadius.value = BODY_BY_KEY.saturn.radiusKm / UNIT_KM;
+    }
   }
 
   // Markers and labels at each body's projected position. The dot hides once
