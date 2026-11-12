@@ -27,10 +27,10 @@ import { bodyAxesEqj } from '../physics/orientation.js';
 import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
-import { makeRings } from './rings';
+import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStars } from './stars';
 import { DailyEarth } from './clouds';
-import { loadManifest, SurfaceLoader, type Manifest } from './surfaces';
+import { loadJson, loadManifest, SurfaceLoader, type Manifest } from './surfaces';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
 const ORBIT_SAMPLES = 360;
@@ -167,11 +167,12 @@ export class OrreryScene {
       }
       const ring = m.rings?.saturn;
       if (ring) {
-        void this.surfaces.load(ring.map, true).then((tex) => {
-          tex.wrapS = THREE.ClampToEdgeWrapping;
-          this.rings = makeRings(tex, ring.innerKm, ring.outerKm, UNIT_KM);
+        void loadJson<RingProfile>(ring.tau).then((profile) => {
+          const tex = tauTexture(profile);
+          const outerKm = profile.innerKm + profile.stepKm * (profile.tau.length - 1);
+          this.rings = makeRings(tex, profile.innerKm, outerKm, UNIT_KM);
           this.scene.add(this.rings);
-          applyRingShadow(this.materials.get('saturn')!, tex, ring.innerKm / UNIT_KM, ring.outerKm / UNIT_KM);
+          applyRingShadow(this.materials.get('saturn')!, tex, profile.innerKm / UNIT_KM, outerKm / UNIT_KM);
         });
       }
       const stars = m.stars;
@@ -356,6 +357,7 @@ export class OrreryScene {
       this.rings.position.copy(p);
       this.rings.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), pole.normalize());
       const u = (this.rings.material as THREE.ShaderMaterial).uniforms;
+      (u.normal.value as THREE.Vector3).copy(pole);
       u.irradiance.value = sat.uniforms.irradiance.value;
       (u.sunPos.value as THREE.Vector3).copy(sunPos);
       u.sunRadius.value = SUN_RADIUS_KM / UNIT_KM;

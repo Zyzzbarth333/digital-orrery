@@ -5,7 +5,7 @@
 // Blue Marble. Where that day has no data (gaps between orbit swaths, polar
 // night) the image is transparent and the Blue Marble shows. The mosaic is
 // one image per UTC day from polar orbiters crossing the equator around
-// 10:30 (Terra) or 13:30 (Suomi NPP) local time, so it is "the weather that
+// 10:30 (Terra) or 13:30 (VIIRS satellites) local time, so it is "the weather that
 // day", not that minute. It is dropped when the sim moves more than a day
 // from it, and not fetched while time runs faster than a day per second.
 
@@ -14,7 +14,10 @@ import * as THREE from 'three';
 export interface GibsLayer { id: string; firstDay: string }    // firstDay: YYYY-MM-DD
 
 // Newest first: the first layer whose record covers the day is used.
+// (Suomi NPP's VIIRS runs about ten days behind, so the NOAA satellites lead.)
 export const GIBS_LAYERS: GibsLayer[] = [
+  { id: 'VIIRS_NOAA21_CorrectedReflectance_TrueColor', firstDay: '2023-02-10' },
+  { id: 'VIIRS_NOAA20_CorrectedReflectance_TrueColor', firstDay: '2018-01-05' },
   { id: 'VIIRS_SNPP_CorrectedReflectance_TrueColor', firstDay: '2015-11-24' },
   { id: 'MODIS_Terra_CorrectedReflectance_TrueColor', firstDay: '2000-02-24' },
 ];

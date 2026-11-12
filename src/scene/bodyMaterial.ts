@@ -55,7 +55,7 @@ uniform sampler2D normalMap;  uniform float useNormal;
 uniform sampler2D nightMap;   uniform float useNight; uniform float nightLevel;
 uniform sampler2D cloudMap;   uniform float useCloud; uniform float cloudScale;
 uniform float invExposure;    // 1 / renderer exposure, for display-level emission
-uniform sampler2D ringMap;    uniform float useRing;   // rings' shadow on the planet
+uniform sampler2D ringMap;    uniform float useRing;   // rings' optical depth, for their shadow
 uniform float ringInner;      uniform float ringOuter; // render units
 
 varying vec3 vWorld;
@@ -143,7 +143,7 @@ void main() {
   }
 
   // The rings' shadow: follow the ray to the Sun to the ring plane (the
-  // body's equator) and dim by the ring opacity where it crosses.
+  // body's equator) and dim by the slant transmission exp(-tau / mu0).
   if (useRing > 0.5 && mu0Geo > 0.0) {
     vec3 pole = transpose(toBody) * vec3(0.0, 0.0, 1.0);
     vec3 rel = vWorld - bodyCentre;
@@ -153,7 +153,8 @@ void main() {
       if (t > 0.0) {
         float r = length(rel + t * s);
         if (r > ringInner && r < ringOuter) {
-          shade *= 1.0 - texture2D(ringMap, vec2((r - ringInner) / (ringOuter - ringInner), 0.5)).a;
+          float tau = texture2D(ringMap, vec2((r - ringInner) / (ringOuter - ringInner), 0.5)).r;
+          shade *= exp(-tau / max(abs(denom), 1e-3));      // slant path through the layer
         }
       }
     }
