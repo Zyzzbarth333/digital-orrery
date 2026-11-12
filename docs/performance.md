@@ -10,20 +10,23 @@ Node 20, November 2026), and what is planned to make the slow parts fast.
 | Ten body states (one frame) | 0.06 ms | astronomy-engine, every frame |
 | Ten body orientations (one frame) | 0.01 ms | every frame |
 | One orbit line (361 samples) | 2.4–2.8 ms | resampled at most one line per frame |
-| Kernel, low Earth orbit, Cowell | 37 sim days per second | 9,776 steps per sim day |
-| Kernel, low Earth orbit, with Encke | 96 sim days per second | 326 steps per sim day, 11x more accurate |
-| Kernel, GEO | about 650 sim days per second | Cowell (perturbed beyond Encke's range) |
+| Kernel, low Earth orbit, Cowell | about 50 sim days per second | 9,776 steps per sim day |
+| Kernel, low Earth orbit, with Encke | about 600 sim days per second | 326 steps per sim day, 11x more accurate; about 4.5 µs per step |
+| Kernel, GEO | about 850 sim days per second | Cowell (perturbed beyond Encke's range) |
+| Ephemeris for the kernel (astronomy-engine) | 1.6 ms per sim day | almost all the Moon, at hourly nodes |
+
+Kernel speeds are steady forward running, as in the app: 90 days in 10-day
+chunks, the median of the last five (after V8 has compiled the hot code),
+in CPU time. Earlier single short runs mostly measured compilation.
 | Kernel, cruise | about 200 µs per step | each day-long step needs new ephemeris samples |
 
 A frame's ephemeris and orientation work is about 0.07 ms of a 16.7 ms
 frame. The limits are elsewhere:
 
 - **Kernel at high warp.** With Encke's method a craft in low Earth orbit
-  runs at about 96 sim days per real second (Cowell alone: 37), so a warp
-  of one year per second is still about 4 times faster than it can follow;
-  it falls behind the clock and catches up, with a warning, rather than
-  taking unsafe steps. Timings are wall-clock on a quiet machine;
-  `npm run bench` measures CPU time, which other load skews less.
+  runs at about 600 sim days per CPU second, so a warp of one year per
+  second fits with room to spare (Cowell alone: about 50). About a third of
+  that time is the ephemeris, mostly the Moon.
 - **GPU memory.** An 8192×4096 texture with mipmaps takes about 180 MB of
   video memory uncompressed. Maps now load only when a body's disc is more
   than three pixels across, so the overview loads only the star map; a view
@@ -32,11 +35,11 @@ frame. The limits are elsewhere:
 ## Planned, in order of payoff
 
 1. **Encke's method near a primary: done** ([n-body kernel](physics/nbody-kernel.md#enckes-method)).
-   30 times fewer steps in low orbit, 11 times more accurate, 2.6 times
-   faster in wall time; each Encke step costs about 30 µs against Cowell's
-   3 µs, mostly body positions and the conic at every stage.
-2. **Cheaper Encke steps.** Evaluate the slowly moving bodies once per step
-   rather than per stage, and cut allocation in the hot loop.
+   30 times fewer steps in low orbit, 11 times more accurate.
+2. **Cheaper Encke steps: done.** Each body's ephemeris keeps its current
+   interval (no map lookup per call), and integrators switch by the size of
+   the tides, not their momentary value: about 4.5 µs per step, low Earth
+   orbit 13 times faster than Cowell in steady running, GEO no slower.
 3. **Error-controlled integration.** An embedded high-order pair
    (Runge-Kutta-Nyström 12(10) or DOP853) with a tolerance, replacing the
    fixed fraction of the dynamical time: fewer steps where the motion is

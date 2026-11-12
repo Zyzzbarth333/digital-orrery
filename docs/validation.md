@@ -51,7 +51,7 @@ tests (it shares no code with the models).
 | Worker message handling | direct advance | identical |
 | Encke, low Earth orbit, 1 day | Cowell at 1/20 the step | 0.54 m (default Cowell: 5.9 m), 326 steps (Cowell: 9,776) |
 | Encke, forward then back a day | start state | 0.12 m |
-| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.24 km (default Cowell: 4.6 km), 539 steps (784) |
+| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.26 km (default Cowell: 4.6 km), 570 steps (784) |
 | Encke, suborbital path | Cowell | impact on Earth at the same time (310.8 s) |
 | `keplerStep` | `propagate` | 1.2×10⁻¹⁴ relative |
 
