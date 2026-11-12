@@ -29,14 +29,23 @@ The meta-kernel (`data/metakernel.tm`) loads these, resolved relative to `python
 | `pck/moon_pa_de440_200625.bpc` | `pck/moon_pa_de440_200625.bpc` | 13 MB | Lunar libration |
 | `fk/moon_de440_250416.tf` | `fk/satellites/moon_de440_250416.tf` | 19 KB | Lunar frames |
 | `pck/mars_konopliv_2026_n0066_v1.tpc` | `pck/mars_konopliv_2026_n0066_v1.tpc` | 20 KB | Mars rotation (Konopliv 2026) |
+| `spk/satellites/mar099s.bsp` | `spk/satellites/mar099s.bsp` | 68 MB | Mars centre, Phobos, Deimos (1995-2049) |
+| `spk/satellites/jup365.bsp` | `spk/satellites/jup365.bsp` | 1.14 GB | Jupiter centre, Galilean and inner moons (1600-2200) |
+| `spk/satellites/sat441.bsp` | `spk/satellites/sat441.bsp` | 662 MB | Saturn centre, Titan and the major moons (1750-2250) |
+| `spk/satellites/ura184_part-3.bsp` | `spk/satellites/ura184_part-3.bsp` | 387 MB | Uranus centre and its five major moons (1600-2400) |
+| `spk/satellites/nep097.bsp` | `spk/satellites/nep097.bsp` | 105 MB | Neptune centre, Triton (1600-2400) |
+| `spk/satellites/plu060.bsp` | `spk/satellites/plu060.bsp` | 135 MB | Pluto centre, Charon and the small moons (1800-2200) |
+| `spk/asteroids/sb441-n16.bsp` | JPL `ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/` | 646 MB | The 16 asteroids the DE ephemerides use as perturbers (MD5 `03b8f72822ff459643f43bc83a07506e`; JPL publishes no checksum) |
 | `spk/de442.bsp` | `spk/planets/de442.bsp` | 120 MB | Planetary ephemeris DE442 (Feb 2025; MD5 `446656322267e7b819a26cb08a0d8718`) |
+
+The satellite kernels' MD5s match NAIF's `spk/satellites/aa_checksums.txt`. **Load order matters**: SPICE uses the last-loaded kernel that covers a body, and each satellite kernel carries its own older copy of the system barycentres, so `de442.bsp` is listed last. With everything loaded, the Sun, every system barycentre, Earth and the Moon are identical to DE442 alone, and all 29 planet centres, major moons and the asteroids resolve against the solar-system barycentre. Together they cover 1995-2049 (the short-span Mars file `mar099s` sets that; the full `mar099.bsp`, 1.2 GB, extends it).
 
 `python/data/gm_de442.tpc` is in the repository: DE442's GM values, converted from the table in NAIF's `spk/planets/de442_tech-comments.txt`, because NAIF publishes `gm_de440.tpc` but no `gm_de442.tpc`.
 
 From the `python/` directory:
 
 ```
-mkdir -p data/kernels/lsk data/kernels/pck data/kernels/spk data/kernels/fk
+mkdir -p data/kernels/lsk data/kernels/pck data/kernels/spk/satellites data/kernels/spk/asteroids data/kernels/fk
 B=https://naif.jpl.nasa.gov/pub/naif/generic_kernels
 curl -fL -o data/kernels/lsk/naif0012.tls                   $B/lsk/naif0012.tls
 curl -fL -o data/kernels/pck/pck00011_n0066.tpc             $B/pck/pck00011_n0066.tpc
@@ -45,11 +54,15 @@ curl -fL -o data/kernels/pck/moon_pa_de440_200625.bpc       $B/pck/moon_pa_de440
 curl -fL -o data/kernels/fk/moon_de440_250416.tf            $B/fk/satellites/moon_de440_250416.tf
 curl -fL -o data/kernels/pck/mars_konopliv_2026_n0066_v1.tpc $B/pck/mars_konopliv_2026_n0066_v1.tpc
 curl -fL -o data/kernels/spk/de442.bsp                      $B/spk/planets/de442.bsp
+for f in mar099s jup365 sat441 ura184_part-3 nep097 plu060; do
+  curl -fL -o data/kernels/spk/satellites/$f.bsp $B/spk/satellites/$f.bsp
+done
+curl -fL -o data/kernels/spk/asteroids/sb441-n16.bsp https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/sb441-n16.bsp
 ```
 
 DE442 against DE440: the inner planets and the Moon move by under 20 m (2000-2040), Mars's barycentre by up to 0.3 km, Jupiter's by 3-14 km (Juno ranging), Saturn's by under 0.4 km, Neptune's by 60-640 km and Uranus's by 360-2,900 km (new Uranus occultation data).
 
-Satellite, asteroid and comet ephemerides need extra SPKs: download them and add their paths to `KERNELS_TO_LOAD` only when you need them. SPICE stops at the first listed kernel that is missing.
+SPICE stops at the first listed kernel that is missing: to run with DE442 alone, drop the satellite and asteroid lines from `KERNELS_TO_LOAD`.
 
 ## Setup
 

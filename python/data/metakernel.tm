@@ -19,6 +19,23 @@ KPL/MK
       pck/mars_konopliv_2026_n0066_v1.tpc <- generic_kernels/pck/ (Mars rotation)
       spk/de442.bsp                     <- generic_kernels/spk/planets/
 
+      spk/satellites/mar099s.bsp        <- generic_kernels/spk/satellites/ (Mars,
+                                           Phobos, Deimos)
+      spk/satellites/jup365.bsp         <- (Jupiter, Galilean and inner moons)
+      spk/satellites/sat441.bsp         <- (Saturn, Titan and the major moons)
+      spk/satellites/ura184_part-3.bsp  <- (Uranus and its major moons)
+      spk/satellites/nep097.bsp         <- (Neptune, Triton)
+      spk/satellites/plu060.bsp         <- (Pluto, Charon and the small moons)
+      spk/asteroids/sb441-n16.bsp       <- ssd.jpl.nasa.gov/ftp/eph/small_bodies/
+                                           asteroids_de441/ (the 16 asteroids
+                                           the DE ephemerides use as perturbers)
+
+   Load order matters: SPICE uses the last-loaded kernel that covers a body,
+   and each satellite kernel also carries its own (older) copy of the
+   system barycentres. DE442 is loaded last so it stays the authority for
+   the barycentres and the Sun; the satellite kernels supply each planet
+   and moon relative to its system barycentre.
+
    gm_de442.tpc is in this repo (python/data/): DE442's GM values, taken
    from NAIF's de442_tech-comments.txt because NAIF ships no gm_de442.tpc.
 
@@ -46,6 +63,13 @@ KPL/MK
        '$KERNELS/pck/moon_pa_de440_200625.bpc'
        '$KERNELS/fk/moon_de440_250416.tf'
        '$KERNELS/pck/mars_konopliv_2026_n0066_v1.tpc'
+       '$KERNELS/spk/satellites/mar099s.bsp'
+       '$KERNELS/spk/satellites/jup365.bsp'
+       '$KERNELS/spk/satellites/sat441.bsp'
+       '$KERNELS/spk/satellites/ura184_part-3.bsp'
+       '$KERNELS/spk/satellites/nep097.bsp'
+       '$KERNELS/spk/satellites/plu060.bsp'
+       '$KERNELS/spk/asteroids/sb441-n16.bsp'
        '$KERNELS/spk/de442.bsp'
    )
 
