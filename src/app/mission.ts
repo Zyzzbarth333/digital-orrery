@@ -131,7 +131,18 @@ export class Mission {
     return this.add(name ?? `Probe ${++this.count}`, st.r as V3, st.v as V3, timeMs);
   }
 
+  // Removal can be undone: the last craft removed is kept until the next.
+  lastRemoved: Craft | null = null;
+  restore(): void {
+    const c = this.lastRemoved;
+    if (!c) return;
+    this.lastRemoved = null;
+    this.crafts.push(c);
+    this.select(c.id);
+  }
+
   remove(c: Craft): void {
+    this.lastRemoved = c;
     this.crafts = this.crafts.filter((x) => x !== c);
     if (this.snap.selected === c.id) this.select(this.crafts.at(-1)?.id ?? null);
     else this.emit(true);

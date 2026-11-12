@@ -61,9 +61,12 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
 
   const d = DESTS.find((x) => x.key === dest)!;
   const auto = useRef(autoPlan !== null);
+  const depStartMs = Date.parse(`${startIso}T00:00:00Z`);
+  const problem = !Number.isFinite(depStartMs) ? 'a departure date'
+    : !(depStartMs >= Date.UTC(1900, 0, 1) && depStartMs <= Date.UTC(2150, 0, 1)) ? 'a date between 1900 and 2150 (the ephemeris range)'
+      : !(span >= 30 && span <= 3650) ? 'a span from 30 to 3,650 days' : null;
   const compute = () => {
-    const depStartMs = Date.parse(`${startIso}T00:00:00Z`);
-    if (!Number.isFinite(depStartMs)) return;
+    if (problem) return;
     const depStep = Math.max(1, Math.round(span / 120)), tofStep = Math.max(1, Math.round((d.tof[1] - d.tof[0]) / 80));
     if (!worker.current) return;
     setBusy(true);
@@ -138,12 +141,12 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
           <input className="input" type="date" value={startIso} onChange={(e) => setStartIso(e.target.value)} />
         </label>
         <label className="num"><span className="engraved">Over</span>
-          <input className="input" type="number" step={30} value={span} onChange={(e) => setSpan(Number(e.target.value))} /><span className="unit">d</span>
+          <input className="input" type="number" step={30} min={30} max={3650} aria-invalid={!(span >= 30 && span <= 3650)} value={span} onChange={(e) => setSpan(Number(e.target.value))} /><span className="unit">d</span>
         </label>
       </div>
       <div className="keys-row">
-        <button className="key" onClick={compute} disabled={busy}>{busy ? 'Computing…' : 'Compute grid'}</button>
-        <span className="hint">flight {d.tof[0]}–{d.tof[1]} d</span>
+        <button className="key" onClick={compute} disabled={busy || !!problem}>{busy ? 'Computing…' : 'Compute grid'}</button>
+        <span className="hint">{problem ? `Needs ${problem}` : `flight ${d.tof[0]}–${d.tof[1]} d`}</span>
       </div>
       {grid && (
         <figure className="porkchop">
@@ -154,7 +157,10 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
           </figcaption>
         </figure>
       )}
-      {cell && (
+      {cell && !Number.isFinite(cell.c3) && (
+        <p className="status bad">No transfer here: the Lambert solver found no reliable arc for this pair of dates (usually a transfer angle very close to 180°). Pick a neighbouring cell.</p>
+      )}
+      {cell && Number.isFinite(cell.c3) && (
         <>
           <table className="readout"><tbody>
             <tr><th scope="row">Depart</th><td className="value">{iso(cell.depMs)}</td><td className="src"><span className="src-tag" title="astronomy-engine states, Lambert arc">AE</span></td></tr>

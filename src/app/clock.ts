@@ -12,6 +12,7 @@ export interface ClockState {
   rate: number;          // sim seconds per real second
   playing: boolean;
   jumps: number;         // times the clock was set rather than run
+  lastJump: { fromMs: number; toMs: number } | null;   // the latest set, for BACK
 }
 
 export class SimClock {
@@ -20,7 +21,7 @@ export class SimClock {
   private lastNotify = 0;
 
   constructor(start = Date.now()) {
-    this.state = { timeMs: start, rate: 1, playing: true, jumps: 0 };
+    this.state = { timeMs: start, rate: 1, playing: true, jumps: 0, lastJump: null };
   }
 
   get snapshot(): ClockState {
@@ -53,7 +54,25 @@ export class SimClock {
   // Setting the time is a jump: spacecraft are re-anchored at the new time
   // rather than integrated across the gap (src/physics/craft.js).
   setTime(timeMs: number): void {
-    this.state = { ...this.state, timeMs, jumps: this.state.jumps + 1 };
+    const fromMs = this.state.timeMs;
+    // A set within a minute of where the clock already is (NOW pressed at
+    // now) is not worth a notice, and keeps any earlier one so BACK still
+    // goes where it did.
+    const lastJump = Math.abs(timeMs - fromMs) > 60e3 ? { fromMs, toMs: timeMs } : this.state.lastJump;
+    this.state = { ...this.state, timeMs, jumps: this.state.jumps + 1, lastJump };
+    this.emit();
+  }
+
+  // BACK: return to where the clock was before the latest set.
+  undoJump(): void {
+    const j = this.state.lastJump;
+    if (!j) return;
+    this.state = { ...this.state, timeMs: j.fromMs, jumps: this.state.jumps + 1, lastJump: null };
+    this.emit();
+  }
+
+  dismissJump(): void {
+    this.state = { ...this.state, lastJump: null };
     this.emit();
   }
 

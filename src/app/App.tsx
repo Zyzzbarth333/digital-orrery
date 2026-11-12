@@ -77,7 +77,8 @@ export function App() {
 
   return (
     <div className="app">
-      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady} />
+      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady}
+        onFrame={(t, jumps) => mission.frame(t, jumps)} />
       <TimeBand clock={clock} mission={mission} />
       <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); setTab('target'); }} />
       <Plate clock={clock} focus={focus} mission={mission} tab={tab} setTab={setTab} onFocusCraft={followCraft} autoPlan={init.plan} />
