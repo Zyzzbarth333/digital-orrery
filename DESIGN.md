@@ -25,6 +25,12 @@ colors:
   lamp-off: "#6d685c"
   sheen: "#f5f0e4"
   caution: "#f2c230"
+  lamp-dark: "#3a372f"
+  advisory-ink: "#c9f2bf"
+  warn-lit: "#ff6a4d"
+  warn-ink: "#ff8a73"
+  warn-edge: "#7a1a0e"
+  label-dim: "#b9ad92"
   warn: "#c62f1c"
   black: "#000000"
   white: "#ffffff"
@@ -259,8 +265,20 @@ themselves are flat sheets separated by seams.
 
 ### Buttons
 
-Keys are 34 px high, engraved Michroma, with a raised bevel. The RUN key
-lights orange while time runs (`aria-pressed`). NOW jumps to the present.
+Keys are 34 px high, engraved Michroma, with a raised bevel. RUN and HOLD
+are a radio pair (`role=radio`): RUN lights orange while time runs, HOLD
+stays pressed while it is held. NOW jumps to the present and is disabled
+when the clock is live. The primary key of a flow (Launch, Fly this) is
+orange; the ACK key flashes only while a warning is unacknowledged, and not
+at all with reduced motion.
+
+### Annunciator
+
+The header's lamps follow the flight-deck convention: green advisory (LIVE,
+KERNEL), amber caution (LAG) and red warning (WARN). Every lamp is labelled,
+so colour is never the only cue. A new warning lights WARN and flashes ACK;
+acknowledging stops the flash, but the lamp stays lit while the condition
+lasts, as on the Shuttle's caution and warning panel.
 
 ### Chips
 
@@ -286,12 +304,13 @@ numerals, an engraved label above, and the unit beside.
 
 - **Craft marker:** a 9 px square turned 45° in amber; filled when
   selected, orange while burning, red and struck through after an impact.
-- **Craft lines:** the osculating conic in amber (0.75), the flown trail in
-  pale amber (0.45).
+- **Craft lines:** the osculating conic in amber (0.55); the flown trail in
+  pale amber, glowing at the craft and fading with age.
+- **Orbit lines:** each planet's orbit is a faint outline with a glowing
+  trail behind the planet (see docs/frontend/scene.md).
 - **Porkchop:** shaded on the console's own ramp, from sheen through amber,
   key orange and engraving to window black, so low C3 glows. The minimum is
   outlined in ink and the picked cell in lamp green.
-- **LAG lamp:** lights caution yellow.
 
 ### Navigation
 

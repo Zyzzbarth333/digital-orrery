@@ -76,6 +76,34 @@ Checks after the fixes, in a browser without WebGL at 800 px:
 - a launched craft stepped, with "Motion: Integrated" and the line legend
   shown.
 
+## Second pass: an independent review
+
+A second reviewer, given the code and screenshots but not this document,
+walked the same scenarios at desktop, tablet and phone widths.
+
+| # | Heuristic | Sev. | Finding | Fix |
+| --- | --- | --- | --- | --- |
+| 15 | Visibility of status | 2 | RUN and HOLD looked like two separate switches; nothing showed that one excludes the other, and NOW stayed enabled when the clock was already live. | Done: RUN and HOLD are a radio pair; NOW is disabled when live |
+| 16 | Consistency and standards | 2 | The header's lamps were all one colour, so a warning looked like an advisory. | Done: a flight-deck annunciator (advisory green, caution amber, warning red, each labelled) with an ACK key; the warning lamp stays lit until the condition clears |
+| 17 | Recognition rather than recall | 2 | Source tags explained themselves only on hover, which a phone does not have. | Done: tags are buttons; a tap shows the detail beneath the row |
+| 18 | Aesthetic and minimalist design | 2 | The mission tab was one long column. | Done: Engine, Manoeuvre node, Log and Launch are sections that fold, with the ones in use open |
+| 19 | Match with the real world | 2 | The porkchop had no axes or scale, so it could not be read without the docs; a minimum on the grid's edge was presented as the best. | Done: labelled axes, a C3 ramp legend, and a note when the minimum lies on the edge |
+| 20 | Aesthetic and minimalist design | 1 | Text as small as 8 px, and units set in capitals (KM/S). | Done: an 11 px floor for labels, 10 px for table heads; units in their own case |
+| 21 | Visibility of status | 3 | A dropped WebGL context left a black view with no word (seen on the reviewer's tablet and phone runs). | Done: a caution says the view was dropped, and the scene resumes when the browser restores it |
+| 22 | Consistency and standards | 2 | Labels of bodies hidden behind a nearer planet still showed on top of it. | Done: a label is hidden when its body is behind a nearer disc |
+
+## Third pass: checking the fixes
+
+Screenshots of the second pass's fixes at 1,440, 900 and 390 px wide turned
+up four problems, all fixed:
+
+| # | Sev. | Finding | Fix |
+| --- | --- | --- | --- |
+| 23 | 2 | The LAG lamp showed caution hatching while off: its class collided with the page's caution-stripe class. | Lamp classes renamed (`k-caution` and so on) |
+| 24 | 3 | A `?craft=` link opened on the whole solar system, not the craft, because the development double-mount built a second scene that never followed it. | The second scene follows the craft too |
+| 25 | 1 | "Arrival excess speed" ran to three lines and "Fly this" broke onto two. | Shorter label (v-inf, explained on hover); primary keys never wrap |
+| 26 | 2 | In the overview, the names of Mercury, Venus, Earth and the Sun printed over one another. | Overprinting names give way: the focus first, then the larger body; the smaller keeps its marker and shows its name on hover |
+
 ## Still to do
 
 - A think-aloud usability test with scenarios 1–8 and three or four

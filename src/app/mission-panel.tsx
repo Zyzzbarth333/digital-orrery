@@ -90,18 +90,22 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         </tbody></table>
         <p className={`status${c.crashed || c.error ? ' bad' : c.lagSeconds > 60 ? ' lag' : ''}`}>{state}</p>
         <ul className="legend">
-          <li><i className="sw conic" />Osculating orbit: where it would go if only {P ? P.name : 'the Sun'} pulled on it</li>
-          <li><i className="sw trail" />Path flown</li>
+          <li><i className="sw conic" />Amber: the orbit it would follow if only {P ? P.name : 'the Sun'} pulled on it (the osculating orbit)</li>
+          <li><i className="sw trail" />Glowing: the path it has flown, brightest at the craft</li>
         </ul>
 
-        <h3 className="strip">Engine</h3>
+        <details className="section" open>
+        <summary className="strip">Engine</summary>
+        <p className="status">{c.thrusting() ? `Burning: ${fmt(c.thrust, 0)} N, ${fmt(c.fuel, 1)} kg left` : c.fuel > 0 ? `Off · ${fmt(c.thrust, 0)} N available` : 'Off · tank empty'}</p>
         <div className="keys-row wrap">
           <button className="key" onClick={() => c.setEngine(st.v.map((x: number, i: number) => x - mission.primaryVelocity(c)[i]))}>Prograde</button>
           <button className="key" onClick={() => c.setEngine(st.v.map((x: number, i: number) => -(x - mission.primaryVelocity(c)[i])))}>Retrograde</button>
-          <button className="key" onClick={() => c.setEngine(null)} disabled={!c.engineOn}>Cut</button>
+          <button className="key" onClick={() => c.setEngine(null)} disabled={!c.engineOn} title={c.engineOn ? 'Cut the engine' : 'The engine is not burning'}>Cut</button>
         </div>
+        </details>
 
-        <h3 className="strip">Manoeuvre node</h3>
+        <details className="section" open>
+        <summary className="strip">Manoeuvre node</summary>
         <div className="form-grid">
           <Num label="In" value={nodeMin} onChange={setNodeMin} unit="min" min={1} />
           <Num label="Radial" value={dvR} onChange={setDvR} unit="m/s" />
@@ -126,11 +130,14 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
           </ul>
         )}
 
-        <h3 className="strip">Log</h3>
+        </details>
+        <details className="section">
+        <summary className="strip">Log ({c.log.length})</summary>
         <ol className="log">
           {c.log.slice(-6).reverse().map((e: { t: number; text: string }, i: number) => <li key={i}><time>{utc(e.t).slice(5)}</time> {e.text}</li>)}
           {c.log.length === 0 && <li className="hint">Nothing yet.</li>}
         </ol>
+        </details>
         <div className="keys-row wrap">
           <button className="key" onClick={() => onFocusCraft(c.id)}>Follow</button>
           <button className="key" onClick={() => mission.remove(c)}>Remove craft</button>
@@ -156,7 +163,8 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         </div>
       )}
       {readout}
-      <h3 className="strip">Launch from Earth</h3>
+      <details className="section" open={!c}>
+      <summary className="strip">Launch from Earth</summary>
       <div className="keys-row" role="radiogroup" aria-label="Launch kind">
         <button className="key" role="radio" aria-checked={kind === 'orbit'} onClick={() => setKind('orbit')}>Orbit</button>
         <button className="key" role="radio" aria-checked={kind === 'departure'} onClick={() => setKind('departure')}>Departure</button>
@@ -171,7 +179,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
           <Num label="Excess speed" value={vinf} onChange={setVinf} step={0.05} unit="km/s" min={0} max={30} />
           <label className="num">
             <span className="engraved">Direction</span>
-            <select className="input" value={dir} onChange={(e) => setDir(e.target.value as DepartureDirection)}>
+            <select className="input select" value={dir} onChange={(e) => setDir(e.target.value as DepartureDirection)}>
               <option value="prograde">Prograde</option><option value="retrograde">Retrograde</option>
               <option value="outward">Outward</option><option value="inward">Inward</option>
             </select>
@@ -179,9 +187,10 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         </div>
       )}
       <div className="keys-row">
-        <button className="key run" aria-pressed={false} onClick={launch} disabled={!!launchProblem}>Launch</button>
+        <button className="key primary" onClick={launch} disabled={!!launchProblem}>Launch</button>
         <span className="hint">{launchProblem ? `Needs ${launchProblem}` : kind === 'orbit' ? 'circular, from the ascending node' : 'from a 200 km parking orbit'}</span>
       </div>
+      </details>
     </div>
   );
 }
