@@ -153,9 +153,8 @@ export function primaryOf(r, bodies, muSun) {
 //               inside it, so it switches on and off at exact times rather
 //               than at whichever stage time happens to straddle the edge.
 //               v is the craft's heliocentric velocity, for burns steered
-//               relative to it (in Cowell, where every thrusting craft is,
-//               it is the integrator's current velocity; Encke, which runs
-//               only while thrust is negligible, passes null).
+//               relative to it (Cowell's current velocity; in Encke the
+//               primary's plus the reference conic's plus the deviation's).
 //
 //   encke       (default true) inside a body's sphere of influence, while
 //               the motion is nearly Keplerian (perturbation ratio below

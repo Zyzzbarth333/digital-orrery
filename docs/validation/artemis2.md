@@ -169,18 +169,38 @@ This is the test of flying Artemis II yourself.
 
 | Start | Lunar flyby | Entry interface (10 April, 23:29 UTC) |
 | --- | --- | --- |
-| Just after the injection burn | 6,540.2 km, 60 s early | 280 km off: 31 s early, 152 km to the side |
-| Before the injection burn (2 April, 23:40), flying it too | 6,550.6 km, 67 s early | 981 km off: 125 s late, 177 km to the side |
+| Just after the injection burn | 6,540.2 km, 60 s early | 279 km off: 30 s early, 152 km to the side |
+| Ten minutes before the injection burn (2 April, 23:39:59.7), flying it too | 6,506.4 km, 45 s early | 4,327 km off: 560 s early, 245 km to the side |
 | Flown | 6,545.0 km at 23:00:49 | |
 
 **Replaying the injection burn.** Just after it, the replayed burn is
-0.01 km and 0.022 m/s from the flown state.
+0.01 km and 0.030 m/s from the flown state.
 - **Flown in one fixed direction** (its mean, on the fitted rocket
-  profile), it ends 1.1 km and 4.8 m/s off instead. Steering matters,
+  profile), it ends 2.5 km and 2.1 m/s off instead. Steering matters,
   even though the burn never strayed more than about a degree.
-- **What 0.02 m/s grows into:** after a 388 m/s burn, the two runs above
-  differ by about 10 km at the Moon and 700 km at entry. That is why missions plan correction
-  burns, and why NASA could skip the first outbound ones.
+- **What 0.03 m/s grows into:** about 40 km of flyby altitude four days
+  later, and 4,300 km at entry, eight days later. That is why missions plan
+  correction burns, and why NASA could skip the first outbound ones.
+
+The burn's data starts ten minutes before ignition, with 4.3 m/s of
+smaller thrust (settling pulses of up to a seventh of the main engine's),
+which the replay flies too.
+
+Two corrections were made in getting here:
+- **Steps inside a steered burn are capped at 0.25 s,** in the app's kernel
+  as well. The symplectic integrator follows a thrust that turns with the
+  velocity only to first order. Against RK4 at 0.01 s, 5-second steps were
+  0.13 m/s off per minute of burning near perigee; 0.25-second steps are
+  0.0065 m/s off.
+- **Each interval's thrust is expressed in the orbital frame at its
+  midpoint,** where the mean of a thrust turning with the frame points. It
+  was at the interval's start, and near perigee the frame turns 0.24° in
+  half an interval.
+
+An earlier version of this table started "before the injection burn" at
+the first 10-minute sample after 23:40, which is three seconds after
+ignition, and gave a flyby of 6,550.6 km. That was too kind; the row above
+starts before any of the burn's thrust.
 
 ### 4. Tracking fixes
 
@@ -286,6 +306,24 @@ force model. Doing better here would mean using the flown data during the
 flight, as orbit determination does. That is a different feature from a
 predictive simulator.
 
+### 5. In the app
+
+The app flies the same mission:
+- **Loading:** from **Real missions** on the MISSION tab, or with
+  `?mission=artemis2`. Adding `&t=…` starts inside the mission, and
+  `&fix=12` adds tracking fixes every 12 h.
+- **The file:** `public/missions/artemis2.json` (298 kB), written by
+  `artemis2.export.mjs`. It holds the start state, the burns as 5-second
+  intervals, and the flown trajectory. That is sampled every 10 minutes,
+  every minute near Earth and every 5 s through each burn, so
+  interpolation never bridges a burn. With the samples thinned to every
+  other one, interpolation stays within 11 m near Earth.
+- **The check:** the validation flies that file through the app's own
+  Craft model and kernel host in one-minute frames. It reproduces the
+  replay's flyby (6,506.8 km against 6,506.4 km) at every frame size from
+  0.25 s to one request, and with a fix every 12 h it is 1.3 km off at
+  entry.
+
 ## Regression checks
 
 `artemis2.validate.mjs` runs in `npm test`, and fails if:
@@ -299,10 +337,14 @@ predictive simulator.
 - the replayed injection burn lands more than 0.05 m/s from the flown
   state;
 - the whole mission from before the injection burn misses the flyby
-  altitude by more than 20 km;
+  altitude by more than 60 km (the injection burn's 0.03 m/s grows to
+  about 40 km);
 - with a fix every 12 hours, the craft ends more than 5 km off at entry, or
   strays more than 1,000 km;
-- the app's Moon strays more than 5 m from DE442.
+- the app's Moon strays more than 5 m from DE442;
+- the app's own path, flying the mission file, misses the replay's flyby
+  by more than 2 km, or (with a fix every 12 h) ends more than 5 km off at
+  entry or strays more than 10 km.
 
 ## Regenerate
 
@@ -312,11 +354,14 @@ Artemis II SPKs in `python/data/kernels/spk/missions/artemis2/`:
 ```bash
 cmake --build c/build
 c/build/artemis2_ref src/physics/fixtures/artemis2_bet.json 600
+c/build/artemis2_ref src/physics/fixtures/artemis2_near.json 60 \
+  2026-04-03T00:05:00 2026-04-03T03:00:00  2026-04-10T19:05:00 2026-04-10T23:30:00
 c/build/artemis2_ref src/physics/fixtures/artemis2_burns.json 5 \
   2026-04-02T23:40:00 2026-04-03T00:05:00  2026-04-05T01:15:00 2026-04-05T01:50:00 \
   2026-04-06T02:55:00 2026-04-06T03:15:00  2026-04-07T23:55:00 2026-04-08T00:15:00 \
   2026-04-10T02:45:00 2026-04-10T03:05:00  2026-04-10T18:45:00 2026-04-10T19:05:00
 node src/physics/artemis2.validate.mjs
+node src/physics/artemis2.export.mjs     # the app's mission file
 ```
 
 ## Next
@@ -325,4 +370,4 @@ node src/physics/artemis2.validate.mjs
   watch the residual grow.
 - Noisy tracking fixes, drawn from JSC's covariance, instead of perfect
   ones.
-- Let a user load this mission in the app, with its burns and fixes.
+- More missions: Artemis I, and Apollo from NAIF's reconstructions.

@@ -13,13 +13,19 @@ import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 // Missions too: &craft=orbit,400,51.6 (altitude km, inclination deg) or
 // &craft=departure,2.95,prograde (v_inf km/s, direction), followed by the
 // camera; &plan=mars opens the planner and computes the grid.
-function initialState(): { focus: BodyKey; timeMs: number; sunView: boolean; phaseDeg: number; craft: string | null; plan: string | null } {
+// Real missions: &mission=artemis2 (or artemis2,first to fly only the first
+// burn), &fix=12 for a tracking fix every 12 h; with &t= inside the mission
+// the craft starts where the real one was then.
+function initialState(): { focus: BodyKey; timeMs: number; tGiven: boolean; sunView: boolean; phaseDeg: number; craft: string | null; plan: string | null; real: string | null; fix: number | null } {
   const q = new URLSearchParams(window.location.search);
   const f = q.get('focus');
   const t = Date.parse(q.get('t') ?? '');
   return {
     focus: f && f in BODY_BY_KEY ? (f as BodyKey) : 'sun',
     timeMs: Number.isFinite(t) ? t : Date.now(),
+    tGiven: Number.isFinite(t),
+    real: q.get('mission'),
+    fix: Number(q.get('fix')) || null,
     sunView: q.get('view') === 'sun' || q.has('phase'),
     phaseDeg: Number(q.get('phase') ?? 20),
     craft: q.get('craft'),
@@ -31,7 +37,7 @@ export function App() {
   const init = useMemo(initialState, []);
   const clock = useMemo(() => new SimClock(init.timeMs), [init]);
   const [focus, setFocus] = useState<BodyKey>(init.focus);
-  const [tab, setTab] = useState<PlateTab>(init.plan ? 'planner' : init.craft ? 'mission' : 'target');
+  const [tab, setTab] = useState<PlateTab>(init.plan ? 'planner' : init.craft || init.real ? 'mission' : 'target');
   const mission = useMemo(() => new Mission(), []);
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
@@ -53,6 +59,18 @@ export function App() {
         ? mission.launchOrbit(clock.snapshot.timeMs, Number(a) || 400, Number(b) || 0)
         : mission.launchDeparture(clock.snapshot.timeMs, { speed: Number(a) || 3, dir: (['prograde', 'retrograde', 'outward', 'inward'].includes(b) ? b : 'prograde') as 'prograde' });
       followCraft(c.id);
+    }
+    if (init.real && !launched.current) {
+      launched.current = true;
+      const [id, burns] = init.real.split(',');
+      void mission.fetchReal(id).then((m) => {
+        clock.setTime(m.startMs);
+        const c = mission.flyReal(m, burns === 'first' ? 'first' : 'all');
+        if (init.fix) mission.setFixHours(c, init.fix);
+        // A time inside the mission: jump there, onto the flown path.
+        if (init.tGiven && init.timeMs > m.startMs && init.timeMs < m.endMs) clock.setTime(init.timeMs);
+        followCraft(c.id);
+      }).catch((err) => console.warn(`mission ${id} not loaded: ${err}`));
     }
   };
 

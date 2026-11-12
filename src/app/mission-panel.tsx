@@ -8,12 +8,16 @@
 import { useState } from 'react';
 import type { SimClock } from './clock';
 import { useClock } from './clock';
-import { useMission, type Mission, type DepartureDirection } from './mission';
+import { useMission, REAL_MISSIONS, type Mission, type DepartureDirection, type RealBurns } from './mission';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { kernelSeconds, KERNEL_EPOCH_MS } from '../physics/kernelHost.js';
 
 const DEG = 180 / Math.PI;
 const fmt = (n: number, d = 1) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtDuration = (ms: number) => {
+  const m = Math.round(ms / 60e3);
+  return m < 60 ? `${m} min` : m < 2880 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${(m / 1440).toFixed(1)} d`;
+};
 const utc = (tKernel: number) => new Date(KERNEL_EPOCH_MS + tKernel * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
 function Num({ label, value, onChange, step = 1, unit, min, max }: { label: string; value: number; onChange: (v: number) => void; step?: number; unit?: string; min?: number; max?: number }) {
@@ -39,6 +43,8 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
   const [alt, setAlt] = useState(400), [inc, setInc] = useState(51.6);
   const [vinf, setVinf] = useState(2.95), [dir, setDir] = useState<DepartureDirection>('prograde');
   const [nodeMin, setNodeMin] = useState(30), [dvR, setDvR] = useState(0), [dvP, setDvP] = useState(100), [dvN, setDvN] = useState(0);
+  const [realId, setRealId] = useState(REAL_MISSIONS[0].id), [realBurns, setRealBurns] = useState<RealBurns>('all');
+  const [realState, setRealState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const c = mission.selected;
   // Bounds that keep a launch physical: above the atmosphere's dense part,
   // a real inclination, an excess speed the model craft could be given.
@@ -53,6 +59,21 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     if (launchProblem) return;
     const craft = kind === 'orbit' ? mission.launchOrbit(s.timeMs, alt, inc) : mission.launchDeparture(s.timeMs, { speed: vinf, dir });
     onFocusCraft(craft.id);
+  };
+
+  // A real mission: the clock goes to its start (BACK undoes that), then
+  // the craft starts from its flown state with its burns scripted.
+  const flyReal = async () => {
+    setRealState({ busy: true, error: null });
+    try {
+      const m = await mission.fetchReal(realId);
+      clock.setTime(m.startMs);
+      const craft = mission.flyReal(m, realBurns);
+      onFocusCraft(craft.id);
+      setRealState({ busy: false, error: null });
+    } catch (err) {
+      setRealState({ busy: false, error: String(err) });
+    }
   };
 
   let readout: React.ReactNode = null;
@@ -78,8 +99,20 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     }
     rows.push(['Eccentricity', fmt(el.e, 6), <Tag src="2-body" derived detail="osculating" />]);
     rows.push(['Inclination', `${fmt(el.i * DEG, 3)}°`, <Tag src="2-body" derived detail={`to the ${el.frame}`} />]);
-    rows.push(['Propellant', `${fmt(c.fuel, 2)} kg`, <Tag src="model" derived detail={`one tank; dry mass ${c.dryMass} kg, ${c.thrust} N at Isp ${c.isp} s`} />]);
-    rows.push(['Δv left', `${fmt(dvLeft, 1)} m/s`, <Tag src="rocket eq." derived detail="ve ln(m / m_dry)" />]);
+    const run = mission.realRun(c);
+    // The model engine's tank means nothing when every burn is the real
+    // craft's, scripted from its data.
+    if (run?.burns !== 'all') {
+      rows.push(['Propellant', `${fmt(c.fuel, 2)} kg`, <Tag src="model" derived detail={`one tank; dry mass ${c.dryMass} kg, ${c.thrust} N at Isp ${c.isp} s`} />]);
+      rows.push(['Δv left', `${fmt(dvLeft, 1)} m/s`, <Tag src="rocket eq." derived detail="ve ln(m / m_dry)" />]);
+    }
+    if (run) {
+      const d = mission.distanceFromFlown(c);
+      rows.push(['From the flown path', d === null ? 'outside the data' : `${fmt(d, 1)} km`, <Tag src="BET" detail="distance from where the real craft was at this time: JSC's reconstructed trajectory (BET revF), interpolated" />]);
+      const nb = run.m.burnAt(s.timeMs);
+      const inBurns = run.burns === 'all' || nb?.burn === run.m.burns[0];
+      rows.push(['Next burn', !nb ? 'none left' : nb.on ? `${nb.burn.name}, burning` : `${nb.burn.name} in ${fmtDuration(nb.inMs ?? 0)}${inBurns ? '' : ' (yours to fly)'}`, <Tag src="BET" detail={nb ? `${fmt(nb.burn.mps * 1000 / 304.8, 1)} ft/s (${fmt(nb.burn.mps, 3)} m/s) as flown${nb.burn.nasa ? `; NASA: ${nb.burn.nasa}` : ''}` : 'every burn of the mission is done'} />]);
+    }
     const plan = mission.plan(c);
     if (plan) rows.push([`Closest to ${plan.name}`, `${fmt(plan.closest / 1000, 0)} thousand km`, <Tag src="kernel" derived detail={`so far; planned arrival ${new Date(plan.arrivalMs).toISOString().slice(0, 10)}`} />]);
     const state = c.crashed ? `Impact: ${c.impactBody}` : c.error ? `Error: ${c.error}` : c.lagSeconds > 60 ? `Behind the clock by ${fmt(c.lagSeconds / 60, 1)} min` : 'Stepping';
@@ -92,11 +125,26 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         <ul className="legend">
           <li><i className="sw conic" />Amber: the orbit it would follow if only {P ? P.name : 'the Sun'} pulled on it (the osculating orbit)</li>
           <li><i className="sw trail" />Glowing: the path it has flown, brightest at the craft</li>
+          {run && <li><i className="sw flown" />Green: the path the real {run.m.name} flew</li>}
         </ul>
+
+        {run && (
+          <details className="section" open>
+          <summary className="strip">Tracking</summary>
+          <label className="num">
+            <span className="engraved">Fix</span>
+            <select className="input select" value={run.fixHours ?? 0} onChange={(e) => mission.setFixHours(c, Number(e.target.value) || null)}>
+              <option value={0}>None: free flight</option>
+              {[24, 12, 6, 3].map((h) => <option key={h} value={h}>Every {h} h</option>)}
+            </select>
+          </label>
+          <p className="hint">A fix puts the craft back where tracking says the real one was, as a navigation team would. {run.fixes > 0 ? `${run.fixes} so far.` : ''}</p>
+          </details>
+        )}
 
         <details className="section" open>
         <summary className="strip">Engine</summary>
-        <p className="status">{c.thrusting() ? `Burning: ${fmt(c.thrust, 0)} N, ${fmt(c.fuel, 1)} kg left` : c.fuel > 0 ? `Off · ${fmt(c.thrust, 0)} N available` : 'Off · tank empty'}</p>
+        <p className="status">{c.engineOn || c.executing ? `Burning: ${fmt(c.thrust, 0)} N, ${fmt(c.fuel, 1)} kg left` : run && c.thrusting() ? (() => { const b = run.m.burnAt(s.timeMs); return b?.on ? `Scripted burn as flown: ${b.burn.name}` : `Small thrust as flown${b ? `, before ${b.burn.name}` : ''}`; })() : c.fuel > 0 ? `Off · ${fmt(c.thrust, 0)} N available` : 'Off · tank empty'}</p>
         <div className="keys-row wrap">
           <button className="key" onClick={() => c.setEngine(st.v.map((x: number, i: number) => x - mission.primaryVelocity(c)[i]))}>Prograde</button>
           <button className="key" onClick={() => c.setEngine(st.v.map((x: number, i: number) => -(x - mission.primaryVelocity(c)[i])))}>Retrograde</button>
@@ -163,6 +211,29 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         </div>
       )}
       {readout}
+      <details className="section" open={!c}>
+      <summary className="strip">Real missions</summary>
+      <div className="form-grid">
+        <label className="num">
+          <span className="engraved">Mission</span>
+          <select className="input select" value={realId} onChange={(e) => setRealId(e.target.value)}>
+            {REAL_MISSIONS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+          </select>
+        </label>
+        <label className="num">
+          <span className="engraved">Burns</span>
+          <select className="input select" value={realBurns} onChange={(e) => setRealBurns(e.target.value as RealBurns)}>
+            <option value="all">All, as flown</option>
+            <option value="first">The first; correct it yourself</option>
+          </select>
+        </label>
+      </div>
+      <div className="keys-row">
+        <button className="key primary" onClick={flyReal} disabled={realState.busy}>Fly it</button>
+        <span className="hint">{realState.error ? `Could not load: ${realState.error}` : realState.busy ? 'Loading…' : 'Sets the clock to the mission start (BACK undoes it)'}</span>
+      </div>
+      </details>
+
       <details className="section" open={!c}>
       <summary className="strip">Launch from Earth</summary>
       <div className="keys-row" role="radiogroup" aria-label="Launch kind">

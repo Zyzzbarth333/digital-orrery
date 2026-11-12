@@ -60,6 +60,15 @@ export function TimeBand({ clock, mission }: { clock: SimClock; mission: Mission
         <time className={`window clock${s.playing ? '' : ' held'}`} dateTime={iso} aria-labelledby="utc-label">
           {iso.slice(0, 10)} {iso.slice(11, 19)}{!s.playing && <span className="hold">Hold</span>}
         </time>
+        {/* The jump notice hangs just under the clock it is about, so the
+            header keeps its width (inline where the header wraps). */}
+        {jump && (
+          <div className="notice jump" role="status">
+            <span>Clock set {span(jump.toMs - jump.fromMs)}</span>
+            <button className="key small" onClick={() => clock.undoJump()} title={`Back to ${new Date(jump.fromMs).toISOString().slice(0, 16).replace('T', ' ')} UTC`}>Back</button>
+            <button className="key small" onClick={() => clock.dismissJump()} aria-label="Dismiss">OK</button>
+          </div>
+        )}
       </div>
       <div className="field">
         <label className="engraved" htmlFor="rate">Rate</label>
@@ -73,13 +82,6 @@ export function TimeBand({ clock, mission }: { clock: SimClock; mission: Mission
         <button className="key hold" role="radio" aria-checked={!s.playing} onClick={() => clock.setPlaying(false)} title="Hold time (Space)">Hold</button>
         <button className="key" onClick={() => clock.setTime(Date.now())} disabled={live} title={live ? 'Already at the present' : 'Jump to now (N)'}>Now</button>
       </div>
-      {jump && (
-        <div className="notice" role="status">
-          <span>Clock set {span(jump.toMs - jump.fromMs)}</span>
-          <button className="key small" onClick={() => clock.undoJump()} title={`Back to ${new Date(jump.fromMs).toISOString().slice(0, 16).replace('T', ' ')} UTC`}>Back</button>
-          <button className="key small" onClick={() => clock.dismissJump()} aria-label="Dismiss">OK</button>
-        </div>
-      )}
       {/* Annunciator, after the Shuttle's caution and warning panel: green
           advisories, amber caution, red warning. Every light is labelled
           (never colour alone); a warning sounds the master alarm, which ACK

@@ -85,6 +85,7 @@ export class Craft {
     this.clockT = t;                 // the sim clock as last seen
     this.prevClockT = t;
     this.burns = [];
+    this.script = [];                // scripted burns (a real mission's, from its data)
     this.nodes = [];                 // { id, t, dv: [radial, prograde, normal] km/s }
     this.executing = null;           // { node, burn }
     this.engineOn = false;           // manual engine
@@ -110,6 +111,7 @@ export class Craft {
   advanceClock(tNow, jumped = false) {
     this.prevClockT = this.clockT;
     if (jumped || tNow < this.clockT) {
+      const moved = tNow - this.clockT;
       this.kState.t = tNow;
       this.lagSeconds = 0;
       this.version++;
@@ -117,7 +119,7 @@ export class Craft {
       this.burns = [];
       this.prevClockT = tNow;                      // no fuel drawn across the jump
       this.clockJumped = true;
-      this.note(`clock set ${((tNow - this.prevClockT) / 86400).toFixed(2)} d away; state kept, burns cleared`, tNow);
+      this.note(`clock set ${(moved / 86400).toFixed(2)} d away; state kept, burns cleared`, tNow);
     }
     this.clockT = tNow;
     // Nodes due in this frame start at their own time.
@@ -168,7 +170,25 @@ export class Craft {
     this.burns = this.burns.filter((x) => x.t1 > done);
   }
 
-  thrusting(t = this.clockT) { return this.burns.some((b) => b.t0 <= t && t < b.t1); }
+  thrusting(t = this.clockT) { return this.burns.some((b) => b.t0 <= t && t < b.t1) || this.script.some((b) => b.t0 <= t && t < b.t1); }
+
+  // Scripted burns: a real mission's burns as flown, from its data. Each is
+  // { t0, t1, dir, accel } with accel in m/s^2, constant over its span, and
+  // dir [prograde, in-plane, normal] in the orbital frame about `about`.
+  // Unlike the engine's burns they draw no propellant from this craft's
+  // tank and survive clock jumps: they are tied to the mission's times.
+  setScript(burns, about = 'earth') {
+    this.script = burns.map(({ t0, t1, dir, accel }) => ({ t0, t1, dir, F: accel, m0: 1, mdot: 0, frame: 'vnb', about }));
+    this.version++;
+  }
+
+  // A tracking fix: the craft's state replaced by a measured one at time t.
+  setState(r, v, t) {
+    const bodies = this.sys.bodiesAt(t);
+    this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, this.sys.muSun), accel: accelHeliocentric(r, bodies, this.sys.muSun) };
+    this.lagSeconds = 0;
+    this.version++;
+  }
 
   // ---------------- manoeuvre nodes ----------------
 
@@ -220,8 +240,8 @@ export class Craft {
     const tEnd = this.clockT, span = tEnd - this.kState.t;
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
-    const burns = this.burns.filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
-      .map(({ t0, t1, dir, F, m0, mdot }) => ({ t0, t1, dir, F, m0, mdot }));
+    const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
+      .map(({ t0, t1, dir, F, m0, mdot, frame, about }) => ({ t0, t1, dir, F, m0, mdot, frame, about }));
     return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns };
   }
 

@@ -146,7 +146,8 @@ export function advanceEncke(state, tEnd, opts) {
   const extra = [0, 0, 0], pert = [0, 0, 0], cpos = [0, 0, 0];
   let mid = state.t, lastThrust = 0;
   // d/dt of [delta, delta'] at time t, with the conic at rr.
-  const f = (t, yy, rr, out) => {
+  const cvel = [0, 0, 0], vPt = [0, 0, 0];
+  const f = (t, yy, rr, out, rv) => {
     const bodies = bodiesAt(t);
     P.eph.position(t, rP);
     P.eph.acceleration(t, aP);
@@ -160,7 +161,11 @@ export function advanceEncke(state, tEnd, opts) {
     cpos[0] = rP[0] + rx; cpos[1] = rP[1] + ry; cpos[2] = rP[2] + rz;
     perturbation(cpos, rP, aP, key, mu, bodies, muSun, pert);
     if (extraAccel) {
-      extraAccel(t, cpos, extra, mid, null);
+      // The craft's heliocentric velocity, for burns steered relative to it:
+      // the primary's, the reference conic's and the deviation's.
+      P.eph.velocity(t, vPt);
+      cvel[0] = vPt[0] + rv[0] + yy[3]; cvel[1] = vPt[1] + rv[1] + yy[4]; cvel[2] = vPt[2] + rv[2] + yy[5];
+      extraAccel(t, cpos, extra, mid, cvel);
       pert[0] += extra[0]; pert[1] += extra[1]; pert[2] += extra[2];
     }
     lastThrust = extraAccel ? len3(extra[0], extra[1], extra[2]) : 0;
@@ -177,6 +182,7 @@ export function advanceEncke(state, tEnd, opts) {
   let bp = 0, steps = 0;
   const K = Array.from({ length: 7 }, () => [0, 0, 0, 0, 0, 0]);
   const SR = Array.from({ length: 7 }, () => [0, 0, 0]);   // conic position at each stage
+  const SV = Array.from({ length: 7 }, () => [0, 0, 0]);   // and velocity
   const nR = [0, 0, 0], nV = [0, 0, 0];                     // conic at the step's end
   const yt = [0, 0, 0, 0, 0, 0];
   let rhoN = len3(cR[0], cR[1], cR[2]);
@@ -237,21 +243,22 @@ export function advanceEncke(state, tEnd, opts) {
     const H = dir * hs;
     mid = t + 0.5 * H;
     SR[0][0] = cR[0]; SR[0][1] = cR[1]; SR[0][2] = cR[2];
+    SV[0][0] = cV[0]; SV[0][1] = cV[1]; SV[0][2] = cV[2];
     // Stage times sit a hair inside the step at both ends: on a node the
     // primary's ephemeris acceleration jumps, and each stage must use the
     // cubic of the interval the step crosses, not the one beyond it.
     const nudge = 1e-9 * H;
-    if (!fsal) f(t + nudge, y, SR[0], K[0]);
+    if (!fsal) f(t + nudge, y, SR[0], K[0], SV[0]);
     for (let s = 1; s < 7; s++) {
       for (let i = 0; i < 6; i++) {
         let acc = y[i];
         for (let j = 0; j < s; j++) acc += H * A[s][j] * K[j][i];
         yt[i] = acc;
       }
-      if (s < 5) conicStep(cR, cV, C[s] * H, mu, SR[s], nV);
-      else if (s === 5) { conicStep(cR, cV, H, mu, nR, nV); SR[5][0] = nR[0]; SR[5][1] = nR[1]; SR[5][2] = nR[2]; }
-      else { SR[6][0] = nR[0]; SR[6][1] = nR[1]; SR[6][2] = nR[2]; }
-      f(t + C[s] * H - (C[s] === 1 ? nudge : 0), yt, SR[s], K[s]);
+      if (s < 5) conicStep(cR, cV, C[s] * H, mu, SR[s], SV[s]);
+      else if (s === 5) { conicStep(cR, cV, H, mu, nR, nV); for (let i = 0; i < 3; i++) { SR[5][i] = nR[i]; SV[5][i] = nV[i]; } }
+      else { for (let i = 0; i < 3; i++) { SR[6][i] = nR[i]; SV[6][i] = nV[i]; } }
+      f(t + C[s] * H - (C[s] === 1 ? nudge : 0), yt, SR[s], K[s], SV[s]);
     }
     const sTime = Math.sqrt(rhoN ** 3 / mu);
     let err = 0;

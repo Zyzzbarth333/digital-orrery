@@ -8,6 +8,7 @@
 // Fixtures (from c/artemis2_ref.c, NAIF's SPK of JSC's BET revF):
 //   artemis2_bet.json     every 10 minutes, the whole flight
 //   artemis2_burns.json   every 5 seconds, in a window around each burn
+//   artemis2_near.json    every minute, near Earth between burns
 
 import './deNode.js';
 import fs from 'node:fs';
@@ -22,6 +23,10 @@ const toRows = (f) => f.states.map((s) => ({
 }));
 export const rows = toRows(load('artemis2_bet.json'));
 export const fineRows = toRows(load('artemis2_burns.json'));
+// Every minute where Orion is close to Earth outside the burns (after the
+// injection burn and on final approach), where 10-minute samples are too
+// sparse to interpolate.
+export const nearRows = toRows(load('artemis2_near.json'));
 
 export const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
 export const kt = (ms) => (ms - KERNEL_EPOCH_MS) / 1000;
@@ -127,9 +132,12 @@ export function reconstructBurns() {
     const mid = parts.reduce((best, s) => (Math.abs(s.t0 - tMid) < Math.abs(best.t0 - tMid) ? s : best), parts[0]).a;
     const F = vnb(mid.r, mid.v);
     // The burn as flown: each interval's change, as a direction in the local
-    // frame at its start and a mean acceleration.
+    // frame at its midpoint (the mean of a thrust that turns with the frame
+    // points along the frame at mid-interval; near perigee the frame turns
+    // 0.24 deg in half an interval) and a mean acceleration.
     const profile = parts.map((x) => {
-      const L = vnb(x.a.r, x.a.v), m = norm(x.dv), sec = (x.t1 - x.t0) / 1000;
+      const mid = hermiteMid(x.a, x.b, (x.t1 - x.t0) / 1000);
+      const L = vnb(mid.r, mid.v), m = norm(x.dv), sec = (x.t1 - x.t0) / 1000;
       return { t0: x.t0, t1: x.t1, dir: L.map((ax) => dot(x.dv, ax) / m), a: m / sec };
     });
     const burn = { tMid, profile, seconds: (when(0.98) - when(0.02)) / 1000 / 0.96, dv, dvImpulse, drImpulse, mag, dir: F.map((x) => dot(u, x)), peak: Math.max(...parts.map((s) => norm(s.dv) / ((s.t1 - s.t0) / 1000))) };
@@ -144,6 +152,14 @@ export function reconstructBurns() {
     }
     return burn;
   }).filter((b) => b.mag > 1e-4);    // under 0.1 m/s: attitude control, not burns
+}
+
+// The state halfway between two samples h seconds apart, by cubic Hermite.
+function hermiteMid(a, b, h) {
+  return {
+    r: [0, 1, 2].map((k) => (a.r[k] + b.r[k]) / 2 + (a.v[k] - b.v[k]) * h / 8),
+    v: [0, 1, 2].map((k) => 1.5 * (b.r[k] - a.r[k]) / h - (a.v[k] + b.v[k]) / 4),
+  };
 }
 
 // Name the reconstructed burns after NASA's, by time.
@@ -177,8 +193,9 @@ export function finiteBurns(burns, { replay = false } = {}) {
   });
 }
 
-// The thrust function for advance(), and step breakpoints every 5 s inside
-// each burn. Earth's velocity comes from its ephemeris.
+// The thrust function for advance(), and step breakpoints every 0.25 s
+// inside each burn (as the kernel host does for burns steered in the
+// orbital frame). Earth's velocity comes from its ephemeris.
 function thrustOf(finite) {
   const E = sys.bodiesAt(0).find((x) => x.key === 'earth');
   const ve = [0, 0, 0];
@@ -212,7 +229,7 @@ export function flyMission({ from, to, burns, impulsive = false, replay = false,
   const finite = finiteBurns(burns, { replay });
   const breakpoints = impulsive ? null : finite.flatMap((b) => {
     const out = [];
-    for (let ms = b.t0; ms < b.t1; ms += 5e3) out.push(kt(ms));
+    for (let ms = b.t0; ms < b.t1; ms += 250) out.push(kt(ms));
     out.push(kt(b.t1));
     return out;
   }).sort((p, q) => p - q);

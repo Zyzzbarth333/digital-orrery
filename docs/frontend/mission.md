@@ -50,6 +50,44 @@ later.
   as a speed along Earth's prograde, retrograde, outward or inward
   direction, or comes from the planner.
 
+## Real missions
+
+**Real missions** on the MISSION tab flies a mission as it actually flew.
+Artemis II is the first. Its file, `public/missions/artemis2.json`, is
+written from JSC's reconstructed trajectory by
+`src/physics/artemis2.export.mjs`; the app reads it with
+`src/physics/realMission.js`.
+
+- **Fly it:** sets the clock to the mission's start (BACK undoes it). For
+  Artemis II that's 2 April 2026, 23:39:59 UTC, ten minutes before
+  translunar injection. The craft starts from its flown state.
+- **Burns:** scripted as flown. Each 5 seconds of every burn is a finite
+  burn, steered in the orbital frame about Earth, with its measured
+  direction and acceleration. Scripted burns draw nothing from the model
+  tank and survive clock jumps; they're tied to the mission's times.
+  Choose **The first; correct it yourself** to fly only the injection burn
+  and make the corrections with manoeuvre nodes.
+- **From the flown path:** how far the craft is from where the real one was
+  at this time, interpolated from the flown trajectory.
+- **Next burn:** its name, when it starts, and in its detail the Δv as
+  flown with what NASA published.
+- **Green line:** the flown path, drawn relative to Earth.
+- **Tracking:** a fix every 24, 12, 6 or 3 hours resets the craft to the
+  flown state, as a navigation team's tracking would.
+- **Setting the clock inside the mission** puts the craft where the real one
+  was.
+
+What the craft does is checked against the real flight in
+[the Artemis II validation](../validation/artemis2.md): the mission file,
+flown frame by frame by the craft model, is within 0.4 km of the
+validation's replay at the flyby.
+
+The kernel learned two things for this:
+- **Steered burns:** a burn can be steered in the orbital frame about a
+  body (`frame: 'vnb'`). The integrator passes the craft's velocity to the
+  thrust (in Encke too), and steps inside such a burn are capped at 0.25 s.
+- **Tracking fixes:** `Craft.setState` takes a fix.
+
 ## Manoeuvre nodes and the engine
 
 A node is a time and a $\Delta v$ in the primary-relative frame at that
@@ -115,3 +153,5 @@ next on the physics roadmap.
 | `?craft=orbit,400,51.6` | starts with a craft in that orbit (km, °), followed |
 | `?craft=departure,2.95,prograde` | starts on that departure |
 | `?plan=mars` | opens the planner and computes the grid |
+| `?mission=artemis2` | flies Artemis II from its start (`artemis2,first` flies only the injection burn) |
+| `?mission=artemis2&t=2026-04-06T22:50:00Z&fix=12` | starts just before the lunar flyby, with a tracking fix every 12 h |
