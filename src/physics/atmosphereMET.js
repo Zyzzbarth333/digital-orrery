@@ -5,7 +5,7 @@
 // neutral density, temperature and composition from 90 to 2500 km. NASA's
 // 6-DOF check cases (NASA/TM-2015-218675) ran it in all four simulations;
 // this module is checked against their recorded densities
-// (docs/validation.md#met-atmosphere). Pure ES module.
+// (docs/validation.md#the-met-atmosphere). Pure ES module.
 //
 // Built from the published descriptions and the published code listings,
 // all public on NASA's Technical Reports Server:

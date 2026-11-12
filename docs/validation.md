@@ -124,16 +124,30 @@ every one ([A 6-DOF vehicle in Earth orbit](physics/sixdof.md)).
 | Check | Reference | Result |
 | --- | --- | --- |
 | Position after 8 h, every case without MET drag (21 cases: point mass, 4×4 and 8×8 GEM-T1, Sun and Moon, burns, torque pulses, torque-free and gravity-gradient rotation) | the closest NASA tool | within 1.0 mm; the tools' own spread is up to 350 m |
-| The four drag cases (MET density from sim B) | the four tools | 0.35–0.61 m, inside the tools' own spread (0.56–79 m) |
+| The four drag cases, in our MET atmosphere (`atmosphereMET.js`) | sim B, the tool that ran the same MET version (1999) | within 5.0 mm (0.35–0.61 m before, on sim B's recorded density interpolated in time); the tools' own spread is 0.56–79 m |
 | Earth-fixed position (IAU 1976 precession, IAU 1980 nutation) | the closest tool | within 1.1×10⁻⁹ of the distance (7 mm in low orbit) |
 | Gravitation, geodetic height | the tool closest in position | 1.3×10⁻⁹ m/s², 0.6 mm |
 | Body rates and attitude, every case but the full one | the closest tool | 5×10⁻¹⁴ rad/s, 3×10⁻⁹ deg |
-| Full case (8×8, Sun, Moon, drag, gravity gradient) | the closest tool | 0.35 m; 8×10⁻⁸ rad/s; 0.002° |
+| Full case (8×8, Sun, Moon, drag, gravity gradient) | the closest tool | 1.0 mm; 3×10⁻⁹ rad/s; 7×10⁻⁵ ° |
 | Torque-free tumbling ISS, 8 h | constancy of energy and angular momentum | 3×10⁻¹⁴, 4×10⁻¹⁴ |
 | Geopotential, random 8×8 field | gradient of an independent Legendre sum | 7×10⁻⁹ (finite differences) |
 | IAU 1980 nutation | NAIF CSPICE `zzwahr` (one-off) | 10⁻¹⁹ rad |
 | The app's kernel, case 2 (Earth as the central body) | sim B | 4 mm after 8 h |
 | The app's kernel, case 4 (heliocentric, as the app runs it) | sim B | 5 mm (0.62 m on the first Earth table; 0.12 m on its barycentre refit, before Encke took the tidal form) |
+
+### The MET atmosphere
+
+NASA's Marshall Engineering Thermosphere, version 1999, built from NASA's
+published equations and Fortran listings
+([The MET atmosphere](physics/sixdof.md#the-met-atmosphere)).
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| NASA's MET-V 2.0 worked example (350 km, 1969, F10.7 136/155, ap 9) | NASA/TM-2002-211786 §4.3, 10 outputs printed to 4–7 digits | every output to its printed digits (worst 2.6×10⁻⁴, the rounding of a 4-digit value) |
+| NASA's MET-88 test case (200 km, 1987, F10.7 230, ap 400) | NASA CR-179359 | 1.2×10⁻⁵ (MET-88 had an older Sun and Simpson's rule) |
+| Density along cases 5A, 5B, 5C (F10.7 70, 128.8, 250) and the four drag cases, every 60 s for 8 h | sim B (MET-1999) | within 2.4×10⁻⁶ |
+| Temperature along the same | sim B | within 0.7 mK |
+| Density along cases 5A–C against the other tools (one-off) | sims C (MET-1999), D (MET-1995), A (MET-2007) | 4.6×10⁻⁴, 4.1 %, 13 % |
 
 ## Not yet validated
 
@@ -142,8 +156,8 @@ every one ([A 6-DOF vehicle in Earth orbit](physics/sixdof.md)).
 - The planets' J2, and radiation pressure (not modelled yet). The Earth's
   higher harmonics and drag are modelled and checked in `sixdof.js`, but
   not yet in the app's kernel.
-- The MET atmosphere itself (not public; the drag cases use NASA's
-  density).
+- MET's helium terms above 440 km. The check cases reach 441 km at most,
+  so neither the fairing nor the winter helium bulge is exercised.
 
 ## Body orientation (`orientation.test.mjs`)
 

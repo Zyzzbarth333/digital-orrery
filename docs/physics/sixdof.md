@@ -54,7 +54,9 @@ $$\dot{\mathbf r} = \mathbf v,\quad \dot{\mathbf v} = \mathbf a_g + \mathbf a_{3
   The Sun and the Moon come from the app's DE442 ephemeris.
 - **Drag:** $\mathbf a_D = -\tfrac12 \rho\, |\mathbf v_r|\, \mathbf v_r\, C_D A/m$.
   $\mathbf v_r$ is the velocity relative to an atmosphere turning with the
-  Earth about its pole of date (the third row of $M$).
+  Earth about its pole of date (the third row of $M$). The density $\rho$
+  is any function of time and position; for NASA's cases it is the MET
+  atmosphere (below).
 - **Thrust and torque:** fixed in body axes, through the centre of mass.
 - **Gravity gradient:** the point-mass torque
   $\boldsymbol\tau = 3\mu/r^3\,(\hat{\mathbf r}_B \times I\hat{\mathbf r}_B)$.
@@ -90,14 +92,84 @@ since the data are the reference:
   imply 1.4×10⁻¹² kg/m³.
 
 What is not reproduced:
-- **The MET atmosphere.** NASA's Marshall Engineering Thermosphere is not
-  public (the report refers requests to MSFC). The four drag cases
-  therefore use NASA's own density along the path, sim B's every 60 s,
-  interpolated in time. They agree to 0.6 m, inside the four tools' own
-  spread. Cases 5A–C exist to compare the atmosphere itself, so their
-  densities are not checked.
 - **DE405.** The Sun and the Moon come from DE442. The difference is
   below 1 mm in every case.
+
+## The MET atmosphere
+
+`src/physics/atmosphereMET.js` is the Marshall Engineering Thermosphere
+(MET), the atmosphere all four NASA tools ran. It is NASA Marshall's
+version of Jacchia's 1970 static diffusion model, with two of Jacchia's
+1971 terms. It gives density, temperature and composition from 90 to
+2,500 km. NASA's report says the code is available only from MSFC on
+request. The equations and Fortran listings are public, though: they are
+in four NASA reports on the Technical Reports Server (Sources). The
+module is built from those.
+
+Inputs are the time (UTC), geodetic latitude, east longitude and height,
+the daily F10.7, its 162-day centred mean, and $a_p$ from 6.7 h before
+(or $K_p$).
+
+The model, in the order MET computes it:
+- **Exospheric temperature** $T_\infty$ (Jacchia 1970):
+  - Solar activity: $T_c = 383 + 3.32\bar F + 1.8(F - \bar F)$.
+  - Diurnal bulge: $T_c(1+R\sin^m\theta)\left[1 + R\cos^n(\tau/2)\,\frac{\cos^m\eta-\sin^m\theta}{1+R\sin^m\theta}\right]$.
+    Here $R = 0.31$, $m = 2.5$, $n = 3$, $\eta = |\phi-\delta_\odot|/2$,
+    $\theta = |\phi+\delta_\odot|/2$ and $\tau = H - 37° + 6°\sin(H + 43°)$,
+    with $H$ the Sun's hour angle.
+  - Geomagnetic: $a_p + 100(1 - e^{-0.08 a_p})$.
+  - Semiannual: $2.41 + \bar F\,[0.349 + 0.206\sin(2\pi\tau_s + 226.5°)]\sin(4\pi\tau_s + 247.6°)$,
+    where $\tau_s$ is the fraction of the year, warped as in MET.
+- **Temperature profile:** 183 K at 90 km and an inflection at 125 km,
+  where $T_x = 444.3807 + 0.02385\,T_\infty - 392.8292\,e^{-0.0021357\,T_\infty}$
+  (Jacchia 1971's $T_x$).
+  - Below 125 km: a quartic.
+  - Above it: $T_x + \tfrac{2}{\pi}(T_\infty - T_x)\arctan\{\ldots\}$.
+- **Density:**
+  - From 90 to 105 km: the barometric equation, with the mean molecular
+    mass a sixth-degree polynomial in height.
+  - Above 105 km: diffusive equilibrium for each of N₂, O₂, O, Ar and He
+    (He with thermal diffusion factor −0.38), and H from 500 km.
+  - Gravity is $9.80665/(1+z/6356.766\text{ km})^2$.
+  - The integrals use MET's own Gaussian quadrature, over its eight fixed
+    height bands, with its 7-digit abscissas and weights.
+- **Jacchia 1971's terms:**
+  - Seasonal-latitudinal density below 170 km.
+  - Helium above the winter pole above 500 km, faired in between 440 and
+    500 km.
+- **The Sun:** the Astronomical Almanac's low-precision formulae
+  (MET-1999 onward).
+
+The version reproduced is MET-1999, which sims B and C ran (sim A ran
+MET-2007, sim D MET-1995). MET-1999 has a few quirks, which the module
+keeps:
+- It reads the time as whole minutes and the date as an integer day of
+  the year, over a 365.2422-day year. MET-2007 made these continuous.
+- Its helium fairing goes in 10 km steps. `{ fairing: 'smooth' }` gives
+  MET-V 2.0's cos² fairing instead.
+
+How it checks (`nesc.test.mjs`, [Validation](../validation.md#the-met-atmosphere)):
+- **NASA's MET-V 2.0 worked example:** every one of the ten printed
+  outputs, to the digits printed.
+- **MET-88's test case:** within 1.2×10⁻⁵. MET-88 had an older Sun and
+  Simpson's rule.
+- **Along cases 5A–C and the drag cases:** at every 60 s sample, density
+  within 2.4×10⁻⁶ of sim B's and temperature within 0.7 mK, at all three
+  solar levels (F10.7 70, 128.8 and 250).
+- **The reading of the inputs**, which these results settle:
+  - Latitude is geodetic: geocentric latitude is several hundred times
+    worse (10⁻³ in density).
+  - The report's single F10.7 is both the daily value and the mean.
+  - The day number is 324, counting 1 January as 1. Day 323 would move
+    the exospheric temperature by 1.4 K.
+  - Ap is used as $a_p$. The cases give one value, and MET takes one
+    either way.
+
+With MET in place of NASA's recorded density, the drag cases fly to
+within 5 mm of sim B after 8 hours. With sim B's density interpolated
+between its 60 s samples, they were 0.35–0.61 m off. The whole-minute
+clock matters: let the Sun move between minutes and the cases end 0.35–1.1 m
+from sim B. So sim B called MET with whole minutes, at every step.
 
 ## The app's kernel on the same cases
 
@@ -124,6 +196,17 @@ For comparison: with the same Sun and Moon but the Earth at the origin,
 
 ## Sources
 
+- M. P. Hickey, *The NASA Marshall Engineering Thermosphere Model*,
+  NASA CR-179359, 1988 (MET-88's Fortran listing); and *An Improvement in
+  the Numerical Integration Procedure Used in the NASA Marshall Engineering
+  Thermosphere Model*, NASA CR-179389, 1988 (the Gaussian quadrature).
+- J. K. Owens, *NASA Marshall Engineering Thermosphere Model — Version
+  2.0*, NASA/TM-2002-211786, 2002 (MET-1999's Sun, the worked example).
+- J. K. Owens et al., *Marshall Engineering Thermosphere Model, Version
+  MET-2007*, NASA/TM-2017-218238, 2017 (what MET-1999 did with time).
+- L. G. Jacchia, *New Static Models of the Thermosphere and Exosphere with
+  Empirical Temperature Profiles*, SAO Special Report 313, 1970; and
+  *Revised Static Models…*, SAO Special Report 332, 1971.
 - NASA Engineering and Safety Center, *Check-Cases for Verification of
   6-Degree-of-Freedom Flight Vehicle Simulations*, NASA/TM-2015-218675
   (NESC-RP-12-00770), Volumes I and II, 2015; data at
