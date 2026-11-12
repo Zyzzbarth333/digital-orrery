@@ -52,7 +52,7 @@ The camera orbits the focused body: distance $d$ in km, azimuth and elevation
 about ecliptic north. Dragging changes the angles (elevation clamped to
 ±86°); scrolling scales $d$ by $e^{0.0015\,\Delta}$ and stops at 1.2 body
 radii. Selecting a body moves the focus there, at 8 radii (at least
-20,000 km), or $5\times10^8$ km for the Sun.
+20,000 km), or $1.6\times10^9$ km for the Sun (the inner planets out to Jupiter).
 
 ## Orbit lines
 
@@ -63,6 +63,26 @@ current position. A line is resampled when the sim time moves more than 5% of
 a period from its centre (at most every 0.5 s), so it always passes through
 the body. Because it is the ephemeris path and not a Kepler ellipse, it
 includes the perturbations the ephemeris has.
+
+The line is a faint outline of the whole orbit with a glowing trail behind
+the body (`orbitTrail.ts`). Each vertex carries $u$, its time offset from the
+line's centre in periods; each frame sets
+$\text{now} = (t - t_\text{centre}) / P$. A point that the body passed
+$\Delta = \text{now} - u \ge 0$ periods ago glows by $g = e^{-\Delta/\tau}$
+with $\tau = 0.08$, and its opacity is $a = a_0 + (1 - a_0)\,g$ with the
+outline at $a_0 = 0.3$. So the trail is brightest at the body, fades over
+roughly the last tenth of an orbit, and the rest of the orbit stays outlined.
+Points ahead of the body are outline only. The glow is additive and kept out
+of the tone mapping, like the other drawing aids. A spacecraft's flown path
+uses the same shader, with $u$ its age along the trail (newest 0, oldest
+$-1$), $\tau = 0.25$ and $a_0 = 0.12$.
+
+## Labels
+
+A label is hidden when its body is behind a nearer body's disc, and a moon's
+label when it sits on its planet's marker. Names that would overprint keep
+the focused body's first, then the larger body's; the smaller body keeps its
+marker and shows its name on hover.
 
 ## Lighting
 
