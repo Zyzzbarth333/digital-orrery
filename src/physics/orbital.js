@@ -439,3 +439,64 @@ export function hohmann(r1, r2, mu) {
   const tof = Math.PI * Math.sqrt(Math.pow(at, 3) / mu);
   return { dv1, dv2, total: dv1 + dv2, tof };
 }
+// C(z) and S(z) together into cs[0], cs[1]: the series to 9 terms for
+// |z| < 0.5 (truncation below 1e-17; the step's z is usually small), else the
+// closed forms sharing one square root.
+function stumpffCS(z, cs) {
+  if (z > -0.5 && z < 0.5) {
+    // Horner: C = sum (-z)^k / (2k+2)!, S = sum (-z)^k / (2k+3)!
+    let c = 0, sS = 0;
+    for (let k = 8; k >= 0; k--) { c = c * -z + 1 / FACT[2 * k + 2]; sS = sS * -z + 1 / FACT[2 * k + 3]; }
+    cs[0] = c; cs[1] = sS;
+    return cs;
+  }
+  if (z > 0) {
+    const sz = Math.sqrt(z);
+    cs[0] = (1.0 - Math.cos(sz)) / z;
+    cs[1] = (sz - Math.sin(sz)) / (z * sz);
+  } else {
+    const sz = Math.sqrt(-z);
+    cs[0] = (Math.cosh(sz) - 1.0) / (-z);
+    cs[1] = (Math.sinh(sz) - sz) / (-z * sz);
+  }
+  return cs;
+}
+const FACT = (() => { const f = [1]; for (let i = 1; i <= 21; i++) f.push(f[i - 1] * i); return f; })();
+const CS = [0, 0];
+
+// A lean two-body step for short spans (a fraction of an orbit), for the
+// Encke kernel's stages: the same universal-variable equations as
+// propagate(), solved by Newton from chi = sqrt(mu) dt / r0 (accurate when
+// dt is small), writing into rOut and vOut. Returns false if Newton does not
+// converge in 12 iterations; the caller then uses propagate().
+export function keplerStep(r0v, v0v, dt, mu, rOut, vOut) {
+  const r0 = Math.sqrt(r0v[0] * r0v[0] + r0v[1] * r0v[1] + r0v[2] * r0v[2]);
+  const vv = v0v[0] * v0v[0] + v0v[1] * v0v[1] + v0v[2] * v0v[2];
+  const sqrtMu = Math.sqrt(mu);
+  const rv = (r0v[0] * v0v[0] + r0v[1] * v0v[1] + r0v[2] * v0v[2]);
+  const alpha = 2.0 / r0 - vv / mu;
+  const k1 = rv / sqrtMu, k2 = 1.0 - alpha * r0, target = sqrtMu * dt;
+  let x = target / r0, z = 0, C = 0.5, S = 1 / 6, ok = false;
+  for (let i = 0; i < 12; i++) {
+    z = alpha * x * x;
+    stumpffCS(z, CS); C = CS[0]; S = CS[1];
+    const x2 = x * x;
+    const F = k1 * x2 * C + k2 * x2 * x * S + r0 * x - target;
+    const dF = k1 * x * (1.0 - z * S) + k2 * x2 * C + r0;
+    const dx = F / dF;
+    x -= dx;
+    if (!Number.isFinite(x)) return false;
+    if (Math.abs(dx) <= 1e-14 * (Math.abs(x) + 1e-9)) { ok = true; break; }
+  }
+  if (!ok) return false;
+  z = alpha * x * x; stumpffCS(z, CS); C = CS[0]; S = CS[1];
+  const x2 = x * x;
+  const f = 1.0 - (x2 / r0) * C;
+  const g = dt - (x2 * x / sqrtMu) * S;
+  for (let i = 0; i < 3; i++) rOut[i] = f * r0v[i] + g * v0v[i];
+  const r = Math.sqrt(rOut[0] * rOut[0] + rOut[1] * rOut[1] + rOut[2] * rOut[2]);
+  const fdot = (sqrtMu / (r * r0)) * (z * S - 1.0) * x;
+  const gdot = 1.0 - (x2 / r) * C;
+  for (let i = 0; i < 3; i++) vOut[i] = fdot * r0v[i] + gdot * v0v[i];
+  return true;
+}
