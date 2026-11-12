@@ -1,12 +1,12 @@
 // src/app/panels.tsx
 //
-// The console around the sky: the time band, the body rail and the data
-// plate. Every readout in the plate carries its source (the provenance
-// column): a solid tag for data, a dashed one for values derived here.
-// Numbers are re-read from the ephemeris at most ten times a second.
+// The instrument panels around the sky: the header band (clock and rate in
+// readout windows, the RUN and NOW keys, indicator lamps), the body rail and
+// the data plate. Every readout in the plate carries its source (the
+// provenance column): a solid tag for data, a dashed one for values derived
+// here. Numbers are re-read from the ephemeris at most ten times a second.
 
 import { useState } from 'react';
-import { Pause, Play } from 'lucide-react';
 import { useClock, type SimClock } from './clock';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { bodyState } from '../scene/OrreryScene';
@@ -27,31 +27,36 @@ export const RATES: { label: string; rate: number }[] = [
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
 const fmtGroup = (n: number, digits = 0) => n.toLocaleString('en-AU', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
+function Lamp({ on, label, title }: { on: boolean; label: string; title: string }) {
+  return <span className="lamp" data-on={on} title={title}><i aria-hidden="true" />{label}</span>;
+}
+
 export function TimeBand({ clock }: { clock: SimClock }) {
   const s = useClock(clock);
   const iso = new Date(s.timeMs).toISOString();
+  const live = Math.abs(s.timeMs - Date.now()) < 60e3;
   return (
-    <header className="band">
-      <span className="wordmark">digital-orrery</span>
-      <div className="clock">
-        <time dateTime={iso}>{iso.slice(0, 10)} {iso.slice(11, 19)}</time>
-        <span className="scale">UTC</span>
+    <header className="band screw">
+      <span className="pnl" aria-hidden="true">PNL F1</span>
+      <h1 className="wordmark">digital-orrery</h1>
+      <div className="field">
+        <span className="engraved" id="utc-label">UTC</span>
+        <time className="window clock" dateTime={iso} aria-labelledby="utc-label">{iso.slice(0, 10)} {iso.slice(11, 19)}</time>
       </div>
-      <div className="controls">
-        <button className="btn icon" onClick={() => clock.setPlaying(!s.playing)} aria-pressed={s.playing}
-          aria-label={s.playing ? 'Pause time' : 'Run time'} title={s.playing ? 'Pause (Space)' : 'Run (Space)'}>
-          {s.playing ? <Pause size={14} strokeWidth={1.75} /> : <Play size={14} strokeWidth={1.75} />}
-        </button>
-        <select className="rate" value={s.rate} onChange={(e) => clock.setRate(Number(e.target.value))} aria-label="Time rate">
+      <div className="field">
+        <label className="engraved" htmlFor="rate">Rate</label>
+        <select id="rate" className="rate" value={s.rate} onChange={(e) => clock.setRate(Number(e.target.value))}>
           {RATES.map((r) => <option key={r.rate} value={r.rate}>{r.label}</option>)}
         </select>
-        <button className="btn" onClick={() => clock.setTime(Date.now())} title="Jump to now (N)">Now</button>
       </div>
-      <div className="keys" aria-label="Keyboard shortcuts">
-        <span><kbd>Space</kbd> run</span>
-        <span><kbd>←</kbd><kbd>→</kbd> rate</span>
-        <span><kbd>↑</kbd><kbd>↓</kbd> body</span>
-        <span><kbd>N</kbd> now</span>
+      <div className="keys-row">
+        <button className="key run" onClick={() => clock.setPlaying(!s.playing)} aria-pressed={s.playing}
+          title={s.playing ? 'Hold time (Space)' : 'Run time (Space)'}>Run</button>
+        <button className="key" onClick={() => clock.setTime(Date.now())} title="Jump to now (N)">Now</button>
+      </div>
+      <div className="lamps">
+        <Lamp on={s.playing} label="Run" title="Time is running" />
+        <Lamp on={live} label="Live" title="The sim clock is within a minute of now" />
       </div>
     </header>
   );
@@ -61,8 +66,9 @@ export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: B
   const s = useClock(clock);
   const date = new Date(s.timeMs);
   return (
-    <nav className="rail" aria-label="Bodies">
-      <h2 className="panel-title">Bodies</h2>
+    <nav className="rail screw" aria-labelledby="bodies-label">
+      <span className="pnl" aria-hidden="true">L1</span>
+      <h2 className="strip" id="bodies-label">Bodies</h2>
       <ul className="body-list">
         {BODIES.map((b) => {
           const r = b.key === 'sun' ? null : norm(bodyState(b.key, date).r) / AU_KM;
@@ -70,7 +76,7 @@ export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: B
             <li key={b.key}>
               <button className={`body-row${b.parent === 'earth' ? ' child' : ''}`} aria-current={b.key === focus}
                 onClick={() => onSelect(b.key)} title={r === null ? b.name : `${b.name}: ${r.toFixed(3)} AU from the Sun`}>
-                <span className="swatch" style={{ background: `#${b.colour.toString(16).padStart(6, '0')}` }} />
+                <span className="lamp-sq" style={{ background: `#${b.colour.toString(16).padStart(6, '0')}` }} />
                 <span>{b.name}</span>
                 <span className="dist">{r === null || b.parent === 'earth' ? '' : r.toFixed(2)}</span>
               </button>
@@ -150,18 +156,20 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
   }
   const kind = focus === 'sun' ? 'Star, at the centre of the frame' : focus === 'moon' ? 'Moon of Earth' : focus === 'pluto' ? 'Dwarf planet' : 'Planet';
   return (
-    <aside className="plate" aria-label={`${b.name} data`} data-collapsed={collapsed}>
+    <aside className="plate screw" aria-label={`${b.name} data`} data-collapsed={collapsed}>
+      <span className="pnl" aria-hidden="true">R1</span>
       <div className="plate-head">
-        <h1>{b.name}</h1>
-        <p>{kind}</p>
-        <button className="btn plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>
+        <h2>{b.name}</h2>
+        <p className="engraved">{kind}</p>
+        <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>
           {collapsed ? 'Show data' : 'Hide data'}
         </button>
       </div>
+      <p className="strip" aria-hidden="true">Readout · source</p>
       <Readout rows={rows} />
       <div className="plate-notes">
-        <p>Tags give each value&apos;s source; dashed tags are worked out here. Hover a tag for detail.</p>
-        <p>Drag to turn the view, scroll to zoom, click a name to focus.</p>
+        <p>Each value&apos;s tag names its source; a dashed tag is worked out here. Hover a tag for detail.</p>
+        <p><kbd>Space</kbd> run · <kbd>←</kbd><kbd>→</kbd> rate · <kbd>↑</kbd><kbd>↓</kbd> body · <kbd>N</kbd> now. Drag to turn, scroll to zoom.</p>
       </div>
     </aside>
   );
