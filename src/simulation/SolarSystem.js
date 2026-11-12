@@ -9,6 +9,8 @@ import { SpacecraftFactory } from './spacecraft/SpacecraftFactory.js';
 import { SpacecraftControlPanel } from '../ui/SpacecraftControlPanel.js';
 import { ManoeuvreManager } from './spacecraft/ManoeuvreNode.js';
 import { KernelClient } from './spacecraft/KernelClient.js';
+import { escapeStart } from './spacecraft/launch.js';
+import { helioStateEqj } from '../physics/ephemeris.js';
 import { 
   PLANETS,
   VISUAL_SETTINGS,
@@ -885,47 +887,42 @@ export class SolarSystem {
      SPACECRAFT MANAGEMENT
      =================================== */
   
-  launchSpacecraft(name, fromBody, deltaV) {
+  // Launch a craft from a planet. deltaV (radial, along-track, cross-track,
+  // km/s) is the hyperbolic excess velocity relative to the planet; or pass
+  // opts.vInfEqj, an inertial v_inf vector (heliocentric J2000 equatorial,
+  // km/s), as the planner does to fly a Lambert arc. The craft starts on the
+  // escape hyperbola (launch.js) from the planet's ephemeris state now.
+  launchSpacecraft(name, fromBody, deltaV, opts = {}) {
     const launchBody = this.bodies.get(fromBody);
     if (!launchBody) {
       console.error(`Launch body not found: ${fromBody}`);
       return null;
     }
     
-    // Get launch position
-    const position = launchBody.group ? 
-      launchBody.group.position.clone() : 
-      launchBody.mesh.position.clone();
-    
-    // Calculate the planet's orbital velocity
-    const planetVelocity = this.calculateOrbitalVelocity(launchBody);
-    
-    // The delta-v (radial, along-track, cross-track) is the hyperbolic excess
-    // velocity v_inf the craft should leave the planet with. The kernel applies
-    // the planet's gravity, so the craft starts on that escape hyperbola, on
-    // the outbound asymptote at R = min(100 planet radii, sphere of influence),
-    // with the speed energy conservation gives there: sqrt(v_inf^2 + 2 mu / R).
-    // The planet then slows it to v_inf as it climbs out. Measured against the
-    // patched-conic energy: 0.3 % for Earth, 0.1 % for Mars, 3 % for Jupiter,
-    // where the Sun's pull during the long climb is real physics the patched
-    // conic leaves out.
-    const vInf = OrbitalMechanics.convertDeltaV(
-      deltaV || new THREE.Vector3(0, 0, 0),
-      position,
-      planetVelocity
-    );
-    const muPlanet = (GRAVITATIONAL_PARAMETERS[fromBody] || 0) / 1e9;   // km^3/s^2
-    const muSun = GRAVITATIONAL_PARAMETERS.sun / 1e9;
-    const soiKm = Math.min(
-      position.length() * AU_TO_KM * Math.pow(muPlanet / muSun, 0.4),
-      100 * (PLANETS[fromBody]?.radius || 0)
-    );
-    const outward = vInf.lengthSq() > 0
-      ? vInf.clone().normalize()
-      : planetVelocity.clone().normalize();
-    const speed = Math.sqrt(vInf.lengthSq() + (soiKm > 0 ? 2 * muPlanet / soiKm : 0));
-    position.add(outward.clone().multiplyScalar(soiKm / AU_TO_KM));
-    const velocity = planetVelocity.clone().add(outward.multiplyScalar(speed));
+    const date = this.timeController.currentDate;
+    let planet;
+    try {
+      planet = helioStateEqj(fromBody, date);
+    } catch (err) {
+      console.error(`No ephemeris for ${fromBody}: ${err.message}`);
+      return null;
+    }
+    let vInfEqj = opts.vInfEqj;
+    if (!vInfEqj) {
+      // Preset delta-v in the planet's radial / along-track / cross-track frame.
+      const posScene = new THREE.Vector3(planet.r[0], planet.r[2], -planet.r[1]).multiplyScalar(1 / AU_TO_KM);
+      const velScene = new THREE.Vector3(planet.v[0], planet.v[2], -planet.v[1]);
+      const vi = OrbitalMechanics.convertDeltaV(deltaV || new THREE.Vector3(0, 0, 0), posScene, velScene);
+      vInfEqj = [vi.x, -vi.z, vi.y];
+    }
+    const start = escapeStart({
+      planetR: planet.r, planetV: planet.v, vInf: vInfEqj,
+      mu: (GRAVITATIONAL_PARAMETERS[fromBody] || 0) / 1e9,
+      radius: PLANETS[fromBody]?.radius || 0,
+      muSun: GRAVITATIONAL_PARAMETERS.sun / 1e9,
+    });
+    const position = new THREE.Vector3(start.r[0], start.r[2], -start.r[1]).multiplyScalar(1 / AU_TO_KM);
+    const velocity = new THREE.Vector3(start.v[0], start.v[2], -start.v[1]);
     
     // *** CREATE ENHANCED SPACECRAFT ***
     const systemConfig = {

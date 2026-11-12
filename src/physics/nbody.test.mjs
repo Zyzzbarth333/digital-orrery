@@ -297,6 +297,47 @@ header('CASE 10: kernel host (the Worker\'s message handling)');
     host.handle({ type: 'nope' }).type === 'error');
 }
 
+header('CASE 11: finite burns start and stop at exact times');
+{
+  // No gravity, so the answer is the rocket equation. A 60 s burn of 50 kN
+  // on 2000 kg (Isp 350 s) sits inside one 10-day request whose cruise steps
+  // are a day long: steps must end on the burn's edges, not smear it.
+  const { stepCraft } = await import('./kernelHost.js');
+  const free = { muSun: 0, bodiesAt: () => [] };
+  const F = 50000, m0 = 2000, ve = 350 * 9.80665, mdot = F / ve, T = 60;
+  const t0 = 1000.5, t1 = t0 + T, tEnd = 10 * DAY;
+  const dir = [0.6, 0.8, 0];
+  const burn = { t0, t1, dir, F, m0, mdot };
+  const r0 = [AU, 0, 0], v0 = [0, 1, 0];
+  const one = stepCraft(free, { id: 1, version: 0, r: r0, v: v0, t: 0, tEnd, burns: [burn] });
+  // Exact: dv = ve ln(m0/m1); distance during the burn
+  // x(T) = ve [T ln m0 + ((m1 ln m1 - m1) - (m0 ln m0 - m0)) / mdot], then coast.
+  const m1 = m0 - mdot * T, dv = ve * Math.log(m0 / m1) / 1000;
+  const xT = ve * (T * Math.log(m0) + ((m1 * Math.log(m1) - m1) - (m0 * Math.log(m0) - m0)) / mdot) / 1000;
+  const along = xT + dv * (tEnd - t1);
+  const wantR = [0, 1, 2].map((i) => r0[i] + v0[i] * tEnd + along * dir[i]);
+  const wantV = [0, 1, 2].map((i) => v0[i] + dv * dir[i]);
+  const er = norm(sub(one.r, wantR)), ev = norm(sub(one.v, wantV));
+  console.log(`  60 s burn in a 10-day request (${one.steps} steps): dv ${dv.toFixed(6)} km/s; ` +
+    `pos err ${er.toExponential(2)} km, vel err ${ev.toExponential(2)} km/s`);
+  // 4th-order steps of at most 1 % of the mass: delta-v to ~1e-9 relative;
+  // the position error is that velocity error times ten days of coast.
+  check('delta-v matches the rocket equation (<1e-8 km/s)', ev < 1e-8);
+  check('position matches the exact burn-then-coast answer (<0.01 km after 10 days)', er < 0.01);
+  // The same span in three requests, one ending mid-burn, gives the same answer.
+  let st = { r: r0, v: v0, t: 0 };
+  for (const te of [t0 + 25, 3 * DAY, tEnd]) {
+    st = stepCraft(free, { id: 1, version: 0, r: st.r, v: st.v, t: st.t, tEnd: te, burns: [burn] });
+  }
+  const split = norm(sub(st.r, one.r));
+  check(`splitting the request mid-burn changes nothing (${split.toExponential(2)} km)`, split < 1e-4);
+  // A burn that would run the tank past empty is refused rather than divided by zero.
+  let refused = false;
+  try { stepCraft(free, { id: 1, version: 0, r: r0, v: v0, t: 0, tEnd, burns: [{ ...burn, t1: t0 + m0 / mdot + 1 }] }); }
+  catch { refused = true; }
+  check('a burn that would leave no mass is refused', refused);
+}
+
 console.log('='.repeat(60));
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);

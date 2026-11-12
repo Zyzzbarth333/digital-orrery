@@ -1,6 +1,9 @@
 // src/simulation/OrbitalMechanics.js
 import * as THREE from 'three';
 import { AU_TO_KM, GRAVITATIONAL_PARAMETERS } from '../utils/constants.js';
+import { rvToElements } from '../physics/orbital.js';
+
+const OBLIQUITY_RAD = 23.4392911 * Math.PI / 180;   // J2000 mean obliquity
 
 export class OrbitalMechanics {
   // Get velocity components in orbital reference frame
@@ -72,69 +75,46 @@ static convertDeltaV(deltaV_RSW, position, velocity) {
   }
   
 // Calculate orbital elements from state vectors
+  // Elements of the orbit through (position, velocity) about a body of
+  // parameter mu (km^3/s^2). position is in AU and velocity in km/s, both in
+  // scene axes (three.js y-up, EQJ mapped as (x, z, -y)); inclination is
+  // measured from the ecliptic. Returns AU, days and degrees as before:
+  // { semiMajorAxis, eccentricity, inclination, periapsis, apoapsis, period,
+  //   specificEnergy }. apoapsis and period are Infinity for an escape orbit.
+  //
+  // This used to compute h from a position in AU and a velocity in km/s, so
+  // (v x h) / mu was ~1.5e8 too small and every orbit read e ~ 1; and it took
+  // the inclination from scene z, which is not a pole. It now uses the
+  // verified rvToElements (src/physics/orbital.js).
   static calculateOrbitalElements(position, velocity, mu) {
-    // Input validation
-    if (!position || !velocity || !mu || mu === 0) {
-      return {
-        semiMajorAxis: 0,
-        eccentricity: 0,
-        inclination: 0,
-        periapsis: 0,
-        apoapsis: 0,
-        period: 0,
-        specificEnergy: 0
-      };
-    }
-    
-    const r = position.length() * AU_TO_KM; // Convert AU to km
-    const v = velocity.length(); // Already in km/s
-    
-    // Validate inputs
-    if (r === 0 || !isFinite(r) || !isFinite(v)) {
-      return {
-        semiMajorAxis: 0,
-        eccentricity: 0,
-        inclination: 0,
-        periapsis: 0,
-        apoapsis: 0,
-        period: 0,
-        specificEnergy: 0
-      };
-    }
-    
-    // Specific orbital energy
-    const energy = (v * v) / 2 - mu / r;
-    
-    // Semi-major axis
-    const a = -mu / (2 * energy);
-    
-    // Angular momentum
-    const h = position.clone().cross(velocity);
-    const hMag = h.length() * AU_TO_KM; // Convert to km²/s
-    
-    // Eccentricity vector
-    const eVector = velocity.clone().cross(h).multiplyScalar(1/mu).sub(position.clone().normalize());
-    const e = eVector.length();
-    
-    // Inclination
-    const i = Math.acos(Math.min(1, Math.max(-1, h.z / h.length()))) * 180 / Math.PI;
-    
-    // Orbital period
-    const period = a > 0 ? 2 * Math.PI * Math.sqrt(Math.pow(a, 3) / mu) / 86400 : 0; // days
-    
-    // Validate all outputs
-    const safeValue = (value, fallback = 0) => {
-      return isFinite(value) ? value : fallback;
+    const zero = {
+      semiMajorAxis: 0, eccentricity: 0, inclination: 0,
+      periapsis: 0, apoapsis: 0, period: 0, specificEnergy: 0,
     };
-    
+    if (!position || !velocity || !(mu > 0)) return zero;
+    // scene -> EQJ -> ecliptic J2000 (obliquity 23.4392911 deg)
+    const eqjR = [position.x * AU_TO_KM, -position.z * AU_TO_KM, position.y * AU_TO_KM];
+    const eqjV = [velocity.x, -velocity.z, velocity.y];
+    const ce = Math.cos(OBLIQUITY_RAD), se = Math.sin(OBLIQUITY_RAD);
+    const ecl = (q) => [q[0], ce * q[1] + se * q[2], -se * q[1] + ce * q[2]];
+    const r = ecl(eqjR), v = ecl(eqjV);
+    const rn = Math.hypot(r[0], r[1], r[2]);
+    if (!(rn > 0) || !r.every(Number.isFinite) || !v.every(Number.isFinite)) return zero;
+    const el = rvToElements(r, v, mu);
+    const vn2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+    const bound = el.e < 1;
+    // Parabolic (a infinite) and radial (h = 0) orbits make some elements
+    // undefined; report periapsis from h^2 / (mu (1 + e)) and 0 for an
+    // undefined inclination instead of NaN.
+    const finiteOr = (x, fallback) => (Number.isFinite(x) ? x : fallback);
     return {
-      semiMajorAxis: safeValue(a / AU_TO_KM), // Convert back to AU
-      eccentricity: safeValue(e),
-      inclination: safeValue(i),
-      periapsis: safeValue(a * (1 - e) / AU_TO_KM),
-      apoapsis: safeValue(a * (1 + e) / AU_TO_KM),
-      period: safeValue(period),
-      specificEnergy: safeValue(energy)
+      semiMajorAxis: el.a / AU_TO_KM,
+      eccentricity: el.e,
+      inclination: finiteOr(el.i * 180 / Math.PI, 0),
+      periapsis: finiteOr(el.a * (1 - el.e), el.h * el.h / (mu * (1 + el.e))) / AU_TO_KM,
+      apoapsis: bound ? el.a * (1 + el.e) / AU_TO_KM : Infinity,
+      period: bound ? el.period / 86400 : Infinity,
+      specificEnergy: 0.5 * vn2 - mu / rn,
     };
   }
   

@@ -654,6 +654,9 @@ export class TrajectoryPlanner {
         arrival: dv_capture_burn,
         total: dv_launch + dv_capture_burn
       },
+      // Signed along-track v_inf: negative (retrograde) for an inward
+      // transfer, so Earth -> Venus lowers the orbit instead of raising it.
+      vInfDeparture: v_transfer_1 - v1,
       transferTime: transferTime,
       maneuvers: [
         {
@@ -686,6 +689,7 @@ export class TrajectoryPlanner {
         total: hohmann.deltaV.total * 1.3
       },
       transferTime: hohmann.transferTime * 0.6,
+      vInfDeparture: hohmann.vInfDeparture * 1.3,
       maneuvers: hohmann.maneuvers.map(m => ({
         ...m,
         deltaV: m.deltaV * 1.3
@@ -745,6 +749,7 @@ export class TrajectoryPlanner {
         total: directTransfer.deltaV.total * flybyReduction + (0.5 * flybys.length)
       },
       transferTime: directTransfer.transferTime * timeMultiplier,
+      vInfDeparture: directTransfer.vInfDeparture * flybyReduction,
       maneuvers: maneuvers,
       flybys: flybys
     };
@@ -1116,29 +1121,44 @@ export class TrajectoryPlanner {
       return;
     }
     
-    // Launch spacecraft
     const depBody = this.currentPlan.departure;
-    const firstManeuver = this.currentPlan.maneuvers[0];
-    
-    // Create delta-v vector (simplified - assumes prograde)
-    const deltaV = new THREE.Vector3(firstManeuver.deltaV, 0, 0);
-    
-    // Use enhanced spacecraft if available
     const spacecraftName = `Mission-${this.currentPlan.arrival.toUpperCase()}`;
+    const L = this.currentPlan.lambert;
+    let spacecraft;
     
-    const spacecraft = this.simulation.launchSpacecraft(
-      spacecraftName,
-      depBody,
-      deltaV
-    );
+    if (L) {
+      // A Lambert plan from the porkchop: launch at its departure date with
+      // its exact v_inf (the arc's departure velocity minus the planet's).
+      const dep = this.currentPlan.departureDate;
+      const planet = helioStateEcl(depBody, dep);
+      const vInfEqj = eclToEqj([0, 1, 2].map((i) => L.v1[i] - planet.v[i]));
+      const tc = this.simulation.timeController;
+      if (Math.abs(tc.currentDate.getTime() - dep.getTime()) > 1000) {
+        tc.setDate(dep);
+        this.simulation.updateBodyPositions();
+      }
+      spacecraft = this.simulation.launchSpacecraft(spacecraftName, depBody, null, { vInfEqj });
+    } else {
+      // Hohmann estimate: v_inf along the prograde (along-track, y) axis of
+      // the RSW frame launchSpacecraft takes. It used to go on x (radial) and
+      // to use the parking-orbit burn instead of v_inf.
+      const vInf = this.currentPlan.vInfDeparture;
+      if (!Number.isFinite(vInf)) {
+        alert('This plan has no departure v_inf. Pick a transfer in the launch window instead.');
+        return;
+      }
+      spacecraft = this.simulation.launchSpacecraft(spacecraftName, depBody, new THREE.Vector3(0, vInf, 0));
+    }
     
     if (!spacecraft) {
       alert('Failed to launch spacecraft');
       return;
     }
     
-    // Schedule remaining maneuvers
-    this.currentPlan.maneuvers.slice(1).forEach(maneuver => {
+    // No arrival burn is scheduled for any plan: a burn timed for arrival and
+    // pointed relative to the Sun is not a capture, and patched-conic capture
+    // at the target is not modelled yet.
+    [].forEach(maneuver => {
     if (spacecraft.addManoeuvreNode) {
         const node = spacecraft.addManoeuvreNode(maneuver.time * SECONDS_PER_DAY);
         
@@ -1166,8 +1186,10 @@ export class TrajectoryPlanner {
     this.simulation.focusOnSpacecraft(spacecraft);
     
     // Show notification
-    this.simulation.showNotification(
-      `Trajectory executed: ${spacecraftName} launched to ${this.currentPlan.arrival}!`
+    this.simulation.showNotification(L
+      ? `${spacecraftName} launched on the Lambert arc to ${this.currentPlan.arrival}, ` +
+        `arriving ${this.fmtDate(L.arrivalDate)} (no capture burn: not modelled yet)`
+      : `${spacecraftName} launched toward ${this.currentPlan.arrival} (estimate; no capture burn: not modelled yet)`
     );
   }
   

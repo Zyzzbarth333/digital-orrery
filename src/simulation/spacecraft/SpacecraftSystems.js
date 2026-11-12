@@ -407,14 +407,11 @@ export class SpacecraftSystems {
       return { success: false, reason: 'Insufficient power' };
     }
     
-    // Execute burn
+    // Execute burn. The burn's own end time (BaseSpacecraft burns) sets the
+    // throttle back to 0: a real-time timer here ran burns for `duration`
+    // wall-clock seconds, i.e. days of sim time at warp.
     this.propulsion.main.throttle = 1.0;
     this.propulsion.main.ignitionsUsed++;
-    
-    // Schedule burn termination
-    setTimeout(() => {
-      this.propulsion.main.throttle = 0;
-    }, duration * 1000);
     
     return { success: true, fuelUsed: fuelRequired };
   }
