@@ -71,7 +71,7 @@ npm run build
 - Click a label or a name in the list: focus that body
 - Time bar: play or pause, choose a rate (real time to one year per second), or jump back to now
 
-A link can set the starting view: `?focus=mars&t=2030-01-01T00:00Z`.
+A link can set the starting view: `?focus=moon&t=2026-03-03T11:33:40Z&view=sun` (`view=sun` puts the camera on the sunlit side).
 
 ## Project structure
 

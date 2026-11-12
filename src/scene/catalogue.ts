@@ -23,6 +23,7 @@ export interface BodyInfo {
   // header of the satellite kernel named in planetGmNote (km^3/s^2).
   planetGm?: number;
   planetGmNote?: string;
+  geometricAlbedo: number | null;  // NASA NSSDCA fact sheet (V band)
   periodDays: number | null;    // orbital period about its primary
   parent: BodyKey | null;       // what it orbits (for its orbit line)
   colour: number;
@@ -45,6 +46,13 @@ const PLANET_GM: Partial<Record<BodyKey, [number, string]>> = {
   pluto: [8.693261226311508e2, 'NAIF 999, plu060 (DE440)'],
 };
 
+// Geometric albedo from the NASA NSSDCA planetary fact sheets (read
+// 12 Nov 2026; pages updated Jan 2024 to May 2025).
+const GEOMETRIC_ALBEDO: Partial<Record<BodyKey, number>> = {
+  mercury: 0.142, venus: 0.689, earth: 0.434, moon: 0.12, mars: 0.170,
+  jupiter: 0.538, saturn: 0.499, uranus: 0.488, neptune: 0.442, pluto: 0.52,
+};
+
 type PlanetRow = { name: string; radius: number; orbitalPeriod?: number };
 const P = PLANETS as Record<string, PlanetRow>;
 
@@ -63,17 +71,19 @@ function planet(key: Exclude<BodyKey, 'sun' | 'moon'>): BodyInfo {
   const own = PLANET_GM[key];
   return {
     key, name: P[key].name, radiusKm: P[key].radius, gm, gmNote,
+    geometricAlbedo: GEOMETRIC_ALBEDO[key] ?? null,
     ...(own ? { planetGm: own[0], planetGmNote: own[1] } : {}),
     periodDays: P[key].orbitalPeriod ?? null, parent: 'sun', colour: COLOUR[key],
   };
 }
 
 export const BODIES: BodyInfo[] = [
-  { key: 'sun', name: 'Sun', radiusKm: 695700, gm: MU_SUN, gmNote: 'DE442', periodDays: null, parent: null, colour: COLOUR.sun },
+  { key: 'sun', name: 'Sun', radiusKm: 695700, gm: MU_SUN, gmNote: 'DE442', geometricAlbedo: null, periodDays: null, parent: null, colour: COLOUR.sun },
   planet('mercury'),
   planet('venus'),
   planet('earth'),
   { key: 'moon', name: 'Moon', radiusKm: 1737.4, gm: bodyConstants('moon').mu, gmNote: 'NAIF 301 (DE442)',
+    geometricAlbedo: GEOMETRIC_ALBEDO.moon!,
     periodDays: 27.321661, parent: 'earth', colour: COLOUR.moon },
   planet('mars'),
   planet('jupiter'),

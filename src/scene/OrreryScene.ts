@@ -15,7 +15,9 @@
 // Frame: ecliptic J2000 with ecliptic north up: three.js (x, y, z) =
 // (x_ecl, z_ecl, -y_ecl).
 //
-// Light: the Sun is the only light, so night sides are dark. True-scale
+// Light: the Sun is the only light, falling off as 1/d^2, with eclipses
+// (bodyMaterial.ts). The exposure is metered for sunlight at the camera's
+// distance from the Sun, like a camera on a spacecraft there. True-scale
 // bodies are usually far below a pixel, so each has a constant-size marker
 // and label in an HTML overlay.
 
@@ -23,9 +25,16 @@ import * as THREE from 'three';
 import { helioStateEcl } from '../physics/ephemeris.js';
 import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
+import { makeBodyMaterial, MAX_OCCLUDERS } from './bodyMaterial';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
 const ORBIT_SAMPLES = 360;
+const AU_KM = 149597870.7;
+const SUN_RADIUS_KM = 695700;
+// Exposure for sunlight at 1 AU (sets the overall look; scaled by d^2).
+const EXPOSURE_1AU = 1.0;
+// Bodies whose surfaces are bare regolith (Lommel-Seeliger scattering).
+const AIRLESS: ReadonlySet<BodyKey> = new Set<BodyKey>(['mercury', 'moon', 'pluto']);
 type Vec3 = [number, number, number];
 
 export interface BodyState { r: Vec3; v: Vec3 }
@@ -57,7 +66,8 @@ export class OrreryScene {
   private meshes = new Map<BodyKey, THREE.Mesh>();
   private orbits = new Map<BodyKey, OrbitLine>();
   private labels = new Map<BodyKey, HTMLDivElement>();
-  private light: THREE.PointLight;
+  private materials = new Map<BodyKey, THREE.ShaderMaterial>();
+  private occluderKeys = new Map<BodyKey, BodyKey[]>();
   private sunGlow: THREE.Sprite;
   private states = {} as Record<BodyKey, BodyState>;
   private raf = 0;
@@ -72,7 +82,13 @@ export class OrreryScene {
   private az = -1.2;
   private el = 0.5;
 
+  private sunViewPending = false;
+
   onFocusChange: (key: BodyKey) => void = () => {};
+
+  // Put the camera on the Sun's side of the focused body, slightly off the
+  // Sun line so the terminator shows (applied on the next frame).
+  viewFromSun(): void { this.sunViewPending = true; }
 
   constructor(private container: HTMLElement, private overlay: HTMLElement, private clock: SimClock) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
@@ -84,18 +100,25 @@ export class OrreryScene {
     this.camera = new THREE.PerspectiveCamera(45, 1, 1e-3, 1e10);
     this.camera.position.set(0, 0, 0);
 
-    // The Sun is the light source. Decay 0: lit faces have the right shading
-    // (phase, terminator) everywhere; brightness falling off with distance
-    // belongs with exposure control in the visual-realism milestone.
-    this.light = new THREE.PointLight(0xffffff, 3.0, 0, 0);
-    this.scene.add(this.light);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.015));
-
+    // No light objects: each body's material computes its own sunlight.
+    // The Sun's disc is drawn at its true surface brightness relative to a
+    // white surface lit face-on at 1 AU, (1 AU / R_sun)^2, about 46,000.
     const sphere = new THREE.SphereGeometry(1, 96, 48);
     for (const b of BODIES) {
-      const material = b.key === 'sun'
-        ? new THREE.MeshBasicMaterial({ color: b.colour })
-        : new THREE.MeshStandardMaterial({ color: b.colour, roughness: 1, metalness: 0 });
+      let material: THREE.Material;
+      if (b.key === 'sun') {
+        const sun = new THREE.MeshBasicMaterial({ color: b.colour });
+        sun.color.multiplyScalar((AU_KM / SUN_RADIUS_KM) ** 2);
+        material = sun;
+      } else {
+        const m = makeBodyMaterial(b.colour, b.geometricAlbedo ?? 0.3, AIRLESS.has(b.key));
+        this.materials.set(b.key, m);
+        material = m;
+        // A body can be shadowed by its parent (not the Sun) and its moons.
+        const occ = BODIES.filter((o) => o.parent === b.key).map((o) => o.key);
+        if (b.parent && b.parent !== 'sun') occ.unshift(b.parent);
+        this.occluderKeys.set(b.key, occ.slice(0, MAX_OCCLUDERS));
+      }
       const mesh = new THREE.Mesh(sphere, material);
       mesh.scale.setScalar(b.radiusKm / UNIT_KM);
       this.scene.add(mesh);
@@ -106,7 +129,7 @@ export class OrreryScene {
       map: glowTexture(), color: 0xffd9a0, transparent: true, depthWrite: false,
       blending: THREE.AdditiveBlending,
     }));
-    this.sunGlow.scale.setScalar((695700 * 8) / UNIT_KM);
+    this.sunGlow.scale.setScalar((SUN_RADIUS_KM * 8) / UNIT_KM);
     this.scene.add(this.sunGlow);
 
     this.attachControls();
@@ -177,7 +200,8 @@ export class OrreryScene {
     }
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-    const mat = new THREE.LineBasicMaterial({ color: b.colour, transparent: true, opacity: 0.35 });
+    // A drawing aid, not light: kept out of the exposure and tone mapping.
+    const mat = new THREE.LineBasicMaterial({ color: b.colour, transparent: true, opacity: 0.35, toneMapped: false });
     return new THREE.Line(geom, mat);
   }
 
@@ -209,6 +233,12 @@ export class OrreryScene {
 
     // Camera position in km (ecliptic), relative to the focused body.
     const f = this.states[this.focus].r;
+    if (this.sunViewPending && this.focus !== 'sun') {
+      const d = Math.hypot(f[0], f[1], f[2]);
+      this.az = Math.atan2(-f[1], -f[0]) + 0.35;
+      this.el = Math.asin(-f[2] / d) + 0.15;
+      this.sunViewPending = false;
+    }
     const ce = Math.cos(this.el);
     const offset: Vec3 = [
       this.dist * ce * Math.cos(this.az), this.dist * ce * Math.sin(this.az), this.dist * Math.sin(this.el),
@@ -219,8 +249,8 @@ export class OrreryScene {
       toRender(sub(this.states[b.key].r, cam), this.meshes.get(b.key)!.position);
     }
     const sunPos = this.meshes.get('sun')!.position;
-    this.light.position.copy(sunPos);
     this.sunGlow.position.copy(sunPos);
+    this.updateLighting(sunPos, cam);
     for (const b of BODIES) {
       const o = this.orbits.get(b.key);
       if (o && b.parent) o.line.position.copy(this.meshes.get(b.parent)!.position);
@@ -233,6 +263,30 @@ export class OrreryScene {
     this.renderer.render(this.scene, this.camera);
     this.placeLabels();
   };
+
+  // Per-body sunlight and shadow casters, and the camera's exposure.
+  private updateLighting(sunPos: THREE.Vector3, cam: Vec3): void {
+    for (const [key, m] of this.materials) {
+      const r = this.states[key].r;
+      const dAu = Math.hypot(r[0], r[1], r[2]) / AU_KM;
+      const u = m.uniforms;
+      u.irradiance.value = 1 / (dAu * dAu);
+      (u.sunPos.value as THREE.Vector3).copy(sunPos);
+      u.sunRadius.value = SUN_RADIUS_KM / UNIT_KM;
+      const occ = u.occluders.value as THREE.Vector4[];
+      const keys = this.occluderKeys.get(key)!;
+      for (let i = 0; i < MAX_OCCLUDERS; i++) {
+        const k = keys[i];
+        if (!k) { occ[i].set(0, 0, 0, 0); continue; }
+        const p = this.meshes.get(k)!.position;
+        occ[i].set(p.x, p.y, p.z, BODY_BY_KEY[k].radiusKm / UNIT_KM);
+      }
+    }
+    // Meter for sunlight where the camera is (no closer than 0.2 AU, so the
+    // view from beside the Sun is not exposed for its photosphere).
+    const dCamAu = Math.max(0.2, Math.hypot(cam[0], cam[1], cam[2]) / AU_KM);
+    this.renderer.toneMappingExposure = EXPOSURE_1AU * dCamAu * dCamAu;
+  }
 
   // Markers and labels at each body's projected position. The dot hides once
   // the body itself is bigger than a few pixels.

@@ -18,7 +18,8 @@ they come from, and how each part is checked.
 
 | Page | Covers |
 | --- | --- |
-| [The 3D scene](frontend/scene.md) | True scale, the render frame, the floating origin, camera, orbit lines, lighting, time |
+| [The 3D scene](frontend/scene.md) | True scale, the render frame, the floating origin, camera, orbit lines, time |
+| [Lighting](frontend/lighting.md) | Inverse-square sunlight and exposure, albedo and scattering laws, eclipse umbra and penumbra |
 
 ## Checks
 

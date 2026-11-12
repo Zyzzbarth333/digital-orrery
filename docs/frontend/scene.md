@@ -66,10 +66,10 @@ includes the perturbations the ephemeris has.
 
 ## Lighting
 
-The Sun is a point light at its true position with no distance falloff, plus
-a very faint ambient term so night sides are not pure black. Colours are
-placeholder mean albedo colours; textures, atmospheres, rings, a star
-catalogue and HDR come in the realism milestone.
+Sunlight falls off as $1/d^2$, the exposure is metered at the camera's
+distance from the Sun, each body reflects its NASA geometric albedo, and
+eclipses are computed from the overlap of the Sun's and the occluder's
+discs. See [Lighting](lighting.md).
 
 ## Time
 
@@ -77,7 +77,8 @@ catalogue and HDR come in the realism milestone.
 real second and a play state. The render loop advances it by the real frame
 time (capped at 1 s, so a hidden tab does not jump). React panels subscribe
 through `useSyncExternalStore` and re-render at most ten times a second.
-The URL can set the start state: `?focus=mars&t=2030-01-01T00:00Z`.
+The URL can set the start state: `?focus=mars&t=2030-01-01T00:00Z`, and
+`&view=sun` starts on the sunlit side of the focused body.
 
 ## No WebGL
 
