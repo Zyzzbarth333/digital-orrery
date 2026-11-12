@@ -207,7 +207,25 @@ header('CASE 5: clock jumps, impacts and errors');
 
 header('CASE 6: launches, orbital elements and flying a Lambert plan');
 {
-  const { escapeStart } = await import('./launch.js');
+  const { escapeStart, departureHyperbola } = await import('./launch.js');
+  const { propagate, rvToElements } = await import('../../physics/orbital.js');
+  // The departure hyperbola itself (two-body about Earth): periapsis on the
+  // parking orbit, outgoing asymptote along v_inf, lowest-inclination plane.
+  {
+    const mu = 398600.4355, rp = 6578, vInf = [1.2, -2.5, 0.9];
+    const h = departureHyperbola({ planetR: [0, 0, 0], planetV: [0, 0, 0], vInf, mu, rp });
+    const el = rvToElements(h.r, h.v, mu);
+    const far = propagate(h.r, h.v, 200 * 86400, mu);
+    const vi = norm(vInf), vf = norm(far.v);
+    const angDeg = Math.acos((far.v[0] * vInf[0] + far.v[1] * vInf[1] + far.v[2] * vInf[2]) / (vf * vi)) * 180 / Math.PI;
+    const dlaDeg = Math.asin(vInf[2] / vi) * 180 / Math.PI;
+    console.log(`  departure hyperbola: rp ${(el.a * (1 - el.e)).toFixed(6)} km, e ${el.e.toFixed(6)}, nu ${(el.nu * 180 / Math.PI).toFixed(4)} deg; ` +
+      `after 200 d the velocity is ${angDeg.toExponential(2)} deg from v_inf; plane inclination ${(h.inclinationToPole * 180 / Math.PI).toFixed(4)} = |DLA| ${Math.abs(dlaDeg).toFixed(4)}`);
+    check('starts at periapsis on the parking orbit (rp to 1e-6 km, true anomaly 0)', Math.abs(el.a * (1 - el.e) - rp) < 1e-6 && Math.abs(Math.sin(el.nu)) < 1e-9);
+    check('the outgoing asymptote is v_inf (within 1e-3 deg after 200 days)', angDeg < 1e-3);
+    check('the plane is the lowest-inclination one (inclination = |declination of v_inf|)',
+      Math.abs(h.inclinationToPole * 180 / Math.PI - Math.abs(dlaDeg)) < 1e-9);
+  }
   const { OrbitalMechanics } = await import('../OrbitalMechanics.js');
   const { GRAVITATIONAL_PARAMETERS: GM, PLANETS } = await import('../../utils/constants.js');
   const sceneV = (a, s = 1) => new THREE.Vector3(a[0] * s, a[2] * s, -a[1] * s);
@@ -218,8 +236,10 @@ header('CASE 6: launches, orbital elements and flying a Lambert plan');
   // The launches PhysicsTest makes in the browser, flown here headless.
   const launch = (rsw, days) => {
     const vi = OrbitalMechanics.convertDeltaV(new THREE.Vector3(...rsw), sceneV(E0.r, 1 / AU_TO_KM), sceneV(E0.v));
-    const st = escapeStart({ planetR: E0.r, planetV: E0.v, vInf: [vi.x, -vi.z, vi.y], mu: GM.earth / 1e9,
-      radius: PLANETS.earth.radius, muSun: GM.sun / 1e9 });
+    const vInfEqj = [vi.x, -vi.z, vi.y];
+    const st = norm(vInfEqj) > 1e-6
+      ? departureHyperbola({ planetR: E0.r, planetV: E0.v, vInf: vInfEqj, mu: GM.earth / 1e9, rp: PLANETS.earth.radius + 200 })
+      : escapeStart({ planetR: E0.r, planetV: E0.v, vInf: vInfEqj, mu: GM.earth / 1e9, radius: PLANETS.earth.radius, muSun: GM.sun / 1e9 });
     const c = quiet(() => new BaseSpacecraft('l', { position: sceneV(st.r, 1 / AU_TO_KM).toArray(), velocity: sceneV(st.v).toArray() }));
     quiet(() => c.update(0, NO_BODIES, START));
     for (let k = 1; k <= days; k++) quiet(() => c.update(1, NO_BODIES, at(k * 86400)));
@@ -236,30 +256,34 @@ header('CASE 6: launches, orbital elements and flying a Lambert plan');
   check('Hohmann v_inf reaches Mars\'s distance (Ap 1.524 +/- 0.06)', Math.abs(h.apoapsis - 1.524) < 0.06 && Math.abs(h.periapsis - earthAU) < 0.03);
   check('12.3 km/s prograde escapes the Sun (e >= 1, apoapsis infinite)', e.eccentricity >= 1 && e.apoapsis === Infinity);
 
-  // Execute Plan for the 2026 porkchop minimum: launch with the Lambert arc's
-  // exact v_inf and fly it through the n-body kernel. With no correction
-  // burns it should pass Mars within its neighbourhood near the planned date
-  // (a wrong frame or axis for v_inf misses by tens of millions of km).
+  // Execute Plan for the 2026 porkchop minimum: depart from a 200 km parking
+  // orbit on the hyperbola whose asymptote is the Lambert arc's v_inf, and fly
+  // it through the n-body kernel. With no correction burns it passes Mars at
+  // ~371,000 km, ~7 days early (the radial start missed by 722,000 km, 18 days
+  // early); targeting will close the rest. A wrong frame or axis for v_inf
+  // would miss by tens of millions of km.
   const { transferBetween } = await import('../../physics/porkchop.js');
   const { helioStateEcl, eclToEqj } = await import('../../physics/ephemeris.js');
   const dep = new Date('2026-11-04T00:00:00Z'), tof = 308;
   const Ed = helioStateEcl('earth', dep), Ma = helioStateEcl('mars', new Date(dep.getTime() + tof * 864e5));
   const t = transferBetween(Ed, Ma, tof * 86400, GM.sun / 1e9, { mu: GM.earth / 1e9, rPark: 6571 }, { mu: GM.mars / 1e9, rPark: 3790, capture: true });
   const Eq = helioStateEqj('earth', dep);
-  const st = escapeStart({ planetR: Eq.r, planetV: Eq.v, vInf: eclToEqj([0, 1, 2].map((i) => t.v1[i] - Ed.v[i])),
-    mu: GM.earth / 1e9, radius: PLANETS.earth.radius, muSun: GM.sun / 1e9 });
+  const st = departureHyperbola({ planetR: Eq.r, planetV: Eq.v, vInf: eclToEqj([0, 1, 2].map((i) => t.v1[i] - Ed.v[i])),
+    mu: GM.earth / 1e9, rp: PLANETS.earth.radius + 200 });
   const c = quiet(() => new BaseSpacecraft('plan', { position: sceneV(st.r, 1 / AU_TO_KM).toArray(), velocity: sceneV(st.v).toArray() }));
   quiet(() => c.update(0, NO_BODIES, dep));
   let best = { d: Infinity, day: 0 };
-  for (let day = 0.25; day <= tof + 30; day += 0.25) {
+  // 15-minute frames for the first three days (the climb out of low orbit),
+  // then 6 hours.
+  for (let day = 1 / 96; day <= tof + 30; day += day < 3 ? 1 / 96 : 0.25) {
     const d = new Date(dep.getTime() + day * 864e5);
-    quiet(() => c.update(0.25, NO_BODIES, d));
+    quiet(() => c.update(day < 3 ? 1 / 96 : 0.25, NO_BODIES, d));
     const M = helioStateEqj('mars', d);
     const dist = norm(diff(c.kState.r, M.r));
     if (dist < best.d) best = { d: dist, day };
   }
   console.log(`  2026 Lambert plan flown by the kernel: closest to Mars ${(best.d / 1e3).toFixed(0)}k km on day ${best.day} (planned ${tof})`);
-  check('the flown Lambert plan passes Mars within 1.5 million km, within 30 days of the plan', best.d < 1.5e6 && Math.abs(best.day - tof) < 30);
+  check('the flown Lambert plan passes Mars within 500,000 km, within 12 days of the plan', best.d < 5e5 && Math.abs(best.day - tof) < 12);
 }
 
 header('CASE 7: review regressions (burns across clock jumps, fuel checks, plan v_inf)');
