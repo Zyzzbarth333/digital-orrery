@@ -10,7 +10,8 @@
     "test": "node src/physics/orbital.test.mjs && node src/physics/porkchop.test.mjs && node src/physics/nbody.test.mjs && node src/physics/orientation.test.mjs && node src/physics/craft.test.mjs && node src/physics/artemis2.validate.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "bench": "node src/physics/bench.mjs",
-    "validate:artemis2": "node src/physics/artemis2.validate.mjs"
+    "validate:artemis2": "node src/physics/artemis2.validate.mjs",
+    "design:artemis2": "node src/physics/artemis2.design.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

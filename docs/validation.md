@@ -93,6 +93,7 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | Closest approach to the Moon, from the flown state 20 h before | 6,543.5 km vs 6,545.0 km flown; 4 s early |
 | Burns reconstructed from the trajectory against NASA's figures | translunar injection 1,272.0 ft/s over 350.3 s (NASA: 1,274 ft/s planned, 5 min 50 s); return corrections 1.6 and 5.3 ft/s (NASA: the same) |
 | The whole mission in one run from before TLI, every burn replayed as flown | flyby 6,506.4 km (flown 6,545.0): the injection burn's 0.03 m/s grows to 40 km; entry interface 4,327 km off |
+| Our own plan: the injection burn designed from the pre-TLI orbit and NASA's published targets only | 1,270.7 ft/s over 348.2 s (NASA's plan: 1,274 ft/s, 5 min 49 s); within 182 km of the flown path for eight days; farthest from Earth equal to the flown to the kilometre |
 | The app's mission file, flown by the Craft model and kernel host | the replay's flyby to 0.4 km at every frame size; with a fix every 12 h, 1.3 km at entry |
 | The same with a tracking fix every 12 h | never more than 5 km off; 1.1 km at entry interface |
 | Coast arcs, 0.2–2.1 days | 0.4–49 km at the end (JSC's 1σ: 0.2–1 km) |

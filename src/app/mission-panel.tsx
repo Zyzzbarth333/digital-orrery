@@ -125,10 +125,10 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         <ul className="legend">
           <li><i className="sw conic" />Amber: the orbit it would follow if only {P ? P.name : 'the Sun'} pulled on it (the osculating orbit)</li>
           <li><i className="sw trail" />Glowing: the path it has flown, brightest at the craft</li>
-          {run && <li><i className="sw flown" />Green: the path the real {run.m.name} flew</li>}
+          {run && <li><i className="sw flown" />Green: the path the real Artemis II flew{run.plan ? '; amber and the glow are our own plan' : ''}</li>}
         </ul>
 
-        {run && (
+        {run && !run.plan && (
           <details className="section" open>
           <summary className="strip">Tracking</summary>
           <label className="num">

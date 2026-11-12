@@ -76,6 +76,12 @@ written from JSC's reconstructed trajectory by
   flown state, as a navigation team's tracking would.
 - **Setting the clock inside the mission** puts the craft where the real one
   was.
+- **Artemis II · our own plan** flies the simulator's own design of the
+  mission instead. It's planned from the pre-TLI orbit and NASA's published
+  targets only ([our own plan](../validation/artemis2.md#6-our-own-plan)),
+  beside the real path, so "From the flown path" compares ours with
+  theirs. Its file takes the flown path from `artemis2.json`
+  (`flownFrom`).
 
 What the craft does is checked against the real flight in
 [the Artemis II validation](../validation/artemis2.md): the mission file,

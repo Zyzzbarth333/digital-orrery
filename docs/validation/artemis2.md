@@ -101,7 +101,7 @@ only.
 
 ## The checks
 
-All four use `advance()` from `nbody.js`, the same integrator the app uses
+All of them use `advance()` from `nbody.js`, the same integrator the app uses
 for spacecraft:
 - Encke's method near Earth and the Moon;
 - the Sun and planets, with DE442's own Earth and Moon (the app's
@@ -224,6 +224,87 @@ The fixes are perfect here: the flown state itself. A real fix would carry
 the tracking's own error, about 0.2–1 km in this phase going by JSC's
 covariance.
 
+### 5. In the app
+
+The app flies the same mission:
+- **Loading:** from **Real missions** on the MISSION tab, or with
+  `?mission=artemis2`. Adding `&t=…` starts inside the mission, and
+  `&fix=12` adds tracking fixes every 12 h.
+- **The file:** `public/missions/artemis2.json` (298 kB), written by
+  `artemis2.export.mjs`. It holds the start state, the burns as 5-second
+  intervals, and the flown trajectory. That is sampled every 10 minutes,
+  every minute near Earth and every 5 s through each burn, so
+  interpolation never bridges a burn. With the samples thinned to every
+  other one, interpolation stays within 11 m near Earth.
+- **The check:** the validation flies that file through the app's own
+  Craft model and kernel host in one-minute frames. It reproduces the
+  replay's flyby (6,506.8 km against 6,506.4 km) at every frame size from
+  0.25 s to one request, and with a fix every 12 h it is 1.3 km off at
+  entry.
+
+### 6. Our own plan
+
+Can the simulator plan Artemis II itself, without NASA's trajectory, and
+arrive at the same flight? `src/physics/artemis2.design.mjs` (run with
+`npm run design:artemis2`, about 20 s) designs the injection burn from:
+- **One input from the data:** the orbit Orion was in ten minutes before
+  the burn, which is what the launch delivered.
+- **NASA's published figures, nothing else:**
+  - **The flyby:** 4,067 miles (6,545.2 km) above the Moon at 7:00:46 pm
+    EDT on 6 April (23:00:46 UTC), during the loss of signal behind the
+    Moon
+    ([NASA](https://www.nasa.gov/blogs/missions/2026/04/06/artemis-ii-flight-day-6-crew-wraps-historic-lunar-flyby/),
+    [CBS](https://www.cbsnews.com/live-updates/artemis-moon-lunar-flyby/)).
+  - **Entry interface:** 400,000 ft at 7:53 pm EDT on 10 April (23:53 UTC)
+    ([NASA](https://www.nasa.gov/blogs/missions/2026/04/09/artemis-ii-flight-day-9-crew-prepares-to-come-home/)).
+  - **The engine:** 26.7 kN at an Isp of 315.1 s
+    ([NASA](https://ntrs.nasa.gov/api/citations/20240003648/downloads/382_BELAIR_ARTEMIS_I_ENGINE_PERFORMANCE_FINAL.pdf)).
+    NASA's planned 1,274 ft/s in 5 min 49 s then fixes Orion's mass at
+    ignition: 25,536 kg.
+
+**The method:**
+1. **B-plane targeting.** The burn is three Δv components, held in the
+   orbital frame as a finite burn. Newton solves them so that the approach
+   to the Moon, 18 hours out, passes a chosen aim point at the chosen time.
+   The first guess is Lambert's two-body transfer to the Moon's centre.
+2. **The family of free returns.** Once the flyby altitude and time are
+   met, the aim point's angle is the only freedom left. Marching that angle
+   shows only a narrow band, 184–186°, brings Orion home. The rest fly past
+   Earth, some by 450,000 km. Within the band, the entry angle runs from
+   steep (−20°) to skipping off the atmosphere. The member that reaches
+   entry interface at NASA's time is found by bisection. The aim point's
+   distance and time are then corrected until the true flyby, not its
+   osculating estimate, meets NASA's.
+3. **Ignition time.** NASA gives it to the minute. The design takes the
+   time that needs the least Δv, 23:50:23 UTC. The minimum is shallow:
+   igniting at 23:49:00 would cost 10 m/s more, and at 23:49:50 only 1.3.
+
+| | Our plan | NASA's plan | Flown |
+| --- | --- | --- | --- |
+| Injection burn | 1,270.7 ft/s (387.32 m/s) | 1,274 ft/s | 1,272.0 ft/s, plus 14 ft/s of settling thrust before ignition |
+| Duration | 348.2 s | 5 min 49 s | 350.3 s |
+| Ignition (UTC) | 23:50:23 | about 23:49 | 23:49:50 |
+| Direction (prograde, in-plane, normal) | 0.958, 0.112, −0.264 | | 0.951, 0.063, −0.304: 3.6° away |
+| Lunar flyby | 6,545.5 km at 23:00:45 | 6,545.2 km at 23:00:46 | 6,545.0 km at 23:00:49 |
+| Farthest from Earth | 413,145 km | 252,756 mi (406,771 km) from the surface, about 413,140 km from the centre | 413,145 km |
+| Entry interface (UTC) | 23:53:00 | 23:53 | 23:53:24 (the data's end, 129.7 km up) |
+| Entry angle | −7.31° | not published | −6.24° |
+| Speed at entry, relative to the rotating Earth | 10.633 km/s | about 23,864 mph (10.668 km/s) | 10.626 km/s |
+| Entry interface over | 17.1°N, 147.8°W | | 18.4°N, 146.1°W (about 230 km away) |
+
+Planned only from NASA's published targets, the simulator's Artemis II
+stays within 182 km of the real one for the whole eight days. Its
+injection burn is within 0.3 % of NASA's plan, and it reaches the same
+farthest point from Earth to the kilometre.
+
+The remaining differences have clear sources:
+- **The real flight was corrected in flight,** with about 8 m/s of burns,
+  and felt the steady push.
+- **The real injection burn** lit about 35 s before our minimum-Δv time,
+  after 4.3 m/s of settling thrust.
+- **The entry angle:** our plan meets the entry time but chooses its angle
+  freely. NASA's entry angle wasn't published, so it couldn't be a target.
+
 ## What the errors come from
 
 1. **Earth's J2, now in the kernel.**
@@ -306,24 +387,6 @@ force model. Doing better here would mean using the flown data during the
 flight, as orbit determination does. That is a different feature from a
 predictive simulator.
 
-### 5. In the app
-
-The app flies the same mission:
-- **Loading:** from **Real missions** on the MISSION tab, or with
-  `?mission=artemis2`. Adding `&t=…` starts inside the mission, and
-  `&fix=12` adds tracking fixes every 12 h.
-- **The file:** `public/missions/artemis2.json` (298 kB), written by
-  `artemis2.export.mjs`. It holds the start state, the burns as 5-second
-  intervals, and the flown trajectory. That is sampled every 10 minutes,
-  every minute near Earth and every 5 s through each burn, so
-  interpolation never bridges a burn. With the samples thinned to every
-  other one, interpolation stays within 11 m near Earth.
-- **The check:** the validation flies that file through the app's own
-  Craft model and kernel host in one-minute frames. It reproduces the
-  replay's flyby (6,506.8 km against 6,506.4 km) at every frame size from
-  0.25 s to one request, and with a fix every 12 h it is 1.3 km off at
-  entry.
-
 ## Regression checks
 
 `artemis2.validate.mjs` runs in `npm test`, and fails if:
@@ -344,7 +407,13 @@ The app flies the same mission:
 - the app's Moon strays more than 5 m from DE442;
 - the app's own path, flying the mission file, misses the replay's flyby
   by more than 2 km, or (with a fix every 12 h) ends more than 5 km off at
-  entry or strays more than 10 km.
+  entry or strays more than 10 km;
+- our saved plan, flown again, misses NASA's flyby by more than 1 km or
+  5 s, or the entry time by more than 5 s;
+- our plan's burn strays more than 1 % from 1,274 ft/s or 3 s from 349 s,
+  or ignites more than 2 minutes from 23:49;
+- our plan strays more than 300 km from the flown path, or its farthest
+  point from Earth is more than 10 km from the flown one.
 
 ## Regenerate
 
@@ -355,13 +424,14 @@ Artemis II SPKs in `python/data/kernels/spk/missions/artemis2/`:
 cmake --build c/build
 c/build/artemis2_ref src/physics/fixtures/artemis2_bet.json 600
 c/build/artemis2_ref src/physics/fixtures/artemis2_near.json 60 \
-  2026-04-03T00:05:00 2026-04-03T03:00:00  2026-04-10T19:05:00 2026-04-10T23:30:00
+  2026-04-03T00:05:00 2026-04-03T03:00:00  2026-04-10T19:05:00 2026-04-10T23:54:00
 c/build/artemis2_ref src/physics/fixtures/artemis2_burns.json 5 \
   2026-04-02T23:40:00 2026-04-03T00:05:00  2026-04-05T01:15:00 2026-04-05T01:50:00 \
   2026-04-06T02:55:00 2026-04-06T03:15:00  2026-04-07T23:55:00 2026-04-08T00:15:00 \
   2026-04-10T02:45:00 2026-04-10T03:05:00  2026-04-10T18:45:00 2026-04-10T19:05:00
 node src/physics/artemis2.validate.mjs
 node src/physics/artemis2.export.mjs     # the app's mission file
+node src/physics/artemis2.design.mjs     # our own plan, and its mission file
 ```
 
 ## Next

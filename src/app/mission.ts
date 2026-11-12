@@ -40,10 +40,15 @@ export type DepartureDirection = 'prograde' | 'retrograde' | 'outward' | 'inward
 
 export interface MissionSnapshot { version: number; selected: number | null }
 export type RealBurns = 'all' | 'first';
-interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[] }
+// plan: the simulator's own design flown beside the real path (its file
+// takes the flown path from another, flownFrom), not the real craft.
+interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean }
 
 // The real missions the app can fly: file id and label.
-export const REAL_MISSIONS = [{ id: 'artemis2', label: 'Artemis II · April 2026' }];
+export const REAL_MISSIONS = [
+  { id: 'artemis2', label: 'Artemis II · April 2026' },
+  { id: 'artemis2-plan', label: 'Artemis II · our own plan' },
+];
 
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: number[]): V3 => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
@@ -150,9 +155,15 @@ export class Mission {
   // ---------------- real missions ----------------
 
   async fetchReal(id: string): Promise<RealMission> {
-    const res = await fetch(`${import.meta.env.BASE_URL}missions/${id}.json`);
-    if (!res.ok) throw new Error(`mission ${id}: HTTP ${res.status}`);
-    return new RealMission(await res.json());
+    const get = async (name: string) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}missions/${name}.json`);
+      if (!res.ok) throw new Error(`mission ${name}: HTTP ${res.status}`);
+      return res.json();
+    };
+    const data = await get(id);
+    // A plan flown beside a real mission takes that mission's flown path.
+    if (data.flownFrom) data.flown = (await get(data.flownFrom)).flown;
+    return new RealMission(data);
   }
 
   // Fly a real mission from its start (the clock should already be there).
@@ -163,7 +174,7 @@ export class Mission {
     c.setScript(new RealMission({ ...m.data, burns: keep }).script());
     c.note(burns === 'all' ? `${m.burns.length} burns scripted as flown` : `${keep[0].name} scripted as flown; the corrections are yours`, s.t);
     const refEcl = m.flown.map((p: number[]) => eqjToEclFast([p[1], p[2], p[3]]));
-    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl });
+    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom });
     this.crafts.push(c);
     this.select(c.id);
     return c;
@@ -186,7 +197,11 @@ export class Mission {
   private track(c: Craft, nowMs: number, jumped: boolean): void {
     const R = this.real.get(c.id);
     if (!R) return;
-    if (jumped) {
+    if (jumped && R.plan) {
+      // A plan has no flown state of its own: fly it again from its start,
+      // which the kernel catches up to the clock.
+      if (nowMs > R.m.startMs) { const s0 = R.m.startState(); c.setState(s0.r, s0.v, s0.t); c.note('clock set: flying the plan again from its start', s0.t); }
+    } else if (jumped) {
       const x = R.m.fixAt(nowMs);
       if (x) { c.setState(x.r, x.v, x.t); c.note('clock set: placed on the flown path', x.t); }
     } else {

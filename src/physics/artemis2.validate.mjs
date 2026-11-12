@@ -24,6 +24,11 @@
 //  6. The app's own path: the mission file (public/missions/artemis2.json)
 //     flown by the Craft model through the kernel host, frame by frame,
 //     as the app flies it.
+//  7. Our own plan, independent of the flown data after the start:
+//     artemis2.design.mjs designs the injection burn from NASA's published
+//     targets (about a minute; its result is fixtures/artemis2_design.json).
+//     Here the saved design is flown again, checked against those targets,
+//     and compared with what NASA planned and what Orion flew.
 //
 //   node src/physics/artemis2.validate.mjs [--json out.json]
 
@@ -35,6 +40,7 @@ import { helioStateEqj } from './ephemeris.js';
 import { Craft } from './craft.js';
 import { KernelClient } from './kernelClient.js';
 import { RealMission } from './realMission.js';
+import { flyDesign, TARGETS, MASS0 } from './artemis2.design.mjs';
 import {
   rows, sys, kt, sub, norm, helioOf, geocentric, closest, craftMoon, betMoon, splitError,
   reconstructBurns, matchNasa, flyMission,
@@ -186,6 +192,18 @@ function flyApp(fixHours) {
 }
 const app = flyApp(null), app12 = flyApp(12);
 
+// ---------------- 7. our own plan ----------------
+const plan = JSON.parse(fs.readFileSync(new URL('./fixtures/artemis2_design.json', import.meta.url)));
+const pf = flyDesign(plan.dvKms, plan.ignitionMs), pc = plan.comparison;
+const ftps = (kms) => kms * 1e6 / 304.8, tli7 = burns.find((b) => b.key === 'TLI');
+const angle = (a, b) => Math.acos(Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / Math.hypot(...a) / Math.hypot(...b))) * 180 / Math.PI;
+console.log('\n7. our own plan: the injection burn designed from the pre-TLI orbit and NASA\'s published targets');
+console.log(`  burn       ours ${ftps(pf.mag).toFixed(1)} ft/s over ${pf.seconds.toFixed(1)} s from ${new Date(plan.ignitionMs).toISOString().slice(11, 19)}; NASA planned 1,274 ft/s over 349 s from about 23:49; flown ${tli7.ftps.toFixed(1)} ft/s over ${tli7.seconds.toFixed(1)} s`);
+console.log(`  direction  ours and flown ${angle(plan.dvKms, tli7.dir).toFixed(1)} deg apart (orbital frame); Orion's mass at ignition, from NASA's plan and the engine, ${MASS0.toFixed(0)} kg`);
+console.log(`  flyby      ${pf.flyby.altitude.toFixed(2)} km at ${pf.flyby.utc.slice(11, 19)} (NASA: 6,545.2 km at 23:00:46)`);
+console.log(`  entry      ${new Date(pf.ei.ms).toISOString().slice(11, 19)} at ${pf.ei.fpa.toFixed(2)} deg, ${pf.ei.speed.toFixed(4)} km/s, over ${pc.oursEi.lat.toFixed(2)} ${pc.oursEi.lon.toFixed(2)}; flown ${new Date(pc.flownEi.ms).toISOString().slice(11, 19)} at ${pc.flownEi.fpa.toFixed(2)} deg, ${pc.flownEi.speed.toFixed(4)} km/s, over ${pc.flownEi.lat.toFixed(2)} ${pc.flownEi.lon.toFixed(2)}`);
+console.log(`  path       at most ${pc.max.toFixed(0)} km from the flown one; farthest from Earth ${pc.farthest.ours.km.toFixed(0)} km (flown ${pc.farthest.flown.km.toFixed(0)} km; NASA 252,756 mi from the surface)`);
+
 // The app's Moon against DE442's, over the mission.
 const moonErr = rows.map((p) => norm(sub(sub(helioStateEqj('moon', new Date(p.ms)).r, helioStateEqj('earth', new Date(p.ms)).r), p.moonR)));
 console.log(`\nthe app's Moon vs DE442 (geocentric): max ${(Math.max(...moonErr) * 1000).toFixed(2)} m`);
@@ -210,6 +228,9 @@ check('a fix every 12 h: within 5 km at entry, never more than 1,000 km off', fi
 check("the app's Moon within 5 m of DE442 over the mission", Math.max(...moonErr) < 0.005);
 check("the app's path flies the mission file without error, to within 2 km of the replay's flyby", !app.error && Math.abs(app.closest.altitude - missionBefore.closest.altitude) < 2);
 check("the app's path with a fix every 12 h: within 5 km at entry, never more than 10 km off", app12.end < 5 && app12.worst < 10);
+check('our plan still meets NASA\'s flyby (1 km, 5 s) and entry time (5 s)', Math.abs(pf.flyby.altitude - TARGETS.flybyAltKm) < 1 && Math.abs(Date.parse(pf.flyby.utc) - TARGETS.flybyMs) < 5e3 && Math.abs(pf.ei.ms - TARGETS.eiMs) < 5e3);
+check('our plan\'s injection burn within 1 % of NASA\'s planned 1,274 ft/s and 3 s of its 349 s, igniting within 2 min of 23:49', Math.abs(ftps(pf.mag) / 1274 - 1) < 0.01 && Math.abs(pf.seconds - 349) < 3 && Math.abs(plan.ignitionMs - TARGETS.planIgnitionMs) < 120e3);
+check('our plan stays within 300 km of the flown path, and its farthest from Earth within 10 km of the flown', pc.max < 300 && Math.abs(pc.farthest.ours.km - pc.farthest.flown.km) < 10);
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
 process.exitCode = failures ? 1 : 0;
 
