@@ -898,10 +898,13 @@ export class SolarSystem {
     
     // The delta-v (radial, along-track, cross-track) is the hyperbolic excess
     // velocity v_inf the craft should leave the planet with. The kernel applies
-    // the planet's gravity, so the craft starts on that escape hyperbola at the
-    // edge of the planet's sphere of influence, on the outbound asymptote, with
-    // the speed energy conservation gives there: sqrt(v_inf^2 + 2 mu / R).
-    // The planet then slows it to v_inf as it climbs out.
+    // the planet's gravity, so the craft starts on that escape hyperbola, on
+    // the outbound asymptote at R = min(100 planet radii, sphere of influence),
+    // with the speed energy conservation gives there: sqrt(v_inf^2 + 2 mu / R).
+    // The planet then slows it to v_inf as it climbs out. Measured against the
+    // patched-conic energy: 0.3 % for Earth, 0.1 % for Mars, 3 % for Jupiter,
+    // where the Sun's pull during the long climb is real physics the patched
+    // conic leaves out.
     const vInf = OrbitalMechanics.convertDeltaV(
       deltaV || new THREE.Vector3(0, 0, 0),
       position,
@@ -909,7 +912,10 @@ export class SolarSystem {
     );
     const muPlanet = (GRAVITATIONAL_PARAMETERS[fromBody] || 0) / 1e9;   // km^3/s^2
     const muSun = GRAVITATIONAL_PARAMETERS.sun / 1e9;
-    const soiKm = position.length() * AU_TO_KM * Math.pow(muPlanet / muSun, 0.4);
+    const soiKm = Math.min(
+      position.length() * AU_TO_KM * Math.pow(muPlanet / muSun, 0.4),
+      100 * (PLANETS[fromBody]?.radius || 0)
+    );
     const outward = vInf.lengthSq() > 0
       ? vInf.clone().normalize()
       : planetVelocity.clone().normalize();
@@ -1022,7 +1028,19 @@ export class SolarSystem {
         craft.update(deltaTime, this.bodies, now);
         if (craft.crashed && !craft.crashNotified) {
           craft.crashNotified = true;
-          this.showNotification(`${craft.name} impacted ${craft.primaryBody ?? 'a body'}`);
+          this.showNotification(`${craft.name} impacted ${craft.impactBody ?? 'a body'}`);
+        }
+        // Physics behind the clock: say so once per episode.
+        const lagging = craft.physicsLagSeconds > 3600;
+        if (lagging && !craft.lagNotified) {
+          craft.lagNotified = true;
+          this.showNotification(`${craft.name}: physics is behind the clock at this warp; slow down for full accuracy`);
+        } else if (!lagging) {
+          craft.lagNotified = false;
+        }
+        if (craft.clockJumped) {
+          craft.clockJumped = false;
+          this.showNotification(`${craft.name} kept its state across the time jump`);
         }
       });
     }

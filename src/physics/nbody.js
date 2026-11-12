@@ -25,9 +25,14 @@
 // The step is eta times the shortest local dynamical time sqrt(d^3/mu) over
 // the Sun and every body, so it shrinks near a planet and grows in cruise.
 //
-// Events: an impact (closer to a body than its radius) stops the advance;
-// a change of primary (the body whose sphere of influence holds the craft)
-// is reported and the advance continues.
+// Events: an impact (closer to the Sun or a body than its radius) stops the
+// advance; a change of primary (the body whose sphere of influence holds the
+// craft) is reported and the advance continues.
+//
+// Each call has a step budget. Steps are never stretched to meet it: when it
+// runs out the advance stops short of tEnd and says so (complete: false), and
+// the caller continues from state.t next time. A stretched step near a planet
+// can pass straight through it.
 
 const W_CBRT2 = Math.cbrt(2.0);
 const YOSHIDA_W1 = 1.0 / (2.0 - W_CBRT2);
@@ -105,8 +110,8 @@ export function primaryOf(r, bodies, muSun) {
     const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
     const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
     let soi;
-    if (b.parent) {
-      const P = bodies.find((x) => x.key === b.parent);
+    const P = b.parent ? bodies.find((x) => x.key === b.parent) : null;
+    if (P) {
       const px = b.r[0] - P.r[0], py = b.r[1] - P.r[1], pz = b.r[2] - P.r[2];
       soi = soiRadius(Math.sqrt(px * px + py * py + pz * pz), b.mu, P.mu);
     } else {
@@ -127,17 +132,18 @@ export function primaryOf(r, bodies, muSun) {
 //               4th order: halving it cuts the error about 16x)
 //   hMax        largest step in s (default 1 day)
 //   fixedStep   use this |h| for every step instead of the eta rule
-//   maxSteps    step budget for this call (default 200,000). If the budget
-//               would run out, the remaining steps are stretched to reach tEnd
-//               and the result says `degraded: true`.
+//   maxSteps    step budget for this call (default 200,000). When it runs out
+//               the advance stops early with complete: false.
+//   sunRadius   km (default 695,700); closer than this is an impact on 'sun'
 //   extraAccel(t, r, out)   optional non-gravitational acceleration (thrust)
 //
-// Returns { steps, events, degraded }. events holds { type: 'impact', body, t }
-// (the advance stops there) and { type: 'primary', from, to, t }.
+// Returns { steps, events, complete }. complete is false when the budget ran
+// out (state.t is then short of tEnd) or an impact stopped the advance.
+// events holds { type: 'impact', body, t } and { type: 'primary', from, to, t }.
 export function advance(state, tEnd, opts) {
   const {
     bodiesAt, muSun, method = 'yoshida4', eta = 0.01, hMax = 86400.0,
-    fixedStep = null, maxSteps = 200000, extraAccel = null,
+    fixedStep = null, maxSteps = 200000, extraAccel = null, sunRadius = 695700.0,
   } = opts;
   const integrate = METHODS[method];
   if (!integrate) throw new Error(`nbody: unknown method '${method}'`);
@@ -158,7 +164,6 @@ export function advance(state, tEnd, opts) {
   const a = acc(state.t, r, [0, 0, 0]);
   if (state.primary === null) state.primary = primaryOf(r, bodiesAt(state.t), muSun);
   let steps = 0;
-  let degraded = false;
 
   while (dir * (tEnd - state.t) > 0) {
     const bodies = bodiesAt(state.t);
@@ -176,9 +181,7 @@ export function advance(state, tEnd, opts) {
       h = Math.min(eta * tau, hMax);
     }
     const remaining = dir * (tEnd - state.t);
-    const left = maxSteps - steps;
-    if (left <= 0) break;
-    if (remaining / h > left) { h = remaining / left; degraded = true; }
+    if (steps >= maxSteps) return { steps, events, complete: false };
     // The last step lands exactly on tEnd. Comparing against a fixed epsilon
     // instead fails once t is large: at t ~ 1e8 s a leftover of 1e-8 s is
     // below one ulp, t stops advancing and the loop drifts r without time.
@@ -190,13 +193,17 @@ export function advance(state, tEnd, opts) {
     steps++;
 
     // Events, checked at the end of each step.
+    if (r[0] * r[0] + r[1] * r[1] + r[2] * r[2] < sunRadius * sunRadius) {
+      events.push({ type: 'impact', body: 'sun', t: state.t });
+      return { steps, events, complete: false };
+    }
     const now = bodiesAt(state.t);
     for (const b of now) {
       if (!(b.radius > 0)) continue;
       const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
       if (dx * dx + dy * dy + dz * dz < b.radius * b.radius) {
         events.push({ type: 'impact', body: b.key, t: state.t });
-        return { steps, events, degraded };
+        return { steps, events, complete: false };
       }
     }
     const p = primaryOf(r, now, muSun);
@@ -205,7 +212,7 @@ export function advance(state, tEnd, opts) {
       state.primary = p;
     }
   }
-  return { steps, events, degraded };
+  return { steps, events, complete: true };
 }
 
 // Specific orbital energy about the Sun alone (for conservation checks).

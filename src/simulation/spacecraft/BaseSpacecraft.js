@@ -307,16 +307,34 @@ export class BaseSpacecraft {
     }
   }
   
-  // Advance the craft from the end of the last frame to the sim clock with the
-  // kernel: the Sun, planets and Moon at their ephemeris positions throughout
-  // the frame, sub-stepped by distance to the nearest body. The state is read
+  // Advance the craft from where its physics last stopped to the sim clock
+  // with the kernel: the Sun, planets and Moon at their ephemeris positions
+  // throughout, sub-stepped by distance to the nearest body. The state is read
   // from this.position/this.velocity each frame, so instantaneous changes made
   // elsewhere (a manoeuvre's delta-v) are picked up.
+  //
+  // If the frame needs more sub-steps than the budget allows (very high warp
+  // near a planet), the craft stops short and catches up over later frames;
+  // physicsLagSeconds says how far behind the clock it is. A clock jump (reset,
+  // a date set directly) is not integrated: the craft keeps its state and is
+  // re-anchored to the new time, and clockJumped is set.
   integrateMotion(dt, thrust, currentDate) {
     const sys = getKernelBodies();
     const tEnd = currentDate
       ? (currentDate.getTime() - KERNEL_EPOCH_MS) / 1000
       : (this.kernelTime ?? 0) + dt;
+    if (this.kernelTime !== undefined) {
+      const expected = dt + (this.physicsLagSeconds || 0);
+      const actual = tEnd - this.kernelTime;
+      if (Math.abs(actual - expected) > Math.max(1.0, 1e-6 * Math.abs(expected))) {
+        this.kernelTime = tEnd;
+        this.physicsLagSeconds = 0;
+        this.clockJumped = true;
+        console.warn(`${this.name}: sim clock jumped by ${((actual - expected) / 86400).toFixed(2)} d; ` +
+          'the craft keeps its state at the new time rather than being integrated across the jump');
+        return;
+      }
+    }
     const tStart = this.kernelTime ?? tEnd - dt;
     const state = createState(sceneToEqj(this.position, AU_TO_KM), sceneToEqj(this.velocity), tStart);
     state.primary = this.primaryBody ?? null;
@@ -329,7 +347,7 @@ export class BaseSpacecraft {
     });
     this.kernelTime = state.t;
     this.primaryBody = state.primary;
-    this.physicsDegraded = res.degraded;
+    this.physicsLagSeconds = Math.max(0, tEnd - state.t);
     eqjToScene(state.r, this.position, 1 / AU_TO_KM);
     eqjToScene(state.v, this.velocity);
     // Acceleration for telemetry, in m/s^2 like before.
@@ -338,6 +356,8 @@ export class BaseSpacecraft {
     for (const ev of res.events) {
       if (ev.type === 'impact') {
         this.crashed = true;
+        this.impactBody = ev.body;
+        this.physicsLagSeconds = 0;
         this.engineOn = false;
         console.warn(`${this.name}: impact on ${ev.body}`);
       } else if (ev.type === 'primary') {

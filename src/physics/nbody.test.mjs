@@ -1,7 +1,7 @@
 // src/physics/nbody.test.mjs
 //
-// Tests for the spacecraft kernel (nbody.js). Cases 1-7 use synthetic bodies
-// and need no install; cases 8-9 use the real ephemeris (bodies.js, needs
+// Tests for the spacecraft kernel (nbody.js). Cases 1-6 use synthetic bodies
+// and need no install; cases 7-9 use the real ephemeris (bodies.js, needs
 // `npm install` for astronomy-engine). Run with:
 //     node src/physics/nbody.test.mjs
 
@@ -158,18 +158,72 @@ header('CASE 6: events');
   const res2 = advance(st2, 5 * DAY, { bodiesAt, muSun: MU_SUN });
   const entry = res2.events.find((e) => e.type === 'primary' && e.to === 'earthlike');
   check('entering the sphere of influence is reported', !!entry);
-  // Step budget: too few steps for the span stretches them and says so.
+  // Step budget: running out stops the advance short of tEnd (steps are never
+  // stretched, since a stretched step near a planet can pass through it).
   const st3 = createState([AU, 0, 0], [0, 29.78, 0], 0);
   const res3 = advance(st3, 365 * DAY, { bodiesAt: noBodies, muSun: MU_SUN, maxSteps: 50 });
-  check('an exhausted step budget still reaches tEnd and flags degraded',
-    res3.degraded && Math.abs(st3.t - 365 * DAY) < 1e-6);
+  check('an exhausted budget stops short (complete false, t < tEnd, 50 steps)',
+    !res3.complete && st3.t < 365 * DAY && res3.steps === 50);
+  // A close flyby inside one long frame (decade-a-second warp): within the
+  // app's budget it must match an unlimited run. The old stretching rule
+  // flagged this frame after 85 steps and left the velocity 1.4 km/s off.
+  // The Sun is switched off here: this planet is held still, so the Sun's pull
+  // on the craft alone would move it ~5e5 km during the 4.6-day approach.
+  // Miss distance for a 7000 km periapsis at 5 km/s, allowing for gravitational
+  // focusing: b = rp sqrt(1 + 2 mu / (rp v^2)).
+  const bMiss = 7000 * Math.sqrt(1 + 2 * muP / (7000 * 25));
+  const flyby = (maxSteps) => {
+    const s = createState([AU + 2e6, bMiss, 0], [-5, 0, 0], 0);
+    const r = advance(s, 60 * DAY, { bodiesAt, muSun: 0, maxSteps });
+    return { s, r };
+  };
+  const A = flyby(20000), Bref = flyby(1e7);
+  const dvFly = norm(sub(A.s.v, Bref.s.v));
+  console.log(`  7000 km flyby in a 60-day frame: ${A.r.steps} steps, complete ${A.r.complete}, |dv| vs unlimited ${dvFly.toExponential(2)} km/s`);
+  const minD = (() => { let m = Infinity; const s = createState([AU + 2e6, bMiss, 0], [-5, 0, 0], 0);
+    for (let t = 600; t <= 8 * DAY; t += 120) { advance(s, t, { bodiesAt, muSun: 0 }); m = Math.min(m, norm(sub(s.r, rP))); } return m; })();
+  console.log(`  closest approach ${minD.toFixed(0)} km (sampled every 2 min over 8 days)`);
+  check('the flyby passes near 7000 km from the centre (6500-7500 km)', minD > 6500 && minD < 7500);
+  check('a close flyby within budget completes and matches an unlimited run',
+    A.r.complete && !A.r.events.some((e) => e.type === 'impact') && dvFly < 1e-9);
+  // The Sun is an impact body too (it used to be flown through at 3,000 km/s).
+  const st4 = createState([AU, 0, 0], [0, 0.5, 0], 0);
+  const res4 = advance(st4, 200 * DAY, { bodiesAt: noBodies, muSun: MU_SUN });
+  const sunHit = res4.events.find((e) => e.type === 'impact' && e.body === 'sun');
+  check('falling into the Sun is an impact', !!sunHit && Number.isFinite(st4.r[0]));
+  // Thrust through extraAccel: constant 1e-5 km/s^2 with no gravity gives
+  // r = r0 + v0 t + a t^2 / 2 exactly (every stage sees the same push).
+  const acc = [1e-5, 0, 0];
+  const st5 = createState([AU, 0, 0], [0, 1, 0], 0);
+  advance(st5, DAY, { bodiesAt: noBodies, muSun: 0, extraAccel: (t, r, out) => { out[0] = acc[0]; out[1] = 0; out[2] = 0; return out; } });
+  const want = [AU + 0.5 * acc[0] * DAY * DAY, DAY, 0];
+  check('constant thrust gives r0 + v0 t + a t^2/2 (<1e-6 km)', norm(sub(st5.r, want)) < 1e-6);
 }
 
 // ---- cases that need the real ephemeris (astronomy-engine) ----
 const { solarSystemBodies } = await import('./bodies.js');
 const { helioStateEqj } = await import('./ephemeris.js');
 
-header('CASE 7: low Earth orbit with the real Sun, Moon and planets');
+header('CASE 7: ephemeris interpolation');
+{
+  // bodies.js serves positions by cubic Hermite interpolation between cached
+  // astronomy-engine nodes. Check it against direct calls over 30 days.
+  const epochMs = Date.parse('2026-01-01T00:00:00Z');
+  const sys = solarSystemBodies({ epochMs });
+  let worst = 0, worstKey = '';
+  for (let i = 0; i < 400; i++) {
+    const t = (i + 0.37) * (30 * DAY / 400);
+    for (const b of sys.bodiesAt(t)) {
+      const s = helioStateEqj(b.key, new Date(epochMs + t * 1000));
+      const e = norm(sub(b.r, s.r));
+      if (e > worst) { worst = e; worstKey = b.key; }
+    }
+  }
+  console.log(`  worst interpolation error over 30 days: ${(worst * 1000).toFixed(1)} m (${worstKey})`);
+  check('interpolated positions within 0.1 km of direct ephemeris calls', worst < 0.1);
+}
+
+header('CASE 8: low Earth orbit with the real Sun, Moon and planets');
 {
   // The old integrator ignored any body closer than 0.01 AU, so Earth's own
   // gravity never acted on a craft near Earth. A 400 km circular orbit must
@@ -195,7 +249,7 @@ header('CASE 7: low Earth orbit with the real Sun, Moon and planets');
   check('primary is earth', st.primary === 'earth');
 }
 
-header('CASE 8: escape from the edge of Earth\'s sphere of influence');
+header('CASE 9: escape from the edge of Earth\'s sphere of influence');
 {
   // How launches start: on the outbound asymptote at the SOI radius with the
   // speed energy conservation gives for the requested v_inf. After 20 days the

@@ -12,7 +12,7 @@ What is high-fidelity today:
 
 - **Gravitational parameters** are SPICE-precision GM constants for the Sun and all planets, held in `src/utils/constants.js`.
 - **Planetary positions** come from astronomy-engine, which provides JPL-grade ephemerides, so the Sun and planets sit where they actually are for a given date.
-- **Spacecraft propagation** runs in a physics kernel (`src/physics/nbody.js`) with no three.js in it. Each craft feels the Sun, the eight planets and the Moon at their ephemeris positions throughout every frame, with the heliocentric frame's indirect term. A Yoshida 4th-order symplectic composition steps it, with the step set by the distance to the nearest body, so it sub-steps finely near a planet and coarsely in cruise. Launches start on the escape hyperbola at the edge of the planet's sphere of influence, with the preset delta-V as the hyperbolic excess speed.
+- **Spacecraft propagation** runs in a physics kernel (`src/physics/nbody.js`) with no three.js in it. Each craft feels the Sun, the eight planets and the Moon at their ephemeris positions throughout every frame, with the heliocentric frame's indirect term. Yoshida's 4th-order composition of leapfrog steps advances it (symplectic at a fixed step). Each step is 1% of the shortest local dynamical time, so it sub-steps finely near a planet and coarsely in cruise; there is no error control yet. If a frame needs more steps than its budget, the craft falls behind the clock and catches up, with an on-screen warning, rather than taking steps long enough to pass through a planet. Launches start on the escape hyperbola, 100 planet radii out or at the edge of the sphere of influence if that is closer, with the preset delta-V as the hyperbolic excess speed.
 - **Orbital-mechanics core.** `src/physics/orbital.js` provides universal-variable two-body propagation (one code path for ellipses, parabolas and hyperbolas) and a universal-variable Lambert solver with a bracketed root solve. Both are checked against worked examples from Curtis, *Orbital Mechanics for Engineering Students* (4th ed.). Propagation and the state-to-elements conversion are also checked against NAIF CSPICE (`prop2b_c`, `oscltx_c`). SPICE has no Lambert solver, so the Lambert solver is checked on the real MSL launch and arrival geometry from the DE440 ephemeris and on transfer grids flown by an independent numerical integrator. Run the checks with:
 
   ```bash
@@ -32,7 +32,8 @@ The following changes would push fidelity further, roughly in order of impact:
 
 - [x] Wire the Lambert core in `src/physics/orbital.js` into the porkchop delta-V grid so the planner reads directly from the verified solver.
 - [ ] Add patched-conic sphere-of-influence transitions so trajectories hand off correctly between central bodies.
-- [x] Replace the fixed-step integrator with a higher-order integrator using adaptive step control.
+- [x] Replace the fixed-step integrator with a higher-order integrator whose step follows the local dynamical time.
+- [ ] Add error-controlled adaptive stepping (an embedded Runge-Kutta-Nystrom pair or DOP853) and a two-body fast path for weakly perturbed orbits at high warp.
 - [ ] Validate propagated trajectories against SPICE ephemerides using the reference under `python/`.
 
 ## Quick start
