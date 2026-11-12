@@ -654,7 +654,9 @@ export class TrajectoryPlanner {
         arrival: dv_capture_burn,
         total: dv_launch + dv_capture_burn
       },
-      vInfDeparture: v_infinity_dep,
+      // Signed along-track v_inf: negative (retrograde) for an inward
+      // transfer, so Earth -> Venus lowers the orbit instead of raising it.
+      vInfDeparture: v_transfer_1 - v1,
       transferTime: transferTime,
       maneuvers: [
         {
@@ -687,6 +689,7 @@ export class TrajectoryPlanner {
         total: hohmann.deltaV.total * 1.3
       },
       transferTime: hohmann.transferTime * 0.6,
+      vInfDeparture: hohmann.vInfDeparture * 1.3,
       maneuvers: hohmann.maneuvers.map(m => ({
         ...m,
         deltaV: m.deltaV * 1.3
@@ -746,6 +749,7 @@ export class TrajectoryPlanner {
         total: directTransfer.deltaV.total * flybyReduction + (0.5 * flybys.length)
       },
       transferTime: directTransfer.transferTime * timeMultiplier,
+      vInfDeparture: directTransfer.vInfDeparture * flybyReduction,
       maneuvers: maneuvers,
       flybys: flybys
     };
@@ -1138,7 +1142,11 @@ export class TrajectoryPlanner {
       // Hohmann estimate: v_inf along the prograde (along-track, y) axis of
       // the RSW frame launchSpacecraft takes. It used to go on x (radial) and
       // to use the parking-orbit burn instead of v_inf.
-      const vInf = this.currentPlan.vInfDeparture ?? this.currentPlan.maneuvers[0].deltaV;
+      const vInf = this.currentPlan.vInfDeparture;
+      if (!Number.isFinite(vInf)) {
+        alert('This plan has no departure v_inf. Pick a transfer in the launch window instead.');
+        return;
+      }
       spacecraft = this.simulation.launchSpacecraft(spacecraftName, depBody, new THREE.Vector3(0, vInf, 0));
     }
     
@@ -1147,10 +1155,10 @@ export class TrajectoryPlanner {
       return;
     }
     
-    // Schedule remaining maneuvers. Not for a Lambert plan: a burn timed for
-    // arrival and pointed relative to the Sun is not a capture; patched-conic
-    // capture at the target is not modelled yet.
-    (L ? [] : this.currentPlan.maneuvers.slice(1)).forEach(maneuver => {
+    // No arrival burn is scheduled for any plan: a burn timed for arrival and
+    // pointed relative to the Sun is not a capture, and patched-conic capture
+    // at the target is not modelled yet.
+    [].forEach(maneuver => {
     if (spacecraft.addManoeuvreNode) {
         const node = spacecraft.addManoeuvreNode(maneuver.time * SECONDS_PER_DAY);
         
@@ -1181,7 +1189,7 @@ export class TrajectoryPlanner {
     this.simulation.showNotification(L
       ? `${spacecraftName} launched on the Lambert arc to ${this.currentPlan.arrival}, ` +
         `arriving ${this.fmtDate(L.arrivalDate)} (no capture burn: not modelled yet)`
-      : `Trajectory executed: ${spacecraftName} launched to ${this.currentPlan.arrival}!`
+      : `${spacecraftName} launched toward ${this.currentPlan.arrival} (estimate; no capture burn: not modelled yet)`
     );
   }
   

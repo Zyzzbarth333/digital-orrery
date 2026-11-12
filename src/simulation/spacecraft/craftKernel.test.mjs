@@ -262,6 +262,46 @@ header('CASE 6: launches, orbital elements and flying a Lambert plan');
   check('the flown Lambert plan passes Mars within 1.5 million km, within 30 days of the plan', best.d < 1.5e6 && Math.abs(best.day - tof) < 30);
 }
 
+header('CASE 7: review regressions (burns across clock jumps, fuel checks, plan v_inf)');
+{
+  // A burn cut short by a backward clock jump must not be flown again when
+  // the clock passes its old times (it used to burn 333 kg and ~527 m/s twice).
+  const c = makeCraft('jump-burn');
+  quiet(() => c.update(0, NO_BODIES, START));
+  c.mass = 1000; c.fuelMass = 1000; c.thrustPower = 5000; c.exhaustVelocity = 3000;
+  quiet(() => c.setThrust(new THREE.Vector3(0, 0, -1), true));
+  quiet(() => c.update(200 / 86400, NO_BODIES, at(200)));
+  const fuelAfterBurn = c.fuelMass;
+  quiet(() => c.update(1 / 86400, NO_BODIES, at(200 - 3600)));          // Reset: an hour back
+  for (let t = 200 - 3600 + 60; t <= 400; t += 60) quiet(() => c.update(60 / 86400, NO_BODIES, at(t)));
+  check('after a backward jump the old burn is not flown again (no fuel drawn, engine off)',
+    c.fuelMass === fuelAfterBurn && !c.engineOn && c.burns.length === 0);
+  // setThrust before the first frame used to throw.
+  const fresh = makeCraft('fresh');
+  let threw = false;
+  try { quiet(() => { fresh.setThrust(new THREE.Vector3(1, 0, 0), true); fresh.setThrust(null, false); }); } catch { threw = true; }
+  check('setThrust before the first frame does not throw', !threw);
+  // A node the main tank cannot deliver is refused before an ignition is
+  // spent, instead of burning dry and reporting the manoeuvre complete.
+  const n = makeCraft('big-node', { enhanced: true });
+  quiet(() => n.update(0, NO_BODIES, START));
+  const ign0 = n.systems.propulsion.main.ignitionsUsed;
+  quiet(() => { const node = n.addManoeuvreNode(600); node.setDeltaV(0, 1.2, 0); });
+  for (let t = 300; t <= 1800; t += 300) quiet(() => n.update(300 / 86400, NO_BODIES, at(t)));
+  check('an undeliverable node is refused without spending an ignition or fuel',
+    n.manoeuvreNodes.length === 0 && n.systems.propulsion.main.ignitionsUsed === ign0 &&
+    n.systems.propulsion.main.fuel === 500 && n.burns.length === 0);
+  // The planner's Hohmann v_inf is signed: inward transfers launch retrograde.
+  const { TrajectoryPlanner } = await import('../trajectory/TrajectoryPlanner.js');
+  const { PLANETS } = await import('../../utils/constants.js');
+  const fakeSim = { bodies: new Map(Object.keys(PLANETS).map((k) => [k, { data: PLANETS[k] }])) };
+  const hoh = (a, b) => quiet(() => TrajectoryPlanner.prototype.calculateHohmannTransfer.call({ simulation: fakeSim }, a, b, 200, 400));
+  const toVenus = hoh('earth', 'venus'), toMars = hoh('earth', 'mars');
+  console.log(`  planner v_inf: Earth->Venus ${toVenus.vInfDeparture.toFixed(3)} km/s, Earth->Mars ${toMars.vInfDeparture.toFixed(3)} km/s`);
+  check('Earth->Venus launches retrograde (negative along-track v_inf), Earth->Mars prograde',
+    toVenus.vInfDeparture < 0 && toMars.vInfDeparture > 0);
+}
+
 console.log('='.repeat(60));
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);

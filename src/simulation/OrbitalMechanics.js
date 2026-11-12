@@ -103,11 +103,15 @@ static convertDeltaV(deltaV_RSW, position, velocity) {
     const el = rvToElements(r, v, mu);
     const vn2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
     const bound = el.e < 1;
+    // Parabolic (a infinite) and radial (h = 0) orbits make some elements
+    // undefined; report periapsis from h^2 / (mu (1 + e)) and 0 for an
+    // undefined inclination instead of NaN.
+    const finiteOr = (x, fallback) => (Number.isFinite(x) ? x : fallback);
     return {
       semiMajorAxis: el.a / AU_TO_KM,
       eccentricity: el.e,
-      inclination: el.i * 180 / Math.PI,
-      periapsis: el.a * (1 - el.e) / AU_TO_KM,
+      inclination: finiteOr(el.i * 180 / Math.PI, 0),
+      periapsis: finiteOr(el.a * (1 - el.e), el.h * el.h / (mu * (1 + el.e))) / AU_TO_KM,
       apoapsis: bound ? el.a * (1 + el.e) / AU_TO_KM : Infinity,
       period: bound ? el.period / 86400 : Infinity,
       specificEnergy: 0.5 * vn2 - mu / rn,

@@ -60,6 +60,7 @@ export class BaseSpacecraft {
     
     // Mission state
     this.thrustVector = new THREE.Vector3();
+    this.burns = [];                    // timed burn segments (see BURNS)
     this.engineOn = false;
     this.missionElapsedTime = 0;
     
@@ -360,7 +361,11 @@ export class BaseSpacecraft {
       this.kState.t = tNow;
       this.physicsLagSeconds = 0;
       this.stateVersion++;
+      // Burns are tied to absolute times, so after a jump (especially back
+      // in time) a burn cut short at the old clock would be flown again when
+      // the clock passes it. Clear the schedule: burns in progress end.
       this.cancelBurns(this.lastClockT);
+      this.burns = [];
       this.prevClockT = tNow;            // no fuel is drawn across the jump
       this.clockJumped = true;
       console.warn(`${this.name}: sim clock jumped by ${((tNow - expected) / 86400).toFixed(2)} d; ` +
@@ -694,6 +699,20 @@ export class BaseSpacecraft {
   }
   
   startManoeuvre(node, tStart = this.lastClockT) {
+    // Exact propellant for the node's delta-v from the whole craft's mass:
+    // m0 (1 - exp(-dv / ve)). executeBurn's own check uses the dry mass only,
+    // which let a burn start that the main tank could not finish.
+    {
+      const main = this.systems.propulsion.main;
+      const ve = main.specificImpulse * 9.80665;
+      const m0 = this.mass + this.fuelMass + main.fuel;
+      const need = m0 * (1 - Math.exp(-node.deltaV.length() * 1000 / ve));
+      if (need > main.fuel) {
+        console.error(`Manoeuvre failed: needs ${need.toFixed(1)} kg of propellant, main tank has ${main.fuel.toFixed(1)} kg`);
+        this.removeManoeuvreNode(node);
+        return;
+      }
+    }
     const result = this.systems.executeBurn(
       node.deltaV.length(),
       node.burnDuration,
