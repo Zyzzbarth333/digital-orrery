@@ -227,9 +227,10 @@ header('CASE 8: low Earth orbit with the real Sun, Moon and planets');
 {
   // The old integrator ignored any body closer than 0.01 AU, so Earth's own
   // gravity never acted on a craft near Earth. A 400 km circular orbit must
-  // now stay close to the geocentric two-body orbit for a day.
+  // now stay close to the geocentric two-body orbit for a day. Point masses
+  // only here (Earth's J2 moves the orbit by hundreds of km a day: CASE 8b).
   const epochMs = Date.parse('2026-01-01T00:00:00Z');
-  const sys = solarSystemBodies({ epochMs });
+  const sys = solarSystemBodies({ epochMs, zonal: false });
   const E0 = helioStateEqj('earth', new Date(epochMs));
   const muE = sys.bodiesAt(0).find((b) => b.key === 'earth').mu;
   const rl = 6378.137 + 400, vl = Math.sqrt(muE / rl);
@@ -247,6 +248,50 @@ header('CASE 8: low Earth orbit with the real Sun, Moon and planets');
   check('craft stays in LEO (|r| within 10 km of 6778 km)', Math.abs(norm(rel) - rl) < 10);
   check('within 5 km of the geocentric two-body orbit after a day', err < 5);
   check('primary is earth', st.primary === 'earth');
+}
+
+header("CASE 8b: Earth's J2 turns the orbit's node at the analytic rate");
+{
+  // A 400 km orbit inclined 51.6 deg (0.9 rad) to Earth's equator. J2 turns
+  // its ascending node (about Earth's pole of date) at the secular rate
+  //   dOmega/dt = -(3/2) n J2 (R/p)^2 cos i,
+  // to O(J2): the formula wants the mean semi-major axis, and an orbit
+  // started at circular speed has a mean a about 10 km (0.15 %) off its
+  // osculating one, which moves the rate by 3.5 times that. Short-period
+  // terms add about 0.03 deg. Three days, Encke and Cowell, against that rate; and
+  // without J2 the node holds still (the Moon and Sun turn it ~1e-3 deg/day).
+  const epochMs = Date.parse('2026-01-01T00:00:00Z');
+  const run = (zonal, encke) => {
+    const sys = solarSystemBodies({ epochMs, zonal });
+    const E = sys.bodiesAt(0).find((b) => b.key === 'earth');
+    const pole = E.pole ?? solarSystemBodies({ epochMs }).bodiesAt(0).find((b) => b.key === 'earth').pole;
+    const rE = E.eph.position(0), vE = E.eph.velocity(0);
+    // Orbit set up in the equator of date: x' in the equator, y' = pole x x'.
+    const xq = (() => { const d = pole[0]; const v = [1 - d * pole[0], -d * pole[1], -d * pole[2]]; const n = norm(v); return v.map((c) => c / n); })();
+    const yq = [pole[1] * xq[2] - pole[2] * xq[1], pole[2] * xq[0] - pole[0] * xq[2], pole[0] * xq[1] - pole[1] * xq[0]];
+    const rl = 6378.137 + 400, vl = Math.sqrt(E.mu / rl), inc = 0.9;
+    const d0 = xq.map((c) => c * rl), u0 = [0, 1, 2].map((k) => vl * (Math.cos(inc) * yq[k] + Math.sin(inc) * pole[k]));
+    const node = (rel, vel) => {
+      const h = [rel[1] * vel[2] - rel[2] * vel[1], rel[2] * vel[0] - rel[0] * vel[2], rel[0] * vel[1] - rel[1] * vel[0]];
+      const n = [pole[1] * h[2] - pole[2] * h[1], pole[2] * h[0] - pole[0] * h[2], pole[0] * h[1] - pole[1] * h[0]];
+      return Math.atan2(n[0] * yq[0] + n[1] * yq[1] + n[2] * yq[2], n[0] * xq[0] + n[1] * xq[1] + n[2] * xq[2]);
+    };
+    const st = createState([0, 1, 2].map((k) => rE[k] + d0[k]), [0, 1, 2].map((k) => vE[k] + u0[k]), 0);
+    const T = 3 * DAY;
+    const res = advance(st, T, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, encke, maxSteps: 5e6 });
+    const E1 = E.eph.position(T), V1 = E.eph.velocity(T);
+    const rate = ((node(sub(st.r, E1), sub(st.v, V1)) - node(d0, u0) + 3 * Math.PI) % (2 * Math.PI) - Math.PI) / 3;
+    const n = Math.sqrt(E.mu / rl ** 3), J2 = 4.84165143790815e-4 * Math.sqrt(5);
+    const analytic = -1.5 * n * DAY * J2 * (6378.1363 / rl) ** 2 * Math.cos(inc);
+    return { rate, analytic, steps: res.steps };
+  };
+  const deg = (x) => (x * 180 / Math.PI).toFixed(4);
+  const enk = run(true, true), cow = run(true, false), none = run(false, true);
+  console.log(`  node rate, deg/day: analytic ${deg(enk.analytic)}; Encke ${deg(enk.rate)} (${enk.steps} steps); Cowell ${deg(cow.rate)} (${cow.steps} steps); no J2 ${deg(none.rate)}`);
+  check('Encke: node turns within 1 % of the J2 secular rate', Math.abs(enk.rate / enk.analytic - 1) < 0.01);
+  check('Cowell: node turns within 1 % of the J2 secular rate', Math.abs(cow.rate / cow.analytic - 1) < 0.01);
+  check('Encke and Cowell agree on the node to 1e-4 deg/day', Math.abs(enk.rate - cow.rate) * 180 / Math.PI < 1e-4);
+  check('without J2 the node turns under 0.01 deg/day', Math.abs(none.rate * 180 / Math.PI) < 0.01);
 }
 
 header('CASE 9: escape from the edge of Earth\'s sphere of influence');
@@ -383,10 +428,14 @@ header("CASE 13: Encke's method near a primary, against a fine Cowell reference"
   console.log(`  LEO 1 day: Cowell ${cow.res.steps} steps, ${(dist(cow, ref) * 1000).toFixed(1)} m; Encke ${enk.res.steps} steps, ${(dist(enk, ref) * 1000).toFixed(2)} m`);
   // The gap depends on where the start falls against the ephemeris nodes and
   // the Moon: 0.2 to 1.2 m over seven start times from 0 s to 3 days later
-  // (it was 0.54 m here before ΔT was set from the leap seconds, 1.20 m now).
+  // (point masses; 0.54 m here before ΔT was set from the leap seconds,
+  // 1.20 m after). With J2 and Encke's tolerance at 1e-7 km it is 1.20 m.
   check('LEO: Encke within 2 m of the reference after a day', dist(enk, ref) < 2e-3);
   check('LEO: Encke more accurate than default Cowell', dist(enk, ref) < dist(cow, ref));
-  check('LEO: Encke takes under 1/10 of the Cowell steps', enk.res.steps * 10 < cow.res.steps);
+  // With Earth's J2 the deviation from the reference conic grows ~100 times
+  // faster than from the tides alone, so Encke rectifies and steps more
+  // often: 1/8.6 of Cowell's steps (1/30 with point masses only).
+  check('LEO: Encke takes under 1/5 of the Cowell steps', enk.res.steps * 5 < cow.res.steps);
 
   // Back again: a day backwards returns to the start.
   const back = createState(enk.st.r, enk.st.v, DAY);

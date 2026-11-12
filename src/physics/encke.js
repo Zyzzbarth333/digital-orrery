@@ -14,6 +14,7 @@
 //
 //   a_pert = -muSun r/|r|^3 - mu_P rP/|rP|^3
 //            + sum_{j != P} mu_j [ (r_j - r)/|r_j - r|^3 - r_j/|r_j|^3 ]
+//            + sum_j a_J2,j  (the primary's J2 too: zonal.js)
 //            + thrust - rP''(t),
 //
 // the craft's heliocentric acceleration without P's direct pull, minus the
@@ -41,6 +42,7 @@
 // ~2e-7 is Encke; GEO ~5e-5 and beyond, and thrusting craft, are Cowell.
 
 import { keplerStep, propagate } from './orbital.js';
+import { addJ2 } from './zonal.js';
 
 // Dormand-Prince 5(4) (Dormand & Prince 1980): nodes, stage weights, the
 // 5th-order solution b (= the last stage row, FSAL) and the error weights
@@ -74,16 +76,18 @@ function perturbation(c, rP, aP, key, mu, bodies, muSun, out) {
   let ax = -kc * c[0] - kp * rP[0] - aP[0];
   let ay = -kc * c[1] - kp * rP[1] - aP[1];
   let az = -kc * c[2] - kp * rP[2] - aP[2];
+  out[0] = ax; out[1] = ay; out[2] = az;
   for (let j = 0; j < bodies.length; j++) {
     const b = bodies[j];
-    if (b.key === key) continue;
     const p = b.r;
     const ex = p[0] - c[0], ey = p[1] - c[1], ez = p[2] - c[2];
-    const e2 = ex * ex + ey * ey + ez * ez, q2 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
+    const e2 = ex * ex + ey * ey + ez * ez;
+    if (b.j2 && e2 < b.j2Cut2) addJ2(-ex, -ey, -ez, e2, b, out);
+    if (b.key === key) continue;
+    const q2 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
     const ke = b.mu / (e2 * Math.sqrt(e2)), kj = b.mu / (q2 * Math.sqrt(q2));
-    ax += ke * ex - kj * p[0]; ay += ke * ey - kj * p[1]; az += ke * ez - kj * p[2];
+    out[0] += ke * ex - kj * p[0]; out[1] += ke * ey - kj * p[1]; out[2] += ke * ez - kj * p[2];
   }
-  out[0] = ax; out[1] = ay; out[2] = az;
   return out;
 }
 
@@ -116,7 +120,7 @@ function conicStep(r0, v0, dt, mu, rOut, vOut) {
   for (let i = 0; i < 3; i++) { rOut[i] = s.r[i]; vOut[i] = s.v[i]; }
 }
 
-// opts: bodiesAt, muSun, tolKm (default 1e-6 km per step), hMax, eta
+// opts: bodiesAt, muSun, tolKm (default 1e-7 km per step), hMax, eta
 // (other-body step fraction, default 0.01), maxSteps, breakpoints,
 // extraAccel(t, r, out, mid), sunRadius, primaryOf.
 // Returns { steps, events, complete, left }: left is true when the craft
@@ -124,7 +128,7 @@ function conicStep(r0, v0, dt, mu, rOut, vOut) {
 // Keplerian; advance() then continues with the right integrator.
 export function advanceEncke(state, tEnd, opts) {
   const {
-    bodiesAt, muSun, tolKm = 1e-6, hMax = 86400, eta = 0.01, maxSteps = 200000,
+    bodiesAt, muSun, tolKm = 1e-7, hMax = 86400, eta = 0.01, maxSteps = 200000,
     breakpoints = null, extraAccel = null, sunRadius = 695700, primaryOf,
   } = opts;
   const key = state.primary;

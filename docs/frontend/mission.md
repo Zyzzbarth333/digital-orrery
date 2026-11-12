@@ -14,8 +14,8 @@ planet, Cowell elsewhere; see [the kernel](../physics/nbody-kernel.md)).
 Each rendered frame the mission advances every craft's clock and asks the
 kernel, in its Worker, to step it to the clock; the result comes back a
 frame or so later. What is drawn is that state carried forward to the clock
-along a two-body orbit about the primary, with the other accelerations to
-second order.
+along a two-body orbit about the primary (plus the primary's J2, near Earth
+and the Moon), with the other accelerations to second order.
 
 The rules carried over from the earlier spacecraft code:
 

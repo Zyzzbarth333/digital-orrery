@@ -73,7 +73,7 @@ is planned for the exact-ephemeris phase.
 | --- | --- |
 | SPICE fixture (`c/orrery_spice_ref.c`) | ephemeris time (TDB seconds past J2000), via `str2et_c` from UTC strings |
 | kernel and app | seconds from `KERNEL_EPOCH_MS` = 2000-01-01 12:00 **UTC**, i.e. UTC seconds |
-| astronomy-engine | takes UTC dates and converts to TT internally |
+| astronomy-engine | takes UTC dates; TT − UTC is set from the leap-second table (`ephemeris.js`: 32.184 s + TAI − UTC, 69.184 s since 2017), not the library's extrapolation (75.2 s for 2026) |
 
 The kernel's time is only ever used as a difference and as the date it
 passes to astronomy-engine, so it is consistent on the JavaScript side. It is

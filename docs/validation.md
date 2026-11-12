@@ -45,13 +45,14 @@ tests (it shares no code with the models).
 | orbit around a moving planet, 5 orbits | two-body about the planet | 0.009 % drift (solar tide) |
 | impact, SOI entry, step budget, flyby within budget | events, unlimited run | all reported; flyby identical to an unlimited run |
 | Hermite interpolation, 30 days | direct ephemeris calls | worst 21 m |
-| 400 km orbit, real Sun/Moon/planets, 1 day | two-body about Earth | within 0.2 km |
+| 400 km orbit, real Sun/Moon/planets, point masses, 1 day | two-body about Earth | within 0.2 km |
+| Earth's J2: node of a 400 km, 51.6° orbit, 3 days | $-\tfrac32 nJ_2(R/p)^2\cos i$ | −5.0305°/day against −5.0060°/day (0.49 %, the mean-versus-osculating offset); Encke and Cowell agree to 10⁻⁴°/day |
 | finite burn, no gravity | rocket equation | Δv 2.8×10⁻⁹ km/s; position 2.4×10⁻³ km after 10 days |
 | kernel GMs | SPICE `gm_de442.tpc` | 5.9×10⁻¹⁶ |
 | Worker message handling | direct advance | identical |
-| Encke, low Earth orbit, 1 day | Cowell at 1/20 the step | 0.54 m (default Cowell: 5.9 m), 326 steps (Cowell: 9,776) |
-| Encke, forward then back a day | start state | 0.12 m |
-| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.26 km (default Cowell: 4.6 km), 570 steps (784) |
+| Encke, low Earth orbit with J2, 1 day | Cowell at 1/20 the step | 1.20 m (default Cowell: 5.1 m), 1,134 steps (Cowell: 9,795) |
+| Encke, forward then back a day | start state | 0.86 m |
+| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.088 km (default Cowell: 1.93 km), 793 steps (1,282) |
 | Encke, suborbital path | Cowell | impact on Earth at the same time (310.8 s) |
 | `keplerStep` | `propagate` | 1.2×10⁻¹⁴ relative |
 
@@ -61,6 +62,7 @@ tests (it shares no code with the models).
 | --- | --- |
 | craft driven through the Worker client vs stepped directly | identical |
 | drawn position vs exact state (results a frame late) | 0.02 km in low orbit, 0.38 km in cruise; up to ~11,000 km during a close Earth pass at 100 days/s |
+| drawn position carried forward while the kernel lags | low orbit (two-body plus J2): 5×10⁻⁵ km at 10 min, 6.5 m at 1 h; GEO 0.74 km at 6 h; cruise 0.03 km at 1.7 days |
 | burn during a request in flight; dropped request | burn kept; nothing lost |
 | manual burn to empty, hour vs day frames | same state within the kernel's accuracy |
 | manoeuvre node | 415.816 kg drawn = rocket equation |
@@ -87,17 +89,17 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 
 | Check | Result |
 | --- | --- |
-| Closest approach to the Moon, from the flown state 20 h before | 6,546.1 km vs 6,545.0 km flown; 8 s early |
+| Closest approach to the Moon, from the flown state 20 h before | 6,546.1 km vs 6,545.0 km flown; 7 s early |
 | Coast arcs away from Earth, 0.6–2.1 days | 8–81 km at the end (JSC's 1σ: 0.2–1 km) |
-| First arc after translunar injection | 969 km (no J2); 42 km with J2 added |
+| First arc after translunar injection | 42 km (969 km with point masses only) |
 | The app's Moon vs DE442 | 9–13 km |
 
 ## Not yet validated
 
 - Against JPL Horizons, GMAT or Orekit trajectories.
 - Against other missions' trajectories (NAIF mission kernels, e.g. MSL cruise).
-- Anything with non-spherical gravity, drag or radiation pressure (not
-  modelled yet; Artemis II shows J2 is the largest gap near Earth).
+- The planets' J2, higher harmonics, drag and radiation pressure (not
+  modelled yet).
 
 ## Body orientation (`orientation.test.mjs`)
 

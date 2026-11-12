@@ -6,7 +6,8 @@ other tracking. Their best estimated trajectory (BET revF) was cleared for
 public release on 1 July 2026, and NAIF converted it into an SPK.
 
 This check flies the coast between burns with the app's own kernel and
-compares the result with that trajectory. `npm test` runs it; the
+compares the result with that trajectory. The kernel includes Earth's and
+the Moon's J2, which it gained because of this check. `npm test` runs it; the
 numbers below are from November 2026.
 
 ![Position error of each coast arc, and of the whole mission flown without corrections](artemis2-residuals.svg)
@@ -55,43 +56,46 @@ should not be mistaken for thrust.
 Each coast arc starts from the flown state 10 minutes after one burn and
 runs to just before the next. Orion's heliocentric state is its flown
 geocentric state plus the app's Earth. It is then stepped with `advance()`
-from `nbody.js`, the same integrator the app uses for spacecraft: Sun,
-planets and Moon as point masses on the app's ephemeris, Encke's method
-near Earth and the Moon. A second run adds Earth's J2 (EGM2008), which the
-kernel does not model yet.
+from `nbody.js`, the same integrator the app uses for spacecraft:
+- the Sun, planets and Moon on the app's ephemeris;
+- Earth's J2 (EGM2008) and the Moon's (GRAIL);
+- Encke's method near Earth and the Moon.
 
-| Arc | Days | Point masses (the kernel today): error at end | With J2 added |
+A second run with point masses only shows what J2 is worth.
+
+| Arc | Days | The kernel (with J2): error at end | Point masses only |
 | --- | --- | --- | --- |
-| Outbound, after translunar injection | 2.05 | 969 km, 7.8 m/s | 42 km, 0.38 m/s |
+| Outbound, after translunar injection | 2.05 | 42 km, 0.38 m/s | 969 km, 7.8 m/s |
 | Outbound, to the correction | 1.04 | 14 km | 14 km |
 | Lunar flyby | 1.86 | 49 km | 49 km |
 | Return | 2.10 | 81 km | 81 km |
 | Return, between corrections | 0.65 | 8 km | 8 km |
-| Final approach to entry | 0.18 | 1.1 km | 0.3 km |
-| Whole mission, no burns flown | 7.98 | 97,000 km | 730 km (1,600 km at worst) |
+| Final approach to entry | 0.18 | 0.3 km | 1.1 km |
+| Whole mission, no burns flown | 7.98 | 730 km (1,600 km at worst) | 97,000 km |
 
 **Closest approach to the Moon:**
 
 | | Altitude above the 1,737.4 km mean radius | Time (UTC, 6 April) |
 | --- | --- | --- |
 | Flown (BET) | 6,545.0 km | 23:00:49 |
-| The kernel | 6,546.1 km | 23:00:41 |
+| The kernel | 6,546.1 km | 23:00:42 |
 
 The flown altitude matches the 6,545 km NASA announced. The kernel, started
 from the flown state 20 hours before closest approach, puts it 1.1 km
-higher and 8 s earlier.
+higher and 7 s earlier. With point masses only it is 8 s earlier: the
+Moon's J2 is worth about a second here.
 
 ## What the errors come from
 
-1. **Earth's J2.**
+1. **Earth's J2, now in the kernel.**
    - Translunar injection fired at about 200 km altitude. The first arc
      starts 9,000 km from Earth's centre, where Earth's flattening pulls
      at about 5 mm/s².
-   - Without J2, the first two hours put 7.8 m/s of error into the
-     velocity. That grows to 969 km in two days, and to 97,000 km over
+   - Before J2 was added, the first two hours put 7.8 m/s of error into
+     the velocity. That grew to 969 km in two days, and to 97,000 km over
      the whole mission, because the lunar flyby amplifies it.
-   - With J2 added, the first arc ends 42 km off instead of 969 km.
-   - J2 is the next physics to add to the kernel.
+   - With J2 (see [the kernel](../physics/nbody-kernel.md#oblateness-j2)),
+     the first arc ends 42 km off.
 2. **Forces the kernel does not have.** In the arcs away from Earth, the
    flown trajectory shows a steady leftover acceleration of 1–4 µm/s².
    - That alone accounts for 5–15 km of drift a day, matching the arcs'
@@ -128,8 +132,8 @@ about 8 m/s of real corrections. It does show why missions fly them.
 `artemis2.validate.mjs` fails if:
 - the flyby's altitude moves more than 3 km from the flown one, or its
   time more than 30 s;
-- any arc after the first ends more than 100 km off;
-- any arc with J2 does;
+- any arc ends more than 100 km off;
+- the first arc, which starts low over Earth, ends more than 60 km off;
 - the app's Moon strays more than 15 km from DE442.
 
 ## Regenerate
@@ -145,7 +149,6 @@ node src/physics/artemis2.validate.mjs
 
 ## Next
 
-- J2 in the kernel, starting with the Encke reference orbit near Earth.
 - Fly the burns from the table as finite burns, and compare the whole
   mission with corrections.
 - DE442 in the browser for the Moon.
