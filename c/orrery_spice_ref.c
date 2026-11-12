@@ -1,0 +1,197 @@
+/*
+ * orrery_spice_ref.c
+ *
+ * Generates reference data for digital-orrery's JavaScript physics core from
+ * NAIF's CSPICE toolkit and the DE440 ephemeris. Writes one JSON file that
+ * src/physics/orbital.test.mjs reads, so the JS tests run without SPICE
+ * installed but are still checked against it.
+ *
+ * Contents:
+ *   meta         toolkit version, kernels, frame, GM values (gm_de440.tpc)
+ *   twobody      deterministic set of initial states (elliptic, near-parabolic,
+ *                hyperbolic; built with conics_c), each propagated with
+ *                prop2b_c and converted to elements with oscltx_c
+ *   msl          heliocentric J2000 states of Earth at MSL launch and Mars at
+ *                MSL arrival (spkezr_c, geometric, observer Sun)
+ *   planets      heliocentric J2000 states of Mercury..Neptune barycentres
+ *                at a few epochs, for checking astronomy-engine later
+ *
+ * Frame: J2000 (equatorial, the same axes as astronomy-engine's EQJ).
+ * Units: km, km/s, s, km^3/s^2, radians.
+ *
+ * Usage: orrery_spice_ref <output.json>
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <unistd.h>
+#include "SpiceUsr.h"
+
+#ifndef ORRERY_PYTHON_DIR
+#error "ORRERY_PYTHON_DIR must be defined (CMake sets it)"
+#endif
+
+static void die_if_failed(const char *where) {
+  if (failed_c()) {
+    SpiceChar msg[1841];
+    getmsg_c("LONG", sizeof msg, msg);
+    fprintf(stderr, "SPICE error in %s:\n%s\n", where, msg);
+    exit(2);
+  }
+}
+
+static void put_vec(FILE *f, const char *key, const double *v, int n, int comma) {
+  fprintf(f, "\"%s\": [", key);
+  for (int i = 0; i < n; i++) fprintf(f, "%s%.17g", i ? ", " : "", v[i]);
+  fprintf(f, "]%s", comma ? ", " : "");
+}
+
+/* Small deterministic generator so the fixture is reproducible. */
+static unsigned long long rng_state = 0x9E3779B97F4A7C15ULL;
+static double urand(void) {
+  rng_state = rng_state * 6364136223846793005ULL + 1442695040888963407ULL;
+  return (double)(rng_state >> 11) / 9007199254740992.0;  /* [0,1) */
+}
+static double uniform(double lo, double hi) { return lo + (hi - lo) * urand(); }
+
+static double get_gm(const char *body) {
+  SpiceInt n;
+  SpiceDouble gm;
+  bodvrd_c(body, "GM", 1, &n, &gm);
+  die_if_failed(body);
+  return gm;
+}
+
+/* One two-body case: elements -> state (conics_c), prop2b_c, oscltx_c. */
+static void twobody_case(FILE *f, const char *kind, double mu, double rp, double ecc,
+                         double m0, double dt, int comma) {
+  SpiceDouble elts[8], s0[6], s1[6], osc[SPICE_OSCLTX_NELTS];
+  elts[0] = rp;
+  elts[1] = ecc;
+  elts[2] = uniform(0.05, 3.0);            /* inclination, avoids the equatorial case */
+  elts[3] = uniform(0.0, twopi_c());       /* node */
+  elts[4] = uniform(0.0, twopi_c());       /* argument of periapsis */
+  elts[5] = m0;                            /* mean anomaly at epoch */
+  elts[6] = 0.0;                           /* epoch */
+  elts[7] = mu;
+  conics_c(elts, 0.0, s0);
+  die_if_failed("conics_c");
+  prop2b_c(mu, s0, dt, s1);
+  die_if_failed("prop2b_c");
+  oscltx_c(s0, 0.0, mu, osc);
+  die_if_failed("oscltx_c");
+  /* oscltx_c: rp ecc inc lnode argp m0 t0 mu nu a tau */
+  fprintf(f, "    {\"kind\": \"%s\", \"mu\": %.17g, \"dt\": %.17g, ", kind, mu, dt);
+  put_vec(f, "state0", s0, 6, 1);
+  put_vec(f, "state1", s1, 6, 1);
+  fprintf(f, "\"elements0\": {\"rp\": %.17g, \"e\": %.17g, \"i\": %.17g, \"raan\": %.17g, "
+             "\"argp\": %.17g, \"M\": %.17g, \"nu\": %.17g, \"a\": %.17g}}%s\n",
+          osc[0], osc[1], osc[2], osc[3], osc[4], osc[5], osc[8], osc[9], comma ? "," : "");
+}
+
+static void body_state(FILE *f, const char *body, double et, const char *key, int comma) {
+  SpiceDouble st[6], lt;
+  spkezr_c(body, et, "J2000", "NONE", "SUN", st, &lt);
+  die_if_failed(body);
+  fprintf(f, "\"%s\": {\"body\": \"%s\", \"et\": %.17g, ", key, body, et);
+  put_vec(f, "state", st, 6, 0);
+  fprintf(f, "}%s", comma ? ", " : "");
+}
+
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    fprintf(stderr, "usage: %s <output.json>\n", argv[0]);
+    return 1;
+  }
+  /* Resolve the output path before changing directory. */
+  char outpath[4096];
+  if (argv[1][0] == '/') snprintf(outpath, sizeof outpath, "%s", argv[1]);
+  else {
+    char cwd[2048];
+    if (!getcwd(cwd, sizeof cwd)) { perror("getcwd"); return 1; }
+    snprintf(outpath, sizeof outpath, "%s/%s", cwd, argv[1]);
+  }
+
+  erract_c("SET", 0, "RETURN");
+  errprt_c("SET", 0, "NONE");
+  /* The meta-kernel's PATH_VALUES are relative to python/. */
+  if (chdir(ORRERY_PYTHON_DIR) != 0) { perror(ORRERY_PYTHON_DIR); return 1; }
+  furnsh_c("data/metakernel.tm");
+  die_if_failed("furnsh_c(data/metakernel.tm)");
+
+  FILE *f = fopen(outpath, "w");
+  if (!f) { perror(outpath); return 1; }
+
+  const double muSun = get_gm("SUN");
+  const double muEarth = get_gm("EARTH");
+
+  /* ---- meta ---- */
+  fprintf(f, "{\n  \"meta\": {\"generator\": \"c/orrery_spice_ref.c\", \"toolkit\": \"%s\", "
+             "\"kernels\": [\"naif0012.tls\", \"pck00011.tpc\", \"gm_de440.tpc\", \"de440.bsp\"], "
+             "\"frame\": \"J2000\", \"units\": \"km, km/s, s, km^3/s^2, rad\", "
+             "\"gm\": {\"sun\": %.17g, \"earth\": %.17g}},\n",
+          tkvrsn_c("TOOLKIT"), muSun, muEarth);
+
+  /* ---- two-body cases ---- */
+  fprintf(f, "  \"twobody\": [\n");
+  const int nEll = 40, nNear = 8, nHyp = 16;
+  const int total = nEll + nNear + nHyp;
+  int done = 0;
+  for (int i = 0; i < nEll; i++) {
+    double rp = uniform(6600.0, 30000.0), e = uniform(0.0, 0.9);
+    double a = rp / (1.0 - e), T = twopi_c() * sqrt(a * a * a / muEarth);
+    twobody_case(f, "elliptic", muEarth, rp, e, uniform(-pi_c(), pi_c()), uniform(-1.5, 1.5) * T,
+                 ++done < total);
+  }
+  const double nearE[8] = {0.99, 0.995, 0.999, 0.9999, 1.0001, 1.001, 1.005, 1.01};
+  for (int i = 0; i < nNear; i++) {
+    /* Sweep through periapsis: start near true anomaly -150 deg and end near
+       +150 deg (parabolic Barker timing), the regime where element-based
+       propagation is ill-conditioned. */
+    double rp = uniform(6600.0, 12000.0), e = nearE[i];
+    double D = tan(0.5 * 150.0 * rpd_c());
+    double tHalf = sqrt(2.0 * rp * rp * rp / muEarth) * (D + D * D * D / 3.0);
+    double dt = 2.0 * tHalf * uniform(0.8, 1.0);
+    double a = rp / fabs(1.0 - e), n = sqrt(muEarth / (a * a * a));
+    twobody_case(f, "near-parabolic", muEarth, rp, e, -n * tHalf, dt, ++done < total);
+  }
+  for (int i = 0; i < nHyp; i++) {
+    double rp = uniform(6600.0, 30000.0), e = uniform(1.1, 4.0);
+    twobody_case(f, "hyperbolic", muEarth, rp, e, uniform(-1.0, 1.0), uniform(-20000.0, 20000.0),
+                 ++done < total);
+  }
+  fprintf(f, "  ],\n");
+
+  /* ---- MSL: launch 2011-11-26 15:02 UTC, arrival 2012-08-06 05:17 UTC ---- */
+  SpiceDouble etL, etA;
+  str2et_c("2011 NOV 26 15:02:00 UTC", &etL);
+  str2et_c("2012 AUG 06 05:17:00 UTC", &etA);
+  die_if_failed("str2et_c");
+  fprintf(f, "  \"msl\": {\"launch_utc\": \"2011-11-26T15:02:00\", \"arrival_utc\": \"2012-08-06T05:17:00\", "
+             "\"tof_s\": %.17g, ", etA - etL);
+  body_state(f, "EARTH", etL, "earth_at_launch", 1);
+  body_state(f, "MARS BARYCENTER", etA, "mars_at_arrival", 0);
+  fprintf(f, "},\n");
+
+  /* ---- planets at a few epochs ---- */
+  const char *bodies[] = {"MERCURY", "VENUS", "EARTH", "MARS BARYCENTER", "JUPITER BARYCENTER",
+                          "SATURN BARYCENTER", "URANUS BARYCENTER", "NEPTUNE BARYCENTER"};
+  const char *epochs[] = {"2000 JAN 01 12:00:00 TDB", "2011 NOV 26 15:02:00 UTC",
+                          "2026 JAN 01 00:00:00 UTC"};
+  fprintf(f, "  \"planets\": [\n");
+  for (int e = 0; e < 3; e++) {
+    SpiceDouble et;
+    str2et_c(epochs[e], &et);
+    die_if_failed(epochs[e]);
+    for (int b = 0; b < 8; b++) {
+      fprintf(f, "    {\"epoch\": \"%s\", ", epochs[e]);
+      body_state(f, bodies[b], et, "s", 0);
+      fprintf(f, "}%s\n", (e == 2 && b == 7) ? "" : ",");
+    }
+  }
+  fprintf(f, "  ]\n}\n");
+  fclose(f);
+  fprintf(stderr, "wrote %s (%d two-body cases)\n", outpath, total);
+  return 0;
+}
