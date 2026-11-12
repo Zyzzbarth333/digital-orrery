@@ -220,9 +220,30 @@ function stumpffS(z) {
 
 // -------- Lambert solver (Curtis Algorithm 5.2, universal variables) --------
 // Zero-revolution solution. Given two position vectors and a time of flight,
-// returns the departure/arrival velocities { v1, v2 }. `prograde` selects the
-// transfer direction (true => prograde, i.e. positive z angular momentum).
+// returns { v1, v2, z, iterations }: the departure/arrival velocities, the
+// converged universal variable z (z > 0 ellipse, z < 0 hyperbola) and the
+// iteration count. `prograde` selects the transfer direction (true =>
+// prograde, i.e. positive z angular momentum).
+//
+// Returns null when no solution can be trusted: degenerate geometry (transfer
+// angle ~0 or ~180 deg, where the transfer plane is undefined), non-positive
+// time of flight, or no convergence. Callers (e.g. a porkchop grid) should
+// treat null as "no transfer" rather than receive NaN or a wrong answer.
+//
+// Root finding: for zero-rev transfers the time of flight increases
+// monotonically with z on (-inf, 4*pi^2), so F(z) = sqrt(mu)*(t(z) - tof) has
+// exactly one root there. The root is bracketed first, then solved by Newton
+// steps that fall back to bisection whenever a step leaves the bracket. Where
+// y(z) < 0 (only possible for transfer angles < 180 deg, at low z) the
+// geometry is infeasible and the time of flight is "too short", so it is
+// treated as F < 0. The earlier unbracketed Newton from z = 0 diverged or
+// converged to the wrong place for most transfers longer than 180 deg.
+const LAMBERT_Z_MAX = 4.0 * Math.PI * Math.PI;   // zero-rev upper limit
+const LAMBERT_Z_MIN = -1.0e5;                    // keeps sinh(sqrt(-z)) finite
+const LAMBERT_ANGLE_EPS = 1e-8;                  // rad, from 0 or 180 deg
+
 export function lambert(r1Vec, r2Vec, tof, mu, prograde = true) {
+  if (!(tof > 0.0)) return null;
   const r1 = norm(r1Vec);
   const r2 = norm(r2Vec);
   const cross12 = cross(r1Vec, r2Vec);
@@ -232,45 +253,115 @@ export function lambert(r1Vec, r2Vec, tof, mu, prograde = true) {
   } else {
     if (cross12[2] >= 0.0) dtheta = TWO_PI - dtheta;
   }
+  // Degenerate: at 0/360 deg A blows up, at 180 deg A -> 0 and g -> 0.
+  if (dtheta < LAMBERT_ANGLE_EPS || TWO_PI - dtheta < LAMBERT_ANGLE_EPS ||
+      Math.abs(dtheta - Math.PI) < LAMBERT_ANGLE_EPS) {
+    return null;
+  }
   const A = Math.sin(dtheta) * Math.sqrt((r1 * r2) / (1.0 - Math.cos(dtheta)));
+  const sqrtMu = Math.sqrt(mu);
+  const target = sqrtMu * tof;
 
   const y = (z) =>
     r1 + r2 + A * (z * stumpffS(z) - 1.0) / Math.sqrt(stumpffC(z));
 
+  // F(z) scaled by 1/target so tolerances are relative. -Infinity flags y<0.
   const F = (z) => {
-    const Cz = stumpffC(z), Sz = stumpffS(z), yz = y(z);
-    return Math.pow(yz / Cz, 1.5) * Sz + A * Math.sqrt(yz) - Math.sqrt(mu) * tof;
+    const yz = y(z);
+    if (!(yz >= 0.0)) return -Infinity;
+    const Cz = stumpffC(z), Sz = stumpffS(z);
+    return (Math.pow(yz / Cz, 1.5) * Sz + A * Math.sqrt(yz) - target) / target;
   };
 
   const dFdz = (z) => {
+    const yz = y(z);
     if (Math.abs(z) < 1e-6) {
-      const y0 = y(0.0);
-      return (Math.sqrt(2.0) / 40.0) * Math.pow(y0, 1.5) +
-        (A / 8.0) * (Math.sqrt(y0) + A * Math.sqrt(1.0 / (2.0 * y0)));
+      return ((Math.sqrt(2.0) / 40.0) * Math.pow(yz, 1.5) +
+        (A / 8.0) * (Math.sqrt(yz) + A * Math.sqrt(1.0 / (2.0 * yz)))) / target;
     }
-    const Cz = stumpffC(z), Sz = stumpffS(z), yz = y(z);
-    return Math.pow(yz / Cz, 1.5) *
+    const Cz = stumpffC(z), Sz = stumpffS(z);
+    return (Math.pow(yz / Cz, 1.5) *
       ((1.0 / (2.0 * z)) * (Cz - 1.5 * Sz / Cz) + 0.75 * (Sz * Sz) / Cz) +
-      (A / 8.0) * (3.0 * (Sz / Cz) * Math.sqrt(yz) + A * Math.sqrt(Cz / yz));
+      (A / 8.0) * (3.0 * (Sz / Cz) * Math.sqrt(yz) + A * Math.sqrt(Cz / yz))) / target;
   };
 
-  // bracket: increase z until y(z) >= 0, then Newton-Raphson on F(z)=0
-  let z = 0.0;
-  while (y(z) < 0.0) z += 0.1;
-  for (let iter = 0; iter < 1000; iter++) {
-    const Fz = F(z);
-    const dz = Fz / dFdz(z);
-    z -= dz;
-    if (Math.abs(dz) < 1e-10) break;
+  // ---- bracket [lo, hi] with F(lo) < 0 < F(hi) ----
+  // Start at z = 0 (parabola). If the parabolic tof is too long, the root is
+  // elliptic and lies in (0, 4pi^2), where t(z) -> infinity at the top end.
+  // Otherwise it is hyperbolic: step down in z. For transfer angles > 180 deg
+  // (A < 0) t(z) has a minimum at negative z and rises again below it (a
+  // non-physical branch), so stop at that minimum: if F is still positive
+  // there, the tof is shorter than any zero-rev long-way transfer allows.
+  let lo, hi, Flo, Fhi;
+  const F0 = F(0.0);
+  if (F0 < 0.0) {
+    // Walk the upper bound toward 4pi^2. Evaluating right at the limit is not
+    // safe: C(z) cancels to 0 there and F becomes inf - inf = NaN for A < 0.
+    lo = 0.0; Flo = F0;
+    let gap = 0.5 * LAMBERT_Z_MAX;
+    for (let k = 0; k < 15; k++) {
+      hi = LAMBERT_Z_MAX - gap; Fhi = F(hi);
+      if (Fhi > 0.0) break;
+      if (Fhi < 0.0) { lo = hi; Flo = Fhi; }
+      gap *= 0.1;
+    }
+  } else if (F0 === 0.0) {
+    lo = hi = 0.0; Flo = Fhi = 0.0;
+  } else {
+    hi = 0.0; Fhi = F0;
+    let step = 1.0;
+    for (;;) {
+      const cand = -step;
+      if (cand < LAMBERT_Z_MIN) return null;
+      const Fc = F(cand);
+      if (Fc < 0.0) { lo = cand; Flo = Fc; break; }
+      if (!(dFdz(cand) > 0.0)) {
+        // Passed the minimum of t(z): locate it between cand and hi.
+        let a = cand, b = hi;
+        for (let k = 0; k < 100; k++) {
+          const m = 0.5 * (a + b);
+          if (dFdz(m) > 0.0) b = m; else a = m;
+        }
+        const Fm = F(b);
+        if (!(Fm < 0.0)) return null;
+        lo = b; Flo = Fm;
+        break;
+      }
+      hi = cand; Fhi = Fc;
+      step *= 2.0;
+    }
   }
+  if (!(Flo <= 0.0) || !(Fhi >= 0.0)) return null;
+
+  // ---- safeguarded Newton (bisection fallback) ----
+  let z = (Flo === -Infinity) ? 0.5 * (lo + hi) : (lo * Fhi - hi * Flo) / (Fhi - Flo);
+  if (!(z > lo && z < hi)) z = 0.5 * (lo + hi);
+  let converged = false;
+  let iterations = 0;
+  for (; iterations < 200; iterations++) {
+    const Fz = F(z);
+    if (Fz === 0.0 || Math.abs(Fz) < 1e-13) { converged = true; break; }
+    if (Fz < 0.0) lo = z; else hi = z;
+    if (hi - lo <= 1e-15 * Math.max(1.0, Math.abs(z))) { converged = true; break; }
+    let zNew = NaN;
+    if (Fz !== -Infinity) {
+      const d = dFdz(z);
+      if (d > 0.0 && Number.isFinite(d)) zNew = z - Fz / d;
+    }
+    if (!(zNew > lo && zNew < hi)) zNew = 0.5 * (lo + hi);   // bisect
+    z = zNew;
+  }
+  if (!converged) return null;
 
   const yz = y(z);
+  if (!(yz > 0.0)) return null;
   const f = 1.0 - yz / r1;               // Lagrange coefficients
   const g = A * Math.sqrt(yz / mu);
   const gdot = 1.0 - yz / r2;
   const v1 = scale(sub(r2Vec, scale(r1Vec, f)), 1.0 / g);
   const v2 = scale(sub(scale(r2Vec, gdot), r1Vec), 1.0 / g);
-  return { v1, v2 };
+  if (!v1.every(Number.isFinite) || !v2.every(Number.isFinite)) return null;
+  return { v1, v2, z, iterations };
 }
 
 // -------- Hohmann transfer between coplanar circular orbits --------
