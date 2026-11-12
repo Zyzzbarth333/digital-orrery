@@ -1,0 +1,86 @@
+{
+  "bodies": {
+    "earth": {
+      "dayMonthly": [
+        "earth/day-01.webp",
+        "earth/day-02.webp",
+        "earth/day-03.webp",
+        "earth/day-04.webp",
+        "earth/day-05.webp",
+        "earth/day-06.webp",
+        "earth/day-07.webp",
+        "earth/day-08.webp",
+        "earth/day-09.webp",
+        "earth/day-10.webp",
+        "earth/day-11.webp",
+        "earth/day-12.webp"
+      ],
+      "dayWhiteLuminance": 0.9155677673844195,
+      "night": "earth/night.webp",
+      "normal": "earth/normal.webp",
+      "credit": "Blue Marble Next Generation (Reto St\u00f6ckli), Black Marble 2016: NASA Earth Observatory. Relief: NOAA NCEI ETOPO 2022 (doi:10.25921/fd45-gt74)."
+    },
+    "moon": {
+      "day": "moon/day.webp",
+      "dayMeanLuminance": 0.2991615405161384,
+      "normal": "moon/normal.webp",
+      "credit": "NASA's Scientific Visualization Studio, CGI Moon Kit (LRO LROC colour, LOLA elevation)."
+    },
+    "mars": {
+      "day": "mars/day.webp",
+      "dayMeanLuminance": 0.12958013367606086,
+      "normal": "mars/normal.webp",
+      "credit": "Viking MDIM 2.1 colour mosaic: NASA/JPL, USGS Astrogeology. MOLA MEGDR elevation: NASA/GSFC MOLA Science Team."
+    },
+    "mercury": {
+      "day": "mercury/day.webp",
+      "dayMeanLuminance": 0.16086401225389968,
+      "credit": "MESSENGER MDIS colour: NASA/JHUAPL/Carnegie Institution of Washington, USGS Astrogeology."
+    },
+    "pluto": {
+      "day": "pluto/day.webp",
+      "dayMeanLuminance": 0.35439093900228735,
+      "credit": "New Horizons LORRI/MVIC mosaic: NASA/JHUAPL/SwRI, USGS Astrogeology."
+    },
+    "venus": {
+      "day": "venus/day.webp",
+      "dayMeanLuminance": 0.5548135803015345,
+      "credit": "Cloud map: Solar System Scope (CC BY 4.0), based on NASA imagery."
+    },
+    "jupiter": {
+      "day": "jupiter/day.webp",
+      "dayMeanLuminance": 0.3663660806557283,
+      "credit": "Cassini global map PIA07782: NASA/JPL/Space Science Institute."
+    },
+    "saturn": {
+      "day": "saturn/day.webp",
+      "dayMeanLuminance": 0.6154962145618791,
+      "credit": "Solar System Scope (CC BY 4.0), based on NASA imagery."
+    },
+    "uranus": {
+      "day": "uranus/day.webp",
+      "dayMeanLuminance": 0.5644574448313416,
+      "credit": "Solar System Scope (CC BY 4.0), based on NASA imagery."
+    },
+    "neptune": {
+      "day": "neptune/day.webp",
+      "dayMeanLuminance": 0.12356147028746269,
+      "credit": "Solar System Scope (CC BY 4.0), based on NASA imagery."
+    }
+  },
+  "rings": {
+    "saturn": {
+      "tau": "saturn/rings_tau.json",
+      "innerKm": 70385.0,
+      "outerKm": 141375.0,
+      "credit": "Cassini UVIS 126 Tau occultation optical depth (Colwell et al.): NASA PDS Ring-Moon Systems Node."
+    }
+  },
+  "stars": {
+    "map": "stars/milky-way.webp",
+    "raAtLeftDeg": 180.0,
+    "raIncreasesRight": false,
+    "gain": 1.0,
+    "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020. Gaia DR2: ESA/Gaia/DPAC."
+  }
+}
