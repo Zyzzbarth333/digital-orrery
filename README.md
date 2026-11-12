@@ -39,7 +39,7 @@ The following changes would push fidelity further, roughly in order of impact:
 
 ### Prerequisites
 
-- Node.js 20+ and npm
+- Node.js 20.19+ (or 22.12+) and npm; Vite 8 needs one of these
 - A modern browser with WebGL support
 
 ### Install and run
