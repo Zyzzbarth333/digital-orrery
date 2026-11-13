@@ -125,8 +125,9 @@ header('CASE 3: coast arcs between events, flown by the kernel');
 const arcs = [];
 const starts = [row(fx.first), ...events.map((e) => e.b)], ends = [...events.map((e) => e.a), row(fx.last)];
 for (let i = 0; i < starts.length; i++) if (ends[i].ms - starts[i].ms >= 3600e3) arcs.push([starts[i], ends[i]]);
-// Sunlight pressure (environment.js), with the Earth's and Moon's shadows:
-// Orion as a cannonball with Cr A/m = 4.6e-3 m^2/kg (Cr 1.3, 92 m^2 for 26 t
+// The full environment (environment.js): the Earth's and Moon's fields,
+// the Earth's tides, relativity, and sunlight pressure with the Earth's and
+// Moon's shadows, Orion as a cannonball with Cr A/m = 4.6e-3 m^2/kg (Cr 1.3, 92 m^2 for 26 t
 // of capsule, service module and arrays), fitted once across these arcs;
 // about 2.1e-8 m/s^2 at 1 AU.
 const srp = makeEnvironment(sys, { mass: 26000, area: 92, cr: 1.3 });
@@ -136,9 +137,9 @@ const P = stat((x) => x.plain), Q = stat((x) => x.sun);
 const long = errs.reduce((a, b) => (b.hours > a.hours ? b : a));
 console.log(`  ${arcs.length} arcs of ${Math.min(...errs.map((x) => x.hours)).toFixed(1)} to ${Math.max(...errs.map((x) => x.hours)).toFixed(1)} h (${errs.reduce((s, x) => s + x.hours, 0).toFixed(0)} h in all)`);
 console.log(`  gravity only:                      worst ${P.worst.toFixed(1)} m, rms ${P.rms.toFixed(1)} m; the longest (${long.hours.toFixed(1)} h) ${long.plain.toFixed(1)} m`);
-console.log(`  with sunlight pressure (Cr A/m 4.6e-3 m^2/kg, shadows): worst ${Q.worst.toFixed(1)} m, rms ${Q.rms.toFixed(1)} m; the longest ${long.sun.toFixed(1)} m`);
+console.log(`  the full environment (sunlight pressure at Cr A/m 4.6e-3 m^2/kg, fields, tides, relativity): worst ${Q.worst.toFixed(1)} m, rms ${Q.rms.toFixed(1)} m; the longest ${long.sun.toFixed(1)} m`);
 check('every coast arc ends within 100 m of NASA\'s ephemeris (up to 25 h)', P.worst < 100);
-check('sunlight pressure on Orion (environment.js) halves the rms: NASA\'s model includes it', Q.rms < P.rms / 2);
+check('the full environment, sunlight pressure on Orion most of all, at least halves the rms: NASA\'s model includes it', Q.rms < P.rms / 2);
 
 header('CASE 4: the lunar flybys and the farthest point');
 // Outbound flyby: closest approach comes 9 minutes after the burn ends, so

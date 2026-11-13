@@ -17,6 +17,7 @@
 //   central false to leave out the point mass (C00), for the harmonics alone
 // field.accel(r, out)   r planet-fixed km -> out km/s^2 (the whole field,
 //                       point mass included)
+// field.set(n, m, C, S)  change one coefficient after the field is built
 
 // Fully normalised to unnormalised: C_nm = N_nm Cbar_nm with
 // N_nm = sqrt((2 - delta_m0)(2n + 1)(n - m)! / (n + m)!).
@@ -85,5 +86,11 @@ export function geopotential({ mu, radius, n: N, m: M = N, C, S, normalized = tr
     out[0] = k * ax; out[1] = k * ay; out[2] = k * az;
     return out;
   }
-  return { mu, radius, n: N, m: M, accel };
+  // Change one coefficient (normalised if the field was built normalised):
+  // for terms that vary in time, such as the solid Earth tide.
+  function set(n, m, Cnm, Snm) {
+    const f = normalized ? normFactor(n, m) : 1;
+    c[n][m] = Cnm * f; s[n][m] = Snm * f;
+  }
+  return { mu, radius, n: N, m: M, accel, set };
 }

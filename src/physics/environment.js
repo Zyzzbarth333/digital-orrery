@@ -26,13 +26,20 @@
 //   venting    the unmodelled pushes of a real craft (vent.js): a steady
 //              sunward push and a wandering one, and thruster puffs; off
 //              unless the craft has vent options
+//   tides      the solid Earth tide raised by the Moon and the Sun (IERS
+//              Conventions 2010, section 6.2, step 1): the Earth's degree 2
+//              and 3 coefficients change by the Love numbers k_nm times the
+//              tide-raising potential; on with the Earth's field
+//   relativity the Schwarzschild terms of the Sun and the Earth and the
+//              Earth's Lense-Thirring term (IERS Conventions 2010, eq.
+//              10.12, beta = gamma = 1); on unless relativity: false
 //   sunlight   solar radiation pressure on a flat-plate "cannonball":
 //              a = Cr P (AU/d)^2 (A/m) s_hat * nu
 //              P = 1361 W/m^2 / c at 1 AU, s_hat from the Sun to the craft,
 //              nu the visible fraction of the Sun's disc (shadow()), with the
 //              Earth and the Moon as occulting spheres.
 
-import { geopotential } from './geopotential.js';
+import { geopotential, normFactor } from './geopotential.js';
 import { earthFixedMatrix } from './earthRotation.js';
 import { ttMinusUtc } from './timescale.js';
 import { EGM2008 } from './egm2008.js';
@@ -111,13 +118,57 @@ export function earthFixedAt(epochMs, opts = {}) {
   };
 }
 
+// The solid Earth tide (IERS Conventions 2010, eq. 6.6, step 1): the changes
+// in the Earth's fully normalised C_nm and S_nm, n = 2 and 3, raised by
+// bodies at Earth-fixed positions ps (km) with GM ratios to the Earth's
+// ratios, for a field of reference radius R:
+//   dC_nm - i dS_nm = k_nm / (2n + 1) sum_j (GM_j/GM_E) (R/r_j)^(n+1)
+//                     Pbar_nm(sin lat_j) exp(-i m lon_j)
+// k_nm: the anelastic nominal values of IERS Table 6.3 (complex for n = 2,
+// m > 0) and its elastic values for n = 3 (0.093, and 0.094 for m = 3). Returns { C, S } as [n][m] arrays.
+export const LOVE = { 2: [[0.30190, 0], [0.29830, -0.00144], [0.30102, -0.00130]], 3: [[0.093, 0], [0.093, 0], [0.093, 0], [0.094, 0]] };
+export function solidTide(ps, ratios, R) {
+  const C = [[], [], [0, 0, 0], [0, 0, 0, 0]], S = [[], [], [0, 0, 0], [0, 0, 0, 0]];
+  for (let n = 2; n <= 3; n++) {
+    for (let m = 0; m <= n; m++) {
+      let ar = 0, ai = 0;
+      for (let j = 0; j < ps.length; j++) {
+        const p = ps[j], d = Math.hypot(p[0], p[1], p[2]), x = p[2] / d, q = Math.sqrt(1 - x * x), lon = Math.atan2(p[1], p[0]);
+        const P = n === 2 ? [(3 * x * x - 1) / 2, 3 * x * q, 3 * q * q][m] : [(5 * x * x * x - 3 * x) / 2, 1.5 * (5 * x * x - 1) * q, 15 * x * q * q, 15 * q * q * q][m];
+        const f = ratios[j] * (R / d) ** (n + 1) * P * normFactor(n, m);
+        ar += f * Math.cos(m * lon); ai -= f * Math.sin(m * lon);
+      }
+      const [kr, ki] = LOVE[n][m];
+      C[n][m] = (kr * ar - ki * ai) / (2 * n + 1);
+      S[n][m] = -(kr * ai + ki * ar) / (2 * n + 1);
+    }
+  }
+  return { C, S };
+}
+
+// The Earth's spin angular momentum per unit mass, for the Lense-Thirring
+// term: 9.8e8 m^2/s (IERS Conventions 2010, section 10.3), in km^2/s.
+export const EARTH_SPIN_J = 980;
+
+// Schwarzschild: a = mu / (c^2 r^3) [ (4 mu / r - v^2) r + 4 (r.v) v ] for r
+// and v relative to the body (IERS 2010 eq. 10.12, beta = gamma = 1). Adds
+// into out.
+export function schwarzschild(mu, x, y, z, vx, vy, vz, out) {
+  const r2 = x * x + y * y + z * z, r = Math.sqrt(r2), c2 = LIGHT * LIGHT;
+  const k = mu / (c2 * r2 * r), a = 4 * mu / r - (vx * vx + vy * vy + vz * vz), b = 4 * (x * vx + y * vy + z * vz);
+  out[0] += k * (a * x + b * vx); out[1] += k * (a * y + b * vy); out[2] += k * (a * z + b * vz);
+}
+
 // craft: { mass (kg), area (m^2, facing the Sun), cr (1 absorbing to 2
 // mirror; 1.3 typical), shadowBodies (keys; default Earth and Moon),
 // massAt(t) (optional: the mass at time t, as a burn sheds propellant),
 // earth: { degree (default 20; 0 for none), field (default EGM2008: { gm,
 // radius, C, S }), withJ2 (default false: the kernel's zonal model has it),
 // maxRadius (km; beyond, the harmonics are left out: default 20 Earth
-// radii), dut1, leapSeconds (the Earth rotation's time offsets) },
+// radii), dut1, leapSeconds (the Earth rotation's time offsets), tides
+// (default true when degree >= 2) },
+// relativity (default true; it needs the Sun's GM, sys.muSun, and the
+// Earth among the bodies),
 // moon: { degree (default 50; 0 for none), field (default GRAIL), withJ2,
 // maxRadius (km, default 10 lunar radii) },
 // vent: vent.js options ({} for Artemis II's calibration; absent for none),
@@ -160,6 +211,66 @@ export function makeEnvironment(sys, craft = {}) {
       out[2] += M[0][2] * g[0] + M[1][2] * g[1] + M[2][2] * g[2];
     });
   }
+  // The solid Earth tide raised by the Moon and the Sun, within the field's
+  // reach: a degree 3 field whose coefficients follow the two bodies.
+  if (E.tides ?? degree >= 2) {
+    const F = E.field ?? EGM2008, R = F.radius;
+    const zero = [[0], [0, 0], [0, 0, 0], [0, 0, 0, 0]];
+    const tide = geopotential({ mu: F.gm, radius: R, n: 3, C: zero, S: zero, central: false });
+    const rMax2 = (E.maxRadius ?? 20 * R) ** 2;
+    const g = [0, 0, 0], ef = [0, 0, 0], pm = [0, 0, 0], ps = [0, 0, 0];
+    let tSet = NaN;
+    terms.push((t, r, v, out) => {
+      const bodies = sys.bodiesAt(t);
+      const earth = bodies.find((b) => b.key === 'earth'), moon = bodies.find((b) => b.key === 'moon');
+      if (!earth || !moon) return;
+      const x = r[0] - earth.r[0], y = r[1] - earth.r[1], z = r[2] - earth.r[2];
+      if (x * x + y * y + z * z > rMax2) return;
+      const M = fixed(t);
+      if (t !== tSet) {
+        // The Moon and the Sun (at the origin) in Earth-fixed axes.
+        for (let i = 0; i < 3; i++) {
+          pm[i] = M[i][0] * (moon.r[0] - earth.r[0]) + M[i][1] * (moon.r[1] - earth.r[1]) + M[i][2] * (moon.r[2] - earth.r[2]);
+          ps[i] = -(M[i][0] * earth.r[0] + M[i][1] * earth.r[1] + M[i][2] * earth.r[2]);
+        }
+        const d = solidTide([pm, ps], [moon.mu / earth.mu, sys.muSun / earth.mu], R);
+        for (let n = 2; n <= 3; n++) for (let m = 0; m <= n; m++) tide.set(n, m, d.C[n][m], d.S[n][m]);
+        tSet = t;
+      }
+      ef[0] = M[0][0] * x + M[0][1] * y + M[0][2] * z;
+      ef[1] = M[1][0] * x + M[1][1] * y + M[1][2] * z;
+      ef[2] = M[2][0] * x + M[2][1] * y + M[2][2] * z;
+      tide.accel(ef, g);
+      out[0] += M[0][0] * g[0] + M[1][0] * g[1] + M[2][0] * g[2];
+      out[1] += M[0][1] * g[0] + M[1][1] * g[1] + M[2][1] * g[2];
+      out[2] += M[0][2] * g[0] + M[1][2] * g[1] + M[2][2] * g[2];
+    });
+  }
+
+  // Relativity: the Sun's Schwarzschild term (heliocentric r and v), and the
+  // Earth's Schwarzschild and Lense-Thirring terms within 1.5 million km
+  // (geocentric r and v; J along the Earth's pole of date).
+  if (craft.relativity ?? true) {
+    const vE = [0, 0, 0], c2 = LIGHT * LIGHT;
+    terms.push((t, r, v, out) => {
+      if (!v) return;
+      if (sys.muSun > 0) schwarzschild(sys.muSun, r[0], r[1], r[2], v[0], v[1], v[2], out);
+      const earth = sys.bodiesAt(t).find((b) => b.key === 'earth');
+      if (!earth) return;
+      const x = r[0] - earth.r[0], y = r[1] - earth.r[1], z = r[2] - earth.r[2], r2 = x * x + y * y + z * z;
+      if (r2 > 1.5e6 * 1.5e6) return;
+      earth.eph.velocity(t, vE);
+      const vx = v[0] - vE[0], vy = v[1] - vE[1], vz = v[2] - vE[2];
+      schwarzschild(earth.mu, x, y, z, vx, vy, vz, out);
+      // Lense-Thirring: 2 mu / (c^2 r^3) [ 3/r^2 (r x v)(r . J) + v x J ].
+      const w = fixed(t)[2], Jx = EARTH_SPIN_J * w[0], Jy = EARTH_SPIN_J * w[1], Jz = EARTH_SPIN_J * w[2];
+      const rr = Math.sqrt(r2), k = 2 * earth.mu / (c2 * r2 * rr), rJ = 3 * (x * Jx + y * Jy + z * Jz) / r2;
+      out[0] += k * (rJ * (y * vz - z * vy) + (vy * Jz - vz * Jy));
+      out[1] += k * (rJ * (z * vx - x * vz) + (vz * Jx - vx * Jz));
+      out[2] += k * (rJ * (x * vy - y * vx) + (vx * Jy - vy * Jx));
+    });
+  }
+
   // The Moon's field beyond J2, near the Moon: GRAIL GL0660B in the Moon's
   // principal-axis frame. The app orients the Moon in its mean-Earth frame
   // (orientation.js); PA_TO_ME (grail.js) turns one into the other.

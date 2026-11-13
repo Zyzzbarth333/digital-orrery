@@ -68,13 +68,16 @@ Low Earth orbit is where it matters most:
 - leaving it out put Artemis II's first coast arc 969 km off instead of
   42 km ([validation](../validation/artemis2.md)).
 
-The planets' $J_2$ values will follow once each has a primary source. Mars's,
+Every planet has its $J_2$ too, each from its field's primary source (the
+table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
-Not yet modelled: higher harmonics (J3 and up, and the tesseral terms),
-solar radiation pressure, atmospheric drag, relativistic corrections, the
-moons of the outer planets as separate bodies, and the asteroids.
+The forces beyond these (the Earth's and Moon's higher harmonics, the
+Earth's tides, drag, sunlight pressure, venting and relativity) come from
+[the space environment](environment.md), through the `extraAccel` hook. Not
+yet modelled: the planets' harmonics beyond $J_2$, the moons of the outer
+planets as separate bodies, and the asteroids.
 
 ## Integrators
 

@@ -7,7 +7,8 @@ compare that flight with the app's own kernel:
 - every coast between them;
 - the two lunar flybys and the farthest point from Earth.
 
-`npm test` runs `src/physics/artemis1.validate.mjs`; the numbers below are
+`npm test` runs `src/physics/artemis1.validate.mjs`;
+`npm run crosscheck:artemis1` runs the cross-checks. The numbers below are
 from November 2026.
 
 ## The reference
@@ -98,23 +99,74 @@ never crosses one.
 
 There are 77 arcs between events, from 1.2 to 24.7 hours, 589 hours in
 all. Each is flown by the kernel from the state a minute after one event
-to a minute before the next:
+to a minute before the next. `npm test` flies them with gravity alone and
+with the full environment; `npm run crosscheck:artemis1`
+(`src/physics/artemis1.crosscheck.mjs`) adds one force at a time, at an
+eighth of the kernel's default step:
 
-| Model | Worst at the end | RMS | The longest arc (24.7 h) |
+| Model | Worst at the end | RMS | Median |
 | --- | --- | --- | --- |
-| Gravity only (the app's kernel) | 83 m | 22.5 m | 83 m |
-| With Orion's sunlight pressure ([environment.js](../physics/environment.md)), C_r A/m = 4.6×10⁻³ m²/kg | 47 m | 8.0 m | 2.3 m |
+| Gravity: point masses, and the J2 of the Earth, Moon and planets | 83.4 m | 22.5 m | 6.8 m |
+| + Orion's sunlight pressure, C_r A/m = 4.6×10⁻³ m²/kg, with shadows | 47.4 m | 7.9 m | 0.6 m |
+| + the Earth's field to degree 20 and the Moon's to 50 | 43.1 m | 5.5 m | 0.5 m |
+| + the Earth's solid tides | 43.1 m | 5.5 m | 0.5 m |
+| + relativity (the full model) | 43.1 m | 5.6 m | 0.5 m |
 
-The gravity-only gap grows with the square of the arc's length, as a
-small steady acceleration would. Fitted across all 77 arcs, a push away
-from the Sun of 2.1×10⁻⁸ m/s² takes most of it out. That is sunlight
-pressure on Orion: about 4.6×10⁻⁶ N/m² on 60–80 m² of capsule and solar
-arrays, for 15 to 26 tonnes. So NASA's model includes solar radiation
-pressure. The app's craft now feel it too: the check flies Orion through
-the kernel's own sunlight model, as a cannonball with C_r A/m = 4.6×10⁻³
-m²/kg (92 m² at C_r 1.3 for 26 t), shadows included. The rest likely follows Orion's
-falling mass (a constant push here, though the real one grows as
-propellant is spent) and its attitude.
+What each force moves an arc's end by, at most: sunlight pressure 85.5 m,
+the two gravity fields 40.9 m, relativity 0.74 m, the tides 2 cm. At the
+kernel's default step `npm test` finds 83.3 m and 22.5 m with gravity
+alone, and 43.5 m and 5.6 m with the full model.
+
+- **Sunlight pressure is in NASA's model.** The gravity-only gap grows with
+  the square of the arc's length, as a small steady push would. Fitted
+  across all 77 arcs, a push away from the Sun of 2.1×10⁻⁸ m/s² takes most
+  of it out: about 4.6×10⁻⁶ N/m² on 60–80 m² of capsule and solar arrays,
+  for 15 to 26 tonnes. The kernel flies Orion as a cannonball with
+  C_r A/m = 4.6×10⁻³ m²/kg (92 m² at C_r 1.3 for 26 t), shadows included.
+- **Tides and relativity are below what this data can show:** a few
+  centimetres and under a metre, against NASA's own joins of tens of
+  metres (below).
+- **What is left** most likely follows Orion's falling mass (fixed at 26 t
+  here, though propellant use took it lower), its attitude (a cannonball
+  has none), and the venting that NASA's predictions could not know.
+
+## Cross-checks
+
+`npm run crosscheck:artemis1` checks the comparison three independent ways.
+
+1. **The model, force by force:** the table above. Each force moves the
+   arcs by about what its size predicts, and the full model ends every arc
+   within 44 m of NASA's ephemeris.
+2. **The integrator:** the full model flown by the kernel at its default
+   step and at a half, a quarter and an eighth of it, against a plain
+   fixed-step fourth-order Runge–Kutta written in the check (a different
+   method; at 10 s and 5 s it agrees with itself to 2 mm):
+
+   | The kernel's step | Worst against RK4 | RMS |
+   | --- | --- | --- |
+   | default | 2.48 m | 0.49 m |
+   | ½ | 0.16 m | 0.03 m |
+   | ¼ | 0.07 m | 0.02 m |
+   | ⅛ | 0.07 m | 0.03 m |
+
+   So the integrator's own error is centimetres at a fine step, a
+   hundredth of the model's miss. At the app's default step it adds up to
+   2.5 m to an arc. Encke's method never takes over on these arcs: between
+   the Earth and the Moon the motion is far from a single conic, so the
+   kernel flies them by Cowell.
+3. **The data:** a dozen fresh states from JPL Horizons, asked for in TDB
+   rather than UTC, against the fixture, and the Moon and the Sun at the
+   same instants against the app's own:
+   - Orion: the two agree to 0.11 m, so the stored trajectory and the
+     UTC-to-TDB conversion are right (a second's error would show as about
+     a kilometre);
+   - the Moon from the Earth: the app's DE442 against Horizons', within
+     2.5 m;
+   - the Sun from the Earth: within 17 m.
+
+The published numbers are a check of their own: NASA's burns, flyby
+distances and farthest point, below and above, come from NASA's papers
+and blog, not from the ephemeris.
 
 ## The lunar flybys and the farthest point
 
