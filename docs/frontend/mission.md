@@ -83,6 +83,22 @@ written from JSC's reconstructed trajectory by
 - **Green line:** the flown path, drawn relative to Earth.
 - **Tracking:** a fix every 24, 12, 6 or 3 hours resets the craft to the
   flown state, as a navigation team's tracking would.
+- **Corrections:** with **Aimed from the craft** (the default), each
+  correction after the injection burn is worked out when the craft reaches
+  it, from where this craft is, as NASA's were from where Orion was. The
+  kernel holds at the burn's start (`Craft.holdAt`); there
+  `RealMission.aimCorrection` carries the craft's offset from the flown
+  state to the next burn (or the end of the data) through the flown path's
+  sensitivities, six kernel runs each nudged in one component, and solves
+  for the velocity change that cancels the miss. That is added to the burn
+  as flown, spread over it. A correction followed within 12 hours by
+  another (the first outbound trim) is flown as it was, and the later one
+  aims for both. **As flown, blind** replays every correction exactly as
+  Orion flew it, whatever the craft's state; the lunar flyby magnifies the
+  difference, so without fixes that ends some 17,000 km off at entry.
+  Aimed, with no fixes, the craft stays within 72 km of the flown path for
+  the whole mission and reaches entry 0.3 km from it, for 5.5 m/s more
+  than the flown corrections (`artemis2.validate.mjs`, part 6).
 - **Setting the clock inside the mission** puts the craft where the real one
   was.
 - **Artemis II · our own plan** flies the simulator's own design of the
@@ -96,6 +112,14 @@ What the craft does is checked against the real flight in
 [the Artemis II validation](../validation/artemis2.md): the mission file,
 flown frame by frame by the craft model, is within 0.4 km of the
 validation's replay at the flyby.
+
+The flown path is stored to the source's precision (1 mm, 1 nm/s) and
+interpolated by cubic Hermite, except across gaps under a second (the
+first two samples are 0.26 s apart), where the velocity is taken straight
+between the samples' own: the cubic's velocity divides the positions'
+rounding by the gap, and with positions to the metre that put 0.2 m/s into
+a craft placed on the path just after the start (FLY IT with the clock
+running), which the injection burn grew to 180 km by the next day.
 
 The kernel learned two things for this:
 - **Steered burns:** a burn can be steered in the orbital frame about a

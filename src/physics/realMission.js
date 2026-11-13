@@ -11,8 +11,15 @@
 
 import { helioStateEqj } from './ephemeris.js';
 import { kernelSeconds } from './kernelHost.js';
+import { advance, createState } from './nbody.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+// A correction aims at the start of the next burn at least this far on (or
+// the end of the data): one followed sooner by another (the first of the two
+// outbound trims) is flown as it was, and the later one aims for both.
+const AIM_MIN_MS = 12 * 3600e3;
 
 export class RealMission {
   // data: the parsed mission file.
@@ -67,7 +74,14 @@ export class RealMission {
     const h00 = 2 * u ** 3 - 3 * u * u + 1, h10 = u ** 3 - 2 * u * u + u, h01 = -2 * u ** 3 + 3 * u * u, h11 = u ** 3 - u * u;
     const d00 = (6 * u * u - 6 * u) / h, d10 = 3 * u * u - 4 * u + 1, d01 = (-6 * u * u + 6 * u) / h, d11 = 3 * u * u - 2 * u;
     const r = [0, 1, 2].map((k) => h00 * a[1 + k] + h10 * h * a[4 + k] + h01 * b[1 + k] + h11 * h * b[4 + k]);
-    const v = [0, 1, 2].map((k) => d00 * a[1 + k] + d10 * a[4 + k] + d01 * b[1 + k] + d11 * b[4 + k]);
+    // The cubic's velocity divides the positions' rounding (1 mm) by the
+    // interval: 6 mm/s across the 0.26 s between the first two samples, enough
+    // for the injection burn to carry to 50 km by the next day. Under a second
+    // the samples' own velocities, straight between them, are better (the
+    // curve they miss is h^2/8 times the jerk, micrometres a second).
+    const v = h < 1
+      ? [0, 1, 2].map((k) => (1 - u) * a[4 + k] + u * b[4 + k])
+      : [0, 1, 2].map((k) => d00 * a[1 + k] + d10 * a[4 + k] + d01 * b[1 + k] + d11 * b[4 + k]);
     return { r, v };
   }
 
@@ -90,6 +104,83 @@ export class RealMission {
 
   // The tracking fixes due between two clock times, every fixHours from the
   // start (ms of each).
+  // The corrections that are aimed from the craft rather than replayed: every
+  // burn after the first (the injection burn sets the course; the rest keep
+  // it), except one followed within 12 h by another. Each aims at the flown
+  // position at the start of the next burn after it, or at the end.
+  // { name, atMs, endMs, targetMs }: the burn's first and last instants.
+  aims() {
+    if (this._aims) return this._aims;
+    const B = this.burns.map((b) => ({ name: b.name, atMs: b.intervals[0][0], endMs: b.intervals.at(-1)[1] }));
+    this._aims = [];
+    for (let k = 1; k < B.length; k++) {
+      if (k + 1 < B.length && B[k + 1].atMs - B[k].endMs < AIM_MIN_MS) continue;
+      this._aims.push({ ...B[k], targetMs: k + 1 < B.length ? B[k + 1].atMs : this.endMs });
+    }
+    return this._aims;
+  }
+
+  // The correction to add to a burn so the craft, at heliocentric r, v at
+  // the burn's start, reaches the flown position at the aim's target time,
+  // as a navigation team aims a correction from the tracked state rather
+  // than flying the planned one blind. Linear: the craft's offset from the
+  // flown state, carried to the target by the flown path's sensitivities
+  // (the kernel flown from the flown state, each of its six components
+  // nudged), gives the miss; the velocity change that cancels it solves the
+  // 3x3 position-on-velocity block. The burn itself is flown by both, so it
+  // drops out. sys: the kernel's bodies. Returns { dv (EQJ km/s), miss
+  // (km, without it), off (km and km/s from the flown state) }, or null
+  // outside the data.
+  aimCorrection(sys, r, v, aim) {
+    const x = this.fixAt(aim.atMs);
+    if (!x) return null;
+    const T = kernelSeconds(new Date(aim.targetMs));
+    const opts = { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e6 };
+    const fly = (rr, vv) => { const s = createState(rr, vv, x.t); advance(s, T, opts); return s.r; };
+    const base = fly(x.r, x.v);
+    const cols = [0, 1, 2, 3, 4, 5].map((j) => {
+      const h = j < 3 ? 0.1 : 1e-4, rr = [...x.r], vv = [...x.v];
+      (j < 3 ? rr : vv)[j % 3] += h;
+      return sub(fly(rr, vv), base).map((d) => d / h);
+    });
+    const dr = sub(r, x.r), dv = sub(v, x.v);
+    const miss = [0, 1, 2].map((i) => cols.reduce((sum, col, j) => sum + col[i] * (j < 3 ? dr[j] : dv[j - 3]), 0));
+    const A = [0, 1, 2].map((i) => [cols[3][i], cols[4][i], cols[5][i]]), D = det3(A);
+    if (!(Math.abs(D) > 0)) return null;
+    const corr = [0, 1, 2].map((k) => det3(A.map((row, i) => row.map((val, c) => (c === k ? -miss[i] : val)))) / D);
+    return { dv: corr, miss: Math.hypot(...miss), off: { km: Math.hypot(...dr), kms: Math.hypot(...dv) } };
+  }
+
+  // One frame of aimed corrections for craft c (after its clock and any fix,
+  // before the kernel is asked): the kernel holds at each correction's start
+  // (c.holdAt); once the craft is there the correction is worked out from its
+  // own state and added to the burn as flown, spread over the burn; then the
+  // kernel runs on to the next. run: { aimNext, aimedDv } kept between frames
+  // (the next aim's index; m/s added so far). jumped: the clock was set, so
+  // aims after the new time are pending again.
+  aimStep(c, sys, run, jumped = false) {
+    const aims = this.aims(), at = (i) => kernelSeconds(new Date(aims[i].atMs));
+    if (jumped) {
+      c.dropAimed(c.kState.t);
+      run.aimNext = aims.findIndex((a) => kernelSeconds(new Date(a.atMs)) >= c.kState.t);
+      if (run.aimNext < 0) run.aimNext = aims.length;
+    }
+    while (run.aimNext < aims.length && at(run.aimNext) < c.kState.t - 1e-6) run.aimNext++;
+    if (run.aimNext >= aims.length) { c.holdAt = null; return null; }
+    const a = aims[run.aimNext];
+    if (!(Math.abs(c.kState.t - at(run.aimNext)) < 1e-6)) { c.holdAt = at(run.aimNext); return null; }
+    const k = this.aimCorrection(sys, c.kState.r, c.kState.v, a);
+    if (k) {
+      const dv = Math.hypot(k.dv[0], k.dv[1], k.dv[2]), span = (a.endMs - a.atMs) / 1000;
+      if (dv > 0) c.addScripted({ t0: c.kState.t, t1: c.kState.t + span, dir: k.dv, accel: dv * 1000 / span });
+      run.aimedDv += dv * 1000;
+      c.note(`${a.name} aimed from the craft: ${(dv * 1000).toFixed(2)} m/s more than flown (${k.off.km.toFixed(1)} km off the flown path; it would miss by ${k.miss.toFixed(0)} km)`, c.kState.t);
+    }
+    run.aimNext++;
+    c.holdAt = run.aimNext < aims.length ? at(run.aimNext) : null;
+    return k;
+  }
+
   fixesBetween(fromMs, toMs, fixHours) {
     if (!fixHours || !(toMs > fromMs)) return [];
     const every = fixHours * 3600e3, out = [];

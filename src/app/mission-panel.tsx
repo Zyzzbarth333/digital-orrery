@@ -151,6 +151,20 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
             </select>
           </label>
           <p className="hint">A fix puts the craft back where tracking says the real one was, as a navigation team would. {run.fixes > 0 ? `${run.fixes} so far.` : ''}</p>
+          {run.burns === 'all' && (
+            <>
+              <label className="num">
+                <span className="engraved">Corrections</span>
+                <select className="input select" value={run.aimed ? 'aimed' : 'flown'} onChange={(e) => mission.setAimed(c, e.target.value === 'aimed')}>
+                  <option value="aimed">Aimed from the craft</option>
+                  <option value="flown">As flown, blind</option>
+                </select>
+              </label>
+              <p className="hint">{run.aimed
+                ? `Each correction after the injection burn is worked out from where this craft is, as NASA's were from where Orion was, and added to the burn as flown${run.aimedDv > 0 ? `: ${fmt(run.aimedDv, 2)} m/s so far` : ''}.`
+                : 'The corrections are flown exactly as Orion flew them, without regard to where this craft is. The lunar flyby magnifies small differences, so it ends thousands of kilometres off without fixes.'}</p>
+            </>
+          )}
           </details>
         )}
 

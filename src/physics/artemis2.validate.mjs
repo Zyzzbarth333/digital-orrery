@@ -167,21 +167,25 @@ const fixes = [24, 12, 6, 3].map((h) => {
 // ---------------- 6. the app's own path ----------------
 console.log("\n6. the app's path: the mission file flown by the Craft model and the kernel host, one-minute frames");
 const file = new RealMission(JSON.parse(fs.readFileSync(new URL('../../public/missions/artemis2.json', import.meta.url))));
-function flyApp(fixHours) {
-  // The environment off (no area, so no sunlight or drag; J2 alone for the
-  // Earth), as in the replay it is checked against.
-  const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, area: 0, earth: { degree: 0 } });
+// Orion as the app flies it (src/app/mission.ts's ORION): the full
+// environment, sunlight on 92 m^2 and the random vent model.
+const ORION = { dryMass: 25036, fuel: 500, area: 92, cr: 1.3, vent: {} };
+function flyApp(fixHours, { aimed = false, env = false } = {}) {
+  // By default the environment off (no area, so no sunlight or drag; J2
+  // alone for the Earth), as in the replay it is checked against.
+  const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, ...(env ? ORION : { area: 0, earth: { degree: 0 } }) });
   c.setScript(file.script());
-  const client = new KernelClient();
+  const client = new KernelClient(), run = { aimNext: 0, aimedDv: 0 };
+  const step = (t) => { c.advanceClock(t); if (aimed) file.aimStep(c, sys, run); client.tick([c]); if (aimed) { file.aimStep(c, sys, run); client.tick([c]); } };
   let worst = 0, prev = file.startMs;
   const track = [];
   for (let ms = file.startMs + 60e3; ms <= file.endMs; ms += 60e3) {
     for (const f of file.fixesBetween(prev, ms, fixHours)) {
-      c.advanceClock(kt(f)); client.tick([c]);
+      step(kt(f));
       const x = file.fixAt(f); c.setState(x.r, x.v, x.t);
     }
     prev = ms;
-    c.advanceClock(kt(ms)); client.tick([c]);
+    step(kt(ms));
     const at = KERNEL_EPOCH_MS + c.kState.t * 1000, d = file.distanceFromFlown(c.kState.r, at);
     if (d !== null) worst = Math.max(worst, d);
     const g = geocentric(c.kState, at), m = helioStateEqj('moon', new Date(at)), e = helioStateEqj('earth', new Date(at));
@@ -189,10 +193,15 @@ function flyApp(fixHours) {
   }
   const end = file.distanceFromFlown(c.kState.r, KERNEL_EPOCH_MS + c.kState.t * 1000);
   const cl = closest(track, craftMoon);
-  console.log(`  ${(fixHours ? `a fix every ${fixHours} h` : 'no fixes').padEnd(46)} flyby ${cl.altitude.toFixed(1).padStart(8)} km at ${cl.utc.slice(11, 19)}   entry ${fmt(end)} km, worst ${worst.toFixed(1)} km${c.error ? ', ' + c.error : ''}`);
-  return { closest: cl, end, worst, error: c.error };
+  const label = (fixHours ? `a fix every ${fixHours} h` : 'no fixes') + (env ? ', full environment' : '') + (aimed ? `, aimed (+${run.aimedDv.toFixed(2)} m/s)` : '');
+  console.log(`  ${label.padEnd(46)} flyby ${cl.altitude.toFixed(1).padStart(8)} km at ${cl.utc.slice(11, 19)}   entry ${fmt(end)} km, worst ${worst.toFixed(1)} km${c.error ? ', ' + c.error : ''}`);
+  return { closest: cl, end, worst, error: c.error, aimedDv: run.aimedDv };
 }
 const app = flyApp(null), app12 = flyApp(12);
+// As the app flies it by default: the full environment with its random vent,
+// no fixes, the corrections aimed from the craft; and the same replayed
+// blind, which the flyby turns into thousands of kilometres.
+const appBlind = flyApp(null, { env: true }), appAimed = flyApp(null, { env: true, aimed: true });
 
 // ---------------- 7. our own plan ----------------
 const plan = JSON.parse(fs.readFileSync(new URL('./fixtures/artemis2_design.json', import.meta.url)));
@@ -230,6 +239,8 @@ check('a fix every 12 h: within 5 km at entry, never more than 1,000 km off', fi
 check("the app's Moon within 5 m of DE442 over the mission", Math.max(...moonErr) < 0.005);
 check("the app's path flies the mission file without error, to within 2 km of the replay's flyby", !app.error && Math.abs(app.closest.altitude - missionBefore.closest.altitude) < 2);
 check("the app's path with a fix every 12 h: within 5 km at entry, never more than 10 km off", app12.end < 5 && app12.worst < 10);
+check(`the app's path as it flies by default, corrections aimed, no fixes: within 5 km at entry and 150 km throughout (blind: ${appBlind.worst.toFixed(0)} km)`, !appAimed.error && appAimed.end < 5 && appAimed.worst < 150);
+check(`the aimed corrections add under 10 m/s to the flown ones (${appAimed.aimedDv.toFixed(2)} m/s)`, appAimed.aimedDv < 10);
 check('our plan still meets NASA\'s flyby (1 km, 5 s) and entry time (5 s)', Math.abs(pf.flyby.altitude - TARGETS.flybyAltKm) < 1 && Math.abs(Date.parse(pf.flyby.utc) - TARGETS.flybyMs) < 5e3 && Math.abs(pf.ei.ms - TARGETS.eiMs) < 5e3);
 check('our plan\'s injection burn within 1 % of NASA\'s planned 1,274 ft/s and 3 s of its 349 s, igniting within 2 min of 23:49', Math.abs(ftps(pf.mag) / 1274 - 1) < 0.01 && Math.abs(pf.seconds - 349) < 3 && Math.abs(plan.ignitionMs - TARGETS.planIgnitionMs) < 120e3);
 check('our plan stays within 300 km of the flown path, and its farthest from Earth within 10 km of the flown', pc.max < 300 && Math.abs(pc.farthest.ours.km - pc.farthest.flown.km) < 10);

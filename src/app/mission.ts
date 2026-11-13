@@ -52,7 +52,9 @@ export type RealBurns = 'all' | 'first';
 // craft that reaches orbit is built at the start, so the camera following
 // the climb follows it on; it joins the kernel at cutoff.
 interface Ascent { craft: Craft; liftoffMs: number; cutoffMs: number; track: { ms: number; r: V3; v: V3 }[]; pathEcl: V3[]; flownEcl: V3[]; shown: number; version: number }
-interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean }
+// aimed: the corrections are aimed from the craft (RealMission.aimCorrection)
+// rather than replayed as flown; aimNext: the next of m.aims() to aim.
+interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean; aimed: boolean; aimNext: number; aimedDv: number }
 
 // The real missions the app can fly: file id and label.
 export const REAL_MISSIONS = [
@@ -257,13 +259,20 @@ export class Mission {
     c.setScript(new RealMission({ ...m.data, burns: keep }).script());
     c.note(burns === 'all' ? `${m.burns.length} burns scripted as flown` : `${keep[0].name} scripted as flown; the corrections are yours`, s.t);
     const refEcl = m.flown.map((p: number[]) => eqjToEclFast([p[1], p[2], p[3]]));
-    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom });
+    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom, aimed: burns === 'all' && !m.data.flownFrom, aimNext: 0, aimedDv: 0 });
     this.crafts.push(c);
     this.select(c.id);
     return c;
   }
 
   realRun(c: Craft): RealRun | null { return this.real.get(c.id) ?? null; }
+  setAimed(c: Craft, aimed: boolean): void {
+    const R = this.real.get(c.id);
+    if (!R || R.plan || R.burns !== 'all') return;
+    R.aimed = aimed;
+    if (!aimed) { c.holdAt = null; c.dropAimed(c.kState.t); }
+    this.emit(true);
+  }
   setFixHours(c: Craft, h: number | null): void {
     const R = this.real.get(c.id);
     if (R) { R.fixHours = h; R.lastMs = KERNEL_EPOCH_MS + c.clockT * 1000; this.emit(true); }
@@ -293,7 +302,11 @@ export class Mission {
       if (x) { c.setState(x.r, x.v, x.t); R.fixes += due.length; c.note('tracking fix: reset to the flown state', x.t); }
     }
     R.lastMs = nowMs;
+    // Aimed corrections: the kernel holds at each one's start, where it is
+    // worked out from the craft's own state (RealMission.aimStep).
+    if (R.aimed) R.m.aimStep(c, this.sys, R, jumped);
   }
+
 
   // Removal can be undone: the last craft removed is kept until the next.
   lastRemoved: Craft | null = null;

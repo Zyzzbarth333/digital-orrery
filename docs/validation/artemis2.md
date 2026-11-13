@@ -233,7 +233,7 @@ The app flies the same mission:
 - **Loading:** from **Real missions** on the MISSION tab, or with
   `?mission=artemis2`. Adding `&t=…` starts inside the mission, and
   `&fix=12` adds tracking fixes every 12 h.
-- **The file:** `public/missions/artemis2.json` (298 kB), written by
+- **The file:** `public/missions/artemis2.json` (346 kB), written by
   `artemis2.export.mjs`. It holds the start state, the burns as 5-second
   intervals, and the flown trajectory. That is sampled every 10 minutes,
   every minute near Earth and every 5 s through each burn, so
@@ -241,9 +241,27 @@ The app flies the same mission:
   other one, interpolation stays within 11 m near Earth.
 - **The check:** the validation flies that file through the app's own
   Craft model and kernel host in one-minute frames. It reproduces the
-  replay's flyby (6,511.6 km against 6,511.2 km) at every frame size from
-  0.25 s to one request, and with a fix every 12 h it is 1.3 km off at
+  replay's flyby (6,511.2 km against 6,511.2 km) at every frame size from
+  0.25 s to one request, and with a fix every 12 h it is 1.2 km off at
   entry.
+- **As the app flies it by default:** Orion with the full environment
+  (sunlight on 92 m², the Earth's field, the random vent model), no
+  fixes, and every correction after the injection burn aimed from the
+  craft's own state ([aimed corrections](../frontend/mission.md#real-missions)):
+
+  | Corrections | Worst off the flown path | Flyby | At entry |
+  | --- | --- | --- | --- |
+  | As flown, blind | 17,173 km | 6,402.2 km | 17,173 km |
+  | Aimed from the craft | 72 km | 6,541.1 km | 0.3 km |
+
+  Blind, the random vent pushes the wrong way about as often as the right
+  one and the flyby magnifies it. Aimed, the corrections cost 5.5 m/s
+  more than the flown ones (the second trim 1.5 m/s, the outbound
+  correction 0.8, the return corrections 0.6, 1.5 and 1.1).
+- **Placed on the path:** the file holds positions to 1 mm. At 1 m, a
+  craft placed 50 ms after the start (FLY IT pressed with the clock
+  running) took a velocity error from interpolating across the first two
+  samples, 0.26 s apart, and was 51 km off the next day instead of 10.
 
 ### 6. Our own plan
 

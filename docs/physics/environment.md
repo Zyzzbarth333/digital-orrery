@@ -110,8 +110,8 @@ flight:
   much each.
 
 The model is off unless a craft asks for it. Orion in the app has it, so a
-flown Artemis drifts as the real one did and the tracking fixes correct
-it.
+flown Artemis drifts as the real one did, and its corrections, aimed from
+the craft as NASA's were, or the tracking fixes, correct it.
 
 **Checks** (`environment.test.mjs`):
 - **The wandering push,** over 2,000 days: 1.31 µm/s² per axis, and a

@@ -104,6 +104,7 @@ export class Craft {
     this.prevClockT = t;
     this.burns = [];
     this.script = [];                // scripted burns (a real mission's, from its data)
+    this.holdAt = null;              // kernel seconds the kernel stops at until released (an aimed correction)
     this.nodes = [];                 // { id, t, dv: [radial, prograde, normal] km/s }
     this.executing = null;           // { node, burn }
     this.engineOn = false;           // manual engine
@@ -203,6 +204,21 @@ export class Craft {
     this.version++;
   }
 
+  // A scripted push added to the script: accel m/s^2 along a fixed EQJ
+  // direction from t0 to t1 (an aimed correction; aimed: true marks it for
+  // dropAimed).
+  addScripted({ t0, t1, dir, accel }) {
+    this.script.push({ t0, t1, dir: unit(dir), F: accel, m0: 1, mdot: 0, scripted: true, aimed: true });
+    this.version++;
+  }
+  // Aimed pushes still to come after t are dropped (the clock was set back
+  // past them: they are aimed again when it reaches them).
+  dropAimed(t) {
+    const n = this.script.length;
+    this.script = this.script.filter((b) => !(b.aimed && b.t1 > t));
+    if (this.script.length !== n) this.version++;
+  }
+
   // A tracking fix: the craft's state replaced by a measured one at time t.
   setState(r, v, t) {
     const bodies = this.sys.bodiesAt(t);
@@ -258,7 +274,7 @@ export class Craft {
 
   buildRequest() {
     if (this.crashed || this.error) return null;
-    const tEnd = this.clockT, span = tEnd - this.kState.t;
+    const tEnd = this.holdAt !== null && this.holdAt < this.clockT ? this.holdAt : this.clockT, span = tEnd - this.kState.t;
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
     const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
