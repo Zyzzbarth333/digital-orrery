@@ -5,10 +5,65 @@
 | | Used by | Accuracy |
 | --- | --- | --- |
 | **DE442** through SPICE (`python/data/metakernel.tm`) | the reference fixture, the C generator, the Python scripts | JPL's fit to radar, spacecraft tracking and occultations; the reference |
-| **astronomy-engine** (`src/physics/ephemeris.js`) | the browser app and the n-body kernel today | measured against DE442: within 2.5×10⁻⁵ of the distance and 1.3 m/s for Venus, Earth and Mars; within 9.3×10⁻⁵ and 9.5 m/s for all eight planets (`porkchop.test.mjs` case 1) |
+| **DE442 Earth–Moon table** (`src/physics/deTable.js`) | Earth and the Moon in the browser app and the kernel, 2000–2050 | Chebyshev series fitted to DE442: worst 0.3 mm (Moon) and 3.6 mm (Earth); the Earth's acceleration within 1.5×10⁻⁹ m/s² |
+| **astronomy-engine** (`src/physics/ephemeris.js`) | the other planets, and Earth and the Moon outside 2000–2050 | measured against DE442: within 2.5×10⁻⁵ of the distance and 1.3 m/s for Venus, Earth and Mars; within 9.3×10⁻⁵ and 9.5 m/s for all eight planets (`porkchop.test.mjs` case 1); its Moon is 9–13 km from DE442's |
 
-Reading DE442's Chebyshev data directly in the browser, so the app runs on
-the reference ephemeris itself, is planned for the exact-ephemeris phase.
+## DE442 in the app
+
+Earth and the Moon matter most to the precision of what the app flies, so
+they come from DE442 itself.
+- **The fit:** `c/de_cheb.c` fits Chebyshev series to DE442 through CSPICE:
+  - the Moon relative to Earth: 8-day intervals, 18 coefficients;
+  - the Earth-Moon barycentre relative to the Sun: 16-day intervals, 14
+    coefficients;
+  - both in J2000 equatorial km against TDB.
+- **The Earth** is derived, as JPL's own ephemerides store it:
+  $\mathbf r_\oplus = \mathbf r_{EMB} - k\,(\mathbf r_{☾} - \mathbf r_\oplus)$
+  with $k = GM_☾/(GM_\oplus + GM_☾) = 0.0121505844$ (stored in the file).
+  - **Why:** the barycentre moves smoothly, but the Earth swings 4,700 km
+    round it every month.
+  - **The old fit:** a series of the Earth itself held its position to
+    0.48 m, but its acceleration rippled by 10⁻⁸ m/s² and jumped by up to
+    2×10⁻⁶ m/s² at the joins between intervals.
+  - **Why acceleration matters:** an orbit about the Earth follows the
+    table's Earth. NASA's Sun-and-Moon check case
+    ([6-DOF](sixdof.md#the-apps-kernel-on-the-same-cases)) flown by the
+    kernel was 0.62 m off after 8 hours on the old table and 0.12 m on
+    this one. The rest was DE442's own floor, which Encke's tidal form
+    keeps out of the motion about the Earth: 5 mm
+    ([Encke's method](nbody-kernel.md#enckes-method)).
+- **The file:** `public/ephemeris/de442-earth-moon-2000-2050.bin`, 1.4 MB
+  (format 2).
+- **Accuracy:** checked between the fitting nodes against `spkezr_c`:
+  - **Position:** worst 0.3 mm for the Moon, 3.7 mm for the barycentre
+    and 3.6 mm for the derived Earth.
+  - **Acceleration:** the derived Earth within 1.5×10⁻⁹ m/s² of a second
+    difference of SPICE's positions.
+  - **Joins:** jumps under 3 mm, 0.2 mm/s and 5×10⁻¹¹ m/s².
+
+  Against the forces on the Earth (Sun, planets, Moon), the table's
+  acceleration agrees to 2.7×10⁻⁹ m/s², with a steady 2×10⁻¹⁰ m/s² from
+  what DE442 adds (relativity, asteroids). That scatter is the floor of
+  DE442's own Chebyshev records.
+- **Loading:** `deLoad.js` fetches the table on the main thread before the
+  app is imported, and in each worker before its first job. Under Node,
+  `deNode.js` loads it as the first import of every test.
+- **Time:** the app's clock is UTC, converted to TDB by `timescale.js`.
+
+Through that path, Earth at MSL's launch is 0.09 m from SPICE. Over Artemis
+II the Moon stays within 0.8 m of DE442, which is the millisecond rounding
+of the fixture's times.
+
+Why it matters:
+- The Moon from astronomy-engine is 9–13 km from DE442's. Predicting
+  Artemis II through the lunar flyby, that is 49 km of error against 3.6 km
+  with DE442 ([validation](../validation/artemis2.md)).
+- Earth's heliocentric position from astronomy-engine is up to about
+  3,400 km off DE442's.
+
+Outside 2000–2050, or if the table fails to load, ephemeris.js falls back to
+astronomy-engine (with a console warning), with a jump of that size at the
+boundary. The other planets will follow the same way.
 
 ## What DE442 contains, and what the satellite kernels add
 

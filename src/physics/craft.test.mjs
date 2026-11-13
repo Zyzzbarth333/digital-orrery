@@ -5,6 +5,7 @@
 // burns and nodes, clock jumps, impacts and errors, launches, and a Lambert
 // plan flown to Mars. Ported from the old BaseSpacecraft tests.
 
+import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import { Craft } from './craft.js';
 import { KernelClient } from './kernelClient.js';
 import { createKernelHost, KERNEL_EPOCH_MS, kernelSeconds } from './kernelHost.js';

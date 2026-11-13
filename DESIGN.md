@@ -31,6 +31,7 @@ colors:
   warn-ink: "#ff8a73"
   warn-edge: "#7a1a0e"
   label-dim: "#b9ad92"
+  flown-line: "#4f9a86"
   warn: "#c62f1c"
   black: "#000000"
   white: "#ffffff"
@@ -306,6 +307,9 @@ numerals, an engraved label above, and the unit beside.
   selected, orange while burning, red and struck through after an impact.
 - **Craft lines:** the osculating conic in amber (0.55); the flown trail in
   pale amber, glowing at the craft and fading with age.
+- **A real mission's flown path:** pale green (`flown-line` for its legend
+  swatch on the panel), so it never reads as ours (amber). Drawn relative to
+  Earth, it stays put while our craft drifts off it.
 - **Orbit lines:** each planet's orbit is a faint outline with a glowing
   trail behind the planet (see docs/frontend/scene.md).
 - **Porkchop:** shaded on the console's own ramp, from sheen through amber,

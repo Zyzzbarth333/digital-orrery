@@ -22,6 +22,7 @@
 //   two-body orbit about the primary, with the rest of the acceleration to
 //   second order (the kernel answers a frame or more late).
 
+import { addJ2 } from './zonal.js';
 import { propagate, rvToElements } from './orbital.js';
 import { accelHeliocentric, primaryOf } from './nbody.js';
 import { eqjToEcl } from './ephemeris.js';
@@ -35,6 +36,38 @@ const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 let nextId = 1;
+
+// Carry a craft forward about a primary with a J2: the primary's J2 turns
+// with the craft around its orbit, so unlike the slower perturbations it
+// cannot be held constant across a lag (in low orbit that is 0.24 km off
+// after 10 minutes, 115 km after an hour). Two-body plus J2, with the other
+// perturbations held at their value at the start (ap), by classical RK4 at
+// 1/256 of the orbital period (or longer, at most 2,048 steps).
+function carryWithJ2(r0, v0, dtx, P, ap) {
+  const rn = norm(r0), en = 0.5 * (v0[0] ** 2 + v0[1] ** 2 + v0[2] ** 2) - P.mu / rn;
+  const period = en < 0 ? 2 * Math.PI * Math.sqrt((-P.mu / (2 * en)) ** 3 / P.mu) : 2 * Math.PI * Math.sqrt(rn ** 3 / P.mu);
+  const n = Math.min(2048, Math.max(1, Math.ceil(dtx / (period / 256)))), h = dtx / n;
+  const f = (x, out) => {
+    const r2 = x[0] * x[0] + x[1] * x[1] + x[2] * x[2], k = -P.mu / (r2 * Math.sqrt(r2));
+    out[0] = k * x[0] + ap[0]; out[1] = k * x[1] + ap[1]; out[2] = k * x[2] + ap[2];
+    addJ2(x[0], x[1], x[2], r2, P, out);
+    return out;
+  };
+  let r = [...r0], v = [...v0];
+  const a1 = [0, 0, 0], a2 = [0, 0, 0], a3 = [0, 0, 0], a4 = [0, 0, 0];
+  for (let s = 0; s < n; s++) {
+    f(r, a1);
+    const r2 = r.map((x, i) => x + 0.5 * h * v[i]), v2 = v.map((x, i) => x + 0.5 * h * a1[i]);
+    f(r2, a2);
+    const r3 = r.map((x, i) => x + 0.5 * h * v2[i]), v3 = v.map((x, i) => x + 0.5 * h * a2[i]);
+    f(r3, a3);
+    const r4 = r.map((x, i) => x + h * v3[i]), v4 = v.map((x, i) => x + h * a3[i]);
+    f(r4, a4);
+    r = r.map((x, i) => x + (h / 6) * (v[i] + 2 * v2[i] + 2 * v3[i] + v4[i]));
+    v = v.map((x, i) => x + (h / 6) * (a1[i] + 2 * a2[i] + 2 * a3[i] + a4[i]));
+  }
+  return { r, v };
+}
 
 export class Craft {
   // sys: { bodiesAt, muSun } from bodies.solarSystemBodies (same epoch as t).
@@ -52,6 +85,7 @@ export class Craft {
     this.clockT = t;                 // the sim clock as last seen
     this.prevClockT = t;
     this.burns = [];
+    this.script = [];                // scripted burns (a real mission's, from its data)
     this.nodes = [];                 // { id, t, dv: [radial, prograde, normal] km/s }
     this.executing = null;           // { node, burn }
     this.engineOn = false;           // manual engine
@@ -77,6 +111,7 @@ export class Craft {
   advanceClock(tNow, jumped = false) {
     this.prevClockT = this.clockT;
     if (jumped || tNow < this.clockT) {
+      const moved = tNow - this.clockT;
       this.kState.t = tNow;
       this.lagSeconds = 0;
       this.version++;
@@ -84,7 +119,7 @@ export class Craft {
       this.burns = [];
       this.prevClockT = tNow;                      // no fuel drawn across the jump
       this.clockJumped = true;
-      this.note(`clock set ${((tNow - this.prevClockT) / 86400).toFixed(2)} d away; state kept, burns cleared`, tNow);
+      this.note(`clock set ${(moved / 86400).toFixed(2)} d away; state kept, burns cleared`, tNow);
     }
     this.clockT = tNow;
     // Nodes due in this frame start at their own time.
@@ -135,7 +170,25 @@ export class Craft {
     this.burns = this.burns.filter((x) => x.t1 > done);
   }
 
-  thrusting(t = this.clockT) { return this.burns.some((b) => b.t0 <= t && t < b.t1); }
+  thrusting(t = this.clockT) { return this.burns.some((b) => b.t0 <= t && t < b.t1) || this.script.some((b) => b.t0 <= t && t < b.t1); }
+
+  // Scripted burns: a real mission's burns as flown, from its data. Each is
+  // { t0, t1, dir, accel } with accel in m/s^2, constant over its span, and
+  // dir [prograde, in-plane, normal] in the orbital frame about `about`.
+  // Unlike the engine's burns they draw no propellant from this craft's
+  // tank and survive clock jumps: they are tied to the mission's times.
+  setScript(burns, about = 'earth') {
+    this.script = burns.map(({ t0, t1, dir, accel }) => ({ t0, t1, dir, F: accel, m0: 1, mdot: 0, frame: 'vnb', about }));
+    this.version++;
+  }
+
+  // A tracking fix: the craft's state replaced by a measured one at time t.
+  setState(r, v, t) {
+    const bodies = this.sys.bodiesAt(t);
+    this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, this.sys.muSun), accel: accelHeliocentric(r, bodies, this.sys.muSun) };
+    this.lagSeconds = 0;
+    this.version++;
+  }
 
   // ---------------- manoeuvre nodes ----------------
 
@@ -187,8 +240,8 @@ export class Craft {
     const tEnd = this.clockT, span = tEnd - this.kState.t;
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
-    const burns = this.burns.filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
-      .map(({ t0, t1, dir, F, m0, mdot }) => ({ t0, t1, dir, F, m0, mdot }));
+    const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
+      .map(({ t0, t1, dir, F, m0, mdot, frame, about }) => ({ t0, t1, dir, F, m0, mdot, frame, about }));
     return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns };
   }
 
@@ -260,6 +313,13 @@ export class Craft {
     // its ephemeris) less the primary's pull on the craft.
     const k2 = -P.mu / norm(d) ** 3;
     const ap = [0, 1, 2].map((i) => a[i] - aP0[i] - k2 * d[i]);
+    if (P.j2 && norm(d) ** 2 < P.j2Cut2) {
+      const j = [0, 0, 0];
+      addJ2(d[0], d[1], d[2], d[0] * d[0] + d[1] * d[1] + d[2] * d[2], P, j);
+      for (let i = 0; i < 3; i++) ap[i] -= j[i];
+      const s = carryWithJ2(d, sub(v0, vP0), dtx, P, ap);
+      return { r: [0, 1, 2].map((i) => s.r[i] + rP1[i]), v: [0, 1, 2].map((i) => s.v[i] + vP1[i]) };
+    }
     return {
       r: [0, 1, 2].map((i) => rel.r[i] + rP1[i] + 0.5 * ap[i] * dtx * dtx),
       v: [0, 1, 2].map((i) => rel.v[i] + vP1[i] + ap[i] * dtx),

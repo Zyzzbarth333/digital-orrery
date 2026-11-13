@@ -73,16 +73,15 @@ is planned for the exact-ephemeris phase.
 | --- | --- |
 | SPICE fixture (`c/orrery_spice_ref.c`) | ephemeris time (TDB seconds past J2000), via `str2et_c` from UTC strings |
 | kernel and app | seconds from `KERNEL_EPOCH_MS` = 2000-01-01 12:00 **UTC**, i.e. UTC seconds |
-| astronomy-engine | takes UTC dates and converts to TT internally |
+| astronomy-engine | takes UTC dates; TT − UTC is set from the leap-second table (`timescale.js`: 32.184 s + TAI − UTC, 69.184 s since 2017), not the library's extrapolation (75.2 s for 2026) |
+| DE442 Earth–Moon table | TDB seconds past J2000, from UTC by `timescale.js`: TT − UTC from the leap seconds, then TDB − TT ≈ 0.001657 s sin g + 0.000014 s sin 2g |
 
-The kernel's time is only ever used as a difference and as the date it
-passes to astronomy-engine, so it is consistent on the JavaScript side. It is
-**not** TDB: TDB − UTC is about 69 s now (32.184 s + 37 leap seconds), so a
-state labelled with kernel time is 69 s off a TDB label. That is below the
-current ephemeris accuracy (astronomy-engine is 300-3,000 km off DE442 for the
-inner planets), but it becomes significant once DE442 is read directly.
-Proper time scales (UTC, TAI, TT, TDB with leap seconds from `naif0012.tls`)
-are part of the exact-ephemeris phase.
+The kernel's time is only ever used as a difference, and as the UTC date it
+passes to the ephemeris, which converts it. It is **not** TDB: TDB − UTC is
+about 69 s now (32.184 s + 37 leap seconds), so a state labelled with kernel
+time is 69 s off a TDB label. Both ephemeris paths convert, so positions are
+right for the UTC instant. Checked: Earth at MSL's launch, given as a UTC
+date, is 0.09 m from SPICE.
 
 ## Sources
 

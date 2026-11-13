@@ -23,9 +23,12 @@ export interface CraftView {
   thrusting: boolean;
   crashed: boolean;
   selected: boolean;
+  // A real mission's flown path, relative to Earth (drawn once, placed at
+  // Earth's position each frame).
+  flown?: { pointsEcl: V3[]; originEcl: V3 };
 }
 
-interface Drawn { conic: THREE.Line; trail: THREE.Line; marker: HTMLDivElement; version: number }
+interface Drawn { conic: THREE.Line; trail: THREE.Line; flown: THREE.Line | null; marker: HTMLDivElement; version: number }
 
 // Ecliptic km -> render units (x, z, -y) / unit.
 const toRender = (a: number[], unitKm: number, out: THREE.Vector3) => out.set(a[0] / unitKm, a[2] / unitKm, -a[1] / unitKm);
@@ -79,7 +82,7 @@ export class CraftLayer {
         marker.innerHTML = '<span class="glyph"></span><span class="name"></span>';
         marker.addEventListener('click', () => this.onPick(v.id));
         this.overlay.appendChild(marker);
-        d = { conic: lineOf(0xffb22e, 0.55), trail: trailOf(0xffcf7a), marker, version: -1 };
+        d = { conic: lineOf(0xffb22e, 0.55), trail: trailOf(0xffcf7a), flown: null, marker, version: -1 };
         this.scene.add(d.conic, d.trail);
         this.drawn.set(v.id, d);
       }
@@ -88,6 +91,12 @@ export class CraftLayer {
         setPoints(d.trail, v.trailEcl, unitKm);
         d.version = v.pathVersion;
       }
+      if (v.flown && !d.flown) {
+        d.flown = lineOf(0x8fd6c4, 0.5);    // the flown path: pale green, apart from the amber of ours
+        setPoints(d.flown, v.flown.pointsEcl, unitKm);
+        this.scene.add(d.flown);
+      }
+      if (v.flown && d.flown) toRender([v.flown.originEcl[0] - cam[0], v.flown.originEcl[1] - cam[1], v.flown.originEcl[2] - cam[2]], unitKm, d.flown.position);
       const p = [v.primaryEcl[0] - cam[0], v.primaryEcl[1] - cam[1], v.primaryEcl[2] - cam[2]];
       toRender(p, unitKm, d.conic.position);
       d.trail.position.copy(d.conic.position);
@@ -100,6 +109,7 @@ export class CraftLayer {
       if (seen.has(id)) continue;
       this.scene.remove(d.conic, d.trail);
       d.conic.geometry.dispose(); d.trail.geometry.dispose();
+      if (d.flown) { this.scene.remove(d.flown); d.flown.geometry.dispose(); }
       d.marker.remove();
       this.drawn.delete(id);
     }
@@ -118,7 +128,7 @@ export class CraftLayer {
   }
 
   dispose(): void {
-    for (const d of this.drawn.values()) { this.scene.remove(d.conic, d.trail); d.marker.remove(); }
+    for (const d of this.drawn.values()) { this.scene.remove(d.conic, d.trail); if (d.flown) this.scene.remove(d.flown); d.marker.remove(); }
     this.drawn.clear();
   }
 }

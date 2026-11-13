@@ -6,6 +6,7 @@
 // Reference values come from src/physics/fixtures/spice_reference.json
 // (CSPICE + DE442, see c/README.md).
 
+import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import { readFileSync } from 'node:fs';
 import { lambert } from './orbital.js';
 import { helioStateEqj, helioStateEcl } from './ephemeris.js';
@@ -38,7 +39,7 @@ const INNER = new Set(['venus', 'earth', 'mars']);
 let mslC3 = NaN;   // set by case 2 from the DE442 states, used by case 3
 
 console.log('='.repeat(60));
-console.log('CASE 1: astronomy-engine vs DE442 (heliocentric J2000)');
+console.log('CASE 1: the app ephemeris vs DE442 (heliocentric J2000; Earth is DE442 itself, case 1b)');
 console.log('='.repeat(60));
 {
   let worstInnerR = 0, worstInnerV = 0, worstAllR = 0, worstAllV = 0;
@@ -57,6 +58,28 @@ console.log('='.repeat(60));
   check('Venus/Earth/Mars velocity within 3 m/s', worstInnerV < 3e-3);
   check('all planets position within 2e-4 relative', worstAllR < 2e-4);
   check('all planets velocity within 15 m/s', worstAllV < 15e-3);
+}
+
+console.log('='.repeat(60));
+console.log("CASE 1b: the app's Earth (DE442 table) vs DE442 through SPICE");
+console.log('='.repeat(60));
+{
+  // Earth comes from the Chebyshev table (deTable.js) between 2000 and
+  // 2050, through the app's own UTC -> TDB conversion (timescale.js).
+  let worstR = 0, worstV = 0;
+  const cases = [...SPICE.planets.filter((p) => p.s.body === 'EARTH').map((p) => [EPOCH_UTC[p.epoch], p.s.state]),
+    [new Date(`${SPICE.msl.launch_utc}Z`), SPICE.msl.earth_at_launch.state]];
+  for (const [date, st] of cases) {
+    const s = helioStateEqj('earth', date);
+    worstR = Math.max(worstR, norm(diff(s.r, st.slice(0, 3))));
+    worstV = Math.max(worstV, norm(diff(s.v, st.slice(3))));
+  }
+  console.log(`  ${cases.length} epochs: worst ${(worstR * 1000).toFixed(3)} m, ${(worstV * 1e6).toFixed(3)} mm/s`);
+  // The other epochs are within 0.1 m; the J2000 epoch, given here as UTC
+  // to the millisecond (11:58:55.816), is 0.07 ms off its exact instant,
+  // which Earth covers in 2.1 m.
+  check("the app's Earth within 5 m of DE442 at every epoch", worstR < 5e-3);
+  check("the app's Earth velocity within 1 mm/s of DE442", worstV < 1e-6);
 }
 
 console.log('='.repeat(60));

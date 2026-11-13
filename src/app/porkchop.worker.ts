@@ -7,10 +7,14 @@
 import { porkchopGrid, range } from '../physics/porkchop.js';
 import { helioStateEcl } from '../physics/ephemeris.js';
 import { GRAVITATIONAL_PARAMETERS as GM, PLANETS } from '../utils/constants.js';
+import { loadDeTable } from '../physics/deLoad.js';
+
+const ready = loadDeTable();
 
 export interface GridRequest { dest: string; depStartMs: number; depSpanDays: number; depStep: number; tofMin: number; tofMax: number; tofStep: number }
 
-self.onmessage = (e: MessageEvent<GridRequest>) => {
+self.onmessage = async (e: MessageEvent<GridRequest>) => {
+  await ready;
   const q = e.data;
   const depDays = range(0, q.depSpanDays, q.depStep);
   const tofDays = range(q.tofMin, q.tofMax, q.tofStep);

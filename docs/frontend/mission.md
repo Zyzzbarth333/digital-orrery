@@ -14,8 +14,8 @@ planet, Cowell elsewhere; see [the kernel](../physics/nbody-kernel.md)).
 Each rendered frame the mission advances every craft's clock and asks the
 kernel, in its Worker, to step it to the clock; the result comes back a
 frame or so later. What is drawn is that state carried forward to the clock
-along a two-body orbit about the primary, with the other accelerations to
-second order.
+along a two-body orbit about the primary (plus the primary's J2, near Earth
+and the Moon), with the other accelerations to second order.
 
 The rules carried over from the earlier spacecraft code:
 
@@ -49,6 +49,50 @@ later.
   ([burns and launch](../physics/burns-and-launch.md)). $v_\infty$ is given
   as a speed along Earth's prograde, retrograde, outward or inward
   direction, or comes from the planner.
+
+## Real missions
+
+**Real missions** on the MISSION tab flies a mission as it actually flew.
+Artemis II is the first. Its file, `public/missions/artemis2.json`, is
+written from JSC's reconstructed trajectory by
+`src/physics/artemis2.export.mjs`; the app reads it with
+`src/physics/realMission.js`.
+
+- **Fly it:** sets the clock to the mission's start (BACK undoes it). For
+  Artemis II that's 2 April 2026, 23:39:59 UTC, ten minutes before
+  translunar injection. The craft starts from its flown state.
+- **Burns:** scripted as flown. Each 5 seconds of every burn is a finite
+  burn, steered in the orbital frame about Earth, with its measured
+  direction and acceleration. Scripted burns draw nothing from the model
+  tank and survive clock jumps; they're tied to the mission's times.
+  Choose **The first; correct it yourself** to fly only the injection burn
+  and make the corrections with manoeuvre nodes.
+- **From the flown path:** how far the craft is from where the real one was
+  at this time, interpolated from the flown trajectory.
+- **Next burn:** its name, when it starts, and in its detail the Δv as
+  flown with what NASA published.
+- **Green line:** the flown path, drawn relative to Earth.
+- **Tracking:** a fix every 24, 12, 6 or 3 hours resets the craft to the
+  flown state, as a navigation team's tracking would.
+- **Setting the clock inside the mission** puts the craft where the real one
+  was.
+- **Artemis II · our own plan** flies the simulator's own design of the
+  mission instead. It's planned from the pre-TLI orbit and NASA's published
+  targets only ([our own plan](../validation/artemis2.md#6-our-own-plan)),
+  beside the real path, so "From the flown path" compares ours with
+  theirs. Its file takes the flown path from `artemis2.json`
+  (`flownFrom`).
+
+What the craft does is checked against the real flight in
+[the Artemis II validation](../validation/artemis2.md): the mission file,
+flown frame by frame by the craft model, is within 0.4 km of the
+validation's replay at the flyby.
+
+The kernel learned two things for this:
+- **Steered burns:** a burn can be steered in the orbital frame about a
+  body (`frame: 'vnb'`). The integrator passes the craft's velocity to the
+  thrust (in Encke too), and steps inside such a burn are capped at 0.25 s.
+- **Tracking fixes:** `Craft.setState` takes a fix.
 
 ## Manoeuvre nodes and the engine
 
@@ -108,6 +152,38 @@ correction burns the n-body flight misses the two-body plan (the 2026
 window passes Mars at about 470,000 km, `craft.test.mjs`); targeting is
 next on the physics roadmap.
 
+## NASA's Trajectory Browser
+
+Under the porkchop, the PLANNER tab shows what NASA Ames's
+[Trajectory Browser](https://trajbrowser.arc.nasa.gov) lists for the chosen
+planet, rendezvous or flyby:
+- **NASA's optima:** the lowest eight per-opportunity optima from 2026 to
+  2040, with their route, so gravity assists such as EVM show.
+- **Ours:** for each direct one, our own transfer between NASA's two dates
+  (`transfer()` in `src/physics/trajsearch.js`, up to two revolutions round
+  the Sun), under NASA's conventions, with the difference in percent. The
+  same dates mean any difference is the modelling alone; its tooltip gives
+  our C3 and the revolutions.
+
+A row can be shown on the grid (a 120-day span around its launch) or flown:
+- **Flying a row** flies our cheapest Lambert arc between NASA's dates
+  (multi-revolution where that is cheaper). Flying a grid cell keeps the
+  grid's direct arc.
+- **"Open on NASA's site"** posts the same search to the browser in a new
+  tab.
+
+How the data gets in:
+- **The browser can't be queried from a page.** It answers only form posts
+  and sends no cross-origin headers.
+- **So it's fetched ahead of time.** `npm run fetch:trajbrowser`
+  (`src/physics/trajbrowser.fetch.mjs`) fetches its results once and writes
+  `public/trajbrowser/planets.json`. It's paced 15 s apart and cached in
+  `~/.cache/digital-orrery/trajbrowser`, so reruns don't repeat finished
+  queries.
+- **Per-planet limits matter.** The browser takes launch years 2010–2040
+  and Δv up to 20 km/s. Each planet's search uses its own flight-time and
+  Δv limits, because the browser's one-per-year optima depend on both.
+
 ## Links
 
 | Parameter | Effect |
@@ -115,3 +191,5 @@ next on the physics roadmap.
 | `?craft=orbit,400,51.6` | starts with a craft in that orbit (km, °), followed |
 | `?craft=departure,2.95,prograde` | starts on that departure |
 | `?plan=mars` | opens the planner and computes the grid |
+| `?mission=artemis2` | flies Artemis II from its start (`artemis2,first` flies only the injection burn) |
+| `?mission=artemis2&t=2026-04-06T22:50:00Z&fix=12` | starts just before the lunar flyby, with a tracking fix every 12 h |

@@ -3,8 +3,10 @@
 `src/physics/orbital.js`: `lambert(r1, r2, tof, mu, prograde)`.
 
 Given two position vectors and the time of flight between them, find the
-conic (and the velocities at each end) that connects them. Zero-revolution
-only.
+conic (and the velocities at each end) that connects them.
+`lambertRevs(r1, r2, tof, mu, revs, prograde)` adds the transfers that go
+round the central body `revs` full times first (see
+[Multiple revolutions](#multiple-revolutions)).
 
 ## Universal-variable form
 
@@ -100,15 +102,86 @@ $$
 | 200,000 random round trips through `propagate` (independent review) | no `null`, no error above 10⁻⁶ |
 | the real MSL transfer on DE442 states | converges, reaches Mars to 2×10⁻¹¹; 253.6 d Type I, C3 = 10.69 km²/s² |
 
+## Multiple revolutions
+
+With $N \ge 1$ full revolutions the same universal-variable equation holds,
+with $z$ confined to $\left((2\pi N)^2, (2\pi(N+1))^2\right)$. There the
+flight time is no longer monotonic in $z$: it falls to a minimum and rises
+again, so each $N$ gives two transfers (the left and right branches) above
+that minimum flight time and none below it.
+- **The minimum** is found by golden-section search on $t(z)$.
+- **Each branch** is then solved by bisection between the minimum and the
+  interval's edge, where $t \to \infty$.
+- `lambertRevs` returns `[{ v1, v2, z, branch, revs }]`: two entries, or none
+  when the flight is too short for $N$ revolutions. With `revs = 0` it calls
+  `lambert` and returns its one transfer.
+
+`orbital.test.mjs` flies 300 random geometries with one and two
+revolutions, both branches, using `propagate` (the two-body propagator
+checked against NAIF's `prop2b_c`): every solution reaches $\mathbf r_2$,
+the worst to 5.8×10⁻⁹ of its distance.
+
+## A trajectory search
+
+`src/physics/trajsearch.js` finds the lowest-Δv one-way transfers from Earth
+to a destination, one per launch opportunity. It works the way NASA Ames's
+[Trajectory Browser](https://trajbrowser.arc.nasa.gov) does, so the two can
+be set side by side:
+1. **A grid.** Launch date against time of flight, each cell solved by
+   this Lambert solver between the planets' centres: the direct transfer
+   and up to two revolutions round the Sun (both branches), keeping the
+   cheapest. The long transfers to the giant planets need the
+   multi-revolution ones.
+2. **Patched-conic Δv.**
+   - Injection from a circular parking orbit:
+     $\Delta v = \sqrt{v_\infty^2 + 2\mu_\oplus / r} - \sqrt{\mu_\oplus / r}$.
+   - Rendezvous, in the browser's convention, slows the arrival hyperbola to
+     escape speed at periapsis $r_p$:
+     $\Delta v = \sqrt{v_\infty^2 + 2\mu / r_p} - \sqrt{2\mu / r_p}$.
+     That is capture into a just-bound orbit, not a circle.
+   - A flyby needs no arrival burn.
+3. **Opportunities.**
+   - The best flight time for each launch date gives a profile of Δv
+     against launch date. Its interior local minima are refined by
+     Nelder–Mead over the continuous launch date and flight time.
+   - Of optima closer than a year, the lowest is kept: one per launch
+     opportunity, like the browser's "1-yr local optima".
+
+It is a pure ES module, like `porkchop.js`: no three.js, React or DOM. The
+ephemeris is passed in:
+
+```js
+searchTransfers({
+  stateOf,                 // (key, date) -> { r, v }, heliocentric ecliptic km, km/s
+  muSun, to: 'mars', kind: 'rendezvous' | 'flyby',
+  launchStartMs, launchEndMs, tofMinDays, tofMaxDays, tofStepDays,
+  departure: { mu, rPark }, arrival: { mu, rPeri },
+}) // -> { optima: [{ depMs, arrMs, tofDays, revs, branch, c3, vinfDep, vinfDepVec, vinfArr, injectionDv, arrivalDv, totalDv }], evaluated }
+
+transfer(opts, depMs, tofDays) // one transfer between two dates, same fields, or null
+```
+
+`trajsearch.test.mjs` checks it against every direct optimum the browser
+lists for 2026–2040 (see [validation](../validation.md)).
+
 ## Limits
 
-Zero-revolution only. A multi-revolution solver (Izzo, from the MIT-licensed
-boinor/poliastro implementation, with attribution) is planned, keeping this
-one as a cross-check.
+- **One heliocentric leg.** The trajectory search has no gravity assists
+  yet, so NASA's routes such as EVM or EJS have no counterpart.
+- **Centre to centre.** Patched conics run between the planets' centres;
+  NASA starts its legs at the spheres of influence, which matters most for
+  fast transfers to Jupiter (up to 8.8 % here).
+- **Near a line through the Sun** (transfer angle near 0° or 360°) the
+  transfer plane is undefined and one conic needs a large plane change; NASA
+  breaks the plane with a deep-space manoeuvre.
 
 ## Sources
 
 - H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed.:
   Algorithm 5.2, Appendix D.25, Examples 5.2-5.3.
 - D. Izzo, "Revisiting Lambert's problem", *Celestial Mechanics and Dynamical
-  Astronomy* 121 (2015) (planned multi-revolution solver).
+  Astronomy* 121 (2015): the multi-revolution branches and their minimum
+  flight time.
+- NASA Ames Research Center, Mission Design Division,
+  [Trajectory Browser](https://trajbrowser.arc.nasa.gov): the conventions and
+  the optima compared against.

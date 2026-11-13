@@ -13,6 +13,13 @@
 //   outward or inward direction, or as a vector from the planner's Lambert
 //   arc (src/physics/launch.js: periapsis on the parking orbit, the outgoing
 //   asymptote along v_inf, the lowest-inclination plane).
+//
+// Real missions (public/missions/*.json, src/physics/realMission.js): the
+// craft starts from its flown state, its burns are scripted as flown (all of
+// them, or only the first, leaving the corrections to you), the flown path
+// is drawn beside it, and its distance from that path is read out. Tracking
+// fixes, if chosen, reset it to the flown state every few hours, and a clock
+// set within the mission puts it where the real craft was.
 
 import { useSyncExternalStore } from 'react';
 import { Craft } from '../physics/craft.js';
@@ -21,6 +28,7 @@ import { KERNEL_EPOCH_MS, kernelSeconds } from '../physics/kernelHost.js';
 import { solarSystemBodies } from '../physics/bodies.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
 import { departureHyperbola } from '../physics/launch.js';
+import { RealMission } from '../physics/realMission.js';
 import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
 import type { CraftView } from '../scene/craftLayer';
 
@@ -31,6 +39,16 @@ type V3 = [number, number, number];
 export type DepartureDirection = 'prograde' | 'retrograde' | 'outward' | 'inward';
 
 export interface MissionSnapshot { version: number; selected: number | null }
+export type RealBurns = 'all' | 'first';
+// plan: the simulator's own design flown beside the real path (its file
+// takes the flown path from another, flownFrom), not the real craft.
+interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean }
+
+// The real missions the app can fly: file id and label.
+export const REAL_MISSIONS = [
+  { id: 'artemis2', label: 'Artemis II · April 2026' },
+  { id: 'artemis2-plan', label: 'Artemis II · our own plan' },
+];
 
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: number[]): V3 => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
@@ -47,6 +65,7 @@ export class Mission {
   private count = 0;
   private paths = new Map<number, { trail: Trail; conic: V3[]; at: number; version: number }>();
   private plans = new Map<number, { target: string; name: string; arrivalMs: number; closest: number }>();
+  private real = new Map<number, RealRun>();
 
   get snapshot(): MissionSnapshot { return this.snap; }
   get selected(): Craft | null { return this.crafts.find((c) => c.id === this.snap.selected) ?? null; }
@@ -69,6 +88,7 @@ export class Mission {
     const jumped = jumps !== this.lastJumps;
     this.lastJumps = jumps;
     for (const c of this.crafts) c.advanceClock(t, jumped);
+    for (const c of this.crafts) this.track(c, timeMs, jumped);
     this.client.tick(this.crafts);
     this.checkAlarm();
     // Closest approach so far to a planned destination (its system barycentre).
@@ -132,6 +152,66 @@ export class Mission {
     return this.add(name ?? `Probe ${++this.count}`, st.r as V3, st.v as V3, timeMs);
   }
 
+  // ---------------- real missions ----------------
+
+  async fetchReal(id: string): Promise<RealMission> {
+    const get = async (name: string) => {
+      const res = await fetch(`${import.meta.env.BASE_URL}missions/${name}.json`);
+      if (!res.ok) throw new Error(`mission ${name}: HTTP ${res.status}`);
+      return res.json();
+    };
+    const data = await get(id);
+    // A plan flown beside a real mission takes that mission's flown path.
+    if (data.flownFrom) data.flown = (await get(data.flownFrom)).flown;
+    return new RealMission(data);
+  }
+
+  // Fly a real mission from its start (the clock should already be there).
+  flyReal(m: RealMission, burns: RealBurns = 'all'): Craft {
+    const s = m.startState();
+    const c = new Craft({ name: m.name, r: s.r as V3, v: s.v as V3, t: s.t, sys: this.sys });
+    const keep = burns === 'all' ? m.burns : m.burns.slice(0, 1);
+    c.setScript(new RealMission({ ...m.data, burns: keep }).script());
+    c.note(burns === 'all' ? `${m.burns.length} burns scripted as flown` : `${keep[0].name} scripted as flown; the corrections are yours`, s.t);
+    const refEcl = m.flown.map((p: number[]) => eqjToEclFast([p[1], p[2], p[3]]));
+    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom });
+    this.crafts.push(c);
+    this.select(c.id);
+    return c;
+  }
+
+  realRun(c: Craft): RealRun | null { return this.real.get(c.id) ?? null; }
+  setFixHours(c: Craft, h: number | null): void {
+    const R = this.real.get(c.id);
+    if (R) { R.fixHours = h; R.lastMs = KERNEL_EPOCH_MS + c.clockT * 1000; this.emit(true); }
+  }
+
+  // How far the craft is from where the real one was at the clock (km).
+  distanceFromFlown(c: Craft): number | null {
+    const R = this.real.get(c.id);
+    return R ? R.m.distanceFromFlown(c.displayState().r, KERNEL_EPOCH_MS + c.clockT * 1000) : null;
+  }
+
+  // Tracking fixes due since the last frame (the latest one wins), and a
+  // clock set within the mission: the craft goes where the real one was.
+  private track(c: Craft, nowMs: number, jumped: boolean): void {
+    const R = this.real.get(c.id);
+    if (!R) return;
+    if (jumped && R.plan) {
+      // A plan has no flown state of its own: fly it again from its start,
+      // which the kernel catches up to the clock.
+      if (nowMs > R.m.startMs) { const s0 = R.m.startState(); c.setState(s0.r, s0.v, s0.t); c.note('clock set: flying the plan again from its start', s0.t); }
+    } else if (jumped) {
+      const x = R.m.fixAt(nowMs);
+      if (x) { c.setState(x.r, x.v, x.t); c.note('clock set: placed on the flown path', x.t); }
+    } else {
+      const due = R.m.fixesBetween(R.lastMs, nowMs, R.fixHours);
+      const x = due.length ? R.m.fixAt(due[due.length - 1]) : null;
+      if (x) { c.setState(x.r, x.v, x.t); R.fixes += due.length; c.note('tracking fix: reset to the flown state', x.t); }
+    }
+    R.lastMs = nowMs;
+  }
+
   // Removal can be undone: the last craft removed is kept until the next.
   lastRemoved: Craft | null = null;
   restore(): void {
@@ -175,10 +255,13 @@ export class Mission {
         changed = true;
       }
       if (changed) path.version++;
+      const R = this.real.get(c.id);
+      const E = R ? this.sys.bodiesAt(c.clockT).find((b: { key: string }) => b.key === 'earth') : null;
       return {
         id: c.id, name: c.name, rEcl: eqjToEclFast(s.r), primaryEcl: eqjToEclFast(rP),
         conicEcl: path.conic, trailEcl: path.trail.points, pathVersion: path.version,
         thrusting: c.thrusting(), crashed: c.crashed, selected: c.id === this.snap.selected,
+        flown: R && E ? { pointsEcl: R.refEcl, originEcl: eqjToEclFast(E.eph.position(c.clockT)) } : undefined,
       };
     });
   }

@@ -13,6 +13,7 @@
 // Force model (heliocentric, so the frame accelerates with the Sun):
 //   a = -muSun r/|r|^3
 //       + sum_j mu_j [ (r_j - r)/|r_j - r|^3  -  r_j/|r_j|^3 ]
+//       + sum_j a_J2,j(r - r_j)      (bodies with a J2, zonal.js)
 // The second term in the bracket is the indirect term: the Sun's own
 // acceleration toward each body, which a heliocentric frame has to subtract.
 // Without it a craft near a planet drifts away from it at the planet's
@@ -40,6 +41,7 @@
 // can pass straight through it.
 
 import { advanceEncke, perturbationRatio, ENCKE_IN } from './encke.js';
+import { addJ2 } from './zonal.js';
 
 const W_CBRT2 = Math.cbrt(2.0);
 const YOSHIDA_W1 = 1.0 / (2.0 - W_CBRT2);
@@ -48,12 +50,13 @@ const YOSHIDA_W0 = -W_CBRT2 / (2.0 - W_CBRT2);
 // ---------------- force model ----------------
 
 // Heliocentric acceleration of a test particle at r (km) given the bodies'
-// positions. bodies: [{ mu, r }]. Writes into and returns `out`.
+// positions. bodies: [{ mu, r, j2?, rJ2?, pole?, j2Cut2? }]. Writes into and
+// returns `out`.
 export function accelHeliocentric(r, bodies, muSun, out = [0, 0, 0]) {
   const r2 = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
   const rn = Math.sqrt(r2);
   const k = -muSun / (r2 * rn);
-  let ax = k * r[0], ay = k * r[1], az = k * r[2];
+  out[0] = k * r[0]; out[1] = k * r[1]; out[2] = k * r[2];
   for (let j = 0; j < bodies.length; j++) {
     const b = bodies[j], p = b.r;
     const dx = p[0] - r[0], dy = p[1] - r[1], dz = p[2] - r[2];
@@ -61,11 +64,11 @@ export function accelHeliocentric(r, bodies, muSun, out = [0, 0, 0]) {
     const kd = b.mu / (d2 * Math.sqrt(d2));
     const p2 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
     const kp = b.mu / (p2 * Math.sqrt(p2));
-    ax += kd * dx - kp * p[0];
-    ay += kd * dy - kp * p[1];
-    az += kd * dz - kp * p[2];
+    out[0] += kd * dx - kp * p[0];
+    out[1] += kd * dy - kp * p[1];
+    out[2] += kd * dz - kp * p[2];
+    if (b.j2 && d2 < b.j2Cut2) addJ2(-dx, -dy, -dz, d2, b, out);
   }
-  out[0] = ax; out[1] = ay; out[2] = az;
   return out;
 }
 
@@ -144,18 +147,21 @@ export function primaryOf(r, bodies, muSun) {
 //   sunRadius   km (default 695,700); closer than this is an impact on 'sun'
 //   breakpoints sorted times (forward advances only) that steps must end on
 //               exactly, e.g. where a burn starts or stops
-//   extraAccel(t, r, out, mid)   optional non-gravitational acceleration
+//   extraAccel(t, r, out, mid, v)   optional non-gravitational acceleration
 //               (thrust). mid is the midpoint of the current step: with steps
 //               ending on breakpoints, a burn is on for a step when mid lies
 //               inside it, so it switches on and off at exact times rather
 //               than at whichever stage time happens to straddle the edge.
+//               v is the craft's heliocentric velocity, for burns steered
+//               relative to it (Cowell's current velocity; in Encke the
+//               primary's plus the reference conic's plus the deviation's).
 //
 //   encke       (default true) inside a body's sphere of influence, while
 //               the motion is nearly Keplerian (perturbation ratio below
 //               ENCKE_IN), use Encke's method with error-controlled steps
 //               (encke.js). Needs bodies with a Hermite ephemeris; off for
 //               fixedStep and 'leapfrog'.
-//   tolKm       Encke's per-step position tolerance (default 1e-6 km)
+//   tolKm       Encke's per-step position tolerance (default 1e-7 km)
 //
 // Returns { steps, events, complete }. complete is false when the budget ran
 // out (state.t is then short of tEnd) or an impact stopped the advance.
@@ -189,7 +195,7 @@ function enckeSuits(state, opts, dir) {
   const P = bodies.find((b) => b.key === state.primary);
   if (!P || !P.eph || !P.eph.acceleration) return false;
   let thrust = null;
-  if (opts.extraAccel) { thrust = [0, 0, 0]; opts.extraAccel(state.t, state.r, thrust, state.t + 1e-9 * dir); }
+  if (opts.extraAccel) { thrust = [0, 0, 0]; opts.extraAccel(state.t, state.r, thrust, state.t + 1e-9 * dir, state.v); }
   return perturbationRatio(state.r, state.t, P, bodies, opts.muSun, thrust) < ENCKE_IN;
 }
 
@@ -211,7 +217,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   const acc = (t, r, out) => {
     accelHeliocentric(r, bodiesAt(t), muSun, out);
     if (extraAccel) {
-      extraAccel(t, r, extra, mid);
+      extraAccel(t, r, extra, mid, state.v);
       out[0] += extra[0]; out[1] += extra[1]; out[2] += extra[2];
     }
     return out;

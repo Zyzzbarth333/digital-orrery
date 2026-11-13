@@ -14,7 +14,11 @@
 //                from t0 to t1 along the unit vector dir (EQJ), thrust F
 //                newtons on a craft of mass m0 kg at t0 losing mdot kg/s, so
 //                the acceleration grows as fuel burns. Steps end exactly at
-//                each t0 and t1.
+//                each t0 and t1. With frame: 'vnb' and about: a body key,
+//                dir is instead [prograde, in-plane, normal] in the craft's
+//                orbital frame about that body (along its velocity relative
+//                to the body, prograde x normal, and the orbit normal), so
+//                the burn turns with the orbit as a guided burn does.
 //     version    returned unchanged, so the caller can drop a result computed
 //                from a state it has since changed (a burn, a clock jump)
 // Reply:    { type: 'stepped', crafts: [CraftResult], ms }
@@ -34,6 +38,18 @@ import { solarSystemBodies } from './bodies.js';
 export const KERNEL_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 export const DEFAULT_MAX_STEPS = 20000;
 
+// A direction given as [prograde, in-plane, normal] in the orbital frame of
+// relative position r and velocity v, as an EQJ unit vector.
+export function vnbDirection(dir, r, v) {
+  const n = (a) => Math.hypot(a[0], a[1], a[2]);
+  const vn = n(v), V = [v[0] / vn, v[1] / vn, v[2] / vn];
+  const h = [r[1] * v[2] - r[2] * v[1], r[2] * v[0] - r[0] * v[2], r[0] * v[1] - r[1] * v[0]], hn = n(h);
+  const N = [h[0] / hn, h[1] / hn, h[2] / hn];
+  const I = [V[1] * N[2] - V[2] * N[1], V[2] * N[0] - V[0] * N[2], V[0] * N[1] - V[1] * N[0]];
+  const d = [0, 1, 2].map((k) => dir[0] * V[k] + dir[1] * I[k] + dir[2] * N[k]), dn = n(d);
+  return [d[0] / dn, d[1] / dn, d[2] / dn];
+}
+
 export function kernelSeconds(date) {
   return (date.getTime() - KERNEL_EPOCH_MS) / 1000;
 }
@@ -52,33 +68,51 @@ export function stepCraft(sys, req) {
     if (![b.t0, b.t1, b.F, b.m0, b.mdot].every(Number.isFinite) || !finite(b.dir) || !(b.m0 - b.mdot * (b.t1 - b.t0) > 0)) {
       throw new Error('bad burn: needs finite times, direction, thrust and mass, and mass left at the end');
     }
+    if (b.frame === 'vnb' && !sys.bodiesAt(req.t).some((x) => x.key === b.about)) throw new Error(`bad burn: no body '${b.about}' to steer about`);
   }
   const state = createState(req.r, req.v, req.t);
   state.primary = req.primary ?? null;
   const th = req.thrust;
   const constant = th && (th[0] !== 0 || th[1] !== 0 || th[2] !== 0);
   // Thrust at time t (mass from t), for the burn active at the step midpoint.
-  const thrustAt = (t, mid, out) => {
+  // A burn in the orbital frame needs the craft's velocity (r, v); where the
+  // integrator has none (Encke, which runs only while thrust is negligible)
+  // it keeps the direction it last had.
+  const vb = [0, 0, 0];
+  const thrustAt = (t, mid, out, r, v) => {
     out[0] = out[1] = out[2] = 0;
     if (constant) { out[0] = th[0]; out[1] = th[1]; out[2] = th[2]; }
     for (const b of burns) {
       if (mid >= b.t0 && mid < b.t1) {
         const k = b.F / (b.m0 - b.mdot * (t - b.t0)) / 1000;   // m/s^2 -> km/s^2
-        out[0] += k * b.dir[0]; out[1] += k * b.dir[1]; out[2] += k * b.dir[2];
+        let d = b.dir;
+        if (b.frame === 'vnb') {
+          if (r && v) {
+            const B = sys.bodiesAt(t).find((x) => x.key === b.about);
+            B.eph.velocity(t, vb);
+            b.last = vnbDirection(b.dir, [r[0] - B.r[0], r[1] - B.r[1], r[2] - B.r[2]], [v[0] - vb[0], v[1] - vb[1], v[2] - vb[2]]);
+          }
+          d = b.last ?? [0, 0, 0];
+        }
+        out[0] += k * d[0]; out[1] += k * d[1]; out[2] += k * d[2];
       }
     }
     return out;
   };
-  const extraAccel = (constant || burns.length) ? (t, r, out, mid) => thrustAt(t, mid, out) : null;
+  const extraAccel = (constant || burns.length) ? (t, r, out, mid, v) => thrustAt(t, mid, out, r, v) : null;
   // Steps end on each burn's edges, and inside a burn no step burns more than
   // 1 % of the craft's mass: in cruise the gravity rule would otherwise take a
   // whole burn in one step, and a burn that sheds a large share of the mass
   // (44 % in the tests) is too curved for that (1.5 % short of the rocket
   // equation in one step).
+  // A burn steered in the orbital frame turns with the velocity, which the
+  // symplectic steps follow only to first order: its steps are also capped
+  // at 0.25 s (0.0065 m/s per minute of burning near perigee, against
+  // 0.13 m/s at 5 s, measured against RK4 at 0.01 s).
   const breakpoints = burns.length
     ? [...new Set(burns.flatMap((b) => {
       const m1 = b.m0 - b.mdot * (b.t1 - b.t0);
-      const n = Math.min(4000, Math.max(1, Math.ceil(Math.log(b.m0 / m1) / Math.log(1.01))));
+      const n = Math.min(4000, Math.max(1, Math.ceil(Math.log(b.m0 / m1) / Math.log(1.01)), b.frame === 'vnb' ? Math.ceil((b.t1 - b.t0) / 0.25) : 1));
       const pts = [];
       for (let k = 0; k <= n; k++) pts.push(k === n ? b.t1 : b.t0 + (b.t1 - b.t0) * k / n);
       return pts;
@@ -89,7 +123,7 @@ export function stepCraft(sys, req) {
     maxSteps: req.maxSteps ?? DEFAULT_MAX_STEPS,
   });
   const accel = accelHeliocentric(state.r, sys.bodiesAt(state.t), sys.muSun);
-  const thrustNow = thrustAt(state.t, state.t, [0, 0, 0]);
+  const thrustNow = thrustAt(state.t, state.t, [0, 0, 0], state.r, state.v);
   for (let i = 0; i < 3; i++) accel[i] += thrustNow[i];
   return {
     id: req.id, version: req.version,

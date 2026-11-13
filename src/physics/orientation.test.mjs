@@ -5,6 +5,7 @@
 // worst axis in degrees, and the equivalent surface distance at the body's
 // mean radius.
 
+import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import fs from 'node:fs';
 import { bodyAxesEqj } from './orientation.js';
 

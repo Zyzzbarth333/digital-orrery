@@ -39,7 +39,8 @@
   --warn-lit: #ff6a4d;         /* master alarm key face */
   --warn-ink: #ff8a73;         /* lit warning legend */
   --warn-edge: #7a1a0e;
-  --label-dim: #b9ad92;        /* small labels on window black */
+  --label-dim: #b9ad92;
+  --flown-line: #4f9a86;       /* a real mission's flown path (pale green in the scene) */        /* small labels on window black */
   --display: 'Michroma', 'B612', sans-serif;
   --sans: 'B612', system-ui, sans-serif;
   --mono: 'B612 Mono', ui-monospace, monospace;
@@ -146,7 +147,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
   box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen); padding: 6px 12px;
   font-variant-numeric: tabular-nums; text-shadow: 0 0 6px rgba(255, 178, 46, 0.5);
 }
-.clock { font: 17px var(--sans); letter-spacing: 0.02em; }
+.clock { font: 17px var(--sans); letter-spacing: 0.02em; white-space: nowrap; flex: none; }
 .rate {
   height: 32px; padding: 0 30px 0 12px; border: 0; border-radius: 2px; appearance: none; cursor: pointer;
   font: 13px var(--sans); color: var(--phosphor-dim); text-shadow: none;
@@ -276,6 +277,9 @@ kbd {
   box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen);
 }
 .notice.inline { margin-bottom: var(--u); }
+.notice { white-space: nowrap; }
+.field:has(.notice.jump) { position: relative; }
+.notice.jump { position: absolute; top: calc(100% + 10px); left: 0; z-index: 6; box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen), 0 4px 10px rgba(0, 0, 0, 0.45); }
 .clock.held { color: var(--phosphor-dim); text-shadow: none; }
 .clock .hold { margin-left: 10px; font: 10px var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--key-lit); }
 .legend { list-style: none; margin: 6px 0 var(--u); padding: 0; display: grid; gap: 4px; font-size: 11px; color: var(--ink-muted); }
@@ -283,6 +287,7 @@ kbd {
 .legend .sw { flex: none; width: 18px; height: 0; border-top: 2px solid; }
 .legend .sw.conic { border-color: var(--phosphor); }
 .legend .sw.trail { border-color: var(--seam-strong); }
+.legend .sw.flown { border-color: var(--flown-line); }
 .rail-foot { margin-top: auto; padding: var(--u) calc(2.25 * var(--u)) calc(3 * var(--u)); display: grid; gap: 4px; font-size: 11px; color: var(--ink-muted); }
 .rail-foot p { margin: 0; }
 .rail-foot a { color: var(--engrave); font: 9px var(--display); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 4px; }
@@ -345,6 +350,8 @@ details.section[open] > summary::after { content: '−'; }
      wider than the screen from here down). */
   .app { grid-template-rows: auto minmax(0, 1fr); }
   .band { flex-wrap: wrap; gap: var(--u) calc(2 * var(--u)); padding-top: var(--u); padding-bottom: var(--u); }
+  .field:has(.notice.jump) { flex-wrap: wrap; }
+  .notice.jump { position: static; box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen); }
 }
 @media (max-width: 720px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; }
@@ -370,3 +377,13 @@ details.section[open] > summary::after { content: '−'; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------------- NASA Trajectory Browser comparison ---------------- */
+.tb-table { width: 100%; border-collapse: collapse; margin: 6px 0 var(--u); font: 12px var(--sans); font-variant-numeric: tabular-nums; }
+.tb-table th { font: 10px/1.4 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--engrave); text-align: right; padding: 4px 4px 6px; border-bottom: 1px solid var(--seam-strong); white-space: nowrap; }
+.tb-table th:first-child, .tb-table td:first-child { text-align: left; }
+.tb-table td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--seam); white-space: nowrap; }
+.tb-table tbody tr { cursor: pointer; }
+.tb-table tbody tr:hover td { background: rgba(18, 17, 16, 0.06); }
+.tb-table tbody tr:focus-visible { outline: 2px solid var(--key); outline-offset: -2px; }
+.tb-table tbody tr[aria-selected='true'] td { background: var(--window); color: var(--phosphor); }

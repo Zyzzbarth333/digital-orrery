@@ -425,6 +425,57 @@ export function lambert(r1Vec, r2Vec, tof, mu, prograde = true) {
   return { v1, v2, z, iterations };
 }
 
+// -------- Multi-revolution Lambert (universal variables) --------
+// The same time-of-flight function as lambert(), on the N-th interval of z,
+// ((2 pi N)^2, (2 pi (N+1))^2) for N >= 1, gives the transfers that go N
+// times round the central body before arriving (Bate, Mueller & White; Battin
+// 7.6). There t(z) rises to infinity at both ends (C(z) -> 0) and has one
+// minimum, so a time of flight above that minimum has two solutions, one on
+// each side: 'left' (lower z: the higher-energy, shorter-period orbit) and
+// 'right'. Returns [{ v1, v2, z, branch, revs }] (empty when the time of
+// flight is shorter than the minimum for N revolutions, or the geometry is
+// degenerate). N = 0 defers to lambert().
+export function lambertRevs(r1Vec, r2Vec, tof, mu, revs, prograde = true) {
+  if (revs === 0) { const s = lambert(r1Vec, r2Vec, tof, mu, prograde); return s ? [{ ...s, branch: 'single', revs: 0 }] : []; }
+  if (!(tof > 0.0) || !(revs >= 1)) return [];
+  const r1 = norm(r1Vec), r2 = norm(r2Vec), cross12 = cross(r1Vec, r2Vec);
+  let dtheta = Math.acos(clamp(dot(r1Vec, r2Vec) / (r1 * r2), -1.0, 1.0));
+  if (prograde ? cross12[2] < 0.0 : cross12[2] >= 0.0) dtheta = TWO_PI - dtheta;
+  if (dtheta < LAMBERT_ANGLE_EPS || TWO_PI - dtheta < LAMBERT_ANGLE_EPS || Math.abs(dtheta - Math.PI) < LAMBERT_ANGLE_EPS) return [];
+  const A = Math.sin(dtheta) * Math.sqrt((r1 * r2) / (1.0 - Math.cos(dtheta)));
+  const sqrtMu = Math.sqrt(mu);
+  const y = (z) => r1 + r2 + A * (z * stumpffS(z) - 1.0) / Math.sqrt(stumpffC(z));
+  // Scaled time of flight, or Infinity where y < 0 (not a valid conic).
+  const T = (z) => { const yz = y(z); if (!(yz >= 0.0)) return Infinity; return (Math.pow(yz / stumpffC(z), 1.5) * stumpffS(z) + A * Math.sqrt(yz)) / sqrtMu; };
+  const zA = (TWO_PI * revs) ** 2, zB = (TWO_PI * (revs + 1)) ** 2, w = zB - zA;
+  // The minimum of T on the interval: golden section (T is unimodal there).
+  let a = zA + 1e-9 * w, b = zB - 1e-9 * w;
+  const g = (Math.sqrt(5) - 1) / 2;
+  let c = b - g * (b - a), d = a + g * (b - a), Tc = T(c), Td = T(d);
+  for (let k = 0; k < 200 && b - a > 1e-14 * w; k++) {
+    if (Tc < Td) { b = d; d = c; Td = Tc; c = b - g * (b - a); Tc = T(c); } else { a = c; c = d; Tc = Td; d = a + g * (b - a); Td = T(d); }
+  }
+  const zMin = (a + b) / 2, tMin = T(zMin);
+  if (!(tof > tMin)) return [];
+  // One root on each side, by bisection on T(z) - tof (monotone there).
+  const root = (lo, hi, rising) => {
+    for (let k = 0; k < 200 && hi - lo > 1e-15 * Math.max(1, Math.abs(hi)); k++) {
+      const m = 0.5 * (lo + hi), above = T(m) > tof;
+      if (above === rising) hi = m; else lo = m;
+    }
+    return 0.5 * (lo + hi);
+  };
+  const out = [];
+  for (const [branch, z] of [['left', root(zA + 1e-12 * w, zMin, false)], ['right', root(zMin, zB - 1e-12 * w, true)]]) {
+    const yz = y(z);
+    if (!(yz > 0.0) || !(Math.abs(T(z) - tof) < 1e-6 * tof)) continue;
+    const f = 1.0 - yz / r1, gg = A * Math.sqrt(yz / mu), gdot = 1.0 - yz / r2;
+    const v1 = scale(sub(r2Vec, scale(r1Vec, f)), 1.0 / gg), v2 = scale(sub(scale(r2Vec, gdot), r1Vec), 1.0 / gg);
+    if (v1.every(Number.isFinite) && v2.every(Number.isFinite)) out.push({ v1, v2, z, branch, revs });
+  }
+  return out;
+}
+
 // -------- Hohmann transfer between coplanar circular orbits --------
 // r1, r2 are circular-orbit radii (km). Returns the two burn magnitudes,
 // their sum, and the half-ellipse time of flight.
