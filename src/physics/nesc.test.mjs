@@ -17,7 +17,8 @@
 
 import './deNode.js';
 import fs from 'node:fs';
-import { runCase, CASES, MU, initialState, ORBITS, EPOCH_MS, VEHICLES, RE, FLATTENING } from './nesc.lib.mjs';
+import { runCase, CASES, MU, initialState, ORBITS, EPOCH_MS, VEHICLES, RE, FLATTENING, gemT1Coefficients } from './nesc.lib.mjs';
+import { makeEnvironment } from './environment.js';
 import { geopotential, normFactor } from './geopotential.js';
 import { rotationalInvariants } from './rigidbody.js';
 import { createState, advance } from './nbody.js';
@@ -207,6 +208,29 @@ header("THE APP'S KERNEL: cases 2 and 4 in nbody.js");
   // (the floor of DE442's own records). Encke's tidal form (encke.js) keeps
   // the ephemeris's acceleration out of the motion about the Earth.
   check('case 4 by the kernel within 2 cm of sim B', d4 < 0.02);
+
+  // Case 3B (8x8 GEM-T1) by the kernel: the Earth as the central body, its
+  // field from the environment model (environment.js) with NASA's
+  // coefficients, J2 included, and NASA's Earth-rotation offsets.
+  const env = makeEnvironment({ bodiesAt: () => [] }, { epochMs: EPOCH_MS, earth: { degree: 8, field: gemT1Coefficients(8), withJ2: true, leapSeconds: 32, dut1: -0.469 } });
+  const s3 = createState(toKm(s0.r), toKm(s0.v), 0);
+  advance(s3, 28800, { bodiesAt: () => [], muSun: MU / 1e9, sunRadius: 6000, hMax: 60, eta: 0.002, extraAccel: (t, r, out, mid, v) => { out[0] = out[1] = out[2] = 0; return env(t, r, v, out); } });
+  const d3 = dist(s3.r.map((x) => x * 1e3), fx.cases['03B'].tools.B.at(-1).r);
+  console.log(`  case 3B, kernel with the environment's 8x8 field after 8 h: ${d3.toFixed(3)} m from sim B`);
+  check('case 3B by the kernel (environment field) within 5 cm of sim B', d3 < 0.05);
+
+  // Case 6B (a sphere in the MET atmosphere) by the kernel: drag from the
+  // environment model, with NASA's solar activity (F10.7 128.8, Ap 15.7),
+  // flattening (1/298.3) and MET-1999's whole-minute clock, and the field
+  // off (point mass only, as the case has it).
+  const sph = VEHICLES.sphere;
+  const env6 = makeEnvironment({ bodiesAt: () => [] }, { epochMs: EPOCH_MS, mass: sph.mass, area: sph.area, cd: sph.cd, cr: 0, earth: { degree: 0, leapSeconds: 32, dut1: -0.469 }, drag: { sw: { f107: 128.8, f107bar: 128.8, ap: 15.7 }, flattening: FLATTENING, met: { wholeMinutes: true } } });
+  const e0 = initialState(CASES['06B']);
+  const s6 = createState(toKm(e0.r), toKm(e0.v), 0);
+  advance(s6, 28800, { bodiesAt: () => [], muSun: MU / 1e9, sunRadius: 6000, hMax: 60, eta: 0.002, extraAccel: (t, r, out, mid, v) => { out[0] = out[1] = out[2] = 0; return env6(t, r, v, out); } });
+  const d6 = dist(s6.r.map((x) => x * 1e3), fx.cases['06B'].tools.B.at(-1).r);
+  console.log(`  case 6B, kernel with the environment's drag (MET) after 8 h: ${d6.toFixed(3)} m from sim B`);
+  check('case 6B by the kernel (environment drag) within 5 cm of sim B', d6 < 0.05);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');

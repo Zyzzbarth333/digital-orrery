@@ -127,6 +127,8 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
     onFlown(craft.id);
   };
   const fly = () => { if (cell && Number.isFinite(cell.c3)) flyDates(cell.depMs, cell.arrMs, 0); };
+  // The picked window, for the ROCKET tab to size a rocket for.
+  useEffect(() => { if (cell && Number.isFinite(cell.c3)) mission.lastWindow = { dest, name: d.name, depMs: cell.depMs, c3: cell.c3 }; }, [cell?.depMs, cell?.c3, dest]);
   // A window picked from NASA's list: set the grid around it and compute.
   const pendingCompute = useRef(false);
   const showWindow = (startMs: number, spanDays: number) => { setStartIso(iso(startMs)); setSpan(spanDays); pendingCompute.current = true; };

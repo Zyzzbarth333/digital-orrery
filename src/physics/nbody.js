@@ -41,7 +41,7 @@
 // can pass straight through it.
 
 import { advanceEncke, perturbationRatio, ENCKE_IN } from './encke.js';
-import { addJ2 } from './zonal.js';
+import { addJ2, below } from './zonal.js';
 
 const W_CBRT2 = Math.cbrt(2.0);
 const YOSHIDA_W1 = 1.0 / (2.0 - W_CBRT2);
@@ -88,7 +88,7 @@ function leapfrogStep(t, r, v, a, h, acc) {
   v[0] += hh * a[0]; v[1] += hh * a[1]; v[2] += hh * a[2];
   r[0] += h * v[0]; r[1] += h * v[1]; r[2] += h * v[2];
   const t1 = t + h;
-  acc(t1, r, a);
+  acc(t1, r, a, hh);
   v[0] += hh * a[0]; v[1] += hh * a[1]; v[2] += hh * a[2];
   return t1;
 }
@@ -215,12 +215,20 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   const integrate = METHODS[method];
   if (!integrate) throw new Error(`nbody: unknown method '${method}'`);
 
-  const extra = [0, 0, 0];
+  const extra = [0, 0, 0], vEnd = [0, 0, 0];
   let mid = state.t;
-  const acc = (t, r, out) => {
+  // hh: the leapfrog's half-step when called between its kicks, where the
+  // velocity is only half-kicked. A force that depends on velocity (drag,
+  // steered thrust) is then evaluated at the velocity the kick ends on,
+  // predicted with the gravity just found and the last extra push; at the
+  // half-kicked velocity the method drops to first order (drag on a low
+  // orbit: 0.26 m after 8 hours, 0.06 m at a quarter of the step).
+  const acc = (t, r, out, hh = 0) => {
     accelHeliocentric(r, bodiesAt(t), muSun, out);
     if (extraAccel) {
-      extraAccel(t, r, extra, mid, state.v);
+      const sv = state.v;
+      vEnd[0] = sv[0] + hh * (out[0] + extra[0]); vEnd[1] = sv[1] + hh * (out[1] + extra[1]); vEnd[2] = sv[2] + hh * (out[2] + extra[2]);
+      extraAccel(t, r, extra, mid, vEnd);
       out[0] += extra[0]; out[1] += extra[1]; out[2] += extra[2];
     }
     return out;
@@ -278,9 +286,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
     }
     const now = bodiesAt(state.t);
     for (const b of now) {
-      if (!(b.radius > 0)) continue;
-      const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
-      if (dx * dx + dy * dy + dz * dz < b.radius * b.radius) {
+      if (below(r, b)) {
         events.push({ type: 'impact', body: b.key, t: state.t });
         return { steps, events, complete: false };
       }

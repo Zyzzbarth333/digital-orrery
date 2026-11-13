@@ -19,9 +19,10 @@
 //                orbital frame about that body (along its velocity relative
 //                to the body, prograde x normal, and the orbit normal), so
 //                the burn turns with the orbit as a guided burn does.
-//     env        { mass, area, cr } (optional): the craft as the environment
-//                model sees it (environment.js): sunlight pressure, with
-//                the Earth's and Moon's shadows
+//     env        { mass, area, cr, cd, earth } (optional): the craft as the
+//                environment model sees it (environment.js): the Earth's
+//                field beyond J2, drag, and sunlight pressure with the
+//                Earth's and Moon's shadows
 //     version    returned unchanged, so the caller can drop a result computed
 //                from a state it has since changed (a burn, a clock jump)
 // Reply:    { type: 'stepped', crafts: [CraftResult], ms }
@@ -35,6 +36,7 @@
 
 import { advance, createState, accelHeliocentric } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
+import { ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { makeEnvironment } from './environment.js';
 
 // Kernel time zero: 2000-01-01 12:00 UTC. Only a reference; every time is a
@@ -54,8 +56,16 @@ export function vnbDirection(dir, r, v) {
   return [d[0] / dn, d[1] / dn, d[2] / dn];
 }
 
+// Kernel time is TT seconds from KERNEL_EPOCH_MS: uniform, so a leap second
+// is a second the craft flies, as the bodies' ephemerides count it. (Counted
+// in UTC seconds, a craft lost a second against the bodies at each one.)
+const TT0 = ttSeconds(KERNEL_EPOCH_MS);
 export function kernelSeconds(date) {
-  return (date.getTime() - KERNEL_EPOCH_MS) / 1000;
+  return ttSeconds(date.getTime()) - TT0;
+}
+// The UTC instant (ms) of kernel time t.
+export function kernelMs(t) {
+  return utcMsAtTt(TT0 + t);
 }
 
 // Advance one craft. sys is a body set from solarSystemBodies().
@@ -126,7 +136,7 @@ export function stepCraft(sys, req) {
   const thrusting = constant || burns.length;
   const extraAccel = (thrusting || env) ? (t, r, out, mid, v) => {
     if (thrusting) thrustAt(t, mid, out, r, v); else { out[0] = out[1] = out[2] = 0; }
-    if (env) env(t, r, v, out);
+    if (env) env(t, r, v, out, mid);
     return out;
   } : null;
   // Steps end on each burn's edges, and inside a burn no step burns more than
@@ -147,8 +157,11 @@ export function stepCraft(sys, req) {
       return pts;
     }))].sort((x, y) => x - y)
     : null;
+  // The environment's switching times (thruster puffs) join the burns'.
+  const envEdges = env && req.tEnd > req.t ? env.breakpoints(req.t, req.tEnd) : [];
+  const allBreaks = envEdges.length ? [...new Set([...(breakpoints ?? []), ...envEdges])].sort((x, y) => x - y) : breakpoints;
   const res = advance(state, req.tEnd, {
-    bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, breakpoints, stepCap: env?.stepCap ?? null,
+    bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, breakpoints: allBreaks, stepCap: env?.stepCap ?? null,
     maxSteps: req.maxSteps ?? DEFAULT_MAX_STEPS,
   });
   const accel = accelHeliocentric(state.r, sys.bodiesAt(state.t), sys.muSun);

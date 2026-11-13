@@ -7,14 +7,16 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/physics/orbital.test.mjs && node src/physics/porkchop.test.mjs && node src/physics/nbody.test.mjs && node src/physics/orientation.test.mjs && node src/physics/craft.test.mjs && node src/physics/trajsearch.test.mjs && node src/physics/nesc.test.mjs && node src/physics/environment.test.mjs && node src/physics/artemis2.validate.mjs && node src/physics/artemis1.validate.mjs",
+    "test": "node src/physics/orbital.test.mjs && node src/physics/porkchop.test.mjs && node src/physics/nbody.test.mjs && node src/physics/orientation.test.mjs && node src/physics/craft.test.mjs && node src/physics/trajsearch.test.mjs && node src/physics/nesc.test.mjs && node src/physics/environment.test.mjs && node src/physics/rocket.test.mjs && node src/physics/artemis2.validate.mjs && node src/physics/artemis1.validate.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "bench": "node src/physics/bench.mjs",
     "validate:artemis2": "node src/physics/artemis2.validate.mjs && node src/physics/artemis1.validate.mjs",
     "design:artemis2": "node src/physics/artemis2.design.mjs",
     "fetch:trajbrowser": "node src/physics/trajbrowser.fetch.mjs",
     "fetch:nesc": "node src/physics/nesc.fetch.mjs",
-    "fetch:artemis1": "node src/physics/artemis1.fetch.mjs"
+    "fetch:artemis1": "node src/physics/artemis1.fetch.mjs",
+    "crosscheck:artemis1": "node src/physics/artemis1.crosscheck.mjs",
+    "fetch:environment": "node src/physics/environment.fetch.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

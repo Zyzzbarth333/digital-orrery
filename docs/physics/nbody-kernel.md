@@ -68,13 +68,16 @@ Low Earth orbit is where it matters most:
 - leaving it out put Artemis II's first coast arc 969 km off instead of
   42 km ([validation](../validation/artemis2.md)).
 
-The planets' $J_2$ values will follow once each has a primary source. Mars's,
+Every planet has its $J_2$ too, each from its field's primary source (the
+table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
-Not yet modelled: higher harmonics (J3 and up, and the tesseral terms),
-solar radiation pressure, atmospheric drag, relativistic corrections, the
-moons of the outer planets as separate bodies, and the asteroids.
+The forces beyond these (the Earth's and Moon's higher harmonics, the
+Earth's tides, drag, sunlight pressure, venting and relativity) come from
+[the space environment](environment.md), through the `extraAccel` hook. Not
+yet modelled: the planets' harmonics beyond $J_2$, the moons of the outer
+planets as separate bodies, and the asteroids.
 
 ## Integrators
 
@@ -108,6 +111,26 @@ method that is still time-reversible (Yoshida 1990). The middle step runs
 backwards in time, so stage times reach about $t - 0.35h$ and $t + 1.35h$;
 everything evaluated there (ephemeris, thrust with falling mass) is smooth,
 so this is harmless.
+
+**Forces that depend on velocity.** Drag and a burn steered in the orbital
+frame depend on the velocity, which the leapfrog has only half-kicked when
+it evaluates the forces between its kicks. Evaluated at that velocity,
+the method drops to first order in those forces. NASA's drag check case
+flown through the kernel came out 0.26 m off after 8 hours, and a quarter
+of the step gave 0.06 m. So the extra forces are evaluated at the
+velocity the kick ends on:
+- **The prediction:** the half-kicked velocity plus half a step of the
+  gravity just found and of the last extra push.
+- **The result:** the same case comes out 7 mm off, 1 mm at a quarter of
+  the step.
+- **Elsewhere:** the Artemis II injection burn's replay went from 0.030 to
+  0.012 m/s.
+
+**Step limits from the environment.** The environment
+([the space environment](environment.md)) can cap the step (`stepCap`),
+in both integrators:
+- **Near a shadow's edge,** where sunlight pressure switches.
+- **Low in the atmosphere,** where drag is stiff.
 
 Measured on the fixed-step order test (`nbody.test.mjs` case 2): halving $h$
 cuts the error by 4.00 for leapfrog and 16.01 for Yoshida (orders 2.00 and
@@ -212,7 +235,10 @@ local dynamical time in velocity. Steps end on the primary's ephemeris nodes
 the step so each uses the cubic of the interval it crosses; they are capped,
 as in Cowell, at 1 % of every other body's dynamical time, and at 1 % of the
 primary's on a conic whose periapsis is inside it, so impacts are caught as
-tightly as before. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
+tightly as before. An impact is a step that ends below the body's surface:
+the Earth's is sea level, the WGS-84 ellipsoid about its pole of date
+(6,378.137 km at the equator, 6,356.752 km at the poles); every other
+body's is the sphere of its mean radius. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
 the conic is re-anchored on the current state (rectification).
 
 **When it is used.** Encke pays only while the motion is nearly Keplerian.

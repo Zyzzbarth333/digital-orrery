@@ -8,9 +8,9 @@
 import { useState } from 'react';
 import type { SimClock } from './clock';
 import { useClock } from './clock';
-import { useMission, REAL_MISSIONS, type Mission, type DepartureDirection, type RealBurns } from './mission';
+import { useMission, REAL_MISSIONS, altitudeRadius, type Mission, type DepartureDirection, type RealBurns } from './mission';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
-import { kernelSeconds, KERNEL_EPOCH_MS } from '../physics/kernelHost.js';
+import { kernelSeconds, kernelMs } from '../physics/kernelHost.js';
 
 const DEG = 180 / Math.PI;
 const fmt = (n: number, d = 1) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -18,7 +18,7 @@ const fmtDuration = (ms: number) => {
   const m = Math.round(ms / 60e3);
   return m < 60 ? `${m} min` : m < 2880 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${(m / 1440).toFixed(1)} d`;
 };
-const utc = (tKernel: number) => new Date(KERNEL_EPOCH_MS + tKernel * 1000).toISOString().slice(0, 19).replace('T', ' ');
+const utc = (tKernel: number) => new Date(kernelMs(tKernel)).toISOString().slice(0, 19).replace('T', ' ');
 
 function Num({ label, value, onChange, step = 1, unit, min, max }: { label: string; value: number; onChange: (v: number) => void; step?: number; unit?: string; min?: number; max?: number }) {
   const bad = !Number.isFinite(value) || (min !== undefined && value < min) || (max !== undefined && value > max);
@@ -46,6 +46,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
   const [realId, setRealId] = useState(REAL_MISSIONS[0].id), [realBurns, setRealBurns] = useState<RealBurns>('all');
   const [realState, setRealState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const c = mission.selected;
+  const ascent = mission.ascentReadout(s.timeMs);
   // Bounds that keep a launch physical: above the atmosphere's dense part,
   // a real inclination, an excess speed the model craft could be given.
   const launchProblem = kind === 'orbit'
@@ -80,25 +81,36 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
   if (c) {
     const el = c.elements();
     const P = el.about === 'sun' ? null : BODY_BY_KEY[el.about as BodyKey];
-    const R = P ? P.radiusKm : 0;
+    const R = P ? altitudeRadius(P.key, P.radiusKm) : 0;
+    const altNote = P?.key === 'earth' ? ', above the equatorial radius (6,378.137 km, WGS-84), as in the ROCKET tab' : P ? ', above the mean radius' : '';
     const st = c.displayState();
     const rel = mission.relative(c);
     const dvLeft = c.ve * Math.log(c.mass / c.dryMass);
     const rows: [string, React.ReactNode, React.ReactNode][] = [
       ['Motion', 'Integrated', <Tag src="kernel" detail="stepped under the gravity of the Sun, planets and Moon (n-body), not on a fixed track like the planets" />],
       ['About', P ? P.name : 'Sun', <Tag src="kernel" detail="the body whose sphere of influence holds the craft" />],
-      [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <Tag src="kernel" detail="n-body state (Encke near a planet, Cowell elsewhere) carried to the clock" />],
+      [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <Tag src="kernel" detail={`n-body state (Encke near a planet, Cowell elsewhere) carried to the clock${altNote}`} />],
       ['Speed', `${fmt(rel.v, 4)} km/s`, <Tag src="kernel" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
     ];
-    if (el.e < 1) {
-      rows.push(['Periapsis', `${fmt(el.a * (1 - el.e) - R, 1)} km`, <Tag src="2-body" derived detail={`osculating, about ${P ? P.name : 'the Sun'}${P ? ', altitude' : ''}`} />]);
-      rows.push(['Apoapsis', `${fmt(el.a * (1 + el.e) - R, 1)} km`, <Tag src="2-body" derived detail="osculating" />]);
+    const site = c.crashed ? c.impactSite : null;
+    if (site) {
+      // Down: where and when, not an orbit (it lies on the ground, turning
+      // with the body).
+      const [x, y, z] = site.local, lat = Math.atan2(z, Math.hypot(x, y)) * DEG, lon = Math.atan2(y, x) * DEG;
+      rows.splice(2, 2,
+        ['Came down', utc(site.t), <Tag src="kernel" detail={`below the surface of ${BODY_BY_KEY[site.key as BodyKey]?.name ?? site.key}${site.key === 'earth' ? ' (sea level, the WGS-84 ellipsoid)' : ''} at the end of a kernel step`} />],
+        ['Where', `${fmt(Math.abs(lat), 2)}° ${lat >= 0 ? 'N' : 'S'}, ${fmt(Math.abs(lon), 2)}° ${lon >= 0 ? 'E' : 'W'}`, <Tag src="kernel" derived detail="geocentric latitude and longitude in the body's own frame; it stays there, turning with the body" />]);
+    } else if (el.e < 1) {
+      rows.push(['Periapsis', `${fmt(el.a * (1 - el.e) - R, 1)} km`, <Tag src="2-body" derived detail={`osculating, about ${P ? P.name : 'the Sun'}${altNote}`} />]);
+      rows.push(['Apoapsis', `${fmt(el.a * (1 + el.e) - R, 1)} km`, <Tag src="2-body" derived detail={`osculating${altNote}`} />]);
       rows.push(['Period', `${fmt((2 * Math.PI * Math.sqrt(el.a ** 3 / (P ? P.gm ?? 1 : mission.sys.muSun))) / 60, 2)} min`, <Tag src="2-body" derived detail="osculating" />]);
-    } else {
+    } else if (!site) {
       rows.push(['Excess speed', `${fmt(Math.sqrt(-(P ? P.gm ?? 1 : mission.sys.muSun) / el.a), 4)} km/s`, <Tag src="2-body" derived detail="v-infinity of the osculating hyperbola" />]);
     }
-    rows.push(['Eccentricity', fmt(el.e, 6), <Tag src="2-body" derived detail="osculating" />]);
-    rows.push(['Inclination', `${fmt(el.i * DEG, 3)}°`, <Tag src="2-body" derived detail={`to the ${el.frame}`} />]);
+    if (!site) {
+      rows.push(['Eccentricity', fmt(el.e, 6), <Tag src="2-body" derived detail="osculating" />]);
+      rows.push(['Inclination', `${fmt(el.i * DEG, 3)}°`, <Tag src="2-body" derived detail={`to the ${el.frame}`} />]);
+    }
     const run = mission.realRun(c);
     // The model engine's tank means nothing when every burn is the real
     // craft's, scripted from its data.
@@ -139,6 +151,20 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
             </select>
           </label>
           <p className="hint">A fix puts the craft back where tracking says the real one was, as a navigation team would. {run.fixes > 0 ? `${run.fixes} so far.` : ''}</p>
+          {run.burns === 'all' && (
+            <>
+              <label className="num">
+                <span className="engraved">Corrections</span>
+                <select className="input select" value={run.aimed ? 'aimed' : 'flown'} onChange={(e) => mission.setAimed(c, e.target.value === 'aimed')}>
+                  <option value="aimed">Aimed from the craft</option>
+                  <option value="flown">As flown, blind</option>
+                </select>
+              </label>
+              <p className="hint">{run.aimed
+                ? `Each correction after the injection burn is worked out from where this craft is, as NASA's were from where Orion was, and added to the burn as flown${run.aimedDv > 0 ? `: ${fmt(run.aimedDv, 2)} m/s so far` : ''}.`
+                : 'The corrections are flown exactly as Orion flew them, without regard to where this craft is. The lunar flyby magnifies small differences, so it ends thousands of kilometres off without fixes.'}</p>
+            </>
+          )}
           </details>
         )}
 
@@ -210,8 +236,13 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
           </select>
         </div>
       )}
+      {ascent && (
+        <table className="readout" aria-live="off"><tbody>
+          <tr><th scope="row">Climbing</th><td className="value">{ascent.name}<span className="alt">{ascent.t < 0 ? `liftoff in ${Math.ceil(-ascent.t)} s` : `T+${Math.floor(ascent.t / 60)}:${String(Math.floor(ascent.t % 60)).padStart(2, '0')} · ${ascent.h.toFixed(1)} km up · ${ascent.v.toFixed(3)} km/s`}; in orbit at engine cutoff</span></td><td className="src"><span className="src-tag" title="the ascent flown in the ROCKET tab, a gravity turn in the launch plane">ascent</span></td></tr>
+        </tbody></table>
+      )}
       {readout}
-      <details className="section" open={!c}>
+      <details className="section" open={!c && !ascent}>
       <summary className="strip">Real missions</summary>
       <div className="form-grid">
         <label className="num">

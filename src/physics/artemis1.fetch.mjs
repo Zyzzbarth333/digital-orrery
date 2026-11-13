@@ -30,7 +30,7 @@ import fs from 'node:fs';
 import dns from 'node:dns';
 import { createState, advance } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
-import { KERNEL_EPOCH_MS } from './kernelHost.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
 
 dns.setDefaultResultOrder('ipv4first');
@@ -89,7 +89,7 @@ const rows = flown.map((s) => ({ ms: Date.parse(s[0]), r: s.slice(1, 4), v: s.sl
 
 // Fly every minute with the kernel.
 const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
-const kt = (ms) => (ms - KERNEL_EPOCH_MS) / 1000;
+const kt = (ms) => kernelSeconds(new Date(ms));
 const opts = { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7 };
 const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const minute = [];

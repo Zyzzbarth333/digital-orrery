@@ -13,7 +13,11 @@ import fs from 'node:fs';
 import { rows, fineRows, nearRows, reconstructBurns, matchNasa } from './artemis2.lib.mjs';
 
 const START = '2026-04-02T23:39:00Z', END = '2026-04-10T23:29:00Z';
-const r3 = (x) => Math.round(x * 1e3) / 1e3, r7 = (x) => Math.round(x * 1e7) / 1e7;
+// To the source's own precision, 1 mm and 1 nm/s: a fix interpolated between
+// samples a few seconds apart takes its velocity from the positions too, and
+// rounding them to the metre put centimetres a second into it, which the
+// injection burn grows to tens of kilometres by the Moon.
+const r3 = (x) => Math.round(x * 1e6) / 1e6, r7 = (x) => Math.round(x * 1e9) / 1e9;
 const NAMES = { TLI: 'Translunar injection', 'trim-1': 'Trim', 'trim-2': 'Trim', OTC: 'Outbound correction', 'RTC-1': 'Return correction 1', 'RTC-2': 'Return correction 2', 'RTC-3': 'Return correction 3' };
 
 // The flown trajectory: every 10 minutes, every minute near Earth, every 5 s

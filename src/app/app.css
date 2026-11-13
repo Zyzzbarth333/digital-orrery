@@ -217,8 +217,8 @@ kbd {
 .plate-toggle { display: none; margin-top: var(--u); }
 
 /* ---------------- plate tabs ---------------- */
-.tabs { display: flex; gap: 6px; margin: 0 0 calc(2 * var(--u)); padding-right: calc(3 * var(--u)); }
-.key.tab { min-width: 0; flex: 1; height: 30px; padding: 0 8px; }
+.tabs { display: flex; gap: 4px; margin: 0 0 calc(2 * var(--u)); padding-right: calc(3 * var(--u)); }
+.key.tab { min-width: 0; flex: 1 1 auto; height: 30px; padding: 0 4px; letter-spacing: 0.05em; font-size: 9px; }
 .key.tab[aria-selected='true'] { background: var(--window); color: var(--phosphor); border-color: var(--window); box-shadow: inset 0 2px 4px #000; transform: translateY(1px); }
 .tab-panel { display: flex; flex-direction: column; min-height: 0; }
 .tab-body { display: flex; flex-direction: column; gap: 0; }
@@ -387,3 +387,14 @@ details.section[open] > summary::after { content: '−'; }
 .tb-table tbody tr:hover td { background: rgba(18, 17, 16, 0.06); }
 .tb-table tbody tr:focus-visible { outline: 2px solid var(--key); outline-offset: -2px; }
 .tb-table tbody tr[aria-selected='true'] td { background: var(--window); color: var(--phosphor); }
+
+/* ROCKET tab: one block per stage, wide fields, the ascent plot. */
+.stage { border: 0; margin: 0 0 var(--u); padding: var(--u) 0 0; border-top: 1px solid var(--seam); min-width: 0; }
+.stage-head { display: grid; grid-template-columns: 1fr auto; gap: var(--u); align-items: center; }
+.stage-head .key.small { height: 30px; }
+.num.wide { grid-column: 1 / -1; }
+.readout td.value .alt.short { color: var(--warn); }
+.ascent-plot svg { display: block; width: 100%; height: auto; }
+.ascent-plot polyline { stroke: var(--phosphor); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.ascent-plot figcaption { display: flex; justify-content: space-between; gap: var(--u); }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

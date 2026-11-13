@@ -72,16 +72,35 @@ is planned for the exact-ephemeris phase.
 | Where | Time scale |
 | --- | --- |
 | SPICE fixture (`c/orrery_spice_ref.c`) | ephemeris time (TDB seconds past J2000), via `str2et_c` from UTC strings |
-| kernel and app | seconds from `KERNEL_EPOCH_MS` = 2000-01-01 12:00 **UTC**, i.e. UTC seconds |
+| app clock | UTC (Unix milliseconds) |
+| kernel | **TT** seconds from `KERNEL_EPOCH_MS` = 2000-01-01 12:00 UTC: `kernelSeconds(date)` and `kernelMs(t)` (`kernelHost.js`), `sys.secondsAt` and `sys.msAt` (`bodies.js`) |
 | astronomy-engine | takes UTC dates; TT − UTC is set from the leap-second table (`timescale.js`: 32.184 s + TAI − UTC, 69.184 s since 2017), not the library's extrapolation (75.2 s for 2026) |
 | DE442 Earth–Moon table | TDB seconds past J2000, from UTC by `timescale.js`: TT − UTC from the leap seconds, then TDB − TT ≈ 0.001657 s sin g + 0.000014 s sin 2g |
 
-The kernel's time is only ever used as a difference, and as the UTC date it
-passes to the ephemeris, which converts it. It is **not** TDB: TDB − UTC is
-about 69 s now (32.184 s + 37 leap seconds), so a state labelled with kernel
-time is 69 s off a TDB label. Both ephemeris paths convert, so positions are
-right for the UTC instant. Checked: Earth at MSL's launch, given as a UTC
-date, is 0.09 m from SPICE.
+The kernel counts uniform seconds: TT seconds since the TT instant of
+`KERNEL_EPOCH_MS`, by the same TT − UTC the ephemerides use (the
+leap-second table from 1972, astronomy-engine's Espenak–Meeus ΔT before).
+Its bodies are looked up by TT directly (`helioStateEqjAtTt`), so nothing
+passes through UTC inside the kernel, and the last UTC second before a leap
+second lasts two kernel seconds. Converting back, an instant inside a leap
+second (23:59:60, which JavaScript's UTC cannot name) reads as the
+following midnight, so the clock stands still for that second.
+
+It used to count UTC seconds. Across a leap second the craft then flew one
+second less than the bodies moved, so each body jumped a second of its
+motion against it: 30 km for the Earth, 1 km for the Moon. The PFS-2 check
+found it on 1 July 1972, where the Moon's jump read as an impact. Leap
+seconds in the app's range: 1972 to 1998 (22 of them), 2005, 2008, 2012,
+2015 and 2016. None falls during Artemis I or II.
+
+Kernel time is still **not** TDB: it is offset from TDB seconds past J2000
+by a constant (TT − UTC at the kernel epoch, 64.184 s, plus TDB − TT's
+millisecond wobble), so a state labelled with kernel time is not a TDB
+label. Checked (`nbody.test.mjs`, kernel time): UTC to kernel time and back
+within 1 µs from 1969 to 2026; 2 s across 23:59:59 to 00:00:00 at three leap
+seconds; the Earth's quarter-second steps through the 2016 leap second equal
+to 1 part in 10⁶. Earth at MSL's launch, given as a UTC date, is 0.09 m
+from SPICE.
 
 ## Sources
 

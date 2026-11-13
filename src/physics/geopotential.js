@@ -14,8 +14,10 @@
 //   mu      km^3/s^2;  radius  the reference radius, km
 //   C, S    C[n][m], S[n][m], degree n and order m from 0 (C[0][0] = 1)
 //   n, m    the degree and order to use (m <= n)
+//   central false to leave out the point mass (C00), for the harmonics alone
 // field.accel(r, out)   r planet-fixed km -> out km/s^2 (the whole field,
 //                       point mass included)
+// field.set(n, m, C, S)  change one coefficient after the field is built
 
 // Fully normalised to unnormalised: C_nm = N_nm Cbar_nm with
 // N_nm = sqrt((2 - delta_m0)(2n + 1)(n - m)! / (n + m)!).
@@ -25,7 +27,7 @@ export function normFactor(n, m) {
   return Math.sqrt(f);
 }
 
-export function geopotential({ mu, radius, n: N, m: M = N, C, S, normalized = true }) {
+export function geopotential({ mu, radius, n: N, m: M = N, C, S, normalized = true, central = true }) {
   const c = [], s = [];
   for (let n = 0; n <= N + 1; n++) {
     c.push(new Float64Array(n + 2)); s.push(new Float64Array(n + 2));
@@ -36,7 +38,9 @@ export function geopotential({ mu, radius, n: N, m: M = N, C, S, normalized = tr
       s[n][m] = (S[n]?.[m] ?? 0) * f;
     }
   }
-  c[0][0] = 1;
+  // The point mass, unless left out (central: false) when it is counted
+  // elsewhere and only the harmonics are wanted.
+  c[0][0] = central ? 1 : 0;
   const V = [], W = [];
   for (let n = 0; n <= N + 1; n++) { V.push(new Float64Array(n + 2)); W.push(new Float64Array(n + 2)); }
 
@@ -82,5 +86,11 @@ export function geopotential({ mu, radius, n: N, m: M = N, C, S, normalized = tr
     out[0] = k * ax; out[1] = k * ay; out[2] = k * az;
     return out;
   }
-  return { mu, radius, n: N, m: M, accel };
+  // Change one coefficient (normalised if the field was built normalised):
+  // for terms that vary in time, such as the solid Earth tide.
+  function set(n, m, Cnm, Snm) {
+    const f = normalized ? normFactor(n, m) : 1;
+    c[n][m] = Cnm * f; s[n][m] = Snm * f;
+  }
+  return { mu, radius, n: N, m: M, accel, set };
 }

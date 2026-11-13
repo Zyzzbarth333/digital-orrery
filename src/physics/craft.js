@@ -22,15 +22,18 @@
 //   two-body orbit about the primary, with the rest of the acceleration to
 //   second order (the kernel answers a frame or more late).
 
+import { makeEnvironment } from './environment.js';
 import { addJ2 } from './zonal.js';
 import { propagate, rvToElements } from './orbital.js';
 import { accelHeliocentric, primaryOf } from './nbody.js';
 import { eqjToEcl } from './ephemeris.js';
+import { bodyAxesEqj } from './orientation.js';
 
 export const G0 = 9.80665;                 // m/s^2, for Isp
 const MAX_CARRY_S = 30 * 86400;
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -42,27 +45,31 @@ let nextId = 1;
 // cannot be held constant across a lag (in low orbit that is 0.24 km off
 // after 10 minutes, 115 km after an hour). Two-body plus J2, with the other
 // perturbations held at their value at the start (ap), by classical RK4 at
-// 1/256 of the orbital period (or longer, at most 2,048 steps).
-function carryWithJ2(r0, v0, dtx, P, ap) {
+// 1/256 of the orbital period (or longer, at most 2,048 steps). extra(t, x,
+// out), if given, adds what changes as fast as J2 does (the environment's
+// gravity field and sunlight, at kernel time t and primary-relative x).
+function carryWithJ2(r0, v0, dtx, P, ap, extra = null, t0 = 0) {
   const rn = norm(r0), en = 0.5 * (v0[0] ** 2 + v0[1] ** 2 + v0[2] ** 2) - P.mu / rn;
   const period = en < 0 ? 2 * Math.PI * Math.sqrt((-P.mu / (2 * en)) ** 3 / P.mu) : 2 * Math.PI * Math.sqrt(rn ** 3 / P.mu);
   const n = Math.min(2048, Math.max(1, Math.ceil(dtx / (period / 256)))), h = dtx / n;
+  let tNow = t0;
   const f = (x, out) => {
     const r2 = x[0] * x[0] + x[1] * x[1] + x[2] * x[2], k = -P.mu / (r2 * Math.sqrt(r2));
     out[0] = k * x[0] + ap[0]; out[1] = k * x[1] + ap[1]; out[2] = k * x[2] + ap[2];
     addJ2(x[0], x[1], x[2], r2, P, out);
+    if (extra) extra(tNow, x, out);
     return out;
   };
   let r = [...r0], v = [...v0];
   const a1 = [0, 0, 0], a2 = [0, 0, 0], a3 = [0, 0, 0], a4 = [0, 0, 0];
   for (let s = 0; s < n; s++) {
-    f(r, a1);
+    tNow = t0 + s * h; f(r, a1);
     const r2 = r.map((x, i) => x + 0.5 * h * v[i]), v2 = v.map((x, i) => x + 0.5 * h * a1[i]);
-    f(r2, a2);
+    tNow = t0 + (s + 0.5) * h; f(r2, a2);
     const r3 = r.map((x, i) => x + 0.5 * h * v2[i]), v3 = v.map((x, i) => x + 0.5 * h * a2[i]);
     f(r3, a3);
     const r4 = r.map((x, i) => x + h * v3[i]), v4 = v.map((x, i) => x + h * a3[i]);
-    f(r4, a4);
+    tNow = t0 + (s + 1) * h; f(r4, a4);
     r = r.map((x, i) => x + (h / 6) * (v[i] + 2 * v2[i] + 2 * v3[i] + v4[i]));
     v = v.map((x, i) => x + (h / 6) * (a1[i] + 2 * a2[i] + 2 * a3[i] + a4[i]));
   }
@@ -73,7 +80,11 @@ export class Craft {
   // sys: { bodiesAt, muSun } from bodies.solarSystemBodies (same epoch as t).
   // area (m^2) and cr: the sunlit cross-section and its reflectivity
   // (1 absorbs, 2 mirrors) for sunlight pressure (environment.js).
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3 }) {
+  // earth: the environment's Earth field options (environment.js; e.g.
+  // { degree: 0 } for J2 alone), and cd the drag coefficient.
+  // vent: the venting model's options (vent.js; {} for Artemis II's
+  // calibration), or null for none.
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null) }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys;
@@ -81,8 +92,11 @@ export class Craft {
     this.fuel = fuel;                // kg, one tank
     this.thrust = thrust;            // N
     this.isp = isp;                  // s
-    this.area = area;                // m^2, sunlit
+    this.area = area;                // m^2, sunlit and facing the air
     this.cr = cr;
+    this.cd = cd;
+    this.earth = earth;
+    this.vent = vent;
     const bodies = sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
     this.version = 0;
@@ -90,12 +104,14 @@ export class Craft {
     this.prevClockT = t;
     this.burns = [];
     this.script = [];                // scripted burns (a real mission's, from its data)
+    this.holdAt = null;              // kernel seconds the kernel stops at until released (an aimed correction)
     this.nodes = [];                 // { id, t, dv: [radial, prograde, normal] km/s }
     this.executing = null;           // { node, burn }
     this.engineOn = false;           // manual engine
     this.lagSeconds = 0;             // physics behind the clock (budget ran out)
     this.crashed = false;
     this.impactBody = null;
+    this.impactSite = null;          // { key, t, local: body-fixed km }
     this.error = null;
     this.log = [];                   // { t, text } for the app to show
     this.clockJumped = false;
@@ -188,6 +204,21 @@ export class Craft {
     this.version++;
   }
 
+  // A scripted push added to the script: accel m/s^2 along a fixed EQJ
+  // direction from t0 to t1 (an aimed correction; aimed: true marks it for
+  // dropAimed).
+  addScripted({ t0, t1, dir, accel }) {
+    this.script.push({ t0, t1, dir: unit(dir), F: accel, m0: 1, mdot: 0, scripted: true, aimed: true });
+    this.version++;
+  }
+  // Aimed pushes still to come after t are dropped (the clock was set back
+  // past them: they are aimed again when it reaches them).
+  dropAimed(t) {
+    const n = this.script.length;
+    this.script = this.script.filter((b) => !(b.aimed && b.t1 > t));
+    if (this.script.length !== n) this.version++;
+  }
+
   // A tracking fix: the craft's state replaced by a measured one at time t.
   setState(r, v, t) {
     const bodies = this.sys.bodiesAt(t);
@@ -243,7 +274,7 @@ export class Craft {
 
   buildRequest() {
     if (this.crashed || this.error) return null;
-    const tEnd = this.clockT, span = tEnd - this.kState.t;
+    const tEnd = this.holdAt !== null && this.holdAt < this.clockT ? this.holdAt : this.clockT, span = tEnd - this.kState.t;
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
     const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
@@ -252,7 +283,15 @@ export class Craft {
   }
 
   // What the kernel's environment model needs of this craft.
-  envParams() { return { mass: this.mass, area: this.area, cr: this.cr }; }
+  envParams() { return { mass: this.mass, area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}), ...(this.vent ? { vent: this.vent } : {}) }; }
+
+  // The same environment, for drawing the craft while the kernel lags
+  // (rebuilt when the mass changes).
+  environment() {
+    const key = `${this.mass}|${this.area}|${this.cr}|${this.cd}`;
+    if (this._envKey !== key) { this._env = makeEnvironment(this.sys, this.envParams()); this._envKey = key; }
+    return this._env;
+  }
 
   // A request whose result will never come: nothing to undo (burns are tied
   // to absolute times, so the next request sends them again).
@@ -267,7 +306,7 @@ export class Craft {
     const impact = res.events.find((e) => e.type === 'impact');
     this.lagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
     for (const e of res.events) {
-      if (e.type === 'impact') { this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.note(`impact on ${e.body}`, e.t); }
+      if (e.type === 'impact') { this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.impactSite = this.siteOn(e.body, res.r, res.t); this.note(`impact on ${e.body}`, e.t); }
     }
     if (res.primary !== prev) this.note(`now in the sphere of influence of ${res.primary}`, res.t);
   }
@@ -279,12 +318,40 @@ export class Craft {
     return this.sys.bodiesAt(this.kState.t).find((b) => b.key === key) ?? null;
   }
 
-  // The state at the sim clock (kState carried forward; not after an impact,
-  // and at most 30 days).
+  // The state at the sim clock (kState carried forward, at most 30 days).
+  // After an impact the craft lies where it came down, turning with the body
+  // it hit: left where it was in space, the body would move off at its orbital
+  // speed (the Earth goes 7 million km in three days).
   displayState() {
+    if (this.crashed) return this.onSite(this.clockT) ?? { r: [...this.kState.r], v: [...this.kState.v] };
     let dtx = this.clockT - this.kState.t;
-    if (!(dtx > 0) || this.crashed) dtx = 0;
+    if (!(dtx > 0)) dtx = 0;
     return this.carryForward(Math.min(dtx, MAX_CARRY_S));
+  }
+
+  // The impact point in the body's own frame (orientation.js), so it can be
+  // carried with the body's motion and spin.
+  siteOn(key, r, t) {
+    const B = this.sys.bodiesAt(t).find((b) => b.key === key);
+    if (!B?.eph || !this.sys.msAt) return null;
+    const d = sub(r, B.eph.position(t));
+    const [X, Y, Z] = bodyAxesEqj(key, new Date(this.sys.msAt(t)));
+    return { key, t, local: [dot(X, d), dot(Y, d), dot(Z, d)] };
+  }
+
+  // Where the impact point is at time t, and its velocity (the body's plus
+  // the spin's, from the turn of the axes over a second).
+  onSite(t) {
+    const S = this.impactSite;
+    if (!S) return null;
+    const B = this.sys.bodiesAt(t).find((b) => b.key === S.key);
+    if (!B?.eph) return null;
+    const at = (tt) => {
+      const [X, Y, Z] = bodyAxesEqj(S.key, new Date(this.sys.msAt(tt)));
+      return [0, 1, 2].map((i) => X[i] * S.local[0] + Y[i] * S.local[1] + Z[i] * S.local[2]);
+    };
+    const d0 = at(t), d1 = at(t + 1), rB = B.eph.position(t), vB = B.eph.velocity(t);
+    return { r: [0, 1, 2].map((i) => rB[i] + d0[i]), v: [0, 1, 2].map((i) => vB[i] + d1[i] - d0[i]) };
   }
 
   carryForward(dtx) {
@@ -326,7 +393,17 @@ export class Craft {
       const j = [0, 0, 0];
       addJ2(d[0], d[1], d[2], d[0] * d[0] + d[1] * d[1] + d[2] * d[2], P, j);
       for (let i = 0; i < 3; i++) ap[i] -= j[i];
-      const s = carryWithJ2(d, sub(v0, vP0), dtx, P, ap);
+      // The environment (the Earth's field beyond J2, sunlight) changes as
+      // fast as J2 does: taken out of ap and evaluated along the carry.
+      const env = this.environment();
+      let extra = null;
+      if (env) {
+        const e0 = env(t0, r0, v0, [0, 0, 0]);
+        for (let i = 0; i < 3; i++) ap[i] -= e0[i];
+        const h = [0, 0, 0];
+        extra = (t, x, out) => { const rp = P.eph.position(t); h[0] = x[0] + rp[0]; h[1] = x[1] + rp[1]; h[2] = x[2] + rp[2]; env(t, h, v0, out); };
+      }
+      const s = carryWithJ2(d, sub(v0, vP0), dtx, P, ap, extra, t0);
       return { r: [0, 1, 2].map((i) => s.r[i] + rP1[i]), v: [0, 1, 2].map((i) => s.v[i] + vP1[i]) };
     }
     return {

@@ -14,7 +14,7 @@
 // Velocities come from HelioState directly, not from finite differences.
 
 import * as Astronomy from 'astronomy-engine';
-import { ttMinusUtc, tdbSeconds, J2000_UTC_MS, LEAP_TABLE_START_MS } from './timescale.js';
+import { ttMinusUtc, tdbSeconds, tdbFromTt, J2000_UTC_MS, LEAP_TABLE_START_MS } from './timescale.js';
 import { deHelioState } from './deTable.js';
 
 // Time scales. The app's clock is UTC; astronomy-engine takes UT and adds
@@ -30,6 +30,30 @@ export function deltaT(ut) {
   return tt === null ? Astronomy.DeltaT_EspenakMeeus(ut) : tt;
 }
 Astronomy.SetDeltaTFunction(deltaT);
+
+// TT seconds past J2000 (2000-01-01 12:00 TT) at a UTC instant, by the same
+// TT - UTC the bodies are computed with. Unlike UTC it never stops for a leap
+// second, so the kernel counts its time in it (kernelHost.kernelSeconds).
+export function ttSeconds(ms) {
+  return (ms - J2000_UTC_MS) / 1000 + deltaT((ms - J2000_UTC_MS) / 86400e3);
+}
+
+// The UTC instant (ms) of TT seconds past J2000. Inside a leap second, which
+// UTC (as JavaScript counts it) has no instant for, the end of that second:
+// the clock shows 00:00:00 for its whole length.
+export function utcMsAtTt(tt) {
+  let ms = J2000_UTC_MS + (tt - 64) * 1000, prev = NaN;
+  for (let k = 0; k < 8; k++) {
+    const next = J2000_UTC_MS + (tt - deltaT((ms - J2000_UTC_MS) / 86400e3)) * 1000;
+    if (Math.abs(next - ms) < 1e-6) return next;
+    if (Math.abs(next - prev) < 1e-6) return Math.ceil(Math.min(ms, next) / 1000) * 1000;
+    prev = ms;
+    ms = next;
+  }
+  return ms;
+}
+
+const LEAP_TABLE_START_TT = ttSeconds(LEAP_TABLE_START_MS);
 
 const AU_KM = 149597870.7;
 const AU_PER_DAY_TO_KMS = AU_KM / 86400.0;
@@ -72,6 +96,13 @@ function deState(key, date) {
 
 export function helioStateEqj(key, date) {
   return deState(key, date) ?? toKm(Astronomy.HelioState(bodyOf(key), date));
+}
+
+// The same at TT seconds past J2000 (the kernel's bodies, bodies.js): no
+// UTC in the way, so nothing stands still through a leap second.
+export function helioStateEqjAtTt(key, tt) {
+  const de = (key === 'earth' || key === 'moon') && tt >= LEAP_TABLE_START_TT ? deHelioState(key, tdbFromTt(tt)) : null;
+  return de ?? toKm(Astronomy.HelioState(bodyOf(key), Astronomy.AstroTime.FromTerrestrialTime(tt / 86400)));
 }
 
 export function helioStateEcl(key, date) {

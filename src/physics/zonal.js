@@ -29,3 +29,17 @@ export function addJ2(dx, dy, dz, d2, b, out) {
   out[1] += k * (q * dy - 2 * z * p[1]);
   out[2] += k * (q * dz - 2 * z * p[2]);
 }
+
+// Below a body's surface: its ellipsoid (b.surface = { a, c }, equatorial and
+// polar radii, about b.pole) where it has one, else the sphere of b.radius.
+// The Earth's is WGS-84, so a craft comes down at sea level, at 6,378 km on
+// the equator and 6,357 km at the poles, not on the mean sphere.
+export function below(r, b) {
+  if (!(b.radius > 0)) return false;
+  const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
+  const d2 = dx * dx + dy * dy + dz * dz, S = b.surface;
+  if (!S || !b.pole) return d2 < b.radius * b.radius;
+  if (d2 > S.a * S.a) return false;
+  const z = dx * b.pole[0] + dy * b.pole[1] + dz * b.pole[2];
+  return (d2 - z * z) / (S.a * S.a) + (z * z) / (S.c * S.c) < 1;
+}

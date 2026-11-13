@@ -140,9 +140,19 @@ header('CASE 5: clock jumps, impacts and errors');
   const f = new Craft({ name: 'fall', r: [E0.r[0] + 20000, E0.r[1], E0.r[2]], v: [...E0.v], t: T0, sys });
   const client = new KernelClient();
   for (let k = 1; k <= 20 && !f.crashed; k++) frame(f, T0 + k * 1800, client);
-  const drawn = norm(diff(f.displayState().r, f.kState.r));
+  const drawn = norm(diff(f.onSite(f.kState.t).r, f.kState.r));
   check(`an impact is reported (${f.impactBody})`, f.crashed && f.impactBody === 'earth');
-  check('the crashed craft is drawn at the impact point', drawn < 1e-9);
+  check(`the crashed craft is drawn at the impact point (${(drawn * 1000).toFixed(1)} m)`, drawn < 1);
+  // Three days on it still lies on the Earth, carried round by its spin: left
+  // where it was in space, the Earth would be 7 million km away.
+  const tHit = f.kState.t, hitR = norm(diff(f.kState.r, sys.bodiesAt(tHit).find((b) => b.key === 'earth').r));
+  f.advanceClock(tHit + 3 * DAY);
+  const later = f.displayState(), E3 = sys.bodiesAt(tHit + 3 * DAY).find((b) => b.key === 'earth');
+  const d3 = diff(later.r, E3.r), v3 = norm(diff(later.v, E3.eph.velocity(tHit + 3 * DAY)));
+  check(`three days on it is still on the Earth (${norm(d3).toFixed(3)} km from its centre, ${hitR.toFixed(3)} at impact)`, Math.abs(norm(d3) - hitR) < 1e-6);
+  check(`and turns with it (${(v3 * 1000).toFixed(0)} m/s, the ground's speed at its latitude)`, v3 > 0.05 && v3 < 0.47);
+  check('it stays down', f.crashed && f.buildRequest() === null);
+  check(`it came down on the WGS-84 surface (${hitR.toFixed(1)} km, between the poles' 6,356.8 and the equator's 6,378.1)`, hitR < 6378.137 && hitR > 6356.0);
 
   const bad = makeCraft('bad'), good = makeCraft('good'), client2 = new KernelClient();
   bad.advanceClock(T0 + 43200); good.advanceClock(T0 + 43200);

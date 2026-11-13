@@ -104,15 +104,24 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | --- | --- |
 | Closest approach to the Moon, from the flown state 20 h before | 6,543.5 km vs 6,545.0 km flown; 4 s early |
 | Burns reconstructed from the trajectory against NASA's figures | translunar injection 1,272.0 ft/s over 350.3 s (NASA: 1,274 ft/s planned, 5 min 50 s); return corrections 1.6 and 5.3 ft/s (NASA: the same) |
-| The whole mission in one run from before TLI, every burn replayed as flown | flyby 6,506.4 km (flown 6,545.0): the injection burn's 0.03 m/s grows to 40 km; entry interface 4,327 km off |
+| The whole mission in one run from before TLI, every burn replayed as flown | flyby 6,511.2 km (flown 6,545.0): the injection burn's 0.012 m/s grows to 34 km; entry interface 3,716 km off |
 | Our own plan: the injection burn designed from the pre-TLI orbit and NASA's published targets only | 1,270.7 ft/s over 348.2 s (NASA's plan: 1,274 ft/s, 5 min 49 s); within 182 km of the flown path for eight days; farthest from Earth equal to the flown to the kilometre |
-| The app's mission file, flown by the Craft model and kernel host | the replay's flyby to 0.4 km at every frame size; with a fix every 12 h, 1.3 km at entry |
+| The app's mission file, flown by the Craft model and kernel host | the replay's flyby to 0.4 km at every frame size; with a fix every 12 h, 1.2 km at entry |
 | The same with a tracking fix every 12 h | never more than 5 km off; 1.1 km at entry interface |
+| The app's flight as it flies by default: full environment and random vent, no fixes, the corrections aimed from the craft | never more than 72 km off; 0.3 km at entry; flyby 6,541.1 km; 5.5 m/s more than the flown corrections (blind: 17,173 km at entry) |
 | Coast arcs, 0.2–2.1 days | 0.4–49 km at the end (JSC's 1σ: 0.2–1 km) |
 | The same arcs once the real flight's steady push is estimated from each arc's first half | 0.1–17 km |
 | First arc after translunar injection | 13 km (957 km with point masses only) |
 | The app's Moon vs DE442 | under 1 m (DE442 table) |
 | Calibration: Earth's J3/J4, other planets' tides, empirical push models | none helps; the gravity model is complete for this mission ([calibration](validation/artemis2.md#calibration-what-does-not-help)) |
+
+## Rockets (`rocket.test.mjs`)
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| Optimal staging, three stages, 5,000 kg to 10 km/s | Curtis Example 13.7 | η and mass ratios to the book's four figures; stage masses and total within 0.1 % |
+| Gravity-turn ascent with drag | Curtis Example 13.3 | burnout speed, altitude and downrange within 0.1 %, flight-path angle within 0.02°; losses within 5 m/s |
+| Launch into a 51.6° orbit from Florida, cutoff at orbital speed | | inclination within 0.01°; level to 0.01°; circular to 10⁻³ |
 
 ## The space environment (`environment.test.mjs`)
 
@@ -122,6 +131,16 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The Moon's shadow, total solar eclipse of 21 August 2017 | NASA's eclipse tables (Espenak) | total on the central line and at greatest eclipse; the path's edges within 10 km of NASA's limits |
 | Totality on the central line, Oregon, 17:20 UT | NASA: 122.6 s | 122.5 s with NASA's eclipse radii |
 | Frame independence with shadows | hour against day frames, a day of low orbit with a burn | 8×10⁻⁷ m/s (2×10⁻⁴ before steps were shortened at shadow edges) |
+| The Earth's field beyond J2 (EGM2008) through the kernel | NESC case 3B with NASA's GEM-T1 8×8 | 4 mm after 8 h |
+| Drag (MET atmosphere) through the kernel | NESC case 6B | 7 mm after 8 h (0.26 m before velocity-dependent forces were evaluated at the kick's end velocity) |
+| U.S. Standard Atmosphere 1976, 0–86 km | its tables | 0.003 % |
+| The Moon's field (GRAIL GL0660B): Apollo 16's subsatellite PFS-2 | down after 34 days (NASA) | down after 12–47 days at four orbit nodes (with J2 alone, still up at day 67); Apollo 15's PFS-1 still up after 120 days, as it was |
+| Venting model | Artemis II's coast arcs | one-day pushes of median 2.35 µm/s², sunward cosine 0.72 (the arcs: 1.3–3.4, 0.3–0.8) |
+| Thruster puffs through the kernel | their summed delta-v | exact |
+| The solid Earth tide (IERS 2010, step 1): C20's change averaged over 18.6 years | the permanent tide, A0 H0 k20 = −4.2007×10⁻⁹ | −4.1987×10⁻⁹ (0.05 %); the pull at 400 km within 1.4 % of the closed form |
+| Relativity: Mercury through the kernel | 42.98″ a century | 42.98″ a century |
+| Relativity: the Earth's Schwarzschild and Lense–Thirring terms, orbit-averaged | 3.2496″ a year at 12,270 km, e = 0.1 | 3.2496″ a year (0.1 %) |
+| The planets' J2: a Jupiter orbiter's node, 10 days | secular theory, 11.901° | 11.931° (0.25 %) |
 
 ## Real flight: Artemis I (`artemis1.validate.mjs`)
 
@@ -133,7 +152,8 @@ navigation's as-flown ephemeris (through JPL Horizons). See
 | --- | --- |
 | NASA's 18 as-flown burns (AAS 23-363), found in the trajectory | every one; over 1 m/s within 0.1 % (RTC-5: 0.9 %); e.g. DRO insertion 110.633 m/s (NASA 110.639), return flyby 292.861 (292.904); under 1 m/s within 0.04 m/s |
 | Ignition of the six largest | within 2 s of NASA's times |
-| 77 coast arcs, 1.2–24.7 h (589 h) | all within 83 m at the end, rms 22.5 m; with Orion's sunlight pressure (environment.js), rms 8.0 m |
+| 77 coast arcs, 1.2–24.7 h (589 h) | gravity alone: all within 83 m at the end, rms 22.5 m; the full environment (sunlight pressure, the Earth's and Moon's fields, tides, relativity): within 44 m, rms 5.6 m |
+| The same three ways (`npm run crosscheck:artemis1`) | force by force; the kernel against an independent RK4 (7 cm at a fine step, 2.5 m at the app's default); fresh Horizons states asked in TDB match the fixture to 0.11 m, and the app's Moon matches Horizons' to 2.5 m |
 | Closest lunar approaches, outbound and return | 130.4 km and 129.6 km (NASA: 81 mi and 80.6 mi, 130.4 and 129.7 km) |
 | Farthest from Earth | 432,207 km above the surface at 21:06 UTC, 28 Nov (NASA: 268,563 mi, 432,210 km, 21:06:10) |
 | Joins between NASA's navigation solutions | 67; velocity steps median 0.074 m/s, position median 49 m |
@@ -177,9 +197,8 @@ published equations and Fortran listings
 
 - Against JPL Horizons, GMAT or Orekit trajectories.
 - Against other missions' trajectories beyond Artemis I and II (e.g. MSL cruise from NAIF).
-- The planets' J2 (not modelled yet). Sunlight pressure is modelled (environment.js). The Earth's
-  higher harmonics and drag are modelled and checked in `sixdof.js`, but
-  not yet in the app's kernel.
+- The planets' J2 is checked against secular theory only, not against a
+  real orbiter's trajectory (Juno or Cassini from NAIF would do).
 - MET's helium terms above 440 km. The check cases reach 441 km at most,
   so neither the fairing nor the winter helium bulge is exercised.
 
