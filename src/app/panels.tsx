@@ -11,6 +11,7 @@ import { useClock, type SimClock } from './clock';
 import { useMission, type Mission } from './mission';
 import { MissionPanel } from './mission-panel';
 import { PlannerPanel } from './planner-panel';
+import { RocketPanel } from './rocket-panel';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { bodyState } from '../scene/OrreryScene';
 import { MU_SUN } from '../physics/bodies.js';
@@ -180,14 +181,14 @@ function Readout({ rows }: { rows: Row[] }) {
 
 const AE = 'astronomy-engine; within 1e-4 of the Sun distance of DE442, checked with CSPICE';
 
-export type PlateTab = 'target' | 'mission' | 'planner';
+export type PlateTab = 'target' | 'mission' | 'planner' | 'rocket';
 
 // The right-hand plate: three tabs on the same panel.
 export function Plate({ clock, focus, mission, tab, setTab, onFocusCraft, autoPlan = null }: {
   clock: SimClock; focus: BodyKey; mission: Mission; tab: PlateTab; setTab: (t: PlateTab) => void; onFocusCraft: (id: number) => void; autoPlan?: string | null;
 }) {
   const [collapsed, setCollapsed] = useState(true);
-  const tabs: [PlateTab, string][] = [['target', 'Target'], ['mission', 'Mission'], ['planner', 'Planner']];
+  const tabs: [PlateTab, string][] = [['target', 'Target'], ['mission', 'Mission'], ['planner', 'Planner'], ['rocket', 'Rocket']];
   return (
     <aside className="plate screw" aria-label="Readouts" data-collapsed={collapsed}>
       <span className="pnl" aria-hidden="true">R1</span>
@@ -200,6 +201,7 @@ export function Plate({ clock, focus, mission, tab, setTab, onFocusCraft, autoPl
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="tab-panel">
         {tab === 'target' && <DataPlate clock={clock} focus={focus} />}
         {tab === 'mission' && <MissionPanel clock={clock} mission={mission} onFocusCraft={onFocusCraft} />}
+        {tab === 'rocket' && <RocketPanel clock={clock} mission={mission} onFlown={(id) => { setTab('mission'); onFocusCraft(id); }} />}
         {tab === 'planner' && <PlannerPanel clock={clock} mission={mission} autoPlan={autoPlan} onFlown={(id) => { setTab('mission'); onFocusCraft(id); }} />}
       </div>
     </aside>

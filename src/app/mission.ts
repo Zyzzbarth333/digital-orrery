@@ -133,6 +133,21 @@ export class Mission {
     return c;
   }
 
+  // A craft from a geocentric J2000 state (km, km/s) at timeMs: the end of
+  // a launch from the ROCKET tab, with the upper stage's mass and size.
+  launchState(timeMs: number, rGeo: number[], vGeo: number[], name: string, props: { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number }): Craft {
+    const E = helioStateEqj('earth', new Date(timeMs));
+    const r = [0, 1, 2].map((i) => rGeo[i] + E.r[i]) as V3, v = [0, 1, 2].map((i) => vGeo[i] + E.v[i]) as V3;
+    const c = new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, ...props });
+    this.crafts.push(c);
+    this.select(c.id);
+    return c;
+  }
+
+  // The last window picked in the PLANNER (for the ROCKET tab to size a
+  // rocket for): destination, departure date and launch energy.
+  lastWindow: { dest: string; name: string; depMs: number; c3: number } | null = null;
+
   // A circular orbit about Earth at altitude altKm, inclined incDeg to the
   // J2000 equator, ascending node on the +x axis, starting at the node.
   launchOrbit(timeMs: number, altKm: number, incDeg: number): Craft {
