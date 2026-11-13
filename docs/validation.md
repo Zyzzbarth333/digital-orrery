@@ -114,6 +114,21 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The app's Moon vs DE442 | under 1 m (DE442 table) |
 | Calibration: Earth's J3/J4, other planets' tides, empirical push models | none helps; the gravity model is complete for this mission ([calibration](validation/artemis2.md#calibration-what-does-not-help)) |
 
+## Real flight: Artemis I (`artemis1.validate.mjs`)
+
+Orion's burns and coast arcs flown by the kernel against NASA/JSC
+navigation's as-flown ephemeris (through JPL Horizons). See
+[Artemis I](validation/artemis1.md).
+
+| Check | Result |
+| --- | --- |
+| NASA's 18 as-flown burns (AAS 23-363), found in the trajectory | every one; over 1 m/s within 0.1 % (RTC-5: 0.9 %); e.g. DRO insertion 110.633 m/s (NASA 110.639), return flyby 292.861 (292.904); under 1 m/s within 0.04 m/s |
+| Ignition of the six largest | within 2 s of NASA's times |
+| 77 coast arcs, 1.2–24.7 h (589 h) | all within 83 m at the end, rms 22.5 m; with sunlight pressure of 2.1×10⁻⁸ m/s², rms 8.0 m |
+| Closest lunar approaches, outbound and return | 130.4 km and 129.6 km (NASA: 81 mi and 80.6 mi, 130.4 and 129.7 km) |
+| Farthest from Earth | 432,207 km above the surface at 21:06 UTC, 28 Nov (NASA: 268,563 mi, 432,210 km, 21:06:10) |
+| Joins between NASA's navigation solutions | 67; velocity steps median 0.074 m/s, position median 49 m |
+
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 
 NASA's orbital check cases for 6-DOF simulations (NESC,
@@ -152,7 +167,7 @@ published equations and Fortran listings
 ## Not yet validated
 
 - Against JPL Horizons, GMAT or Orekit trajectories.
-- Against other missions' trajectories (NAIF mission kernels, e.g. MSL cruise).
+- Against other missions' trajectories beyond Artemis I and II (e.g. MSL cruise from NAIF).
 - The planets' J2, and radiation pressure (not modelled yet). The Earth's
   higher harmonics and drag are modelled and checked in `sixdof.js`, but
   not yet in the app's kernel.
