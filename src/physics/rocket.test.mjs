@@ -6,7 +6,7 @@
 // the app's own additions: a rotating atmosphere, and the ascent's end
 // state in three dimensions.
 
-import { stackPerformance, optimalStaging, ascent, ascentToState, launchAzimuth, rotationBonus, circularSpeed, deltaVToOrbit, deltaVDeparture, deltaVToApoapsis, levelAscent, EARTH, G0 } from './rocket.js';
+import { stackPerformance, optimalStaging, ascent, ascentToState, ascentTrack, launchAzimuth, rotationBonus, circularSpeed, deltaVToOrbit, deltaVDeparture, deltaVToApoapsis, levelAscent, EARTH, G0 } from './rocket.js';
 import { rvToElements } from './orbital.js';
 
 let failures = 0;
@@ -98,6 +98,14 @@ header("CASE 4: the app's launches: a rotating Earth, and the end state in 3D");
   check('the 3D state keeps the ascent\'s radius and speed', Math.abs(Math.hypot(...s.r) * 1000 - res.burnout.r) < 1e-6 && Math.abs(Math.hypot(...s.v) * 1000 - res.burnout.v) < 1e-6);
   check('and lies in the plane aimed for: inclination within 0.01 deg of 51.6', Math.abs(inc - 51.6) < 0.01);
   check('a circular orbit at 200 km needs 7.784 km/s', Math.abs(circularSpeed(200e3) - 7784.3) < 0.5);
+  // The whole ascent in 3D, for drawing: it starts on the pad, moving with
+  // the Earth's surface along the plane, and ends on the burnout state.
+  const track = ascentTrack(res, { lat: 28.5, lon: 0, az, earthFixedAtLiftoff: I });
+  const pad = [Math.cos(28.5 * Math.PI / 180), 0, Math.sin(28.5 * Math.PI / 180)].map((x) => x * EARTH.R / 1000);
+  const last = track.at(-1), d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  console.log(`  track: ${track.length} states; starts ${(d(track[0].r, pad) * 1000).toFixed(3)} m from the pad at ${(Math.hypot(...track[0].v) * 1000).toFixed(1)} m/s; ends ${(d(last.r, s.r) * 1e6).toExponential(1)} mm from the burnout state`);
+  check('the track starts on the pad at the rotation\'s speed along the plane, and ends on the burnout state', d(track[0].r, pad) < 1e-6 && Math.abs(Math.hypot(...track[0].v) * 1000 - rotationBonus(28.5, az)) < 1e-6 && d(last.r, s.r) < 1e-9 && d(last.v, s.v) < 1e-12);
+  check('every point of the track is at the ascent\'s height', res.history.every((p, i) => Math.abs(Math.hypot(...track[i].r) * 1000 - EARTH.R - p.h) < 1e-6));
 }
 
 header('CASE 5: working backwards, from a job to the delta-v and the rocket');

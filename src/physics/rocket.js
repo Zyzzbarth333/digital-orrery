@@ -247,7 +247,18 @@ export function ascent(opts) {
 // steers that cross-plane speed away during the ascent, so it is left out
 // here and returned as crossSpeed (m/s): an upper bound on what the
 // steering costs.
-export function ascentToState(result, { lat, lon, az, earthFixedAtLiftoff, omega = EARTH.omega, R = EARTH.R }) {
+export function ascentToState(result, opts) {
+  const F = launchFrame(opts);
+  const { r, theta, vr, vt } = result.burnout;
+  return { ...F.state(r, theta, vr, vt), crossSpeed: F.crossSpeed };
+}
+
+// The launch plane in J2000 at liftoff: up, downrange and the plane's
+// normal at the pad, from its latitude, longitude, azimuth and the Earth's
+// orientation then. state(r, theta, vr, vt) turns a point of the planar
+// ascent (radius and angle downrange in m and rad, speeds in m/s) into a
+// geocentric J2000 state in km and km/s.
+function launchFrame({ lat, lon, az, earthFixedAtLiftoff, omega = EARTH.omega, R = EARTH.R }) {
   const la = lat * Math.PI / 180, lo = lon * Math.PI / 180, A = az * Math.PI / 180;
   const M = earthFixedAtLiftoff;
   const toJ2000 = (e) => [0, 1, 2].map((i) => M[0][i] * e[0] + M[1][i] * e[1] + M[2][i] * e[2]);
@@ -257,14 +268,29 @@ export function ascentToState(result, { lat, lon, az, earthFixedAtLiftoff, omega
   const north = toJ2000([-Math.sin(la) * Math.cos(lo), -Math.sin(la) * Math.sin(lo), Math.cos(la)]);
   const dir = [0, 1, 2].map((i) => Math.sin(A) * east[i] + Math.cos(A) * north[i]);
   const normal = [up[1] * dir[2] - up[2] * dir[1], up[2] * dir[0] - up[0] * dir[2], up[0] * dir[1] - up[1] * dir[0]];
-  const { r, theta, vr, vt } = result.burnout;
-  const radial = [0, 1, 2].map((i) => Math.cos(theta) * up[i] + Math.sin(theta) * dir[i]);
-  const along = [0, 1, 2].map((i) => -Math.sin(theta) * up[i] + Math.cos(theta) * dir[i]);
   // The pad's speed across the plane: omega R cos(lat) times east . normal.
-  const across = omega * R * Math.cos(la) * (east[0] * normal[0] + east[1] * normal[1] + east[2] * normal[2]);
-  const pos = radial.map((u) => u * r / 1000);
-  const vel = [0, 1, 2].map((i) => (vr * radial[i] + vt * along[i]) / 1000);
-  return { r: pos, v: vel, crossSpeed: Math.abs(across) };
+  const crossSpeed = Math.abs(omega * R * Math.cos(la) * (east[0] * normal[0] + east[1] * normal[1] + east[2] * normal[2]));
+  const state = (r, theta, vr, vt) => {
+    const radial = [0, 1, 2].map((i) => Math.cos(theta) * up[i] + Math.sin(theta) * dir[i]);
+    const along = [0, 1, 2].map((i) => -Math.sin(theta) * up[i] + Math.cos(theta) * dir[i]);
+    return { r: radial.map((u) => u * r / 1000), v: [0, 1, 2].map((i) => (vr * radial[i] + vt * along[i]) / 1000) };
+  };
+  return { state, crossSpeed, R };
+}
+
+// The whole ascent as geocentric J2000 states, for drawing it: one per
+// sample of the time history and the burnout state last, each
+// { t (s after liftoff), r (km), v (km/s) }, in the same launch plane as
+// ascentToState (so the last is its state).
+export function ascentTrack(result, opts) {
+  const F = launchFrame(opts), R = opts.R ?? EARTH.R;
+  const out = result.history.map((p) => {
+    const g = p.gamma * Math.PI / 180;
+    return { t: p.t, ...F.state(R + p.h, p.x / R, p.v * Math.sin(g), p.v * Math.cos(g)) };
+  });
+  const b = result.burnout;
+  if (!out.length || out.at(-1).t < b.t) out.push({ t: b.t, ...F.state(b.r, b.theta, b.vr, b.vt) });
+  return out;
 }
 
 // ---------------- working backwards: what a job needs ----------------

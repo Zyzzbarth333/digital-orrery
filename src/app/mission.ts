@@ -36,12 +36,18 @@ const MU_EARTH = 398600.4355;
 const R_EARTH = 6371.0084;
 type V3 = [number, number, number];
 
+export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number }
 export type DepartureDirection = 'prograde' | 'retrograde' | 'outward' | 'inward';
 
 export interface MissionSnapshot { version: number; selected: number | null }
 export type RealBurns = 'all' | 'first';
 // plan: the simulator's own design flown beside the real path (its file
 // takes the flown path from another, flownFrom), not the real craft.
+// A launch from the pad, flown from its precomputed ascent (rocket.js
+// ascentTrack): geocentric J2000 states from liftoff to engine cutoff. The
+// craft that reaches orbit is built at the start, so the camera following
+// the climb follows it on; it joins the kernel at cutoff.
+interface Ascent { craft: Craft; liftoffMs: number; cutoffMs: number; track: { ms: number; r: V3; v: V3 }[]; pathEcl: V3[]; flownEcl: V3[]; shown: number; version: number }
 interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean }
 
 // The real missions the app can fly: file id and label.
@@ -74,6 +80,7 @@ export class Mission {
   private paths = new Map<number, { trail: Trail; conic: V3[]; at: number; version: number }>();
   private plans = new Map<number, { target: string; name: string; arrivalMs: number; closest: number }>();
   private real = new Map<number, RealRun>();
+  ascents: Ascent[] = [];
 
   get snapshot(): MissionSnapshot { return this.snap; }
   get selected(): Craft | null { return this.crafts.find((c) => c.id === this.snap.selected) ?? null; }
@@ -90,7 +97,16 @@ export class Mission {
   select(id: number | null): void { this.snap = { ...this.snap, selected: id }; this.emit(true); }
 
   // Each rendered frame: the clock (and whether it was set), then the kernel.
+  private lastTimeMs = 0;
   frame(timeMs: number, jumps: number): void {
+    this.lastTimeMs = timeMs;
+    // Ascents reaching cutoff hand their craft to the kernel.
+    for (const a of this.ascents.filter((x) => timeMs >= x.cutoffMs)) {
+      this.ascents = this.ascents.filter((x) => x !== a);
+      this.crafts.push(a.craft);
+      if (this.snap.selected === null || this.snap.selected === a.craft.id) this.select(a.craft.id);
+    }
+    if (this.ascents.length) this.emit();
     if (!this.crafts.length) { this.lastJumps = jumps; return; }
     const t = kernelSeconds(new Date(timeMs));
     const jumped = jumps !== this.lastJumps;
@@ -137,13 +153,51 @@ export class Mission {
 
   // A craft from a geocentric J2000 state (km, km/s) at timeMs: the end of
   // a launch from the ROCKET tab, with the upper stage's mass and size.
-  launchState(timeMs: number, rGeo: number[], vGeo: number[], name: string, props: { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number }): Craft {
-    const E = helioStateEqj('earth', new Date(timeMs));
-    const r = [0, 1, 2].map((i) => rGeo[i] + E.r[i]) as V3, v = [0, 1, 2].map((i) => vGeo[i] + E.v[i]) as V3;
-    const c = new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, ...props });
+  launchState(timeMs: number, rGeo: number[], vGeo: number[], name: string, props: LaunchProps): Craft {
+    const c = this.stateCraft(timeMs, rGeo, vGeo, name, props);
     this.crafts.push(c);
     this.select(c.id);
     return c;
+  }
+  private stateCraft(timeMs: number, rGeo: number[], vGeo: number[], name: string, props: LaunchProps): Craft {
+    const E = helioStateEqj('earth', new Date(timeMs));
+    const r = [0, 1, 2].map((i) => rGeo[i] + E.r[i]) as V3, v = [0, 1, 2].map((i) => vGeo[i] + E.v[i]) as V3;
+    return new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, ...props });
+  }
+
+  // The same launch flown from the pad: the craft climbs along track
+  // (seconds after liftoff, geocentric J2000 km and km/s, its last state the
+  // cutoff) from liftoffMs, and becomes the orbiting craft at cutoff.
+  launchAscent(liftoffMs: number, track: { t: number; r: number[]; v: number[] }[], name: string, props: LaunchProps): Craft {
+    const end = track[track.length - 1];
+    const cutoffMs = liftoffMs + end.t * 1000;
+    const craft = this.stateCraft(cutoffMs, end.r, end.v, name, props);
+    const pts = track.map((p) => ({ ms: liftoffMs + p.t * 1000, r: p.r as V3, v: p.v as V3 }));
+    this.ascents.push({ craft, liftoffMs, cutoffMs, track: pts, pathEcl: pts.map((p) => eqjToEclFast(p.r)), flownEcl: [], shown: -1, version: 0 });
+    this.snap = { ...this.snap, selected: craft.id };
+    this.emit(true);
+    return craft;
+  }
+
+  // An ascent's geocentric J2000 state at timeMs (on the pad before
+  // liftoff), interpolated in its track.
+  private ascentAt(a: Ascent, timeMs: number): { r: V3; v: V3; i: number } {
+    const T = a.track;
+    if (timeMs <= T[0].ms) return { r: T[0].r, v: T[0].v, i: 0 };
+    let i = 1;
+    while (i < T.length - 1 && T[i].ms < timeMs) i++;
+    const p = T[i - 1], q = T[i], f = Math.min(1, (timeMs - p.ms) / (q.ms - p.ms || 1));
+    const lerp = (x: V3, y: V3): V3 => [x[0] + f * (y[0] - x[0]), x[1] + f * (y[1] - x[1]), x[2] + f * (y[2] - x[2])];
+    return { r: lerp(p.r, q.r), v: lerp(p.v, q.v), i: i - 1 };
+  }
+
+  // A climbing craft's height (km above the mean radius), speed (km/s, in
+  // J2000 axes) and seconds since liftoff, for the panels.
+  ascentReadout(timeMs: number): { name: string; h: number; v: number; t: number } | null {
+    const a = this.ascents[0];
+    if (!a) return null;
+    const s = this.ascentAt(a, timeMs);
+    return { name: a.craft.name, h: norm(s.r) - R_EARTH, v: norm(s.v), t: (timeMs - a.liftoffMs) / 1000 };
   }
 
   // The last window picked in the PLANNER (for the ROCKET tab to size a
@@ -256,6 +310,31 @@ export class Mission {
   // primary's, its osculating conic (resampled at most five times a second)
   // and its flown path, all heliocentric ecliptic km.
   views(): CraftView[] {
+    return [...this.ascentViews(), ...this.craftViews()];
+  }
+
+  // A climbing craft: its marker on the track, the climb flown so far as its
+  // trail and the rest of the planned ascent as its path, about the Earth.
+  private ascentViews(): CraftView[] {
+    if (!this.ascents.length) return [];
+    return this.ascents.map((a) => {
+      const timeMs = this.lastTimeMs;
+      const s = this.ascentAt(a, timeMs);
+      if (s.i !== a.shown) { a.flownEcl = [...a.pathEcl.slice(0, s.i + 1)]; a.shown = s.i; a.version++; }
+      const rel = eqjToEclFast(s.r);
+      const t = kernelSeconds(new Date(timeMs));
+      const earth = this.sys.bodiesAt(t).find((b: { key: string }) => b.key === 'earth');
+      const rE: number[] = earth ? earth.eph.position(t) : [0, 0, 0];
+      const rEcl = eqjToEclFast([s.r[0] + rE[0], s.r[1] + rE[1], s.r[2] + rE[2]]);
+      return {
+        id: a.craft.id, name: a.craft.name, rEcl, primaryEcl: eqjToEclFast(rE),
+        conicEcl: a.pathEcl, trailEcl: [...a.flownEcl, rel], pathVersion: a.version * 2 + 1,
+        thrusting: timeMs >= a.liftoffMs, crashed: false, selected: a.craft.id === this.snap.selected,
+      };
+    });
+  }
+
+  private craftViews(): CraftView[] {
     const now = performance.now();
     return this.crafts.map((c) => {
       const s = c.displayState();

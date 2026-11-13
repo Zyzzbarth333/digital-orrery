@@ -46,6 +46,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
   const [realId, setRealId] = useState(REAL_MISSIONS[0].id), [realBurns, setRealBurns] = useState<RealBurns>('all');
   const [realState, setRealState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const c = mission.selected;
+  const ascent = mission.ascentReadout(s.timeMs);
   // Bounds that keep a launch physical: above the atmosphere's dense part,
   // a real inclination, an excess speed the model craft could be given.
   const launchProblem = kind === 'orbit'
@@ -210,8 +211,13 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
           </select>
         </div>
       )}
+      {ascent && (
+        <table className="readout" aria-live="off"><tbody>
+          <tr><th scope="row">Climbing</th><td className="value">{ascent.name}<span className="alt">{ascent.t < 0 ? `liftoff in ${Math.ceil(-ascent.t)} s` : `T+${Math.floor(ascent.t / 60)}:${String(Math.floor(ascent.t % 60)).padStart(2, '0')} · ${ascent.h.toFixed(1)} km up · ${ascent.v.toFixed(3)} km/s`}; in orbit at engine cutoff</span></td><td className="src"><span className="src-tag" title="the ascent flown in the ROCKET tab, a gravity turn in the launch plane">ascent</span></td></tr>
+        </tbody></table>
+      )}
       {readout}
-      <details className="section" open={!c}>
+      <details className="section" open={!c && !ascent}>
       <summary className="strip">Real missions</summary>
       <div className="form-grid">
         <label className="num">

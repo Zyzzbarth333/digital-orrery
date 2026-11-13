@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import {
-  stackPerformance, optimalStaging, levelAscent, ascentToState, launchAzimuth, rotationBonus, realAtmosphere,
+  stackPerformance, optimalStaging, levelAscent, ascentToState, ascentTrack, launchAzimuth, rotationBonus, realAtmosphere,
   deltaVToOrbit, deltaVDeparture, deltaVToApoapsis, circularSpeed, EARTH, G0,
 } from '../physics/rocket.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
@@ -131,20 +131,39 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
     const a = el.a, e = el.e;
     return { s, peri: a * (1 - e) - EARTH.R / 1000, apo: e < 1 ? a * (1 + e) - EARTH.R / 1000 : Infinity, inc: el.i * 180 / Math.PI };
   }, [flight]);
+  // The craft that reaches orbit: the payload, the stage that was burning at
+  // cutoff (with what propellant it kept) and any stages above it. Its
+  // engine is that stage's, so the next burns (a departure, say) are flown
+  // with it from the MISSION tab.
+  const reached = () => {
+    const res = flight!.res!;
+    const k = res.remaining ? res.remaining.stage : si.length - 1;
+    const left = res.remaining ? res.remaining.prop : 0;
+    const fuel = left + si.slice(k + 1).reduce((a, x) => a + x.prop, 0);
+    const dryMass = payload * 1000 + si.slice(k).reduce((a, x) => a + x.dry, 0);
+    return { name: `${PRESETS[preset].label.split(' (')[0]} from ${flight!.pad.name.split(',')[0]}`, props: { dryMass, fuel, area: Math.PI * diameter * diameter / 4, thrust: si[k].thrust, isp: si[k].isp } };
+  };
   const insert = () => {
     if (!flight?.res || !orbit) return;
     const t = flight.liftoffMs + flight.res.burnout.t * 1000;
     clock.setTime(t);
-    // The craft is what reached orbit: the payload, the stage that was
-    // burning at cutoff (with what propellant it kept) and any stages above
-    // it. Its engine is that stage's, so the next burns (a departure, say)
-    // are flown with it from the MISSION tab.
-    const k = flight.res.remaining ? flight.res.remaining.stage : si.length - 1;
-    const left = flight.res.remaining ? flight.res.remaining.prop : 0;
-    const above = si.slice(k + 1);
-    const fuel = left + above.reduce((a, x) => a + x.prop, 0);
-    const dryMass = payload * 1000 + si.slice(k).reduce((a, x) => a + x.dry, 0);
-    const c = mission.launchState(t, orbit.s.r, orbit.s.v, `${PRESETS[preset].label.split(' (')[0]} from ${flight.pad.name.split(',')[0]}`, { dryMass, fuel, area: Math.PI * diameter * diameter / 4, thrust: si[k].thrust, isp: si[k].isp });
+    const { name, props } = reached();
+    const c = mission.launchState(t, orbit.s.r, orbit.s.v, name, props);
+    c.note(`launched ${iso(flight.liftoffMs)} UTC from ${flight.pad.name}, azimuth ${fmt(flight.az, 1)} deg; in orbit ${fmt(flight.res.burnout.t, 0)} s later`, c.kState.t);
+    onFlown(c.id);
+  };
+  // The same launch watched from the pad: the clock goes back to liftoff
+  // and runs at 10 s a second, the craft climbs along the ascent in the
+  // scene, and at cutoff it flies on as above.
+  const launch = () => {
+    if (!flight?.res || !orbit) return;
+    const axes = bodyAxesEqj('earth', new Date(flight.liftoffMs));
+    const track = ascentTrack(flight.res, { lat: flight.pad.lat, lon: flight.pad.lon, az: flight.az, earthFixedAtLiftoff: axes });
+    const { name, props } = reached();
+    clock.setTime(flight.liftoffMs - 10e3);
+    clock.setRate(10);
+    clock.setPlaying(true);
+    const c = mission.launchAscent(flight.liftoffMs, track, name, props);
     c.note(`launched ${iso(flight.liftoffMs)} UTC from ${flight.pad.name}, azimuth ${fmt(flight.az, 1)} deg; in orbit ${fmt(flight.res.burnout.t, 0)} s later`, c.kState.t);
     onFlown(c.id);
   };
@@ -261,9 +280,10 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
               <tr><th scope="row">Losses</th><td className="value">{fmt((flight.res.losses.gravity + flight.res.losses.drag) / 1000, 3)} km/s<span className="alt">gravity {fmt(flight.res.losses.gravity / 1000, 3)}, drag {fmt(flight.res.losses.drag / 1000, 3)} · max q {fmt(flight.res.maxQ.q / 1000, 1)} kPa at {fmt(flight.res.maxQ.h / 1000, 1)} km</span></td><td className="src"><span className="src-tag" title="Curtis 13.27, integrated along the ascent">ascent</span></td></tr>
             </tbody></table>
             <div className="keys-row">
-              <button className="key primary" onClick={insert}>Put it in orbit</button>
-              <span className="hint">Jumps the clock to {flight.res.remaining ? 'cutoff' : 'burnout'} (BACK undoes it); the payload flies on as a craft with {flight.res.remaining ? 'the upper stage\'s engine and its propellant' : 'no propellant'}</span>
+              <button className="key primary" onClick={launch}>Launch from the pad</button>
+              <button className="key" onClick={insert}>Put it in orbit</button>
             </div>
+            <p className="hint">Launch from the pad sets the clock to ten seconds before liftoff and runs it at 10 s a second while the craft climbs; Put it in orbit jumps the clock to {flight.res.remaining ? 'cutoff' : 'burnout'} (BACK undoes it). Either way the payload flies on as a craft with {flight.res.remaining ? 'the upper stage\'s engine and its propellant' : 'no propellant'}.</p>
           </>
         )}
       </details>

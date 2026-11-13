@@ -88,6 +88,10 @@ equations (13.6)–(13.8) and their curvature terms exactly. The sequence:
   is left out and reported, as an upper bound on that steering's cost
   (289 m/s for 51.6° from Florida).
 
+`ascentTrack` does the same for every sample of the ascent, for drawing
+the climb: geocentric J2000 states from the pad (moving with the Earth's
+surface along the plane) to the cutoff state, which is `ascentToState`'s.
+
 ## In the app
 
 The ROCKET tab:
@@ -100,8 +104,18 @@ The ROCKET tab:
 - **Launch:** from one of five pads (approximate public coordinates), at
   the inclination asked for, lifting off at the clock. The ascent is
   drawn (altitude stretched), with the orbit it reaches and its losses.
-  "Put it in orbit" jumps the clock to cutoff and hands the payload to the
-  kernel as a craft. The craft carries the burning stage's engine and its
+  Then either:
+  - **Launch from the pad:** the clock goes to ten seconds before liftoff
+    and runs at 10 s a second. The craft climbs along the ascent in the
+    scene, with the rest of the planned climb drawn ahead of it, and the
+    MISSION tab reads out its time, height and speed. At engine cutoff it
+    joins the kernel as a craft.
+  - **Put it in orbit:** the clock jumps to cutoff and the payload joins
+    the kernel there.
+
+  The climb is the planar ascent replayed, not flown by the kernel: the
+  Earth's pull, the air and the engine were integrated in the ROCKET tab.
+  Either way the craft carries the burning stage's engine and its
   leftover propellant, and any stages above it, so the next burns (a
   departure to the Moon, say) are flown from the MISSION tab.
 

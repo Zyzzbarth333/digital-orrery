@@ -38,8 +38,9 @@ The model craft has a 1,000 kg dry mass, 500 kg of propellant and a
 
 ## Launches
 
-All launches are from Earth for now; real launch pads and weather come
-later.
+All launches are from Earth for now. The MISSION tab's two place a craft
+straight in orbit or on a departure; the ROCKET tab's fly a rocket from a
+real pad ([rocket](../physics/rocket.md#in-the-app)).
 
 - **Orbit.** A circular orbit at a chosen altitude, inclined to Earth's
   J2000 equator, starting at the ascending node.
@@ -49,6 +50,14 @@ later.
   ([burns and launch](../physics/burns-and-launch.md)). $v_\infty$ is given
   as a speed along Earth's prograde, retrograde, outward or inward
   direction, or comes from the planner.
+- **From the pad (ROCKET tab).** `Mission.launchAscent` takes the ascent
+  as geocentric J2000 states (`rocket.js` `ascentTrack`) and the craft
+  that reaches orbit, built at the start with the cutoff state. Until
+  cutoff the ascent is drawn as a craft: its marker interpolated along the
+  track, the climb so far as its trail, the rest of the planned ascent as
+  its path, all about the Earth. It keeps the craft's id, so a camera
+  following the climb follows the craft on. At cutoff the craft joins the
+  kernel. The MISSION tab reads out the climb (`ascentReadout`).
 
 ## Real missions
 

@@ -21,6 +21,7 @@ const C_KM_S = 299792.458;
 
 export const RATES: { label: string; rate: number }[] = [
   { label: 'Real time', rate: 1 },
+  { label: '10 s/s', rate: 10 },
   { label: '1 min/s', rate: 60 },
   { label: '1 h/s', rate: 3600 },
   { label: '1 d/s', rate: 86400 },
