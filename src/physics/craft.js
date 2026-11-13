@@ -80,7 +80,9 @@ export class Craft {
   // (1 absorbs, 2 mirrors) for sunlight pressure (environment.js).
   // earth: the environment's Earth field options (environment.js; e.g.
   // { degree: 0 } for J2 alone), and cd the drag coefficient.
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = null }) {
+  // vent: the venting model's options (vent.js; {} for Artemis II's
+  // calibration), or null for none.
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null) }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys;
@@ -92,6 +94,7 @@ export class Craft {
     this.cr = cr;
     this.cd = cd;
     this.earth = earth;
+    this.vent = vent;
     const bodies = sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
     this.version = 0;
@@ -261,7 +264,7 @@ export class Craft {
   }
 
   // What the kernel's environment model needs of this craft.
-  envParams() { return { mass: this.mass, area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}) }; }
+  envParams() { return { mass: this.mass, area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}), ...(this.vent ? { vent: this.vent } : {}) }; }
 
   // The same environment, for drawing the craft while the kernel lags
   // (rebuilt when the mass changes).

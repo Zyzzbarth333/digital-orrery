@@ -53,8 +53,10 @@ export const REAL_MISSIONS = [
 // plan and the engine, artemis2.design.mjs), and a sunlit area of 92 m^2
 // at Cr 1.3, the cannonball that fits Artemis I's coast arcs
 // (docs/validation/artemis1.md). 500 kg of it is the propellant the app
-// leaves for the corrections a player flies.
-const ORION = { dryMass: 25036, fuel: 500, area: 92, cr: 1.3 };
+// leaves for the corrections a player flies. It vents as the real Orion
+// did (vent.js, calibrated on Artemis II's coast arcs): a push of a few
+// um/s^2 that the tracking fixes correct, as JSC's did.
+const ORION = { dryMass: 25036, fuel: 500, area: 92, cr: 1.3, vent: {} };
 
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: number[]): V3 => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };

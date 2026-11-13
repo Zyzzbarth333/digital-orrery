@@ -127,7 +127,7 @@ export function stepCraft(sys, req) {
   const thrusting = constant || burns.length;
   const extraAccel = (thrusting || env) ? (t, r, out, mid, v) => {
     if (thrusting) thrustAt(t, mid, out, r, v); else { out[0] = out[1] = out[2] = 0; }
-    if (env) env(t, r, v, out);
+    if (env) env(t, r, v, out, mid);
     return out;
   } : null;
   // Steps end on each burn's edges, and inside a burn no step burns more than
@@ -148,8 +148,11 @@ export function stepCraft(sys, req) {
       return pts;
     }))].sort((x, y) => x - y)
     : null;
+  // The environment's switching times (thruster puffs) join the burns'.
+  const envEdges = env && req.tEnd > req.t ? env.breakpoints(req.t, req.tEnd) : [];
+  const allBreaks = envEdges.length ? [...new Set([...(breakpoints ?? []), ...envEdges])].sort((x, y) => x - y) : breakpoints;
   const res = advance(state, req.tEnd, {
-    bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, breakpoints, stepCap: env?.stepCap ?? null,
+    bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, breakpoints: allBreaks, stepCap: env?.stepCap ?? null,
     maxSteps: req.maxSteps ?? DEFAULT_MAX_STEPS,
   });
   const accel = accelHeliocentric(state.r, sys.bodiesAt(state.t), sys.muSun);

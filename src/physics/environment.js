@@ -6,18 +6,26 @@
 // in Encke's (as the extraAccel hook, beside the thrust). Pure ES module.
 //
 //   const env = makeEnvironment(sys, craft)   craft: { mass, area, cr, ... }
-//   env(t, r, v, out)    heliocentric J2000 r (km), v (km/s), t kernel seconds;
-//                        adds km/s^2 into out
+//   env(t, r, v, out, mid)   heliocentric J2000 r (km), v (km/s), t kernel
+//                        seconds; adds km/s^2 into out. mid: the middle of
+//                        the integrator's step, for anything that switches
+//                        on and off (thruster puffs), as the kernel judges
+//                        burns
 //
 // Models so far:
 //   earth field  the Earth's gravity beyond J2 (EGM2008 to degree 20 by
 //              default), evaluated in the Earth-fixed frame of date (IAU
 //              1976/1980) and rotated back; J2 stays with the kernel's
 //              zonal model
+//   moon field the Moon's gravity beyond J2 (GRAIL GL0660B to degree 50 by
+//              default) within ten lunar radii, in its principal-axis frame
 //   drag       a = -rho |v_r| v_r Cd A / (2 m), v_r relative to an
 //              atmosphere turning with the Earth about its pole of date;
 //              rho from atmosphere.js (the 1976 standard below 86 km, NASA's
 //              MET above 90 km with the Sun's activity for the date)
+//   venting    the unmodelled pushes of a real craft (vent.js): a steady
+//              sunward push and a wandering one, and thruster puffs; off
+//              unless the craft has vent options
 //   sunlight   solar radiation pressure on a flat-plate "cannonball":
 //              a = Cr P (AU/d)^2 (A/m) s_hat * nu
 //              P = 1361 W/m^2 / c at 1 AU, s_hat from the Sun to the craft,
@@ -28,10 +36,14 @@ import { geopotential } from './geopotential.js';
 import { earthFixedMatrix } from './earthRotation.js';
 import { ttMinusUtc } from './timescale.js';
 import { EGM2008 } from './egm2008.js';
+import { GRAIL, PA_TO_ME } from './grail.js';
+import { bodyAxesEqj } from './orientation.js';
+import { makeVent } from './vent.js';
 import { density } from './atmosphere.js';
 
 export const AU = 149597870.7;                 // km
 export const EARTH_ROTATION = 7.2921158553e-5;  // rad/s, sidereal (IERS)
+export const MOON_ROTATION = 2 * Math.PI / (27.321661 * 86400);   // rad/s, sidereal month
 export const SOLAR_PRESSURE = 1361 / 299792458; // N/m^2 at 1 AU (IAU 2015 B3 nominal irradiance)
 export const SUN_RADIUS = 695700;              // km (IAU 2015 B3)
 
@@ -106,12 +118,15 @@ export function earthFixedAt(epochMs, opts = {}) {
 // radius, C, S }), withJ2 (default false: the kernel's zonal model has it),
 // maxRadius (km; beyond, the harmonics are left out: default 20 Earth
 // radii), dut1, leapSeconds (the Earth rotation's time offsets) },
+// moon: { degree (default 50; 0 for none), field (default GRAIL), withJ2,
+// maxRadius (km, default 10 lunar radii) },
+// vent: vent.js options ({} for Artemis II's calibration; absent for none),
 // epochMs (kernel time zero, default the kernel's),
 // cd (drag coefficient, default 2.2; 0 for no drag), drag: { sw (the Sun's
 // activity, default the date's), flattening (for geodetic height, default
 // WGS-84's), met (MET options) } }
 export function makeEnvironment(sys, craft = {}) {
-  const terms = [], caps = [];
+  const terms = [], caps = [], edges = [];
   const epochMs = craft.epochMs ?? Date.UTC(2000, 0, 1, 12);
   const E = craft.earth ?? {};
   const massAt = craft.massAt ?? (() => craft.mass);
@@ -145,6 +160,68 @@ export function makeEnvironment(sys, craft = {}) {
       out[2] += M[0][2] * g[0] + M[1][2] * g[1] + M[2][2] * g[2];
     });
   }
+  // The Moon's field beyond J2, near the Moon: GRAIL GL0660B in the Moon's
+  // principal-axis frame. The app orients the Moon in its mean-Earth frame
+  // (orientation.js); PA_TO_ME (grail.js) turns one into the other.
+  const Mo = craft.moon ?? {};
+  const mDegree = Mo.degree ?? 50;
+  if (mDegree >= 2) {
+    const F = Mo.field ?? GRAIL;
+    const C = [], S = [];
+    for (let n = 0; n <= mDegree; n++) { C.push(F.C[n].slice(0, n + 1)); S.push(F.S[n].slice(0, n + 1)); }
+    if (!Mo.withJ2) C[2][0] = 0;
+    const field = geopotential({ mu: F.gm, radius: F.radius, n: mDegree, C, S, central: false });
+    const rMax2 = (Mo.maxRadius ?? 10 * F.radius) ** 2;
+    // J2000 -> principal axes: the mean-Earth axes every ten minutes, the
+    // Moon's slow spin about its pole in between.
+    let t0 = NaN, M0 = null;
+    const paAt = (t) => {
+      if (!(Math.abs(t - t0) < 300)) {
+        t0 = Math.round(t / 600) * 600;
+        const A = bodyAxesEqj('moon', new Date(epochMs + t0 * 1000));   // rows: the ME axes in J2000
+        M0 = [0, 1, 2].map((i) => [0, 1, 2].map((j) => PA_TO_ME[0][i] * A[0][j] + PA_TO_ME[1][i] * A[1][j] + PA_TO_ME[2][i] * A[2][j]));
+      }
+      const a = MOON_ROTATION * (t - t0), c = Math.cos(a), s = Math.sin(a);
+      return [
+        [c * M0[0][0] + s * M0[1][0], c * M0[0][1] + s * M0[1][1], c * M0[0][2] + s * M0[1][2]],
+        [-s * M0[0][0] + c * M0[1][0], -s * M0[0][1] + c * M0[1][1], -s * M0[0][2] + c * M0[1][2]],
+        M0[2],
+      ];
+    };
+    const g = [0, 0, 0], pf = [0, 0, 0];
+    terms.push((t, r, v, out) => {
+      const moon = sys.bodiesAt(t).find((b) => b.key === 'moon');
+      if (!moon) return;
+      const x = r[0] - moon.r[0], y = r[1] - moon.r[1], z = r[2] - moon.r[2];
+      if (x * x + y * y + z * z > rMax2) return;
+      const M = paAt(t);
+      pf[0] = M[0][0] * x + M[0][1] * y + M[0][2] * z;
+      pf[1] = M[1][0] * x + M[1][1] * y + M[1][2] * z;
+      pf[2] = M[2][0] * x + M[2][1] * y + M[2][2] * z;
+      field.accel(pf, g);
+      out[0] += M[0][0] * g[0] + M[1][0] * g[1] + M[2][0] * g[2];
+      out[1] += M[0][1] * g[0] + M[1][1] * g[1] + M[2][1] * g[2];
+      out[2] += M[0][2] * g[0] + M[1][2] * g[1] + M[2][2] * g[2];
+    });
+  }
+
+  // Venting and thruster puffs (m/s^2 -> km/s^2).
+  if (craft.vent) {
+    const vent = makeVent(craft.vent), a = [0, 0, 0], sd = [0, 0, 0];
+    terms.push((t, r, v, out, mid) => {
+      const d = Math.sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]);
+      sd[0] = -r[0] / d; sd[1] = -r[1] / d; sd[2] = -r[2] / d;
+      a[0] = a[1] = a[2] = 0;
+      vent(t, sd, a, mid ?? t);
+      out[0] += a[0] / 1000; out[1] += a[1] / 1000; out[2] += a[2] / 1000;
+    });
+    if (vent.stepCap) caps.push((t) => vent.stepCap(t));
+    // A puff's edges are breakpoints: the integrator carries a step's end
+    // acceleration into the next step, and recomputes it only on landing
+    // on one, as for a burn.
+    edges.push((a, b) => vent.puffsIn(a - 2, b + 2).flatMap((p) => [p.t0, p.t1]).filter((x) => x > a && x < b));
+  }
+
   // Drag, below 2,500 km.
   const cd = craft.cd ?? 2.2;
   if (craft.area > 0 && craft.mass > 0 && cd > 0) {
@@ -243,7 +320,10 @@ export function makeEnvironment(sys, craft = {}) {
     });
   }
   if (!terms.length) return null;
-  const env = (t, r, v, out) => { for (const f of terms) f(t, r, v, out); return out; };
+  const env = (t, r, v, out, mid = t) => { for (const f of terms) f(t, r, v, out, mid); return out; };
   env.stepCap = caps.length ? (t, r, v) => { let c = Infinity; for (const f of caps) c = Math.min(c, f(t, r, v)); return c; } : null;
+  // Times between a and b (kernel seconds) a step must end on: where a
+  // force switches (thruster puffs).
+  env.breakpoints = (a, b) => edges.flatMap((f) => f(a, b)).sort((x, y) => x - y);
   return env;
 }

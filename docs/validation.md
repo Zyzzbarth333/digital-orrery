@@ -133,6 +133,9 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The Earth's field beyond J2 (EGM2008) through the kernel | NESC case 3B with NASA's GEM-T1 8×8 | 4 mm after 8 h |
 | Drag (MET atmosphere) through the kernel | NESC case 6B | 7 mm after 8 h (0.26 m before velocity-dependent forces were evaluated at the kick's end velocity) |
 | U.S. Standard Atmosphere 1976, 0–86 km | its tables | 0.003 % |
+| The Moon's field (GRAIL GL0660B): Apollo 16's subsatellite PFS-2 | down after 34 days (NASA) | down after 12–47 days at four orbit nodes (67 with J2 alone); Apollo 15's PFS-1 still up after 120 days, as it was |
+| Venting model | Artemis II's coast arcs | one-day pushes of median 2.35 µm/s², sunward cosine 0.72 (the arcs: 1.3–3.4, 0.3–0.8) |
+| Thruster puffs through the kernel | their summed delta-v | exact |
 
 ## Real flight: Artemis I (`artemis1.validate.mjs`)
 

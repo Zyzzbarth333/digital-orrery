@@ -40,6 +40,82 @@ acceleration on the craft alone:
 The field triples the steps at any degree: Encke's error control follows
 a perturbation that now changes as fast as the craft circles the Earth.
 
+## The Moon's gravity field
+
+The Moon's mass is lumpy: dense "mascons" under its maria pull a low orbit
+out of shape, and most low lunar orbits come down within months. The
+kernel's Moon has J2. Within ten lunar radii, the environment adds the rest
+of GRAIL GL0660B, JPL's field from the GRAIL mission (Konopliv et al. 2013):
+- **Default:** degrees 2 to 50, leaving out J2, which the zonal model
+  already has from the same GL0660B.
+- **Data:** the coefficients to degree 100 are in `grail.js`, built by
+  `npm run fetch:environment` from NASA's Planetary Data System. The file
+  is in degree order, so only the first 0.6 MB of its 26.7 MB is read.
+- **Frame:** the field is given in the Moon's principal-axis frame (DE421).
+  The app orients the Moon in its mean-Earth frame (`orientation.js`,
+  within 0.0036° of SPICE's MOON_ME). The fixed rotation between them is
+  taken from NAIF's frame kernel through CSPICE (`PA_TO_ME`): 67.85″,
+  78.69″ and 0.28″.
+- **Turning:** the orientation is refreshed every ten minutes, with the
+  Moon's spin about its pole applied in between.
+
+**Check: Apollo's subsatellites.**
+- **PFS-2:** Apollo 16 released it at 21:56:09 UT on 24 April 1972 into a
+  90 × 130 km orbit inclined 10° (retrograde, as Apollo flew). It hit the
+  Moon 34 days later. No source gives its node, so it is flown at four,
+  with the field to degree 30:
+  - with the field, it comes down after 46.8, 28.5, 12.4 and 20.0 days;
+    NASA's 34 days lies within that spread;
+  - with J2 alone, it lasts 67.1 days (the Earth's tide slowly raises a
+    low lunar orbit's eccentricity).
+
+  So the mascons bring it down sooner at every node.
+- **PFS-1:** Apollo 15's, released into 102 × 139 km at 28.5°, near one of
+  the low orbits the mascons leave alone (a "frozen" inclination), lasted
+  about 537 days. With the field it is still up after 120 days (150 days
+  at two nodes, in a longer run).
+
+## Venting and thruster puffs
+
+A real spacecraft is pushed by more than gravity and sunlight: venting,
+uneven heat radiation and attitude-thruster puffs. A simulator can't
+predict them; JSC's fit of Artemis II takes them from Orion's logs. So
+`vent.js` is a random model, sized from what Artemis II's flown trajectory
+showed: a push of 1.3–3.4 µm/s² over each coast arc of a day or two, its
+direction changing between arcs, always leaning toward the Sun (cosine
+0.3–0.8). The model has three parts:
+- **A steady sunward push,** 1.4 µm/s².
+- **A wandering push:** on each inertial axis, a first-order Gauss–Markov
+  process with standard deviation 1.3 µm/s² and a 1.5-day correlation time.
+- **Thruster puffs** (optional): a Poisson number an hour, each a 2-second
+  push of about a chosen Δv in a random direction.
+
+**A fixed function of time.** Every value comes from a seeded hash of
+absolute time, so the same instant always gives the same push, whatever
+order the integrator asks in or however the clock's frames split the
+flight:
+- **The wandering push:** each knot's value is the exponentially weighted
+  sum of the white noise before it, computed from its own index rather
+  than by stepping from the start. Values between knots are joined by
+  Catmull–Rom curves.
+- **A puff:** it is judged on or off at the middle of the integrator's
+  step, as burns are, because a fourth-order step's stages reach beyond
+  the step. Its edges are breakpoints the step must land on. With them as
+  only step limits, the step after a puff carried its push: 0.8 m/s too
+  much each.
+
+The model is off unless a craft asks for it. Orion in the app has it, so a
+flown Artemis drifts as the real one did and the tracking fixes correct
+it.
+
+**Checks** (`environment.test.mjs`):
+- **The wandering push,** over 2,000 days: 1.31 µm/s² per axis, and a
+  correlation of 0.38 after one correlation time ($e^{-1}$ = 0.37).
+- **Artemis II's arcs:** the model's one-day averages over 300 days have a
+  median of 2.35 µm/s², leaning toward the Sun at a median cosine of 0.72.
+  The arcs showed 1.3–3.4 µm/s² and 0.3–0.8.
+- **Puffs through the kernel:** 48 in a day are delivered exactly.
+
 ## Drag
 
 $\mathbf a = -\tfrac12 \rho\, |\mathbf v_r|\, \mathbf v_r\, C_D A / m$:
@@ -130,6 +206,10 @@ instead of 1,464, and 59 ms instead of 35.
 | Drag through the kernel: NESC case 6B, MET atmosphere, 8 hours | NASA's simulations | 7 mm from sim B |
 | U.S. Standard Atmosphere 1976 | its tables, 0 to 86 km | within 0.003 % |
 | A craft dropped from 20,000 km | | enters, slows and lands; the impact is reported |
+| The Moon's field (GRAIL GL0660B, degree 30): Apollo 16's PFS-2 | NASA: down after 34 days | down after 12–47 days at four nodes; 67 days with J2 alone |
+| The same, Apollo 15's PFS-1 at 28.5° | lasted about 537 days | still up after 120 days |
+| Venting: the wandering push, and one-day averages | Artemis II's coast arcs: 1.3–3.4 µm/s², sunward cosine 0.3–0.8 | 1.31 µm/s² per axis; median 2.35 µm/s², cosine 0.72 |
+| Thruster puffs through the kernel | their summed delta-v | exact |
 
 ## Sources
 
@@ -138,6 +218,13 @@ instead of 1,464, and 59 ms instead of 35.
   Gravitational Model 2008 (EGM2008)", *JGR* 117 (2012); coefficients via
   GFZ's ICGEM service.
 - *U.S. Standard Atmosphere, 1976*, NOAA-S/T 76-1562.
+- A. S. Konopliv et al., "The JPL lunar gravity field to spherical harmonic
+  degree 660 from the GRAIL Primary Mission", *JGR Planets* 118 (2013);
+  NASA PDS Geosciences Node, `jggrx_0660b_sha.tab`.
+- NASA, *Apollo 16 Subsatellite*
+  ([science.nasa.gov](https://science.nasa.gov/mission/apollo-16-subsatellite/));
+  Gunter's Space Page, *PFS 1, 2*
+  ([space.skyrocket.de](https://space.skyrocket.de/doc_sdat/pfs.htm)).
 - CelesTrak space weather data (T. S. Kelso), from NOAA SWPC and GFZ
   Potsdam: [celestrak.org/SpaceData](https://celestrak.org/SpaceData/).
 - IAU 2015 Resolution B3: nominal solar irradiance 1361 W/m² and radius
