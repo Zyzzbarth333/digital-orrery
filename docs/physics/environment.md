@@ -68,11 +68,12 @@ of GRAIL GL0660B, JPL's field from the GRAIL mission (Konopliv et al. 2013):
   with the field to degree 30:
   - with the field, it comes down after 46.8, 28.5, 12.4 and 20.0 days;
     NASA's 34 days lies within that spread;
-  - with J2 alone, it is still in its 90 × 130 km orbit at day 67. The
-    run stops there, on 1 July 1972, at a leap second: the kernel counts
-    time in UTC seconds, so every body's position jumps by one second of
-    motion there, and the jump reads as an impact. (An earlier version of
-    this page called that a decay after 67.1 days.)
+  - with J2 alone, it is still in its 90 × 130 km orbit after 70 days,
+    through the leap second of 1 July 1972. (The kernel once counted time
+    in UTC seconds, so the Moon jumped a second of its motion there and the
+    run read it as an impact at day 67; an earlier version of this page
+    called that a decay. Kernel time is now uniform:
+    [frames and time](frames-and-time.md#time).)
 
   So the mascons bring it down sooner at every node.
 - **PFS-1:** Apollo 15's, released into 102 × 139 km at 28.5°, near one of

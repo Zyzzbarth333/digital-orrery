@@ -24,7 +24,7 @@
 import { useSyncExternalStore } from 'react';
 import { Craft } from '../physics/craft.js';
 import { KernelClient } from '../physics/kernelClient.js';
-import { KERNEL_EPOCH_MS, kernelSeconds } from '../physics/kernelHost.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '../physics/kernelHost.js';
 import { solarSystemBodies } from '../physics/bodies.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
 import { departureHyperbola } from '../physics/launch.js';
@@ -275,13 +275,13 @@ export class Mission {
   }
   setFixHours(c: Craft, h: number | null): void {
     const R = this.real.get(c.id);
-    if (R) { R.fixHours = h; R.lastMs = KERNEL_EPOCH_MS + c.clockT * 1000; this.emit(true); }
+    if (R) { R.fixHours = h; R.lastMs = kernelMs(c.clockT); this.emit(true); }
   }
 
   // How far the craft is from where the real one was at the clock (km).
   distanceFromFlown(c: Craft): number | null {
     const R = this.real.get(c.id);
-    return R ? R.m.distanceFromFlown(c.displayState().r, KERNEL_EPOCH_MS + c.clockT * 1000) : null;
+    return R ? R.m.distanceFromFlown(c.displayState().r, kernelMs(c.clockT)) : null;
   }
 
   // Tracking fixes due since the last frame (the latest one wins), and a

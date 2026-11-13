@@ -14,7 +14,7 @@ import './deNode.js';
 import fs from 'node:fs';
 import { createState, advance } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
-import { KERNEL_EPOCH_MS } from './kernelHost.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
 
 const load = (name) => JSON.parse(fs.readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
@@ -29,7 +29,7 @@ export const fineRows = toRows(load('artemis2_burns.json'));
 export const nearRows = toRows(load('artemis2_near.json'));
 
 export const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
-export const kt = (ms) => (ms - KERNEL_EPOCH_MS) / 1000;
+export const kt = (ms) => kernelSeconds(new Date(ms));
 export const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 export const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 export const norm = (a) => Math.hypot(a[0], a[1], a[2]);
@@ -202,7 +202,7 @@ function thrustOf(finite) {
   let last = [0, 0, 0];
   return (t, r, out, mid, v) => {
     out[0] = out[1] = out[2] = 0;
-    const ms = KERNEL_EPOCH_MS + mid * 1000;
+    const ms = kernelMs(mid);
     for (const b of finite) {
       if (ms < b.t0 || ms >= b.t1) continue;
       let d = last;

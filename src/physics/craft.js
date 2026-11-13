@@ -333,9 +333,9 @@ export class Craft {
   // carried with the body's motion and spin.
   siteOn(key, r, t) {
     const B = this.sys.bodiesAt(t).find((b) => b.key === key);
-    if (!B?.eph || !this.sys.epochMs) return null;
+    if (!B?.eph || !this.sys.msAt) return null;
     const d = sub(r, B.eph.position(t));
-    const [X, Y, Z] = bodyAxesEqj(key, new Date(this.sys.epochMs + t * 1000));
+    const [X, Y, Z] = bodyAxesEqj(key, new Date(this.sys.msAt(t)));
     return { key, t, local: [dot(X, d), dot(Y, d), dot(Z, d)] };
   }
 
@@ -347,7 +347,7 @@ export class Craft {
     const B = this.sys.bodiesAt(t).find((b) => b.key === S.key);
     if (!B?.eph) return null;
     const at = (tt) => {
-      const [X, Y, Z] = bodyAxesEqj(S.key, new Date(this.sys.epochMs + tt * 1000));
+      const [X, Y, Z] = bodyAxesEqj(S.key, new Date(this.sys.msAt(tt)));
       return [0, 1, 2].map((i) => X[i] * S.local[0] + Y[i] * S.local[1] + Z[i] * S.local[2]);
     };
     const d0 = at(t), d1 = at(t + 1), rB = B.eph.position(t), vB = B.eph.velocity(t);

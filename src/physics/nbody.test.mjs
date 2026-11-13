@@ -215,7 +215,7 @@ header('CASE 7: ephemeris interpolation');
   for (let i = 0; i < 400; i++) {
     const t = (i + 0.37) * (30 * DAY / 400);
     for (const b of sys.bodiesAt(t)) {
-      const s = helioStateEqj(b.key, new Date(epochMs + t * 1000));
+      const s = helioStateEqj(b.key, new Date(sys.msAt(t)));
       const e = norm(sub(b.r, s.r));
       if (e > worst) { worst = e; worstKey = b.key; }
     }
@@ -240,7 +240,7 @@ header('CASE 8: low Earth orbit with the real Sun, Moon and planets');
   const t0 = performance.now();
   const res = advance(st, DAY, { bodiesAt: sys.bodiesAt, muSun: sys.muSun });
   const ms = performance.now() - t0;
-  const E1 = helioStateEqj('earth', new Date(epochMs + DAY * 1000));
+  const E1 = helioStateEqj('earth', new Date(sys.msAt(DAY)));
   const rel = sub(st.r, E1.r);
   const ref = propagate(d0, u0, DAY, muE);
   const err = norm(sub(rel, ref.r));
@@ -312,7 +312,7 @@ header('CASE 9: escape from the edge of Earth\'s sphere of influence');
   const s0 = Math.sqrt(vinf * vinf + 2 * muE / R);
   const st = createState(E0.r.map((x, i) => x + R * u[i]), E0.v.map((x, i) => x + s0 * u[i]), 0);
   const res = advance(st, 20 * DAY, { bodiesAt: sys.bodiesAt, muSun: sys.muSun });
-  const E1 = helioStateEqj('earth', new Date(epochMs + 20 * DAY * 1000));
+  const E1 = helioStateEqj('earth', new Date(sys.msAt(20 * DAY)));
   const vrel = norm(sub(st.v, E1.v));
   const left = res.events.find((e) => e.type === 'primary' && e.from === 'earth');
   console.log(`  start at ${R.toFixed(0)} km (0.95 SOI); start ${s0.toFixed(3)} km/s; after 20 d ${vrel.toFixed(3)} km/s relative to Earth`);
@@ -469,6 +469,43 @@ header("CASE 13: Encke's method near a primary, against a fine Cowell reference"
   console.log(`  suborbital: impact at ${ic && ic.t.toFixed(1)} s (Cowell), ${ie && ie.t.toFixed(1)} s (hybrid)`);
   check('suborbital: the hybrid reports the impact on Earth within 2 s of Cowell',
     ic && ie && ie.body === 'earth' && Math.abs(ie.t - ic.t) < 2);
+}
+
+header('KERNEL TIME: uniform through leap seconds');
+{
+  // Kernel time is TT seconds from KERNEL_EPOCH_MS. Counted in UTC seconds it
+  // lost a second at each leap second, so every body jumped a second of its
+  // motion against the craft (30 km for the Earth; PFS-2's run read the
+  // Moon's jump on 1 July 1972 as an impact).
+  const { kernelSeconds, kernelMs, KERNEL_EPOCH_MS } = await import('./kernelHost.js');
+  const { solarSystemBodies } = await import('./bodies.js');
+  const ks = (iso) => kernelSeconds(new Date(iso));
+  const dates = ['1969-07-20T20:17:40Z', '1972-06-30T23:59:59.5Z', '1972-07-01T00:00:00Z', '2015-06-30T23:59:59Z', '2015-07-01T00:00:00.25Z',
+    '2016-12-31T23:59:59.999Z', '2017-01-01T00:00:00Z', '2026-04-06T23:00:46Z'];
+  const trip = Math.max(...dates.map((d) => Math.abs(kernelMs(ks(d)) - Date.parse(d))));
+  console.log(`  UTC -> kernel time -> UTC, ${dates.length} instants from 1969 to 2026 around three leap seconds: worst ${trip.toExponential(1)} ms`);
+  check('kernel time and UTC convert both ways (within 1 us), before 1972 and either side of a leap second', trip < 1e-3);
+  const gaps = [['1972-06-30T23:59:59Z', '1972-07-01T00:00:00Z'], ['2015-06-30T23:59:59Z', '2015-07-01T00:00:00Z'], ['2016-12-31T23:59:59Z', '2017-01-01T00:00:00Z'], ['2017-01-01T00:00:00Z', '2017-01-01T00:00:01Z']]
+    .map(([a, b]) => ks(b) - ks(a));
+  console.log(`  kernel seconds across 23:59:59 -> 00:00:00 on 1972-07-01, 2015-07-01, 2017-01-01, and the second after: ${gaps.map((g) => g.toFixed(6)).join(', ')}`);
+  check('the last UTC second before each leap second lasts 2 s of kernel time, an ordinary one 1 s', gaps.slice(0, 3).every((g) => Math.abs(g - 2) < 1e-6) && Math.abs(gaps[3] - 1) < 1e-6);
+  const inLeap = new Date(kernelMs(ks('2016-12-31T23:59:59Z') + 1.5)).toISOString();
+  check(`inside the leap second the UTC clock stands at the next midnight (${inLeap})`, inLeap === '2017-01-01T00:00:00.000Z');
+  check('the kernel epoch is kernel time zero', Math.abs(kernelSeconds(new Date(KERNEL_EPOCH_MS))) < 1e-9);
+
+  // The Earth's motion through the leap second at the end of 2016, in
+  // quarter-second steps of kernel time: every step the same length.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS, zonal: false });
+  const t0 = ks('2016-12-31T23:59:55Z'), steps = [];
+  let prev = null;
+  for (let k = 0; k <= 48; k++) {
+    const e = [...sys.bodiesAt(t0 + 0.25 * k).find((b) => b.key === 'earth').r];
+    if (prev) steps.push(Math.hypot(e[0] - prev[0], e[1] - prev[1], e[2] - prev[2]));
+    prev = e;
+  }
+  const spread = Math.max(...steps) / Math.min(...steps) - 1;
+  console.log(`  the Earth's quarter-second steps through the 2016 leap second: ${Math.min(...steps).toFixed(4)} to ${Math.max(...steps).toFixed(4)} km`);
+  check('the Earth moves smoothly through a leap second (quarter-second steps equal within 1e-6)', spread < 1e-6);
 }
 
 console.log('='.repeat(60));

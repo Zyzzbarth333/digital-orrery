@@ -199,9 +199,6 @@ published equations and Fortran listings
 - Against other missions' trajectories beyond Artemis I and II (e.g. MSL cruise from NAIF).
 - The planets' J2 is checked against secular theory only, not against a
   real orbiter's trajectory (Juno or Cassini from NAIF would do).
-- The kernel's clock counts UTC seconds, so a run across a leap second sees
-  every body jump by a second of motion (found on 1 July 1972 by the PFS-2
-  check).
 - MET's helium terms above 440 km. The check cases reach 441 km at most,
   so neither the fairing nor the winter helium bulge is exercised.
 

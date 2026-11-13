@@ -34,7 +34,11 @@ export function ttMinusUtc(ms) {
 // TDB seconds past J2000 (SPICE's ephemeris time) at a UTC instant, from
 // 1972 on.
 export function tdbSeconds(ms) {
-  const tt = (ms - J2000_UTC_MS) / 1000 + ttMinusUtc(ms);
+  return tdbFromTt((ms - J2000_UTC_MS) / 1000 + ttMinusUtc(ms));
+}
+
+// TDB from TT, seconds past J2000.
+export function tdbFromTt(tt) {
   const g = (357.53 + 0.98560028 * (tt / 86400)) * Math.PI / 180;
   return tt + 0.001657 * Math.sin(g) + 0.000014 * Math.sin(2 * g);
 }

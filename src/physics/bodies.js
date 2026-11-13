@@ -7,11 +7,11 @@
 //   const sys = solarSystemBodies({ epochMs });
 //   advance(state, t, { bodiesAt: sys.bodiesAt, muSun: sys.muSun });
 //
-// Time t is in seconds from epochMs (UTC). Pluto is left out: its pull at
+// Time t is in TT seconds from epochMs (sys.msAt and sys.secondsAt convert). Pluto is left out: its pull at
 // 1 AU is about 1e-13 of the Sun's.
 
 import { HermiteEphemeris } from './nbody.js';
-import { helioStateEqj } from './ephemeris.js';
+import { helioStateEqjAtTt, ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
 import { ZONAL_CUTOFF } from './zonal.js';
 import { PLANETS } from '../utils/constants.js';
@@ -97,9 +97,13 @@ export const MU_SUN = GM.sun;
 // zonal: false leaves out every J2 (point masses only), for comparisons.
 export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true }) {
   const muSun = GM.sun;
+  // t: TT seconds from epochMs (kernelHost.kernelSeconds), so uniform
+  // through leap seconds; msAt and secondsAt convert to and from UTC.
+  const tt0 = ttSeconds(epochMs);
+  const msAt = (t) => utcMsAtTt(tt0 + t), secondsAt = (ms) => ttSeconds(ms) - tt0;
   const list = keys.map((key) => {
     const c = bodyConstants(key);
-    const eph = new HermiteEphemeris((t) => helioStateEqj(key, new Date(epochMs + t * 1000)), SPACING[key]);
+    const eph = new HermiteEphemeris((t) => helioStateEqjAtTt(key, tt0 + t), SPACING[key]);
     const b = { key, mu: c.mu, radius: c.radius, parent: c.parent, r: [0, 0, 0], eph };
     const z = zonal && ZONAL[key];
     if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN });
@@ -114,7 +118,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true 
       for (const b of list) {
         b.eph.position(t, b.r);
         if (b.j2 && !(Math.abs(t - b.poleT) < POLE_REFRESH)) {
-          b.pole = bodyAxesEqj(b.key, new Date(epochMs + t * 1000))[2];
+          b.pole = bodyAxesEqj(b.key, new Date(msAt(t)))[2];
           b.poleT = t;
         }
       }
@@ -122,5 +126,5 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true 
     }
     return list;
   };
-  return { muSun, bodiesAt, keys, epochMs };
+  return { muSun, bodiesAt, keys, epochMs, msAt, secondsAt };
 }

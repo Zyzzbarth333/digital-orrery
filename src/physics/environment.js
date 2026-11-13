@@ -42,6 +42,7 @@
 import { geopotential, normFactor } from './geopotential.js';
 import { earthFixedMatrix } from './earthRotation.js';
 import { ttMinusUtc } from './timescale.js';
+import { ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { EGM2008 } from './egm2008.js';
 import { GRAIL, PA_TO_ME } from './grail.js';
 import { bodyAxesEqj } from './orientation.js';
@@ -102,10 +103,11 @@ export function shadow(r, bodies, sunRadius = SUN_RADIUS) {
 // moves by 3e-8 rad in an hour).
 export function earthFixedAt(epochMs, opts = {}) {
   let t0 = NaN, M0 = null;
+  const tt0 = ttSeconds(epochMs);
   return (t) => {
     if (!(Math.abs(t - t0) < 1800)) {
       t0 = Math.round(t / 3600) * 3600;
-      const ms = epochMs + t0 * 1000;
+      const ms = utcMsAtTt(tt0 + t0);
       M0 = earthFixedMatrix(ms, { leapSeconds: opts.leapSeconds ?? ttMinusUtc(ms) - 32.184, dut1: opts.dut1 ?? 0 }).M;
     }
     const a = EARTH_ROTATION * (t - t0), c = Math.cos(a), s = Math.sin(a);
@@ -179,6 +181,8 @@ export function schwarzschild(mu, x, y, z, vx, vy, vz, out) {
 export function makeEnvironment(sys, craft = {}) {
   const terms = [], caps = [], edges = [];
   const epochMs = craft.epochMs ?? Date.UTC(2000, 0, 1, 12);
+  // Kernel time is TT seconds from epochMs (kernelHost.kernelSeconds).
+  const tt0 = ttSeconds(epochMs), msAt = (t) => utcMsAtTt(tt0 + t);
   const E = craft.earth ?? {};
   const massAt = craft.massAt ?? (() => craft.mass);
   const fixed = earthFixedAt(epochMs, E);
@@ -289,7 +293,7 @@ export function makeEnvironment(sys, craft = {}) {
     const paAt = (t) => {
       if (!(Math.abs(t - t0) < 300)) {
         t0 = Math.round(t / 600) * 600;
-        const A = bodyAxesEqj('moon', new Date(epochMs + t0 * 1000));   // rows: the ME axes in J2000
+        const A = bodyAxesEqj('moon', new Date(msAt(t0)));   // rows: the ME axes in J2000
         M0 = [0, 1, 2].map((i) => [0, 1, 2].map((j) => PA_TO_ME[0][i] * A[0][j] + PA_TO_ME[1][i] * A[1][j] + PA_TO_ME[2][i] * A[2][j]));
       }
       const a = MOON_ROTATION * (t - t0), c = Math.cos(a), s = Math.sin(a);
@@ -353,7 +357,7 @@ export function makeEnvironment(sys, craft = {}) {
       const p = Math.hypot(ex, ey);
       let lat = Math.atan2(ez, p * (1 - e2)), h = 0;
       for (let k = 0; k < 4; k++) { const s = Math.sin(lat), N = a / Math.sqrt(1 - e2 * s * s); h = p / Math.cos(lat) - N; lat = Math.atan2(ez, p * (1 - e2 * N / (N + h))); }
-      const ms = epochMs + t * 1000;
+      const ms = msAt(t);
       const rho = density({ ms, lat: lat * 180 / Math.PI, lon: Math.atan2(ey, ex) * 180 / Math.PI, alt: h, sw: D.sw ?? null, met: D.met ?? {} });
       if (!(rho > 0)) return;
       // The air turns with the Earth about its pole of date (M's third row).
@@ -379,7 +383,7 @@ export function makeEnvironment(sys, craft = {}) {
       let cap = Infinity;
       const descent = -(vx * x + vy * y + vz * z) / rr;
       if (alt < 200 && descent > 0) cap = 0.25 * 7 / descent;
-      const rho = alt <= 86 ? density({ ms: epochMs + t * 1000, lat: 0, lon: 0, alt: Math.max(0, alt) }) : density({ ms: epochMs + t * 1000, lat: 0, lon: 0, alt, sw: D.sw ?? null });
+      const ms = msAt(t), rho = alt <= 86 ? density({ ms, lat: 0, lon: 0, alt: Math.max(0, alt) }) : density({ ms, lat: 0, lon: 0, alt, sw: D.sw ?? null });
       const decel = k0 * rho * speed * speed / massAt(t);   // km/s^2
       if (decel > 0) cap = Math.min(cap, 0.2 * speed / decel);
       return Math.max(0.01, cap);

@@ -35,7 +35,7 @@
 import fs from 'node:fs';
 import { advance } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
-import { KERNEL_EPOCH_MS } from './kernelHost.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
 import { Craft } from './craft.js';
 import { KernelClient } from './kernelClient.js';
@@ -186,12 +186,12 @@ function flyApp(fixHours, { aimed = false, env = false } = {}) {
     }
     prev = ms;
     step(kt(ms));
-    const at = KERNEL_EPOCH_MS + c.kState.t * 1000, d = file.distanceFromFlown(c.kState.r, at);
+    const at = kernelMs(c.kState.t), d = file.distanceFromFlown(c.kState.r, at);
     if (d !== null) worst = Math.max(worst, d);
     const g = geocentric(c.kState, at), m = helioStateEqj('moon', new Date(at)), e = helioStateEqj('earth', new Date(at));
     track.push({ ms: at, r: g.r, v: g.v, moonR: sub(m.r, e.r), moonV: sub(m.v, e.v) });
   }
-  const end = file.distanceFromFlown(c.kState.r, KERNEL_EPOCH_MS + c.kState.t * 1000);
+  const end = file.distanceFromFlown(c.kState.r, kernelMs(c.kState.t));
   const cl = closest(track, craftMoon);
   const label = (fixHours ? `a fix every ${fixHours} h` : 'no fixes') + (env ? ', full environment' : '') + (aimed ? `, aimed (+${run.aimedDv.toFixed(2)} m/s)` : '');
   console.log(`  ${label.padEnd(46)} flyby ${cl.altitude.toFixed(1).padStart(8)} km at ${cl.utc.slice(11, 19)}   entry ${fmt(end)} km, worst ${worst.toFixed(1)} km${c.error ? ', ' + c.error : ''}`);

@@ -7,7 +7,7 @@ import './deNode.js';
 import { makeEnvironment, shadow, SOLAR_PRESSURE, AU, solidTide, earthFixedAt, LIGHT } from './environment.js';
 import { MU_SUN, bodyConstants } from './bodies.js';
 import { solarSystemBodies } from './bodies.js';
-import { KERNEL_EPOCH_MS } from './kernelHost.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
 import { earthFixedMatrix } from './earthRotation.js';
 import { createState, advance } from './nbody.js';
@@ -18,7 +18,7 @@ const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
 const header = (s) => { console.log('='.repeat(72)); console.log(s); console.log('='.repeat(72)); };
 const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
-const kt = (ms) => (ms - KERNEL_EPOCH_MS) / 1000;
+const kt = (ms) => kernelSeconds(new Date(ms));
 
 header('SUNLIGHT: the pressure, and shadows against a real eclipse');
 {
@@ -121,9 +121,10 @@ header("THE MOON'S FIELD: Apollo's subsatellites against the lunar mascons");
   console.log(`  PFS-2 with the field, nodes 0/90/180/270 deg: impact after ${lives.map((x) => (x === null ? 'none' : x.toFixed(1))).join(', ')} days (NASA: 34); with J2 alone: ${j2only === null ? 'still up after 70 days' : `${j2only.toFixed(1)} days`}`);
   console.log(`  PFS-1 with the field: ${pfs1 === null ? 'still up after 120 days (it lasted about 537)' : `down after ${pfs1.toFixed(1)} days`}`);
   check('PFS-2 comes down within 70 days at every node, and NASA\'s 34 days lies within the spread', lives.every((x) => x !== null) && Math.min(...lives) < 34 && Math.max(...lives) > 34);
-  // With J2 alone it stays in its orbit. (The run reports an impact at day
-  // 67, which is the leap second of 1 July 1972: the kernel counts UTC
-  // seconds, so the bodies jump by a second of motion there.)
+  // With J2 alone it stays in its orbit, through the leap second of 1 July
+  // 1972 at day 67. (When the kernel counted UTC seconds, the Moon jumped a
+  // second of its motion there and the run read it as an impact.)
+  check('with J2 alone it is still up after 70 days, through the leap second of 1 July 1972', j2only === null);
   check('the mascons bring it down sooner than J2 alone at every node', (j2only === null || j2only > Math.max(...lives)));
   check('PFS-1, nearer a frozen inclination, stays up for 120 days', pfs1 === null);
 }

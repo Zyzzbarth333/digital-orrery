@@ -36,6 +36,7 @@
 
 import { advance, createState, accelHeliocentric } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
+import { ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { makeEnvironment } from './environment.js';
 
 // Kernel time zero: 2000-01-01 12:00 UTC. Only a reference; every time is a
@@ -55,8 +56,16 @@ export function vnbDirection(dir, r, v) {
   return [d[0] / dn, d[1] / dn, d[2] / dn];
 }
 
+// Kernel time is TT seconds from KERNEL_EPOCH_MS: uniform, so a leap second
+// is a second the craft flies, as the bodies' ephemerides count it. (Counted
+// in UTC seconds, a craft lost a second against the bodies at each one.)
+const TT0 = ttSeconds(KERNEL_EPOCH_MS);
 export function kernelSeconds(date) {
-  return (date.getTime() - KERNEL_EPOCH_MS) / 1000;
+  return ttSeconds(date.getTime()) - TT0;
+}
+// The UTC instant (ms) of kernel time t.
+export function kernelMs(t) {
+  return utcMsAtTt(TT0 + t);
 }
 
 // Advance one craft. sys is a body set from solarSystemBodies().

@@ -10,7 +10,7 @@ import type { SimClock } from './clock';
 import { useClock } from './clock';
 import { useMission, REAL_MISSIONS, altitudeRadius, type Mission, type DepartureDirection, type RealBurns } from './mission';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
-import { kernelSeconds, KERNEL_EPOCH_MS } from '../physics/kernelHost.js';
+import { kernelSeconds, kernelMs } from '../physics/kernelHost.js';
 
 const DEG = 180 / Math.PI;
 const fmt = (n: number, d = 1) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -18,7 +18,7 @@ const fmtDuration = (ms: number) => {
   const m = Math.round(ms / 60e3);
   return m < 60 ? `${m} min` : m < 2880 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${(m / 1440).toFixed(1)} d`;
 };
-const utc = (tKernel: number) => new Date(KERNEL_EPOCH_MS + tKernel * 1000).toISOString().slice(0, 19).replace('T', ' ');
+const utc = (tKernel: number) => new Date(kernelMs(tKernel)).toISOString().slice(0, 19).replace('T', ' ');
 
 function Num({ label, value, onChange, step = 1, unit, min, max }: { label: string; value: number; onChange: (v: number) => void; step?: number; unit?: string; min?: number; max?: number }) {
   const bad = !Number.isFinite(value) || (min !== undefined && value < min) || (max !== undefined && value > max);
