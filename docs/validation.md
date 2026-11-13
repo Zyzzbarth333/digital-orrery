@@ -114,6 +114,15 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The app's Moon vs DE442 | under 1 m (DE442 table) |
 | Calibration: Earth's J3/J4, other planets' tides, empirical push models | none helps; the gravity model is complete for this mission ([calibration](validation/artemis2.md#calibration-what-does-not-help)) |
 
+## The space environment (`environment.test.mjs`)
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| Sunlight pressure at 1 AU | P = 1361 W/m² / c | exact; falls as 1/d² |
+| The Moon's shadow, total solar eclipse of 21 August 2017 | NASA's eclipse tables (Espenak) | total on the central line and at greatest eclipse; the path's edges within 10 km of NASA's limits |
+| Totality on the central line, Oregon, 17:20 UT | NASA: 122.6 s | 122.5 s with NASA's eclipse radii |
+| Frame independence with shadows | hour against day frames, a day of low orbit with a burn | 8×10⁻⁷ m/s (2×10⁻⁴ before steps were shortened at shadow edges) |
+
 ## Real flight: Artemis I (`artemis1.validate.mjs`)
 
 Orion's burns and coast arcs flown by the kernel against NASA/JSC
@@ -124,7 +133,7 @@ navigation's as-flown ephemeris (through JPL Horizons). See
 | --- | --- |
 | NASA's 18 as-flown burns (AAS 23-363), found in the trajectory | every one; over 1 m/s within 0.1 % (RTC-5: 0.9 %); e.g. DRO insertion 110.633 m/s (NASA 110.639), return flyby 292.861 (292.904); under 1 m/s within 0.04 m/s |
 | Ignition of the six largest | within 2 s of NASA's times |
-| 77 coast arcs, 1.2–24.7 h (589 h) | all within 83 m at the end, rms 22.5 m; with sunlight pressure of 2.1×10⁻⁸ m/s², rms 8.0 m |
+| 77 coast arcs, 1.2–24.7 h (589 h) | all within 83 m at the end, rms 22.5 m; with Orion's sunlight pressure (environment.js), rms 8.0 m |
 | Closest lunar approaches, outbound and return | 130.4 km and 129.6 km (NASA: 81 mi and 80.6 mi, 130.4 and 129.7 km) |
 | Farthest from Earth | 432,207 km above the surface at 21:06 UTC, 28 Nov (NASA: 268,563 mi, 432,210 km, 21:06:10) |
 | Joins between NASA's navigation solutions | 67; velocity steps median 0.074 m/s, position median 49 m |
@@ -168,7 +177,7 @@ published equations and Fortran listings
 
 - Against JPL Horizons, GMAT or Orekit trajectories.
 - Against other missions' trajectories beyond Artemis I and II (e.g. MSL cruise from NAIF).
-- The planets' J2, and radiation pressure (not modelled yet). The Earth's
+- The planets' J2 (not modelled yet). Sunlight pressure is modelled (environment.js). The Earth's
   higher harmonics and drag are modelled and checked in `sixdof.js`, but
   not yet in the app's kernel.
 - MET's helium terms above 440 km. The check cases reach 441 km at most,

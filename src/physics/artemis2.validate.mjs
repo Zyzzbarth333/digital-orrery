@@ -168,7 +168,8 @@ const fixes = [24, 12, 6, 3].map((h) => {
 console.log("\n6. the app's path: the mission file flown by the Craft model and the kernel host, one-minute frames");
 const file = new RealMission(JSON.parse(fs.readFileSync(new URL('../../public/missions/artemis2.json', import.meta.url))));
 function flyApp(fixHours) {
-  const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys });
+  // Sunlight pressure off (area 0), as in the replay it is checked against.
+  const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, area: 0 });
   c.setScript(file.script());
   const client = new KernelClient();
   let worst = 0, prev = file.startMs;

@@ -71,7 +71,9 @@ function carryWithJ2(r0, v0, dtx, P, ap) {
 
 export class Craft {
   // sys: { bodiesAt, muSun } from bodies.solarSystemBodies (same epoch as t).
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320 }) {
+  // area (m^2) and cr: the sunlit cross-section and its reflectivity
+  // (1 absorbs, 2 mirrors) for sunlight pressure (environment.js).
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3 }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys;
@@ -79,6 +81,8 @@ export class Craft {
     this.fuel = fuel;                // kg, one tank
     this.thrust = thrust;            // N
     this.isp = isp;                  // s
+    this.area = area;                // m^2, sunlit
+    this.cr = cr;
     const bodies = sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
     this.version = 0;
@@ -178,7 +182,9 @@ export class Craft {
   // Unlike the engine's burns they draw no propellant from this craft's
   // tank and survive clock jumps: they are tied to the mission's times.
   setScript(burns, about = 'earth') {
-    this.script = burns.map(({ t0, t1, dir, accel }) => ({ t0, t1, dir, F: accel, m0: 1, mdot: 0, frame: 'vnb', about }));
+    // F = accel on a nominal 1 kg: the data give acceleration, not thrust
+    // and mass, so these are flagged and the environment ignores the mass.
+    this.script = burns.map(({ t0, t1, dir, accel }) => ({ t0, t1, dir, F: accel, m0: 1, mdot: 0, frame: 'vnb', about, scripted: true }));
     this.version++;
   }
 
@@ -241,9 +247,12 @@ export class Craft {
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
     const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
-      .map(({ t0, t1, dir, F, m0, mdot, frame, about }) => ({ t0, t1, dir, F, m0, mdot, frame, about }));
-    return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns };
+      .map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted }));
+    return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns, env: this.envParams() };
   }
+
+  // What the kernel's environment model needs of this craft.
+  envParams() { return { mass: this.mass, area: this.area, cr: this.cr }; }
 
   // A request whose result will never come: nothing to undo (burns are tied
   // to absolute times, so the next request sends them again).

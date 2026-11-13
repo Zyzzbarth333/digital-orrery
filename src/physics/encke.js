@@ -269,6 +269,7 @@ export function advanceEncke(state, tEnd, opts) {
       const ecc = Math.sqrt(Math.max(0, 1 + 2 * energy * h2 / (mu * mu)));
       if (P.radius > 0 && (h2 / mu) / (1 + ecc) < P.radius) cap = Math.min(cap, 0.01 * Math.sqrt(rn ** 3 / mu));
     }
+    if (opts.stepCap) cap = Math.min(cap, opts.stepCap(state.t, state.r, state.v));
     let remaining = dir * (tEnd - state.t);
     if (bps) {
       while (bp < bps.length && bps[bp] <= state.t) bp++;
