@@ -191,13 +191,15 @@ export class Mission {
     return { r: lerp(p.r, q.r), v: lerp(p.v, q.v), i: i - 1 };
   }
 
-  // A climbing craft's height (km above the mean radius), speed (km/s, in
+  // A climbing craft's height (km above the pad's radius), speed (km/s, in
   // J2000 axes) and seconds since liftoff, for the panels.
   ascentReadout(timeMs: number): { name: string; h: number; v: number; t: number } | null {
     const a = this.ascents[0];
     if (!a) return null;
     const s = this.ascentAt(a, timeMs);
-    return { name: a.craft.name, h: norm(s.r) - R_EARTH, v: norm(s.v), t: (timeMs - a.liftoffMs) / 1000 };
+    // Height above the sphere the ascent was flown over (the pad's radius,
+    // rocket.js's EARTH.R), as the ROCKET tab gives it.
+    return { name: a.craft.name, h: norm(s.r) - norm(a.track[0].r), v: norm(s.v), t: (timeMs - a.liftoffMs) / 1000 };
   }
 
   // The last window picked in the PLANNER (for the ROCKET tab to size a
