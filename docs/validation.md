@@ -104,7 +104,7 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | --- | --- |
 | Closest approach to the Moon, from the flown state 20 h before | 6,543.5 km vs 6,545.0 km flown; 4 s early |
 | Burns reconstructed from the trajectory against NASA's figures | translunar injection 1,272.0 ft/s over 350.3 s (NASA: 1,274 ft/s planned, 5 min 50 s); return corrections 1.6 and 5.3 ft/s (NASA: the same) |
-| The whole mission in one run from before TLI, every burn replayed as flown | flyby 6,506.4 km (flown 6,545.0): the injection burn's 0.03 m/s grows to 40 km; entry interface 4,327 km off |
+| The whole mission in one run from before TLI, every burn replayed as flown | flyby 6,511.2 km (flown 6,545.0): the injection burn's 0.012 m/s grows to 34 km; entry interface 3,716 km off |
 | Our own plan: the injection burn designed from the pre-TLI orbit and NASA's published targets only | 1,270.7 ft/s over 348.2 s (NASA's plan: 1,274 ft/s, 5 min 49 s); within 182 km of the flown path for eight days; farthest from Earth equal to the flown to the kilometre |
 | The app's mission file, flown by the Craft model and kernel host | the replay's flyby to 0.4 km at every frame size; with a fix every 12 h, 1.3 km at entry |
 | The same with a tracking fix every 12 h | never more than 5 km off; 1.1 km at entry interface |
@@ -130,6 +130,9 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The Moon's shadow, total solar eclipse of 21 August 2017 | NASA's eclipse tables (Espenak) | total on the central line and at greatest eclipse; the path's edges within 10 km of NASA's limits |
 | Totality on the central line, Oregon, 17:20 UT | NASA: 122.6 s | 122.5 s with NASA's eclipse radii |
 | Frame independence with shadows | hour against day frames, a day of low orbit with a burn | 8×10⁻⁷ m/s (2×10⁻⁴ before steps were shortened at shadow edges) |
+| The Earth's field beyond J2 (EGM2008) through the kernel | NESC case 3B with NASA's GEM-T1 8×8 | 4 mm after 8 h |
+| Drag (MET atmosphere) through the kernel | NESC case 6B | 7 mm after 8 h (0.26 m before velocity-dependent forces were evaluated at the kick's end velocity) |
+| U.S. Standard Atmosphere 1976, 0–86 km | its tables | 0.003 % |
 
 ## Real flight: Artemis I (`artemis1.validate.mjs`)
 

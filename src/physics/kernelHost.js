@@ -19,9 +19,10 @@
 //                orbital frame about that body (along its velocity relative
 //                to the body, prograde x normal, and the orbit normal), so
 //                the burn turns with the orbit as a guided burn does.
-//     env        { mass, area, cr } (optional): the craft as the environment
-//                model sees it (environment.js): sunlight pressure, with
-//                the Earth's and Moon's shadows
+//     env        { mass, area, cr, cd, earth } (optional): the craft as the
+//                environment model sees it (environment.js): the Earth's
+//                field beyond J2, drag, and sunlight pressure with the
+//                Earth's and Moon's shadows
 //     version    returned unchanged, so the caller can drop a result computed
 //                from a state it has since changed (a burn, a clock jump)
 // Reply:    { type: 'stepped', crafts: [CraftResult], ms }

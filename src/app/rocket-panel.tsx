@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import {
-  stackPerformance, optimalStaging, levelAscent, ascentToState, launchAzimuth, rotationBonus,
+  stackPerformance, optimalStaging, levelAscent, ascentToState, launchAzimuth, rotationBonus, realAtmosphere,
   deltaVToOrbit, deltaVDeparture, deltaVToApoapsis, circularSpeed, EARTH, G0,
 } from '../physics/rocket.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
@@ -112,7 +112,8 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
 
   function flyAscent() {
     if (bad || az === null) return null;
-    const res = levelAscent({ stages: si, payload: payload * 1000, pitchAlt, cd, diameter, rotation: rotationBonus(P.lat, az), mu: EARTH.mu, R: EARTH.R, dt: 0.1, sample: 2, toOrbit: true });
+    const liftoff = clock.snapshot.timeMs;
+    const res = levelAscent({ stages: si, payload: payload * 1000, pitchAlt, cd, diameter, rotation: rotationBonus(P.lat, az), mu: EARTH.mu, R: EARTH.R, dt: 0.1, sample: 2, toOrbit: true, atmosphere: realAtmosphere({ ms: liftoff, lat: P.lat, lon: P.lon }) });
     return res ? { res, az, pad: P, liftoffMs: clock.snapshot.timeMs } : { res: null, az, pad: P, liftoffMs: clock.snapshot.timeMs };
   }
   const fly = () => {

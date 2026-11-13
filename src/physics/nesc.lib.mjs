@@ -31,11 +31,17 @@ const GEMT1 = [
   [7, 0, 9.0533705e-08, 0], [7, 1, 2.7709714e-07, 9.7817738e-08], [7, 2, 3.1771079e-07, 9.1608267e-08], [7, 3, 2.5074289e-07, -2.0916391e-07], [7, 4, -2.7374044e-07, -1.2202073e-07], [7, 5, 3.4749784e-09, 1.9651896e-08], [7, 6, -3.5785266e-07, 1.5091751e-07], [7, 7, 1.5976040e-09, 2.2001281e-08],
   [8, 0, 4.5902321e-08, 0], [8, 1, 2.8856051e-08, 5.4722278e-08], [8, 2, 7.0380074e-08, 6.8449357e-08], [8, 3, -1.9966400e-08, -8.6936688e-08], [8, 4, -2.4606388e-07, 6.7745274e-08], [8, 5, -2.4933453e-08, 8.5300324e-08], [8, 6, -6.6417800e-08, 3.1283228e-07], [8, 7, 7.0424829e-08, 7.4862572e-08], [8, 8, -1.1888272e-07, 1.2233200e-07],
 ];
-export function gemT1(n) {
+// The coefficients to degree n, km units (for environment.js), and the
+// field in metres (for sixdof.js).
+export function gemT1Coefficients(n) {
   const C = [], S = [];
   for (let i = 0; i <= n; i++) { C.push(new Array(i + 1).fill(0)); S.push(new Array(i + 1).fill(0)); }
   C[0][0] = 1;
   for (const [i, j, c, s] of GEMT1) if (i <= n) { C[i][j] = c; S[i][j] = s; }
+  return { gm: MU / 1e9, radius: RE / 1000, C, S };
+}
+export function gemT1(n) {
+  const { C, S } = gemT1Coefficients(n);
   return geopotential({ mu: MU, radius: RE, n, C, S, normalized: true });
 }
 

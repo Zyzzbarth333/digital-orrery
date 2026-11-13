@@ -168,8 +168,9 @@ const fixes = [24, 12, 6, 3].map((h) => {
 console.log("\n6. the app's path: the mission file flown by the Craft model and the kernel host, one-minute frames");
 const file = new RealMission(JSON.parse(fs.readFileSync(new URL('../../public/missions/artemis2.json', import.meta.url))));
 function flyApp(fixHours) {
-  // Sunlight pressure off (area 0), as in the replay it is checked against.
-  const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, area: 0 });
+  // The environment off (no area, so no sunlight or drag; J2 alone for the
+  // Earth), as in the replay it is checked against.
+  const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, area: 0, earth: { degree: 0 } });
   c.setScript(file.script());
   const client = new KernelClient();
   let worst = 0, prev = file.startMs;
@@ -222,8 +223,8 @@ check('gravity model: every arc predicted within 20 km once its push is known', 
 check('injection burn: delta-v within 0.5 % of NASA\'s planned 1,274 ft/s, duration within 5 s of 350 s', Math.abs(tli.ftps / 1274 - 1) < 0.005 && Math.abs(tli.seconds - 350) < 5);
 check('return corrections 1 and 2 within 0.1 ft/s of NASA\'s 1.6 and 5.3 ft/s', Math.abs(byKey('RTC-1').ftps - 1.6) < 0.1 && Math.abs(byKey('RTC-2').ftps - 5.3) < 0.1);
 check('injection burn replayed: within 0.05 m/s of the flown state just after', tliReplayed.dv < 0.05);
-// The injection burn's replay is 0.03 m/s off, which the four days to the
-// Moon grow to about 40 km of flyby altitude: the bound allows for that.
+// The injection burn's replay is 0.012 m/s off, which the four days to the
+// Moon grow to about 34 km of flyby altitude: the bound allows for that.
 check('whole mission from before the injection burn: flyby within 60 km of the flown altitude', Math.abs(missionBefore.closest.altitude - fb.bet.altitude) < 60);
 check('a fix every 12 h: within 5 km at entry, never more than 1,000 km off', fixes[1].entry < 5 && fixes[1].worst < 1000);
 check("the app's Moon within 5 m of DE442 over the mission", Math.max(...moonErr) < 0.005);

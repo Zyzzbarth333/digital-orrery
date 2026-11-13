@@ -10,6 +10,8 @@
 //            thrust (N, vacuum) }
 // A stack: stages bottom first (the first burns first), and a payload (kg).
 
+import { density, standardAtmosphere } from './atmosphere.js';
+
 export const G0 = 9.80665;           // m/s^2, standard gravity (defines Isp)
 
 // Each stage's mass at ignition and burnout, its delta-v (vacuum Isp), burn
@@ -78,10 +80,16 @@ export function launchAzimuth(incDeg, latDeg) {
 
 // Atmospheres for the ascent: density (kg/m^3) and pressure ratio p/p0 at
 // altitude h (m). Curtis's exponential model (rho0 1.225 kg/m^3, scale
-// height 7.5 km) is the default.
+// height 7.5 km) is the default; realAtmosphere is the app's (the 1976
+// standard to 86 km, NASA's MET above 90 km for the date and the pad's
+// place, atmosphere.js), with the 1976 standard's pressure.
 export const exponentialAtmosphere = (rho0 = 1.225, H = 7500) => (h) => {
   const e = Math.exp(-Math.max(0, h) / H);
   return { rho: rho0 * e, p: e };
+};
+export const realAtmosphere = ({ ms, lat, lon }) => (h) => {
+  const z = Math.max(0, h) / 1000;
+  return { rho: density({ ms, lat, lon, alt: z }), p: z < 86 ? standardAtmosphere(z).p / 101325 : 0 };
 };
 
 // A gravity-turn ascent in the plane of the launch (Curtis 13.2): the

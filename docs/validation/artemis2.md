@@ -170,16 +170,19 @@ This is the test of flying Artemis II yourself.
 | Start | Lunar flyby | Entry interface (10 April, 23:29 UTC) |
 | --- | --- | --- |
 | Just after the injection burn | 6,540.2 km, 60 s early | 279 km off: 30 s early, 152 km to the side |
-| Ten minutes before the injection burn (2 April, 23:39:59.7), flying it too | 6,506.4 km, 45 s early | 4,327 km off: 560 s early, 245 km to the side |
+| Ten minutes before the injection burn (2 April, 23:39:59.7), flying it too | 6,511.2 km, 42 s early | 3,716 km off: 481 s early, 190 km to the side |
 | Flown | 6,545.0 km at 23:00:49 | |
 
 **Replaying the injection burn.** Just after it, the replayed burn is
-0.01 km and 0.030 m/s from the flown state.
+0.01 km and 0.012 m/s from the flown state. (It was 0.030 m/s until the
+kernel's integrator evaluated velocity-dependent forces, the burn's
+steering among them, at the velocity each kick ends on:
+[the n-body kernel](../physics/nbody-kernel.md).)
 - **Flown in one fixed direction** (its mean, on the fitted rocket
   profile), it ends 2.5 km and 2.1 m/s off instead. Steering matters,
   even though the burn never strayed more than about a degree.
-- **What 0.03 m/s grows into:** about 40 km of flyby altitude four days
-  later, and 4,300 km at entry, eight days later. That is why missions plan
+- **What 0.012 m/s grows into:** about 34 km of flyby altitude four days
+  later, and 3,700 km at entry, eight days later. That is why missions plan
   correction burns, and why NASA could skip the first outbound ones.
 
 The burn's data starts ten minutes before ignition, with 4.3 m/s of
@@ -238,7 +241,7 @@ The app flies the same mission:
   other one, interpolation stays within 11 m near Earth.
 - **The check:** the validation flies that file through the app's own
   Craft model and kernel host in one-minute frames. It reproduces the
-  replay's flyby (6,506.8 km against 6,506.4 km) at every frame size from
+  replay's flyby (6,511.6 km against 6,511.2 km) at every frame size from
   0.25 s to one request, and with a fix every 12 h it is 1.3 km off at
   entry.
 
@@ -459,8 +462,8 @@ predictive simulator.
 - the replayed injection burn lands more than 0.05 m/s from the flown
   state;
 - the whole mission from before the injection burn misses the flyby
-  altitude by more than 60 km (the injection burn's 0.03 m/s grows to
-  about 40 km);
+  altitude by more than 60 km (the injection burn's 0.012 m/s grows to
+  about 34 km);
 - with a fix every 12 hours, the craft ends more than 5 km off at entry, or
   strays more than 1,000 km;
 - the app's Moon strays more than 5 m from DE442;

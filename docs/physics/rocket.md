@@ -105,9 +105,11 @@ The ROCKET tab:
   leftover propellant, and any stages above it, so the next burns (a
   departure to the Moon, say) are flown from the MISSION tab.
 
-The ascent's atmosphere is Curtis's exponential model, 1.225 kg/m³ with a
-7.5 km scale height. A real atmosphere for it is part of the drag work in
-[the space environment](environment.md).
+The book's checks use Curtis's exponential atmosphere, 1.225 kg/m³ with a
+7.5 km scale height. The app's launches fly through `realAtmosphere`
+instead ([the space environment](environment.md#drag)): the 1976 standard
+to 86 km, with its pressure for the Isp, and NASA's MET above 90 km for the
+date and the pad.
 
 ## Checks (`rocket.test.mjs`)
 

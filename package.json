@@ -14,7 +14,8 @@
     "design:artemis2": "node src/physics/artemis2.design.mjs",
     "fetch:trajbrowser": "node src/physics/trajbrowser.fetch.mjs",
     "fetch:nesc": "node src/physics/nesc.fetch.mjs",
-    "fetch:artemis1": "node src/physics/artemis1.fetch.mjs"
+    "fetch:artemis1": "node src/physics/artemis1.fetch.mjs",
+    "fetch:environment": "node src/physics/environment.fetch.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
