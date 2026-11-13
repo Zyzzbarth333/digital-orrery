@@ -33,7 +33,11 @@ import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
 import type { CraftView } from '../scene/craftLayer';
 
 const MU_EARTH = 398600.4355;
-const R_EARTH = 6371.0084;
+// Heights about the Earth are measured from its equatorial radius (WGS-84),
+// the sphere the ROCKET tab flies its ascent over (rocket.js's EARTH.R) and
+// the usual reference for orbit altitudes; elsewhere from the mean radius.
+export const R_EARTH_EQ = 6378.137;
+export function altitudeRadius(key: string, meanRadiusKm: number): number { return key === 'earth' ? R_EARTH_EQ : meanRadiusKm; }
 type V3 = [number, number, number];
 
 export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number }
@@ -197,8 +201,8 @@ export class Mission {
     const a = this.ascents[0];
     if (!a) return null;
     const s = this.ascentAt(a, timeMs);
-    // Height above the sphere the ascent was flown over (the pad's radius,
-    // rocket.js's EARTH.R), as the ROCKET tab gives it.
+    // Height above the sphere the ascent was flown over (rocket.js's EARTH.R,
+    // the equatorial radius), as the ROCKET and MISSION tabs give it.
     return { name: a.craft.name, h: norm(s.r) - norm(a.track[0].r), v: norm(s.v), t: (timeMs - a.liftoffMs) / 1000 };
   }
 
@@ -210,7 +214,7 @@ export class Mission {
   // J2000 equator, ascending node on the +x axis, starting at the node.
   launchOrbit(timeMs: number, altKm: number, incDeg: number): Craft {
     const E = helioStateEqj('earth', new Date(timeMs));
-    const R = R_EARTH + altKm, vc = Math.sqrt(MU_EARTH / R), i = (incDeg * Math.PI) / 180;
+    const R = R_EARTH_EQ + altKm, vc = Math.sqrt(MU_EARTH / R), i = (incDeg * Math.PI) / 180;
     const r: V3 = [E.r[0] + R, E.r[1], E.r[2]];
     const v: V3 = [E.v[0], E.v[1] + vc * Math.cos(i), E.v[2] + vc * Math.sin(i)];
     return this.add(`Orbiter ${++this.count}`, r, v, timeMs);
@@ -227,7 +231,7 @@ export class Mission {
       const d = { prograde: pro, retrograde: pro.map((x) => -x), outward: out, inward: out.map((x) => -x) }[vInf.dir];
       vi = d.map((x) => x * vInf.speed) as V3;
     }
-    const st = departureHyperbola({ planetR: E.r, planetV: E.v, vInf: vi, mu: MU_EARTH, rp: R_EARTH + 200 });
+    const st = departureHyperbola({ planetR: E.r, planetV: E.v, vInf: vi, mu: MU_EARTH, rp: R_EARTH_EQ + 200 });
     return this.add(name ?? `Probe ${++this.count}`, st.r as V3, st.v as V3, timeMs);
   }
 
@@ -348,7 +352,7 @@ export class Mission {
       let path = this.paths.get(c.id);
       if (!path) { path = { trail: new Trail(), conic: [], at: 0, version: 0 }; this.paths.set(c.id, path); }
       const before = path.trail.points.length + (path.trail.key === key ? 0 : -1);
-      path.trail.push(key, eqjToEclFast(rel));
+      if (!c.crashed) path.trail.push(key, eqjToEclFast(rel));
       let changed = path.trail.points.length !== before;
       if (now - path.at > 200) {
         const mu = P ? P.mu : this.sys.muSun;

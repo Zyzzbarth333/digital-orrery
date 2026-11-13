@@ -235,7 +235,10 @@ local dynamical time in velocity. Steps end on the primary's ephemeris nodes
 the step so each uses the cubic of the interval it crosses; they are capped,
 as in Cowell, at 1 % of every other body's dynamical time, and at 1 % of the
 primary's on a conic whose periapsis is inside it, so impacts are caught as
-tightly as before. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
+tightly as before. An impact is a step that ends below the body's surface:
+the Earth's is sea level, the WGS-84 ellipsoid about its pole of date
+(6,378.137 km at the equator, 6,356.752 km at the poles); every other
+body's is the sphere of its mean radius. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
 the conic is re-anchored on the current state (rectification).
 
 **When it is used.** Encke pays only while the motion is nearly Keplerian.

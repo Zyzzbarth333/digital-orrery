@@ -115,10 +115,11 @@ The ROCKET tab:
 
   The climb is the planar ascent replayed, not flown by the kernel: the
   Earth's pull, the air and the engine were integrated in the ROCKET tab.
-  Its heights are above the sphere the ascent is flown over (6,378.137
-  km, the pad's radius here); the MISSION tab's altitude for a craft is
-  above the mean radius (6,371.0 km), so at cutoff it reads about 7 km
-  more for the same orbit.
+  Its heights are above the sphere the ascent is flown over, the
+  equatorial radius (6,378.137 km, WGS-84). The MISSION tab measures a
+  craft's altitude, periapsis and apoapsis about the Earth from the same
+  radius, so the two agree at cutoff and the orbit reads the same in both
+  tabs.
   Either way the craft carries the burning stage's engine and its
   leftover propellant, and any stages above it, so the next burns (a
   departure to the Moon, say) are flown from the MISSION tab.

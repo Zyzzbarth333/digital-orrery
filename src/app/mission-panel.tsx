@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import type { SimClock } from './clock';
 import { useClock } from './clock';
-import { useMission, REAL_MISSIONS, type Mission, type DepartureDirection, type RealBurns } from './mission';
+import { useMission, REAL_MISSIONS, altitudeRadius, type Mission, type DepartureDirection, type RealBurns } from './mission';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { kernelSeconds, KERNEL_EPOCH_MS } from '../physics/kernelHost.js';
 
@@ -81,25 +81,36 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
   if (c) {
     const el = c.elements();
     const P = el.about === 'sun' ? null : BODY_BY_KEY[el.about as BodyKey];
-    const R = P ? P.radiusKm : 0;
+    const R = P ? altitudeRadius(P.key, P.radiusKm) : 0;
+    const altNote = P?.key === 'earth' ? ', above the equatorial radius (6,378.137 km, WGS-84), as in the ROCKET tab' : P ? ', above the mean radius' : '';
     const st = c.displayState();
     const rel = mission.relative(c);
     const dvLeft = c.ve * Math.log(c.mass / c.dryMass);
     const rows: [string, React.ReactNode, React.ReactNode][] = [
       ['Motion', 'Integrated', <Tag src="kernel" detail="stepped under the gravity of the Sun, planets and Moon (n-body), not on a fixed track like the planets" />],
       ['About', P ? P.name : 'Sun', <Tag src="kernel" detail="the body whose sphere of influence holds the craft" />],
-      [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <Tag src="kernel" detail="n-body state (Encke near a planet, Cowell elsewhere) carried to the clock" />],
+      [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <Tag src="kernel" detail={`n-body state (Encke near a planet, Cowell elsewhere) carried to the clock${altNote}`} />],
       ['Speed', `${fmt(rel.v, 4)} km/s`, <Tag src="kernel" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
     ];
-    if (el.e < 1) {
-      rows.push(['Periapsis', `${fmt(el.a * (1 - el.e) - R, 1)} km`, <Tag src="2-body" derived detail={`osculating, about ${P ? P.name : 'the Sun'}${P ? ', altitude' : ''}`} />]);
-      rows.push(['Apoapsis', `${fmt(el.a * (1 + el.e) - R, 1)} km`, <Tag src="2-body" derived detail="osculating" />]);
+    const site = c.crashed ? c.impactSite : null;
+    if (site) {
+      // Down: where and when, not an orbit (it lies on the ground, turning
+      // with the body).
+      const [x, y, z] = site.local, lat = Math.atan2(z, Math.hypot(x, y)) * DEG, lon = Math.atan2(y, x) * DEG;
+      rows.splice(2, 2,
+        ['Came down', utc(site.t), <Tag src="kernel" detail={`below the surface of ${BODY_BY_KEY[site.key as BodyKey]?.name ?? site.key}${site.key === 'earth' ? ' (sea level, the WGS-84 ellipsoid)' : ''} at the end of a kernel step`} />],
+        ['Where', `${fmt(Math.abs(lat), 2)}° ${lat >= 0 ? 'N' : 'S'}, ${fmt(Math.abs(lon), 2)}° ${lon >= 0 ? 'E' : 'W'}`, <Tag src="kernel" derived detail="geocentric latitude and longitude in the body's own frame; it stays there, turning with the body" />]);
+    } else if (el.e < 1) {
+      rows.push(['Periapsis', `${fmt(el.a * (1 - el.e) - R, 1)} km`, <Tag src="2-body" derived detail={`osculating, about ${P ? P.name : 'the Sun'}${altNote}`} />]);
+      rows.push(['Apoapsis', `${fmt(el.a * (1 + el.e) - R, 1)} km`, <Tag src="2-body" derived detail={`osculating${altNote}`} />]);
       rows.push(['Period', `${fmt((2 * Math.PI * Math.sqrt(el.a ** 3 / (P ? P.gm ?? 1 : mission.sys.muSun))) / 60, 2)} min`, <Tag src="2-body" derived detail="osculating" />]);
-    } else {
+    } else if (!site) {
       rows.push(['Excess speed', `${fmt(Math.sqrt(-(P ? P.gm ?? 1 : mission.sys.muSun) / el.a), 4)} km/s`, <Tag src="2-body" derived detail="v-infinity of the osculating hyperbola" />]);
     }
-    rows.push(['Eccentricity', fmt(el.e, 6), <Tag src="2-body" derived detail="osculating" />]);
-    rows.push(['Inclination', `${fmt(el.i * DEG, 3)}°`, <Tag src="2-body" derived detail={`to the ${el.frame}`} />]);
+    if (!site) {
+      rows.push(['Eccentricity', fmt(el.e, 6), <Tag src="2-body" derived detail="osculating" />]);
+      rows.push(['Inclination', `${fmt(el.i * DEG, 3)}°`, <Tag src="2-body" derived detail={`to the ${el.frame}`} />]);
+    }
     const run = mission.realRun(c);
     // The model engine's tank means nothing when every burn is the real
     // craft's, scripted from its data.

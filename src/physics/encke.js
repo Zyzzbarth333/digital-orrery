@@ -50,7 +50,7 @@
 // ~2e-7 is Encke; GEO ~5e-5 and beyond, and thrusting craft, are Cowell.
 
 import { keplerStep, propagate } from './orbital.js';
-import { addJ2 } from './zonal.js';
+import { addJ2, below } from './zonal.js';
 
 // Dormand-Prince 5(4) (Dormand & Prince 1980): nodes, stage weights, the
 // 5th-order solution b (= the last stage row, FSAL) and the error weights
@@ -346,9 +346,7 @@ export function advanceEncke(state, tEnd, opts) {
     }
     const now = bodiesAt(state.t);
     for (const b of now) {
-      if (!(b.radius > 0)) continue;
-      const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
-      if (dx * dx + dy * dy + dz * dz < b.radius * b.radius) {
+      if (below(r, b)) {
         events.push({ type: 'impact', body: b.key, t: state.t });
         return { steps, events, complete: false, left: false };
       }

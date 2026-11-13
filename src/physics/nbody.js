@@ -41,7 +41,7 @@
 // can pass straight through it.
 
 import { advanceEncke, perturbationRatio, ENCKE_IN } from './encke.js';
-import { addJ2 } from './zonal.js';
+import { addJ2, below } from './zonal.js';
 
 const W_CBRT2 = Math.cbrt(2.0);
 const YOSHIDA_W1 = 1.0 / (2.0 - W_CBRT2);
@@ -286,9 +286,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
     }
     const now = bodiesAt(state.t);
     for (const b of now) {
-      if (!(b.radius > 0)) continue;
-      const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
-      if (dx * dx + dy * dy + dz * dz < b.radius * b.radius) {
+      if (below(r, b)) {
         events.push({ type: 'impact', body: b.key, t: state.t });
         return { steps, events, complete: false };
       }

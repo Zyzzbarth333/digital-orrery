@@ -80,6 +80,10 @@ const ZONAL = {
   neptune: { j2: 3408.43e-6, rJ2: 25225 },
 };
 const POLE_REFRESH = 86400;   // s
+// Surfaces that are not the mean sphere, for impacts (nbody.below): the
+// Earth's sea level is the WGS-84 ellipsoid, a = 6378.137 km, 1/f =
+// 298.257223563 (NIMA TR8350.2), about the pole of date.
+const SURFACE = { earth: { a: 6378.137, c: 6378.137 * (1 - 1 / 298.257223563) } };
 
 export const KERNEL_BODIES = ['mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 
@@ -99,6 +103,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true 
     const b = { key, mu: c.mu, radius: c.radius, parent: c.parent, r: [0, 0, 0], eph };
     const z = zonal && ZONAL[key];
     if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN });
+    if (z && SURFACE[key]) b.surface = SURFACE[key];
     return b;
   });
   let lastT = NaN;

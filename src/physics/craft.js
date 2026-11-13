@@ -27,11 +27,13 @@ import { addJ2 } from './zonal.js';
 import { propagate, rvToElements } from './orbital.js';
 import { accelHeliocentric, primaryOf } from './nbody.js';
 import { eqjToEcl } from './ephemeris.js';
+import { bodyAxesEqj } from './orientation.js';
 
 export const G0 = 9.80665;                 // m/s^2, for Isp
 const MAX_CARRY_S = 30 * 86400;
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
@@ -108,6 +110,7 @@ export class Craft {
     this.lagSeconds = 0;             // physics behind the clock (budget ran out)
     this.crashed = false;
     this.impactBody = null;
+    this.impactSite = null;          // { key, t, local: body-fixed km }
     this.error = null;
     this.log = [];                   // { t, text } for the app to show
     this.clockJumped = false;
@@ -287,7 +290,7 @@ export class Craft {
     const impact = res.events.find((e) => e.type === 'impact');
     this.lagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
     for (const e of res.events) {
-      if (e.type === 'impact') { this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.note(`impact on ${e.body}`, e.t); }
+      if (e.type === 'impact') { this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.impactSite = this.siteOn(e.body, res.r, res.t); this.note(`impact on ${e.body}`, e.t); }
     }
     if (res.primary !== prev) this.note(`now in the sphere of influence of ${res.primary}`, res.t);
   }
@@ -299,12 +302,40 @@ export class Craft {
     return this.sys.bodiesAt(this.kState.t).find((b) => b.key === key) ?? null;
   }
 
-  // The state at the sim clock (kState carried forward; not after an impact,
-  // and at most 30 days).
+  // The state at the sim clock (kState carried forward, at most 30 days).
+  // After an impact the craft lies where it came down, turning with the body
+  // it hit: left where it was in space, the body would move off at its orbital
+  // speed (the Earth goes 7 million km in three days).
   displayState() {
+    if (this.crashed) return this.onSite(this.clockT) ?? { r: [...this.kState.r], v: [...this.kState.v] };
     let dtx = this.clockT - this.kState.t;
-    if (!(dtx > 0) || this.crashed) dtx = 0;
+    if (!(dtx > 0)) dtx = 0;
     return this.carryForward(Math.min(dtx, MAX_CARRY_S));
+  }
+
+  // The impact point in the body's own frame (orientation.js), so it can be
+  // carried with the body's motion and spin.
+  siteOn(key, r, t) {
+    const B = this.sys.bodiesAt(t).find((b) => b.key === key);
+    if (!B?.eph || !this.sys.epochMs) return null;
+    const d = sub(r, B.eph.position(t));
+    const [X, Y, Z] = bodyAxesEqj(key, new Date(this.sys.epochMs + t * 1000));
+    return { key, t, local: [dot(X, d), dot(Y, d), dot(Z, d)] };
+  }
+
+  // Where the impact point is at time t, and its velocity (the body's plus
+  // the spin's, from the turn of the axes over a second).
+  onSite(t) {
+    const S = this.impactSite;
+    if (!S) return null;
+    const B = this.sys.bodiesAt(t).find((b) => b.key === S.key);
+    if (!B?.eph) return null;
+    const at = (tt) => {
+      const [X, Y, Z] = bodyAxesEqj(S.key, new Date(this.sys.epochMs + tt * 1000));
+      return [0, 1, 2].map((i) => X[i] * S.local[0] + Y[i] * S.local[1] + Z[i] * S.local[2]);
+    };
+    const d0 = at(t), d1 = at(t + 1), rB = B.eph.position(t), vB = B.eph.velocity(t);
+    return { r: [0, 1, 2].map((i) => rB[i] + d0[i]), v: [0, 1, 2].map((i) => vB[i] + d1[i] - d0[i]) };
   }
 
   carryForward(dtx) {

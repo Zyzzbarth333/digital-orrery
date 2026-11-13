@@ -126,7 +126,19 @@ until cut or dry.
 | Closest to the destination | kernel (dashed) | the smallest distance so far to the planned destination's system barycentre |
 
 Inclinations are to the J2000 equator about a planet and to the ecliptic
-about the Sun.
+about the Sun. Heights about the Earth (altitude, periapsis, apoapsis, and
+the altitude asked for in LAUNCH) are above its equatorial radius,
+6,378.137 km (WGS-84), as in the ROCKET tab and as orbit altitudes are
+usually given; about every other body, above its mean radius. The ground
+is lower than that sphere away from the equator (6,356.8 km at the poles),
+so a craft about to come down away from the equator reads below zero, by
+up to 21 km at the poles.
+
+After an impact the readout gives when and where the craft came down
+(latitude and longitude in the body's own frame) instead of an orbit. The
+craft stays at that spot, carried with the body and turned with its spin:
+left where it was in space, it would fall behind the Earth at its orbital
+speed, millions of kilometres in a few days.
 
 In the sky:
 - **Marker:** a turned square, orange while the engine burns, struck
