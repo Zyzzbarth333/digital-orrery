@@ -119,9 +119,9 @@ header("THE MOON'S FIELD: Apollo's subsatellites against the lunar mascons");
   console.log(`  PFS-2 with the field, nodes 0/90/180/270 deg: impact after ${lives.map((x) => (x === null ? 'none' : x.toFixed(1))).join(', ')} days (NASA: 34); with J2 alone: ${j2only === null ? 'still up after 70 days' : `${j2only.toFixed(1)} days`}`);
   console.log(`  PFS-1 with the field: ${pfs1 === null ? 'still up after 120 days (it lasted about 537)' : `down after ${pfs1.toFixed(1)} days`}`);
   check('PFS-2 comes down within 70 days at every node, and NASA\'s 34 days lies within the spread', lives.every((x) => x !== null) && Math.min(...lives) < 34 && Math.max(...lives) > 34);
-  // With J2 alone it comes down too, eventually (the Earth's tide slowly
-  // raises a low lunar orbit's eccentricity), but later than with the
-  // field at every node.
+  // With J2 alone it stays in its orbit. (The run reports an impact at day
+  // 67, which is the leap second of 1 July 1972: the kernel counts UTC
+  // seconds, so the bodies jump by a second of motion there.)
   check('the mascons bring it down sooner than J2 alone at every node', (j2only === null || j2only > Math.max(...lives)));
   check('PFS-1, nearer a frozen inclination, stays up for 120 days', pfs1 === null);
 }

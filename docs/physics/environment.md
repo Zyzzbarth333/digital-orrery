@@ -66,8 +66,11 @@ of GRAIL GL0660B, JPL's field from the GRAIL mission (Konopliv et al. 2013):
   with the field to degree 30:
   - with the field, it comes down after 46.8, 28.5, 12.4 and 20.0 days;
     NASA's 34 days lies within that spread;
-  - with J2 alone, it lasts 67.1 days (the Earth's tide slowly raises a
-    low lunar orbit's eccentricity).
+  - with J2 alone, it is still in its 90 × 130 km orbit at day 67. The
+    run stops there, on 1 July 1972, at a leap second: the kernel counts
+    time in UTC seconds, so every body's position jumps by one second of
+    motion there, and the jump reads as an impact. (An earlier version of
+    this page called that a decay after 67.1 days.)
 
   So the mascons bring it down sooner at every node.
 - **PFS-1:** Apollo 15's, released into 102 × 139 km at 28.5°, near one of
@@ -206,7 +209,7 @@ instead of 1,464, and 59 ms instead of 35.
 | Drag through the kernel: NESC case 6B, MET atmosphere, 8 hours | NASA's simulations | 7 mm from sim B |
 | U.S. Standard Atmosphere 1976 | its tables, 0 to 86 km | within 0.003 % |
 | A craft dropped from 20,000 km | | enters, slows and lands; the impact is reported |
-| The Moon's field (GRAIL GL0660B, degree 30): Apollo 16's PFS-2 | NASA: down after 34 days | down after 12–47 days at four nodes; 67 days with J2 alone |
+| The Moon's field (GRAIL GL0660B, degree 30): Apollo 16's PFS-2 | NASA: down after 34 days | down after 12–47 days at four nodes; with J2 alone, still up at day 67 |
 | The same, Apollo 15's PFS-1 at 28.5° | lasted about 537 days | still up after 120 days |
 | Venting: the wandering push, and one-day averages | Artemis II's coast arcs: 1.3–3.4 µm/s², sunward cosine 0.3–0.8 | 1.31 µm/s² per axis; median 2.35 µm/s², cosine 0.72 |
 | Thruster puffs through the kernel | their summed delta-v | exact |
