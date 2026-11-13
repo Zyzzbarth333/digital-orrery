@@ -156,6 +156,9 @@ export function primaryOf(r, bodies, muSun) {
 //               relative to it (Cowell's current velocity; in Encke the
 //               primary's plus the reference conic's plus the deviation's).
 //
+//   stepCap(t, r, v)  optional: a largest step (s) for the state now, from
+//               the environment (shorter near a shadow's edge, where
+//               sunlight pressure switches off and on), in both integrators
 //   encke       (default true) inside a body's sphere of influence, while
 //               the motion is nearly Keplerian (perturbation ratio below
 //               ENCKE_IN), use Encke's method with error-controlled steps
@@ -246,6 +249,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
         tau = Math.min(tau, Math.sqrt(d2 * Math.sqrt(d2) / b.mu));
       }
       h = Math.min(eta * tau, hMax);
+      if (opts.stepCap) h = Math.min(h, opts.stepCap(state.t, r, v));
     }
     let remaining = dir * (tEnd - state.t);
     if (bps) {

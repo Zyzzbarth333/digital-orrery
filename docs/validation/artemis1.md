@@ -103,14 +103,16 @@ to a minute before the next:
 | Model | Worst at the end | RMS | The longest arc (24.7 h) |
 | --- | --- | --- | --- |
 | Gravity only (the app's kernel) | 83 m | 22.5 m | 83 m |
-| With a constant push away from the Sun of 2.1×10⁻⁸ m/s² | 47 m | 8.0 m | 0.6 m |
+| With Orion's sunlight pressure ([environment.js](../physics/environment.md)), C_r A/m = 4.6×10⁻³ m²/kg | 47 m | 8.0 m | 2.3 m |
 
 The gravity-only gap grows with the square of the arc's length, as a
 small steady acceleration would. Fitted across all 77 arcs, a push away
 from the Sun of 2.1×10⁻⁸ m/s² takes most of it out. That is sunlight
 pressure on Orion: about 4.6×10⁻⁶ N/m² on 60–80 m² of capsule and solar
 arrays, for 15 to 26 tonnes. So NASA's model includes solar radiation
-pressure, and the kernel doesn't yet. The rest likely follows Orion's
+pressure. The app's craft now feel it too: the check flies Orion through
+the kernel's own sunlight model, as a cannonball with C_r A/m = 4.6×10⁻³
+m²/kg (92 m² at C_r 1.3 for 26 t), shadows included. The rest likely follows Orion's
 falling mass (a constant push here, though the real one grows as
 propellant is spent) and its attitude.
 

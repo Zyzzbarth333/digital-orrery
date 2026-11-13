@@ -49,6 +49,12 @@ export const REAL_MISSIONS = [
   { id: 'artemis2', label: 'Artemis II · April 2026' },
   { id: 'artemis2-plan', label: 'Artemis II · our own plan' },
 ];
+// Orion as sunlight sees it: 25,536 kg at the injection burn (from NASA's
+// plan and the engine, artemis2.design.mjs), and a sunlit area of 92 m^2
+// at Cr 1.3, the cannonball that fits Artemis I's coast arcs
+// (docs/validation/artemis1.md). 500 kg of it is the propellant the app
+// leaves for the corrections a player flies.
+const ORION = { dryMass: 25036, fuel: 500, area: 92, cr: 1.3 };
 
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: number[]): V3 => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
@@ -169,7 +175,7 @@ export class Mission {
   // Fly a real mission from its start (the clock should already be there).
   flyReal(m: RealMission, burns: RealBurns = 'all'): Craft {
     const s = m.startState();
-    const c = new Craft({ name: m.name, r: s.r as V3, v: s.v as V3, t: s.t, sys: this.sys });
+    const c = new Craft({ name: m.name, r: s.r as V3, v: s.v as V3, t: s.t, sys: this.sys, ...ORION });
     const keep = burns === 'all' ? m.burns : m.burns.slice(0, 1);
     c.setScript(new RealMission({ ...m.data, burns: keep }).script());
     c.note(burns === 'all' ? `${m.burns.length} burns scripted as flown` : `${keep[0].name} scripted as flown; the corrections are yours`, s.t);

@@ -19,6 +19,9 @@
 //                orbital frame about that body (along its velocity relative
 //                to the body, prograde x normal, and the orbit normal), so
 //                the burn turns with the orbit as a guided burn does.
+//     env        { mass, area, cr } (optional): the craft as the environment
+//                model sees it (environment.js): sunlight pressure, with
+//                the Earth's and Moon's shadows
 //     version    returned unchanged, so the caller can drop a result computed
 //                from a state it has since changed (a burn, a clock jump)
 // Reply:    { type: 'stepped', crafts: [CraftResult], ms }
@@ -32,6 +35,7 @@
 
 import { advance, createState, accelHeliocentric } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
+import { makeEnvironment } from './environment.js';
 
 // Kernel time zero: 2000-01-01 12:00 UTC. Only a reference; every time is a
 // difference from it.
@@ -99,7 +103,32 @@ export function stepCraft(sys, req) {
     }
     return out;
   };
-  const extraAccel = (constant || burns.length) ? (t, r, out, mid, v) => thrustAt(t, mid, out, r, v) : null;
+  // The environment (sunlight pressure and so on) adds to the thrust.
+  // Its mass falls as burns draw propellant, so it is reckoned at each
+  // instant from the burns themselves (each carries its starting mass and
+  // flow): during a burn, m0 - mdot (t - t0); between burns, the next one's
+  // starting mass, or the last one's final mass; with none, env.mass.
+  // Scripted burns (a real mission's, given as acceleration on a nominal
+  // 1 kg) say nothing of the mass and are skipped.
+  const massAt = (t) => {
+    let next = null, last = null;
+    for (const b of burns) {
+      if (b.scripted) continue;
+      if (t >= b.t0 && t < b.t1) return b.m0 - b.mdot * (t - b.t0);
+      if (b.t0 >= t && (!next || b.t0 < next.t0)) next = b;
+      if (b.t1 <= t && (!last || b.t1 > last.t1)) last = b;
+    }
+    if (next) return next.m0;
+    if (last) return last.m0 - last.mdot * (last.t1 - last.t0);
+    return req.env.mass;
+  };
+  const env = req.env ? makeEnvironment(sys, { ...req.env, massAt }) : null;
+  const thrusting = constant || burns.length;
+  const extraAccel = (thrusting || env) ? (t, r, out, mid, v) => {
+    if (thrusting) thrustAt(t, mid, out, r, v); else { out[0] = out[1] = out[2] = 0; }
+    if (env) env(t, r, v, out);
+    return out;
+  } : null;
   // Steps end on each burn's edges, and inside a burn no step burns more than
   // 1 % of the craft's mass: in cruise the gravity rule would otherwise take a
   // whole burn in one step, and a burn that sheds a large share of the mass
@@ -119,11 +148,12 @@ export function stepCraft(sys, req) {
     }))].sort((x, y) => x - y)
     : null;
   const res = advance(state, req.tEnd, {
-    bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, breakpoints,
+    bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, breakpoints, stepCap: env?.stepCap ?? null,
     maxSteps: req.maxSteps ?? DEFAULT_MAX_STEPS,
   });
   const accel = accelHeliocentric(state.r, sys.bodiesAt(state.t), sys.muSun);
   const thrustNow = thrustAt(state.t, state.t, [0, 0, 0], state.r, state.v);
+  if (env) env(state.t, state.r, state.v, thrustNow);
   for (let i = 0; i < 3; i++) accel[i] += thrustNow[i];
   return {
     id: req.id, version: req.version,

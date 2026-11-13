@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import { helioOf, geocentric, sys, kt, MOON_RADIUS } from './artemis2.lib.mjs';
 import { advance } from './nbody.js';
 import { helioStateEqj } from './ephemeris.js';
+import { makeEnvironment } from './environment.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
@@ -30,9 +31,9 @@ const FT = 0.3048, MILE = 1.609344, RE = 6378.137;
 const opts = { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7 };
 
 // Gravity alone from state a to time ms; geocentric result.
-function coast(a, ms, extraAccel = null) {
+function coast(a, ms, env = null) {
   const s = helioOf(a);
-  advance(s, kt(ms), extraAccel ? { ...opts, extraAccel } : opts);
+  advance(s, kt(ms), env ? { ...opts, extraAccel: (t, r, out, mid, v) => { out[0] = out[1] = out[2] = 0; return env(t, r, v, out); }, stepCap: env.stepCap } : opts);
   return geocentric(s, ms);
 }
 const moonAt = (ms) => sub(helioStateEqj('moon', new Date(ms)).r, helioStateEqj('earth', new Date(ms)).r);
@@ -124,18 +125,20 @@ header('CASE 3: coast arcs between events, flown by the kernel');
 const arcs = [];
 const starts = [row(fx.first), ...events.map((e) => e.b)], ends = [...events.map((e) => e.a), row(fx.last)];
 for (let i = 0; i < starts.length; i++) if (ends[i].ms - starts[i].ms >= 3600e3) arcs.push([starts[i], ends[i]]);
-// Sunlight pressure, as a constant push away from the Sun.
-const SRP = 2.1e-11;   // km/s^2 = 2.1e-8 m/s^2, fitted across these arcs
-const srp = (t, r, out) => { const n = norm(r); out[0] = SRP * r[0] / n; out[1] = SRP * r[1] / n; out[2] = SRP * r[2] / n; };
+// Sunlight pressure (environment.js), with the Earth's and Moon's shadows:
+// Orion as a cannonball with Cr A/m = 4.6e-3 m^2/kg (Cr 1.3, 92 m^2 for 26 t
+// of capsule, service module and arrays), fitted once across these arcs;
+// about 2.1e-8 m/s^2 at 1 AU.
+const srp = makeEnvironment(sys, { mass: 26000, area: 92, cr: 1.3 });
 const errs = arcs.map(([a, b]) => ({ hours: (b.ms - a.ms) / 3.6e6, plain: norm(sub(coast(a, b.ms).r, b.r)) * 1000, sun: norm(sub(coast(a, b.ms, srp).r, b.r)) * 1000 }));
 const stat = (f) => ({ worst: Math.max(...errs.map(f)), rms: Math.sqrt(errs.reduce((s, x) => s + f(x) ** 2, 0) / errs.length) });
 const P = stat((x) => x.plain), Q = stat((x) => x.sun);
 const long = errs.reduce((a, b) => (b.hours > a.hours ? b : a));
 console.log(`  ${arcs.length} arcs of ${Math.min(...errs.map((x) => x.hours)).toFixed(1)} to ${Math.max(...errs.map((x) => x.hours)).toFixed(1)} h (${errs.reduce((s, x) => s + x.hours, 0).toFixed(0)} h in all)`);
 console.log(`  gravity only:                      worst ${P.worst.toFixed(1)} m, rms ${P.rms.toFixed(1)} m; the longest (${long.hours.toFixed(1)} h) ${long.plain.toFixed(1)} m`);
-console.log(`  with sunlight pressure 2.1e-8 m/s^2: worst ${Q.worst.toFixed(1)} m, rms ${Q.rms.toFixed(1)} m; the longest ${long.sun.toFixed(1)} m`);
+console.log(`  with sunlight pressure (Cr A/m 4.6e-3 m^2/kg, shadows): worst ${Q.worst.toFixed(1)} m, rms ${Q.rms.toFixed(1)} m; the longest ${long.sun.toFixed(1)} m`);
 check('every coast arc ends within 100 m of NASA\'s ephemeris (up to 25 h)', P.worst < 100);
-check('a constant sunlight pressure of 2.1e-8 m/s^2 halves the rms (NASA\'s model includes it)', Q.rms < P.rms / 2);
+check('sunlight pressure on Orion (environment.js) halves the rms: NASA\'s model includes it', Q.rms < P.rms / 2);
 
 header('CASE 4: the lunar flybys and the farthest point');
 // Outbound flyby: closest approach comes 9 minutes after the burn ends, so

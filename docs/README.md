@@ -15,6 +15,7 @@ they come from, and how each part is checked.
 | [Burns, launches and the porkchop](physics/burns-and-launch.md) | Finite burns and the rocket equation, manoeuvre nodes, the departure hyperbola, C3 and porkchop grids |
 | [Body orientation](physics/orientation.md) | Body-fixed frames, Earth's rotation, the IAU pole and prime-meridian model, checks against CSPICE |
 | [A 6-DOF vehicle in Earth orbit](physics/sixdof.md) | Rigid-body attitude, the Earth's gravity field to any degree, Earth rotation (IAU 1976/1980), drag and thrust, NASA's 6-DOF check cases |
+| [The space environment](physics/environment.md) | Forces beyond gravity's point masses and J2 on the app's craft: sunlight pressure with the Earth's and Moon's shadows, and the steps across a shadow's edge |
 
 ## Front end
 
