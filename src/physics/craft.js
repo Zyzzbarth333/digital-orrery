@@ -194,13 +194,14 @@ export class Craft {
 
   // Scripted burns: a real mission's burns as flown, from its data. Each is
   // { t0, t1, dir, accel } with accel in m/s^2, constant over its span, and
-  // dir [prograde, in-plane, normal] in the orbital frame about `about`.
+  // dir [prograde, in-plane, normal] in the orbital frame about the burn's
+  // own body (b.about) or else `about`.
   // Unlike the engine's burns they draw no propellant from this craft's
   // tank and survive clock jumps: they are tied to the mission's times.
   setScript(burns, about = 'earth') {
     // F = accel on a nominal 1 kg: the data give acceleration, not thrust
     // and mass, so these are flagged and the environment ignores the mass.
-    this.script = burns.map(({ t0, t1, dir, accel }) => ({ t0, t1, dir, F: accel, m0: 1, mdot: 0, frame: 'vnb', about, scripted: true }));
+    this.script = burns.map((b) => ({ t0: b.t0, t1: b.t1, dir: b.dir, F: b.accel, m0: 1, mdot: 0, frame: 'vnb', about: b.about ?? about, scripted: true }));
     this.version++;
   }
 

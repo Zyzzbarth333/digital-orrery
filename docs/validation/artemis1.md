@@ -176,6 +176,43 @@ and blog, not from the ephemeris.
 | Return flyby, closest approach | 80.6 mi (129.7 km) at 10:43 a.m. CST (16:43 UTC), 5 Dec | 129.6 km at 16:44:00 UTC | inside the burn, not flown |
 | Farthest from Earth | 268,563 mi (432,210 km) above the surface, 21:06:10 UTC, 28 Nov | 432,207 km at 21:06 UTC | 432,207 km, flown from 17:06 |
 
+## In the app
+
+The app flies Artemis I from **Real missions** on the MISSION tab, or with
+`?mission=artemis1` ([real missions](../frontend/mission.md#real-missions)).
+Its file, `public/missions/artemis1.json` (619 kB), is written by
+`artemis1.export.mjs` from the minute-by-minute cache and the fixture:
+- **The flown path:** every 10 minutes; every 2 minutes within 30,000 km
+  of the Earth; every minute within 15,000 km of it, within 8,000 km of
+  the Moon and through every event; every 5 s through the six large
+  burns. Interpolated, it is within 7.4 m of every minute left out.
+- **The burns:** NASA's 18. The six large ones as each 5 s interval's
+  change beyond gravity, from the first interval over a twentieth of the
+  peak to the last; the twelve small ones as one steady push over NASA's
+  duration from NASA's ignition time, along the change their whole event
+  shows. Each is steered about the Earth or, inside its sphere of
+  influence, the Moon. All are within 0.5 % of NASA's figures (the
+  outbound powered flyby: 179.51 m/s against 178.64), or 0.05 m/s for
+  those under 1 m/s.
+
+Flown through the app's Craft model and kernel host in one-minute frames,
+Orion as the app flies it (the full environment and the random vent model;
+case 5):
+
+| | Worst off the flown path | Flybys (flown: 130.4, 129.6 km) | At the end |
+| --- | --- | --- | --- |
+| Every burn replayed as flown | 712,000 km | 424.0 km, then none | 712,000 km |
+| A fix every 12 h | 275 km | 130.3, 129.0 km | 6.0 km |
+| No fixes, every burn after the first aimed from the craft | 238 km | 124.6, 130.6 km | 0.9 km |
+
+Replayed blind, the craft passes the Moon at 424 km instead of 130, and
+the distant retrograde orbit and everything after it never happen. Aimed from
+the craft, as NASA's navigation aimed them, the 17 burns after the first
+take 31.8 m/s more than they did in flight, 8.9 m/s of it at the outbound
+powered flyby. The craft then comes down at 17:28 UTC on 11 December,
+13.9° S, 119.6° W: the app flies entry as a ballistic fall, not Orion's
+skip entry, which splashed down off Baja California at 17:40.
+
 ## Sources
 
 - NASA/JSC navigation, `Post_TLI_Orion_AsFlown_20221213_EPH_OEM`, through

@@ -108,7 +108,7 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | Our own plan: the injection burn designed from the pre-TLI orbit and NASA's published targets only | 1,270.7 ft/s over 348.2 s (NASA's plan: 1,274 ft/s, 5 min 49 s); within 182 km of the flown path for eight days; farthest from Earth equal to the flown to the kilometre |
 | The app's mission file, flown by the Craft model and kernel host | the replay's flyby to 0.4 km at every frame size; with a fix every 12 h, 1.2 km at entry |
 | The same with a tracking fix every 12 h | never more than 5 km off; 1.1 km at entry interface |
-| The app's flight as it flies by default: full environment and random vent, no fixes, the corrections aimed from the craft | never more than 72 km off; 0.3 km at entry; flyby 6,541.1 km; 5.5 m/s more than the flown corrections (blind: 17,173 km at entry) |
+| The app's flight as it flies by default: full environment and random vent, no fixes, the corrections aimed from the craft | never more than 72 km off; 0.3 km at entry; flyby 6,543.2 km; 4.2 m/s more than the flown corrections (blind: 17,174 km at entry) |
 | Coast arcs, 0.2–2.1 days | 0.4–49 km at the end (JSC's 1σ: 0.2–1 km) |
 | The same arcs once the real flight's steady push is estimated from each arc's first half | 0.1–17 km |
 | First arc after translunar injection | 13 km (957 km with point masses only) |
@@ -157,6 +157,7 @@ navigation's as-flown ephemeris (through JPL Horizons). See
 | Closest lunar approaches, outbound and return | 130.4 km and 129.6 km (NASA: 81 mi and 80.6 mi, 130.4 and 129.7 km) |
 | Farthest from Earth | 432,207 km above the surface at 21:06 UTC, 28 Nov (NASA: 268,563 mi, 432,210 km, 21:06:10) |
 | Joins between NASA's navigation solutions | 67; velocity steps median 0.074 m/s, position median 49 m |
+| The app's mission file (`public/missions/artemis1.json`), flown as the app flies it: full environment and random vent, through the Craft model and kernel host | its 18 burns within 1 % of NASA's; with a fix every 12 h, never more than 275 km off, 6 km at the end, flybys 130.3 and 129.0 km; with no fixes and the burns aimed from the craft, never more than 238 km off, 0.9 km at the end, flybys 124.6 and 130.6 km, for 31.8 m/s more than the flown burns (blind: 712,000 km at the end) |
 
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 

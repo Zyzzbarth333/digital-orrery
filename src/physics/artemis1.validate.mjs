@@ -14,6 +14,7 @@
 // prediction.
 
 import fs from 'node:fs';
+import { NASA_BURNS, AAS } from './artemis1.lib.mjs';
 import { helioOf, geocentric, sys, kt, MOON_RADIUS } from './artemis2.lib.mjs';
 import { advance } from './nbody.js';
 import { helioStateEqj } from './ephemeris.js';
@@ -38,22 +39,8 @@ function coast(a, ms, env = null) {
 }
 const moonAt = (ms) => sub(helioStateEqj('moon', new Date(ms)).r, helioStateEqj('earth', new Date(ms)).r);
 
-// NASA's as-flown burns: ignition (UTC) and delta-v from the post-flight
-// review column of AAS 23-363 (Table 1, Fig. 7), duration and engine from
-// Belair et al. (Artemis I engine performance, Table 1). OMS-E: the main
-// engine; aux: auxiliary thrusters; RCS: reaction control.
-const AAS = 'https://ntrs.nasa.gov/api/citations/20230010480/downloads/AAS_23-363_artemis1-operations_rev2.pdf';
-const NASA_BURNS = [
-  ['OTC-1', '2022-11-16T14:32:39Z', 114.67, 30.5, 'OMS-E'], ['OTC-2', '2022-11-17T11:32:39Z', 0.73, 8.6, 'RCS'],
-  ['OTC-3', '2022-11-20T12:12:44Z', 2.87, 5.5, 'aux'], ['OTC-4', '2022-11-21T06:44:14Z', 0.71, 7.5, 'RCS'],
-  ['Outbound powered flyby', '2022-11-21T12:44:14Z', 586.09, 149.6, 'OMS-E'], ['OTC-5', '2022-11-22T06:02:44Z', 3.21, 5.6, 'aux'],
-  ['OTC-6', '2022-11-24T21:52:28Z', 8.79, 15.2, 'aux'], ['DRO insertion', '2022-11-25T21:52:28Z', 362.99, 87.9, 'OMS-E'],
-  ['DRO maintenance 1', '2022-11-26T21:52:28Z', 0.05, 1.23, 'RCS'], ['DRO maintenance 3', '2022-11-30T21:53:56Z', 43.37, 94.9, 'aux'],
-  ['DRO departure', '2022-12-01T21:53:56Z', 454.34, 105.1, 'OMS-E'], ['RTC-1', '2022-12-02T03:53:56Z', 0.48, 4.8, 'RCS'],
-  ['RTC-2', '2022-12-04T16:43:20Z', 1.71, 17, 'RCS'], ['RTC-3', '2022-12-05T10:43:20Z', 2.05, 21.92, 'RCS'],
-  ['Return powered flyby', '2022-12-05T16:43:20Z', 960.97, 207.1, 'OMS-E'], ['RTC-4', '2022-12-06T10:43:20Z', 0.50, 5, 'RCS'],
-  ['RTC-5', '2022-12-10T20:20:14Z', 5.00, 7.2, 'aux'], ['RTC-6', '2022-12-11T12:20:14Z', 0.98, 8.4, 'RCS'],
-].map(([name, utc, ftps, s, engine]) => ({ name, ms: Date.parse(utc), dv: ftps * FT / 1000, s, engine }));
+// NASA's as-flown burns (AAS 23-363, Belair et al.): artemis1.lib.mjs.
+
 
 // Every minute of every event, carried a minute by gravity alone: what is
 // left in the next minute's velocity is the thrust (or the join's step).
@@ -174,6 +161,51 @@ header('CASE 4: the lunar flybys and the farthest point');
   const nasa = 268563 * MILE;
   console.log(`  farthest: NASA ${nasa.toFixed(1)} km above the surface at 21:06:10 UTC; trajectory ${(norm(f.r) - RE).toFixed(1)} km at ${hhmm(f.ms)}; kernel from ${hhmm(a.ms)} ${(best.d - RE).toFixed(1)} km at ${hhmm(best.ms)}`);
   check('farthest point within 5 km of NASA\'s record, and the kernel within 0.1 km of the trajectory', Math.abs(norm(f.r) - RE - nasa) < 5 && Math.abs(best.d - norm(f.r)) < 0.1);
+}
+
+header("CASE 5: the app's mission file (public/missions/artemis1.json), flown as the app flies it");
+{
+  // Orion as the app flies it (src/app/mission.ts's ORION): the full
+  // environment with the random vent model, through the Craft model and the
+  // kernel host in one-minute frames, from just after injection to just
+  // before entry. Three ways: every burn replayed as flown; a tracking fix
+  // every 12 h; and, as the app flies it by default, no fixes and every burn
+  // after the first aimed from the craft (RealMission.aimStep).
+  const { RealMission } = await import('./realMission.js');
+  const { Craft } = await import('./craft.js');
+  const { KernelClient } = await import('./kernelClient.js');
+  const { kernelMs } = await import('./kernelHost.js');
+  const file = new RealMission(JSON.parse(fs.readFileSync(new URL('../../public/missions/artemis1.json', import.meta.url))));
+  const ORION = { dryMass: 25036, fuel: 500, area: 92, cr: 1.3, vent: {} };
+  const flyApp = ({ aimed = false, fixHours = null } = {}) => {
+    const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, ...ORION });
+    c.setScript(file.script());
+    const client = new KernelClient(), run = { aimNext: 0, aimedDv: 0 };
+    const step = (t) => { c.advanceClock(t); if (aimed) file.aimStep(c, sys, run); client.tick([c]); if (aimed) { file.aimStep(c, sys, run); client.tick([c]); } };
+    let worst = 0, prev = file.startMs;
+    const lows = [{ d: Infinity }, { d: Infinity }];
+    for (let ms = file.startMs + 60e3; ms <= file.endMs && !c.crashed && !c.error; ms += 60e3) {
+      for (const f of file.fixesBetween(prev, ms, fixHours)) { step(kt(f)); const x = file.fixAt(f); c.setState(x.r, x.v, x.t); }
+      prev = ms;
+      step(kt(ms));
+      const at = kernelMs(c.kState.t), d = file.distanceFromFlown(c.kState.r, at);
+      if (d !== null) worst = Math.max(worst, d);
+      const dm = norm(sub(geocentric(c.kState, at).r, moonAt(at))) - MOON_RADIUS, k = at < Date.parse('2022-11-28') ? 0 : 1;
+      if (dm < lows[k].d) lows[k] = { d: dm, ms: at };
+    }
+    const end = file.distanceFromFlown(c.kState.r, kernelMs(c.kState.t));
+    return { worst, end, lows, aimedDv: run.aimedDv, error: c.error, crashed: c.crashed };
+  };
+  const show = (label, x) => console.log(`  ${label.padEnd(44)} flybys ${x.lows.map((l) => `${l.d.toFixed(1)} km`).join(' and ')}   at the end ${x.end.toFixed(1)} km, worst ${x.worst.toFixed(1)} km${x.crashed ? ', crashed' : ''}`);
+  const blind = flyApp(), fix12 = flyApp({ fixHours: 12 }), aimed = flyApp({ aimed: true });
+  console.log(`  the file's flybys: ${file.data.flyby.altitudeKm} and ${file.data.returnFlyby.altitudeKm} km`);
+  show('every burn replayed as flown', blind);
+  show('a fix every 12 h', fix12);
+  show(`no fixes, burns aimed (+${aimed.aimedDv.toFixed(2)} m/s)`, aimed);
+  check(`the file's burns add up to NASA's (each within 1 % above 1 m/s, 0.05 m/s below)`, file.burns.every((b, i) => { const nb = NASA_BURNS[i]; return nb.dv * 1000 > 1 ? Math.abs(b.mps / (nb.dv * 1000) - 1) < 0.01 : Math.abs(b.mps - nb.dv * 1000) < 0.05; }));
+  check(`with a fix every 12 h: within 10 km at the end and 500 km throughout, both flybys within 2 km of the flown`, fix12.end < 10 && fix12.worst < 500 && Math.abs(fix12.lows[0].d - file.data.flyby.altitudeKm) < 2 && Math.abs(fix12.lows[1].d - file.data.returnFlyby.altitudeKm) < 2);
+  check(`as the app flies it, aimed with no fixes: within 5 km at the end and 500 km throughout, both flybys within 10 km of the flown (blind: ${blind.worst.toFixed(0)} km)`, !aimed.error && aimed.end < 5 && aimed.worst < 500 && Math.abs(aimed.lows[0].d - file.data.flyby.altitudeKm) < 10 && Math.abs(aimed.lows[1].d - file.data.returnFlyby.altitudeKm) < 10);
+  check(`the aimed burns add under 50 m/s to the flown ones over 25 days (${aimed.aimedDv.toFixed(2)} m/s)`, aimed.aimedDv < 50);
 }
 
 console.log(`Sources: NASA as-flown burns, AAS 23-363 (${AAS}); Belair et al., Artemis I engine performance (NTRS 20240003648).`);
