@@ -12,10 +12,12 @@
 //   unlit face:  I/F = A mu0/(mu - mu0) (exp(-tau/mu) - exp(-tau/mu0))
 //
 // and what lies behind shows through by exp(-tau/mu). Saturn's shadow on the
-// rings uses the same disc-overlap formula as eclipses. A is set so the
+// rings is its ellipsoid's, as in eclipses (bodyMaterial.ts,
+// ELLIPSOID_SHADOW). A is set so the
 // dense B ring has I/F about 0.5 face-on at low phase.
 
 import * as THREE from 'three';
+import { ELLIPSOID_SHADOW } from './bodyMaterial';
 
 const vertex = /* glsl */ `
 #include <common>
@@ -44,7 +46,8 @@ uniform float irradiance;
 uniform vec3 sunPos;
 uniform float sunRadius;
 uniform vec3 planetPos;
-uniform float planetRadius;
+uniform mat3 planetAxes;      // A of ELLIPSOID_SHADOW
+uniform float planetK;        // k of ELLIPSOID_SHADOW
 varying vec3 vWorld;
 varying vec2 vLocal;
 
@@ -57,6 +60,7 @@ float visibleFraction(float a, float b, float c) {
              - 0.5 * sqrt(max((-c + a + b) * (c + a - b) * (c - a + b) * (c + a + b), 0.0));
   return clamp(1.0 - lens / (PI * a2), 0.0, 1.0);
 }
+${ELLIPSOID_SHADOW}
 
 void main() {
   #include <logdepthbuf_fragment>
@@ -78,15 +82,7 @@ void main() {
     iof = abs(d) < 1e-4 ? A * tau / mu * exp(-tau / mu)
                         : A * mu0 / d * (exp(-tau / mu) - exp(-tau / mu0));
   }
-  float shade = 1.0;
-  vec3 toP = planetPos - vWorld;
-  float dP = length(toP);
-  if (dot(toP, s) > 0.0) {
-    float a = asin(clamp(sunRadius / dSun, 0.0, 1.0));
-    float b = asin(clamp(planetRadius / dP, 0.0, 1.0));
-    float c = atan(length(cross(toP / dP, s)), dot(toP / dP, s));
-    shade = visibleFraction(a, b, c);
-  }
+  float shade = ellipsoidShadow(vWorld, sunPos, sunRadius, planetPos, planetAxes, planetK);
   float opacity = 1.0 - exp(-tau / mu);
   // Premultiplied: the ring's own light plus what shows through it.
   gl_FragColor = vec4(tint * iof * irradiance * shade, opacity);
@@ -131,7 +127,8 @@ export function makeRings(tau: THREE.DataTexture, innerKm: number, outerKm: numb
       sunPos: { value: new THREE.Vector3() },
       sunRadius: { value: 1 },
       planetPos: { value: new THREE.Vector3() },
-      planetRadius: { value: 1 },
+      planetAxes: { value: new THREE.Matrix3() },
+      planetK: { value: 0 },
     },
   });
   return new THREE.Mesh(geom, mat);

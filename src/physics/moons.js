@@ -141,17 +141,5 @@ export function systemEqj(planet, date) {
 
 export const planetCentreOffsetEqj = (planet, date) => systemEqj(planet, date).offset.r;
 
-// Body-fixed axes of a moon, all of which turn synchronously: X (0 deg
-// longitude) toward the planet, Z along the orbit's pole, Y = Z x X. This
-// is the IAU's prime meridian for these moons to within their libration
-// and the small offsets of their own rotation models.
-export function moonAxesEqj(key, date) {
-  const { r, v } = moonStateEqj(key, date);
-  const unit = (a) => { const n = Math.hypot(a[0], a[1], a[2]); return [a[0] / n, a[1] / n, a[2] / n]; };
-  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-  const X = unit([-r[0], -r[1], -r[2]]);
-  const Z = unit(cross(r, v));
-  return [X, cross(Z, X), Z];
-}
-
+// Each moon's body-fixed frame (its IAU rotation model) is in orientation.js.
 export const isMoonKey = (key) => key in MOON_DATA;
