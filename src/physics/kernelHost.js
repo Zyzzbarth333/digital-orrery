@@ -186,8 +186,11 @@ export function stepCraft(sys, req) {
 // rounds, keeping the best. Returns { dv (EQJ km/s), miss (km, without it),
 // after (km, with it) }, or null if a trial run fails or hits a body.
 // RealMission.aimCorrection calls it in Node; the app sends it to the
-// kernel worker ({ type: 'aim' }), off the page's thread.
-export function aimTo(sys, { r, v, t0, T, target, burns = [] }) {
+// kernel worker ({ type: 'aim' }), off the page's thread. dv0: a first
+// guess (the journey planner's two-body Lambert arc); rounds, how many
+// Newton rounds at most; damped, a step that hits a body or misses by more
+// is halved (up to five times) rather than ending the search.
+export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds = 4, damped = false }) {
   const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
   const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
   const list = burns.filter((b) => !b.aimed && b.t1 > t0 && b.t0 < T);
@@ -195,22 +198,30 @@ export function aimTo(sys, { r, v, t0, T, target, burns = [] }) {
     const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: vv, t: t0, tEnd: T, primary: null, burns: list.map((b) => ({ ...b })), maxSteps: 1e6 });
     return res.complete && !res.events.some((e) => e.type === 'impact') ? res.r : null;
   };
-  let base = fly([...v]);
+  const plain = fly([...v]);
+  const miss0 = plain ? Math.hypot(...sub3(plain, target)) : Infinity;
+  let dv = [0, 0, 0], base = plain, best = { dv, after: miss0 };
+  if (dv0) {
+    const guess = fly(add3(v, dv0));
+    if (guess && Math.hypot(...sub3(guess, target)) < miss0) { dv = [...dv0]; base = guess; best = { dv, after: Math.hypot(...sub3(guess, target)) }; }
+  }
   if (!base) return null;
-  const miss0 = Math.hypot(...sub3(base, target));
-  let dv = [0, 0, 0], best = { dv, after: miss0 };
-  for (let round = 0; round < 4 && best.after > 0.01; round++) {
+  for (let round = 0; round < rounds && best.after > 0.01; round++) {
     const miss = sub3(base, target), h = 1e-5;
     const cols = [0, 1, 2].map((j) => { const vv = add3(v, dv); vv[j] += h; const q = fly(vv); return q && sub3(q, base).map((d) => d / h); });
     if (cols.some((c) => !c)) break;
     const A = [0, 1, 2].map((i) => [cols[0][i], cols[1][i], cols[2][i]]), D = det3(A);
     if (!(Math.abs(D) > 0)) break;
-    const step = [0, 1, 2].map((k) => det3(A.map((row, i) => row.map((val, c) => (c === k ? -miss[i] : val)))) / D);
+    let step = [0, 1, 2].map((k) => det3(A.map((row, i) => row.map((val, c) => (c === k ? -miss[i] : val)))) / D);
+    let next = null, after = Infinity;
+    for (let half = 0; half <= (damped ? 5 : 0); half++, step = step.map((x) => x / 2)) {
+      next = fly(add3(v, add3(dv, step)));
+      after = next ? Math.hypot(...sub3(next, target)) : Infinity;
+      if (after < best.after) break;
+    }
     dv = add3(dv, step);
-    const next = fly(add3(v, dv));
     if (!next) break;
     base = next;
-    const after = Math.hypot(...sub3(base, target));
     if (after < best.after) best = { dv, after };
     else break;
   }

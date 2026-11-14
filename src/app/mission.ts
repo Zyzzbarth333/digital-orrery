@@ -236,6 +236,17 @@ export class Mission {
     return this.add(name ?? `Probe ${++this.count}`, st.r as V3, st.v as V3, timeMs);
   }
 
+  // A journey from the planner, as the kernel flew it there (journey.worker.ts):
+  // its start state and the burns it made, scheduled on a new craft.
+  flyJourney(start: { r: number[]; v: number[]; ms: number }, burns: object[], name: string): Craft {
+    const c = new Craft({ name, r: start.r as V3, v: start.v as V3, t: kernelSeconds(new Date(start.ms)), sys: this.sys });
+    c.addPlanned(burns);
+    c.note(`${burns.length} planned burns scheduled`, c.kState.t);
+    this.crafts.push(c);
+    this.select(c.id);
+    return c;
+  }
+
   // ---------------- real missions ----------------
 
   async fetchReal(id: string): Promise<RealMission> {

@@ -232,6 +232,16 @@ export class Craft {
     this.scriptMasses();
     this.version++;
   }
+  // A journey's planned burns (journeyFlight.js), as the kernel took them
+  // when it flew the plan: { t0, t1, dir, F (m/s^2 on a nominal 1 kg), m0,
+  // mdot, frame?, about? }. Scripted, so they draw nothing from the tank
+  // and keep to their times through clock jumps.
+  addPlanned(burns) {
+    for (const b of burns) this.script.push({ t0: b.t0, t1: b.t1, dir: [...b.dir], F: b.F, m0: 1, mdot: 0, scripted: true, ...(b.frame ? { frame: b.frame, about: b.about } : {}) });
+    this.scriptMasses();
+    this.version++;
+  }
+
   // Aimed pushes still to come after t are dropped (the clock was set back
   // past them: they are aimed again when it reaches them).
   dropAimed(t) {

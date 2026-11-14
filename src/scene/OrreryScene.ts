@@ -31,6 +31,8 @@ import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStarPoints, makeStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
+import { JourneyLayer } from './journeyLayer';
+import type { JourneyView } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
@@ -157,6 +159,10 @@ export class OrreryScene {
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
   private craftLayer!: CraftLayer;
+  // The journey being planned (journeyLayer.ts): its arcs and burn nodes.
+  journeySource: () => JourneyView | null = () => null;
+  private journeyLayer!: JourneyLayer;
+  private journeyCentral = (key: string): Vec3 | null => (key === 'sun' ? [0, 0, 0] : this.states[key as BodyKey]?.r ?? null);
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
 
@@ -282,6 +288,7 @@ export class OrreryScene {
     });
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
+    this.journeyLayer = new JourneyLayer(this.scene, this.overlay);
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     // The GPU can drop the WebGL context (sleep, driver reset, memory
@@ -528,6 +535,8 @@ export class OrreryScene {
     }
 
     this.craftLayer.place(crafts, cam, UNIT_KM);
+    const journey = this.journeySource();
+    this.journeyLayer.place(journey, this.journeyCentral, cam, UNIT_KM, dist);
 
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(toRender([-offset[0], -offset[1], -offset[2]], this.tmp));
@@ -539,6 +548,7 @@ export class OrreryScene {
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
+    this.journeyLayer.label(this.journeyCentral, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
 
   // The Sun's glare: its strength follows the sunlight at the camera and
@@ -638,6 +648,7 @@ export class OrreryScene {
     this.post.exposure = this.renderer.toneMappingExposure;
     for (const o of this.orbits.values()) (o.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     this.craftLayer.setLevel(inv);
+    this.journeyLayer?.setLevel(inv);
     if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     if (this.starPoints) (this.starPoints.material as THREE.ShaderMaterial).uniforms.level.value = inv;
 
@@ -736,6 +747,7 @@ export class OrreryScene {
     this.container.removeEventListener('wheel', this.onWheel);
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
+    this.journeyLayer.dispose();
     this.smallBodies.dispose();
     for (const el of this.labels.values()) el.remove();
     this.post.dispose();

@@ -6,6 +6,7 @@ import { SceneView } from '../scene/SceneView';
 import { BodyRail, Plate, RATES, TimeBand, craftById } from './panels';
 import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
+import { JourneyStore } from './journey';
 import type { OrreryScene } from '../scene/OrreryScene';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 
@@ -78,6 +79,7 @@ export function App() {
     return () => ro.disconnect();
   }, [consoleOpen]);
   const mission = useMemo(() => new Mission(), []);
+  const journey = useMemo(() => new JourneyStore(init.timeMs), [init]);
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
@@ -89,6 +91,7 @@ export function App() {
     scene.current = sc;
     sc.onFrame = (t, jumps) => mission.frame(t, jumps);
     sc.craftSource = () => mission.views();
+    sc.journeySource = () => journey.view();
     sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
     sc.onFlight = setFlying;
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
@@ -156,7 +159,7 @@ export function App() {
       <Plate clock={clock} focus={focus} covered={consoleOpen && !wide} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>
-          <FlightConsole clock={clock} mission={mission} tab={tab} setTab={setTab} onClose={closeConsole}
+          <FlightConsole clock={clock} mission={mission} journey={journey} tab={tab} setTab={setTab} onClose={closeConsole}
             onFocusCraft={followCraft} autoPlan={init.plan} />
         </div>
       )}
