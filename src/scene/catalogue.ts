@@ -8,7 +8,7 @@
 // carry their radius, GM and geometric albedo from JPL Horizons.
 
 import { PLANETS } from '../utils/constants.js';
-import { bodyConstants, MU_SUN } from '../physics/bodies.js';
+import { bodyConstants, MU_SUN, PLANET_GM as KERNEL_PLANET_GM } from '../physics/bodies.js';
 import { MOON_DATA } from '../physics/moons.data.js';
 
 export type PlanetKey =
@@ -55,12 +55,12 @@ const COLOUR: Record<BodyKey, number> = {
 // Planet-only GMs from the NAIF satellite kernels' body tables (the
 // SATORBINT fits; the kernel's own planetary ephemeris in brackets).
 const PLANET_GM: Partial<Record<BodyKey, [number, string]>> = {
-  mars: [4.282837485735626e4, 'NAIF 499, mar099s (DE440)'],
-  jupiter: [1.266865319003704e8, 'NAIF 599, jup365 (DE440)'],
-  saturn: [3.793120623436167e7, 'NAIF 699, sat441 (DE440)'],
-  uranus: [5.793950610340896e6, 'NAIF 799, ura184 (DE442)'],
-  neptune: [6.835099968446816e6, 'NAIF 899, nep097 (DE441)'],
-  pluto: [8.693261226311508e2, 'NAIF 999, plu060 (DE440)'],
+  mars: [KERNEL_PLANET_GM.mars, 'NAIF 499, mar099s (DE440)'],
+  jupiter: [KERNEL_PLANET_GM.jupiter, 'NAIF 599, jup365 (DE440)'],
+  saturn: [KERNEL_PLANET_GM.saturn, 'NAIF 699, sat441 (DE440)'],
+  uranus: [KERNEL_PLANET_GM.uranus, 'NAIF 799, ura184 (DE442)'],
+  neptune: [KERNEL_PLANET_GM.neptune, 'NAIF 899, nep097 (DE441)'],
+  pluto: [KERNEL_PLANET_GM.pluto, 'NAIF 999, plu060 (DE440)'],
 };
 
 // Geometric albedo from the NASA NSSDCA planetary fact sheets (read
@@ -96,7 +96,7 @@ function planet(key: Exclude<PlanetKey, 'sun' | 'moon'>): BodyInfo {
   let gm: number | null = null;
   let gmNote = '';
   if (key === 'pluto') {
-    gm = 975.5;
+    gm = bodyConstants(key).mu;
     gmNote = 'Pluto system, Pluto and Charon (DE442)';
   } else {
     gm = bodyConstants(key).mu;
@@ -133,3 +133,27 @@ export const BODY_BY_KEY = Object.fromEntries(BODIES.map((b) => [b.key, b])) as 
 
 // A moon of a planet other than Earth (src/physics/moons.js draws these).
 export const isPlanetMoon = (key: BodyKey): key is MoonKey => !!BODY_BY_KEY[key].moon;
+
+// The barycentres the camera can centre on (src/physics/barycentres.js):
+// the solar system's, the Earth-Moon pair's, and each planet system's with
+// moons drawn. `of` is the body it is listed and hidden behind; `viewKm`
+// how far away the camera arrives, to frame the system about it.
+export type BaryKey = 'ssb' | 'emb' | 'mars-bary' | 'jupiter-bary' | 'saturn-bary' | 'uranus-bary' | 'neptune-bary' | 'pluto-bary';
+export type FocusKey = BodyKey | BaryKey;
+export interface BaryInfo { key: BaryKey; name: string; short: string; of: BodyKey; viewKm: number; members: string }
+export const BARYS: BaryInfo[] = [
+  { key: 'ssb', name: 'Solar system barycentre', short: 'SSB', of: 'sun', viewKm: 6e6, members: 'the Sun, the planets, the Moon and Pluto' },
+  { key: 'emb', name: 'Earth-Moon barycentre', short: 'EMB', of: 'earth', viewKm: 1.2e6, members: 'Earth and the Moon' },
+  { key: 'mars-bary', name: 'Mars barycentre', short: 'Barycentre', of: 'mars', viewKm: 9e4, members: 'Mars, Phobos and Deimos' },
+  { key: 'jupiter-bary', name: 'Jupiter barycentre', short: 'Barycentre', of: 'jupiter', viewKm: 5e6, members: 'Jupiter and its moons' },
+  { key: 'saturn-bary', name: 'Saturn barycentre', short: 'Barycentre', of: 'saturn', viewKm: 3.5e6, members: 'Saturn and its moons' },
+  { key: 'uranus-bary', name: 'Uranus barycentre', short: 'Barycentre', of: 'uranus', viewKm: 1.6e6, members: 'Uranus and its moons' },
+  { key: 'neptune-bary', name: 'Neptune barycentre', short: 'Barycentre', of: 'neptune', viewKm: 1e6, members: 'Neptune and its moons' },
+  { key: 'pluto-bary', name: 'Pluto barycentre', short: 'Barycentre', of: 'pluto', viewKm: 6e4, members: 'Pluto and its moons' },
+];
+export const BARY_BY_KEY = Object.fromEntries(BARYS.map((b) => [b.key, b])) as Record<BaryKey, BaryInfo>;
+export const isBary = (key: FocusKey): key is BaryKey => key in BARY_BY_KEY;
+export const focusName = (key: FocusKey): string => (isBary(key) ? BARY_BY_KEY[key].name : BODY_BY_KEY[key].name);
+// The body whose system a focus belongs to (a moon's planet, a
+// barycentre's body), for the rail's grouping.
+export const systemOf = (key: FocusKey): BodyKey => (isBary(key) ? BARY_BY_KEY[key].of : isPlanetMoon(key) ? BODY_BY_KEY[key].parent! : key);

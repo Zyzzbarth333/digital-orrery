@@ -38,11 +38,21 @@ that computes the value (the comment above each entry names the function).
 Unknown commands throw, so a typo fails `tex.test.mjs` rather than the
 page. The keys are literal types: a tag naming a missing entry fails `tsc`.
 
-**The font** is the system's math font: DejaVu Math TeX Gyre first (a sans
-face, nearest B612), then STIX Two Math (macOS), Cambria Math (Windows),
-Latin Modern Math, else the browser's `math`. A math font needs its
-OpenType MATH table to stretch brackets and radicals. Noto Sans Math is
-left out, because Chromium doesn't stretch with it. None is shipped.
+**The font** is DejaVu Math TeX Gyre, bundled as `src/app/fonts/DejaVuMathTeXGyre.woff2`
+(186 KB) under the name Orrery Math, so every machine sets the maths
+alike:
+- **Why it:** a sans math face, nearest B612, with the OpenType MATH table
+  a math font needs to stretch brackets and radicals.
+- **Loading:** an installed copy is used first; otherwise the browser
+  fetches the file only when an equation first shows, and STIX Two Math,
+  Cambria Math or Latin Modern Math stand in until it arrives.
+- **Left out:** Noto Sans Math, because Chromium doesn't stretch with it.
+- **The file:** the font's TrueType from DejaVu 2.37 (as Debian ships it),
+  converted to WOFF2 with fontTools. Every glyph and the MATH table are
+  kept, and none is changed.
+- **Licence:** Bitstream Vera; the DejaVu and math additions are public
+  domain. Its notice and licence are in `src/app/fonts/LICENSE-DejaVuMath.txt`,
+  and the Credits list names it.
 
 ## References
 
@@ -129,5 +139,8 @@ behind them. Textbooks are cited by section, not quoted.
   values and units.
 - W3C, *MathML Core* ([w3.org/TR/mathml-core](https://www.w3.org/TR/mathml-core/)):
   what `tex.js` writes.
+- DejaVu fonts, DejaVu Math TeX Gyre, and its licence
+  ([dejavu-fonts.github.io/License.html](https://dejavu-fonts.github.io/License.html)):
+  the equation face.
 - W3C, *WCAG 2.2*, Understanding 1.4.13, Content on Hover or Focus
   ([w3.org](https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html)).

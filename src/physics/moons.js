@@ -1,12 +1,17 @@
 // src/physics/moons.js
 //
 // The planets' major moons: where each one is about its planet, for the
-// scene (they carry no gravity in the kernel).
+// scene and for the spacecraft kernel (bodies.js, which gives each moon its
+// own pull near its planet).
 //
 //   moonStateEqj(key, date)      -> { r, v }  planetocentric J2000 equatorial
 //                                             (EQJ = ICRF axes), km and km/s
 //   planetCentreOffsetEqj(planet, date) -> [x, y, z] km: the planet's centre
 //                                             minus its system barycentre
+//   moonStateEqjAtTt(key, tt), systemEqjAtTt(planet, tt): the same at TT
+//                                             seconds past J2000 (the kernel's
+//                                             time; no UTC, no millisecond
+//                                             rounding of a Date)
 //
 // - Io, Europa, Ganymede and Callisto: astronomy-engine's JupiterMoons
 //   (Lieske's E5 theory as truncated in L1.2), jovicentric.
@@ -39,11 +44,10 @@ import { MOON_DATA } from './moons.data.js';
 
 const DEG = Math.PI / 180;
 const AU_KM = 149597870.7;
-const AU_PER_DAY_TO_KMS = AU_KM / 86400;
 const J2000_DAYS_TO_ASTRO = 0;          // AstroTime counts days from J2000 too
 
 // System GMs (DE442; bodies.js has the same), for the barycentre offset.
-const SYSTEM_GM = { mars: 4.28283758157561024e4, jupiter: 1.26712764099999979e8, saturn: 3.79405848417999968e7,
+export const SYSTEM_GM = { mars: 4.28283758157561024e4, jupiter: 1.26712764099999979e8, saturn: 3.79405848417999968e7,
   uranus: 5.79455639999999851e6, neptune: 6.83652710058039892e6, pluto: 975.5 };
 
 const AE_PLANET = { uranus: Astronomy.Body.Uranus, neptune: Astronomy.Body.Neptune, pluto: Astronomy.Body.Pluto };
@@ -97,12 +101,15 @@ function elementPosition(m, t, axes, fit) {
 }
 
 // State from mean elements: position, orbit pole and velocity (km/s, by a
-// central difference over a minute, so it carries the precessions too).
+// central difference over 10 s, so it carries the precessions too; the
+// difference's own error, (n dt)^2 / 6 of the speed, is 1e-7 of Phobos's).
+// The kernel interpolates the moons with cubic Hermite polynomials through
+// these states, which need velocities that match the positions.
 export function elementState(m, t, axes = planeAxes(m), fit = true) {
   const { r, h } = elementPosition(m, t, axes, fit);
-  const dt = 60 / 86400;
+  const dt = 10 / 86400;
   const a = elementPosition(m, t - dt, axes, fit).r, b = elementPosition(m, t + dt, axes, fit).r;
-  return { r, h, v: [(b[0] - a[0]) / 120, (b[1] - a[1]) / 120, (b[2] - a[2]) / 120] };
+  return { r, h, v: [(b[0] - a[0]) / 20, (b[1] - a[1]) / 20, (b[2] - a[2]) / 20] };
 }
 
 // Days TDB from J2000 at a UTC instant (TT; TDB differs by under 2 ms).
@@ -114,30 +121,50 @@ export function moonPositionEqj(key, date) {
   return elementPosition(MOON_DATA[key], tdbDays(date), AXES[key], true).r;
 }
 
-export function moonStateEqj(key, date) {
-  if (GALILEAN.has(key)) {
-    const s = Astronomy.JupiterMoons(date)[key];
-    return { r: [s.x * AU_KM, s.y * AU_KM, s.z * AU_KM], v: [s.vx * AU_PER_DAY_TO_KMS, s.vy * AU_PER_DAY_TO_KMS, s.vz * AU_PER_DAY_TO_KMS] };
-  }
+// JupiterMoons gives all four at once, and the kernel asks for each at the
+// same node times, so the last few answers are kept. Its velocities are
+// not the derivative of its positions (Callisto's differ by up to 3 m/s,
+// which bends a Hermite cubic through them by 0.4 km), so the velocity is a
+// central difference of the positions over 10 s, like the elements'.
+const JM_KEEP = 6, jmCache = [];
+function jupiterMoonsAt(tt) {
+  for (const c of jmCache) if (c.tt === tt) return c.m;
+  const m = Astronomy.JupiterMoons(Astronomy.AstroTime.FromTerrestrialTime(tt / 86400));
+  if (jmCache.push({ tt, m }) > JM_KEEP) jmCache.shift();
+  return m;
+}
+const JM_DT = 10;                       // s
+function galilean(key, tt) {
+  const s = jupiterMoonsAt(tt)[key], a = jupiterMoonsAt(tt - JM_DT)[key], b = jupiterMoonsAt(tt + JM_DT)[key];
+  const k = AU_KM / (2 * JM_DT);
+  return { r: [s.x * AU_KM, s.y * AU_KM, s.z * AU_KM], v: [(b.x - a.x) * k, (b.y - a.y) * k, (b.z - a.z) * k] };
+}
+
+export function moonStateEqjAtTt(key, tt) {
+  if (GALILEAN.has(key)) return galilean(key, tt);
   const m = MOON_DATA[key];
   if (!m) throw new Error(`moons: unknown moon '${key}'`);
-  return elementState(m, tdbDays(date), AXES[key]);
+  return elementState(m, tt / 86400, AXES[key]);
 }
+
+export const moonStateEqj = (key, date) => moonStateEqjAtTt(key, ttSeconds(date.getTime()));
 
 // A planet's system at once: each moon's planetocentric state and the
 // planet's centre about the system barycentre, -sum(GM_i s_i) / GM_system
 // (EQJ km, km/s).
-export function systemEqj(planet, date) {
+export function systemEqjAtTt(planet, tt) {
   const moons = {};
   const offset = { r: [0, 0, 0], v: [0, 0, 0] };
   for (const k of MOONS_OF[planet] ?? []) {
-    const s = moonStateEqj(k, date);
+    const s = moonStateEqjAtTt(k, tt);
     moons[k] = s;
     const f = MOON_DATA[k].gm / SYSTEM_GM[planet];
     for (let j = 0; j < 3; j++) { offset.r[j] -= f * s.r[j]; offset.v[j] -= f * s.v[j]; }
   }
   return { moons, offset };
 }
+
+export const systemEqj = (planet, date) => systemEqjAtTt(planet, ttSeconds(date.getTime()));
 
 export const planetCentreOffsetEqj = (planet, date) => systemEqj(planet, date).offset.r;
 

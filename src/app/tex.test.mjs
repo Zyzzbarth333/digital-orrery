@@ -15,6 +15,11 @@ ok('plain text of common forms', () => {
   assert.equal(tex('t = \\frac{d}{c}').text, 't = d/c');
   assert.equal(tex('r_\\text{SOI} = d\\left(\\frac{\\mu}{\\mu_\\text{primary}}\\right)^{2/5}').text, 'r_SOI = d(μ/μ_primary)^(2/5)');
   assert.equal(tex('-\\mu').text, '−μ');
+  // A power on a closing bar sits on it (it was read "|v_∞ |²").
+  assert.equal(tex('C_3 = |\\mathbf v_\\infty|^2').text, 'C₃ = |𝐯_∞|²');
+  // A sum still keeps its space, a sine its power.
+  assert.equal(tex('\\sum_i x').text, '∑ᵢ x');
+  assert.equal(tex('B\\sin^2\\varphi').text, 'B sin² φ');
 });
 
 ok('MathML structure', () => {

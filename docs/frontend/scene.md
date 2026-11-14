@@ -29,7 +29,8 @@ every frame:
 ## Frame and units
 
 The scene frame is heliocentric ecliptic J2000, with ecliptic north up on
-screen (three.js is $y$-up):
+screen (three.js is $y$-up); orbits and distances can be given about the
+solar system barycentre instead ([Barycentres](barycentres.md)):
 
 $$
 (x, y, z)_\text{render} = \frac{1}{1000\ \text{km}}\,
@@ -70,8 +71,28 @@ the sim time and relative to its parent (the Sun, or the planet for a moon),
 sampled at 360 points from the same ephemeris. It is drawn at the parent's
 current position. A line is resampled when the sim time moves more than 5% of
 a period from its centre (at most every 0.5 s a line, and for at most 2 ms
-a frame), so it always passes through the body. Because it is the ephemeris path and not a Kepler ellipse, it
+a frame), so it always passes close to the body. Because it is the ephemeris path and not a Kepler ellipse, it
 includes the perturbations the ephemeris has.
+
+Up close, 360 points are not enough. Each chord spans a degree of the orbit
+and bows up to $r(1 - \cos 0.5°)$ off the path: 5,700 km at 1 au, nearly
+the Earth's radius. Seen from near the planet, the line was bent and missed
+its centre. So the focused body's orbit, and its planet's when the focus is
+a moon, has a fine stretch drawn over it:
+- **Its extent:** 0.5 % of a period either side of the body, in 256 steps,
+  each 0.014°.
+- **Its precision:** the chords' bow is about a kilometre at 1 au, and the
+  vertices are stored relative to the stretch's centre, so float32 keeps
+  them to metres.
+- **Upkeep:** the stretch is resampled when the body has moved a fifth of
+  the way to its edge.
+- **Joining the coarse line:** the coarse line skips the same span (a `gap`
+  in `orbitTrail.ts`), and both share the trail's $u$, so the glow runs
+  across the join unbroken.
+
+Measured against the ephemeris (DE442 Earth table, 200 instants over 74
+days), the Earth sat up to 5,682 km off its 360-point line, and sits within
+1.1 km of the fine stretch.
 
 The line is a faint outline of the whole orbit with a glowing trail behind
 the body (`orbitTrail.ts`). Each vertex carries $u$, its time offset from the
