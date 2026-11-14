@@ -4,9 +4,10 @@
 `src/physics/kernelHost.js` and `kernel.worker.js` (running it in a Web
 Worker).
 
-A spacecraft is a test particle: it feels the Sun, the planets, the Moon
-and, near a planet that has them, that planet's major moons
-([below](#moons)), but does not pull on them. Their positions come from the ephemeris, so they
+A spacecraft is a test particle: it feels the Sun, the planets, the Moon,
+near a planet that has them that planet's major moons ([below](#moons)),
+and near one of them the sixteen most massive asteroids
+([below](#asteroids)), but does not pull on them. Their positions come from the ephemeris, so they
 move on their real paths throughout every step.
 
 ## Force model
@@ -427,6 +428,57 @@ evaluates a moon):
 - **Overall:** Cowell runs about 450 sim days a second there, against
   3,400 with the system folded up. That is still a year in under a second.
 
+## Asteroids
+
+The sixteen most massive asteroids are point masses in the kernel
+(`src/physics/asteroids.js`). They are the perturbers JPL's small-body
+integrations use with DE441: Ceres, Pallas, Juno, Vesta, Iris, Hygiea,
+Eunomia, Psyche, Euphrosyne, 52 Europa, Cybele, Sylvia, Thisbe, Camilla,
+Davida and Interamnia.
+
+- **GM:** the DE441 masses of the SB441-N16 perturber file, as NAIF's
+  `gm_de440.tpc` gives them (`BODY2000001_GM` etc.). Its sources list the
+  "SB441-N16 small-body integration perturber file (DE441 masses)". Ceres
+  62.63 km³/s², Vesta 17.29, Pallas 13.67, Hygiea 5.63, Psyche 1.59; the
+  smallest, Cybele, 0.94.
+- **Positions:** SB441's own, from the Chebyshev table `sbTable.js`
+  ([small bodies](../frontend/small-bodies.md#exact-positions-for-the-largest)),
+  within 1 km of SB441 from 2000 to 2050 and two-body from the table's
+  ends outside it. In the kernel each is a Hermite cubic through nodes a
+  day apart taken from the table (2×10⁻⁴ km from the series), which also
+  smooths the series' joins into a path with continuous velocity.
+- **Radius,** for impacts: half the diameter in JPL's Small-Body Database
+  (Vesta 261 km). They are spheres here, with no $J_2$, though Vesta's
+  $J_2$ is large; an orbit about one precesses less than it would.
+- **On by default,** whenever the table is installed (`deNode.js`,
+  `deLoad.js`). `solarSystemBodies({ asteroids: false })` leaves them
+  out; an array of keys takes just those.
+
+**Reach.** Like Pluto, each asteroid is in the body list only within
+`ASTEROID_REACH` = 1 AU of the craft, and leaves it beyond 1.2 AU. From
+1 AU Ceres pulls by 2.8×10⁻¹⁵ km/s², 0.1 km in a hundred days. All
+sixteen everywhere would make every force sum 25 bodies instead of 9, and
+the kernel about three times slower in low Earth orbit for nothing. From
+2000 to 2050 only Iris comes within 1 AU of the Earth (to 0.85 AU, on
+1.7 % of days), so near the Earth the list is what it was. The same `focus`
+check that splits the planets' systems moves each asteroid in or out, and
+is skipped until the craft could have reached an edge.
+`asteroidReach: Infinity` keeps them all in.
+
+**What they change** (`asteroids.test.mjs`):
+
+| Case | Result |
+| --- | --- |
+| 300 days of cruise from the Earth, 3 km/s faster | the asteroids, all in everywhere, move the craft 0.161 km; the 1 AU reach leaves out all of it |
+| a year on a circular orbit through the belt (2.6 AU) | 0.304 km; the reach leaves out 0.297 km |
+| a Dawn-like orbit about Vesta (950 km, 12.3 h, August 2011), two days | Vesta is the primary and Encke holds 950.0 km; without the asteroids the craft drifts 23,300 km away |
+| a Psyche-like approach (August 2029): 15,000 km out at 50 m/s, aimed 1,000 km off | pericentre 561.5 km (hourly samples) against the hyperbola's 560.3 km; without the asteroids it passes at 1,003 km |
+
+So in cruise the asteroids are well under a kilometre. At an asteroid they are the whole of the
+dynamics: each has a sphere of influence (Vesta's 39,000 km, Psyche's
+19,000 km), and inside it the kernel hands the craft to Encke's method
+about it, as about a planet.
+
 ## In the app: Web Worker, versions and drawing
 
 The kernel runs in a Web Worker (`kernel.worker.js` wrapping
@@ -547,3 +599,12 @@ relative).
 - E. Hairer, C. Lubich, G. Wanner, *Geometric Numerical Integration*, 2nd ed.
   (Springer, 2006): leapfrog, composition methods, energy behaviour.
 - Laplace's sphere of influence: Curtis, 4th ed., Section 8.4.
+- The asteroids' GMs: NAIF `gm_de440.tpc` (from `gm_Horizons.pck`, J.
+  Giorgini, SSD/JPL, 2022), source 3, "SB441-N16 small-body integration
+  perturber file (DE441 masses)".
+- Their positions: JPL's SB441 ephemerides,
+  [ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/),
+  documented in JPL IOM 392R-21-005 (D. Farnocchia, 2021).
+- JPL SSD, "Horizons" announcement of 2021 April 12: the switch to DE440/441
+  and the sixteen most massive small-body perturbers,
+  [ssd.jpl.nasa.gov/announcements/an20210412a.html](https://ssd.jpl.nasa.gov/announcements/an20210412a.html).

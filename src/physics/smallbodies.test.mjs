@@ -8,7 +8,7 @@
 //   node src/physics/smallbodies.test.mjs
 
 import fs from 'node:fs';
-import { decodeSmallBodies, positionAu, SB_EPOCH_JD, SB_CLASSES } from './smallBodies.js';
+import { decodeSmallBodies, keplerAu, SB_EPOCH_JD, SB_CLASSES } from './smallBodies.js';
 import { GRID, loadBelt, buildBelt } from './beltGrid.js';
 
 let failures = 0;
@@ -37,7 +37,7 @@ header('AGAINST JPL HORIZONS: the drawn orbits are two-body ellipses');
   let worst = 0;
   for (const [pdes, rows] of Object.entries(fx.bodies)) {
     const b = meta.named.find((n) => n.pdes === pdes);
-    const errs = rows.map((r) => dist(positionAu(b, r.jd), r.r));
+    const errs = rows.map((r) => dist(keplerAu(b, r.jd), r.r));
     worst = Math.max(worst, ...errs);
     console.log(`  ${b.name.padEnd(12)} ${errs.map((e, k) => `${['Jan 2026', 'Jul 2026', 'Jan 2027'][k]} ${(e * AU / 1000).toFixed(0).padStart(6)} thousand km`).join('   ')}  (${(errs.at(-1) / Math.hypot(...rows.at(-1).r) * 180 / Math.PI * 60).toFixed(2)}' as seen from the Sun)`);
   }
@@ -52,7 +52,7 @@ header('THE PACKING: 16 bytes a body');
   let worst = 0;
   for (const b of meta.named) {
     const p = { a: Math.fround(b.a), e: Math.round(b.e * 65535) / 65535, i: q(b.i), node: q(b.node), peri: q(b.peri), M: q(b.M) };
-    for (const days of [0, 365]) worst = Math.max(worst, dist(positionAu(p, SB_EPOCH_JD + days), positionAu(b, SB_EPOCH_JD + days)) / Math.hypot(...positionAu(b, SB_EPOCH_JD + days)));
+    for (const days of [0, 365]) worst = Math.max(worst, dist(keplerAu(p, SB_EPOCH_JD + days), keplerAu(b, SB_EPOCH_JD + days)) / Math.hypot(...keplerAu(b, SB_EPOCH_JD + days)));
   }
   console.log(`  named bodies, packed against full precision: worst ${(worst * 180 / Math.PI * 3600).toFixed(1)}" as seen from the Sun`);
   // A near-parabolic orbit magnifies the rounding of e (q = a (1 - e)); 2'
@@ -79,7 +79,7 @@ header("THE SHADER'S KEPLER SOLVE (Danby's start, 12 Newton steps, float32) agai
   for (const days of [-3650, 0, 2000, 3650]) {
     for (let j = 0; j < d.count; j++) {
       const b = { a: d.a[j], e: d.e[j], i: d.i[j], node: d.node[j], peri: d.peri[j], M: d.M[j] };
-      const err = dist(shader(j, days), positionAu(b, SB_EPOCH_JD + days)) / Math.hypot(...positionAu(b, SB_EPOCH_JD + days));
+      const err = dist(shader(j, days), keplerAu(b, SB_EPOCH_JD + days)) / Math.hypot(...keplerAu(b, SB_EPOCH_JD + days));
       if (err > worst) { worst = err; worstE = d.e[j]; }
       if (err > 1e-4) nWorse++;
     }
@@ -107,7 +107,7 @@ header("THE SHADER'S KEPLER SOLVE (Danby's start, 12 Newton steps, float32) agai
   // ...against the bodies' own, placed by the exact solution.
   let t0 = 0, t1 = [0, 0, 0], inside = 0;
   for (let j = 0; j < d.count; j++) {
-    const p = positionAu({ a: d.a[j], e: d.e[j], i: d.i[j], node: d.node[j], peri: d.peri[j], M: d.M[j] }, SB_EPOCH_JD + days);
+    const p = keplerAu({ a: d.a[j], e: d.e[j], i: d.i[j], node: d.node[j], peri: d.peri[j], M: d.M[j] }, SB_EPOCH_JD + days);
     const gx = (p[0] + halfXY) * nx / (2 * halfXY) - 0.5, gy = (p[1] + halfXY) * ny / (2 * halfXY) - 0.5, gz = (p[2] + halfZ) * nz / (2 * halfZ) - 0.5;
     if (gx < 0 || gy < 0 || gz < 0 || gx >= nx - 1 || gy >= ny - 1 || gz >= nz - 1) continue;
     const w = Math.pow(10, -0.4 * d.H[j]) / (p[0] ** 2 + p[1] ** 2 + p[2] ** 2);

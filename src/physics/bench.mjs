@@ -32,12 +32,12 @@ const scenarios = [
 // days, so ephemeris nodes are fetched as it goes. Advance 90 days in 10-day
 // chunks and report the median of the last five (after V8 has compiled the
 // hot code), as CPU time of this process (other load skews it less).
-const steady = (r, v, o) => {
+const steady = (r, v, o, s = sys) => {
   const st = createState(r, v, 0);
   const perDay = [];
   for (let c = 0; c < 9; c++) {
     const c0 = process.cpuUsage();
-    advance(st, st.t + 10 * DAY, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e8, ...o });
+    advance(st, st.t + 10 * DAY, { bodiesAt: s.bodiesAt, muSun: s.muSun, maxSteps: 1e8, ...o });
     const u = process.cpuUsage(c0);
     perDay.push((u.user + u.system) / 1000 / 10);
   }
@@ -47,6 +47,15 @@ const steady = (r, v, o) => {
 for (const [name, r, v] of scenarios) {
   const c = steady(r, v, { encke: false }), e = steady(r, v, {});
   console.log(`kernel ${name.padEnd(26)} Cowell ${c.toFixed(0).padStart(7)} sim days/s | hybrid ${e.toFixed(0).padStart(7)} sim days/s`);
+}
+// The same without the sixteen asteroids (asteroids: false): what their
+// place in every force sum costs.
+{
+  const bare = solarSystemBodies({ epochMs: Date.UTC(2026, 10, 12), asteroids: false });
+  for (const [name, r, v] of [scenarios[0], scenarios[2]]) {
+    const c = steady(r, v, { encke: false }, bare), e = steady(r, v, {}, bare);
+    console.log(`kernel ${(name + ', no asteroids').padEnd(26)} Cowell ${c.toFixed(0).padStart(7)} sim days/s | hybrid ${e.toFixed(0).padStart(7)} sim days/s`);
+  }
 }
 
 // Among Jupiter's moons: a craft on a 1.5 million km orbit about Jupiter

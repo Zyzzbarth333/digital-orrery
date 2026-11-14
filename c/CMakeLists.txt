@@ -35,3 +35,10 @@ target_link_libraries(de_cheb PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
 target_compile_options(de_cheb PRIVATE -O2 -Wall -Wextra)
 target_compile_definitions(de_cheb PRIVATE
   ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")
+
+# SB441's largest asteroids as Chebyshev series for the app
+# (docs/frontend/small-bodies.md).
+add_executable(sb_cheb sb_cheb.c)
+target_include_directories(sb_cheb PRIVATE "${CSPICE_ROOT}/include")
+target_link_libraries(sb_cheb PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
+target_compile_options(sb_cheb PRIVATE -O2 -Wall -Wextra)

@@ -33,11 +33,17 @@
 // ecliptic (x, z, -y).
 
 import * as THREE from 'three';
-import { positionAu, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '../physics/smallBodies.js';
+import { exactOrbit, positionAu, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '../physics/smallBodies.js';
 import { ttMinusUtc } from '../physics/timescale.js';
 import { BeltHaze } from './beltHaze';
 
-const AU_KM = 149597870.7;
+const AU_KM = 149597870.7, TAU = 2 * Math.PI;
+// The points of the bodies SB441's table covers (Ceres, Vesta, Eris and the
+// rest) get their elements afresh from it once the clock has moved this
+// far, so each stays on its exact track and under its label: carried five
+// days, the osculating ellipse drifts by under 40 km, far under the
+// packing's own rounding (0.0055 degrees, 40,000 km at Ceres).
+const EXACT_REFRESH_DAYS = 5;
 const UNIT_KM = 1000;
 export type SmallBodyGroup = keyof typeof SB_GROUPS;
 export const SMALL_BODY_GROUPS: SmallBodyGroup[] = ['belt', 'neo', 'trojans', 'outer', 'comets'];
@@ -166,6 +172,10 @@ export class SmallBodyLayer {
   // The faint main belt, drawn as a haze from its real orbits.
   private haze: BeltHaze;
   private sunRender = new THREE.Vector3();
+  // The points refreshed from SB441's table: index and designation, and the
+  // time they were last refreshed for.
+  private exact: { j: number; pdes: string }[] = [];
+  private exactJd = NaN;
 
   // Adds itself to the scene once the data has loaded.
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, baseUrl = '') {
@@ -192,6 +202,7 @@ export class SmallBodyLayer {
       const [bin, meta] = await Promise.all([get('smallbodies.bin'), fetch(`${baseUrl}data/smallbodies.json`).then((r) => r.json())]);
       this.show(bin);
       this.named = meta.named;
+      this.findExact();
       for (const b of this.named) {
         const el = document.createElement('div');
         el.className = 'body-marker small-body';
@@ -209,6 +220,45 @@ export class SmallBodyLayer {
     } catch (err) {
       console.warn(`small bodies not loaded: ${err}`);
     }
+  }
+
+  // The named bodies SB441's table covers, found among the points by their
+  // packed a, e and perihelion argument (the build packs the named ones'
+  // own elements).
+  private findExact(): void {
+    if (!this.points) return;
+    const g = this.points.geometry, aA = g.getAttribute('aA').array as Float32Array, aOrb = g.getAttribute('aOrb').array as Uint16Array;
+    const u16 = (x: number) => Math.max(0, Math.min(65535, Math.round(x)));
+    const wrap = (x: number) => ((x % TAU) + TAU) % TAU;
+    this.exact = [];
+    for (const b of this.named) {
+      if (!exactOrbit(b.pdes, SB_EPOCH_JD)) continue;
+      const a = Math.fround(b.a), e = u16(b.e * 65535), w = u16(wrap(b.peri) / TAU * 65535);
+      for (let j = 0; j < this.count; j++) {
+        if (aA[j] === a && aOrb[j * 4] === e && aOrb[j * 4 + 3] === w) { this.exact.push({ j, pdes: b.pdes }); break; }
+      }
+    }
+    this.exactJd = NaN;
+  }
+
+  // Their elements from the table at the clock, packed as the build packs
+  // them, and only their bytes sent to the GPU.
+  private refreshExact(): void {
+    if (!this.points || !this.exact.length || Math.abs(this.jd - this.exactJd) < EXACT_REFRESH_DAYS) return;
+    const g = this.points.geometry;
+    const A = g.getAttribute('aA') as THREE.BufferAttribute, O = g.getAttribute('aOrb') as THREE.BufferAttribute, Mt = g.getAttribute('aM') as THREE.BufferAttribute;
+    const aA = A.array as Float32Array, aOrb = O.array as Uint16Array, aM = Mt.array as Uint16Array;
+    const q = (x: number) => Math.max(0, Math.min(65535, Math.round(x * 65535)));
+    for (const { j, pdes } of this.exact) {
+      const el = exactOrbit(pdes, this.jd);
+      if (!el || !(el.e < 1)) continue;
+      aA[j] = el.a;
+      aOrb[j * 4] = q(el.e); aOrb[j * 4 + 1] = q(el.i / TAU); aOrb[j * 4 + 2] = q(el.node / TAU); aOrb[j * 4 + 3] = q(el.peri / TAU);
+      aM[j] = q(el.M / TAU);
+      A.addUpdateRange(j, 1); O.addUpdateRange(j * 4, 4); Mt.addUpdateRange(j, 1);
+    }
+    A.needsUpdate = O.needsUpdate = Mt.needsUpdate = true;
+    this.exactJd = this.jd;
   }
 
   // The packed bodies (16 bytes each, smallbodies.build.mjs) as the points'
@@ -299,6 +349,7 @@ export class SmallBodyLayer {
     this.camAu = [cam[0] / AU_KM, cam[1] / AU_KM, cam[2] / AU_KM];
     const u = this.material.uniforms;
     u.uDays.value = this.jd - SB_EPOCH_JD;
+    this.refreshExact();
     (u.uCam.value as THREE.Vector3).set(...this.camAu);
     u.uLevel.value = level;
     u.uVis.value = visibility;
