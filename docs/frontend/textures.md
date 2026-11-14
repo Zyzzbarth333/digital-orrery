@@ -37,7 +37,7 @@ attribution, with a link to the licence; the app's Credits list gives both.
 | Charon | New Horizons LORRI/MVIC mosaic, 300 m/px (2048×1024 grey) | USGS map server | NASA/JHUAPL/SwRI, USGS Astrogeology |
 | Saturn's rings | Normal optical depth, 10 km bins | Cassini UVIS 126 Tau egress occultation (COUVIS_8001) | NASA PDS Ring-Moon Systems Node (Colwell et al.) |
 | Stars | The Hipparcos main catalogue: 83,392 stars to V 9 with V and B−V | ESA 1997 (SP-1200), via NASA HEASARC | ESA, *The Hipparcos and Tycho Catalogues* (1997) |
-| Milky Way | 4096×2048 linear map of the light between the stars (Hipparcos and Tycho stars removed) | Deep Star Maps 2020, Milky Way layer (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
+| Milky Way | Map of the light between the stars (Hipparcos and Tycho stars removed), 8192×4096, refined to 16384×8192 in tiles where the screen can show it | Deep Star Maps 2020, Milky Way layer (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
 
 The Venus surface is not shown: in visible light Venus is its cloud deck.
 No Sun map is used, since at its true brightness the disc saturates to
@@ -188,17 +188,23 @@ The ring photometry, transparency and shadow on Saturn are in
 ## Stars
 
 The sky is two layers, both downloaded with the user's approval on
-14 November 2026 and kept as originals in the texture source folder:
+14 November 2026 and kept as originals in the texture source folder (the
+8k and 16k Milky Way the same afternoon; the 4k one is kept as the white
+reference):
 
 | Layer | Source | Download | Shipped |
 | --- | --- | --- | --- |
-| The light between the stars | NASA SVS Deep Star Maps 2020, Milky Way layer `milkyway_2020_4k.exr` (the full star map with the Hipparcos and Tycho stars taken out) | 36.4 MB | `stars/milky-way.webp`, 4096 × 2048 8-bit sRGB, 3.0 MB |
+| The light between the stars | NASA SVS Deep Star Maps 2020 ([SVS 4851](https://svs.gsfc.nasa.gov/4851/)), Milky Way layer `milkyway_2020_8k.exr` and `milkyway_2020_16k.exr` (the full star map with the Hipparcos and Tycho stars taken out); `_4k.exr` for the white | 137.3 MB, 434.0 MB (4k: 36.4 MB) | `stars/milky-way-8k.webp`, 8192 × 4096 8-bit sRGB, 14.9 MB; `stars/milky-way-16k/`, 128 tiles of 1024 × 1024 (1028 with their edges), 58 MB in all |
 | The stars | The Hipparcos main catalogue (ESA 1997), 118,218 stars, from NASA HEASARC (`heasarc_hipparcos.tdat.gz`) | 14.8 MB | `stars/hipparcos.bin`, the 83,392 stars to V 9.0, 0.83 MB |
 
 **The Milky Way map** is plate carrée in ICRF (J2000 equatorial), centred on
-RA 0h with RA increasing to the left, in linear half-float light. It is
-written as sRGB with its brightest 0.01 % at white; the scene draws it at
-half that (lighting.md). Stars fainter than Tycho's limit stay in it as
+RA 0h with RA increasing to the left, in linear half-float light. Its
+pixels hold light per pixel, not per steradian: each doubling of the
+resolution quarters them (an 8k map averaged down to 4k matches the 4k map
+to within 1 %). So the 8k map is multiplied by 4 and the 16k by 16, and
+both are written as sRGB with the 4k map's white, its brightest 0.01 %
+(0.013 % of the 8k pixels then clip, 0.1 % of the light). The scene draws
+it at half that (lighting.md), as before. Stars fainter than Tycho's limit stay in it as
 unresolved light, so the Milky Way's grain is real; stars between V 9 and
 Tycho's limit (about V 11.5) are in neither layer, which at the scene's
 display level is below visibility anyway.
@@ -219,7 +225,7 @@ gives 5,778 K and (1.11, 0.98, 0.91), against (1.10, 0.98, 0.94) from the
 Sun's measured chromaticity ([lighting](lighting.md#the-sun)).
 
 **Credits**, as the SVS page asks (checked 14 November 2026; it states no
-licence terms beyond credit): NASA/Goddard Space Flight Center Scientific
+licence terms beyond credit; the 8k and 16k maps are the same product): NASA/Goddard Space Flight Center Scientific
 Visualization Studio; Gaia DR2: ESA/Gaia/DPAC. Hipparcos: ESA 1997, *The
 Hipparcos and Tycho Catalogues*, ESA SP-1200, via NASA HEASARC; ESA makes the
 catalogue freely available with this acknowledgement.
@@ -250,6 +256,36 @@ and loading them used to freeze the page for up to two seconds. Now:
   previous one (78 MB) is freed when the month changes.
 - **A lost WebGL context** takes these textures with it, so on restore the
   maps load again.
+
+### Loading the sky
+
+The field of view is fixed at 45° vertically, so the sky's magnification
+depends only on the canvas's height in device pixels. The 8k Milky Way has
+22.8 texels a degree: about one a pixel on a 1080-line canvas (24 px a
+degree), and it loads at start like the other maps (179 MB with mipmaps,
+against 45 MB for the old 4k). On a taller canvas (a 1440-line screen, or
+a 2× display) its texels are magnified, and the full 16k map would take
+0.7 GB of video memory with mipmaps, more than an integrated GPU should
+give a backdrop. So the 16k map is cut into 1024-px tiles, each stored
+with 2 px of its neighbours on every side (wrapped in RA, repeated at the
+poles) so filtering never sees a seam, and `skyDetail.ts` keeps only those
+in view:
+
+- **When.** The tiles are used while a pixel, at the canvas's full
+  resolution (not the adaptive render scale's), is under 0.8 of a base
+  texel: canvases taller than about 1,300 device pixels. Otherwise their
+  memory is freed.
+- **Which.** Each frame 25 × 15 view directions are mapped to tiles, and
+  only directions where a pixel is under two 16k texels count (near the
+  poles the map is stretched across, and the 8k map suffices). The most
+  wanted tiles are fetched and decoded in the worker, three at a time, and
+  uploaded one a frame (4.2 MB) into a texture array of 24 layers (101 MB,
+  one level). A tile out of view gives its layer to a new one, the longest
+  unseen first.
+- **How.** The shader treats a tile as the base map's missing finer mip
+  level: from the base's own derivatives it finds the 16k level of detail
+  λ and mixes in the tile by 1 − λ (all tile at λ ≤ 0, all base at λ ≥ 1).
+  Where a tile has not arrived the base shows, slightly softer.
 
 ## Rebuilding
 

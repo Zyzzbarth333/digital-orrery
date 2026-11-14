@@ -267,14 +267,41 @@ BODIES = {
 }
 
 
-def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0):
+def _srgb8(lin: np.ndarray) -> np.ndarray:
+    lin = np.clip(lin, 0, 1)
+    return np.rint(255 * np.where(lin <= 0.0031308, 12.92 * lin, 1.055 * lin ** (1 / 2.4) - 0.055)).astype(np.uint8)
+
+
+def _milky_way(src: Path, n: int) -> np.ndarray:
+    """The Milky Way layer at n x n/2 as linear float16 RGB, read from the
+    SVS EXR (decoded once into the work folder)."""
+    import json
+    import subprocess
+    raw = src / "_work" / f"milkyway{n // 1024}k.f16"
+    raw.parent.mkdir(exist_ok=True)
+    if not raw.exists():
+        subprocess.run(["node", str(Path(__file__).with_name("exr_to_f32.mjs")),
+                        str(src / f"milkyway_2020_{n // 1024}k.exr"), str(raw), "--half"], check=True)
+    size = json.loads(Path(f"{raw}.json").read_text())
+    assert (size["width"], size["height"]) == (n, n // 2), size
+    return np.memmap(raw, dtype=np.float16, mode="r", shape=(n // 2, n, 3))
+
+
+def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, detail=16384, tile=1024, gutter=2):
     """The sky in two layers (docs/frontend/textures.md#stars).
 
     The light between the stars: NASA SVS Deep Star Maps 2020, the Milky Way
-    layer (milkyway_2020_4k.exr), which is the full star map with the
+    layer (milkyway_2020_<n>k.exr), which is the full star map with the
     Hipparcos and Tycho stars taken out; linear half-float, ICRF plate
-    carree, RA 0h at the centre and increasing to the left. Written as 8-bit
-    sRGB with its brightest 0.01 % at white.
+    carree, RA 0h at the centre and increasing to the left. Its pixels hold
+    light per pixel, not per steradian: each doubling of the resolution
+    quarters them. So each map is multiplied by (n / 4096)^2 and written as
+    8-bit sRGB with the white of the 4096-wide map, its brightest 0.01 %
+    (0.013 % of the 8192-wide pixels then clip).
+    Two products: a `base`-wide map, and the `detail`-wide map cut into
+    `tile`-square tiles, each with `gutter` pixels of its neighbours on
+    every side (wrapped in RA, repeated at the poles) so the app can filter
+    across tile edges. Tile files are <row>-<col>.webp, row 0 at the north.
 
     The stars: the Hipparcos main catalogue (ESA 1997), 118,218 stars, via
     NASA HEASARC (heasarc_hipparcos.tdat.gz). Stars to V `vmax` are kept,
@@ -282,23 +309,41 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0):
     and int16 B-V x 1000 (-32768 where the catalogue has none): 10 bytes a
     star. The app turns B-V into a colour (stars.ts)."""
     import gzip
-    import json
-    import subprocess
-    exr = src / "milkyway_2020_4k.exr"
-    raw = src / "_work" / "milkyway.f32"
-    raw.parent.mkdir(exist_ok=True)
-    if not raw.exists():
-        subprocess.run(["node", str(Path(__file__).with_name("exr_to_f32.mjs")), str(exr), str(raw)], check=True)
-    size = json.loads(raw.with_suffix(".f32.json").read_text())
-    a = np.maximum(np.fromfile(raw, dtype=np.float32).reshape(size["height"], size["width"], 3), 0.0)
-    scale = 1.0 / np.percentile(a.max(axis=2), 99.99)
-    lin = np.clip(a * scale, 0, 1)
-    srgb = np.where(lin <= 0.0031308, 12.92 * lin, 1.055 * lin ** (1 / 2.4) - 0.055)
-    img = Image.fromarray(np.rint(srgb * 255).astype(np.uint8), "RGB")
-    m = out / "stars" / "milky-way.webp"
+    import shutil
+    # The white of the 4096-wide map (its brightest 0.01 %), carried to the
+    # finer maps by their pixel areas, so the sky looks as it did.
+    a4 = np.asarray(_milky_way(src, 4096), dtype=np.float32)
+    scale = (base / 4096) ** 2 / float(np.percentile(a4.max(axis=2), 99.99))
+    del a4
+    a = _milky_way(src, base)
+    img = Image.fromarray(_srgb8(np.asarray(a, dtype=np.float32) * scale), "RGB")
+    m = out / "stars" / f"milky-way-{base // 1024}k.webp"
     m.parent.mkdir(parents=True, exist_ok=True)
     img.save(m, "WEBP", quality=92, method=6)
-    print(f"  wrote stars/milky-way.webp {img.size[0]}x{img.size[1]} {m.stat().st_size / 1e6:.1f} MB")
+    old = out / "stars" / "milky-way.webp"          # the earlier 4096-wide map
+    if old.exists():
+        old.unlink()
+    print(f"  wrote {m.relative_to(out)} {img.size[0]}x{img.size[1]} {m.stat().st_size / 1e6:.1f} MB")
+    del a, img
+
+    # The detail tiles, at the same white (scale per base pixel / 4 per doubling).
+    d = _milky_way(src, detail)
+    dscale = scale * (detail / base) ** 2
+    rows, cols = detail // 2 // tile, detail // tile
+    tdir = out / "stars" / f"milky-way-{detail // 1024}k"
+    shutil.rmtree(tdir, ignore_errors=True)
+    tdir.mkdir(parents=True)
+    total = 0
+    for r in range(rows):
+        y = np.clip(np.arange(r * tile - gutter, (r + 1) * tile + gutter), 0, detail // 2 - 1)
+        band = np.asarray(d[y], dtype=np.float32) * dscale
+        band = _srgb8(band)
+        for c in range(cols):
+            x = np.arange(c * tile - gutter, (c + 1) * tile + gutter) % detail
+            t = tdir / f"{r}-{c}.webp"
+            Image.fromarray(np.ascontiguousarray(band[:, x]), "RGB").save(t, "WEBP", quality=90, method=6)
+            total += t.stat().st_size
+    print(f"  wrote {tdir.relative_to(out)}/ {rows}x{cols} tiles of {tile}+2x{gutter} px, {total / 1e6:.1f} MB")
 
     names = None
     rows = []
@@ -342,10 +387,13 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0):
         old.unlink()
     print(f"  wrote stars/hipparcos.bin: {len(vm)} of {len(rows)} stars to V {vmax}, "
           f"{np.isnan(bv).sum()} without B-V, {p.stat().st_size / 1e6:.2f} MB")
-    return {"map": "stars/milky-way.webp", "raAtLeftDeg": 180.0, "raIncreasesRight": False, "gain": 1.0,
+    return {"map": f"stars/milky-way-{base // 1024}k.webp", "raAtLeftDeg": 180.0, "raIncreasesRight": False, "gain": 1.0,
+            "detail": {"tiles": f"stars/milky-way-{detail // 1024}k/{{row}}-{{col}}.webp", "width": detail,
+                       "tile": tile, "gutter": gutter},
             "points": "stars/hipparcos.bin", "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000",
             "pointCount": int(len(vm)),
-            "credit": "Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020; "
+            "credit": "Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020 "
+                      "(SVS 4851, Milky Way layer at 8k and 16k); "
                       "Gaia DR2: ESA/Gaia/DPAC. Stars: the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC."}
 
 

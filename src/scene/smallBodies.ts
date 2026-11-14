@@ -33,8 +33,9 @@
 // ecliptic (x, z, -y).
 
 import * as THREE from 'three';
-import { decodeSmallBodies, positionAu, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD } from '../physics/smallBodies.js';
+import { positionAu, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '../physics/smallBodies.js';
 import { ttMinusUtc } from '../physics/timescale.js';
+import { BeltHaze } from './beltHaze';
 
 const AU_KM = 149597870.7;
 const UNIT_KM = 1000;
@@ -60,9 +61,14 @@ const LABEL_NEAR_AU = 1.5;
 interface Named { pdes: string; name: string; kind: string; cls: string; a: number; e: number; i: number; node: number; peri: number; M: number; H: number | null }
 
 const VERTEX = /* glsl */ `
-  attribute vec4 elA;          // a (au), e, i, node (rad)
-  attribute vec4 elB;          // peri, M at the epoch (rad), H (a comet's M1), population
-  attribute float k1;          // a comet's K1
+  // The packed file's fields, as they are (16 bytes a body on the GPU):
+  attribute float aA;          // a (au)
+  attribute vec4 aOrb;         // e, i, node, peri: 0-1 of 1 and of a turn
+  attribute float aM;          // M at the epoch: 0-1 of a turn
+  attribute vec2 aHC;          // H byte ((H + 2) x 7), class byte (class | K1 code << 5)
+  uniform float uGroupOf[20];  // population of each SBDB class
+  uniform float uK1[8];        // a comet's K1 by code
+  uniform float uByGroup;      // 1: population colours; 0: natural ones
   uniform float uDays;         // days (TT) since the epoch
   uniform vec3 uCam;           // the camera, heliocentric ecliptic (au)
   uniform float uScale;        // render units per au
@@ -70,57 +76,72 @@ const VERTEX = /* glsl */ `
   uniform float uVis;          // the eye's adaptation
   uniform float uSize;         // sprite size, device px
   uniform float uPeakScale;    // keeps a point's light when its width is floored
+  uniform float uPointMin;     // the faintest peak drawn: the budget's cut-off
   uniform vec3 uColour[5];
   uniform float uOn[5];
   varying vec3 vColour;
+  varying float vSize;
   float lg(float x) { return log2(x) * 0.30102999566; }
   void main() {
-    int g = int(elB.w + 0.5);
+    const float TAU = 6.283185307;
+    int cls = int(mod(aHC.y, 32.0) + 0.5);
+    int g = int(uGroupOf[cls] + 0.5);
     float on = g == 0 ? uOn[0] : g == 1 ? uOn[1] : g == 2 ? uOn[2] : g == 3 ? uOn[3] : uOn[4];
     if (on < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vColour = vec3(0.0); return; }
-    float a = elA.x, e = elA.y;
+    float a = aA, e = aOrb.x, H = aHC.x / 7.0 - 2.0;
     float n = 0.01720209895 / (a * sqrt(a));
-    float M = mod(elB.y + n * uDays, 6.283185307);
-    // Danby's starting guess, then Newton: converges in a few steps even
-    // for a comet near perihelion (from pi, 12 steps left them 1.5' off).
+    float M = mod(aM * TAU + n * uDays, TAU);
+    // Danby's starting guess, then Newton until it stops moving: two or
+    // three steps for most asteroids, up to 12 for a comet near perihelion.
     float E = M + 0.85 * e * (sin(M) < 0.0 ? -1.0 : 1.0);
-    for (int k = 0; k < 12; k++) E -= (E - e * sin(E) - M) / (1.0 - e * cos(E));
+    for (int k = 0; k < 12; k++) {
+      float dE = (E - e * sin(E) - M) / (1.0 - e * cos(E));
+      E -= dE;
+      if (abs(dE) < 1e-6) break;
+    }
     float x = a * (cos(E) - e), y = a * sqrt(1.0 - e * e) * sin(E);
-    float cw = cos(elB.x), sw = sin(elB.x), cn = cos(elA.w), sn = sin(elA.w), ci = cos(elA.z), si = sin(elA.z);
+    float inc = aOrb.y * TAU, node = aOrb.z * TAU, peri = aOrb.w * TAU;
+    float cw = cos(peri), sw = sin(peri), cn = cos(node), sn = sin(node), ci = cos(inc), si = sin(inc);
     float xp = cw * x - sw * y, yp = sw * x + cw * y;
     vec3 ecl = vec3(cn * xp - sn * ci * yp, sn * xp + cn * ci * yp, si * yp);
     // From the camera (au), then ecliptic -> render (x, z, -y).
     vec3 rel = ecl - uCam;
     gl_Position = projectionMatrix * viewMatrix * vec4(vec3(rel.x, rel.z, -rel.y) * uScale, 1.0);
-    gl_PointSize = uSize;
     // Its magnitude from the camera.
     float r = max(length(ecl), 1e-6), d = max(length(rel), 1e-9), mag;
     if (g == 4) {
-      mag = elB.z + 5.0 * lg(d) + k1 * lg(r);
+      mag = H + 5.0 * lg(d) + uK1[int(floor(aHC.y / 32.0) + 0.5)] * lg(r);
     } else {
       // Phase angle (Sun-body-camera), and the H-G system with G = 0.15;
       // tan(a/2) from cos a directly, which stays right next to 180 deg.
       float c = clamp(dot(ecl, rel) / (r * d), -1.0, 1.0);
       float t = sqrt(max(1.0 - c, 0.0) / max(1.0 + c, 1e-12));
       float phi = 0.85 * exp(-3.33 * pow(max(t, 1e-6), 0.63)) + 0.15 * exp(-1.87 * pow(max(t, 1e-6), 1.22));
-      mag = elB.z + 5.0 * lg(r * d) - 2.5 * lg(max(phi, 1e-9));
+      mag = H + 5.0 * lg(r * d) - 2.5 * lg(max(phi, 1e-9));
     }
     // Metered for sunlight at the camera (as the exposure is: no closer than
     // 0.2 au), then half the magnitude range.
     float dc = max(0.2, length(uCam));
     float peak = min(${PEAK_REF.toFixed(4)} * pow(10.0, -0.4 * ${RANGE.toFixed(2)} * (mag - 5.0 * lg(dc) - ${M_REF.toFixed(1)})), ${PEAK_MAX.toFixed(1)}) * uVis;
-    // Too faint to show: not drawn at all.
-    if (peak * 512.0 < 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vColour = vec3(0.0); return; }
-    vec3 col = g == 0 ? uColour[0] : g == 1 ? uColour[1] : g == 2 ? uColour[2] : g == 3 ? uColour[3] : uColour[4];
+    // Too faint to show, or under the budget's cut-off: not drawn at all
+    // (drawing points, not working them out, is what costs).
+    if (peak < max(uPointMin, 1.0 / 512.0)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vColour = vec3(0.0); return; }
+    // A dim point's glow is all core: a 3-pixel sprite carries it.
+    gl_PointSize = peak < 0.3 ? min(uSize, 3.0) : uSize;
+    vSize = gl_PointSize;
+    // Natural colours: asteroids a warm grey (the mean of the S and C
+    // types), comets a pale blue-white; or each population's own.
+    vec3 col = uByGroup < 0.5 ? (g == 4 ? vec3(0.62, 0.70, 0.80) : vec3(0.68, 0.64, 0.58))
+      : g == 0 ? uColour[0] : g == 1 ? uColour[1] : g == 2 ? uColour[2] : g == 3 ? uColour[3] : uColour[4];
     vColour = col * (peak * uLevel * uPeakScale);
   }`;
 
 const FRAGMENT = /* glsl */ `
   uniform float uSigma;        // device px
-  uniform float uSize;
   varying vec3 vColour;
+  varying float vSize;
   void main() {
-    vec2 d = (gl_PointCoord - 0.5) * uSize;
+    vec2 d = (gl_PointCoord - 0.5) * vSize;
     gl_FragColor = vec4(vColour * exp(-dot(d, d) / (2.0 * uSigma * uSigma)), 1.0);
     // Drawn straight to the screen, no output pass applies the exposure the
     // level divided by: apply it here and write the display value as it is.
@@ -142,6 +163,9 @@ export class SmallBodyLayer {
   private camAu: [number, number, number] = [0, 0, 0];
   private jd = SB_EPOCH_JD;
   private tmp = new THREE.Vector3();
+  // The faint main belt, drawn as a haze from its real orbits.
+  private haze: BeltHaze;
+  private sunRender = new THREE.Vector3();
 
   // Adds itself to the scene once the data has loaded.
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, baseUrl = '') {
@@ -152,39 +176,21 @@ export class SmallBodyLayer {
       transparent: false, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
       uniforms: {
         uDays: { value: 0 }, uCam: { value: new THREE.Vector3() }, uScale: { value: AU_KM / UNIT_KM }, uLevel: { value: 1 }, uVis: { value: 1 },
-        uSigma: { value: 1 }, uSize: { value: 7 }, uPeakScale: { value: 1 },
+        uSigma: { value: 1 }, uSize: { value: 7 }, uPeakScale: { value: 1 }, uPointMin: { value: 0 },
         uColour: { value: SMALL_BODY_GROUPS.map((g) => new THREE.Vector3(...COLOUR[g])) }, uOn: { value: SMALL_BODY_GROUPS.map(() => 1) },
+        uGroupOf: { value: SB_CLASSES.map((c) => Math.max(0, SMALL_BODY_GROUPS.findIndex((g) => (SB_GROUPS[g] as string[]).includes(c)))) },
+        uK1: { value: [...SB_K1] }, uByGroup: { value: 0 },
       },
     });
+    this.haze = new BeltHaze(scene);
     void this.load(baseUrl);
   }
 
   private async load(baseUrl: string): Promise<void> {
     try {
-      const [bin, meta] = await Promise.all([
-        fetch(`${baseUrl}data/smallbodies.bin`).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); }),
-        fetch(`${baseUrl}data/smallbodies.json`).then((r) => r.json()),
-      ]);
-      const d = decodeSmallBodies(bin);
-      const groupOf = SB_CLASSES.map((c) => Math.max(0, SMALL_BODY_GROUPS.findIndex((g) => (SB_GROUPS[g] as string[]).includes(c))));
-      const elA = new Float32Array(d.count * 4), elB = new Float32Array(d.count * 4);
-      for (let j = 0; j < d.count; j++) {
-        elA.set([d.a[j], d.e[j], d.i[j], d.node[j]], j * 4);
-        elB.set([d.peri[j], d.M[j], d.H[j], groupOf[d.cls[j]]], j * 4);
-      }
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(d.count * 3), 3));
-      g.setAttribute('elA', new THREE.BufferAttribute(elA, 4));
-      g.setAttribute('elB', new THREE.BufferAttribute(elB, 4));
-      g.setAttribute('k1', new THREE.BufferAttribute(d.k1, 1));
-      this.points = new THREE.Points(g, this.material);
-      this.points.frustumCulled = false;
-      this.points.renderOrder = -998;          // after the stars (-1000, -999)
-      // The labels are placed as the points are drawn, when the camera's
-      // matrices are those of this frame.
-      this.points.onBeforeRender = (renderer, _scene, camera) => this.label(renderer, camera);
-      this.scene.add(this.points);
-      this.count = d.count;
+      const get = (f: string) => fetch(`${baseUrl}data/${f}`).then((r) => { if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`); return r.arrayBuffer(); });
+      const [bin, meta] = await Promise.all([get('smallbodies.bin'), fetch(`${baseUrl}data/smallbodies.json`).then((r) => r.json())]);
+      this.show(bin);
       this.named = meta.named;
       for (const b of this.named) {
         const el = document.createElement('div');
@@ -195,10 +201,76 @@ export class SmallBodyLayer {
         this.overlay.appendChild(el);
         this.markers.set(b.pdes, el);
       }
+      // Then the faint main belt, about 1.45 million more: too faint to see
+      // one by one, so they are drawn as a haze from their real orbits.
+      try {
+        this.haze.setBodies(await get('smallbodies-belt.bin'));
+      } catch (err) { console.warn(`faint main belt not loaded: ${err}`); }
     } catch (err) {
       console.warn(`small bodies not loaded: ${err}`);
     }
   }
+
+  // The packed bodies (16 bytes each, smallbodies.build.mjs) as the points'
+  // attributes, straight from their bytes.
+  private show(buffer: ArrayBuffer): void {
+    const n = buffer.byteLength / 16, dv = new DataView(buffer), u8 = new Uint8Array(buffer), u16 = new Uint16Array(buffer);
+    const aA = new Float32Array(n), aOrb = new Uint16Array(n * 4), aM = new Uint16Array(n), aHC = new Uint8Array(n * 2);
+    for (let j = 0; j < n; j++) {
+      const o = j * 16, w = j * 8;
+      aA[j] = dv.getFloat32(o, true);
+      aOrb[j * 4] = u16[w + 2]; aOrb[j * 4 + 1] = u16[w + 3]; aOrb[j * 4 + 2] = u16[w + 4]; aOrb[j * 4 + 3] = u16[w + 5];
+      aM[j] = u16[w + 6];
+      aHC[j * 2] = u8[o + 14]; aHC[j * 2 + 1] = u8[o + 15];
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Uint8Array(n), 1));
+    g.setAttribute('aA', new THREE.BufferAttribute(aA, 1));
+    g.setAttribute('aOrb', new THREE.BufferAttribute(aOrb, 4, true));
+    g.setAttribute('aM', new THREE.BufferAttribute(aM, 1, true));
+    g.setAttribute('aHC', new THREE.BufferAttribute(aHC, 2, false));
+    // The positions come from the shader; the one-byte placeholder has none.
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e12);
+    if (this.points) { this.points.geometry.dispose(); this.points.geometry = g; }
+    else {
+      this.points = new THREE.Points(g, this.material);
+      this.points.frustumCulled = false;
+      this.points.renderOrder = -998;          // after the stars (-1000, -999)
+      // The labels are placed as the points are drawn, when the camera's
+      // matrices are those of this frame.
+      this.points.onBeforeRender = (renderer, _scene, camera) => this.label(renderer, camera);
+      this.scene.add(this.points);
+    }
+    this.count = n;
+  }
+
+  // The point budget: points cost to draw (about 0.26 us each on an
+  // integrated GPU, a hundredth of that on a fast one), so the faintest
+  // drawn is set from the frame time. Over 22 ms a frame (smoothed) the
+  // cut-off rises; under 18 ms (a 60 Hz display's 16.7 ms passes) it falls
+  // back, but not to within a quarter of where frames last ran slow, a mark
+  // that fades over about 20 s, so the cut-off settles rather than see-saws.
+  // The belt keeps its shape: the haze is drawn whatever the cut-off.
+  private lastNow = 0;
+  private frameMs = 16;
+  private slowAt = 0;
+  private budget(): void {
+    const now = performance.now(), dt = now - this.lastNow;
+    this.lastNow = now;
+    if (!(dt > 0 && dt < 500)) return;
+    this.frameMs += (dt - this.frameMs) * 0.1;
+    this.slowAt *= 0.999;
+    const u = this.material.uniforms, pm: number = u.uPointMin.value;
+    if (this.frameMs > 22) {
+      this.slowAt = Math.max(this.slowAt, pm);
+      u.uPointMin.value = Math.min(1, Math.max(0.004, pm * 1.12));
+    } else if (this.frameMs < 18 && pm > 0 && pm * 0.99 > this.slowAt * 1.25) {
+      u.uPointMin.value = pm * 0.99 < 0.004 ? 0 : pm * 0.99;
+    }
+  }
+
+  // Population colours (the rail's swatches) instead of natural ones.
+  setColourByGroup(on: boolean): void { this.material.uniforms.uByGroup.value = on ? 1 : 0; }
 
   // The points' width as the stars' (stars.ts setStarScale): the same
   // width in CSS pixels whatever the render scale, never under 0.8 render
@@ -213,6 +285,7 @@ export class SmallBodyLayer {
 
   setGroup(group: SmallBodyGroup, on: boolean): void {
     this.on[group] = on;
+    if (group === 'belt') this.haze.setOn(on);
     (this.material.uniforms.uOn.value as number[])[SMALL_BODY_GROUPS.indexOf(group)] = on ? 1 : 0;
   }
   group(group: SmallBodyGroup): boolean { return this.on[group]; }
@@ -229,6 +302,11 @@ export class SmallBodyLayer {
     (u.uCam.value as THREE.Vector3).set(...this.camAu);
     u.uLevel.value = level;
     u.uVis.value = visibility;
+    this.budget();
+    // The Sun's render position: the camera is at the origin, and render
+    // (x, y, z) is ecliptic (x, z, -y) in thousands of km.
+    this.sunRender.set(-cam[0] / UNIT_KM, -cam[2] / UNIT_KM, cam[1] / UNIT_KM);
+    this.haze.update(timeMs, this.sunRender, Math.hypot(...this.camAu), level, visibility);
   }
 
   // The named bodies' markers at their projected positions, rounded to
@@ -258,6 +336,7 @@ export class SmallBodyLayer {
   }
 
   dispose(): void {
+    this.haze.dispose();
     if (this.points) { this.scene.remove(this.points); this.points.geometry.dispose(); }
     this.material.dispose();
     for (const el of this.markers.values()) el.remove();

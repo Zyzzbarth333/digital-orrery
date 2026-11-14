@@ -1,8 +1,10 @@
 # Asteroids and comets
 
-The orrery draws 135,353 small bodies from JPL's Small-Body Database
-(SBDB): the main belt's brightest, every known near-Earth asteroid, Jupiter
-trojan, centaur and trans-Neptunian object, and the periodic comets. The
+The orrery draws 1,581,674 small bodies from JPL's Small-Body Database
+(SBDB). 135,353 are points of light: the main belt's brightest, every known
+near-Earth asteroid, Jupiter trojan, centaur and trans-Neptunian object, and
+the periodic comets. The other 1,446,321, the main belt fainter than H 15,
+are a haze worked out from their real orbits ([the faint belt](#the-faint-belt)). The
 rail's **Small bodies** switches show or hide each population. Thirty-six of
 them are named: the dwarf planets, the largest asteroids, spacecraft targets
 and famous comets.
@@ -10,12 +12,16 @@ and famous comets.
 | Population | SBDB classes | Count | Colour |
 | --- | --- | --- | --- |
 | Main belt (brighter than H 15) | MBA, IMB, OMB, MCA | 65,032 | grey |
+| Main belt, fainter (the haze) | MBA, IMB, OMB, MCA | 1,446,321 | grey |
 | Near-Earth asteroids | IEO, ATE, APO, AMO | 43,083 | orange |
 | Jupiter trojans | TJN | 16,472 | green |
 | Kuiper belt: centaurs and trans-Neptunian objects | CEN, TNO | 9,419 | violet |
 | Periodic comets (e < 0.995) | JFc, JFC, HTC, ETc, CTc, COM | 1,347 | cyan |
 
-(Pluto is left out: the app has it as a planet.)
+(Pluto is left out: the app has it as a planet.) By default asteroids are
+drawn a natural warm grey (the mean of the S and C types' colours) and
+comets a pale blue; the rail's **Colour by kind** switch colours each
+population as its swatch instead.
 
 ## The data
 
@@ -42,8 +48,10 @@ and famous comets.
   A body with no magnitude gets H 18, which is faint. That is 17 asteroids
   and 130 comets, most of the comets fragments (58) or last seen before
   1950 (48).
-  `public/data/smallbodies.bin` is 2.17 MB; `smallbodies.json` holds the
-  counts and the named bodies at full precision.
+  `public/data/smallbodies.bin` (the points) is 2.17 MB and is loaded
+  first; `smallbodies-belt.bin` (the faint main belt) is 23.1 MB and is
+  loaded after it. `smallbodies.json` holds the counts and the named bodies
+  at full precision.
 
 ## Drawing
 
@@ -95,6 +103,50 @@ elements on the CPU as the points are drawn, and rounded to whole device
 pixels. The dwarf planets and the four largest asteroids are always
 marked; the others once the camera is within 1.5 au.
 
+### The point budget
+
+Working the points out costs little; drawing them is what costs, about
+0.26 µs a point on an integrated GPU and a hundredth of that on a fast one.
+So the layer sets the faintest point it draws from the frame time:
+- **Over 22 ms a frame** (smoothed), the cut-off rises.
+- **Under 18 ms,** it falls back, which a 60 Hz display's 16.7 ms allows.
+  It never falls to within a quarter of where frames last ran slow, and
+  that mark fades over about 20 s, so the cut-off settles rather than
+  see-saws.
+
+A dim point's glow is nearly all core, so a point under 0.3 of white is
+drawn as a 3-pixel sprite. On the laptop's Intel GPU (headless Chromium,
+the solar system view) a frame took 88 ms with every point drawn and the
+haze on. With the budget it takes 17 ms, against 12 ms with no small
+bodies at all. On an RTX 5070 Ti the cut-off stays at nothing and a frame
+takes 3.8 ms either way.
+
+## The faint belt
+
+Drawn one by one, the 1.45 million main-belt asteroids fainter than H 15
+would be points below the screen's floor, yet together they light the belt.
+So they are drawn as a haze (`src/scene/beltHaze.ts`):
+
+1. **Binning** (`beltHaze.worker.ts`, off the main thread). Every body is
+   placed on its orbit at the clock's time, by Kepler's equation.
+2. **The grid** (`src/physics/beltGrid.js`). Its reflected sunlight, 10^(−0.4 H) / r², is shared
+   among the 8 nearest cells of a 3D grid (`beltGrid.ts`): 256 × 256 × 48
+   cells over ±5.6 au in x and y and ±1.6 au in z, heliocentric ecliptic.
+   That takes about 0.7 s and is redone whenever the clock has moved
+   2 days. The belt turns about 0.25° a day at 2.7 au, under a cell
+   (0.9° there) in four.
+3. **Drawing.** A box around the Sun is drawn from its far faces, and each
+   pixel's ray marches 32 jittered steps through the grid as a 3D texture.
+   A cloud of emitters with emissivity j has surface brightness
+   (1 / 4π) ∫ j ds along the line of sight, whatever its distance.
+
+The haze is metered as the points are (5 log₁₀ of the camera's distance
+from the Sun), with its range halved by a square root. It sits a little
+below the brightest points, which keep the belt's detail. The phase angle
+is left out. On the Intel GPU the haze costs about 5 ms a frame, and its
+cost does not grow with the number of bodies. The main-belt switch shows
+or hides the haze with the points.
+
 ## How right they are
 
 Each body follows the osculating ellipse of its orbit solution; the planets'
@@ -105,6 +157,7 @@ pull moves the real ones off it slowly (`smallbodies.test.mjs`):
 | Ceres, Vesta, Bennu, Eris and Halley against Horizons, 2026-01-01 to 2027-01-01 | 0 km at the epoch; within 101,000 km a year on (Ceres 75,000 km, 0.66′ as seen from the Sun) |
 | The 16-byte packing, named bodies | within 73″ as seen from the Sun (a near-parabolic orbit magnifies the rounding of e) |
 | The shader's Kepler solve (float32) against the exact one, every body, over 20 years | within 65″; all but 14 within 20″ |
+| The faint belt's grid (`beltGrid.js`), binning the points' bodies | holds their light to 1 part in 10⁵; its light-weighted centre 6 km from theirs |
 
 Most bodies' SBDB solutions are current (2026), but about 10,600 near-Earth
 asteroids (mostly faint ones seen at one opposition), most comets (their
