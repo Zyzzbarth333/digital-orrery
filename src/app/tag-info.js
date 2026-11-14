@@ -19,7 +19,7 @@ const TWO_BODY = 'Curtis, Orbital Mechanics for Engineering Students, 4th ed., A
 const KERNEL = 'docs/physics/nbody-kernel.md';
 const ROCKET_EQ = 'Curtis, 4th ed., §13.3–13.4 · docs/physics/burns-and-launch.md';
 const ASCENT = 'Curtis, 4th ed., §13.2 (gravity turn), eq. 13.27 (losses) · docs/physics/rocket.md';
-const EPHEMERIS = 'Earth and the Moon: JPL DE442, a Chebyshev fit for 2000–2050; the other planets, and outside those years: astronomy-engine (MIT), within 10⁻⁴ of DE442 · docs/physics/ephemerides-and-gm.md';
+const EPHEMERIS = 'JPL DE442 for every planet, Pluto and the Moon, a Chebyshev fit for 2000–2050 within a metre of it; outside those years astronomy-engine (MIT), within 10⁻⁴ of DE442 · docs/physics/ephemerides-and-gm.md';
 const VIS_VIVA = 'a = \\left(\\frac{2}{r} - \\frac{v^2}{\\mu}\\right)^{-1}';
 
 /** @satisfies {Record<string, { what: string, tex: string[], where?: string, source: string }>} */
@@ -103,8 +103,8 @@ export const TAG_INFO = {
   'bary-what': {
     what: 'A centre of mass: the point the bodies it holds all orbit together. The ephemeris gives each planet system as its barycentre; the solar system\'s is where the whole system balances.',
     tex: ['\\mathbf r_\\text{B} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\sum_i \\mu_i}'],
-    where: '𝐫ᵢ: heliocentric positions, μᵢ: GMs (DE442). Mars to Pluto: astronomy-engine\'s planet positions, which are these barycentres; Earth and the Moon: DE442; the SSB: the Sun, every planet system, Earth, the Moon and Pluto, within 150 km of JPL Horizons',
-    source: 'DE442 GMs; astronomy-engine; JPL Horizons for the checks · docs/frontend/barycentres.md',
+    where: '𝐫ᵢ: heliocentric positions, μᵢ: GMs (DE442). Mars to Pluto: DE442\'s system barycentres, which are the planets\' positions; the EMB from DE442\'s Earth and Moon; the SSB: DE442\'s own for 2000–2050, else from the Sun, every planet system, Earth, the Moon and Pluto (within 150 km of JPL Horizons)',
+    source: 'JPL DE442; astronomy-engine outside 2000–2050; JPL Horizons for the checks · docs/frontend/barycentres.md',
   },
   'bary-gm': {
     what: 'G times the mass of everything this barycentre is the centre of.',
@@ -120,8 +120,8 @@ export const TAG_INFO = {
   'ssb-offset': {
     what: 'How far the Sun\'s centre is from the solar system barycentre. The Sun wanders round it, mostly with Jupiter and Saturn, often by more than its own radius.',
     tex: ['\\mathbf r_\\text{SSB} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\mu_\\odot + \\sum_i \\mu_i}'],
-    where: '𝐫ᵢ: heliocentric positions of every planet system, Earth, the Moon and Pluto; within 150 km of JPL Horizons over 2000–2050',
-    source: 'DE442 GMs; astronomy-engine and DE442 positions · docs/frontend/barycentres.md',
+    where: 'For 2000–2050, DE442\'s own SSB, which counts every body JPL integrates; outside it, 𝐫ᵢ: heliocentric positions of every planet system, Earth, the Moon and Pluto, within 150 km of JPL Horizons',
+    source: 'JPL DE442; DE442 GMs and astronomy-engine outside 2000–2050 · docs/frontend/barycentres.md',
   },
   'ssb-distance': {
     what: 'Distance from the solar system barycentre, the centre of mass of the Sun and everything that orbits it.',
@@ -235,6 +235,67 @@ export const TAG_INFO = {
     tex: ['\\Omega_\\odot = 4.74047\\,\\mu_\\text{Sgr A*}', 'T = \\frac{2\\pi}{\\Omega_\\odot}'],
     where: 'µ = 6.379 mas/yr: Sgr A*, at the centre, drifts along the Galactic plane as the Sun goes round; Ω in km/s per kpc. No distance to the centre is needed. The often quoted 225–250 million years comes from older, rounder values (8.5 kpc, 220 km/s)',
     source: 'Reid & Brunthaler 2004, ApJ 616, 872 (VLBA astrometry of Sgr A*)',
+  },
+
+  // ---------------- a small body's plate (small-body-plate.tsx) ----------------
+  'sb-class': {
+    what: 'The body\'s orbit class in JPL\'s Small-Body Database, which sorts asteroids and comets by where their orbits go.',
+    tex: [],
+    source: 'JPL SBDB orbit classes, ssd-api.jpl.nasa.gov/doc/sbdb_filter.html · docs/frontend/small-bodies.md',
+  },
+  // smallBodies.js positionAu
+  'sb-position': {
+    what: 'Where the body is, carried along a fixed ellipse about the Sun from its elements: as its point and marker are drawn.',
+    tex: ['M = M_0 + n(t - t_0),\\quad n = \\frac{k}{a^{3/2}}', 'E - e\\sin E = M'],
+    where: 'k = 0.01720209895, the Gaussian constant (rad/day, a in au); t₀ = 2026-01-01 TT. The planets\' pull moves the real body off this ellipse slowly: Ceres by 75,000 km in a year',
+    source: 'elements from JPL Horizons at t₀ · docs/frontend/small-bodies.md',
+  },
+  // smallBodies.js smallBodyFacts
+  'sb-speed': {
+    what: 'Speed relative to the Sun, on its ellipse.',
+    tex: ['v = \\sqrt{\\mu_\\odot\\left(\\frac{2}{r} - \\frac{1}{a}\\right)}'],
+    where: 'μ⊙ = k² au³/day²',
+    source: 'the vis-viva equation; Curtis, 4th ed., ch. 2',
+  },
+  'sb-elements': {
+    what: 'The osculating orbital elements at 2026-01-01 TT: the ellipse the body was on then.',
+    tex: [],
+    where: 'a: semi-major axis; e: eccentricity; i: inclination to the ecliptic',
+    source: 'JPL Horizons, osculating elements at the epoch (SBDB\'s for the unnamed bodies)',
+  },
+  'sb-apsides': {
+    what: 'The nearest and farthest the body comes to the Sun on that ellipse.',
+    tex: ['q = a(1 - e),\\quad Q = a(1 + e)'],
+    source: 'from the elements above',
+  },
+  'sb-period': {
+    what: 'Time for one orbit of the Sun, by Kepler\'s third law.',
+    tex: ['T = 2\\pi\\sqrt{\\frac{a^3}{\\mu_\\odot}} = \\frac{2\\pi}{n}'],
+    source: 'from the semi-major axis, with the Gaussian constant the drawing uses',
+  },
+  'sb-diameter': {
+    what: 'The body\'s diameter as measured: by spacecraft, radar, occultations or its heat (infrared).',
+    tex: [],
+    source: 'JPL Small-Body Database',
+  },
+  // smallBodies.js diameterFromH, smallBodies.ts sizeOf
+  'sb-size-assumed': {
+    what: 'JPL\'s database gives no diameter, so the sphere drawn is a guess, and says so.',
+    tex: ['D = \\frac{1329\\ \\text{km}}{\\sqrt{p}}\\,10^{-H/5}'],
+    where: 'p: geometric albedo, taken as 0.15; a comet\'s H is its coma\'s, so a comet is drawn as a 5 km nucleus',
+    source: 'JPL CNEOS, asteroid size estimator (cneos.jpl.nasa.gov/tools/ast_size_est.html); Fowler & Chillemi, in The IRAS Minor Planet Survey (1992, PL-TR-92-2049)',
+  },
+  'sb-h': {
+    what: 'Absolute magnitude: how bright the body would be 1 au from both the Sun and the observer, fully lit.',
+    tex: ['m = H + 5\\log_{10}(r\\Delta) - 2.5\\log_{10}\\Phi(\\alpha)'],
+    where: 'r, Δ: distances from the Sun and the observer (au); Φ(α): the H-G phase function, G = 0.15',
+    source: 'JPL Small-Body Database; Bowell et al. 1989 (the H-G system) · docs/frontend/small-bodies.md',
+  },
+  'sb-m1': {
+    what: 'A comet\'s total magnitude, its coma and all, at 1 au from the Sun and the observer.',
+    tex: ['m = M_1 + 5\\log_{10}\\Delta + K_1\\log_{10} r'],
+    where: 'K₁: how fast it brightens toward the Sun',
+    source: 'JPL Small-Body Database · docs/frontend/small-bodies.md',
   },
 
   // ---------------- the MISSION tab (mission-panel.tsx) ----------------

@@ -175,6 +175,87 @@ def rings(src, out, colour_map, heights_km, normal_map):
                                  "NASA PDS Ring-Moon Systems Node."}}
 
 
+# ------------------------------------------------------------------ moons
+
+def gaps(a: np.ndarray, value: int, size: int) -> np.ndarray:
+    """No-data in a USGS mosaic, where no spacecraft imaged: solid blocks of
+    `value` (black or white) at least `size` pixels across. Imaged pixels of
+    that value come singly or in specks, which the opening removes."""
+    from PIL import ImageFilter
+    flat = np.all(a == value, axis=2) if a.ndim == 3 else a == value
+    m = Image.fromarray((flat * 255).astype(np.uint8))
+    m = m.filter(ImageFilter.MinFilter(size)).filter(ImageFilter.MaxFilter(size))
+    return np.asarray(m) > 0
+
+
+def fill_gaps(img: Image.Image, gap: np.ndarray, feather_px: int) -> Image.Image:
+    """Fill no-data with the imaged part's mean colour (linear light, rows
+    weighted by cos lat) and soften the edge over `feather_px`, so an
+    unimaged pole shows the moon's mean colour, not black or white."""
+    from PIL import ImageFilter
+    from build_textures import srgb_to_linear
+    a = np.asarray(img.convert("RGB"))
+    rows = a.shape[0]
+    w = np.cos((0.5 - (np.arange(rows) + 0.5) / rows) * np.pi)[:, None] * ~gap
+    lin = srgb_to_linear(a)
+    mean_lin = (lin * w[..., None]).sum(axis=(0, 1)) / w.sum()
+    mean = np.where(mean_lin <= 0.0031308, 12.92 * mean_lin, 1.055 * mean_lin ** (1 / 2.4) - 0.055) * 255
+    filled = np.where(gap[..., None], np.rint(mean).astype(np.uint8), a)
+    near = np.asarray(Image.fromarray((gap * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(2 * feather_px + 1))) > 0
+    soft = np.asarray(Image.fromarray(filled).filter(ImageFilter.GaussianBlur(feather_px)))
+    print(f"    filled {gap.mean() * 100:.1f} % unimaged with the mean colour")
+    return Image.fromarray(np.where(near[..., None], soft, filled))
+
+
+def moon_map(key: str, width: int, credit: str, *, colour: bool = False, gap: int | None = None,
+             source: str | None = None):
+    """A moon's USGS mosaic (fetched by fetch_moons.py), east-positive with
+    its west edge at -180 deg east like every map here. Grey maps (and
+    Triton's, whose colour is synthesised from orange, violet and UV
+    filters) are kept grey and tinted in the shader by the moon's catalogue
+    colour (`tint`)."""
+    def build(src, out, colour_map, heights_km, normal_map):
+        img = Image.open(src / (source or f"{key}_usgs_wms.png"))
+        img = img.convert("RGB")
+        if gap is not None:
+            size = img.width // 256 + 1                  # 17 px at 4096
+            img = fill_gaps(img, gaps(np.asarray(img), gap, size), max(2, img.width // 512))
+        if not colour:
+            img = img.convert("L").convert("RGB")
+        lum = colour_map(save_tmp(img, src, f"{key}.png"), out / f"{key}/day.webp", width)
+        entry = {"day": f"{key}/day.webp", "dayMeanLuminance": lum, "credit": credit}
+        if not colour:
+            entry["tint"] = True
+        return entry
+    return build
+
+
+GALILEO = "Galileo SSI and Voyager global mosaic: NASA/JPL, USGS Astrogeology."
+CASSINI = "Cassini ISS global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology."
+CASSINI_VOYAGER = "Cassini ISS and Voyager global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology."
+
+MOONS = {
+    "phobos": moon_map("phobos", 2048, "Viking Orbiter mosaic (Stooke, DLR control): NASA/JPL, USGS Astrogeology.",
+                       source="phobos_usgs.tif"),
+    "deimos": moon_map("deimos", 2048, "Viking Orbiter map (Philip Stooke; Thomas et al. shape model): "
+                                       "NASA/JPL, USGS Astrogeology."),
+    "io": moon_map("io", 4096, "Galileo SSI and Voyager colour mosaic: NASA/JPL, USGS Astrogeology.", colour=True),
+    "europa": moon_map("europa", 4096, GALILEO, gap=0),
+    "ganymede": moon_map("ganymede", 4096, GALILEO, gap=0),
+    "callisto": moon_map("callisto", 4096, GALILEO, gap=0),
+    "mimas": moon_map("mimas", 2048, CASSINI_VOYAGER),
+    "enceladus": moon_map("enceladus", 2048, CASSINI),
+    "tethys": moon_map("tethys", 2048, CASSINI),
+    "dione": moon_map("dione", 2048, CASSINI_VOYAGER),
+    "rhea": moon_map("rhea", 2048, CASSINI_VOYAGER),
+    "iapetus": moon_map("iapetus", 2048, CASSINI_VOYAGER),
+    "triton": moon_map("triton", 4096, "Voyager 2 global mosaic (Paul Schenk, LPI): NASA/JPL, USGS Astrogeology.",
+                       gap=255),
+    "charon": moon_map("charon", 2048, "New Horizons LORRI/MVIC mosaic: NASA/JHUAPL/SwRI, USGS Astrogeology.",
+                       gap=255),
+}
+
+
 BODIES = {
     "earth": earth, "moon": moon, "mars": mars, "mercury": mercury, "pluto": pluto,
     "venus": venus, "jupiter": jupiter,
@@ -182,6 +263,7 @@ BODIES = {
     "uranus": giant("uranus", "sss_2k_uranus.jpg", 2048),
     "neptune": giant("neptune", "sss_2k_neptune.jpg", 2048),
     "rings": rings,
+    **MOONS,
 }
 
 
@@ -203,6 +285,19 @@ def _milky_way(src: Path, n: int) -> np.ndarray:
     size = json.loads(Path(f"{raw}.json").read_text())
     assert (size["width"], size["height"]) == (n, n // 2), size
     return np.memmap(raw, dtype=np.float16, mode="r", shape=(n // 2, n, 3))
+
+
+def _sky_preview(a: np.ndarray, scale: float, out: Path, width: int = 2048) -> Path:
+    """A 2048-wide copy of the base map (the mean of each block of its
+    linear light), shown while the full map decodes: the 8k one takes
+    seconds."""
+    h, w = a.shape[0], a.shape[1]
+    k = w // width
+    small = np.asarray(a, dtype=np.float32).reshape(h // k, k, width, k, 3).mean(axis=(1, 3)) * scale
+    pv = out / "stars" / f"milky-way-{width // 1024}k.webp"
+    Image.fromarray(_srgb8(small), "RGB").save(pv, "WEBP", quality=90, method=6)
+    print(f"  wrote {pv.relative_to(out)} {width}x{width // 2} {pv.stat().st_size / 1e6:.2f} MB (preview)")
+    return pv
 
 
 def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, detail=16384, tile=1024, gutter=2):
@@ -242,6 +337,7 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, det
     if old.exists():
         old.unlink()
     print(f"  wrote {m.relative_to(out)} {img.size[0]}x{img.size[1]} {m.stat().st_size / 1e6:.1f} MB")
+    _sky_preview(a, scale, out)
     del a, img
 
     # The detail tiles, at the same white (scale per base pixel / 4 per doubling).
@@ -305,7 +401,7 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, det
         old.unlink()
     print(f"  wrote stars/hipparcos.bin: {len(vm)} of {len(rows)} stars to V {vmax}, "
           f"{np.isnan(bv).sum()} without B-V, {p.stat().st_size / 1e6:.2f} MB")
-    return {"map": f"stars/milky-way-{base // 1024}k.webp", "raAtLeftDeg": 180.0, "raIncreasesRight": False, "gain": 1.0,
+    return {"map": f"stars/milky-way-{base // 1024}k.webp", "preview": "stars/milky-way-2k.webp", "raAtLeftDeg": 180.0, "raIncreasesRight": False, "gain": 1.0,
             "detail": {"tiles": f"stars/milky-way-{detail // 1024}k/{{row}}-{{col}}.webp", "width": detail,
                        "tile": tile, "gutter": gutter},
             "points": "stars/hipparcos.bin", "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000",

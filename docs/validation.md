@@ -29,11 +29,26 @@ tests (it shares no code with the models).
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| the app's Earth (DE442 Chebyshev table), 4 epochs, from UTC | DE442 via CSPICE | 0.09 m (2.2 m at J2000, whose UTC is rounded to 1 ms) |
-| astronomy-engine, Venus/Earth/Mars | DE442 via CSPICE | 2.3×10⁻⁵ relative, 1.3 m/s |
-| astronomy-engine, all eight planets | DE442 | 9.3×10⁻⁵, 9.5 m/s |
-| porkchop cell on MSL dates | DE442 Lambert | C3 agrees to 10⁻⁴ |
+| the app's eight planets (DE442 Chebyshev table), 3 epochs, from UTC | DE442 via CSPICE | 2.8 m (Mercury at J2000, whose UTC is rounded to 1 ms), 0.002 mm/s |
+| the app's Earth (DE442 Chebyshev table), 4 epochs, from UTC | DE442 via CSPICE | 0.09 m (2.2 m at J2000) |
+| the table's series, every body about the Sun, 2000–2050 and its margins, between the fitting nodes (`c/de_cheb.c`) | DE442 via CSPICE | under 0.86 m (Neptune); accelerations within 7×10⁻⁹ m/s² |
+| astronomy-engine (the fallback outside 2000–2050), Venus/Earth/Mars | DE442 via CSPICE | 2.3×10⁻⁵ relative, 1.3 m/s |
+| astronomy-engine, all eight planets | DE442 | 9.3×10⁻⁵, 9.4 m/s |
+| porkchop cell on MSL dates | DE442 Lambert | C3 agrees to 2.4×10⁻⁶ km²/s², arrival v∞ to 0.5 mm/s (10⁻⁴ and 5 m/s on astronomy-engine) |
 | 2011 Mars window | physical | all 11,011 cells solved; minimum C3 9.00 km²/s² inside the grid |
+
+## The DE442 table's ends (`deTable.test.mjs`)
+
+Each body blends from DE442 into astronomy-engine over the table's
+margins ([ephemerides](physics/ephemerides-and-gm.md#at-the-tables-ends)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| every body and the SSB, 2000-01-01 12:00, 2026 and 2050-12-31 | DE442 alone | yes |
+| each body at the table's ends | astronomy-engine | under 1 mm |
+| velocity inside the blend | central difference of positions | 0.3 mm/s, astronomy-engine's own (Pluto's own: 0.25 m/s) |
+| the ramp's own acceleration | the Sun's pull there | 0.02 % (Earth) to 0.8 % (Pluto) |
+| the kernel's TT path across the end, 2 s | the body's motion | no jump (to 1 m) |
 
 ## Major moons (`moons.test.mjs`)
 
@@ -47,14 +62,19 @@ the full table, per moon, is in [Moons](frontend/moons.md#how-right-they-are).
 | 15 of the 16 element moons, 2000–2050 | Horizons, yearly | within 3 % of the orbit's radius, most within 0.3 % |
 | Mimas | Horizons | 136,881 km: its 44° libration with Tethys is beyond a precessing ellipse |
 | planet centre about the system barycentre, from the moons' GMs | Horizons x99 about x, Nov 2026 | 0.05 km (Jupiter) to 3 km (Pluto, whose offset is 2,130 km) |
+| the app's Mars to Pluto (DE442 table) | Horizons heliocentric x, Nov 2026 (Horizons serves DE440 here: its rows match DE440 via CSPICE to 0.08 km) | Mars 0.21 km, Jupiter 14.1 km, Saturn 0.28 km, Uranus 1,231 km, Neptune 352 km, Pluto 1.7 km: DE440 − DE442 itself |
+| astronomy-engine's Mars to Pluto, the same | Horizons heliocentric x | 1,809 km (Mars) to 335,209 km (Neptune) |
 | astronomy-engine's Jupiter to Pluto are system barycentres | Horizons heliocentric x and x99, Nov 2026, less a quadratic | 1.1–1.2 km rms against x; 26–2,116 km against x99 |
-| moons about the system barycentre and, relative to the planet, about the Sun | Horizons, 7 moons, Nov 2026 | same as about the planet's centre (Charon 26 km; 2,139 km without the offset) |
+| moons about the system barycentre, and about the Sun (absolute, and relative to the planet) | Horizons, 7 moons, Nov 2026 | same as about the planet's centre (Charon 26 km; 2,139 km without the offset); on astronomy-engine the absolute figure carried its planet's error |
+| body-frame pole (`bodyAxesEqj`, pck00011), Phobos, Io, Rhea, Ariel, Titania, Triton, Charon | WGCCRE 2015 poles, constant terms only (Triton's precessing series in full), 14 Nov 2026 | within 1.07° (Phobos, whose periodic terms the check leaves out), Triton 0.00°; right-handed |
+| moon surface maps, longitude and latitude (by eye, not in the test) | named features at their gazetteer positions, against their mirror images ([textures](frontend/textures.md#the-moons-maps)) | all 14 east-positive with the west edge at −180°, none flipped |
 
 ## Barycentres (`barycentres.test.mjs`)
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| SSB about the Sun, from every planet system, Earth, the Moon and Pluto | Horizons (0 about 10), daily Nov 2026 and yearly 2000–2050 | 115 km, 145 km (astronomy-engine's own SSB: 444 km, 1,485 km) |
+| SSB about the Sun, DE442's own (the table's Sun series) | Horizons (0 about 10, DE440), daily Nov 2026 and yearly 2000–2050 | 0.22 km, 0.24 km (astronomy-engine's own SSB: 444 km, 1,485 km) |
+| SSB from every planet system, Earth, the Moon and Pluto on astronomy-engine (used outside the table) | Horizons, 2000-01-01 00:00, measured when that was before the table | 121 km |
 | Earth-Moon barycentre about the Sun, from DE442 | Horizons (3 about 10) | 0.11 km, the fixture's rounding |
 
 ## Trajectory search (`trajsearch.test.mjs`)
@@ -79,7 +99,7 @@ other planets (`public/trajbrowser/planets.json`).
 | indirect term | planet pull + solar tide bound | within the bound |
 | orbit around a moving planet, 5 orbits | two-body about the planet | 0.009 % drift (solar tide) |
 | impact, SOI entry, step budget, flyby within budget | events, unlimited run | all reported; flyby identical to an unlimited run |
-| Hermite interpolation, 30 days | direct ephemeris calls | worst 21 m |
+| Hermite interpolation, 30 days | direct ephemeris calls (DE442 table) | worst 20 m (Mercury, the cubic's own error at 6-hour nodes) |
 | 400 km orbit, real Sun/Moon/planets, point masses, 1 day | two-body about Earth | within 0.2 km |
 | Earth's J2: node of a 400 km, 51.6° orbit, 3 days | $-\tfrac32 nJ_2(R/p)^2\cos i$ | −5.0305°/day against −5.0060°/day (0.49 %, the mean-versus-osculating offset); Encke and Cowell agree to 10⁻⁴°/day |
 | finite burn, no gravity | rocket equation | Δv 2.8×10⁻⁹ km/s; position 2.4×10⁻³ km after 10 days |
@@ -109,8 +129,8 @@ and Ganymede bent its path by about 0.28 km/s.
 - **Method:** the kernel starts from Juno's first vector, set on the
   kernel's own Jupiter barycentre, and flies the 18 hours. At each later
   vector its distance from Juno is measured about the same barycentre, so
-  astronomy-engine's 16,000 km error in Jupiter's place about the Sun drops
-  out.
+  any error in Jupiter's place about the Sun drops out (16,000 km on
+  astronomy-engine, 14 km between DE440 and DE442).
 - **Runs:** the moons four ways: not at all (the system folded up at its
   barycentre, as before), from `moons.js` (what the app uses), from
   Horizons' own Galilean moons, and from Horizons with Ganymede put where
@@ -127,13 +147,13 @@ about the barycentre less Juno about Ganymede.
 | --- | ---: | ---: | ---: |
 | none (system at its barycentre) | 169 km | 9,307 km | 3,707 km |
 | `moons.js` (Galilean moons from `JupiterMoons`) | 2.3 km | 323 km | 3,677.2 km |
-| Horizons' Galilean moons | 0.18 km | 20.7 km | 3,677.3 km |
-| Horizons', Ganymede as Juno's track has it | 0.07 km | 4.1 km | 3,677.40 km |
+| Horizons' Galilean moons | 0.18 km | 20.9 km | 3,677.3 km |
+| Horizons', Ganymede as Juno's track has it | 0.07 km | 4.0 km | 3,677.40 km |
 
 What this shows:
 
 - **The moons' pull is now there.** Without the moons the kernel misses by
-  9,300 km nine hours on. With them it follows Juno to 4.1 km, given
+  9,300 km nine hours on. With them it follows Juno to 4.0 km, given
   Ganymede's right place. That is 0.04 % of the bend: a residual drift of
   0.12 m/s.
 - **The force model is not the limit; the moons' places are.** The 11 km
@@ -141,6 +161,10 @@ What this shows:
   row. `moons.js`'s Ganymede (astronomy-engine's `JupiterMoons`) is about
   300 km from JPL's ([moons](frontend/moons.md#how-right-they-are)),
   and that alone leaves 323 km.
+- **The moons' own fields count for little here.** Ganymede's $J_2$ and
+  $C_{22}$ ([kernel](physics/nbody-kernel.md#the-moons-own-fields)) moved the
+  last row from 4.14 to 3.96 km. At 1.4 Ganymede radii the field is
+  $10^{-4}$ of Ganymede's pull.
 - **Events behave.** The primary goes from Jupiter to Ganymede at its
   24,500 km sphere of influence and back.
 
@@ -154,6 +178,7 @@ The same file checks:
 | Pluto at 6 AU, 4 AU, 10⁶ km, 8 AU | its 5 AU reach | away, folded, split with Charon, away |
 | two craft, one near Jupiter, one far | their own views | 13 bodies and 9 |
 | a fall onto Ganymede at 3 km/s | impact event | `impact` on `ganymede`, found 46 km in (one 14 s step) |
+| the moons' $J_2$ and $C_{22}$ acceleration, Ganymede's field about tilted axes | central differences of the potential | $7.6\times10^{-10}$ relative |
 
 ## Spacecraft in the app (`craftKernel.test.mjs`)
 
@@ -345,3 +370,12 @@ published equations and Fortran listings
 | --- | --- |
 | The TeX subset's MathML and plain text | fractions, roots, scripts, fences, function names, unary signs |
 | Every tag's equations (`tag-info.js`, 59 entries) | all parse; each has what it is and a source |
+
+## A small body's plate (`smallbodies.test.mjs`)
+
+| Fact | Reference | Result |
+| --- | --- | --- |
+| Ceres's period, perihelion and aphelion | NASA: 4.6 years, 2.55 to 2.99 au | 4.599 yr, 2.545 au, 2.986 au (osculating, 2026) |
+| Halley's period and perihelion | NASA: about 76 years, 0.59 au | 75.47 yr, 0.572 au (osculating, 2026) |
+| Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
+| Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |

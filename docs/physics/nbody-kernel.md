@@ -77,8 +77,8 @@ zonal: false })` gives point masses only, for comparisons.
 The forces beyond these (the Earth's and Moon's higher harmonics, the
 Earth's tides, drag, sunlight pressure, venting and relativity) come from
 [the space environment](environment.md), through the `extraAccel` hook. Not
-yet modelled: the planets' harmonics beyond $J_2$, the moons' own
-oblateness, and the asteroids.
+yet modelled: the planets' harmonics beyond $J_2$, the moons' fields beyond
+degree 2 ([moons](#the-moons-own-fields)), and the asteroids.
 
 ## Integrators
 
@@ -293,7 +293,8 @@ skimming a boundary can switch back and forth.
 
 ## Body positions between ephemeris calls
 
-Calling astronomy-engine at every force evaluation would be slow, so each
+Calling the ephemeris (DE442's table, or astronomy-engine outside it) at
+every force evaluation would be slow, so each
 body's state is computed at nodes spaced $\Delta$ apart (1 h for the Moon, 2 h
 for Earth, 6 h for the other inner planets, 1-2 days outside) and
 interpolated with a cubic Hermite polynomial, using position and velocity at
@@ -308,14 +309,17 @@ h_{00} = 2s^3 - 3s^2 + 1,\quad h_{10} = s^3 - 2s^2 + s,\quad h_{01} = -2s^3 + 3s
 $$
 
 The interpolation itself errs by about $(\Delta n)^4 a/384$ for an orbit of
-radius $a$ and mean motion $n$. Measured against direct astronomy-engine calls
-over 30 days, the worst error is 21 m (`nbody.test.mjs` case 7), set by how
-closely astronomy-engine's velocities match its own positions.
+radius $a$ and mean motion $n$. Measured against direct ephemeris calls
+over 30 days, the worst error is 20 m (`nbody.test.mjs` case 7): Mercury,
+whose 6-hour nodes give 15 m by that formula. DE442's velocities are its
+series' own derivative. On astronomy-engine it was 21 m, set by how closely
+its velocities match its own positions.
 
 Two sources' velocities do not match their positions well enough, so they
 are replaced by central differences of the positions:
 
-- **astronomy-engine's Pluto:** a cubic through its velocities is 0.4 km
+- **astronomy-engine's Pluto** (outside DE442's table; inside it the
+  difference agrees with the series' own velocity): a cubic through its velocities is 0.4 km
   out at 6-hour nodes and 3 km at two days. Differenced over a minute, it
   is 29 m at two days. Wider nodes do worse, as $\Delta^2$, because its
   positions are themselves piecewise.
@@ -341,7 +345,8 @@ a system's sphere of influence, `bodies.js` **splits** it. Beyond
   The centre is the barycentre plus $-\sum_i \mu_i\mathbf r_i/\mu_\text{system}$
   over the moons ([moons](../frontend/moons.md#planets-drawn-at-their-centres)).
 - **each moon at the planet's centre plus its planetocentric place** from
-  `moons.js`, with its own GM as a point mass (no moon has a $J_2$ here).
+  `moons.js`, with its own GM. The five largest also carry their degree-2
+  fields ([below](#the-moons-own-fields)).
 
 | System | Planet GM (km³/s², NAIF) | Moons in the kernel (GM, km³/s²) |
 | --- | --- | --- |
@@ -476,7 +481,70 @@ drawn Artemis I was 1,100 km off for a frame, eight hours past its outbound
 powered flyby. The physics itself is unaffected. The drawn state is worked
 out once per frame and shared by the scene and the readouts.
 
+### The moons' own fields
+
+A moon that keeps one face to its planet is flattened by its spin and
+stretched toward the planet by the tide, so besides $J_2$ it has a sectoral
+term $C_{22}$, about a third of $J_2$ (exactly $3/10$ for a fluid body). In
+the moon's body axes ($x$ toward the planet, $z$ its spin pole, which for
+these moons is the orbit's pole), with $\mathbf d$ the craft's offset from
+the moon's centre, the potential is
+
+$$
+U = -\frac{\mu R^2 J_2}{2}\left(\frac{3z^2}{d^5} - \frac{1}{d^3}\right) + 3\mu R^2 C_{22}\,\frac{x^2 - y^2}{d^5},
+$$
+
+so the $C_{22}$ acceleration is
+
+$$
+\mathbf a_{C_{22}} = 3C_{22}\,\mu R^2\left[\frac{2(x\,\hat{\mathbf X} - y\,\hat{\mathbf Y})}{d^5} - \frac{5(x^2 - y^2)\,\mathbf d}{d^7}\right].
+$$
+
+`zonal.js` adds it with $J_2$, and `bodies.js` turns the axes with the
+moon's orbit at every placing. `flyby.test.mjs` case 5 checks the
+acceleration against finite differences of $U$ ($8\times10^{-10}$
+relative).
+
+| Moon | $J_2$ ($10^{-6}$) | $C_{22}$ ($10^{-6}$) | $R$ (km) | Source |
+| --- | ---: | ---: | ---: | --- |
+| Io | 1,834.6 ± 1.5 | 549.6 ± 0.3 | 1,821.6 | Park et al. 2025 (Juno and Galileo) |
+| Europa | 437.6 ± 77.5 | 138.62 ± 2.44 | 1,560.8 | Gomez Casajus et al. 2021 (Galileo reanalysed), as the JUICE review tabulates it |
+| Ganymede | 133.0 ± 6.8 | 39.56 ± 1.73 | 2,631.2 | Gomez Casajus et al. 2022 (Juno and Galileo); normalised 5.948167 and 6.128513 ×10⁻⁵ in its dataset |
+| Callisto | 32.7 ± 0.8 | 10.2 ± 0.3 | 2,410.3 | Anderson et al. 2001, as the JUICE review tabulates it |
+| Titan | 31.808 ± 0.404 | 9.983 ± 0.039 | 2,575 | Iess et al. 2010, Table 1, solution SOL1 |
+
+- **Reference radii:** for Io, Europa and Callisto the radius is the mean
+  radius the review lists beside the values. The papers themselves were not
+  opened to confirm it; a radius a few kilometres off changes the term by
+  well under 1 %.
+- **Titan:** the 2012 tidal solution (SOL1b, $J_2 = 34.227$, $C_{22} =
+  10.263$) fits a Love number as well. The static 2010 solution is used,
+  since the tide is not modelled.
+- **Not modelled:** the moons' fields beyond degree 2, and their tides.
+- **Effect:** small on a flyby. On Juno's pass 1,046 km over Ganymede it
+  moves the kernel's Juno by 0.2 km after nine hours. For a craft orbiting a
+  moon it is what turns the orbit.
+
 ## Sources
+
+- R. S. Park et al., "Io's tidal response precludes a shallow magma ocean",
+  *Nature* 638 (2025) 69-73, doi:10.1038/s41586-024-08442-5.
+- L. Gomez Casajus et al., "Updated Europa gravity field and interior
+  structure from a reanalysis of Galileo tracking data", *Icarus* 358 (2021)
+  114187, doi:10.1016/j.icarus.2020.114187.
+- L. Gomez Casajus et al., "Gravity field of Ganymede after the Juno extended
+  mission", *Geophysical Research Letters* 49 (2022) e2022GL099475,
+  doi:10.1029/2022GL099475; dataset doi:10.5281/zenodo.6949645.
+- J. D. Anderson et al., "Shape, mean radius, gravity field, and interior
+  structure of Callisto", *Icarus* 153 (2001) 157-161,
+  doi:10.1006/icar.2001.6664.
+- L. Iess et al., "Gravity field, shape, and moment of inertia of Titan",
+  *Science* 327 (2010) 1367-1369, doi:10.1126/science.1182583.
+- L. Iess et al., "The tides of Titan", *Science* 337 (2012) 457-459,
+  doi:10.1126/science.1219631.
+- The JUICE geophysics review in *Space Science Reviews* (2026),
+  doi:10.1007/s11214-026-01293-8, for its table of the Galilean moons'
+  fields.
 
 - H. Yoshida, "Construction of higher order symplectic integrators",
   *Physics Letters A* 150 (1990) 262-268.

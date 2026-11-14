@@ -3,7 +3,8 @@
 // The 3D solar system, at true scale and true positions.
 //
 // Positions: every frame, each body's heliocentric ecliptic J2000 state comes
-// from the ephemeris (src/physics/ephemeris.js, astronomy-engine). Orbit lines
+// from the ephemeris (src/physics/ephemeris.js: DE442's table for 2000-2050,
+// astronomy-engine outside it). Orbit lines
 // are sampled from the same ephemeris, not drawn as ellipses.
 //
 // Precision (floating origin): all positions are kept in km as doubles. The
@@ -30,7 +31,6 @@ import { helioStateEcl, eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
 import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
 import { baryStateEqj } from '../physics/barycentres.js';
-import { bodyConstants, MU_SUN } from '../physics/bodies.js';
 import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, shadowAxes } from './bodyMaterial';
@@ -41,6 +41,7 @@ import { CraftLayer, type CraftView } from './craftLayer';
 import { JourneyLayer } from './journeyLayer';
 import type { JourneyView } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
+import { GuideLayer } from './guides';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
@@ -101,7 +102,7 @@ function renderToEqj(): THREE.Matrix3 {
     cols[0][2], cols[1][2], cols[2][2]);
 }
 
-// Planets whose moons are drawn (moons.js). astronomy-engine places each at
+// Planets whose moons are drawn (moons.js). The ephemeris places each at
 // its system barycentre; the scene draws the planet at its own centre,
 // offset from that by its moons' pull (2,100 km for Pluto), and each moon
 // about that centre.
@@ -142,17 +143,12 @@ export function baryState(key: BaryKey, date: Date): BodyState {
 export type Frame = 'sun' | 'ssb';
 // The Sun's path about the SSB is drawn over two of Jupiter's years.
 const SUN_PATH_DAYS = 2 * 4332.59;
-// The SSB for orbit lines, from the four giants alone: within about 700 km
-// of the full SSB (the inner planets' pull), unseen at an orbit's scale,
-// and a quarter of the cost, 360 times over. The line's origin is this
-// same point, so the line still passes through its body.
-const GIANTS = ['jupiter', 'saturn', 'uranus', 'neptune'];
-const GIANT_GM = GIANTS.map((k) => bodyConstants(k).mu as number);
-const GIANT_TOTAL = MU_SUN + GIANT_GM.reduce((a, b) => a + b, 0);
-function ssbOfGiants(date: Date): Vec3 {
-  const r: Vec3 = [0, 0, 0];
-  GIANTS.forEach((k, i) => { const p = helioStateEcl(k, date).r; for (let j = 0; j < 3; j++) r[j] += (GIANT_GM[i] * p[j]) / GIANT_TOTAL; });
-  return r;
+// The SSB for orbit lines and the SSB frame, as barycentres.js gives it:
+// DE442's own (one series) inside its table, blended at its ends into the
+// sum over every body used outside it. The line's origin is this same
+// point, so the line still passes through its body.
+function ssbForLines(date: Date): Vec3 {
+  return eqjToEcl(baryStateEqj('ssb', date).r) as Vec3;
 }
 
 // Where a body's orbit line is centred, and over how many days it runs.
@@ -171,7 +167,7 @@ function orbitDays(key: BodyKey, frame: Frame): number | null {
 function relativePosition(key: BodyKey, date: Date, frame: Frame): Vec3 {
   if (isPlanetMoon(key)) return eqjToEcl(moonPositionEqj(key, date)) as Vec3;
   const origin = orbitOrigin(key, frame)!;
-  if (origin === 'ssb') return sub(key === 'sun' ? [0, 0, 0] : bodyState(key, date).r, ssbOfGiants(date));
+  if (origin === 'ssb') return sub(key === 'sun' ? [0, 0, 0] : bodyState(key, date).r, ssbForLines(date));
   return sub(bodyState(key, date).r, bodyState(origin, date).r);
 }
 
@@ -253,6 +249,10 @@ export class OrreryScene {
   craftSource: () => CraftView[] = () => [];
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
+  // A named asteroid or comet the camera is on (smallBodies.ts), like a
+  // followed craft: `focus` keeps the last body.
+  focusSmall: string | null = null;
+  onSmallPick: (pdes: string) => void = () => {};
   private craftLayer!: CraftLayer;
   // The journey being planned (journeyLayer.ts): its arcs and burn nodes.
   journeySource: () => JourneyView | null = () => null;
@@ -260,10 +260,32 @@ export class OrreryScene {
   private journeyCentral = (key: string): Vec3 | null => (key === 'sun' ? [0, 0, 0] : this.states[key as BodyKey]?.r ?? null);
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
+  guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
 
   private bodyAnchor(key: FocusKey): Anchor {
     // A barycentre is a point: the camera may close to a kilometre.
     return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: isBary(key) ? 1 : maxRadiusKm(key) * 1.2 };
+  }
+
+  private smallAnchor(pdes: string): Anchor {
+    return { id: `small:${pdes}`, pos: () => this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs), minDist: this.smallBodies.radiusKm(pdes) * 1.2 };
+  }
+
+  // Fly to a named small body: framed at eight radii, at least 1 km out.
+  focusOnSmall(pdes: string): void {
+    if (!this.smallBodies.body(pdes)) return;
+    if (this.rig.flying && this.rig.destination.id === `small:${pdes}`) return;
+    this.focusCraftId = null;
+    this.focusSmall = pdes;
+    this.smallBodies.setFocus(pdes);
+    this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallBodies.radiusKm(pdes) * 8, 1));
+    this.onFlight(this.rig.flying);
+    this.onSmallPick(pdes);
+  }
+  private clearSmall(): void {
+    if (this.focusSmall === null) return;
+    this.focusSmall = null;
+    this.smallBodies.setFocus(null);
   }
 
   private craftAnchor(id: number): Anchor {
@@ -376,10 +398,20 @@ export class OrreryScene {
       if (stars) {
         // The light between the stars, then the stars as points over it.
         const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
-        void this.surfaces.load(stars.map, true).then((tex) => {
+        // A 2048-wide preview first (0.6 MB, on screen in about a second),
+        // then the full map, which takes seconds to decode, in its place.
+        const show = (tex: THREE.Texture) => {
+          if (this.stars) { (this.stars.material as THREE.ShaderMaterial).uniforms.starMap.value = tex; return; }
           this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain,
             stars.detail && { entry: stars.detail, base: TEXTURE_BASE });
           this.scene.add(this.stars);
+        };
+        let full = false;
+        if (stars.preview) void this.surfaces.load(stars.preview, true).then((tex) => { if (!full) show(tex); }).catch(() => {});
+        void this.surfaces.load(stars.map, true).then((tex) => {
+          full = true;
+          show(tex);
+          if (stars.preview) this.surfaces.drop(stars.preview);
         });
         if (stars.points) {
           void loadBinary(stars.points).then((buf) => {
@@ -394,13 +426,19 @@ export class OrreryScene {
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
     this.journeyLayer = new JourneyLayer(this.scene, this.overlay);
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    this.guides = new GuideLayer(this.scene, this.overlay, toRender,
+      (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
+    this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
     // pressure): say so rather than show a black view, and carry on when the
     // browser restores it.
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.onContextLost(true); });
     this.renderer.domElement.addEventListener('webglcontextrestored', () => { this.reloadMaps(); this.onContextLost(false); });
     this.attachControls();
+    // ?debug exposes the scene as window.orrery, for the frame-time harness
+    // (docs/performance.md#measuring) and for poking at it from the console.
+    if (new URLSearchParams(location.search).has('debug')) (window as unknown as { orrery: OrreryScene }).orrery = this;
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
@@ -435,6 +473,7 @@ export class OrreryScene {
 
   // Follow a craft: fly to it, or (immediate) start there.
   focusOnCraft(id: number, immediate = false): void {
+    this.clearSmall();
     this.focusCraftId = id;
     const d = this.craftDist ?? 2.0e4;
     if (immediate) this.rig.jumpTo(this.craftAnchor(id), d);
@@ -447,8 +486,9 @@ export class OrreryScene {
   // changes nothing.
   focusOn(key: FocusKey): void {
     if (this.rig.flying && this.rig.destination.id === `body:${key}`) return;
-    const reframe = key === this.focus && this.focusCraftId === null;
+    const reframe = key === this.focus && this.focusCraftId === null && this.focusSmall === null;
     this.focusCraftId = null;
+    this.clearSmall();
     this.focus = key;
     if (!isBary(key)) this.loadSurfaces(key);   // start now: the flight hides the upload
     this.rig.flyTo(this.bodyAnchor(key), this.arrivalDist(key, reframe));
@@ -501,12 +541,14 @@ export class OrreryScene {
     e.preventDefault();
     const craft = this.focusCraftId !== null;
     const focus = this.focus;
-    const minDist = craft ? 0.05 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
+    const small = this.focusSmall;
+    const minDist = craft ? 0.05 : small ? this.smallBodies.radiusKm(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
     // Lines are 3 % of a page; pixels as they come.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
     this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
     const goal = this.rig.goalDistance;
     if (craft) this.craftDist = goal;
+    else if (small) { /* a small body's zoom is its own */ }
     else if (focus === 'sun') this.sunDist = goal;
     else if (!isBary(focus)) this.userRadii = goal / BODY_BY_KEY[focus].radiusKm;
   };
@@ -710,7 +752,7 @@ export class OrreryScene {
       toRender(sub(this.states[b.key].r, cam), this.meshes.get(b.key)!.position);
     }
     for (const b of BARYS) toRender(sub(this.states[b.key].r, cam), this.baryPos.get(b.key)!);
-    if (this.refFrame === 'ssb') toRender(sub(ssbOfGiants(date), cam), this.ssbLinePos);
+    if (this.refFrame === 'ssb') toRender(sub(ssbForLines(date), cam), this.ssbLinePos);
     const sunPos = this.meshes.get('sun')!.position;
     this.updateLighting(sunPos, cam, date);
     for (const b of BODIES) {
@@ -740,7 +782,12 @@ export class OrreryScene {
     this.updateGlare(sunPos, cam, now);
     this.updateAdaptation(dtReal, sunPos);
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
+      // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
+      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
+      level: 1 / this.renderer.toneMappingExposure, date });
 
+    this.smallBodies.renderHaze(this.renderer, this.camera);
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
@@ -955,7 +1002,7 @@ export class OrreryScene {
       el.classList.toggle('resolved', radiusPx > 4);
       if (b.key === 'earth') this.earthResolved = radiusPx > 3;
       if (radiusPx > 3) this.loadSurfaces(b.key);
-      el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null);
+      el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null && this.focusSmall === null);
     }
     // Barycentres: hidden while they sit on their body's marker (unless
     // focused). They are drawn over discs, the Sun's or a planet's, that
@@ -965,7 +1012,7 @@ export class OrreryScene {
       const ndc = this.tmp.copy(this.baryPos.get(b.key)!).project(this.camera);
       if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
       const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
-      const focused = b.key === this.focus && this.focusCraftId === null;
+      const focused = b.key === this.focus && this.focusCraftId === null && this.focusSmall === null;
       const ps = screen.get(b.of);
       if (!focused && ps && Math.hypot(x - ps[0], y - ps[1]) < 14) { el.style.display = 'none'; continue; }
       el.style.display = '';
@@ -994,6 +1041,7 @@ export class OrreryScene {
     this.craftLayer.dispose();
     this.journeyLayer.dispose();
     this.smallBodies.dispose();
+    this.guides.dispose();
     for (const el of this.labels.values()) el.remove();
     for (const el of this.baryLabels.values()) el.remove();
     this.post.dispose();

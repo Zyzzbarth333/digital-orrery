@@ -9,7 +9,8 @@
 //      trajectory (fixtures/flyby_juno_ganymede.json, flyby.fetch.mjs):
 //      with the moons the kernel follows Juno through the pass, without
 //      them it misses by thousands of kilometres;
-//   4. impacts on a moon and the change of primary to it and back.
+//   4. impacts on a moon and the change of primary to it and back;
+//   5. the large moons' degree-2 fields (J2 and C22).
 // docs/validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs and docs/physics/nbody-kernel.md#moons.
 //
 //   node src/physics/flyby.test.mjs
@@ -193,6 +194,37 @@ header('CASE 4: an impact on a moon');
   // dynamical time at its surface (14 s, 50 km at the speed of the fall).
   const depth = G1.radius - dist(st.r, G1.r);
   check(hit?.body === 'ganymede' && depth > 0 && depth < 60, `impact on ${hit?.body} after ${hit ? (hit.t / 60).toFixed(1) : '-'} min, found ${depth.toFixed(1)} km below the surface (within one step)`);
+}
+
+header("CASE 5: a moon's degree-2 field (J2 and C22) is the gradient of its potential");
+{
+  // Ganymede's field about tilted axes, against central differences of
+  // U = -(mu R^2 J2 / 2)(3 z^2 / r^5 - 1 / r^3) + 3 mu R^2 C22 (x^2 - y^2) / r^5.
+  const unit = (v) => { const n = Math.hypot(...v); return v.map((x) => x / n); };
+  const Z = unit([0.2, -0.3, 1]), X0 = unit([1, 0.4, 0.1]);
+  const dotp = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const X = unit(X0.map((x, i) => x - dotp(X0, Z) * Z[i]));
+  const Y = [Z[1] * X[2] - Z[2] * X[1], Z[2] * X[0] - Z[0] * X[2], Z[0] * X[1] - Z[1] * X[0]];
+  const b = { mu: 9887.83, j2: 133.0e-6, c22: 39.56e-6, rJ2: 2631.2, pole: Z, axisX: X, axisY: Y };
+  const U = (d) => {
+    const r2 = dotp(d, d), r = Math.sqrt(r2), x = dotp(d, X), y = dotp(d, Y), z = dotp(d, Z), R2 = b.rJ2 * b.rJ2;
+    return -(b.mu * R2 * b.j2 / 2) * (3 * z * z / r ** 5 - 1 / r ** 3) + 3 * b.mu * R2 * b.c22 * (x * x - y * y) / r ** 5;
+  };
+  const { addJ2 } = await import('./zonal.js');
+  let worst = 0;
+  for (const d of [[3000, 1000, 500], [-2000, 2500, -1500], [500, -400, 3200], [4000, 0, 0]]) {
+    const a = [0, 0, 0];
+    addJ2(d[0], d[1], d[2], dotp(d, d), b, a);
+    const g = [0, 1, 2].map((i) => { const h = 1e-3, p = [...d], m = [...d]; p[i] += h; m[i] -= h; return (U(p) - U(m)) / (2 * h); });
+    worst = Math.max(worst, Math.hypot(a[0] - g[0], a[1] - g[1], a[2] - g[2]) / Math.hypot(...g));
+  }
+  check(worst < 1e-6, `J2 + C22 acceleration against the potential's gradient: worst relative difference ${worst.toExponential(1)}`);
+  // In the kernel the moons carry it, turning with their orbits.
+  const sys = solarSystemBodies({ epochMs: Date.UTC(2026, 10, 12) });
+  const G = sys.bodyAt('ganymede', 0), Jc = sys.bodyAt('jupiter', 0);
+  const toJ = Jc.r.map((x, i) => x - G.r[i]), toJn = Math.hypot(...toJ);
+  check(G.c22 > 0 && Math.abs(dotp(G.axisX, toJ) / toJn - 1) < 1e-6 && Math.abs(dotp(G.axisX, G.pole)) < 1e-12,
+    `Ganymede's x axis points at Jupiter (cos ${(dotp(G.axisX, toJ) / toJn).toFixed(9)}), its z along its orbit's pole`);
 }
 
 console.log(failed ? `\nflyby: ${failed} check(s) FAILED` : '\nflyby: all checks passed');
