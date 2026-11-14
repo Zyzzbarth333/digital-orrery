@@ -78,6 +78,7 @@ export const TAG_INFO = {
   'gm-planet': {
     what: 'G times the mass of the planet alone, without its moons.',
     tex: [],
+    where: 'the spacecraft kernel pulls with it near the planet, where the moons pull with their own',
     source: 'NAIF satellite kernels, fitted with the moons\' orbits · docs/physics/ephemerides-and-gm.md',
   },
   // panels.tsx: ownGm / R^2 * 1000
@@ -107,6 +108,7 @@ export const TAG_INFO = {
   'moon-gm': {
     what: 'G times the moon\'s mass. Orbits depend on this product, which tracking measures far better than G or the mass alone.',
     tex: ['\\mu = GM'],
+    where: 'the spacecraft kernel pulls with it within 1.25 times its planet\'s sphere of influence',
     source: 'the moon\'s JPL Horizons object page (G times the mass where it gives no GM)',
   },
   'moon-albedo': {
