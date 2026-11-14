@@ -468,16 +468,17 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
   const fromEarth = norm([st.r[0] - earth.r[0], st.r[1] - earth.r[1], st.r[2] - earth.r[2]]);
   const ownGm = b.planetGm ?? b.gm;
   const rows: Row[] = [];
-  // The Earth and the Moon come from DE442's table where it covers the date
-  // (2000-2050), every other body from astronomy-engine.
-  const eph = fromDe442(focus, date) ? 'DE442' : 'AE';
+  // Every planet, Pluto and the Moon come from DE442's table where it covers
+  // the date (2000-2050), else from astronomy-engine; a planet's moon rides on
+  // its planet's. For the Sun, the SSB (DE442's own inside the table).
   const pm = b.moon;
+  const eph = fromDe442(pm ? b.parent! : focus, date) ? 'DE442' : 'AE';
   // In the SSB frame, distance and speed are the barycentre's, and the Sun
   // moves.
   const ssb = frame === 'ssb' ? baryState('ssb', date) : null;
   rows.push(focus === 'sun'
     ? ssb
-      ? { label: 'Motion', value: 'About the SSB', alt: 'swung by the giant planets', src: 'AE', info: 'ssb-offset' }
+      ? { label: 'Motion', value: 'About the SSB', alt: 'swung by the giant planets', src: eph, info: 'ssb-offset' }
       : { label: 'Motion', value: 'Fixed', alt: 'the centre of the frame', src: 'frame', derived: true, info: 'frame' }
     : pm
       ? { label: 'Motion', value: 'Mean orbit', alt: 'about its planet, on rails', src: pm.elements.startsWith('JPL') ? 'JPL' : 'AE', info: 'moon-orbit', detail: pm.elements }
@@ -491,7 +492,7 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     rows.push({ label: 'Speed', value: norm(st.v).toFixed(3), unit: 'km/s', alt: 'heliocentric', src: eph, info: 'sun-speed' });
   }
   if (focus !== 'earth') {
-    rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: focus === 'moon' ? eph : 'AE', info: 'earth-distance' });
+    rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: eph, info: 'earth-distance' });
     const lt = fromEarth / C_KM_S;
     rows.push({
       label: 'Light time', value: lt < 60 ? lt.toFixed(3) : lt < 3600 ? (lt / 60).toFixed(2) : (lt / 3600).toFixed(3),
@@ -593,12 +594,12 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     rows.push({ label: 'At the equator', ...period(sunRotationDays(0)), alt: 'sidereal', src: 'HHF 1990', info: 'sun-differential' });
     rows.push({ label: 'Near the poles', ...period(sunRotationDays(90)), alt: 'sidereal, the fit carried to 90°', src: 'HHF 1990', info: 'sun-differential' });
     rows.push({ label: 'Axial tilt', value: obliquity('sun', date).toFixed(2), unit: '°', alt: 'its equator to the ecliptic', src: 'IAU', derived: true, info: 'sun-tilt' });
-    // The SSB from every planet (barycentres.js, within 150 km of Horizons),
-    // not astronomy-engine's four giants; in the SSB frame the rows above
-    // already give it.
+    // The SSB (barycentres.js): DE442's own inside its table, else from
+    // every planet, not astronomy-engine's four giants; in the SSB frame the
+    // rows above already give it.
     if (!ssb) {
       const d = norm(baryState('ssb', date).r);
-      rows.push({ label: 'From the SSB', value: fmtGroup(d), unit: 'km', alt: `${(d / b.radiusKm).toFixed(2)} solar radii, from its centre`, src: 'AE', derived: true, info: 'ssb-offset' });
+      rows.push({ label: 'From the SSB', value: fmtGroup(d), unit: 'km', alt: `${(d / b.radiusKm).toFixed(2)} solar radii, from its centre`, src: eph, derived: !fromDe442('ssb', date), info: 'ssb-offset' });
     }
     rows.push({ label: 'Galactic orbit', value: fmtGroup(galacticYears() / 1e6, 0), unit: 'million yr', alt: 'once round the Galaxy\'s centre', src: 'VLBA', derived: true, info: 'galactic-orbit' });
   }
@@ -627,21 +628,24 @@ export function BaryPlate({ clock, bary, frame = 'sun' }: { clock: SimClock; bar
   const st = baryState(bary, date);
   const earth = bodyState('earth', date);
   const rows: Row[] = [];
-  rows.push({ label: 'Motion', value: 'Barycentre', alt: `the centre of mass of ${b.members}`, src: bary === 'emb' ? 'DE442' : 'AE', info: 'bary-what' });
+  // DE442's table inside 2000-2050 (the SSB its own, each system's
+  // barycentre its planet), else astronomy-engine.
+  const eph = fromDe442(bary === 'ssb' ? 'ssb' : bary === 'emb' ? 'earth' : b.of, date) ? 'DE442' : 'AE';
+  rows.push({ label: 'Motion', value: 'Barycentre', alt: `the centre of mass of ${b.members}`, src: eph, info: 'bary-what' });
   const ssb = frame === 'ssb' && bary !== 'ssb' ? baryState('ssb', date) : null;
   const o = ssb ? ssb : { r: [0, 0, 0], v: [0, 0, 0] };
   const r = norm(sub3(st.r, o.r)), v = norm(sub3(st.v, o.v));
-  rows.push({ label: ssb ? 'From the SSB' : 'From the Sun', value: (r / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(r)} km`, src: 'AE', info: ssb ? 'ssb-distance' : 'sun-distance' });
-  rows.push({ label: 'Speed', value: v.toFixed(bary === 'ssb' ? 4 : 3), unit: 'km/s', alt: ssb ? 'barycentric' : 'heliocentric', src: 'AE', info: ssb ? 'ssb-speed' : 'sun-speed' });
+  rows.push({ label: ssb ? 'From the SSB' : 'From the Sun', value: (r / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(r)} km`, src: eph, info: ssb ? 'ssb-distance' : 'sun-distance' });
+  rows.push({ label: 'Speed', value: v.toFixed(bary === 'ssb' ? 4 : 3), unit: 'km/s', alt: ssb ? 'barycentric' : 'heliocentric', src: eph, info: ssb ? 'ssb-speed' : 'sun-speed' });
   const fromEarth = norm(sub3(st.r, earth.r));
-  rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'AE', info: 'earth-distance' });
+  rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: eph, info: 'earth-distance' });
   rows.push({ label: 'GM within', value: sig10(baryGm(bary)), unit: 'km³/s²', alt: b.members, src: 'DE442', info: 'bary-gm' });
   // How far the body it is listed with sits from it.
   const body = BODY_BY_KEY[b.of];
   const off = norm(sub3(bodyState(b.of, date).r, st.r));
   rows.push({
     label: `${body.name}'s centre`, value: fmtGroup(off, off < 100 ? 3 : 0), unit: 'km', alt: `${(off / body.radiusKm).toFixed(3)} ${body.name} radii from it${off > body.radiusKm ? ', outside the body' : ''}`,
-    src: bary === 'ssb' ? 'AE' : bary === 'emb' ? 'DE442' : 'JPL', derived: true, info: bary === 'ssb' ? 'ssb-offset' : 'bary-offset',
+    src: bary === 'ssb' ? eph : bary === 'emb' ? 'DE442' : 'JPL', derived: true, info: bary === 'ssb' ? 'ssb-offset' : 'bary-offset',
   });
   const kind = bary === 'ssb' ? 'Centre of mass of the solar system' : bary === 'emb' ? 'Centre of mass of Earth and the Moon' : `Centre of mass of the ${body.name} system`;
   return (
