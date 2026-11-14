@@ -26,7 +26,7 @@ CC BY 4.0 and need their attribution.
 | Venus | Cloud tops (4096×2048) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
 | Saturn, Uranus, Neptune | Colour (4096, 2048, 2048 wide) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
 | Saturn's rings | Normal optical depth, 10 km bins | Cassini UVIS 126 Tau egress occultation (COUVIS_8001) | NASA PDS Ring-Moon Systems Node (Colwell et al.) |
-| Stars | 4096×2048 linear star map | Deep Star Maps 2020 (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
+| Stars | 4096×2048 linear star map, split into 20,000 point stars and the light between them | Deep Star Maps 2020 (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
 
 The Venus surface is not shown: in visible light Venus is its cloud deck.
 No Sun map is used, since at its true brightness the disc saturates to
@@ -132,11 +132,41 @@ The ring photometry, transparency and shadow on Saturn are in
 ## Stars
 
 The SVS star map is plate carrée in ICRF (J2000 equatorial), centred on
-RA 0h with RA increasing to the left. The linear values are scaled so the
-brightest 0.01 % of pixels reach white, keeping faint stars and the Milky
-Way at their relative brightness, then stored as sRGB. The scene draws it on
-a sphere around the camera, looked up by each view direction's RA and Dec,
-at a fixed display brightness (see [lighting](lighting.md)).
+RA 0h with RA increasing to the left, in linear half-float light. At
+4096 × 2048 a texel is 0.088°, magnified 1.6 to 3.4 times on screen, so stars
+drawn from the map are soft blobs. The build (`sources.py`, `stars`) splits
+it instead:
+
+1. **The diffuse light** is estimated with a grey-scale opening (a 7 × 7
+   minimum, then maximum, wrapping in RA) and a 5 × 5 box blur.
+2. **Stars** are the 20,000 brightest local maxima of the map minus that
+   estimate, at least 4 texels apart (wider toward the poles, where a row
+   covers less sky). Each is measured in a 7 × 7 aperture weighted by
+   cos Dec, for its flux in R, G and B and a flux-weighted centroid, and
+   replaced in the map by the estimate over 9 × 9, feathered at the edge so
+   the patch does not show in the map's grain.
+3. **The map that is left** (`stars/milky-way.webp`) is written as 8-bit
+   sRGB with its brightest 0.01 % at white.
+4. **The stars** (`stars/points.bin`, 0.56 MB) are float32 x, y, z in J2000
+   equatorial, V magnitude, and linear R, G, B at luminance 1.
+
+**Magnitudes come from rank, not from the map's photometry.** A 7 × 7
+aperture on this map compresses the range (bright stars are drawn wider
+than the aperture; the first pass gave −1.5 to 4.4 for stars that really
+reach V 8), so each star takes the magnitude whose all-sky count matches its
+rank: the standard cumulative counts N(<V) of about 15 stars to V 1, 1,600
+to V 5, 4,800 to V 6 and 41,000 to V 8, interpolated in log N. The twenty
+brightest stars, and Polaris (smeared along the map's top rows), are matched
+within 0.3° to their published positions and given their V magnitudes. The
+brightest twelve then come out in their true order: Sirius, Canopus, α
+Centauri, Arcturus, Vega, Capella, Rigel, Procyon, Achernar, Betelgeuse,
+Hadar and Altair.
+
+This is a stopgap built from the map already on disk. A catalogue
+(Hipparcos, 118,218 stars with measured V and B−V) and the SVS star-free
+Milky Way map would replace it with measured magnitudes and colours and a
+background that was never touched; both need the user's approval to
+download ([research](../ux/research.md#data)).
 
 ## Loading
 

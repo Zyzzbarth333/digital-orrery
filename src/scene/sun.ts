@@ -92,7 +92,9 @@ float needles(float a, float n, float t) {
 
 void main() {
   vec2 ndc = gl_FragCoord.xy / resolution * 2.0 - 1.0;
-  vec4 v = projInv * vec4(ndc, 1.0, 1.0);
+  // Unproject on the near plane: the far plane is 1e13 times further and
+  // its w is lost in single precision.
+  vec4 v = projInv * vec4(ndc, -1.0, 1.0);
   vec3 ray = normalize(v.xyz / v.w);
   float cosT = dot(ray, sunDir);
   float theta = degrees(acos(clamp(cosT, -1.0, 1.0)));

@@ -81,6 +81,9 @@
     "raAtLeftDeg": 180.0,
     "raIncreasesRight": false,
     "gain": 1.0,
-    "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020. Gaia DR2: ESA/Gaia/DPAC."
+    "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020. Gaia DR2: ESA/Gaia/DPAC.",
+    "points": "stars/points.bin",
+    "pointCount": 20000,
+    "mapWhiteOverSiriusFlux": 0.03403015345541456
   }
 }

@@ -88,6 +88,35 @@ Light scatters in any eye or lens. Two parts, both before the tone curve:
   scatter is the glare above, does not (and half floats overflow past
   65,504).
 
+## Stars
+
+The sky is drawn as an eye adapted to the dark would see it, at a display
+level that does not follow the exposure (a camera exposed for sunlit
+surfaces would record no stars at all). It has two layers
+([textures](textures.md#stars)):
+
+- **The light between the stars**: the Milky Way, the Magellanic Clouds
+  and every star too faint to pick out, a 4096 × 2048 map looked up by each
+  view direction's right ascension and declination, at half of its own
+  brightest light.
+- **The stars**: 20,000 points, each a Gaussian of fixed width in device
+  pixels (σ = 0.55 + 0.35 × the pixel ratio) centred on its true sub-pixel
+  position, so its light is the same wherever it falls and it neither
+  shimmers nor vanishes as the view turns. Its peak is 30 × 10^(−0.4 m) of
+  display white with the star's colour, so stars of magnitude 0 saturate and
+  bloom a little, magnitude 3 is a third of white and magnitude 7 is just
+  visible on a dark screen. Stars do not twinkle in vacuum, so they don't
+  here.
+
+**Adaptation**, the sky's honest motion: faint stars and the Milky Way fade
+when bright light is in view and come back in the dark. The light counted is
+the Sun within 35° of the view's centre (weighted by how much of its disc
+is visible) plus each body's share of the view times its lit fraction; the
+sky is scaled by 1 / (1 + 4 × that light), approached in 0.3 s toward light
+and 2 s back toward the dark, roughly as eyes adapt. Flying past a sunlit
+planet or turning toward the Sun therefore changes the sky as it would for
+a person there.
+
 ## Surface reflectance
 
 Each body reflects its **geometric albedo** $p$, the brightness of the

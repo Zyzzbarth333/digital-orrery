@@ -28,7 +28,7 @@ export interface SurfaceEntry {
 export interface Manifest {
   bodies: Partial<Record<BodyKey, SurfaceEntry>>;
   rings?: { saturn?: { tau: string; innerKm: number; outerKm: number; credit: string } };
-  stars?: { map: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; credit: string };
+  stars?: { map: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; points?: string; pointCount?: number; credit: string };
 }
 
 const BASE = `${import.meta.env.BASE_URL}textures/`;
@@ -40,6 +40,12 @@ export async function loadManifest(): Promise<Manifest | null> {
   } catch {
     return null;
   }
+}
+
+export async function loadBinary(path: string): Promise<ArrayBuffer> {
+  const r = await fetch(BASE + path);
+  if (!r.ok) throw new Error(`${path}: ${r.status}`);
+  return r.arrayBuffer();
 }
 
 export async function loadJson<T>(path: string): Promise<T> {

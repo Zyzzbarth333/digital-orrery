@@ -28,12 +28,12 @@ import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
-import { makeStars } from './stars';
+import { makeStarPoints, makeStars } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
-import { loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
+import { loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
 import { BloomEffect } from './bloom';
 import { makeSunMaterial, SunGlare, visibleFraction } from './sun';
@@ -52,6 +52,9 @@ const TONE: Record<string, [THREE.ToneMapping, number]> = {
   agx: [THREE.AgXToneMapping, 1 / 0.6],
   aces: [THREE.ACESFilmicToneMapping, 1.0],   // three's ACES already scales by 1 / 0.6
 };
+// The star-free Milky Way map is scaled to its own brightest light, so it is
+// drawn well below white beside the point stars.
+const MILKY_WAY_GAIN = 0.5;
 const [TONE_MAPPING, EXPOSURE_1AU] = TONE[new URLSearchParams(location.search).get('tone') ?? 'neutral'] ?? TONE.neutral;
 // Bodies whose surfaces are bare regolith (Lommel-Seeliger scattering).
 const AIRLESS: ReadonlySet<BodyKey> = new Set<BodyKey>(['mercury', 'moon', 'pluto']);
@@ -102,17 +105,21 @@ export class OrreryScene {
   private uploader: TextureUploader;
   private rings: THREE.Mesh | null = null;
   private stars: THREE.Mesh | null = null;
+  private starPoints: THREE.Points | null = null;
   readonly dailyEarth = new DailyEarth();
   private atmospheres = new Map<BodyKey, THREE.Mesh>();
   private unloadedSurfaces = new Set<BodyKey>();
   private earthResolved = false;
   private glare = new SunGlare();
+  private sunVisible = 1;
+  private adapt = 1;              // the eye's adaptation: 1 dark-adapted
   private bloom = new BloomEffect();
   private buffer = new THREE.Vector2();
   private states = {} as Record<BodyKey, BodyState>;
   private raf = 0;
   private lastFrame = 0;
   private tmp = new THREE.Vector3();
+  private tmp2 = new THREE.Vector3();
   private resizeObserver: ResizeObserver;
 
   // The camera orbits a pivot on the focused body or craft and flies
@@ -254,10 +261,18 @@ export class OrreryScene {
       }
       const stars = m.stars;
       if (stars) {
+        // The light between the stars, then the stars as points over it.
+        const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
         void this.surfaces.load(stars.map, true).then((tex) => {
-          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, stars.gain ?? 1);
+          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain);
           this.scene.add(this.stars);
         });
+        if (stars.points) {
+          void loadBinary(stars.points).then((buf) => {
+            this.starPoints = makeStarPoints(new Float32Array(buf), renderToEqj().transpose(), this.renderer.getPixelRatio());
+            this.scene.add(this.starPoints);
+          });
+        }
       }
     });
 
@@ -487,6 +502,7 @@ export class OrreryScene {
     this.camera.lookAt(toRender([-offset[0], -offset[1], -offset[2]], this.tmp));
     this.camera.updateMatrixWorld();
     this.updateGlare(sunPos, cam, now);
+    this.updateAdaptation(dtReal, sunPos);
 
     this.renderer.render(this.scene, this.camera);
     this.placeLabels();
@@ -511,6 +527,38 @@ export class OrreryScene {
     const dCamAu = Math.hypot(cam[0], cam[1], cam[2]) / AU_KM;
     this.renderer.getDrawingBufferSize(this.buffer);
     this.glare.update(this.camera, sunPos, SUN_RADIUS_KM / UNIT_KM, 1 / (dCamAu * dCamAu), visible, this.buffer, now / 1000);
+    this.sunVisible = visible;
+  }
+
+  // The eye's adaptation, the sky's honest motion (docs/frontend/lighting.md#stars):
+  // faint stars and the Milky Way fade when bright light is in view (the
+  // Sun near the centre, lit discs by their share of the view and phase)
+  // and return in the dark: quickly toward light (0.3 s), slowly back (2 s).
+  private updateAdaptation(dt: number, sunPos: THREE.Vector3): void {
+    const fwd = this.tmp.set(0, 0, -1).transformDirection(this.camera.matrixWorld);
+    const cosSun = fwd.dot(sunPos) / sunPos.length();
+    const thetaSun = (Math.acos(Math.max(-1, Math.min(1, cosSun))) * 180) / Math.PI;
+    let light = this.sunVisible * Math.max(0, Math.min(1, (35 - thetaSun) / 20));
+    const h = this.container.clientHeight, w = this.container.clientWidth;
+    const pxPerRad = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
+    for (const b of BODIES) {
+      if (b.key === 'sun') continue;
+      const p = this.meshes.get(b.key)!.position;
+      const d = p.length();
+      const ndc = this.tmp2.copy(p).project(this.camera);
+      if (ndc.z > 1 || ndc.z < -1 || Math.abs(ndc.x) > 1.5 || Math.abs(ndc.y) > 1.5) continue;
+      const rPx = (b.radiusKm / UNIT_KM / d) * pxPerRad;
+      const share = Math.min(1, (Math.PI * rPx * rPx) / (w * h));
+      if (share < 1e-3) continue;
+      const toSun = this.tmp2.copy(sunPos).sub(p).normalize();
+      const lit = 0.5 * (1 - toSun.dot(p) / d);             // fraction of the disc lit, seen from here
+      light += share * lit * 2;
+    }
+    const target = 1 / (1 + 4 * light);
+    const tau = target < this.adapt ? 0.3 : 2.0;
+    this.adapt += (target - this.adapt) * (1 - Math.exp(-dt / tau));
+    if (this.starPoints) (this.starPoints.material as THREE.ShaderMaterial).uniforms.visibility.value = this.adapt;
+    if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.visibility.value = this.adapt;
   }
 
   // Per-body sunlight and shadow casters, and the camera's exposure.
@@ -552,6 +600,7 @@ export class OrreryScene {
     for (const o of this.orbits.values()) (o.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     this.craftLayer.setLevel(inv);
     if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.level.value = inv;
+    if (this.starPoints) (this.starPoints.material as THREE.ShaderMaterial).uniforms.level.value = inv;
 
     for (const [key, shell] of this.atmospheres) {
       const p = this.meshes.get(key)!.position;
