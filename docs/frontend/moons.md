@@ -102,8 +102,9 @@ precessing ellipse can follow.
 
 ## Planets drawn at their centres
 
-astronomy-engine places Mars to Pluto at their system barycentres, which is
-what the kernel pulls toward far from them. With moons drawn, the scene puts
+The ephemeris (DE442's table, and astronomy-engine outside 2000–2050)
+places Mars to Pluto at their system barycentres, which is what the kernel
+pulls toward far from them. With moons drawn, the scene puts
 each planet at its own centre instead (and so does the kernel near it),
 
 $$
@@ -166,7 +167,12 @@ not the Saturn barycentre 6 nor the solar system barycentre), geometric
 planet's centre too (`JupiterMoons` is documented as jovicentric, about
 Jupiter's centre). `moons.test.mjs` checks the rest of the chain:
 
-- **astronomy-engine's planets are system barycentres.** Its error against
+- **DE442's planets are system barycentres** by construction (NAIF 4 to 9),
+  and the table's are within 0.2–1.7 km of Horizons' for Mars, Saturn and
+  Pluto. Jupiter, Uranus and Neptune differ by 14, 1,231 and 352 km,
+  which is DE440 (what Horizons serves for them) against DE442
+  ([ephemerides](../physics/ephemerides-and-gm.md#why-it-matters)).
+- **astronomy-engine's planets are system barycentres** too. Its error against
   JPL changes slowly over a month, so astronomy-engine minus a Horizons
   point, less a quadratic in time, leaves only what moves with the moons.
   Against the barycentre (5, 6, ...) that is 1.1–1.2 km rms; against the
@@ -178,10 +184,10 @@ Jupiter's centre). `moons.test.mjs` checks the rest of the chain:
   centre, plus the centre's offset) has the same error as about the centre:
   Charon 26 km, which would be 2,139 km with the offset left out.
 - **About the Sun** (the scene's origin is the Sun's centre, not the solar
-  system barycentre), a moon is off by its planet's astronomy-engine error,
-  16,000 km for Jupiter up to 335,000 km for Neptune, and so is its planet:
-  the system moves as one. The moon about its planet there is again within
-  the figures above.
+  system barycentre), a moon is now within the figures above too: Triton
+  141 km, Charon 26 km. On astronomy-engine it was off by its planet's
+  error, 16,000 km for Jupiter up to 335,000 km for Neptune, and so was its
+  planet: the system moves as one.
 - Horizons' own frames agree with one another to 0.14 km (moon about the
   barycentre against moon about the centre plus centre about the
   barycentre), the rounding of the fixture.
@@ -196,11 +202,14 @@ the CODATA 2018 $G$. Charon has no albedo there, so it is drawn at 0.3.
 
 ## Drawing
 
-- **Surfaces:** plain spheres in an approximate mean colour, lit like the
-  planets ([lighting](lighting.md)), with Lommel-Seeliger scattering for all
-  but Titan, whose haze is closer to Lambert. No maps yet: USGS
-  Astrogeology's global mosaics (Galilean moons, Saturn's and Uranus's major
-  moons, Triton, Charon) are NASA/USGS public domain and could follow.
+- **Surfaces:** USGS Astrogeology global mosaics on fourteen of them
+  (Phobos, Deimos, the Galilean moons, Saturn's moons but Titan, Triton and
+  Charon), grey maps drawn in the moon's mean colour; Titan and the Uranian
+  moons stay plain spheres in that colour
+  ([textures](textures.md#the-moons-maps)). All are lit like the planets
+  ([lighting](lighting.md)), with Lommel-Seeliger scattering for all but
+  Titan, whose haze is closer to Lambert.
+  ![The fourteen mapped moons, 3.2 radii out at 35° phase, 14 November 2026: Io, Europa, Ganymede, Callisto, Phobos, Deimos and Mimas; Enceladus, Tethys, Dione, Rhea, Iapetus, Triton and Charon](moons-maps.jpg)
 - **Turning:** each moon turns by its IAU rotation model from NAIF's
   pck00011, pole and prime meridian with their libration terms
   ([orientation](../physics/orientation.md#the-planets-moons)), the frame
@@ -232,7 +241,10 @@ Computing all six systems takes about 0.1 ms a frame.
   Callisto and Titan carry their $J_2$ and $C_{22}$
   ([kernel](../physics/nbody-kernel.md#the-moons-own-fields)); the others
   are point masses.
-- Surface maps for the moons (above).
+- Surface maps for Titan (visible haze rather than surface) and the Uranian
+  moons (no digital global mosaic; Voyager 2 saw only their southern
+  hemispheres), and Iapetus's full albedo contrast, which the USGS mosaic
+  flattens.
 - Mimas's libration, which a sinusoidal term in its mean longitude could hold.
 
 ## Updating the data

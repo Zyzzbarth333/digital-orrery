@@ -33,12 +33,14 @@ export function loadBelt(buffer) {
   return B;
 }
 
-// The grid (x fastest, then y, then z) at `days` after SB_EPOCH_JD.
-export function buildBelt(B, days, G = GRID) {
+// The grid (x fastest, then y, then z) at `days` after SB_EPOCH_JD. With
+// stride k, every k-th body only, each counted k times: a quick first look
+// (a ninth of the time for k = 8) while the whole grid is built.
+export function buildBelt(B, days, G = GRID, stride = 1) {
   const { nx, ny, nz, halfXY, halfZ } = G;
   const grid = new Float32Array(nx * ny * nz);
   const sx = nx / (2 * halfXY), sy = ny / (2 * halfXY), sz = nz / (2 * halfZ);
-  for (let j = 0; j < B.count; j++) {
+  for (let j = 0; j < B.count; j += stride) {
     const ej = B.e[j], a = B.a[j];
     let M = (B.M0[j] + B.n[j] * days) % TAU; if (M < 0) M += TAU;
     let E = M + 0.85 * ej * (Math.sin(M) < 0 ? -1 : 1);
@@ -50,7 +52,7 @@ export function buildBelt(B, days, G = GRID) {
     const ix = Math.floor(gx), iy = Math.floor(gy), iz = Math.floor(gz);
     if (ix < 0 || iy < 0 || iz < 0 || ix >= nx - 1 || iy >= ny - 1 || iz >= nz - 1) continue;
     const fx = gx - ix, fy = gy - iy, fz = gz - iz;
-    const w = B.b[j] / (X * X + Y * Y + Z * Z);
+    const w = (stride * B.b[j]) / (X * X + Y * Y + Z * Z);
     const base = (iz * ny + iy) * nx + ix;
     for (let dz = 0; dz < 2; dz++) for (let dy = 0; dy < 2; dy++) {
       const wzy = w * (dz ? fz : 1 - fz) * (dy ? fy : 1 - fy), row = base + dz * nx * ny + dy * nx;
