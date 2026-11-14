@@ -15,13 +15,21 @@ sits within 14 px of its planet's, unless the moon is focused.
 
 Positions come from `helioStateEcl` in `src/physics/ephemeris.js`, re-read
 every frame:
-- **Earth and the Moon:** DE442 itself, through a Chebyshev table, within a
-  metre ([ephemerides](../physics/ephemerides-and-gm.md#de442-in-the-app)).
-- **The other planets:** astronomy-engine, within 1×10⁻⁴ of each planet's
-  distance from the Sun against DE442; see
+- **Every planet, Pluto and the Moon, 2000–2050:** DE442 itself, through a
+  Chebyshev table, within a metre
+  ([ephemerides](../physics/ephemerides-and-gm.md#de442-in-the-app)).
+  Mars to Pluto are system barycentres, drawn at their own centres, offset
+  by their moons' pull.
+- **Outside those years:** astronomy-engine, within 1×10⁻⁴ of each planet's
+  distance from the Sun against DE442 (335,000 km for Neptune); see
   [validation](../validation.md#ephemeris-and-porkchop-porkchoptestmjs).
-  These are system barycentres; Mars to Pluto are drawn at their own
-  centres, offset by their moons' pull.
+  Its planets are system barycentres too.
+- **The SSB** (the SSB frame, the Sun's path): DE442's own inside the
+  table; outside it, summed over every body.
+- **At the table's ends** each body blends from DE442 into astronomy-engine
+  over 30 days (Earth) to 8 years (Pluto), so no orbit line kinks where one
+  gives way to the other
+  ([ephemerides](../physics/ephemerides-and-gm.md#at-the-tables-ends)).
 - **Twenty major moons** of Mars to Pluto: astronomy-engine's Galilean
   moons and JPL's mean elements, within 0.3 % of their orbits' radii for
   most; see [Moons](moons.md).

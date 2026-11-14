@@ -14,8 +14,11 @@
 //   node src/physics/moons.test.mjs
 
 import fs from 'node:fs';
+import './deNode.js';                 // DE442's table, as in the app
+import * as Astronomy from 'astronomy-engine';
 import { moonStateEqj, planetCentreOffsetEqj, systemEqj, MOON_KEYS, MOONS_OF } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
+import { bodyAxesEqj } from './orientation.js';
 import { utcMsAtTt, helioStateEqj } from './ephemeris.js';
 
 const hz = JSON.parse(fs.readFileSync(new URL('./fixtures/moons_horizons.json', import.meta.url)));
@@ -54,12 +57,30 @@ for (const planet of Object.keys(MOONS_OF)) {
   check(Math.max(...e) < CENTRE_LIMIT[planet], `${planet} centre about barycentre: up to ${size.toFixed(2)} km, error ${Math.max(...e).toFixed(3)} km (limit ${CENTRE_LIMIT[planet]})`);
 }
 
-// Which point astronomy-engine's planets are. Its error against DE is slow
-// over a month, so astronomy-engine minus a Horizons point, less a
-// quadratic in time, leaves only the part that moves with the moons: about
-// 1 km against the system barycentre, the moons' whole pull (137 km for
-// Jupiter to 2,116 km for Pluto) against the planet's centre. So it gives
-// barycentres, and the scene must offset each planet to its centre.
+// The app's planets from Mars out are their system barycentres, from
+// DE442's table, against Horizons' barycentres (n about the Sun's centre).
+// Horizons serves DE440 for these: the rows match DE440 through SPICE to
+// 0.08 km (the fixture's 0.1 km rounding), and what is left here is
+// DE440 against DE442 itself, which SPICE gives as 0.17 km (Mars), 14.1 km
+// (Jupiter), 0.27 km (Saturn), 1,231 km (Uranus), 352 km (Neptune) and
+// 1.7 km (Pluto) over this month: how far JPL moved those planets between
+// the two fits. The table holds DE442 to under a metre (c/de_cheb.c).
+// Before the table, astronomy-engine was 1,809 km (Mars) to 335,209 km
+// (Neptune) out here.
+const NAIF = { mars: 4, jupiter: 5, saturn: 6, uranus: 7, neptune: 8, pluto: 9 };
+const DE440_GAP = { mars: 0.17, jupiter: 14.06, saturn: 0.27, uranus: 1231.11, neptune: 351.91, pluto: 1.71 };
+for (const [planet, n] of Object.entries(NAIF)) {
+  const e = Math.max(...hz.helio[n].map(([jd, x, y, z]) => { const r = helioStateEqj(planet, dateOf(jd)).r; return Math.hypot(r[0] - x, r[1] - y, r[2] - z); }));
+  check(Math.abs(e - DE440_GAP[planet]) < 0.15, `the app's ${planet} (DE442) against Horizons' barycentre ${n} (DE440): ${e.toFixed(3)} km, DE440 - DE442 is ${DE440_GAP[planet]} km`);
+}
+
+// Which point astronomy-engine's planets are (the fallback outside
+// 2000-2050). Its error against DE is slow over a month, so
+// astronomy-engine minus a Horizons point, less a quadratic in time, leaves
+// only the part that moves with the moons: about 1 km against the system
+// barycentre, the moons' whole pull (137 km for Jupiter to 2,116 km for
+// Pluto) against the planet's centre. So it gives barycentres too, and the
+// scene must offset each planet to its centre either way.
 function wobble(rows) {
   const t = rows.map((r) => r[0] - rows[0][0]);
   let sum = 0;
@@ -74,42 +95,72 @@ function wobble(rows) {
   }
   return Math.sqrt(sum / rows.length);
 }
-const NAIF = { mars: 4, jupiter: 5, saturn: 6, uranus: 7, neptune: 8, pluto: 9 };
+const AE_BODY = { mars: 'Mars', jupiter: 'Jupiter', saturn: 'Saturn', uranus: 'Uranus', neptune: 'Neptune', pluto: 'Pluto' };
+const aeHelio = (planet, date) => { const v = Astronomy.HelioVector(Astronomy.Body[AE_BODY[planet]], date); return [v.x, v.y, v.z].map((x) => x * 149597870.7); };
 for (const [planet, n] of Object.entries(NAIF)) {
-  const diff = (rows) => rows.map(([jd, x, y, z]) => { const r = helioStateEqj(planet, dateOf(jd)).r; return [jd, r[0] - x, r[1] - y, r[2] - z]; });
+  const diff = (rows) => rows.map(([jd, x, y, z]) => { const r = aeHelio(planet, dateOf(jd)); return [jd, r[0] - x, r[1] - y, r[2] - z]; });
   const wb = wobble(diff(hz.helio[n])), wc = wobble(diff(hz.helio[n * 100 + 99]));
+  const off = Math.max(...diff(hz.helio[n]).map(([, x, y, z]) => Math.hypot(x, y, z)));
   // Mars's moons move it by millimetres: nothing to tell apart there.
   const ok = planet === 'mars' ? true : wb < 3 && wc > 10 * wb;
-  check(ok, `astronomy-engine's ${planet} is its system barycentre: wobble ${wb.toFixed(2)} km against Horizons ${n}, ${wc.toFixed(2)} km against ${n}99`);
+  check(ok, `astronomy-engine's ${planet} is its system barycentre: wobble ${wb.toFixed(2)} km against Horizons ${n}, ${wc.toFixed(2)} km against ${n}99 (off by up to ${off.toFixed(0)} km)`);
 }
 
 // The moons as the scene composes them, against Horizons in two other
 // frames: about the system barycentre (the moon about the planet's centre
-// plus the centre's offset), and about the Sun (astronomy-engine's
-// barycentre, plus the offset, plus the moon). Heliocentric, both planet and
-// moon carry astronomy-engine's error for the planet (16,000 km for
-// Jupiter to 335,000 km for Neptune), so the moon's place about its planet
-// is checked there, as scene moon minus scene planet against Horizons moon
-// minus Horizons planet centre. Horizons' own frames agree to 0.2 km.
+// plus the centre's offset), and about the Sun (the DE442 barycentre, plus
+// the offset, plus the moon), where the moon now carries only its own
+// error: with astronomy-engine's planets it carried theirs too (16,000 km
+// for Jupiter to 335,000 km for Neptune). Also checked there relative to the
+// planet, as scene moon minus scene planet against Horizons moon minus
+// Horizons planet centre. Horizons' own frames agree to 0.2 km.
 for (const key of Object.keys(hz.moonsBary)) {
   const planet = MOON_DATA[key].planet, n = NAIF[planet];
-  let eb = 0, eNo = 0, erel = 0, eSelf = 0;
+  let eb = 0, eNo = 0, erel = 0, eh = 0, eSelf = 0;
   hz.moonsBary[key].forEach(([jd, x, y, z], i) => {
-    const d = dateOf(jd), sys = systemEqj(planet, d), m = sys.moons[key].r, o = sys.offset.r;
+    const d = dateOf(jd), sys = systemEqj(planet, d), m = sys.moons[key].r, o = sys.offset.r, b = helioStateEqj(planet, d).r;
     eb = Math.max(eb, Math.hypot(m[0] + o[0] - x, m[1] + o[1] - y, m[2] + o[2] - z));
     eNo = Math.max(eNo, Math.hypot(m[0] - x, m[1] - y, m[2] - z));
     const mh = hz.moonsHelio[key][i], ph = hz.helio[n * 100 + 99][i], mc = hz.month[key][i], c = hz.centres[planet][i];
     erel = Math.max(erel, Math.hypot(m[0] - (mh[1] - ph[1]), m[1] - (mh[2] - ph[2]), m[2] - (mh[3] - ph[3])));
+    eh = Math.max(eh, Math.hypot(b[0] + o[0] + m[0] - mh[1], b[1] + o[1] + m[1] - mh[2], b[2] + o[2] + m[2] - mh[3]));
     eSelf = Math.max(eSelf, Math.hypot(mc[1] + c[1] - x, mc[2] + c[2] - y, mc[3] + c[3] - z));
   });
   const [lm] = LIMIT[key];
-  check(eb < lm && erel < lm && eSelf < 0.2, `${key.padEnd(8)} about barycentre ${n}: ${eb.toFixed(0)} km (${eNo.toFixed(0)} without the planet's offset); about the Sun, relative to the planet: ${erel.toFixed(0)} km; Horizons frames agree to ${eSelf.toFixed(2)} km`);
+  check(eb < lm && erel < lm && eh < lm && eSelf < 0.2, `${key.padEnd(8)} about barycentre ${n}: ${eb.toFixed(0)} km (${eNo.toFixed(0)} without the planet's offset); about the Sun: ${eh.toFixed(0)} km, relative to the planet ${erel.toFixed(0)} km; Horizons frames agree to ${eSelf.toFixed(2)} km`);
 }
 
 // Data: every moon has a radius, a GM and a period.
 for (const key of MOON_KEYS) {
   const m = MOON_DATA[key];
   check(m.radiusKm > 1 && m.gm > 0 && m.P > 0, `${key} radius ${m.radiusKm} km, GM ${m.gm}, P ${m.P} d`);
+}
+
+// Body frame (bodyAxesEqj, pck00011): Z is the IAU's north pole, checked
+// here against the WGCCRE 2015 report's own formulae, so the USGS maps,
+// east-positive about it, go on the right way round. Triton (retrograde)
+// and the Uranian moons have it opposite their orbit's pole; Charon takes
+// the right-hand pole, as a dwarf planet's moon. Triton's pole precesses
+// about Neptune's, by the IAU's series in N7.
+{
+  const D = Math.PI / 180;
+  const dir = (ra, dec) => [Math.cos(dec * D) * Math.cos(ra * D), Math.cos(dec * D) * Math.sin(ra * D), Math.sin(dec * D)];
+  const date = new Date(Date.UTC(2026, 10, 14));
+  const T = (date - Date.UTC(2000, 0, 1, 12)) / 864e5 / 36525;
+  const N = (177.85 + 52.316 * T) * D;
+  const tRa = 299.36 - 32.35 * Math.sin(N) - 6.28 * Math.sin(2 * N) - 2.08 * Math.sin(3 * N) - 0.74 * Math.sin(4 * N)
+    - 0.28 * Math.sin(5 * N) - 0.11 * Math.sin(6 * N) - 0.07 * Math.sin(7 * N) - 0.02 * Math.sin(8 * N) - 0.01 * Math.sin(9 * N);
+  const tDec = 41.17 + 22.55 * Math.cos(N) + 2.10 * Math.cos(2 * N) + 0.55 * Math.cos(3 * N) + 0.16 * Math.cos(4 * N)
+    + 0.05 * Math.cos(5 * N) + 0.02 * Math.cos(6 * N) + 0.01 * Math.cos(7 * N);
+  const IAU = { phobos: dir(317.68, 52.90), io: dir(268.05, 64.50), rhea: dir(40.38, 83.55),
+    ariel: dir(257.43, -15.10), titania: dir(257.43, -15.10), triton: dir(tRa, tDec), charon: dir(132.993, -6.163) };
+  for (const [key, pole] of Object.entries(IAU)) {
+    const [X, Y, Z] = bodyAxesEqj(key, date);
+    const off = Math.acos(Math.min(1, Z[0] * pole[0] + Z[1] * pole[1] + Z[2] * pole[2])) / D;
+    const XxY = [X[1] * Y[2] - X[2] * Y[1], X[2] * Y[0] - X[0] * Y[2], X[0] * Y[1] - X[1] * Y[0]];
+    const handed = Math.hypot(XxY[0] - Z[0], XxY[1] - Z[1], XxY[2] - Z[2]) < 1e-9;
+    check(off < 1.5 && handed, `${key.padEnd(8)} body pole ${off.toFixed(2)} deg from the IAU's north pole (limit 1.5), right-handed`);
+  }
 }
 
 if (failed) { console.log(`\n${failed} moon check(s) failed`); process.exit(1); }

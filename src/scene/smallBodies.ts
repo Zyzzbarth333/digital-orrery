@@ -33,9 +33,10 @@
 // ecliptic (x, z, -y).
 
 import * as THREE from 'three';
-import { positionAu, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '../physics/smallBodies.js';
+import { positionAu, diameterFromH, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '../physics/smallBodies.js';
 import { ttMinusUtc } from '../physics/timescale.js';
 import { BeltHaze } from './beltHaze';
+import { makeBodyMaterial } from './bodyMaterial';
 
 const AU_KM = 149597870.7;
 const UNIT_KM = 1000;
@@ -55,10 +56,22 @@ const M_REF = 19.6, PEAK_REF = 0.08, RANGE = 0.5, PEAK_MAX = 3;
 // rest only once the camera is within LABEL_NEAR_AU of them.
 const ALWAYS = new Set(['1', '2', '4', '10', '136199', '136108', '136472']);
 const LABEL_NEAR_AU = 1.5;
-// TT - UTC (s): the leap-second table's, or 2017's before 1972 (a minute's
-// difference moves a body by under an arcsecond).
 
-interface Named { pdes: string; name: string; kind: string; cls: string; a: number; e: number; i: number; node: number; peri: number; M: number; H: number | null }
+export interface Named { pdes: string; name: string; kind: string; cls: string; a: number; e: number; i: number; node: number; peri: number; M: number; H: number | null; diameter: number | null; elements: string }
+
+const SUN_RADIUS_KM = 695700;
+// Julian date (TT) of a UTC time (ms): the leap-second table's TT - UTC, or
+// 2017's before 1972 (a minute's difference moves a body by under an arcsecond).
+export const jdOf = (timeMs: number) => timeMs / 86400e3 + 2440587.5 + (ttMinusUtc(timeMs) ?? 69.184) / 86400;
+// A focused body's size when SBDB has none: from H for an albedo of 0.15
+// (diameterFromH); a comet's H is its coma's, so a 5 km nucleus is assumed.
+export const ASSUMED_ALBEDO = 0.15, ASSUMED_COMET_KM = 5;
+const isComet = (cls: string) => (SB_GROUPS.comets as string[]).includes(cls);
+export function sizeOf(b: Named): { diameterKm: number; measured: boolean } {
+  if (b.diameter) return { diameterKm: b.diameter, measured: true };
+  if (isComet(b.cls) || b.H === null) return { diameterKm: ASSUMED_COMET_KM, measured: false };
+  return { diameterKm: diameterFromH(b.H, ASSUMED_ALBEDO), measured: false };
+}
 
 const VERTEX = /* glsl */ `
   // The packed file's fields, as they are (16 bytes a body on the GPU):
@@ -77,6 +90,7 @@ const VERTEX = /* glsl */ `
   uniform float uSize;         // sprite size, device px
   uniform float uPeakScale;    // keeps a point's light when its width is floored
   uniform float uPointMin;     // the faintest peak drawn: the budget's cut-off
+  uniform float uHide;         // au: no point this close to the camera (the focused body is drawn as a sphere)
   uniform vec3 uColour[5];
   uniform float uOn[5];
   varying vec3 vColour;
@@ -109,6 +123,7 @@ const VERTEX = /* glsl */ `
     gl_Position = projectionMatrix * viewMatrix * vec4(vec3(rel.x, rel.z, -rel.y) * uScale, 1.0);
     // Its magnitude from the camera.
     float r = max(length(ecl), 1e-6), d = max(length(rel), 1e-9), mag;
+    if (d < uHide) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vColour = vec3(0.0); return; }
     if (g == 4) {
       mag = H + 5.0 * lg(d) + uK1[int(floor(aHC.y / 32.0) + 0.5)] * lg(r);
     } else {
@@ -166,6 +181,16 @@ export class SmallBodyLayer {
   // The faint main belt, drawn as a haze from its real orbits.
   private haze: BeltHaze;
   private sunRender = new THREE.Vector3();
+  // A marker clicked: the scene flies there (OrreryScene.focusOnSmall).
+  onPick: (pdes: string) => void = () => {};
+  // The named list, once it has loaded (for the rail's Fly-to list).
+  onNamed: (named: readonly Named[]) => void = () => {};
+  // The focused body, drawn as a lit sphere at its size (sizeOf).
+  private focusPdes: string | null = null;
+  private focusMesh: THREE.Mesh;
+  // Disposed before its data arrived (React's development double mount):
+  // it adds no markers then.
+  private disposed = false;
 
   // Adds itself to the scene once the data has loaded.
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, baseUrl = '') {
@@ -176,13 +201,16 @@ export class SmallBodyLayer {
       transparent: false, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
       uniforms: {
         uDays: { value: 0 }, uCam: { value: new THREE.Vector3() }, uScale: { value: AU_KM / UNIT_KM }, uLevel: { value: 1 }, uVis: { value: 1 },
-        uSigma: { value: 1 }, uSize: { value: 7 }, uPeakScale: { value: 1 }, uPointMin: { value: 0 },
+        uSigma: { value: 1 }, uSize: { value: 7 }, uPeakScale: { value: 1 }, uPointMin: { value: 0 }, uHide: { value: 0 },
         uColour: { value: SMALL_BODY_GROUPS.map((g) => new THREE.Vector3(...COLOUR[g])) }, uOn: { value: SMALL_BODY_GROUPS.map(() => 1) },
         uGroupOf: { value: SB_CLASSES.map((c) => Math.max(0, SMALL_BODY_GROUPS.findIndex((g) => (SB_GROUPS[g] as string[]).includes(c)))) },
         uK1: { value: [...SB_K1] }, uByGroup: { value: 0 },
       },
     });
     this.haze = new BeltHaze(scene);
+    this.focusMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24), makeBodyMaterial(0x9c968c, ASSUMED_ALBEDO, true));
+    this.focusMesh.visible = false;
+    scene.add(this.focusMesh);
     void this.load(baseUrl);
   }
 
@@ -190,6 +218,7 @@ export class SmallBodyLayer {
     try {
       const get = (f: string) => fetch(`${baseUrl}data/${f}`).then((r) => { if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`); return r.arrayBuffer(); });
       const [bin, meta] = await Promise.all([get('smallbodies.bin'), fetch(`${baseUrl}data/smallbodies.json`).then((r) => r.json())]);
+      if (this.disposed) return;
       this.show(bin);
       this.named = meta.named;
       for (const b of this.named) {
@@ -198,9 +227,11 @@ export class SmallBodyLayer {
         el.title = `${b.name}: ${b.kind}`;
         el.innerHTML = `<span class="dot"></span><span class="name">${b.name}</span>`;
         el.style.display = 'none';
+        el.addEventListener('click', () => this.onPick(b.pdes));
         this.overlay.appendChild(el);
         this.markers.set(b.pdes, el);
       }
+      this.onNamed(this.named);
       // Then the faint main belt, about 1.45 million more: too faint to see
       // one by one, so they are drawn as a haze from their real orbits.
       try {
@@ -270,6 +301,9 @@ export class SmallBodyLayer {
   }
 
   // Population colours (the rail's swatches) instead of natural ones.
+  // Before the scene is drawn: the haze's own low-resolution pass.
+  renderHaze(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void { this.haze.render(renderer, camera); }
+
   setColourByGroup(on: boolean): void { this.material.uniforms.uByGroup.value = on ? 1 : 0; }
 
   // The points' width as the stars' (stars.ts setStarScale): the same
@@ -295,7 +329,7 @@ export class SmallBodyLayer {
   // adaptation where the scene models one (1 dark-adapted, less beside
   // bright light: the points fade with the stars).
   update(timeMs: number, cam: readonly number[], level: number, visibility = 1): void {
-    this.jd = timeMs / 86400e3 + 2440587.5 + (ttMinusUtc(timeMs) ?? 69.184) / 86400;
+    this.jd = jdOf(timeMs);
     this.camAu = [cam[0] / AU_KM, cam[1] / AU_KM, cam[2] / AU_KM];
     const u = this.material.uniforms;
     u.uDays.value = this.jd - SB_EPOCH_JD;
@@ -307,6 +341,60 @@ export class SmallBodyLayer {
     // (x, y, z) is ecliptic (x, z, -y) in thousands of km.
     this.sunRender.set(-cam[0] / UNIT_KM, -cam[2] / UNIT_KM, cam[1] / UNIT_KM);
     this.haze.update(timeMs, this.sunRender, Math.hypot(...this.camAu), level, visibility);
+    this.placeFocus(timeMs, cam, level);
+  }
+
+  // The named bodies, once loaded.
+  get namedBodies(): readonly Named[] { return this.named; }
+  body(pdes: string): Named | undefined { return this.named.find((b) => b.pdes === pdes); }
+
+  // Heliocentric ecliptic position (km) of a named body at a time (UTC ms),
+  // from the same elements and Kepler solve its marker uses.
+  positionKm(pdes: string, timeMs: number): [number, number, number] | null {
+    const b = this.body(pdes);
+    if (!b) return null;
+    const p = positionAu(b, jdOf(timeMs));
+    return [p[0] * AU_KM, p[1] * AU_KM, p[2] * AU_KM];
+  }
+  radiusKm(pdes: string): number {
+    const b = this.body(pdes);
+    return b ? sizeOf(b).diameterKm / 2 : 1;
+  }
+
+  // Show one named body as a sphere (null: none).
+  setFocus(pdes: string | null): void {
+    this.focusPdes = pdes;
+    const b = pdes ? this.body(pdes) : undefined;
+    this.focusMesh.visible = !!b;
+    if (b) {
+      // A comet's nucleus is dark (about 0.04); an asteroid's albedo,
+      // not in the data here, is taken as 0.15. Regolith: Lommel-Seeliger.
+      (this.focusMesh.material as THREE.Material).dispose();
+      this.focusMesh.material = makeBodyMaterial(0x9c968c, isComet(b.cls) ? 0.04 : ASSUMED_ALBEDO, true);
+    }
+  }
+
+  // The focused body's sphere, camera-relative in render units, lit as the
+  // planets are (bodyMaterial.ts); and its own point hidden near the camera,
+  // where the shader's float32 position would sit kilometres off.
+  private placeFocus(timeMs: number, cam: readonly number[], level: number): void {
+    const u = this.material.uniforms;
+    const pos = this.focusPdes ? this.positionKm(this.focusPdes, timeMs) : null;
+    if (!pos) { u.uHide.value = 0; this.focusMesh.visible = false; return; }
+    const R = this.radiusKm(this.focusPdes!);
+    const rel = [pos[0] - cam[0], pos[1] - cam[1], pos[2] - cam[2]];
+    const dCam = Math.hypot(rel[0], rel[1], rel[2]);
+    u.uHide.value = dCam < 0.05 * AU_KM ? (2 * dCam + R) / AU_KM : 0;
+    this.focusMesh.visible = true;
+    this.focusMesh.position.set(rel[0] / UNIT_KM, rel[2] / UNIT_KM, -rel[1] / UNIT_KM);
+    this.focusMesh.scale.setScalar(R / UNIT_KM);
+    const m = (this.focusMesh.material as THREE.ShaderMaterial).uniforms;
+    const rAu = Math.hypot(pos[0], pos[1], pos[2]) / AU_KM;
+    m.irradiance.value = 1 / (rAu * rAu);
+    (m.sunPos.value as THREE.Vector3).copy(this.sunRender);
+    m.sunRadius.value = SUN_RADIUS_KM / UNIT_KM;
+    (m.bodyCentre.value as THREE.Vector3).copy(this.focusMesh.position);
+    m.invExposure.value = level;
   }
 
   // The named bodies' markers at their projected positions, rounded to
@@ -320,23 +408,35 @@ export class SmallBodyLayer {
     const placed: [number, number][] = [];
     for (const b of this.named) {
       const el = this.markers.get(b.pdes)!;
+      const focused = b.pdes === this.focusPdes;
+      el.classList.toggle('focused', focused);
       const group = SMALL_BODY_GROUPS.find((g) => (SB_GROUPS[g] as string[]).includes(b.cls)) ?? 'belt';
-      if (!this.on[group]) { el.style.display = 'none'; continue; }
+      if (!this.on[group] && !focused) { el.style.display = 'none'; continue; }
       const p = positionAu(b, this.jd);
       const rx = p[0] - cx, ry = p[1] - cy, rz = p[2] - cz;
-      if (!ALWAYS.has(b.pdes) && Math.hypot(rx, ry, rz) > LABEL_NEAR_AU) { el.style.display = 'none'; continue; }
+      if (!ALWAYS.has(b.pdes) && !focused && Math.hypot(rx, ry, rz) > LABEL_NEAR_AU) { el.style.display = 'none'; continue; }
       const ndc = this.tmp.set(rx * scale, rz * scale, -ry * scale).project(camera);
       if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
       const x = Math.round(((ndc.x + 1) / 2) * w * px) / px, y = Math.round(((1 - ndc.y) / 2) * h * px) / px;
-      if (placed.some(([px, py]) => Math.abs(px - x) < 40 && Math.abs(py - y) < 12)) { el.style.display = 'none'; continue; }
+      if (!focused && placed.some(([px, py]) => Math.abs(px - x) < 40 && Math.abs(py - y) < 12)) { el.style.display = 'none'; continue; }
       placed.push([x, y]);
+      // The focused body's dot gives way to its sphere once that shows (as
+      // a planet's does): more than 4 px across.
+      if (focused) {
+        const pxPerRad = h / (2 * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360));
+        el.classList.toggle('resolved', (sizeOf(b).diameterKm / 2 / AU_KM / Math.hypot(rx, ry, rz)) * pxPerRad > 2);
+      } else el.classList.remove('resolved');
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
     }
   }
 
   dispose(): void {
+    this.disposed = true;
     this.haze.dispose();
+    this.scene.remove(this.focusMesh);
+    this.focusMesh.geometry.dispose();
+    (this.focusMesh.material as THREE.Material).dispose();
     if (this.points) { this.scene.remove(this.points); this.points.geometry.dispose(); }
     this.material.dispose();
     for (const el of this.markers.values()) el.remove();

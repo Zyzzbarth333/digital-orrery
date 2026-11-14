@@ -75,7 +75,7 @@ is planned for the exact-ephemeris phase.
 | app clock | UTC (Unix milliseconds) |
 | kernel | **TT** seconds from `KERNEL_EPOCH_MS` = 2000-01-01 12:00 UTC: `kernelSeconds(date)` and `kernelMs(t)` (`kernelHost.js`), `sys.secondsAt` and `sys.msAt` (`bodies.js`) |
 | astronomy-engine | takes UTC dates; TT − UTC is set from the leap-second table (`timescale.js`: 32.184 s + TAI − UTC, 69.184 s since 2017), not the library's extrapolation (75.2 s for 2026) |
-| DE442 Earth–Moon table | TDB seconds past J2000, from UTC by `timescale.js`: TT − UTC from the leap seconds, then TDB − TT ≈ 0.001657 s sin g + 0.000014 s sin 2g |
+| DE442 table | TDB seconds past J2000, from UTC by `timescale.js`: TT − UTC from the leap seconds, then TDB − TT ≈ 0.001657 s sin g + 0.000014 s sin 2g |
 
 The kernel counts uniform seconds: TT seconds since the TT instant of
 `KERNEL_EPOCH_MS`, by the same TT − UTC the ephemerides use (the
