@@ -8,8 +8,10 @@ conversion), `src/scene/surfaces.ts`, `bodyMaterial.ts`, `rings.ts`,
 ## Sources and credits
 
 All NASA, USGS and NOAA products are US-government public domain; the
-credit lines are the ones each source asks for. Solar System Scope maps are
-CC BY 4.0 and need their attribution.
+credit lines are the ones each source asks for. Solar System Scope maps
+([solarsystemscope.com/textures](https://www.solarsystemscope.com/textures/))
+are [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and need their
+attribution, with a link to the licence; the app's Credits list gives both.
 
 | Body | Map | Source | Credit |
 | --- | --- | --- | --- |
@@ -26,7 +28,8 @@ CC BY 4.0 and need their attribution.
 | Venus | Cloud tops (4096×2048) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
 | Saturn, Uranus, Neptune | Colour (4096, 2048, 2048 wide) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
 | Saturn's rings | Normal optical depth, 10 km bins | Cassini UVIS 126 Tau egress occultation (COUVIS_8001) | NASA PDS Ring-Moon Systems Node (Colwell et al.) |
-| Stars | 4096×2048 linear star map | Deep Star Maps 2020 (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
+| Stars | The Hipparcos main catalogue: 83,392 stars to V 9 with V and B−V | ESA 1997 (SP-1200), via NASA HEASARC | ESA, *The Hipparcos and Tycho Catalogues* (1997) |
+| Milky Way | 4096×2048 linear map of the light between the stars (Hipparcos and Tycho stars removed) | Deep Star Maps 2020, Milky Way layer (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
 
 The Venus surface is not shown: in visible light Venus is its cloud deck.
 No Sun map is used, since at its true brightness the disc saturates to
@@ -131,12 +134,69 @@ The ring photometry, transparency and shadow on Saturn are in
 
 ## Stars
 
-The SVS star map is plate carrée in ICRF (J2000 equatorial), centred on
-RA 0h with RA increasing to the left. The linear values are scaled so the
-brightest 0.01 % of pixels reach white, keeping faint stars and the Milky
-Way at their relative brightness, then stored as sRGB. The scene draws it on
-a sphere around the camera, looked up by each view direction's RA and Dec,
-at a fixed display brightness (see [lighting](lighting.md)).
+The sky is two layers, both downloaded with the user's approval on
+14 November 2026 and kept as originals in the texture source folder:
+
+| Layer | Source | Download | Shipped |
+| --- | --- | --- | --- |
+| The light between the stars | NASA SVS Deep Star Maps 2020, Milky Way layer `milkyway_2020_4k.exr` (the full star map with the Hipparcos and Tycho stars taken out) | 36.4 MB | `stars/milky-way.webp`, 4096 × 2048 8-bit sRGB, 3.0 MB |
+| The stars | The Hipparcos main catalogue (ESA 1997), 118,218 stars, from NASA HEASARC (`heasarc_hipparcos.tdat.gz`) | 14.8 MB | `stars/hipparcos.bin`, the 83,392 stars to V 9.0, 0.83 MB |
+
+**The Milky Way map** is plate carrée in ICRF (J2000 equatorial), centred on
+RA 0h with RA increasing to the left, in linear half-float light. It is
+written as sRGB with its brightest 0.01 % at white; the scene draws it at
+half that (lighting.md). Stars fainter than Tycho's limit stay in it as
+unresolved light, so the Milky Way's grain is real; stars between V 9 and
+Tycho's limit (about V 11.5) are in neither layer, which at the scene's
+display level is below visibility anyway.
+
+**The star file** holds, per star, five int16: x, y, z of the J2000 unit
+vector times 32,767 (about 6″ resolution), V × 1,000 and B−V × 1,000
+(−32,768 for the 131 stars without one, drawn at the Sun's 0.65). The
+catalogue's positions are ICRS at epoch J1991.25; proper motion since then
+(under 1′ for all but a handful) is not applied.
+
+**Colour** comes from B−V in the app (`stars.ts`, `bvToRgb`): a temperature
+from Ballesteros's (2012) formula,
+T = 4600 (1/(0.92 (B−V) + 1.7) + 1/(0.92 (B−V) + 0.62)) K, a Planck spectrum
+at that temperature integrated over 380–780 nm with the CIE 1931
+colour-matching functions (Wyman, Sloan and Shirley's 2013 multi-lobe fit),
+and the XYZ-to-linear-sRGB matrix, at luminance 1. As a check, B−V 0.65
+gives 5,778 K and (1.11, 0.98, 0.91), against (1.10, 0.98, 0.94) from the
+Sun's measured chromaticity ([lighting](lighting.md#the-sun)).
+
+**Credits**, as the SVS page asks (checked 14 November 2026; it states no
+licence terms beyond credit): NASA/Goddard Space Flight Center Scientific
+Visualization Studio; Gaia DR2: ESA/Gaia/DPAC. Hipparcos: ESA 1997, *The
+Hipparcos and Tycho Catalogues*, ESA SP-1200, via NASA HEASARC; ESA makes the
+catalogue freely available with this acknowledgement.
+
+An earlier stopgap split the SVS combined star map into points and
+background on the machine (commit 4a660fe); it is replaced by these.
+
+## Loading
+
+A body's maps load the first time its disc is more than three pixels
+in radius (six across), or when a flight to it starts ([camera](camera.md#maps-on-the-way)).
+Maps run to 8192 × 4096, about 180 MB of video memory each with mipmaps,
+and loading them used to freeze the page for up to two seconds. Now:
+
+- **Decoding** happens in a worker (`decode.worker.ts`): it fetches the
+  file, decodes and flips it with `createImageBitmap`, and transfers the
+  bitmap back. Doing that on the main thread still blocked it for 59 ms (no
+  options) to 246 ms (flipped, not premultiplied) per 8k map after the
+  decode itself. Body maps are opaque, so they are premultiplied, which
+  changes no value; the cloud mosaic has alpha and is not.
+- **Uploading** happens 4 MB per frame at the top of the frame
+  (`TextureUploader` in `surfaces.ts`): an immutable texture
+  (`texStorage2D`) is filled in strips with `texSubImage2D`, mipmapped once
+  and handed to three.js as an `ExternalTexture`. One `texImage2D` of an 8k
+  map blocked for 0.41–0.55 s; a 128-row strip takes 2–3 ms, so the map goes
+  up over about 32 frames.
+- **Earth's months**: only the current month's day map is kept; the
+  previous one (78 MB) is freed when the month changes.
+- **A lost WebGL context** takes these textures with it, so on restore the
+  maps load again.
 
 ## Rebuilding
 

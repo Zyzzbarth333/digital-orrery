@@ -67,14 +67,15 @@ npm run build
 ## Controls
 
 - Drag: rotate the view about the focused body
-- Scroll: zoom in and out
-- Click a label or a name in the list: focus that body
+- Scroll: zoom in and out (the zoom is kept when you move to another body)
+- Click a label or a name in the list: fly there (drag, scroll or Esc stops the flight; click the body in view again to reframe it)
 - Header: the RUN key runs or holds time; choose a rate (real time to one year per second), or jump back to now with NOW
-- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now
+- Header: FLIGHT shows the selected craft (press it to follow the craft); CONSOLE opens the flight console
+- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now, M flight console, Esc stop a flight or close the console
 
 The data plate gives each value with its source (the provenance column): a solid tag for data, a dashed one for values worked out in the app; hover a tag for detail.
 
-The right-hand plate has three tabs: TARGET (the focused body's data), MISSION (launch, readout, nodes, engine, log) and PLANNER (the porkchop grid and "Fly this"). See [docs/frontend/mission.md](docs/frontend/mission.md).
+The right-hand plate shows the focused body's data. Missions, the planner and the rocket are the app's, not a body's, so they live in the flight console, opened from the header whatever is in view: MISSION (launch, readout, nodes, engine, log), PLANNER (the porkchop grid and "Fly this") and ROCKET. See [docs/frontend/mission.md](docs/frontend/mission.md).
 
 A link can set the starting view: `?focus=moon&t=2026-03-03T11:33:40Z&view=sun` (`view=sun` puts the camera on the sunlit side).
 
@@ -110,7 +111,7 @@ digital-orrery/
 
 ## Credits
 
-Surface maps, data and imagery: NASA Earth Observatory (Blue Marble, Black Marble); NOAA NCEI (ETOPO 2022); NASA Global Imagery Browse Services (GIBS), part of NASA ESDIS (daily Earth imagery); NASA's Scientific Visualization Studio (CGI Moon Kit, Deep Star Maps 2020; Gaia DR2: ESA/Gaia/DPAC); NASA/JPL, USGS Astrogeology (Viking Mars mosaic); NASA/GSFC MOLA Science Team; NASA/JHUAPL/Carnegie Institution of Washington (MESSENGER); NASA/JHUAPL/SwRI (New Horizons); NASA/JPL/Space Science Institute (Cassini Jupiter map); NASA PDS Ring-Moon Systems Node (Cassini UVIS ring occultation); Solar System Scope, CC BY 4.0 (Venus clouds, Saturn, Uranus and Neptune maps). Ephemerides and frames: NASA JPL / NAIF SPICE (DE442 and the satellite kernels) and astronomy-engine (MIT). Transfer optima for comparison: NASA Ames Research Center, Trajectory Browser (Mission Design Division). Artemis II's reconstructed trajectory: NASA JSC/FOD/NAV, via NAIF. Artemis I's as-flown trajectory: NASA/JSC navigation, via JPL Horizons. 6-DOF check cases: NASA Engineering and Safety Center (NASA/TM-2015-218675). Earth gravity: EGM2008 (NGA), via GFZ ICGEM. Lunar gravity: GRAIL GL0660B (NASA/JPL), via the PDS Geosciences Node. Space weather: CelesTrak (NOAA SWPC, GFZ). Fonts: B612 and B612 Mono (Airbus) and Michroma (Vernon Adams), SIL Open Font License 1.1, via Fontsource. Details in [docs/frontend/textures.md](docs/frontend/textures.md).
+Surface maps, data and imagery: NASA Earth Observatory (Blue Marble, Black Marble); NOAA NCEI (ETOPO 2022); NASA Global Imagery Browse Services (GIBS), part of NASA ESDIS (daily Earth imagery); NASA's Scientific Visualization Studio (CGI Moon Kit; Deep Star Maps 2020, the Milky Way layer; Gaia DR2: ESA/Gaia/DPAC); the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC (the stars); NASA/JPL, USGS Astrogeology (Viking Mars mosaic); NASA/GSFC MOLA Science Team; NASA/JHUAPL/Carnegie Institution of Washington (MESSENGER); NASA/JHUAPL/SwRI (New Horizons); NASA/JPL/Space Science Institute (Cassini Jupiter map); NASA PDS Ring-Moon Systems Node (Cassini UVIS ring occultation); [Solar System Scope](https://www.solarsystemscope.com/textures/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (Venus clouds, Saturn, Uranus and Neptune maps). Ephemerides and frames: NASA JPL / NAIF SPICE (DE442 and the satellite kernels) and astronomy-engine (MIT). Transfer optima for comparison: NASA Ames Research Center, Trajectory Browser (Mission Design Division). Artemis II's reconstructed trajectory: NASA JSC/FOD/NAV, via NAIF. Artemis I's as-flown trajectory: NASA/JSC navigation, via JPL Horizons. 6-DOF check cases: NASA Engineering and Safety Center (NASA/TM-2015-218675). Earth gravity: EGM2008 (NGA), via GFZ ICGEM. Lunar gravity: GRAIL GL0660B (NASA/JPL), via the PDS Geosciences Node. Space weather: CelesTrak (NOAA SWPC, GFZ). Fonts: B612 and B612 Mono (Airbus) and Michroma (Vernon Adams), SIL Open Font License 1.1, via Fontsource. Details in [docs/frontend/textures.md](docs/frontend/textures.md).
 
 ## Licence
 

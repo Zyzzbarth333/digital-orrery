@@ -45,16 +45,18 @@ origin, so whatever is near it (the focused body) is drawn with full
 precision; whatever is far away has large coordinates, but its errors are
 far below a pixel.
 
-A logarithmic depth buffer covers the depth range, from a near plane of 1 m
-to a far plane of $10^{10}$ render units, with no visible z-fighting.
+A logarithmic depth buffer covers the depth range, from a near plane of 1 km
+(10⁻³ render units) to a far plane of $10^{10}$ render units, with no visible z-fighting.
 
 ## Camera
 
-The camera orbits the focused body: distance $d$ in km, azimuth and elevation
-about ecliptic north. Dragging changes the angles (elevation clamped to
-±86°); scrolling scales $d$ by $e^{0.0015\,\Delta}$ and stops at 1.2 body
-radii. Selecting a body moves the focus there, at 8 radii (at least
-20,000 km), or $1.6\times10^9$ km for the Sun (the inner planets out to Jupiter).
+The camera orbits the focused body or craft: distance $d$ in km, azimuth and
+elevation about ecliptic north. Dragging changes the angles (elevation
+clamped to ±86°); scrolling scales $d$ by $e^{0.0015\,\Delta}$, eased over a
+quarter second, and stops at 1.2 body radii. Selecting a body flies the
+camera there on van Wijk and Nuij's zoom-and-pan path, interruptible and
+redirectable, ending at 8 radii (at least 20,000 km), $1.6\times10^9$ km for
+the Sun, or the zoom the user last chose in radii. See [Camera](camera.md).
 
 ## Orbit lines
 
@@ -74,8 +76,9 @@ $\Delta = \text{now} - u \ge 0$ periods ago glows by $g = e^{-\Delta/\tau}$
 with $\tau = 0.08$, and its opacity is $a = a_0 + (1 - a_0)\,g$ with the
 outline at $a_0 = 0.3$. So the trail is brightest at the body, fades over
 roughly the last tenth of an orbit, and the rest of the orbit stays outlined.
-Points ahead of the body are outline only. The glow is additive and kept out
-of the tone mapping, like the other drawing aids. A spacecraft's flown path
+Points ahead of the body are outline only. The glow is additive and drawn at
+a display level (divided by the exposure the HDR output applies), like the
+other drawing aids. A spacecraft's flown path
 uses the same shader, with $u$ its age along the trail (newest 0, oldest
 $-1$), $\tau = 0.25$ and $a_0 = 0.12$.
 
@@ -91,14 +94,18 @@ marker and shows its name on hover.
 Sunlight falls off as $1/d^2$, the exposure is metered at the camera's
 distance from the Sun, each body reflects its NASA geometric albedo, and
 eclipses are computed from the overlap of the Sun's and the occluder's
-discs. See [Lighting](lighting.md).
+discs. The scene renders in HDR and is tone-mapped once (Khronos PBR
+Neutral), with bloom, the Sun's glare and point stars that adapt to bright
+light. See [Lighting](lighting.md).
 
 ## Time
 
 `SimClock` (`src/app/clock.ts`) holds the UTC time, a rate in sim seconds per
 real second and a play state. The render loop advances it by the real frame
 time (capped at 1 s, so a hidden tab does not jump). React panels subscribe
-through `useSyncExternalStore` and re-render at most ten times a second.
+through `useSyncExternalStore` and re-render at most ten times a second;
+the header and the body rail redraw only when a value they show changes
+(`useClockValue`).
 The URL can set the start state: `?focus=mars&t=2030-01-01T00:00Z`, and
 `&view=sun` starts on the sunlit side of the focused body.
 
