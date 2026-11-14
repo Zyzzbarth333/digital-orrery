@@ -22,6 +22,7 @@ export interface SurfaceEntry {
   dayMonthly?: string[];        // 12 paths, January first (Earth)
   dayMeanLuminance?: number;    // mean linear luminance of the day map(s)
   dayWhiteLuminance?: number;   // Earth: luminance of the brightest 0.5 %, set to reflectance 0.9
+  tint?: boolean;               // a grey map, coloured by the body's catalogue colour (the moons)
   normal?: string;
   night?: string;
   credit: string;
@@ -232,7 +233,7 @@ export class SurfaceLoader {
       if (old && old !== path) this.drop(old);
     } else if (entry.day && !this.month.has(key)) {
       this.month.set(key, -1);
-      applySurfaceMaps(material, { day: await this.load(entry.day, true), dayMeanLuminance: entry.dayMeanLuminance });
+      applySurfaceMaps(material, { day: await this.load(entry.day, true), dayMeanLuminance: entry.dayMeanLuminance, tint: entry.tint });
     }
   }
 }

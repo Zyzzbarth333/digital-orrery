@@ -175,6 +175,87 @@ def rings(src, out, colour_map, heights_km, normal_map):
                                  "NASA PDS Ring-Moon Systems Node."}}
 
 
+# ------------------------------------------------------------------ moons
+
+def gaps(a: np.ndarray, value: int, size: int) -> np.ndarray:
+    """No-data in a USGS mosaic, where no spacecraft imaged: solid blocks of
+    `value` (black or white) at least `size` pixels across. Imaged pixels of
+    that value come singly or in specks, which the opening removes."""
+    from PIL import ImageFilter
+    flat = np.all(a == value, axis=2) if a.ndim == 3 else a == value
+    m = Image.fromarray((flat * 255).astype(np.uint8))
+    m = m.filter(ImageFilter.MinFilter(size)).filter(ImageFilter.MaxFilter(size))
+    return np.asarray(m) > 0
+
+
+def fill_gaps(img: Image.Image, gap: np.ndarray, feather_px: int) -> Image.Image:
+    """Fill no-data with the imaged part's mean colour (linear light, rows
+    weighted by cos lat) and soften the edge over `feather_px`, so an
+    unimaged pole shows the moon's mean colour, not black or white."""
+    from PIL import ImageFilter
+    from build_textures import srgb_to_linear
+    a = np.asarray(img.convert("RGB"))
+    rows = a.shape[0]
+    w = np.cos((0.5 - (np.arange(rows) + 0.5) / rows) * np.pi)[:, None] * ~gap
+    lin = srgb_to_linear(a)
+    mean_lin = (lin * w[..., None]).sum(axis=(0, 1)) / w.sum()
+    mean = np.where(mean_lin <= 0.0031308, 12.92 * mean_lin, 1.055 * mean_lin ** (1 / 2.4) - 0.055) * 255
+    filled = np.where(gap[..., None], np.rint(mean).astype(np.uint8), a)
+    near = np.asarray(Image.fromarray((gap * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(2 * feather_px + 1))) > 0
+    soft = np.asarray(Image.fromarray(filled).filter(ImageFilter.GaussianBlur(feather_px)))
+    print(f"    filled {gap.mean() * 100:.1f} % unimaged with the mean colour")
+    return Image.fromarray(np.where(near[..., None], soft, filled))
+
+
+def moon_map(key: str, width: int, credit: str, *, colour: bool = False, gap: int | None = None,
+             source: str | None = None):
+    """A moon's USGS mosaic (fetched by fetch_moons.py), east-positive with
+    its west edge at -180 deg east like every map here. Grey maps (and
+    Triton's, whose colour is synthesised from orange, violet and UV
+    filters) are kept grey and tinted in the shader by the moon's catalogue
+    colour (`tint`)."""
+    def build(src, out, colour_map, heights_km, normal_map):
+        img = Image.open(src / (source or f"{key}_usgs_wms.png"))
+        img = img.convert("RGB")
+        if gap is not None:
+            size = img.width // 256 + 1                  # 17 px at 4096
+            img = fill_gaps(img, gaps(np.asarray(img), gap, size), max(2, img.width // 512))
+        if not colour:
+            img = img.convert("L").convert("RGB")
+        lum = colour_map(save_tmp(img, src, f"{key}.png"), out / f"{key}/day.webp", width)
+        entry = {"day": f"{key}/day.webp", "dayMeanLuminance": lum, "credit": credit}
+        if not colour:
+            entry["tint"] = True
+        return entry
+    return build
+
+
+GALILEO = "Galileo SSI and Voyager global mosaic: NASA/JPL, USGS Astrogeology."
+CASSINI = "Cassini ISS global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology."
+CASSINI_VOYAGER = "Cassini ISS and Voyager global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology."
+
+MOONS = {
+    "phobos": moon_map("phobos", 2048, "Viking Orbiter mosaic (Stooke, DLR control): NASA/JPL, USGS Astrogeology.",
+                       source="phobos_usgs.tif"),
+    "deimos": moon_map("deimos", 2048, "Viking Orbiter map (Philip Stooke; Thomas et al. shape model): "
+                                       "NASA/JPL, USGS Astrogeology."),
+    "io": moon_map("io", 4096, "Galileo SSI and Voyager colour mosaic: NASA/JPL, USGS Astrogeology.", colour=True),
+    "europa": moon_map("europa", 4096, GALILEO, gap=0),
+    "ganymede": moon_map("ganymede", 4096, GALILEO, gap=0),
+    "callisto": moon_map("callisto", 4096, GALILEO, gap=0),
+    "mimas": moon_map("mimas", 2048, CASSINI_VOYAGER),
+    "enceladus": moon_map("enceladus", 2048, CASSINI),
+    "tethys": moon_map("tethys", 2048, CASSINI),
+    "dione": moon_map("dione", 2048, CASSINI_VOYAGER),
+    "rhea": moon_map("rhea", 2048, CASSINI_VOYAGER),
+    "iapetus": moon_map("iapetus", 2048, CASSINI_VOYAGER),
+    "triton": moon_map("triton", 4096, "Voyager 2 global mosaic (Paul Schenk, LPI): NASA/JPL, USGS Astrogeology.",
+                       gap=255),
+    "charon": moon_map("charon", 2048, "New Horizons LORRI/MVIC mosaic: NASA/JHUAPL/SwRI, USGS Astrogeology.",
+                       gap=255),
+}
+
+
 BODIES = {
     "earth": earth, "moon": moon, "mars": mars, "mercury": mercury, "pluto": pluto,
     "venus": venus, "jupiter": jupiter,
@@ -182,6 +263,7 @@ BODIES = {
     "uranus": giant("uranus", "sss_2k_uranus.jpg", 2048),
     "neptune": giant("neptune", "sss_2k_neptune.jpg", 2048),
     "rings": rings,
+    **MOONS,
 }
 
 
