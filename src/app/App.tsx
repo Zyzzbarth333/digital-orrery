@@ -87,10 +87,10 @@ export function App() {
   }, [consoleOpen]);
   const mission = useMemo(() => new Mission(), []);
   const journey = useMemo(() => new JourneyStore(init.timeMs), [init]);
+  const scene = useRef<OrreryScene | null>(null);
   // The plotting table covers the sky, which pauses behind it.
   useJourney(journey);
   useEffect(() => { scene.current?.setPaused(journey.plotOpen); }, [journey.plotOpen]);
-  const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
   // A named asteroid or comet the camera is on (its marker or the rail's

@@ -15,6 +15,9 @@
  *                MSL arrival (spkezr_c, geometric, observer Sun)
  *   planets      heliocentric J2000 states of Mercury..Neptune barycentres
  *                at a few epochs, for checking astronomy-engine later
+ *   orientation  J2000 -> body-fixed rotations of the Sun and planets
+ *   earth        J2000 -> ITRF93 at 408 instants 2000-2126, for the Earth
+ *                orientation table (src/physics/eop.js)
  *
  * Frame: J2000 (equatorial, the same axes as astronomy-engine's EQJ).
  * Units: km, km/s, s, km^3/s^2, radians.
@@ -260,6 +263,52 @@ int main(int argc, char **argv) {
       }
     }
     fprintf(f, "  ],\n");
+  }
+
+  /* ---- the Earth's orientation, densely: J2000 -> ITRF93 at 400 random
+     instants (to the millisecond) across the Earth PCKs, and either side of
+     the leap seconds and of the hand-over from the high-precision file to
+     the long-term one (metakernel.tm loads the latter first, so the former
+     wins where both cover). For src/physics/eop.js. ---- */
+  {
+    const char *hpName = "earth_latest_high_prec.bpc";
+    char hpPath[256];
+    snprintf(hpPath, sizeof hpPath, "data/kernels/pck/%s", hpName);
+    SPICEDOUBLE_CELL(cover, 2000);
+    scard_c(0, &cover);
+    pckcov_c(hpPath, 3000, &cover);
+    die_if_failed(hpPath);
+    SpiceDouble hp0, hp1, lo, hi, end;
+    wnfetd_c(&cover, 0, &hp0, &hi);
+    wnfetd_c(&cover, wncard_c(&cover) - 1, &lo, &hp1);
+    str2et_c("2126 NOV 02 00:00:00 UTC", &end);
+    die_if_failed("earth span");
+    SpiceChar hpEnd[64];
+    et2utc_c(hp1, "ISOC", 3, sizeof hpEnd, hpEnd);
+    fprintf(f, "  \"earth\": {\"frame\": \"ITRF93\", \"high_prec_end_utc\": \"%s\", \"rows\": [\n", hpEnd);
+    const char *fixed[] = {"2008-12-31T23:59:59.000", "2009-01-01T00:00:00.000", "2016-12-31T23:59:59.999",
+                           "2017-01-01T00:00:00.001", "2016-12-31T12:00:00.000", "2017-01-01T12:00:00.000"};
+    const int nFixed = 6, nRand = 400;
+    SpiceDouble hpEt[2] = {hp1 - 1.0, hp1 + 1.0};
+    for (int i = 0; i < nFixed + 2 + nRand; i++) {
+      SpiceDouble et;
+      SpiceChar utc[64];
+      if (i < nFixed) str2et_c(fixed[i], &et);
+      else if (i < nFixed + 2) et = hpEt[i - nFixed];
+      /* Three in four in the high-precision file, the rest after. */
+      else if (i % 4) et = uniform(hp0 + 60.0, hp1 - 60.0);
+      else et = uniform(hp1 + 60.0, end);
+      et2utc_c(et, "ISOC", 3, sizeof utc, utc);
+      str2et_c(utc, &et);              /* the instant the string names */
+      die_if_failed(utc);
+      SpiceDouble m[3][3];
+      pxform_c("J2000", "ITRF93", et, m);
+      die_if_failed("pxform_c ITRF93");
+      fprintf(f, "    {\"utc\": \"%s\", ", utc);
+      put_vec(f, "m", &m[0][0], 9, 0);
+      fprintf(f, "}%s\n", i == nFixed + 2 + nRand - 1 ? "" : ",");
+    }
+    fprintf(f, "  ]},\n");
   }
 
   /* ---- body shapes: the triaxial ellipsoid's radii along body-fixed X, Y,

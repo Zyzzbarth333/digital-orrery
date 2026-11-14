@@ -712,8 +712,13 @@ details.section[open] > summary::after { content: '−'; }
 .ledger-bar .budget-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--lamp-on); }
 .readout-line { font: 13px var(--sans); font-variant-numeric: tabular-nums; }
 .lamp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12px; }
-.lamp-list li { padding-left: 10px; border-left: 3px solid var(--lamp-off); }
-.lamp-list li.go { border-color: var(--lamp-on); } .lamp-list li.caution { border-color: var(--caution); } .lamp-list li.warn { border-color: var(--warn); }
+/* Each line's state as a small square lamp before it, as the rail's lamps
+   are; the lamp's name and its words carry the state too. */
+.lamp-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 8px; align-items: baseline; }
+.lamp-list li::before { content: ''; width: 10px; height: 10px; box-sizing: border-box; border: 1px solid var(--seam-strong); background: var(--lamp-off); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.25); transform: translateY(1px); }
+.lamp-list li.go::before { background: var(--lamp-on); box-shadow: 0 0 5px rgba(127, 224, 106, 0.6); }
+.lamp-list li.caution::before { background: var(--caution); box-shadow: 0 0 5px rgba(242, 194, 48, 0.6); }
+.lamp-list li.warn::before { background: var(--warn); box-shadow: 0 0 5px rgba(198, 47, 28, 0.6); }
 .lamp-list b { font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 400; color: var(--engrave); margin-right: 4px; }
 .plot-timeline { background: var(--window); border-radius: 2px; box-shadow: inset 0 3px 10px #000; padding: 4px 8px; overflow-x: auto; }
 .plot-timeline svg { display: block; width: 100%; min-width: 720px; max-height: 26vh; touch-action: none; }

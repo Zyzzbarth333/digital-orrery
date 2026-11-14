@@ -14,11 +14,72 @@ $(X\cdot\mathbf v,\ Y\cdot\mathbf v,\ Z\cdot\mathbf v)$.
 
 ### Earth
 
-Earth's axes come from astronomy-engine's `ObserverVector`: the J2000
-directions of the points at latitude 0°, longitude 0° and of the north pole.
-That includes precession, nutation and Greenwich apparent sidereal time,
-the same chain an observer on the ground uses. It leaves out polar motion
-(about 10 m at the surface).
+The Earth is ITRF93, the frame NAIF's Earth PCKs give and the one GPS,
+launch sites and surface maps are measured in. Its axes are the rows of
+
+$$
+M = W\,R_3(\text{GAST})\,N\,P, \qquad W = R_1(-y_p)\,R_2(-x_p),
+$$
+
+from `earthRotation.js` (`earthFixedAxes(ms)` in `orientation.js`): IAU 1976
+precession $P$, IAU 1980 nutation $N$ with the IERS corrections
+$\delta\Delta\psi$, $\delta\Delta\epsilon$ added, Greenwich apparent sidereal
+time from **UT1**, and polar motion $(x_p, y_p)$, which tilts the crust
+against the rotation axis by about 10 m. This is how NAIF builds ITRF93.
+The scene, the launch sites, the rocket's ascent, a craft's impact point
+and the gravity field and atmosphere (`environment.js`) all take the Earth
+from it.
+
+The day's UT1 − UTC, $x_p$, $y_p$, $\delta\Delta\psi$ and
+$\delta\Delta\epsilon$ come from `public/ephemeris/earth-orientation-2000-2126.bin`
+(336 KB, `eop.js`). UT1 − UTC alone is worth up to 0.9 s, 400 m at the
+equator. Without them (before 2000, after 2126, or if the file fails to
+load) the Earth turns on UTC with no polar motion, 180 m out.
+
+**Where the table comes from.** NAIF's two binary Earth PCKs, sampled with
+CSPICE by `c/earth_orientation.c`:
+
+| Segment | Kernel | What it holds |
+| --- | --- | --- |
+| 1 Jan 2000 to 9 Feb 2027 | `earth_latest_high_prec.bpc` (13 Nov 2026) | JPL's measured EOP to 13 Nov 2026, then its three-month prediction |
+| 9 Feb 2027 to 3 Nov 2126 | `earth_2026_260806_2126_predict.bpc` | NAIF's long-term extension: polar motion and nutation corrections held, UT1 running at the rate of TAI apart from the zonal tides |
+
+For each day, `src/physics/eop.build.mjs` fits the five parameters so that
+`earthRotation.js` reproduces ITRF93 at seven instants an hour apart around
+0h UTC. Polar motion turns with the crust and the nutation correction with
+the sky, so the quarter turn between the first and last instant tells them
+apart. The fit is good to 4 mm everywhere. The first segment stores all
+five daily as Float32. The second stores only UT1 − UTC, because its pole
+is held. Between days `eop.js` uses four-point Lagrange interpolation
+within a segment, as the IERS's own routine for its daily values
+(`interp.f`) does. UT1 is
+interpolated as UT1 − TAI, so leap seconds do not jump.
+
+The long-term file was made in August 2026 from older data. Where it takes
+over, NAIF's ITRF93 jumps by 177 ms of UT1 and 0.18″ of polar motion,
+85 m at the surface. The table instead joins the second segment onto the
+first. Its held pole is the newer file's last value, and its UT1 − UTC
+moves by the difference at the junction but keeps the long-term file's
+shape. That is NAIF's own extension, made from the newest data.
+
+Past the first months, prediction is the limit. UT1 drifts from any
+forecast by tens of milliseconds within a year, and by seconds over
+decades (kilometres at the equator). So dates well after Feb 2027 are a
+guess, as they are in SPICE.
+
+**Refresh** when NAIF updates `earth_latest_high_prec.bpc` (they do so
+often):
+
+```bash
+cmake --build c/build
+c/build/earth_orientation python/data/kernels/pck/earth_latest_high_prec.bpc \
+  python/data/kernels/pck/earth_2026_260806_2126_predict.bpc /tmp/itrf93.bin
+node src/physics/eop.build.mjs /tmp/itrf93.bin
+c/build/orrery_spice_ref src/physics/fixtures/spice_reference.json
+```
+
+The long-term file must start before the high-precision one ends. NAIF
+publishes a new one from time to time.
 
 ### The other bodies
 
@@ -157,11 +218,12 @@ density to 1 %. Two differ, and the plate says so:
 `npm test` runs `orientation.test.mjs`, which compares the axes with CSPICE
 `pxform_c` from J2000 to each body-fixed frame at four epochs from 2000 to
 2026 (the fixture is `src/physics/fixtures/spice_reference.json`, written by
-`c/orrery_spice_ref.c`):
+`c/orrery_spice_ref.c`; the angle of the worst axis, by `atan2`, since
+`acos` stops resolving below about 10⁻⁸ rad, 9 cm on the Earth):
 
 | Body | CSPICE frame | Worst axis error | At the surface |
 | --- | --- | --- | --- |
-| Earth | ITRF93 (high-precision Earth PCK) | 0.0016° | 180 m |
+| Earth | ITRF93 (high-precision Earth PCK) | 1.1×10⁻⁷° | 1.2 cm |
 | Moon | MOON_ME (the frame of the LRO maps) | 0.0036° | 110 m |
 | Mercury | IAU_MERCURY | 0.00045° | 19 m |
 | Venus | IAU_VENUS | 0.00011° | 12 m |
@@ -175,6 +237,21 @@ density to 1 %. Two differ, and the plate says so:
 The moons use SPICE's own model, so only TT for TDB and rounding are left.
 The same test checks the 31 ellipsoids in `pck.data.js` against SPICE's
 `bodvrd_c` reading of `RADII`: equal to the last digit.
+
+Then the Earth densely, against ITRF93 at 408 instants (to the
+millisecond) from 2000 to 2126, in metres at the equator:
+
+| Span | Instants | Against | Worst | RMS |
+| --- | --- | --- | --- | --- |
+| 2000 to 9 Feb 2027 (including either side of the 2008 and 2016 leap seconds) | 307 | `earth_latest_high_prec.bpc` | 4.2 cm | 1.6 cm |
+| After 9 Feb 2027 | 101 | `earth_2026_260806_2126_predict.bpc` | 82.47 m | steady to 1 cm |
+
+After Feb 2027 the difference is the junction's offset (above), held
+constant. The craft's Earth (`environment.js`, recomputed hourly and spun
+between) stays within 9.5 cm of this one: that is how far the nutation's
+fortnightly term moves the pole and the equinox in half an hour. Before
+this table, the Earth was 180 m out, because it took UTC for UT1 and left
+out polar motion.
 
 The giant planets have no surface; their "longitude" is a rotation model
 (System III), so these differences only move cloud bands, and only for the
@@ -192,7 +269,15 @@ models astronomy-engine and pck00011 take from different IAU reports.
   Dynamical Astronomy* 130:22 (2018),
   [doi:10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5).
 - G. Petit and B. Luzum (eds.), *IERS Conventions (2010)*, IERS Technical
-  Note 36: the Earth Rotation Angle.
+  Note 36: the Earth Rotation Angle; polar motion (chapter 5).
+- NAIF, Earth binary PCKs and their comments (`commnt -r`):
+  [generic_kernels/pck](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/),
+  `earth_latest_high_prec.bpc` (13 Nov 2026) and
+  `earth_2026_260806_2126_predict.bpc` (7 Aug 2026), both made by WRTPEM
+  from JPL's EOP file `latest.long`
+  ([eop.jpl.nasa.gov](https://eop.jpl.nasa.gov/)).
+- NAIF, *PCK Required Reading* and *Frames Required Reading*: ITRF93 and
+  the high-precision Earth frame.
 - R. Howard, J. W. Harvey and S. Forgach, "Solar surface velocity fields
   determined from small magnetic features", *Solar Physics* 130, 295
   (1990), doi:10.1007/BF00156795, ADS 1990SoPh..130..295H. SunPy's

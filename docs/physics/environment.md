@@ -29,8 +29,12 @@ acceleration on the craft alone:
   evaluated in the Earth-fixed frame and rotated back.
 - **Earth rotation:** IAU 1976 precession, the full IAU 1980 nutation,
   and apparent sidereal time (`earthRotation.js`, checked to 1 cm against
-  NASA's tools). These are computed once an hour, with the Earth's spin
-  about its pole of date applied analytically in between.
+  NASA's tools), with the day's UT1 − UTC, polar motion and nutation
+  corrections from the Earth orientation table: ITRF93 to 4 cm, the same
+  Earth as the scene and the launch sites
+  ([orientation](orientation.md#earth)). These are computed once an hour,
+  with the Earth's spin about its pole of date applied analytically in
+  between, before polar motion turns the result to the crust.
 - **Data:** the coefficients to degree 70 are in `egm2008.js`, built by
   `npm run fetch:environment` from GFZ's ICGEM copy of the model. That
   file lists the model by degree, so only its first 0.3 MB is read.
