@@ -31,6 +31,7 @@ import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStars } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
+import { SmallBodyLayer } from './smallBodies';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { loadJson, loadManifest, SurfaceLoader, type Manifest } from './surfaces';
@@ -119,6 +120,8 @@ export class OrreryScene {
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
   private craftLayer!: CraftLayer;
+  // The asteroids and comets (smallBodies.ts), for the rail's toggles.
+  smallBodies!: SmallBodyLayer;
 
   // Put the camera at phase angle `phase` (rad) from the Sun as seen from
   // the focused body: about 0.35 shows the day side with a little
@@ -210,6 +213,7 @@ export class OrreryScene {
     });
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
+    this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, UNIT_KM, import.meta.env.BASE_URL);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
     // pressure): say so rather than show a black view, and carry on when the
     // browser restores it.
@@ -350,6 +354,7 @@ export class OrreryScene {
     }
     const sunPos = this.meshes.get('sun')!.position;
     this.sunGlow.position.copy(sunPos);
+    this.smallBodies.update(tMs, sunPos);
     this.updateLighting(sunPos, cam, date);
     for (const b of BODIES) {
       const o = this.orbits.get(b.key);
@@ -368,6 +373,7 @@ export class OrreryScene {
     this.renderer.render(this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
+    this.smallBodies.label(tMs, sunPos, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
 
   // Per-body sunlight and shadow casters, and the camera's exposure.
@@ -498,6 +504,7 @@ export class OrreryScene {
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
+    this.smallBodies.dispose();
     for (const el of this.labels.values()) el.remove();
     this.renderer.dispose();
     this.renderer.domElement.remove();

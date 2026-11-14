@@ -398,3 +398,9 @@ details.section[open] > summary::after { content: '−'; }
 .ascent-plot polyline { stroke: var(--phosphor); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .ascent-plot figcaption { display: flex; justify-content: space-between; gap: var(--u); }
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Small bodies (src/scene/smallBodies.ts): named ones get a smaller, dimmer
+   marker than the planets'; the rail's toggles show their population colour. */
+.body-marker.small-body .dot { width: 5px; height: 5px; margin: 1px; border-color: rgba(236, 217, 176, 0.45); }
+.body-marker.small-body .name { opacity: 0.75; font-size: 8px; }
+.small-bodies .lamp-sq { border: 1px solid; }

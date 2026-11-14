@@ -42,6 +42,7 @@ export function App() {
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
+  const [smallOn, setSmallOn] = useState<Record<string, boolean>>({ belt: true, neo: true, trojans: true, outer: true, comets: true });
   const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); };
   const onReady = (sc: OrreryScene) => {
     scene.current = sc;
@@ -101,7 +102,8 @@ export function App() {
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} />
       <TimeBand clock={clock} mission={mission} />
-      <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); setTab('target'); }} />
+      <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); setTab('target'); }}
+        smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); scene.current?.smallBodies.setGroup(k, on); }} />
       <Plate clock={clock} focus={focus} mission={mission} tab={tab} setTab={setTab} onFocusCraft={followCraft} autoPlan={init.plan} />
     </div>
   );
