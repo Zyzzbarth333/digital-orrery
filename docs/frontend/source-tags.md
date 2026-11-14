@@ -119,6 +119,10 @@ behind them. Textbooks are cited by section, not quoted.
   ([ssd-api.jpl.nasa.gov/doc/sbdb_filter.html](https://ssd-api.jpl.nasa.gov/doc/sbdb_filter.html)),
   diameters and absolute magnitudes; JPL Horizons: the named bodies'
   elements at 2026-01-01 ([small bodies](small-bodies.md)).
+- JPL SB441 small-body ephemerides
+  ([ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/)):
+  the place and osculating elements of the 14 named bodies they cover
+  (tag SB441; [small bodies](small-bodies.md#exact-positions-for-the-largest)).
 - JPL CNEOS, asteroid size estimator
   ([cneos.jpl.nasa.gov/tools/ast_size_est.html](https://cneos.jpl.nasa.gov/tools/ast_size_est.html)),
   and Fowler and Chillemi in *The IRAS Minor Planet Survey* (1992,

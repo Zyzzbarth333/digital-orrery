@@ -99,3 +99,19 @@ node src/physics/eop.build.mjs /tmp/itrf93.bin
 The samples file is 26 MB and not kept. The build prints the fit's worst
 residual (4 mm) and the offset where it joins the long-term file onto the
 high-precision one.
+
+## SB441's largest asteroids for the app
+
+`sb_cheb.c` fits the Chebyshev series the app uses for the 25 asteroids it
+takes from JPL's SB441 files
+([docs/frontend/small-bodies.md](../docs/frontend/small-bodies.md#exact-positions-for-the-largest)).
+It needs `de442.bsp` (for the Sun about the barycentre) and
+`sb441-n373s.bsp` (982 MB) from
+[ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/),
+placed in `python/data/kernels/spk/asteroids/`. The full command, with the
+body list, is in that page. Its arguments are the output, the first year,
+the year after the last, the tolerance (km), the leapseconds kernel, the
+planetary SPK, the asteroid SPK and the NAIF ids. It prints each body's
+interval, coefficients and worst heliocentric error against `spkezr_c`;
+with `SB_REFERENCE=<file>` set it also writes the SPK states the
+JavaScript test checks against (`src/physics/fixtures/asteroids_sb441.json`).

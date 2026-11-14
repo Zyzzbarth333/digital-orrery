@@ -98,10 +98,12 @@ The scene passes the layer its camera position and 1 / the exposure:
 
 The same call is right in both cases.
 
-The named bodies get markers in the HTML overlay, placed from the same
-elements on the CPU as the points are drawn, and rounded to whole device
-pixels. The dwarf planets and the four largest asteroids are always
-marked; the others once the camera is within 1.5 au.
+The named bodies get markers in the HTML overlay, placed on the CPU and
+rounded to whole device pixels: from the same elements as the points, or,
+for the 14 that SB441 covers, from its table
+([below](#exact-positions-for-the-largest)). The dwarf planets and the four
+largest asteroids are always marked; the others once the camera is within
+1.5 au.
 
 ### The point budget
 
@@ -161,6 +163,95 @@ resolution ([performance](../performance.md#the-belts-haze-and-the-load)), and i
 with the number of bodies. The main-belt switch shows
 or hides the haze with the points.
 
+## Exact positions for the largest
+
+The ellipses drift: by 2000 or 2050 Ceres's 2026 ellipse is 14.6 million km
+from Ceres, Hygiea's 72 million. So the largest asteroids, and the other
+named bodies JPL's SB441 files cover, take their positions from those files
+instead (`src/physics/sbTable.js`).
+
+- **The source:** JPL's SB441 small-body ephemerides (Farnocchia 2021, JPL
+  IOM 392R-21-005), integrated with the DE441 planets and the largest
+  asteroids' pull. `sb441-n16.bsp` holds the 16 most massive, the
+  perturbers JPL's small-body integrations (Horizons among them) use with
+  DE441; `sb441-n373s.bsp` holds 373, those 16 among
+  them (the same positions: checked to a metre for four of them), from
+  1550 to 2650.
+- **Which:** the 16 perturbers (Ceres, Pallas, Juno, Vesta, Iris, Hygiea,
+  Eunomia, Psyche, Euphrosyne, 52 Europa, Cybele, Sylvia, Thisbe, Camilla,
+  Davida, Interamnia: also in the spacecraft kernel,
+  [kernel](../physics/nbody-kernel.md#asteroids)), and the 9 other named
+  bodies in `sb441-n373s.bsp`: Lutetia, Eros, Quaoar, Sedna, Orcus,
+  Haumea, Eris, Makemake and Gonggong. 25 bodies.
+- **The table:** Chebyshev series fitted by `c/sb_cheb.c`, as
+  `c/de_cheb.c` fits the Earth and the Moon, written to
+  `public/ephemeris/sb441-asteroids-2000-2050.bin` (0.35 MB). Each
+  asteroid is stored relative to the solar-system barycentre, and the Sun
+  once, relative to it too; the app takes the difference. Relative to the
+  Sun, every series would have to follow the Sun's own wobble about the
+  barycentre (hundreds of km over months, from Venus and the Earth), and
+  every body, Eris included, needed 192-day intervals of 15 coefficients
+  for 1 km. Relative to the barycentre a main-belt asteroid takes 384 to
+  768 days of 12 to 20, a trans-Neptunian object 2,048 days of 6 to 8.
+  Each series interpolates the SPK at the Chebyshev-Lobatto points of its
+  intervals, both ends among them, so neighbouring intervals meet in
+  position.
+- **Outside 2000 to 2050** a body moves on the two-body ellipse through
+  its state at the nearer end of the table.
+- **Where they are used:**
+  - `smallBodies.positionAu`: the labels.
+  - The points: the scene finds each of these bodies among the packed
+    points by its packed elements and, every 5 simulated days, packs its
+    osculating ellipse from the table in their place (only those bytes go
+    to the GPU). Carried five days the ellipse drifts under 40 km, far
+    under the packing's own rounding (0.0055°: 40,000 km at Ceres).
+  - The kernel, for the 16 perturbers' gravity.
+
+**Why not all 373:** the same fit for every body in `sb441-n373s.bsp` is
+5.0 MB (12.9 MB relative to the Sun). Only the named bodies have labels;
+the other 348 would only move points among 135,000 drawn from their
+ellipses. So the table holds the 25 that are used. Fitting all 373 takes
+30 seconds, so a planner that targets small bodies could take them
+later.
+
+To regenerate (CSPICE and the kernels as in [c/README.md](../../c/README.md)):
+
+```bash
+cmake --build c/build --target sb_cheb
+```
+
+```bash
+K=python/data/kernels; SB_REFERENCE=src/physics/fixtures/asteroids_sb441.json c/build/sb_cheb public/ephemeris/sb441-asteroids-2000-2050.bin 2000 2050 0.8 $K/lsk/naif0012.tls $K/spk/de442.bsp $K/spk/asteroids/sb441-n373s.bsp 2000001 2000002 2000003 2000004 2000007 2000010 2000015 2000016 2000031 2000052 2000065 2000087 2000088 2000107 2000511 2000704 2000021 2000433 2050000 2090377 2090482 2136108 2136199 2136472 2225088
+```
+
+```bash
+npm run fetch:asteroids
+```
+
+The last fetches the Horizons vectors the test checks against. Each
+asteroid is held to 0.8 km and the Sun to 0.08 km, so that their
+difference stays under 1 km.
+
+**How right** (`asteroids.test.mjs`):
+
+| Check | Result |
+| --- | --- |
+| the table, asteroid less Sun, against SB441 (`c/sb_cheb.c`, every 0.37 days, 2000–2050) | within 0.94 km |
+| the JavaScript reader against SB441 (`spkezr_c`, 25 bodies, 11 dates) | within 0.49 km and 1.4 mm/s |
+| against JPL Horizons, main belt and Eros, 11 dates 2000–2050 | within 340 km (Hygiea in 2050); Ceres 49 km, Vesta 73, Psyche 280, Eros 3 |
+| against Horizons, the trans-Neptunian objects | 9,900 km (Haumea, Quaoar) to 198,000 km (Orcus) |
+| the 2026 ellipses the labels used before, against Horizons | 2.4 million km (Eros) to 72 million (Hygiea); 9 to 10 million for the trans-Neptunian objects |
+| a refreshed point against the table, 14 bodies, 2000–2050 | within 0.48′ as seen from the Sun (3.7′ for Sedna, half a step of its packed M near perihelion) |
+| a minute past either end of the table | moves on from the end's state within 6 m |
+
+Horizons integrates each body from its current orbit solution in the
+Small-Body Database; SB441 from the 2021 solutions. In the main belt the
+two differ by tens to hundreds of km, what the orbits have learned since.
+The distant objects, seen over a small arc of their orbits, have moved by
+far more. For them the table is still a hundred times closer than the
+ellipse: heliocentric osculating elements of a body 40 au out swing with
+the Sun's wobble about the barycentre.
+
 ## Flying to one
 
 A named body (the 36 with labels) can be chosen, by its marker in the sky
@@ -169,9 +260,9 @@ The camera flies to it as it does to a planet (cameraRig.ts), and the data
 plate shows it (`src/app/small-body-plate.tsx`). Choosing a body in the
 rail, the arrow keys or following a craft leaves it.
 
-- **Where it is:** the anchor the camera follows is the body's position
-  from the same elements and Kepler solve its marker uses
-  (`positionAu`), at the clock's time each frame.
+- **Where it is:** the anchor the camera follows is where its marker is
+  (`positionAu`: SB441's table for the 14 it covers, the ellipse for the
+  rest), at the clock's time each frame.
 - **What is drawn:** a sphere at its diameter, lit by the Sun as the
   planets are (`bodyMaterial.ts`, Lommel-Seeliger for regolith), with an
   albedo of 0.15, or 0.04 for a comet's dark nucleus.
@@ -191,6 +282,10 @@ rail, the arrow keys or following a craft leaves it.
   time, speed (vis-viva), diameter, H (a comet's M1), the elements a, e
   and i, perihelion and aphelion, and the period by Kepler's third law
   (`smallBodyFacts` in `smallBodies.js`), each with its source tag.
+  For a body SB441 covers, the motion reads "JPL integration", the
+  position is tagged SB441, and a, e and i (and so the speed, apsides and
+  period) are its osculating ellipse at the clock's time rather than the
+  2026 one.
 
 `smallbodies.test.mjs` checks the plate's facts:
 - Ceres's period, 4.6 years, and its perihelion and aphelion, against
@@ -207,7 +302,8 @@ designations shipped alongside.
 ## How right they are
 
 Each body follows the osculating ellipse of its orbit solution; the planets'
-pull moves the real ones off it slowly (`smallbodies.test.mjs`):
+pull moves the real ones off it slowly (`smallbodies.test.mjs`). The 25 in
+SB441's table are [above](#exact-positions-for-the-largest).
 
 | Check | Result |
 | --- | --- |
@@ -228,6 +324,12 @@ populations lie, not where a given faint body is tonight.
 - JPL Small-Body Database query API,
   [ssd-api.jpl.nasa.gov/doc/sbdb_query.html](https://ssd-api.jpl.nasa.gov/doc/sbdb_query.html).
 - JPL Horizons API, [ssd.jpl.nasa.gov/horizons](https://ssd.jpl.nasa.gov/horizons/).
+- JPL SB441 small-body ephemerides (`sb441-n16.bsp`, `sb441-n373s.bsp`),
+  [ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/);
+  their documentation is JPL IOM 392R-21-005 (D. Farnocchia, 2021), as the
+  files' comments cite it.
+- R. S. Park, W. M. Folkner, J. G. Williams, D. H. Boggs, "The JPL
+  Planetary and Lunar Ephemerides DE440 and DE441", *AJ* 161, 105 (2021).
 - J. M. A. Danby, *Fundamentals of Celestial Mechanics* (Willmann-Bell,
   1988): the starting value for Kepler's equation.
 - JPL SBDB orbit classes, [ssd-api.jpl.nasa.gov/doc/sbdb_filter.html](https://ssd-api.jpl.nasa.gov/doc/sbdb_filter.html).
