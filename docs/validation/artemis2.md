@@ -252,12 +252,12 @@ The app flies the same mission:
   | Corrections | Worst off the flown path | Flyby | At entry |
   | --- | --- | --- | --- |
   | As flown, blind | 17,173 km | 6,402.2 km | 17,173 km |
-  | Aimed from the craft | 72 km | 6,541.1 km | 0.3 km |
+  | Aimed from the craft | 72 km | 6,543.2 km | 0.3 km |
 
   Blind, the random vent pushes the wrong way about as often as the right
-  one and the flyby magnifies it. Aimed, the corrections cost 5.5 m/s
-  more than the flown ones (the second trim 1.5 m/s, the outbound
-  correction 0.8, the return corrections 0.6, 1.5 and 1.1).
+  one and the flyby magnifies it. Aimed, the corrections cost 4.2 m/s
+  more than the flown ones (the second trim 1.6 m/s, the outbound
+  correction 0.8, the return corrections 0.5, 1.0 and 0.3).
 - **Placed on the path:** the file holds positions to 1 mm. At 1 m, a
   craft placed 50 ms after the start (FLY IT pressed with the clock
   running) took a velocity error from interpolating across the first two

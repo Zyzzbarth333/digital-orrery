@@ -58,6 +58,7 @@ interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fix
 
 // The real missions the app can fly: file id and label.
 export const REAL_MISSIONS = [
+  { id: 'artemis1', label: 'Artemis I · Nov 2022' },
   { id: 'artemis2', label: 'Artemis II · April 2026' },
   { id: 'artemis2-plan', label: 'Artemis II · our own plan' },
 ];

@@ -61,18 +61,30 @@ real pad ([rocket](../physics/rocket.md#in-the-app)).
 
 ## Real missions
 
-**Real missions** on the MISSION tab flies a mission as it actually flew.
-Artemis II is the first. Its file, `public/missions/artemis2.json`, is
-written from JSC's reconstructed trajectory by
-`src/physics/artemis2.export.mjs`; the app reads it with
-`src/physics/realMission.js`.
+**Real missions** on the MISSION tab flies a mission as it actually flew:
+- **Artemis I** (November to December 2022), from just after translunar
+  injection to just before entry: both powered lunar flybys and the
+  distant retrograde orbit. Its file, `public/missions/artemis1.json`, is
+  written from NASA/JSC navigation's as-flown ephemeris (through JPL
+  Horizons) by `src/physics/artemis1.export.mjs`
+  (`npm run export:artemis1`, after `npm run fetch:artemis1`).
+- **Artemis II** (April 2026), from ten minutes before translunar
+  injection to entry. Its file, `public/missions/artemis2.json`, is
+  written from JSC's reconstructed trajectory by
+  `src/physics/artemis2.export.mjs`.
+
+The app reads both with `src/physics/realMission.js`.
 
 - **Fly it:** sets the clock to the mission's start (BACK undoes it). For
   Artemis II that's 2 April 2026, 23:39:59 UTC, ten minutes before
   translunar injection. The craft starts from its flown state.
-- **Burns:** scripted as flown. Each 5 seconds of every burn is a finite
-  burn, steered in the orbital frame about Earth, with its measured
-  direction and acceleration. Scripted burns draw nothing from the model
+- **Burns:** scripted as flown, each steered in the orbital frame about
+  the body whose sphere of influence holds it (the Moon for Artemis I's
+  flybys and the burns near them; the Earth otherwise). Each 5 seconds of
+  a burn sampled that finely is a finite burn with its measured direction
+  and acceleration. Artemis I's twelve small burns, which its data
+  resolves only by the minute, are each one steady push over NASA's
+  duration, along the change the trajectory shows. Scripted burns draw nothing from the model
   tank and survive clock jumps; they're tied to the mission's times.
   Choose **The first; correct it yourself** to fly only the injection burn
   and make the corrections with manoeuvre nodes.
@@ -87,18 +99,27 @@ written from JSC's reconstructed trajectory by
   correction after the injection burn is worked out when the craft reaches
   it, from where this craft is, as NASA's were from where Orion was. The
   kernel holds at the burn's start (`Craft.holdAt`); there
-  `RealMission.aimCorrection` carries the craft's offset from the flown
-  state to the next burn (or the end of the data) through the flown path's
-  sensitivities, six kernel runs each nudged in one component, and solves
-  for the velocity change that cancels the miss. That is added to the burn
-  as flown, spread over it. A correction followed within 12 hours by
+  `RealMission.aimCorrection` flies the craft from its own state to the
+  start of the next burn (or the end of the data), through the kernel with
+  the scripted burns between, and finds by Newton's method the velocity
+  change that brings it to the flown position there, within 10 m. Each
+  round takes three more runs, nudged 1 cm/s each. Flying the burns in
+  these runs matters: Artemis I's outbound powered flyby, aimed from a
+  coast that left out its 180 m/s, took the sensitivities of another path
+  and added 104 m/s instead of 9. The correction is added to the burn as
+  flown, spread over it. Each aim takes the kernel 2 to 200 ms on the main
+  thread, longest for the powered flybys. A correction followed within 12 hours by
   another (the first outbound trim) is flown as it was, and the later one
   aims for both. **As flown, blind** replays every correction exactly as
   Orion flew it, whatever the craft's state; the lunar flyby magnifies the
   difference, so without fixes that ends some 17,000 km off at entry.
-  Aimed, with no fixes, the craft stays within 72 km of the flown path for
-  the whole mission and reaches entry 0.3 km from it, for 5.5 m/s more
-  than the flown corrections (`artemis2.validate.mjs`, part 6).
+  Aimed, with no fixes, Artemis II stays within 72 km of the flown path
+  for the whole mission and reaches entry 0.3 km from it, for 4.2 m/s more
+  than the flown corrections (`artemis2.validate.mjs`, part 6). Artemis I,
+  over 25 days with two powered flybys and the distant retrograde orbit,
+  stays within 238 km and ends 0.9 km off, for 31.8 m/s more than its 18
+  burns; blind, it passes the Moon at 424 km instead of 130 and ends
+  712,000 km off (`artemis1.validate.mjs`, case 5).
 - **Setting the clock inside the mission** puts the craft where the real one
   was.
 - **Artemis II · our own plan** flies the simulator's own design of the
