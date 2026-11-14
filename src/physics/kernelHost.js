@@ -175,12 +175,58 @@ export function stepCraft(sys, req) {
   };
 }
 
+// Aim: the velocity change at heliocentric r, v and kernel time t0 that
+// brings the craft to the position target (heliocentric, km) at time T,
+// flying the scripted burns between (burns, as Craft builds them) through
+// stepCraft under gravity alone. Newton's method, its sensitivities from
+// three runs each nudged 1 cm/s; it stops within 10 m, or after four
+// rounds, keeping the best. Returns { dv (EQJ km/s), miss (km, without it),
+// after (km, with it) }, or null if a trial run fails or hits a body.
+// RealMission.aimCorrection calls it in Node; the app sends it to the
+// kernel worker ({ type: 'aim' }), off the page's thread.
+export function aimTo(sys, { r, v, t0, T, target, burns = [] }) {
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  const list = burns.filter((b) => !b.aimed && b.t1 > t0 && b.t0 < T);
+  const fly = (vv) => {
+    const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: vv, t: t0, tEnd: T, primary: null, burns: list.map((b) => ({ ...b })), maxSteps: 1e6 });
+    return res.complete && !res.events.some((e) => e.type === 'impact') ? res.r : null;
+  };
+  let base = fly([...v]);
+  if (!base) return null;
+  const miss0 = Math.hypot(...sub3(base, target));
+  let dv = [0, 0, 0], best = { dv, after: miss0 };
+  for (let round = 0; round < 4 && best.after > 0.01; round++) {
+    const miss = sub3(base, target), h = 1e-5;
+    const cols = [0, 1, 2].map((j) => { const vv = add3(v, dv); vv[j] += h; const q = fly(vv); return q && sub3(q, base).map((d) => d / h); });
+    if (cols.some((c) => !c)) break;
+    const A = [0, 1, 2].map((i) => [cols[0][i], cols[1][i], cols[2][i]]), D = det3(A);
+    if (!(Math.abs(D) > 0)) break;
+    const step = [0, 1, 2].map((k) => det3(A.map((row, i) => row.map((val, c) => (c === k ? -miss[i] : val)))) / D);
+    dv = add3(dv, step);
+    const next = fly(add3(v, dv));
+    if (!next) break;
+    base = next;
+    const after = Math.hypot(...sub3(base, target));
+    if (after < best.after) best = { dv, after };
+    else break;
+  }
+  return { dv: best.dv, miss: miss0, after: best.after };
+}
+
 export function createKernelHost() {
   let sys = null;
   return {
     handle(msg) {
-      if (!msg || msg.type !== 'step') return { type: 'error', error: `unknown message ${msg && msg.type}` };
       if (!sys) sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+      if (msg && msg.type === 'aim') {
+        try {
+          return { type: 'aimed', id: msg.id, result: aimTo(sys, msg) };
+        } catch (err) {
+          return { type: 'aimed', id: msg.id, result: null, error: String(err && err.message || err) };
+        }
+      }
+      if (!msg || msg.type !== 'step') return { type: 'error', error: `unknown message ${msg && msg.type}` };
       const t0 = Date.now();
       const crafts = msg.crafts.map((req) => {
         try {

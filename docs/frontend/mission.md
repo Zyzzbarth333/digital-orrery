@@ -15,7 +15,9 @@ Each rendered frame the mission advances every craft's clock and asks the
 kernel, in its Worker, to step it to the clock; the result comes back a
 frame or so later. What is drawn is that state carried forward to the clock
 along a two-body orbit about the primary (plus the primary's J2, near Earth
-and the Moon), with the other accelerations to second order.
+and the Moon), with the other accelerations to second order, in pieces near a
+body and with the burns between taken one by one
+([drawing](../physics/nbody-kernel.md)).
 
 The rules carried over from the earlier spacecraft code:
 
@@ -107,8 +109,12 @@ The app reads both with `src/physics/realMission.js`.
   these runs matters: Artemis I's outbound powered flyby, aimed from a
   coast that left out its 180 m/s, took the sensitivities of another path
   and added 104 m/s instead of 9. The correction is added to the burn as
-  flown, spread over it. Each aim takes the kernel 2 to 200 ms on the main
-  thread, longest for the powered flybys. A correction followed within 12 hours by
+  flown, spread over it. The aim runs in the kernel's Worker
+  (`KernelClient.aim`, `kernelHost.aimTo`), so the page never waits: the
+  craft holds at the burn until the answer comes back, 2 to 200 ms later
+  (longest for the powered flybys). In Node (the validations) the same
+  `aimTo` runs at once; flown through the client a frame later, Artemis II
+  comes out 0.4 m from that at entry. A correction followed within 12 hours by
   another (the first outbound trim) is flown as it was, and the later one
   aims for both. **As flown, blind** replays every correction exactly as
   Orion flew it, whatever the craft's state; the lunar flyby magnifies the
