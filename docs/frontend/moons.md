@@ -196,6 +196,7 @@ the CODATA 2018 $G$. Charon has no albedo there, so it is drawn at 0.3.
   ([textures](textures.md#the-moons-maps)). All are lit like the planets
   ([lighting](lighting.md)), with Lommel-Seeliger scattering for all but
   Titan, whose haze is closer to Lambert.
+  ![The fourteen mapped moons, 3.2 radii out at 35° phase, 14 November 2026: Io, Europa, Ganymede, Callisto, Phobos, Deimos and Mimas; Enceladus, Tethys, Dione, Rhea, Iapetus, Triton and Charon](moons-maps.jpg)
 - **Turning:** every one of these moons rotates synchronously, so its
   body-fixed frame (`moonAxesEqj`) puts 0° longitude toward the planet and
   its pole along the IAU's north pole, with longitude east-positive about
