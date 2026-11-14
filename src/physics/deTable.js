@@ -1,47 +1,61 @@
 // src/physics/deTable.js
 //
-// DE442's Earth and Moon in the app: Chebyshev series fitted to JPL's DE442
-// by c/de_cheb.c (public/ephemeris/de442-earth-moon-2000-2050.bin, 1.4 MB).
-// The Moon relative to the Earth (8-day intervals, worst 0.3 mm) and the
-// Earth-Moon barycentre relative to the Sun (16-day intervals, worst
-// 3.7 mm), J2000 equatorial km, against TDB seconds past J2000. The Earth is
-//   Earth = EMB - k (Moon - Earth),  k = GM_moon / (GM_earth + GM_moon)
-// (worst 3.6 mm, acceleration within 1.5e-9 m/s^2), as JPL stores it: the
-// barycentre moves smoothly, while a series of the Earth itself has to
-// follow its monthly 4,700 km swing. ephemeris.js uses them for 'earth' and
-// 'moon' inside the table's span and astronomy-engine elsewhere.
+// DE442 in the app: Chebyshev series fitted to JPL's DE442 by c/de_cheb.c
+// (public/ephemeris/de442-2000-2050.bin, 2.4 MB), J2000 equatorial km,
+// against TDB seconds past J2000. Each series is a target relative to a
+// centre (NAIF codes):
+//   - the Moon relative to the Earth (8-day intervals, worst 0.3 mm) and the
+//     Earth-Moon barycentre relative to the Sun (16 days, 3.7 mm). The Earth
+//     is
+//       Earth = EMB - k (Moon - Earth),  k = GM_moon / (GM_earth + GM_moon)
+//     (worst 3.7 mm, acceleration within 1.5e-9 m/s^2), as JPL stores it:
+//     the barycentre moves smoothly, while a series of the Earth itself has
+//     to follow its monthly 4,700 km swing;
+//   - Mercury, Venus and the Mars system barycentre relative to the Sun;
+//   - the Sun and the Jupiter to Pluto system barycentres relative to the
+//     solar system barycentre (SSB), where an outer planet moves on a smooth
+//     arc a few coefficients per year cover; heliocentric, it would carry the
+//     Sun's 450 km annual wobble. Here they are planet - Sun.
+// Every body relative to the Sun is within 0.82 m of SPICE (de_cheb's own
+// check, docs/physics/ephemerides-and-gm.md). ephemeris.js uses them inside
+// the table's span and astronomy-engine elsewhere.
 //
 // The table is installed once per thread before anything asks for a
 // position: deLoad.js in the browser (the main thread and each worker),
 // deNode.js under Node.
 
-const SERIES = { 1: 'moonFromEarth', 3: 'embFromSun' };
+const MOON = 301, EARTH = 399, SUN = 10, SSB = 0;
+// The app's keys for the series' targets: a planet with moons is its
+// system's barycentre, as astronomy-engine gives it.
+export const DE_KEYS = { mercury: 1, venus: 2, mars: 4, jupiter: 5, saturn: 6, uranus: 7, neptune: 8, pluto: 9 };
 let table = null;
 
 export function parseDeTable(buffer) {
   const f = new Float64Array(buffer);
-  if (f[0] !== 2) throw new Error(`deTable: unknown format ${f[0]}`);
+  if (f[0] !== 3) throw new Error(`deTable: unknown format ${f[0]}`);
   const nb = f[1];
-  const out = { kMoon: f[2] };
-  let off = 3 + 5 * nb;
+  const out = { kMoon: f[2], series: new Map() };
+  let off = 3 + 6 * nb;
   for (let k = 0; k < nb; k++) {
-    const [id, t0, len, n, nc] = f.subarray(3 + 5 * k, 8 + 5 * k);
-    const name = SERIES[id];
-    if (!name) throw new Error(`deTable: unknown series ${id}`);
-    out[name] = { t0, len, n, nc, c: f.subarray(off, off + n * 3 * nc) };
+    const [id, centre, t0, len, n, nc] = f.subarray(3 + 6 * k, 9 + 6 * k);
+    if (nc > 32) throw new Error(`deTable: series ${id} has ${nc} coefficients`);
+    out.series.set(id, { centre, t0, len, n, nc, c: f.subarray(off, off + n * 3 * nc) });
     off += n * 3 * nc;
   }
   if (off !== f.length) throw new Error('deTable: size does not match its header');
+  const need = [MOON, 3, SUN, ...Object.values(DE_KEYS)];
+  for (const id of need) if (!out.series.has(id)) throw new Error(`deTable: no series for ${id}`);
+  if (out.series.get(MOON).centre !== EARTH || out.series.get(SUN).centre !== SSB) throw new Error('deTable: unexpected centres');
   return out;
 }
 
 export function installDeTable(parsed) { table = parsed; }
 export function deTableInstalled() { return table !== null; }
 
-// The span covered, in TDB seconds past J2000 (the narrower of the two).
+// The span covered, in TDB seconds past J2000 (the narrowest of the series).
 export function deSpan() {
   if (!table) return null;
-  const s = [table.moonFromEarth, table.embFromSun];
+  const s = [...table.series.values()];
   return [Math.max(...s.map((x) => x.t0)), Math.min(...s.map((x) => x.t0 + x.n * x.len))];
 }
 
@@ -68,14 +82,31 @@ function evaluate(s, et, r, v) {
   return true;
 }
 
-// Heliocentric J2000 equatorial state of 'earth' or 'moon' at TDB et, or
-// null when no table is installed or et is outside it.
+// The Sun relative to the SSB at TDB et: { r, v }, or null outside the table.
+export function deSunFromSsb(et) {
+  if (!table) return null;
+  const r = [0, 0, 0], v = [0, 0, 0];
+  return evaluate(table.series.get(SUN), et, r, v) ? { r, v } : null;
+}
+
+// Heliocentric J2000 equatorial state of 'earth', 'moon' or a key of DE_KEYS
+// at TDB et, or null when no table is installed or et is outside it.
 export function deHelioState(key, et) {
   if (!table) return null;
-  const b = [0, 0, 0], vb = [0, 0, 0], rm = [0, 0, 0], vm = [0, 0, 0];
-  if (!evaluate(table.embFromSun, et, b, vb) || !evaluate(table.moonFromEarth, et, rm, vm)) return null;
-  const k = table.kMoon;
-  const r = [b[0] - k * rm[0], b[1] - k * rm[1], b[2] - k * rm[2]], v = [vb[0] - k * vm[0], vb[1] - k * vm[1], vb[2] - k * vm[2]];
-  if (key === 'earth') return { r, v };
-  return { r: [r[0] + rm[0], r[1] + rm[1], r[2] + rm[2]], v: [v[0] + vm[0], v[1] + vm[1], v[2] + vm[2]] };
+  if (key === 'earth' || key === 'moon') {
+    const b = [0, 0, 0], vb = [0, 0, 0], rm = [0, 0, 0], vm = [0, 0, 0];
+    if (!evaluate(table.series.get(3), et, b, vb) || !evaluate(table.series.get(MOON), et, rm, vm)) return null;
+    const k = table.kMoon;
+    const r = [b[0] - k * rm[0], b[1] - k * rm[1], b[2] - k * rm[2]], v = [vb[0] - k * vm[0], vb[1] - k * vm[1], vb[2] - k * vm[2]];
+    if (key === 'earth') return { r, v };
+    return { r: [r[0] + rm[0], r[1] + rm[1], r[2] + rm[2]], v: [v[0] + vm[0], v[1] + vm[1], v[2] + vm[2]] };
+  }
+  const id = DE_KEYS[key];
+  if (id === undefined) return null;
+  const s = table.series.get(id), r = [0, 0, 0], v = [0, 0, 0];
+  if (!evaluate(s, et, r, v)) return null;
+  if (s.centre === SUN) return { r, v };
+  const rs = [0, 0, 0], vs = [0, 0, 0];
+  if (!evaluate(table.series.get(SUN), et, rs, vs)) return null;
+  return { r: [r[0] - rs[0], r[1] - rs[1], r[2] - rs[2]], v: [v[0] - vs[0], v[1] - vs[1], v[2] - vs[2]] };
 }

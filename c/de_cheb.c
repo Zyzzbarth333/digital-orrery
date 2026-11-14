@@ -1,15 +1,23 @@
 /* c/de_cheb.c
  *
- * Fits Chebyshev series to DE442 for the app's Earth-Moon ephemeris
- * (docs/physics/ephemerides-and-gm.md#de442-in-the-app): the Moon relative
- * to the Earth, and the Earth-Moon barycentre relative to the Sun, J2000
- * equatorial, km, against TDB seconds past J2000. The Earth is then
- *   Earth = EMB - k (Moon - Earth),  k = GM_moon / (GM_earth + GM_moon),
- * as JPL's own ephemerides store it. The barycentre moves smoothly; the
- * Earth itself swings 4,700 km round it every month, which a series of the
- * Earth relative to the Sun fits only to 0.5 m and, worse, with an
- * acceleration that ripples by 1e-8 m/s^2 and jumps at the joins (an
- * orbit about the Earth follows the table's Earth).
+ * Fits Chebyshev series to DE442 for the app's ephemeris
+ * (docs/physics/ephemerides-and-gm.md#de442-in-the-app), J2000 equatorial,
+ * km, against TDB seconds past J2000:
+ *   - the Moon relative to the Earth, and the Earth-Moon barycentre (EMB)
+ *     relative to the Sun. The Earth is then
+ *       Earth = EMB - k (Moon - Earth),  k = GM_moon / (GM_earth + GM_moon),
+ *     as JPL's own ephemerides store it. The barycentre moves smoothly; the
+ *     Earth itself swings 4,700 km round it every month, which a series of
+ *     the Earth relative to the Sun fits only to 0.5 m and, worse, with an
+ *     acceleration that ripples by 1e-8 m/s^2 and jumps at the joins (an
+ *     orbit about the Earth follows the table's Earth).
+ *   - Mercury, Venus and the Mars system barycentre relative to the Sun.
+ *   - the Jupiter to Pluto system barycentres, and the Sun, relative to the
+ *     solar system barycentre (SSB). Heliocentric, an outer planet carries
+ *     the Sun's own wobble (450 km a year from the Earth, 260 km every 225
+ *     days from Venus), which would need short intervals; about the SSB it
+ *     moves on a smooth arc a few coefficients per year cover. The app
+ *     subtracts the Sun's series: planet - Sun.
  *
  *   usage: de_cheb <out.bin> <first year> <last year (exclusive)>
  *
@@ -18,14 +26,18 @@
  * polynomial of that degree), then checked against spkezr_c between the
  * nodes: position, and acceleration (the series' second derivative against
  * a second difference of SPICE positions), and the jumps in position,
- * velocity and acceleration where intervals meet. The derived Earth is
- * checked the same way.
+ * velocity and acceleration where intervals meet. The derived Earth, and each
+ * body as the app composes it relative to the Sun, are checked the same way.
+ *
+ * Tuning: DAYS_<id> and N_<id> override a series' interval length and
+ * coefficient count (id: the target's NAIF code, 301 for the Moon).
  *
  * File layout (all Float64):
- *   [0] format version (2), [1] number of bodies, [2] k
- *   per body, 5 values: id (1 Moon wrt Earth, 3 EMB wrt Sun),
- *     t0 (TDB s past J2000), interval length (s), intervals, coefficients
- *   then per body, per interval: x coefficients, y, z.
+ *   [0] format version (3), [1] number of series, [2] k
+ *   per series, 6 values: target, centre (NAIF codes: 301 Moon, 399 Earth,
+ *     1-9 system barycentres, 10 Sun, 0 SSB), t0 (TDB s past J2000),
+ *     interval length (s), intervals, coefficients
+ *   then per series, per interval: x coefficients, y, z.
  */
 
 #include <math.h>
@@ -34,12 +46,22 @@
 #include <unistd.h>
 #include "SpiceUsr.h"
 
-typedef struct { int id; const char *target, *center; double days; int ncoef; } Body;
+typedef struct { int id, centre; const char *target, *center; double days; int ncoef; } Body;
 static Body BODIES[] = {
-  { 1, "MOON", "EARTH", 8.0, 18 },
-  { 3, "EARTH BARYCENTER", "SUN", 16.0, 14 },
+  { 301, 399, "MOON", "EARTH", 8.0, 18 },
+  { 3, 10, "EARTH BARYCENTER", "SUN", 16.0, 14 },
+  { 1, 10, "MERCURY BARYCENTER", "SUN", 16.0, 16 },
+  { 2, 10, "VENUS BARYCENTER", "SUN", 32.0, 13 },
+  { 4, 10, "MARS BARYCENTER", "SUN", 32.0, 12 },
+  { 10, 0, "SUN", "SOLAR SYSTEM BARYCENTER", 32.0, 12 },
+  { 5, 0, "JUPITER BARYCENTER", "SOLAR SYSTEM BARYCENTER", 128.0, 10 },
+  { 6, 0, "SATURN BARYCENTER", "SOLAR SYSTEM BARYCENTER", 256.0, 11 },
+  { 7, 0, "URANUS BARYCENTER", "SOLAR SYSTEM BARYCENTER", 512.0, 12 },
+  { 8, 0, "NEPTUNE BARYCENTER", "SOLAR SYSTEM BARYCENTER", 1024.0, 12 },
+  { 9, 0, "PLUTO BARYCENTER", "SOLAR SYSTEM BARYCENTER", 1024.0, 12 },
 };
 #define NB ((int)(sizeof BODIES / sizeof BODIES[0]))
+#define SUN_SERIES 5
 
 static void die_if_failed(const char *what) {
   if (failed_c()) {
@@ -88,10 +110,11 @@ static double dist3(const double a[3], const double b[3]) {
   return sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
 }
 
-/* SPICE acceleration by a second difference of positions (h = 300 s). */
-static void accel_ref(const Body *b, double et, double a[3]) {
+/* SPICE acceleration by a second difference of positions, h apart: 300 s
+ * for the short series; longer for the outer planets, whose positions are so
+ * large that rounding over 300 s would swamp their small accelerations. */
+static void accel_ref(const Body *b, double et, double h, double a[3]) {
   double p0[3], p1[3], p2[3];
-  const double h = 300;
   pos(b, et - h, p0); pos(b, et, p1); pos(b, et + h, p2);
   for (int d = 0; d < 3; d++) a[d] = (p2[d] - 2 * p1[d] + p0[d]) / (h * h);
 }
@@ -104,11 +127,13 @@ int main(int argc, char **argv) {
     if (!getcwd(cwd, sizeof cwd)) { perror("getcwd"); return 1; }
     snprintf(outpath, sizeof outpath, "%s/%s", cwd, argv[1]);
   }
-  /* Tuning: MOON_DAYS, MOON_N, EMB_DAYS, EMB_N override the defaults. */
-  if (getenv("MOON_DAYS")) BODIES[0].days = atof(getenv("MOON_DAYS"));
-  if (getenv("MOON_N")) BODIES[0].ncoef = atoi(getenv("MOON_N"));
-  if (getenv("EMB_DAYS")) BODIES[1].days = atof(getenv("EMB_DAYS"));
-  if (getenv("EMB_N")) BODIES[1].ncoef = atoi(getenv("EMB_N"));
+  for (int k = 0; k < NB; k++) {
+    char name[32];
+    snprintf(name, sizeof name, "DAYS_%d", BODIES[k].id);
+    if (getenv(name)) BODIES[k].days = atof(getenv(name));
+    snprintf(name, sizeof name, "N_%d", BODIES[k].id);
+    if (getenv(name)) BODIES[k].ncoef = atoi(getenv(name));
+  }
   erract_c("SET", 0, "RETURN");
   errprt_c("SET", 0, "NONE");
   if (chdir(ORRERY_PYTHON_DIR) != 0) { perror(ORRERY_PYTHON_DIR); return 1; }
@@ -132,14 +157,14 @@ int main(int argc, char **argv) {
 
   FILE *f = fopen(outpath, "wb");
   if (!f) { perror(outpath); return 1; }
-  double head[3] = { 2, NB, kMoon };
+  double head[3] = { 3, NB, kMoon };
   fwrite(head, sizeof(double), 3, f);
   int nint[NB];
   for (int k = 0; k < NB; k++) {
     const double len = BODIES[k].days * 86400.0;
     nint[k] = (int)ceil((et1 - et0) / len);
-    double h[5] = { BODIES[k].id, et0, len, nint[k], BODIES[k].ncoef };
-    fwrite(h, sizeof(double), 5, f);
+    double h[6] = { BODIES[k].id, BODIES[k].centre, et0, len, nint[k], BODIES[k].ncoef };
+    fwrite(h, sizeof(double), 6, f);
   }
   double *all[NB];
   for (int k = 0; k < NB; k++) {
@@ -173,7 +198,7 @@ int main(int argc, char **argv) {
         pos(b, et, p);
         state3(c, n, x, len, r, v, ac);
         if (dist3(r, p) > worst) worst = dist3(r, p);
-        accel_ref(b, et, ar);
+        accel_ref(b, et, b->days > 64 ? 86400 : 300, ar);
         if (dist3(ac, ar) > worstA) worstA = dist3(ac, ar);
       }
       if (i > 0) {
@@ -191,7 +216,7 @@ int main(int argc, char **argv) {
   }
   /* The derived Earth, against SPICE's Earth relative to the Sun. */
   {
-    const Body earth = { 0, "EARTH", "SUN", 0, 0 };
+    const Body earth = { 0, 0, "EARTH", "SUN", 0, 0 };
     const Body *M = &BODIES[0], *E = &BODIES[1];
     const double lm = M->days * 86400.0, le = E->days * 86400.0;
     double worst = 0, worstA = 0;
@@ -203,11 +228,36 @@ int main(int argc, char **argv) {
       state3(all[1] + (size_t)ie * 3 * E->ncoef, E->ncoef, xe, le, re, ve, ae);
       for (int d = 0; d < 3; d++) { r[d] = re[d] - kMoon * rm[d]; ac[d] = ae[d] - kMoon * am[d]; }
       pos(&earth, et, p);
-      accel_ref(&earth, et, ar);
+      accel_ref(&earth, et, 300, ar);
       if (dist3(r, p) > worst) worst = dist3(r, p);
       if (dist3(ac, ar) > worstA) worstA = dist3(ac, ar);
     }
     fprintf(stderr, "EARTH wrt SUN (derived, k = %.12f): worst %.4f m, acceleration %.1e m/s^2\n", kMoon, worst * 1000, worstA * 1000);
+  }
+  /* Each planet relative to the Sun, as the app composes it (an outer one
+   * less the Sun's series), against SPICE's. */
+  for (int k = 2; k < NB; k++) {
+    if (k == SUN_SERIES) continue;
+    const Body *B = &BODIES[k], *S = &BODIES[SUN_SERIES];
+    const Body helio = { 0, 0, B->target, "SUN", 0, 0 };
+    const double lb = B->days * 86400.0, ls = S->days * 86400.0;
+    const double h = B->centre == 0 ? 3600 : 300;
+    double worst = 0, worstA = 0;
+    for (double et = et0 + 1000; et < et1 - 1000; et += 86400.0 * 0.37) {
+      const int ib = (int)((et - et0) / lb), is = (int)((et - et0) / ls);
+      const double xb = 2 * (et - (et0 + ib * lb)) / lb - 1, xs = 2 * (et - (et0 + is * ls)) / ls - 1;
+      double r[3], v[3], ac[3], rs[3], vs[3], as[3], p[3], ar[3];
+      state3(all[k] + (size_t)ib * 3 * B->ncoef, B->ncoef, xb, lb, r, v, ac);
+      if (B->centre == 0) {
+        state3(all[SUN_SERIES] + (size_t)is * 3 * S->ncoef, S->ncoef, xs, ls, rs, vs, as);
+        for (int d = 0; d < 3; d++) { r[d] -= rs[d]; ac[d] -= as[d]; }
+      }
+      pos(&helio, et, p);
+      accel_ref(&helio, et, h, ar);
+      if (dist3(r, p) > worst) worst = dist3(r, p);
+      if (dist3(ac, ar) > worstA) worstA = dist3(ac, ar);
+    }
+    fprintf(stderr, "%s wrt SUN (as the app composes it): worst %.4f m, acceleration %.1e m/s^2\n", B->target, worst * 1000, worstA * 1000);
   }
   fclose(f);
   return 0;

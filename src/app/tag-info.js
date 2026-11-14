@@ -19,7 +19,7 @@ const TWO_BODY = 'Curtis, Orbital Mechanics for Engineering Students, 4th ed., A
 const KERNEL = 'docs/physics/nbody-kernel.md';
 const ROCKET_EQ = 'Curtis, 4th ed., §13.3–13.4 · docs/physics/burns-and-launch.md';
 const ASCENT = 'Curtis, 4th ed., §13.2 (gravity turn), eq. 13.27 (losses) · docs/physics/rocket.md';
-const EPHEMERIS = 'Earth and the Moon: JPL DE442, a Chebyshev fit for 2000–2050; the other planets, and outside those years: astronomy-engine (MIT), within 10⁻⁴ of DE442 · docs/physics/ephemerides-and-gm.md';
+const EPHEMERIS = 'JPL DE442 for every planet, Pluto and the Moon, a Chebyshev fit for 2000–2050 within a metre of it; outside those years astronomy-engine (MIT), within 10⁻⁴ of DE442 · docs/physics/ephemerides-and-gm.md';
 const VIS_VIVA = 'a = \\left(\\frac{2}{r} - \\frac{v^2}{\\mu}\\right)^{-1}';
 
 /** @satisfies {Record<string, { what: string, tex: string[], where?: string, source: string }>} */
@@ -97,8 +97,8 @@ export const TAG_INFO = {
   'bary-what': {
     what: 'A centre of mass: the point the bodies it holds all orbit together. The ephemeris gives each planet system as its barycentre; the solar system\'s is where the whole system balances.',
     tex: ['\\mathbf r_\\text{B} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\sum_i \\mu_i}'],
-    where: '𝐫ᵢ: heliocentric positions, μᵢ: GMs (DE442). Mars to Pluto: astronomy-engine\'s planet positions, which are these barycentres; Earth and the Moon: DE442; the SSB: the Sun, every planet system, Earth, the Moon and Pluto, within 150 km of JPL Horizons',
-    source: 'DE442 GMs; astronomy-engine; JPL Horizons for the checks · docs/frontend/barycentres.md',
+    where: '𝐫ᵢ: heliocentric positions, μᵢ: GMs (DE442). Mars to Pluto: DE442\'s system barycentres, which are the planets\' positions; the EMB from DE442\'s Earth and Moon; the SSB: DE442\'s own for 2000–2050, else from the Sun, every planet system, Earth, the Moon and Pluto (within 150 km of JPL Horizons)',
+    source: 'JPL DE442; astronomy-engine outside 2000–2050; JPL Horizons for the checks · docs/frontend/barycentres.md',
   },
   'bary-gm': {
     what: 'G times the mass of everything this barycentre is the centre of.',
@@ -114,8 +114,8 @@ export const TAG_INFO = {
   'ssb-offset': {
     what: 'How far the Sun\'s centre is from the solar system barycentre. The Sun wanders round it, mostly with Jupiter and Saturn, often by more than its own radius.',
     tex: ['\\mathbf r_\\text{SSB} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\mu_\\odot + \\sum_i \\mu_i}'],
-    where: '𝐫ᵢ: heliocentric positions of every planet system, Earth, the Moon and Pluto; within 150 km of JPL Horizons over 2000–2050',
-    source: 'DE442 GMs; astronomy-engine and DE442 positions · docs/frontend/barycentres.md',
+    where: 'For 2000–2050, DE442\'s own SSB, which counts every body JPL integrates; outside it, 𝐫ᵢ: heliocentric positions of every planet system, Earth, the Moon and Pluto, within 150 km of JPL Horizons',
+    source: 'JPL DE442; DE442 GMs and astronomy-engine outside 2000–2050 · docs/frontend/barycentres.md',
   },
   'ssb-distance': {
     what: 'Distance from the solar system barycentre, the centre of mass of the Sun and everything that orbits it.',

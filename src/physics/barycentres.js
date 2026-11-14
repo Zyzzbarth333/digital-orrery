@@ -5,7 +5,8 @@
 //
 //   baryStateEqj(key, date) -> { r, v }
 //
-// - ssb: the solar system barycentre,
+// - ssb: the solar system barycentre, DE442's own within 2000-2050 (the
+//   Sun's series in deTable.js, negated). Outside it,
 //     r_SSB = sum(GM_i r_i) / (GM_Sun + sum GM_i)
 //   over the planets (Mars to Neptune as systems), Earth, the Moon and
 //   Pluto, at their ephemeris positions with DE442's GMs. astronomy-engine's
@@ -13,11 +14,12 @@
 //   planets' pull on the Sun (Earth's alone moves it 450 km).
 // - emb: the Earth-Moon barycentre, from Earth and the Moon (DE442).
 // - mars-bary ... pluto-bary: each planet system's barycentre, which is
-//   what astronomy-engine gives for Mars to Pluto (moons.test.mjs shows it).
+//   what the ephemeris gives for Mars to Pluto (DE442's, and
+//   astronomy-engine's outside it: moons.test.mjs shows both).
 //
 // Checked against JPL Horizons in moons.test.mjs.
 
-import { helioStateEqj } from './ephemeris.js';
+import { helioStateEqj, deSsbEqj } from './ephemeris.js';
 import { bodyConstants, MU_SUN } from './bodies.js';
 
 const PLANETS = ['mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
@@ -34,6 +36,7 @@ export function baryGm(key) {
 }
 
 export function baryStateEqj(key, date) {
+  if (key === 'ssb') { const de = deSsbEqj(date); if (de) return de; }
   if (key === 'ssb' || key === 'emb') {
     const members = key === 'ssb' ? PLANETS : ['earth', 'moon'];
     const r = [0, 0, 0], v = [0, 0, 0];

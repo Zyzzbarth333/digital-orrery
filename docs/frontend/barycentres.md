@@ -18,14 +18,16 @@ Code: `src/physics/barycentres.js` (positions), `BARYS` in
 
 | Barycentre | Of | Position |
 | --- | --- | --- |
-| Solar system (SSB) | the Sun, every planet system, Earth, the Moon, Pluto | $\sum_i \mu_i \mathbf r_i / (\mu_\odot + \sum_i \mu_i)$ over heliocentric positions, DE442 GMs |
+| Solar system (SSB) | the Sun, every planet system, Earth, the Moon, Pluto | DE442's own (2000–2050); outside it, $\sum_i \mu_i \mathbf r_i / (\mu_\odot + \sum_i \mu_i)$ over heliocentric positions, DE442 GMs |
 | Earth-Moon (EMB) | Earth and the Moon | $(\mu_\oplus \mathbf r_\oplus + \mu_☾ \mathbf r_☾)/(\mu_\oplus + \mu_☾)$, DE442 |
-| Mars to Pluto | each planet and its moons | astronomy-engine's planet position, which is this barycentre |
+| Mars to Pluto | each planet and its moons | the planet's ephemeris position (DE442's, astronomy-engine's outside 2000–2050), which is this barycentre |
 
-astronomy-engine's own SSB counts only the Sun and the four giants, which
-leaves out the inner planets' pull on the Sun (Earth's alone moves it
-450 km); summing every body here brings it from 1,485 km of JPL Horizons
-to 145 km. That astronomy-engine's Mars to Pluto are the system
+Inside 2000–2050 the SSB is DE442's: the table's series for the Sun about
+the SSB, negated ([ephemerides](../physics/ephemerides-and-gm.md#de442-in-the-app)).
+Outside it, astronomy-engine's own SSB counts only the Sun and the four
+giants, which leaves out the inner planets' pull on the Sun (Earth's alone
+moves it 450 km); summing every body here brings it from 1,485 km of JPL
+Horizons to about 120 km. That the ephemeris's Mars to Pluto are the system
 barycentres, not the planets' centres, is shown in
 [Moons](moons.md#which-point-each-position-is).
 
@@ -33,12 +35,15 @@ Against JPL Horizons (`barycentres.test.mjs`):
 
 | Barycentre | Nov 2026, daily | 2000–2050, yearly |
 | --- | ---: | ---: |
-| SSB about the Sun | 115 km | 145 km |
+| SSB about the Sun | 0.22 km | 0.24 km |
 | EMB about the Sun | 0.11 km | 0.07 km |
 
-The EMB figures are the fixture's rounding; before the DE442 table starts
-(J2000, noon on 1 January 2000) Earth and the Moon, and so the EMB, are
-astronomy-engine's (2,179 km out at midnight that day).
+The EMB figures are the fixture's rounding. The SSB's are that rounding
+and the gap between DE442 and Horizons' DE440, which moved Uranus and
+Neptune and with them the SSB. Before the DE442 table starts (J2000, noon
+on 1 January 2000) every body, and so each barycentre, is
+astronomy-engine's: the EMB 2,179 km out at midnight that day, the summed
+SSB 121 km.
 
 ## In the app
 

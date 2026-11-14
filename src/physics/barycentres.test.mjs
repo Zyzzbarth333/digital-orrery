@@ -4,13 +4,13 @@
 // (fixtures/moons_horizons.json, from moons.fetch.mjs): the solar system
 // barycentre (0) and the Earth-Moon barycentre (3) about the Sun's centre,
 // daily over November 2026 and on 1 January of each year 2000-2050. The
-// planet systems' barycentres are astronomy-engine's planets, checked in
+// planet systems' barycentres are the ephemeris's planets, checked in
 // moons.test.mjs.
 //
 //   node src/physics/barycentres.test.mjs
 
 import fs from 'node:fs';
-import './deNode.js';                 // DE442's Earth and Moon, as in the app
+import './deNode.js';                 // DE442's table, as in the app
 import { baryStateEqj, baryGm } from './barycentres.js';
 import { utcMsAtTt } from './ephemeris.js';
 import * as Astronomy from 'astronomy-engine';
@@ -18,8 +18,8 @@ import * as Astronomy from 'astronomy-engine';
 const hz = JSON.parse(fs.readFileSync(new URL('./fixtures/moons_horizons.json', import.meta.url)));
 const dateOf = (jd) => new Date(utcMsAtTt((jd - 2451545) * 86400));
 const AU_KM = 149597870.7;
-// The DE442 table starts at J2000 (2000-01-01 12:00 TDB); before it the
-// Earth and Moon are astronomy-engine's.
+// The DE442 table starts at J2000 (2000-01-01 12:00 TDB); before it every
+// body is astronomy-engine's.
 const IN_TABLE = (jd) => jd >= 2451545.0;
 
 let failed = 0;
@@ -27,13 +27,21 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (
 const worst = (key, rows) => Math.max(...rows.map(([jd, x, y, z]) => { const r = baryStateEqj(key, dateOf(jd)).r; return Math.hypot(r[0] - x, r[1] - y, r[2] - z); }));
 const size = (rows) => Math.max(...rows.map(([, x, y, z]) => Math.hypot(x, y, z)));
 
-// The SSB from every planet's GM-weighted position: within 150 km, where
-// astronomy-engine's own (the four giants only) is up to 1,500 km out.
+// The SSB: DE442's own inside the table (the Sun's series): within 0.3 km
+// of Horizons, which serves DE440 (moons.test.mjs); the fixture rounds to
+// 0.1 km, and DE442 moved Uranus and Neptune, and with them the SSB. Before it (here only 2000-01-01 00:00), from every
+// planet's GM-weighted position on astronomy-engine: within 150 km, where
+// astronomy-engine's own SSB (the four giants only) is up to 1,500 km out.
 for (const span of ['month', 'years']) {
-  const rows = hz.bary[0][span];
-  const own = Math.max(...rows.map(([jd, x, y, z]) => { const s = Astronomy.HelioVector(Astronomy.Body.SSB, dateOf(jd)); return Math.hypot(s.x * AU_KM - x, s.y * AU_KM - y, s.z * AU_KM - z); }));
+  const all = hz.bary[0][span], label = span === 'month' ? 'Nov 2026 daily' : '2000-2050 yearly';
+  const own = Math.max(...all.map(([jd, x, y, z]) => { const s = Astronomy.HelioVector(Astronomy.Body.SSB, dateOf(jd)); return Math.hypot(s.x * AU_KM - x, s.y * AU_KM - y, s.z * AU_KM - z); }));
+  const rows = all.filter(([jd]) => IN_TABLE(jd)), before = all.filter(([jd]) => !IN_TABLE(jd));
   const e = worst('ssb', rows);
-  check(e < 200, `SSB about the Sun, ${span === 'month' ? 'Nov 2026 daily' : '2000-2050 yearly'}: ${e.toFixed(1)} km (it lies up to ${size(rows).toFixed(0)} km from the Sun's centre; astronomy-engine's own SSB ${own.toFixed(0)} km)`);
+  check(e < 0.3, `SSB about the Sun, ${label} (${rows.length} dates in the DE442 table): ${e.toFixed(3)} km (it lies up to ${size(rows).toFixed(0)} km from the Sun's centre; astronomy-engine's own SSB ${own.toFixed(0)} km)`);
+  if (before.length) {
+    const eb = worst('ssb', before);
+    check(eb < 200, `SSB about the Sun before the table (${before.length} date), from the planets' GMs on astronomy-engine: ${eb.toFixed(1)} km`);
+  }
 }
 
 // The Earth-Moon barycentre from DE442's Earth and Moon: the fixture's
