@@ -15,6 +15,10 @@
 // Frame: ecliptic J2000 with ecliptic north up: three.js (x, y, z) =
 // (x_ecl, z_ecl, -y_ecl).
 //
+// Shapes: each body is its IAU triaxial ellipsoid (catalogue.ts, radiiKm),
+// turned with its body-fixed frame every frame (orientation.js), so Saturn
+// shows its 10 % flattening and Phobos its 26 x 23 x 18 km.
+//
 // Light: the Sun is the only light, falling off as 1/d^2, with eclipses
 // (bodyMaterial.ts) and Earth's atmosphere (atmosphere.ts). The exposure is metered for sunlight at the camera's
 // distance from the Sun, like a camera on a spacecraft there. True-scale
@@ -28,8 +32,8 @@ import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
 import { baryStateEqj } from '../physics/barycentres.js';
 import { bodyConstants, MU_SUN } from '../physics/bodies.js';
 import type { SimClock } from '../app/clock';
-import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
-import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
+import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
+import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, shadowAxes } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
@@ -172,7 +176,7 @@ function relativePosition(key: BodyKey, date: Date, frame: Frame): Vec3 {
 // The fine stretch about the focused body: its centre time and its centre's
 // position about the parent (km), which the line's vertices are relative
 // to, so float32 keeps them to metres.
-interface NearOrbit { key: BodyKey; line: THREE.Line; centreMs: number; centreKm: Vec3; epochMs: number }
+interface NearOrbit { key: BodyKey; line: THREE.Line; centreMs: number; centreKm: Vec3; epochMs: number; frame: Frame }
 
 interface OrbitLine {
   line: THREE.Line;
@@ -253,7 +257,7 @@ export class OrreryScene {
 
   private bodyAnchor(key: FocusKey): Anchor {
     // A barycentre is a point: the camera may close to a kilometre.
-    return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: isBary(key) ? 1 : BODY_BY_KEY[key].radiusKm * 1.2 };
+    return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: isBary(key) ? 1 : maxRadiusKm(key) * 1.2 };
   }
 
   private craftAnchor(id: number): Anchor {
@@ -300,7 +304,9 @@ export class OrreryScene {
     // No light objects: each body's material computes its own sunlight.
     // The Sun's disc is drawn at its true surface brightness relative to a
     // white surface lit face-on at 1 AU, (1 AU / R_sun)^2, about 46,000.
-    const sphere = new THREE.SphereGeometry(1, 96, 48);
+    // A unit sphere with its poles on local Z, scaled per body to its
+    // ellipsoid along body-fixed X, Y, Z (the mesh turns with the body).
+    const sphere = new THREE.SphereGeometry(1, 96, 48).rotateX(Math.PI / 2);
     for (const b of BODIES) {
       let material: THREE.Material;
       if (b.key === 'sun') {
@@ -316,7 +322,8 @@ export class OrreryScene {
         this.occluderKeys.set(b.key, occ.slice(0, MAX_OCCLUDERS));
       }
       const mesh = new THREE.Mesh(sphere, material);
-      mesh.scale.setScalar(b.radiusKm / UNIT_KM);
+      const [ra, rb, rc] = b.radiiKm;
+      mesh.scale.set(ra / UNIT_KM, rb / UNIT_KM, rc / UNIT_KM);
       this.scene.add(mesh);
       this.meshes.set(b.key, mesh);
       this.labels.set(b.key, this.makeLabel(b.key, b.name));
@@ -487,7 +494,7 @@ export class OrreryScene {
     e.preventDefault();
     const craft = this.focusCraftId !== null;
     const focus = this.focus;
-    const minDist = craft ? 0.05 : isBary(focus) ? 1 : BODY_BY_KEY[focus].radiusKm * 1.2;
+    const minDist = craft ? 0.05 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
     // Lines are 3 % of a page; pixels as they come.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
     this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
@@ -557,23 +564,26 @@ export class OrreryScene {
   // is resampled (the trail's offsets count from that line's centre).
   private updateNearOrbits(tMs: number): void {
     const want = new Set<BodyKey>();
-    if (this.focusCraftId === null) {
-      const f = BODY_BY_KEY[this.focus];
-      if (f.parent) want.add(f.key);
-      if (f.parent && f.parent !== 'sun' && BODY_BY_KEY[f.parent].parent) want.add(f.parent);
+    const drawn = (k: BodyKey) => !!orbitOrigin(k, this.refFrame) && !!orbitDays(k, this.refFrame);
+    if (this.focusCraftId === null && !isBary(this.focus)) {
+      const f = BODY_BY_KEY[this.focus as BodyKey];
+      if (drawn(f.key)) want.add(f.key);
+      if (f.parent && isPlanetMoon(f.key) && drawn(f.parent)) want.add(f.parent);
     }
     for (const k of [...this.nearOrbits.keys()]) if (!want.has(k)) this.dropNearOrbit(k);
     for (const key of want) {
-      const b = BODY_BY_KEY[key], o = this.orbits.get(key);
-      if (!b.periodDays || !o) continue;
-      const period = b.periodDays * 86400e3, half = NEAR_HALF * period, n = this.nearOrbits.get(key);
-      if (n && n.epochMs === o.epochMs && Math.abs(tMs - n.centreMs) < 0.2 * half) continue;
+      const b = BODY_BY_KEY[key], o = this.orbits.get(key), frame = this.refFrame;
+      if (!o) continue;
+      // The coarse line's span (a period, or the Sun's drawn path about the
+      // SSB): its trail offsets count in it.
+      const period = orbitDays(key, frame)! * 86400e3, half = NEAR_HALF * period, n = this.nearOrbits.get(key);
+      if (n && n.epochMs === o.epochMs && n.frame === frame && Math.abs(tMs - n.centreMs) < 0.2 * half) continue;
       if (n) this.dropNearOrbit(key);
-      const centreKm = relativePosition(key, new Date(tMs));
+      const centreKm = relativePosition(key, new Date(tMs), frame);
       const pts = new Float32Array((NEAR_SAMPLES + 1) * 3), us = new Float32Array(NEAR_SAMPLES + 1);
       for (let i = 0; i <= NEAR_SAMPLES; i++) {
         const t = tMs - half + (2 * half * i) / NEAR_SAMPLES;
-        toRender(sub(relativePosition(key, new Date(t)), centreKm), this.tmp);
+        toRender(sub(relativePosition(key, new Date(t), frame), centreKm), this.tmp);
         pts.set([this.tmp.x, this.tmp.y, this.tmp.z], i * 3);
         us[i] = (t - o.epochMs) / period;
       }
@@ -583,7 +593,7 @@ export class OrreryScene {
       const line = new THREE.Line(geom, orbitTrailMaterial(b.colour));
       line.frustumCulled = false;
       this.scene.add(line);
-      this.nearOrbits.set(key, { key, line, centreMs: tMs, centreKm, epochMs: o.epochMs });
+      this.nearOrbits.set(key, { key, line, centreMs: tMs, centreKm, epochMs: o.epochMs, frame });
       // The coarse line leaves this stretch to it.
       (o.line.material as THREE.ShaderMaterial).uniforms.gap.value.set((tMs - o.epochMs) / period, NEAR_HALF);
     }
@@ -705,8 +715,9 @@ export class OrreryScene {
       }
     }
     for (const n of this.nearOrbits.values()) {
-      const p = BODY_BY_KEY[n.key];
-      n.line.position.copy(this.meshes.get(p.parent!)!.position).add(toRender(n.centreKm, this.tmp));
+      const origin = orbitOrigin(n.key, n.frame);
+      if (!origin || !this.orbits.get(n.key)) continue;
+      n.line.position.copy(origin === 'ssb' ? this.ssbLinePos : this.meshes.get(origin)!.position).add(toRender(n.centreKm, this.tmp));
       const m = n.line.material as THREE.ShaderMaterial, c = this.orbits.get(n.key)!.line.material as THREE.ShaderMaterial;
       m.uniforms.now.value = c.uniforms.now.value;
       n.line.visible = this.orbits.get(n.key)!.line.visible;
@@ -782,13 +793,28 @@ export class OrreryScene {
 
   // Per-body sunlight and shadow casters, and the camera's exposure.
   private updateLighting(sunPos: THREE.Vector3, cam: Vec3, date: Date): void {
-    const m3 = new THREE.Matrix3();
+    const basis = new THREE.Matrix4();
     for (const [key, m] of this.materials) {
       // Body-fixed axes in render coordinates; the rows of the render ->
-      // body-fixed rotation.
+      // body-fixed rotation. The mesh turns with them, so its ellipsoid's
+      // axes are the body's.
       const [X, Y, Z] = (bodyAxesEqj(key, date) as Vec3[]).map((a) => toRender(eqjToEcl(a) as Vec3, new THREE.Vector3()).normalize());
-      m3.set(X.x, X.y, X.z, Y.x, Y.y, Y.z, Z.x, Z.y, Z.z);
-      (m.uniforms.toBody.value as THREE.Matrix3).copy(m3);
+      (m.uniforms.toBody.value as THREE.Matrix3).set(X.x, X.y, X.z, Y.x, Y.y, Y.z, Z.x, Z.y, Z.z);
+      this.meshes.get(key)!.quaternion.setFromRotationMatrix(basis.makeBasis(X, Y, Z));
+    }
+    // Each shadow caster's map to its unit sphere (ELLIPSOID_SHADOW).
+    const casters = new Map<BodyKey, { A: THREE.Matrix3; k: number }>();
+    const caster = (k: BodyKey) => {
+      let c = casters.get(k);
+      if (!c) {
+        const A = new THREE.Matrix3();
+        const r = BODY_BY_KEY[k].radiiKm.map((x) => x / UNIT_KM) as [number, number, number];
+        c = { A, k: shadowAxes(this.materials.get(k)!.uniforms.toBody.value as THREE.Matrix3, r, A) };
+        casters.set(k, c);
+      }
+      return c;
+    };
+    for (const [key, m] of this.materials) {
       (m.uniforms.bodyCentre.value as THREE.Vector3).copy(this.meshes.get(key)!.position);
       const entry = this.manifest?.bodies[key];
       // Earth's month swaps only while Earth is seen and time runs under a
@@ -804,12 +830,15 @@ export class OrreryScene {
       (u.sunPos.value as THREE.Vector3).copy(sunPos);
       u.sunRadius.value = SUN_RADIUS_KM / UNIT_KM;
       const occ = u.occluders.value as THREE.Vector4[];
+      const occAxes = u.occAxes.value as THREE.Matrix3[];
       const keys = this.occluderKeys.get(key)!;
       for (let i = 0; i < MAX_OCCLUDERS; i++) {
         const k = keys[i];
         if (!k) { occ[i].set(0, 0, 0, 0); continue; }
         const p = this.meshes.get(k)!.position;
-        occ[i].set(p.x, p.y, p.z, BODY_BY_KEY[k].radiusKm / UNIT_KM);
+        const c = caster(k);
+        occ[i].set(p.x, p.y, p.z, c.k);
+        occAxes[i].copy(c.A);
       }
     }
     // Meter for sunlight where the camera is (no closer than 0.2 AU, so the
@@ -828,13 +857,25 @@ export class OrreryScene {
     if (this.starPoints) (this.starPoints.material as THREE.ShaderMaterial).uniforms.level.value = inv;
 
     for (const [key, shell] of this.atmospheres) {
-      const p = this.meshes.get(key)!.position;
-      shell.position.copy(p);
+      const mesh = this.meshes.get(key)!;
+      const p = mesh.position;
+      const body = this.materials.get(key)!;
+      // The shell is the ellipsoid scaled from the ground sphere's radius to
+      // its top's, turned with the body; its shader works in the ground
+      // sphere's space (atmoShape: rows X Rg/a, Y Rg/b, Z Rg/c).
       const u = (shell.material as THREE.ShaderMaterial).uniforms;
+      const Rg = u.atmoRg.value as number;
+      const [ra, rb, rc] = BODY_BY_KEY[key].radiiKm;
+      shell.position.copy(p);
+      shell.quaternion.copy(mesh.quaternion);
+      shell.scale.set(ra / Rg, rb / Rg, rc / Rg);
+      const shape = u.atmoShape.value as THREE.Matrix3;
+      shadowAxes(body.uniforms.toBody.value as THREE.Matrix3, [ra / Rg, rb / Rg, rc / Rg], shape);
+      (body.uniforms.atmoShape.value as THREE.Matrix3).copy(shape);
       (u.centre.value as THREE.Vector3).copy(p);
       (u.sunDir.value as THREE.Vector3).copy(sunPos).sub(p).normalize();
-      u.irradiance.value = this.materials.get(key)!.uniforms.irradiance.value;
-      u.inside.value = p.length() * UNIT_KM < (u.atmoRt.value as number) ? 1 : 0;
+      u.irradiance.value = body.uniforms.irradiance.value;
+      u.inside.value = this.tmp.copy(p).applyMatrix3(shape).length() * UNIT_KM < (u.atmoRt.value as number) ? 1 : 0;
       // From inside, the shell's far side lies behind the planet: draw it
       // regardless of depth (the shader stops each ray at the ground).
       (shell.material as THREE.ShaderMaterial).depthTest = u.inside.value < 0.5;
@@ -852,7 +893,9 @@ export class OrreryScene {
       (u.sunPos.value as THREE.Vector3).copy(sunPos);
       u.sunRadius.value = SUN_RADIUS_KM / UNIT_KM;
       (u.planetPos.value as THREE.Vector3).copy(p);
-      u.planetRadius.value = BODY_BY_KEY.saturn.radiusKm / UNIT_KM;
+      const c = caster('saturn');
+      (u.planetAxes.value as THREE.Matrix3).copy(c.A);
+      u.planetK.value = c.k;
     }
   }
 

@@ -111,9 +111,6 @@ and access constraint:
 - The moons' north poles: the IAU WGCCRE 2015 report, Archinal et al.,
   *Celest. Mech. Dyn. Astron.* 130, 22 (2018),
   [doi:10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5).
-  The invariable plane: D. Souami and J. Souchay, "The solar system's
-  invariable plane", *A&A* 543, A133 (2012),
-  [doi:10.1051/0004-6361/201219011](https://doi.org/10.1051/0004-6361/201219011).
 
 Each map's orientation was checked by finding named features at their
 gazetteer positions, and not at their mirror images (planetographic; west
@@ -146,9 +143,9 @@ its top row at +90° latitude. Sources in other layouts are rolled to it (the
 MOLA grid starts at 0° E). The USGS map server returns at most 4096 pixels a
 side, so its maps are fetched as west and east halves and joined.
 
-The moons' body frame (`moonAxesEqj`) puts 0° longitude toward the planet
-and Z along the IAU's north pole, so their maps, east-positive about that
-pole, need no flip: see [moons](moons.md#drawing).
+The moons' body frames (`bodyAxesEqj`: the IAU rotation models from NAIF's
+pck00011) are the frames the USGS maps are made in, east-positive about the
+IAU north pole, so the maps need no flip: see [moons](moons.md#drawing).
 
 Conventions were checked against known features, not assumed: on the Moon
 the nearside maria are dark and the farside highlands bright where expected,

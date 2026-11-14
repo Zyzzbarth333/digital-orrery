@@ -204,16 +204,13 @@ the CODATA 2018 $G$. Charon has no albedo there, so it is drawn at 0.3.
   ([lighting](lighting.md)), with Lommel-Seeliger scattering for all but
   Titan, whose haze is closer to Lambert.
   ![The fourteen mapped moons, 3.2 radii out at 35° phase, 14 November 2026: Io, Europa, Ganymede, Callisto, Phobos, Deimos and Mimas; Enceladus, Tethys, Dione, Rhea, Iapetus, Triton and Charon](moons-maps.jpg)
-- **Turning:** every one of these moons rotates synchronously, so its
-  body-fixed frame (`moonAxesEqj`) puts 0° longitude toward the planet and
-  its pole along the IAU's north pole, with longitude east-positive about
-  it. The IAU's north pole for a planet's moon is on the north side of the
-  invariable plane: the orbit's pole for most, its opposite for Triton
-  (retrograde) and the Uranian moons (which orbit Uranus's tipped spin).
-  Charon, a dwarf planet's moon, takes the right-hand pole, its orbit's.
-  This is the IAU's prime meridian for them to within their small
-  librations; the test checks each pole against the IAU's (WGCCRE 2015),
-  Triton's precessing one included, to within 1.1°.
+- **Turning:** each moon turns by its IAU rotation model from NAIF's
+  pck00011, pole and prime meridian with their libration terms
+  ([orientation](../physics/orientation.md#the-planets-moons)), the frame
+  the USGS maps are made in. All of them turn once each orbit; the
+  Uranian moons and Triton turn backwards about the IAU north pole.
+- **Shape:** each is its IAU triaxial ellipsoid, long axis toward the
+  planet (Phobos 26 × 23 × 18 km, Mimas 416 × 393 × 381 km).
 - **Shadows:** a planet takes the four largest of its moons as shadow
   casters (`MAX_OCCLUDERS`), so the Galilean moons' shadows cross Jupiter,
   and a moon is eclipsed by its planet. One moon's shadow on another is not

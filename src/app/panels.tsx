@@ -16,6 +16,7 @@ import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf
 import { baryState, bodyState, type Frame } from '../scene/OrreryScene';
 import { baryGm } from '../physics/barycentres.js';
 import { MU_SUN } from '../physics/bodies.js';
+import { ROTATION } from '../physics/pck.data.js';
 import { helioStateEcl, fromDe442 } from '../physics/ephemeris.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
@@ -476,6 +477,17 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
   rows.push(pm
     ? { label: 'Mean radius', value: fmtGroup(b.radiusKm, b.radiusKm < 100 ? 2 : 1), unit: 'km', src: 'JPL', info: 'moon-radius', detail: `NAIF ${pm.naif}${pm.radiusNote ? `: the sphere of equal volume to ${pm.radiusNote.replace('volume-equivalent of ', '')} km` : ''}` }
     : { label: 'Mean radius', value: fmtGroup(b.radiusKm, b.radiusKm < 10000 ? 1 : 0), unit: 'km', src: 'IAU', info: 'mean-radius' });
+  // The shape the scene draws, where it is not a sphere.
+  const [ra, rb, rc] = b.radiiKm;
+  if (ra !== rc || rb !== rc) {
+    const dp = ra < 10000 ? 1 : 0;
+    const flat = (ra - rc) / ra;
+    rows.push({
+      label: 'Shape', value: ra === rb ? `${fmtGroup(ra, dp)} × ${fmtGroup(rc, dp)}` : `${fmtGroup(ra, dp)} × ${fmtGroup(rb, dp)} × ${fmtGroup(rc, dp)}`,
+      unit: 'km', alt: ra === rb ? 'equator × pole' : 'semi-axes', src: 'IAU', info: 'triaxial',
+      detail: `flattening ${(flat * 100).toFixed(flat < 0.01 ? 2 : 1)} %${ra === rb ? ` (1/${(1 / flat).toFixed(flat < 0.01 ? 1 : 2)})` : ''}`,
+    });
+  }
   if (b.gm) {
     rows.push(pm
       ? { label: 'GM', value: sig10(b.gm), unit: 'km³/s²', src: 'JPL', info: 'moon-gm', detail: b.gmNote }
@@ -520,9 +532,13 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
   // period, the solar day where it differs by more than 0.1 %, and the tilt
   // of the spin axis to the orbit (over 90°: it turns backwards).
   if (pm) {
-    // The planets' moons all turn once each orbit (moons.js, moonAxesEqj):
-    // the period is the orbit's, the axis along the orbit's pole.
-    rows.push({ label: 'Rotation', ...period(b.periodDays!), alt: `synchronous: once each orbit of ${BODY_BY_KEY[b.parent!].name}`, src: 'JPL', info: 'moon-rotation' });
+    // The planets' moons all turn once each orbit; the period is the IAU
+    // model's prime meridian rate (pck00011, orientation.js).
+    const W1 = ROTATION[focus as keyof typeof ROTATION].pm[1];
+    rows.push({
+      label: 'Rotation', ...period(360 / Math.abs(W1)), alt: `synchronous: once each orbit of ${BODY_BY_KEY[b.parent!].name}`, src: 'IAU', info: 'moon-rotation',
+      detail: `NAIF ${pm.naif}, ${W1.toFixed(7)}° a day${W1 < 0 ? ': backwards about the IAU north pole, which is on the solar system\'s north side' : ''}`,
+    });
   } else if (focus !== 'sun') {
     const about = focus === 'moon' ? earth : null;
     const rel = about ? { r: st.r.map((x, i) => x - about.r[i]), v: st.v.map((x, i) => x - about.v[i]) } : st;

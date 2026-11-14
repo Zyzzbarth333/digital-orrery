@@ -14,8 +14,9 @@
 //   node src/physics/moons.test.mjs
 
 import fs from 'node:fs';
-import { moonStateEqj, moonAxesEqj, planetCentreOffsetEqj, systemEqj, MOON_KEYS, MOONS_OF } from './moons.js';
+import { moonStateEqj, planetCentreOffsetEqj, systemEqj, MOON_KEYS, MOONS_OF } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
+import { bodyAxesEqj } from './orientation.js';
 import { utcMsAtTt, helioStateEqj } from './ephemeris.js';
 
 const hz = JSON.parse(fs.readFileSync(new URL('./fixtures/moons_horizons.json', import.meta.url)));
@@ -112,7 +113,8 @@ for (const key of MOON_KEYS) {
   check(m.radiusKm > 1 && m.gm > 0 && m.P > 0, `${key} radius ${m.radiusKm} km, GM ${m.gm}, P ${m.P} d`);
 }
 
-// Body frame: Z is the IAU's north pole (WGCCRE 2015), so the USGS maps,
+// Body frame (bodyAxesEqj, pck00011): Z is the IAU's north pole, checked
+// here against the WGCCRE 2015 report's own formulae, so the USGS maps,
 // east-positive about it, go on the right way round. Triton (retrograde)
 // and the Uranian moons have it opposite their orbit's pole; Charon takes
 // the right-hand pole, as a dwarf planet's moon. Triton's pole precesses
@@ -130,7 +132,7 @@ for (const key of MOON_KEYS) {
   const IAU = { phobos: dir(317.68, 52.90), io: dir(268.05, 64.50), rhea: dir(40.38, 83.55),
     ariel: dir(257.43, -15.10), titania: dir(257.43, -15.10), triton: dir(tRa, tDec), charon: dir(132.993, -6.163) };
   for (const [key, pole] of Object.entries(IAU)) {
-    const [X, Y, Z] = moonAxesEqj(key, date);
+    const [X, Y, Z] = bodyAxesEqj(key, date);
     const off = Math.acos(Math.min(1, Z[0] * pole[0] + Z[1] * pole[1] + Z[2] * pole[2])) / D;
     const XxY = [X[1] * Y[2] - X[2] * Y[1], X[2] * Y[0] - X[0] * Y[2], X[0] * Y[1] - X[1] * Y[0]];
     const handed = Math.hypot(XxY[0] - Z[0], XxY[1] - Z[1], XxY[2] - Z[2]) < 1e-9;
