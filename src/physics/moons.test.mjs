@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import { moonStateEqj, planetCentreOffsetEqj, systemEqj, MOON_KEYS, MOONS_OF } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
+import { bodyAxesEqj } from './orientation.js';
 import { utcMsAtTt, helioStateEqj } from './ephemeris.js';
 
 const hz = JSON.parse(fs.readFileSync(new URL('./fixtures/moons_horizons.json', import.meta.url)));
@@ -110,6 +111,33 @@ for (const key of Object.keys(hz.moonsBary)) {
 for (const key of MOON_KEYS) {
   const m = MOON_DATA[key];
   check(m.radiusKm > 1 && m.gm > 0 && m.P > 0, `${key} radius ${m.radiusKm} km, GM ${m.gm}, P ${m.P} d`);
+}
+
+// Body frame (bodyAxesEqj, pck00011): Z is the IAU's north pole, checked
+// here against the WGCCRE 2015 report's own formulae, so the USGS maps,
+// east-positive about it, go on the right way round. Triton (retrograde)
+// and the Uranian moons have it opposite their orbit's pole; Charon takes
+// the right-hand pole, as a dwarf planet's moon. Triton's pole precesses
+// about Neptune's, by the IAU's series in N7.
+{
+  const D = Math.PI / 180;
+  const dir = (ra, dec) => [Math.cos(dec * D) * Math.cos(ra * D), Math.cos(dec * D) * Math.sin(ra * D), Math.sin(dec * D)];
+  const date = new Date(Date.UTC(2026, 10, 14));
+  const T = (date - Date.UTC(2000, 0, 1, 12)) / 864e5 / 36525;
+  const N = (177.85 + 52.316 * T) * D;
+  const tRa = 299.36 - 32.35 * Math.sin(N) - 6.28 * Math.sin(2 * N) - 2.08 * Math.sin(3 * N) - 0.74 * Math.sin(4 * N)
+    - 0.28 * Math.sin(5 * N) - 0.11 * Math.sin(6 * N) - 0.07 * Math.sin(7 * N) - 0.02 * Math.sin(8 * N) - 0.01 * Math.sin(9 * N);
+  const tDec = 41.17 + 22.55 * Math.cos(N) + 2.10 * Math.cos(2 * N) + 0.55 * Math.cos(3 * N) + 0.16 * Math.cos(4 * N)
+    + 0.05 * Math.cos(5 * N) + 0.02 * Math.cos(6 * N) + 0.01 * Math.cos(7 * N);
+  const IAU = { phobos: dir(317.68, 52.90), io: dir(268.05, 64.50), rhea: dir(40.38, 83.55),
+    ariel: dir(257.43, -15.10), titania: dir(257.43, -15.10), triton: dir(tRa, tDec), charon: dir(132.993, -6.163) };
+  for (const [key, pole] of Object.entries(IAU)) {
+    const [X, Y, Z] = bodyAxesEqj(key, date);
+    const off = Math.acos(Math.min(1, Z[0] * pole[0] + Z[1] * pole[1] + Z[2] * pole[2])) / D;
+    const XxY = [X[1] * Y[2] - X[2] * Y[1], X[2] * Y[0] - X[0] * Y[2], X[0] * Y[1] - X[1] * Y[0]];
+    const handed = Math.hypot(XxY[0] - Z[0], XxY[1] - Z[1], XxY[2] - Z[2]) < 1e-9;
+    check(off < 1.5 && handed, `${key.padEnd(8)} body pole ${off.toFixed(2)} deg from the IAU's north pole (limit 1.5), right-handed`);
+  }
 }
 
 if (failed) { console.log(`\n${failed} moon check(s) failed`); process.exit(1); }

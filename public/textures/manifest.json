@@ -66,6 +66,89 @@
       "day": "neptune/day.webp",
       "dayMeanLuminance": 0.12356147028746269,
       "credit": "Solar System Scope (CC BY 4.0), based on NASA imagery."
+    },
+    "phobos": {
+      "day": "phobos/day.webp",
+      "dayMeanLuminance": 0.27844215976022013,
+      "credit": "Viking Orbiter mosaic (Stooke, DLR control): NASA/JPL, USGS Astrogeology.",
+      "tint": true
+    },
+    "deimos": {
+      "day": "deimos/day.webp",
+      "dayMeanLuminance": 0.34242333566797867,
+      "credit": "Viking Orbiter map (Philip Stooke; Thomas et al. shape model): NASA/JPL, USGS Astrogeology.",
+      "tint": true
+    },
+    "io": {
+      "day": "io/day.webp",
+      "dayMeanLuminance": 0.2589033762353017,
+      "credit": "Galileo SSI and Voyager colour mosaic: NASA/JPL, USGS Astrogeology."
+    },
+    "europa": {
+      "day": "europa/day.webp",
+      "dayMeanLuminance": 0.3147033025027263,
+      "credit": "Galileo SSI and Voyager global mosaic: NASA/JPL, USGS Astrogeology.",
+      "tint": true
+    },
+    "ganymede": {
+      "day": "ganymede/day.webp",
+      "dayMeanLuminance": 0.07598572802162344,
+      "credit": "Galileo SSI and Voyager global mosaic: NASA/JPL, USGS Astrogeology.",
+      "tint": true
+    },
+    "callisto": {
+      "day": "callisto/day.webp",
+      "dayMeanLuminance": 0.04981810151434697,
+      "credit": "Galileo SSI and Voyager global mosaic: NASA/JPL, USGS Astrogeology.",
+      "tint": true
+    },
+    "mimas": {
+      "day": "mimas/day.webp",
+      "dayMeanLuminance": 0.27211750230992204,
+      "credit": "Cassini ISS and Voyager global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology.",
+      "tint": true
+    },
+    "enceladus": {
+      "day": "enceladus/day.webp",
+      "dayMeanLuminance": 0.1463836906780079,
+      "credit": "Cassini ISS global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology.",
+      "tint": true
+    },
+    "tethys": {
+      "day": "tethys/day.webp",
+      "dayMeanLuminance": 0.20032857440321222,
+      "credit": "Cassini ISS global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology.",
+      "tint": true
+    },
+    "dione": {
+      "day": "dione/day.webp",
+      "dayMeanLuminance": 0.22550980218805527,
+      "credit": "Cassini ISS and Voyager global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology.",
+      "tint": true
+    },
+    "rhea": {
+      "day": "rhea/day.webp",
+      "dayMeanLuminance": 0.18442838605965972,
+      "credit": "Cassini ISS and Voyager global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology.",
+      "tint": true
+    },
+    "iapetus": {
+      "day": "iapetus/day.webp",
+      "dayMeanLuminance": 0.19194879653777677,
+      "credit": "Cassini ISS and Voyager global mosaic: NASA/JPL/Space Science Institute, USGS Astrogeology.",
+      "tint": true
+    },
+    "triton": {
+      "day": "triton/day.webp",
+      "dayMeanLuminance": 0.32710520069253934,
+      "credit": "Voyager 2 global mosaic (Paul Schenk, LPI): NASA/JPL, USGS Astrogeology.",
+      "tint": true
+    },
+    "charon": {
+      "day": "charon/day.webp",
+      "dayMeanLuminance": 0.26137695590179166,
+      "credit": "New Horizons LORRI/MVIC mosaic: NASA/JHUAPL/SwRI, USGS Astrogeology.",
+      "tint": true
     }
   },
   "rings": {
