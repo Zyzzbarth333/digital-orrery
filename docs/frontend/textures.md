@@ -75,14 +75,69 @@ full 99 MB Viking GeoTIFF instead.
   their southern hemispheres, and USGS publishes no digital global mosaic
   of them.
 
-Each map's orientation was checked against named features at their IAU
-positions: Io's Pele (105° E, 19° S) and Loki; Europa's Pwyll (89° E,
-25° S); Ganymede's Tros; Callisto's Asgard; Mimas's Herschel (112° W);
-Tethys's Odysseus (129° W, 33° N); Rhea's Inktomi; Dione's bright wispy
-fractures on its trailing (+90° E) side; Phobos's Stickney (49° W);
-Deimos's Voltaire and Swift (just west of 0°); Triton's cantaloupe terrain
-west of 0° and walled plains east of it; and Charon's dark north pole
-(Mordor Macula).
+Sources, each read on 14 November 2026. For each moon the map server's
+GetCapabilities layer abstract was read too
+(`https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/<planet>/<moon>_simp_cyl.map&service=WMS&request=GetCapabilities`).
+The Astropedia pages give each product's resolution, longitude convention
+and access constraint:
+
+- USGS Astrogeology planetary map server (WMS):
+  [planetarymaps.usgs.gov/cgi-bin/mapserv](https://planetarymaps.usgs.gov/cgi-bin/mapserv)
+- Phobos: [Phobos Viking Global Mosaic 5m](https://astrogeology.usgs.gov/search/map/phobos_viking_global_mosaic_5m)
+  (Stooke; file [Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif](https://planetarymaps.usgs.gov/mosaic/Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif))
+- Deimos: map server layer `VIKING` (no Astropedia page found). The
+  layer's abstract credits Philip Stooke, with Chris Jongkind and Megan
+  Arntz, and control from Peter Thomas's Cornell shape model, released
+  26 October 2001. It states no licence.
+- Io: [Io Galileo SSI / Voyager Color Merged Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/io_galileo_ssi_voyager_color_merged_global_mosaic_1km)
+- Europa: [Europa Voyager - Galileo SSI Global Mosaic 500m](https://astrogeology.usgs.gov/search/map/Europa/Voyager-Galileo/Europa_Voyager_GalileoSSI_global_mosaic_500m)
+- Ganymede: [Ganymede Voyager - Galileo SSI Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_global_mosaic_1km)
+- Callisto: [Callisto Galileo/Voyager Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km)
+- Mimas: map server layer `CASSINI_VOYAGER`. Its abstract gives Cassini
+  with Voyager fill, 216 m/px, May 2010, an update of PDS PIA11118, credit
+  NASA/JPL/Space Science Institute.
+- Enceladus: [Enceladus Cassini Global Mosaic 110m](https://astrogeology.usgs.gov/search/map/enceladus_cassini_global_mosaic_110m)
+- Tethys: [Tethys Cassini Global Mosaic 293m](https://astrogeology.usgs.gov/search/map/tethys_cassini_global_mosaic_293m)
+- Dione: [Dione Cassini - Voyager Global Mosaic 154m](https://astrogeology.usgs.gov/search/map/dione_cassini_voyager_global_mosaic_154m)
+- Rhea: [Rhea Cassini - Voyager Global Mosaic 417m](https://astrogeology.usgs.gov/search/map/rhea_cassini_voyager_global_mosaic_417m)
+- Iapetus: [Iapetus Cassini - Voyager Global Mosaic 803m](https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m)
+- Triton: [Triton Voyager 2 Global Color Mosaic 600m](https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m)
+- Charon: [Charon New Horizons LORRI MVIC Global Mosaic 300m](https://astrogeology.usgs.gov/search/map/charon_new_horizons_lorri_mvic_global_mosaic_300m)
+- The Uranian moons: USGS's [Foundational Data Products for Uranus and its satellites](https://fdp.astrogeology.usgs.gov/fdp/uranus/)
+  lists airbrush and photomosaic maps of their southern hemispheres
+  (USGS I-1920 and others), but no digital global mosaic.
+- Feature positions for the orientation checks: the IAU/USGS
+  [Gazetteer of Planetary Nomenclature](https://planetarynames.wr.usgs.gov/).
+- The moons' north poles: the IAU WGCCRE 2015 report, Archinal et al.,
+  *Celest. Mech. Dyn. Astron.* 130, 22 (2018),
+  [doi:10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5).
+  The invariable plane: D. Souami and J. Souchay, "The solar system's
+  invariable plane", *A&A* 543, A133 (2012),
+  [doi:10.1051/0004-6361/201219011](https://doi.org/10.1051/0004-6361/201219011).
+
+Each map's orientation was checked by finding named features at their
+gazetteer positions, and not at their mirror images (planetographic; west
+longitude for the synchronous moons, east for Triton and Charon):
+
+| Moon | Feature | Gazetteer centre | Where it is on the map |
+| --- | --- | --- | --- |
+| Io | [Pele](https://planetarynames.wr.usgs.gov/Feature/4638) | 18.71° S, 255.28° W | red ring at 103° E, 16° S |
+| Europa | [Pwyll](https://planetarynames.wr.usgs.gov/Feature/4878) | 25.20° S, 271.40° W | rayed crater at 85° E, 25° S |
+| Ganymede | [Tros](https://planetarynames.wr.usgs.gov/Feature/6091) | 11.14° N, 27.26° W | rayed crater at 29° W, 13° N |
+| Callisto | Asgard ([PIA01634](https://photojournal.jpl.nasa.gov/catalog/PIA01634)) | about 30° N, 142° W | bright basin near 135° W |
+| Mimas | [Herschel](https://planetarynames.wr.usgs.gov/Feature/2478) | 1.38° S, 111.76° W | crater at 112° W, 5° S |
+| Tethys | [Odysseus](https://planetarynames.wr.usgs.gov/Feature/4406) | 32.82° N, 128.89° W | basin at 133° W, 29° N |
+| Rhea | [Inktomi](https://planetarynames.wr.usgs.gov/Feature/14671) | 14.10° S, 112.10° W | bright rays at 108–120° W |
+| Phobos | [Stickney](https://planetarynames.wr.usgs.gov/Feature/5707) | 1° N, 49° W | depression near 45° W, 3° S |
+| Deimos | [Voltaire](https://planetarynames.wr.usgs.gov/Feature/6431) | 22° N, 3.5° W | bright crater there, nothing at 3.5° E |
+| Triton | [Ruach Planitia](https://planetarynames.wr.usgs.gov/Feature/5208), [Tuonela Planitia](https://planetarynames.wr.usgs.gov/Feature/6134), [Leviathan Patera](https://planetarynames.wr.usgs.gov/Feature/3368) | 28° N 24° E, 34° N 14.5° E, 17° N 28.5° E | smooth walled plains and the pit there; cantaloupe terrain at the mirrored spots |
+| Charon | Kubrick Mons, Dorothy ([Fourmilab's copy of the gazetteer table](https://fourmilab.ch/earthview/features/CHARON_nomenclature.html)) | 3.6° N 30.8° E, 58.5° N 40.6° E | the moated peak and the crater rim there |
+
+Dione has no single feature here: its bright wispy fractures lie on the
+trailing (+90° E) side, as they should. Iapetus's leading (90° W) half is the darker one even in its flattened
+mosaic. Enceladus comes from the same Cassini map series and server as
+Tethys, Dione and Rhea. Swift on
+Deimos (12.5° N, 358.2° W) lies too near 0° to tell east from west.
 
 ## One layout for every map
 

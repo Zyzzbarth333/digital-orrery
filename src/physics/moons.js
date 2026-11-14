@@ -168,10 +168,11 @@ export const systemEqj = (planet, date) => systemEqjAtTt(planet, ttSeconds(date.
 
 export const planetCentreOffsetEqj = (planet, date) => systemEqj(planet, date).offset.r;
 
-// The pole of the solar system's invariable plane in the ICRF (Souami and
-// Souchay 2012: RA 273.8527 deg, Dec 66.9911 deg).
+// The pole of the solar system's invariable plane in the ICRF, RA 273.85
+// deg, Dec 66.99 deg at J2000 (Souami and Souchay 2012, A&A 543, A133).
+// Only the sign of a dot product with it is used, so two decimals do.
 const INVARIABLE_POLE = (() => {
-  const ra = 273.8527 * DEG, dec = 66.9911 * DEG;
+  const ra = 273.85 * DEG, dec = 66.99 * DEG;
   return [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
 })();
 
