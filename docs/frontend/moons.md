@@ -225,8 +225,10 @@ Computing all six systems takes about 0.1 ms a frame.
   323 km off after nine hours with these moons against 4 km with JPL's.
   JPL's satellite kernels (`jup365` and the rest), as Chebyshev tables like
   the Earth's and Moon's, would bring that down; they need a download.
-- **The moons' own oblateness** and gravity fields (Titan's, Ganymede's
-  $J_2$), for orbits about a moon.
+- **The moons' gravity fields beyond degree 2.** Io, Europa, Ganymede,
+  Callisto and Titan carry their $J_2$ and $C_{22}$
+  ([kernel](../physics/nbody-kernel.md#the-moons-own-fields)); the others
+  are point masses.
 - Surface maps for the moons (above).
 - Mimas's libration, which a sinusoidal term in its mean longitude could hold.
 
