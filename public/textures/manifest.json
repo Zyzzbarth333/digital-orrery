@@ -161,6 +161,7 @@
   },
   "stars": {
     "map": "stars/milky-way-8k.webp",
+    "preview": "stars/milky-way-2k.webp",
     "raAtLeftDeg": 180.0,
     "raIncreasesRight": false,
     "gain": 1.0,

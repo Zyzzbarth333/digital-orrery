@@ -40,6 +40,7 @@ import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { SmallBodyLayer } from './smallBodies';
+import { GuideLayer } from './guides';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
@@ -263,6 +264,7 @@ export class OrreryScene {
   private craftLayer!: CraftLayer;
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
+  guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
 
   private bodyAnchor(key: FocusKey): Anchor {
     // A barycentre is a point: the camera may close to a kilometre.
@@ -400,10 +402,20 @@ export class OrreryScene {
       if (stars) {
         // The light between the stars, then the stars as points over it.
         const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
-        void this.surfaces.load(stars.map, true).then((tex) => {
+        // A 2048-wide preview first (0.6 MB, on screen in about a second),
+        // then the full map, which takes seconds to decode, in its place.
+        const show = (tex: THREE.Texture) => {
+          if (this.stars) { (this.stars.material as THREE.ShaderMaterial).uniforms.starMap.value = tex; return; }
           this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain,
             stars.detail && { entry: stars.detail, base: TEXTURE_BASE });
           this.scene.add(this.stars);
+        };
+        let full = false;
+        if (stars.preview) void this.surfaces.load(stars.preview, true).then((tex) => { if (!full) show(tex); }).catch(() => {});
+        void this.surfaces.load(stars.map, true).then((tex) => {
+          full = true;
+          show(tex);
+          if (stars.preview) this.surfaces.drop(stars.preview);
         });
         if (stars.points) {
           void loadBinary(stars.points).then((buf) => {
@@ -417,6 +429,8 @@ export class OrreryScene {
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    this.guides = new GuideLayer(this.scene, this.overlay, toRender,
+      (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
@@ -425,6 +439,9 @@ export class OrreryScene {
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.onContextLost(true); });
     this.renderer.domElement.addEventListener('webglcontextrestored', () => { this.reloadMaps(); this.onContextLost(false); });
     this.attachControls();
+    // ?debug exposes the scene as window.orrery, for the frame-time harness
+    // (docs/performance.md#measuring) and for poking at it from the console.
+    if (new URLSearchParams(location.search).has('debug')) (window as unknown as { orrery: OrreryScene }).orrery = this;
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
@@ -779,7 +796,12 @@ export class OrreryScene {
     this.updateGlare(sunPos, cam, now);
     this.updateAdaptation(dtReal, sunPos);
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
+      // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
+      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
+      level: 1 / this.renderer.toneMappingExposure, date });
 
+    this.smallBodies.renderHaze(this.renderer, this.camera);
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
@@ -1030,6 +1052,7 @@ export class OrreryScene {
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
     this.smallBodies.dispose();
+    this.guides.dispose();
     for (const el of this.labels.values()) el.remove();
     for (const el of this.baryLabels.values()) el.remove();
     this.post.dispose();
