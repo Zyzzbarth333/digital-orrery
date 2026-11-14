@@ -6,6 +6,11 @@ kernel in a Web Worker), `src/app/mission.ts`, `src/app/mission-panel.tsx`,
 `src/app/planner-panel.tsx`, `src/app/porkchop.worker.ts`, and
 `src/scene/craftLayer.ts` / `craftPaths.ts` for drawing.
 
+The MISSION, PLANNER and ROCKET tabs live in the flight console
+(`src/app/console.tsx`), opened from the header's FLIGHT field (or M)
+whatever body is in view; the header also names the selected craft and its
+state, and follows it when pressed.
+
 ## The craft model
 
 A craft's exact state is the kernel's: heliocentric J2000 equatorial km and

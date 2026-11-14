@@ -259,7 +259,9 @@ export function applyAtmosphere(m: THREE.ShaderMaterial, a: AtmosphereParams, gr
   m.uniforms.useAtmo.value = 1;
 }
 
-export function clearCloud(m: THREE.ShaderMaterial): void { m.uniforms.useCloud.value = 0; }
+// No daily mosaic: also unbind the old one, whose GL texture is about to be
+// deleted (binding a deleted texture is a WebGL error on every draw).
+export function clearCloud(m: THREE.ShaderMaterial): void { m.uniforms.useCloud.value = 0; m.uniforms.cloudMap.value = blank; }
 
 export function applyRingShadow(m: THREE.ShaderMaterial, map: THREE.Texture, inner: number, outer: number): void {
   const u = m.uniforms;

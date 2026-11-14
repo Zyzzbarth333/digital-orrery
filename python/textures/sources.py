@@ -185,32 +185,86 @@ BODIES = {
 }
 
 
-def stars(src, out, colour_map, heights_km, normal_map):
-    """NASA SVS Deep Star Maps 2020 (Hipparcos-2, Tycho-2, Gaia DR2), linear
-    half-float EXR in ICRF, RA 0h at the centre, RA increasing to the left.
-    Decoded by exr_to_f32.mjs, then mapped to 8-bit sRGB with a scale that
-    puts the brightest 0.01 % of pixels at white, so the Milky Way and faint
-    stars keep their relative brightness."""
+def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0):
+    """The sky in two layers (docs/frontend/textures.md#stars).
+
+    The light between the stars: NASA SVS Deep Star Maps 2020, the Milky Way
+    layer (milkyway_2020_4k.exr), which is the full star map with the
+    Hipparcos and Tycho stars taken out; linear half-float, ICRF plate
+    carree, RA 0h at the centre and increasing to the left. Written as 8-bit
+    sRGB with its brightest 0.01 % at white.
+
+    The stars: the Hipparcos main catalogue (ESA 1997), 118,218 stars, via
+    NASA HEASARC (heasarc_hipparcos.tdat.gz). Stars to V `vmax` are kept,
+    each as int16 x, y, z (J2000 unit vector times 32767), int16 V x 1000
+    and int16 B-V x 1000 (-32768 where the catalogue has none): 10 bytes a
+    star. The app turns B-V into a colour (stars.ts)."""
+    import gzip
     import json
     import subprocess
-    exr = src / "starmap_2020_4k.exr"
-    raw = src / "_work" / "starmap.f32"
+    exr = src / "milkyway_2020_4k.exr"
+    raw = src / "_work" / "milkyway.f32"
     raw.parent.mkdir(exist_ok=True)
-    subprocess.run(["node", str(Path(__file__).with_name("exr_to_f32.mjs")), str(exr), str(raw)], check=True)
+    if not raw.exists():
+        subprocess.run(["node", str(Path(__file__).with_name("exr_to_f32.mjs")), str(exr), str(raw)], check=True)
     size = json.loads(raw.with_suffix(".f32.json").read_text())
-    a = np.fromfile(raw, dtype=np.float32).reshape(size["height"], size["width"], 3).astype(np.float64)
-    a = np.maximum(a, 0.0)
+    a = np.maximum(np.fromfile(raw, dtype=np.float32).reshape(size["height"], size["width"], 3), 0.0)
     scale = 1.0 / np.percentile(a.max(axis=2), 99.99)
     lin = np.clip(a * scale, 0, 1)
     srgb = np.where(lin <= 0.0031308, 12.92 * lin, 1.055 * lin ** (1 / 2.4) - 0.055)
     img = Image.fromarray(np.rint(srgb * 255).astype(np.uint8), "RGB")
-    p = out / "stars" / "milky-way.webp"
-    p.parent.mkdir(parents=True, exist_ok=True)
-    img.save(p, "WEBP", quality=90, method=6)
-    print(f"  wrote stars/milky-way.webp {img.size[0]}x{img.size[1]} {p.stat().st_size / 1e6:.1f} MB")
+    m = out / "stars" / "milky-way.webp"
+    m.parent.mkdir(parents=True, exist_ok=True)
+    img.save(m, "WEBP", quality=92, method=6)
+    print(f"  wrote stars/milky-way.webp {img.size[0]}x{img.size[1]} {m.stat().st_size / 1e6:.1f} MB")
+
+    names = None
+    rows = []
+    with gzip.open(src / "heasarc_hipparcos.tdat.gz", "rt") as f:
+        data = False
+        for line in f:
+            if line.startswith("line[1] = "):
+                names = line.split("=", 1)[1].split()
+            elif line.startswith("<DATA>"):
+                data = True
+            elif line.startswith("<END>"):
+                break
+            elif data and names:
+                v = line.rstrip("\n").split("|")
+                rows.append(v)
+    col = {n: i for i, n in enumerate(names)}
+    ra, dec, vm, bv = [], [], [], []
+    for v in rows:
+        try:
+            mag = float(v[col["vmag"]])
+            r, d = float(v[col["ra"]]), float(v[col["dec"]])
+        except (ValueError, IndexError):
+            continue
+        if mag > vmax:
+            continue
+        try:
+            b = float(v[col["bv_color"]])
+        except (ValueError, IndexError):
+            b = np.nan                      # no B-V: the app draws it at the Sun's colour
+        ra.append(r); dec.append(d); vm.append(mag); bv.append(b)
+    ra, dec, vm, bv = (np.radians(np.array(ra)), np.radians(np.array(dec)), np.array(vm), np.array(bv))
+    xyz = np.stack([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)], axis=1)
+    out_arr = np.empty((len(vm), 5), dtype=np.int16)
+    out_arr[:, :3] = np.rint(xyz * 32767)
+    out_arr[:, 3] = np.rint(vm * 1000)
+    out_arr[:, 4] = np.where(np.isnan(bv), -32768, np.rint(np.nan_to_num(bv) * 1000))
+    p = out / "stars" / "hipparcos.bin"
+    out_arr.tofile(p)
+    old = out / "stars" / "points.bin"
+    if old.exists():
+        old.unlink()
+    print(f"  wrote stars/hipparcos.bin: {len(vm)} of {len(rows)} stars to V {vmax}, "
+          f"{np.isnan(bv).sum()} without B-V, {p.stat().st_size / 1e6:.2f} MB")
     return {"map": "stars/milky-way.webp", "raAtLeftDeg": 180.0, "raIncreasesRight": False, "gain": 1.0,
-            "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020. "
-                      "Gaia DR2: ESA/Gaia/DPAC."}
+            "points": "stars/hipparcos.bin", "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000",
+            "pointCount": int(len(vm)),
+            "credit": "Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020; "
+                      "Gaia DR2: ESA/Gaia/DPAC. Stars: the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC."}
 
 
 BODIES["stars"] = stars

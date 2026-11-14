@@ -104,9 +104,70 @@ up four problems, all fixed:
 | 25 | 1 | "Arrival excess speed" ran to three lines and "Fly this" broke onto two. | Shorter label (v-inf, explained on hover); primary keys never wrap |
 | 26 | 2 | In the overview, the names of Mercury, Venus, Earth and the Sun printed over one another. | Overprinting names give way: the focus first, then the larger body; the smaller keeps its marker and shows its name on hover |
 
+## Fourth pass: the November overhaul
+
+The [overhaul](overhaul-plan.md) changed the console's structure (missions
+moved to a flight console), the camera (flights) and the sky, so it was
+checked against the twelve-question checklist in the
+[research](research.md#checklist-for-the-overhaul), with screenshots at
+1920, 1680, 1440, 1280, 1100, 900, 720 and 390 px wide and scripted
+interaction runs in headless Chromium on real GPUs.
+
+| # | Question | Result |
+| --- | --- | --- |
+| 1 | What the camera follows, the rate, run or hold, at a glance? | Yes: the view plate (FOCUS or FOLLOW and the name), the rate window, the RUN/HOLD pair |
+| 2 | Focus type shown with two cues? | Yes: the word and the glyph (a ring for a body, a diamond for a craft, as in the sky) |
+| 3 | Stop or redirect a flight with a drag, a scroll or a key? | Yes (scripted): a scroll and Escape each stopped a flight on the spot; a click mid-flight to Jupiter redirected it |
+| 4 | Zoom kept, or its change visible? | Yes: zoomed in on Mars, a flight to Jupiter arrived at the same apparent size; choosing the body in view reframes it |
+| 5 | Missions and craft reachable whatever is in focus? | Yes (scripted): M opened the console; choosing Saturn flew there with the console still open; Escape with no flight closed it |
+| 6 | One name per craft and mission everywhere? | Yes: the FLIGHT window, the console's craft list and the sky marker use the craft's name |
+| 7 | Look-alike controls behave alike? | Yes: the console's tabs latch like the old plate tabs; CONSOLE latches like HOLD |
+| 8 | A lamp change noticed while looking at the sky? | Partly: flights now report in the sky (the view plate); the annunciator still sits in the header |
+| 9 | Readouts aligned with units apart? | Unchanged and yes |
+| 10 | Text sharp at 1× and 2×? | Yes: engraved type 10 px or more, labels on whole device pixels; checked at DPR 1 and 2 |
+| 11 | Motion that repeats, flashes or covers data? | No: the glare's needles drift slowly and only near the Sun; adaptation takes 0.3–2 s; flights end on arrival and are a cut with reduced motion |
+| 12 | On rails versus integrated clear? | Yes: FOCUS (a body on its ephemeris) and FOLLOW (an integrated craft), as well as the Motion row |
+
+Found while checking, and fixed before commit:
+
+| Sev. | Finding | Fix |
+| --- | --- | --- |
+| 3 | With the FLIGHT field the header overflowed from 1680 px down: the lamps ran off the edge at 1440 px. | The wordmark moved to the rail; the header wraps below 1300 px |
+| 3 | On phones the console's rules overrode the phone layout and the sky collapsed to no width. | Phone rules come after the console's |
+| 2 | With the console over the sky, a 1440 px screen kept only 470 px of sky. | Up to 1680 px the console docks over the data plate |
+| 2 | The clock's jump notice covered the view plate. | The view plate moved to the sky's lower left |
+| 2 | One Escape stopped a flight and also closed the console. | The scene marks the key as handled |
+| 2 | A scroll over a body's label in the sky did nothing (the labels sit over the canvas, which alone listened), so it could not stop a flight there. | The whole sky listens for the wheel |
+
+## Fifth pass: a review before the pull request
+
+Five reviewers each read one area of the branch (rendering, camera,
+texture loading, the interface, data and docs) against the code and
+three.js's own source, and every finding was then given to two more who
+tried to refute it. Thirty-two survived both, none was refuted, and all were
+fixed. The ones a user would meet:
+
+| Sev. | Finding | Fix |
+| --- | --- | --- |
+| 3 | Stopping a flight early (Esc or a drag) toward a bigger body could leave the camera inside it. | The zoom eases back out to 1.2 radii |
+| 3 | From 1301 to about 1490 px, with a craft, a held clock or the ACK key, the header ran off the edge, hiding WARN or ACK (1366 px is the commonest laptop width). | The header may wrap up to 1600 px, keeping one row when it fits; the craft's name gives way first |
+| 3 | After the browser restored a lost WebGL context, Earth's daily clouds were never fetched again and could show as a white disc. | The day is forgotten and fetched again; queued uploads are rejected, not left hanging |
+| 3 | At high warp Earth's 78 MB month maps were fetched and uploaded without end, and months that arrived late were never freed. | Months swap only while Earth is seen and under a week a second; a late month is freed |
+| 2 | While a rocket climbed from the pad, the FLIGHT field read "No craft" and the view plate "Craft". | Both read climbing craft too ("Climb") |
+| 2 | When a followed craft was removed, the view plate kept saying FOLLOW. | The scene tells the app it is back on the body |
+| 2 | Stars changed width and brightness each time the adaptive scale stepped, and the bloom's cost tripled at one step. | Star width and the bloom's first level follow the scale, in CSS pixels |
+| 2 | A frame-rate cap (a browser's power saving) looked like a slow GPU and left the view blurred for good. | A descent that does not help is undone |
+| 2 | Where a body covered part of the Sun, the glare had a sharp dark notch in the shape of the hidden disc. | The glare carries on across the hidden limb |
+| 2 | LIVE and NOW froze while the clock was held. | Re-read every second while held |
+| 2 | The covered data plate stayed in the tab order; the FLIGHT window was announced only as "Flight"; closing the console dropped keyboard focus. | The plate is inert under the console; the window names the craft and its state; focus returns to the CONSOLE key |
+| 1 | Maps larger than the GPU's texture limit were no longer scaled down; credits were not reachable on phones and gave no CC BY licence link. | Scaled in the worker; the credits show on phones, with the licence links |
+
 ## Still to do
 
 - A think-aloud usability test with scenarios 1–8 and three or four
   people, at least one on a phone. That is the real check; this review only
   predicts.
-- Arrow-key switching between the plate's tabs (finding 11).
+- Arrow-key switching between the console's tabs (finding 11).
+- The think-aloud test should include the overhaul's tasks: interrupt a
+  flight, open a mission while Jupiter is in focus, follow a craft and
+  change the rate.
