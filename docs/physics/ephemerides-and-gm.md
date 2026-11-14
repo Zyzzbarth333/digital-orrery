@@ -5,18 +5,45 @@
 | | Used by | Accuracy |
 | --- | --- | --- |
 | **DE442** through SPICE (`python/data/metakernel.tm`) | the reference fixture, the C generator, the Python scripts | JPL's fit to radar, spacecraft tracking and occultations; the reference |
-| **DE442 Earth–Moon table** (`src/physics/deTable.js`) | Earth and the Moon in the browser app and the kernel, 2000–2050 | Chebyshev series fitted to DE442: worst 0.3 mm (Moon) and 3.6 mm (Earth); the Earth's acceleration within 1.5×10⁻⁹ m/s² |
-| **astronomy-engine** (`src/physics/ephemeris.js`) | the other planets, and Earth and the Moon outside 2000–2050 | measured against DE442: within 2.5×10⁻⁵ of the distance and 1.3 m/s for Venus, Earth and Mars; within 9.3×10⁻⁵ and 9.5 m/s for all eight planets (`porkchop.test.mjs` case 1); its Moon is 9–13 km from DE442's |
+| **DE442 table** (`src/physics/deTable.js`) | every planet, Pluto, the Moon and the SSB in the browser app and the kernel, 2000–2050 | Chebyshev series fitted to DE442: worst 0.3 mm (Moon), 3.7 mm (Earth), under 0.86 m for every body about the Sun; the Earth's acceleration within 1.5×10⁻⁹ m/s² |
+| **astronomy-engine** (`src/physics/ephemeris.js`) | every body outside the table (2000–2050, plus the margins it blends over), or if it fails to load | measured against DE442: within 2.3×10⁻⁵ of the distance and 1.3 m/s for Venus, Earth and Mars; within 9.3×10⁻⁵ and 9.4 m/s for all eight planets (`porkchop.test.mjs` case 1a); its Moon is 9–13 km from DE442's |
 
 ## DE442 in the app
 
-Earth and the Moon matter most to the precision of what the app flies, so
-they come from DE442 itself.
-- **The fit:** `c/de_cheb.c` fits Chebyshev series to DE442 through CSPICE:
-  - the Moon relative to Earth: 8-day intervals, 18 coefficients;
-  - the Earth-Moon barycentre relative to the Sun: 16-day intervals, 14
-    coefficients;
-  - both in J2000 equatorial km against TDB.
+Every planet, Pluto and the Moon come from DE442 itself between 2000 and
+2050. Earth and the Moon came first, as they matter most to what the app
+flies; the planets followed because astronomy-engine's are hundreds to
+hundreds of thousands of kilometres out ([below](#why-it-matters)).
+- **The fit:** `c/de_cheb.c` fits Chebyshev series to DE442 through CSPICE,
+  all in J2000 equatorial km against TDB:
+
+  | Series | Relative to | Interval | Coefficients | Margin and blend | Worst about the Sun |
+  | --- | --- | ---: | ---: | ---: | ---: |
+  | Moon | Earth | 8 d | 18 | 30 d | 0.4 mm (about Earth) |
+  | Earth-Moon barycentre | Sun | 16 d | 14 | 30 d | 3.6 mm (Earth) |
+  | Mercury | Sun | 16 d | 16 | 30 d | 0.15 m |
+  | Venus | Sun | 32 d | 13 | 30 d | 0.06 m |
+  | Mars barycentre | Sun | 32 d | 12 | 60 d | 0.03 m |
+  | Sun | SSB | 32 d | 12 | 8 yr (SSB blend 1 yr) | 0.03 m (about the SSB) |
+  | Jupiter barycentre | SSB | 128 d | 10 | 1 yr | 0.15 m |
+  | Saturn barycentre | SSB | 256 d | 11 | 1 yr | 0.34 m |
+  | Uranus barycentre | SSB | 512 d | 12 | 2 yr | 0.84 m |
+  | Neptune barycentre | SSB | 1,024 d | 12 | 4 yr | 0.86 m |
+  | Pluto barycentre | SSB | 1,024 d | 12 | 8 yr | 0.77 m |
+
+- **The outer planets about the SSB:** relative to the Sun, an outer planet
+  carries the Sun's own wobble (450 km a year from the Earth, 260 km every
+  225 days from Venus), which needs short intervals. About the SSB it moves
+  on a smooth arc that 10 to 12 coefficients cover for a year or more. The
+  app subtracts the Sun's series (planet minus Sun); the last column is
+  that difference against SPICE's heliocentric position. The Sun's series
+  is also the app's SSB, DE442's own (every body JPL integrates, asteroids
+  included).
+- **Lengths and degrees** were chosen to keep every body under a metre
+  with the smallest file: a 0.8 m error is 10⁻¹⁰ of Neptune's distance.
+  The accelerations follow DE442 to 10⁻⁹ m/s² and jump at the joins by
+  under 7×10⁻⁹ m/s² (Mercury); the others under 2×10⁻⁹. `DAYS_<id>` and
+  `N_<id>` override a series' interval and coefficients when refitting.
 - **The Earth** is derived, as JPL's own ephemerides store it:
   $\mathbf r_\oplus = \mathbf r_{EMB} - k\,(\mathbf r_{☾} - \mathbf r_\oplus)$
   with $k = GM_☾/(GM_\oplus + GM_☾) = 0.0121505844$ (stored in the file).
@@ -32,11 +59,12 @@ they come from DE442 itself.
     this one. The rest was DE442's own floor, which Encke's tidal form
     keeps out of the motion about the Earth: 5 mm
     ([Encke's method](nbody-kernel.md#enckes-method)).
-- **The file:** `public/ephemeris/de442-earth-moon-2000-2050.bin`, 1.4 MB
-  (format 2).
+- **The file:** `public/ephemeris/de442-2000-2050.bin`, 2.5 MB (format 3):
+  1.4 MB for the Earth and Moon, 1.1 MB for the rest, most of it Mercury.
+  Each series's header names its target and centre by NAIF code.
 - **Accuracy:** checked between the fitting nodes against `spkezr_c`:
   - **Position:** worst 0.3 mm for the Moon, 3.7 mm for the barycentre
-    and 3.6 mm for the derived Earth.
+    and 3.7 mm for the derived Earth; the planets as in the table.
   - **Acceleration:** the derived Earth within 1.5×10⁻⁹ m/s² of a second
     difference of SPICE's positions.
   - **Joins:** jumps under 3 mm, 0.2 mm/s and 5×10⁻¹¹ m/s².
@@ -50,20 +78,73 @@ they come from DE442 itself.
   `deNode.js` loads it as the first import of every test.
 - **Time:** the app's clock is UTC, converted to TDB by `timescale.js`.
 
-Through that path, Earth at MSL's launch is 0.09 m from SPICE. Over Artemis
-II the Moon stays within 0.8 m of DE442, which is the millisecond rounding
-of the fixture's times.
+Through that path, Earth at MSL's launch is 0.09 m from SPICE, and all
+eight planets at the fixture's epochs are within 2.8 m (Mercury at J2000,
+whose UTC is rounded to a millisecond; `porkchop.test.mjs` case 1). Over
+Artemis II the Moon stays within 0.8 m of DE442, which is the millisecond
+rounding of the fixture's times.
 
-Why it matters:
+### Why it matters
+
 - The Moon from astronomy-engine is 9–13 km from DE442's. Predicting
   Artemis II through the lunar flyby, that is 49 km of error against 3.6 km
   with DE442 ([validation](../validation/artemis2.md)).
 - Earth's heliocentric position from astronomy-engine is up to about
   3,400 km off DE442's.
+- astronomy-engine's system barycentres against JPL Horizons, November 2026
+  (`moons.test.mjs`): Mars 1,809 km, Jupiter 16,275 km, Saturn 69,172 km,
+  Uranus 85,433 km, Neptune 335,209 km, Pluto 141,082 km. A flyby aimed by
+  the kernel misses by that much, and a moon drawn about its planet is
+  carried with it.
+- From the table, the same barycentres are 0.2 km (Mars), 14.1 km
+  (Jupiter), 0.3 km (Saturn), 1,231 km (Uranus), 352 km (Neptune) and
+  1.7 km (Pluto) from Horizons. All of that is DE440 against DE442:
+  Horizons serves DE440 for the planets (its rows match DE440 through
+  SPICE to 0.08 km, the fixture's rounding), and DE442 moved Uranus with
+  new occultations and Jupiter with more Juno ranging ([below](#de442-against-de440)).
+  Horizons' planet centres (x99, from its satellite solutions) put Uranus
+  and Neptune where DE442 does: the table's barycentre plus Horizons'
+  centre offset is 0.07–0.28 km from them for Mars, Saturn, Uranus and
+  Neptune.
 
-Outside 2000–2050, or if the table fails to load, ephemeris.js falls back to
-astronomy-engine (with a console warning), with a jump of that size at the
-boundary. The other planets will follow the same way.
+### At the table's ends
+
+Beyond the table, or if it fails to load, ephemeris.js falls back to
+astronomy-engine (with a console warning). Handing over at once would make
+each body jump by astronomy-engine's error there, up to 260,000 km (Pluto,
+in 2051). That would put a kink in every orbit line that spans the edge
+(Uranus's, Neptune's and Pluto's always do), and a leap under a craft
+flying across it.
+
+So each series runs past 2000–2050 by a margin, and over that margin the
+app blends one into the other. With $s$ the fraction of the blend from the
+table's end and $w = 10s^3 - 15s^4 + 6s^5$ (smooth to the second
+derivative):
+
+$$
+\mathbf r = \mathbf r_\text{AE} + w\,(\mathbf r_\text{DE} - \mathbf r_\text{AE}),\qquad
+\mathbf v = \mathbf v_\text{AE} + w\,(\mathbf v_\text{DE} - \mathbf v_\text{AE}) + \dot w\,(\mathbf r_\text{DE} - \mathbf r_\text{AE}).
+$$
+
+- **The core is untouched:** 2000-01-01 12:00 TDB to 2051-01-01 is DE442
+  alone, and the plate's tags say DE442 only there.
+- **Blend lengths** grow with the jump. The ramp itself adds an
+  acceleration $2\dot w\,\Delta\mathbf v + \ddot w\,\Delta\mathbf r$, up
+  to about $5.8\,\Delta r/T^2$. The lengths keep that under 1 % of the
+  Sun's pull: 0.02 % for Earth, 0.55–0.6 % for Saturn to Neptune, 0.8 % for
+  Pluto (`deTable.test.mjs`).
+- **Earth and the Moon** share one length, so the Moon about the Earth
+  blends as one too. A planet's moons ride on their planet.
+- **The SSB** blends into the sum over every body that barycentres.js uses
+  beyond the table.
+- **Checked** (`deTable.test.mjs`): at each end every body is within a
+  millimetre of astronomy-engine. Inside the blend the velocity is the
+  positions' derivative to 0.3 mm/s, as close as astronomy-engine's own;
+  Pluto's own velocities are 0.25 m/s off its positions, and the kernel
+  differences them. Through the kernel's TT path, nothing jumps across the
+  end.
+- **The cost:** 0.1 MB of file, and astronomy-engine as well as the table
+  for bodies inside a blend.
 
 ## What DE442 contains, and what the satellite kernels add
 
