@@ -54,7 +54,7 @@ export type RealBurns = 'all' | 'first';
 interface Ascent { craft: Craft; liftoffMs: number; cutoffMs: number; track: { ms: number; r: V3; v: V3 }[]; pathEcl: V3[]; flownEcl: V3[]; shown: number; version: number }
 // aimed: the corrections are aimed from the craft (RealMission.aimCorrection)
 // rather than replayed as flown; aimNext: the next of m.aims() to aim.
-interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean; aimed: boolean; aimNext: number; aimedDv: number }
+interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean; aimed: boolean; aimNext: number; aimedDv: number; asking?: string | null; answer?: unknown }
 
 // The real missions the app can fly: file id and label.
 export const REAL_MISSIONS = [
@@ -305,7 +305,7 @@ export class Mission {
     R.lastMs = nowMs;
     // Aimed corrections: the kernel holds at each one's start, where it is
     // worked out from the craft's own state (RealMission.aimStep).
-    if (R.aimed) R.m.aimStep(c, this.sys, R, jumped);
+    if (R.aimed) R.m.aimStep(c, this.sys, R, jumped, (req: object) => this.client.aim(req));
   }
 
 
