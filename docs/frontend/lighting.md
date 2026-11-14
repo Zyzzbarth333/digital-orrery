@@ -34,9 +34,14 @@ that one full-screen pass: with three.js's own HDR output the bloom's mix,
 the glare and the tone curve took three, about 19 ms of a 43 ms frame on the
 Intel iGPU at 2680 × 2032 ([performance](../performance.md#rendering)).
 
-The curve is Khronos PBR Neutral: colours below its knee (about 0.76) are
-left as they are, so planets keep their albedo colours, and highlights roll
-off to white without the hue shifts of ACES. Its exposure at 1 AU is 1.2,
+The curve is Khronos PBR Neutral as three.js r187 implements it: every
+channel first loses a small offset, 0.04, or for the darkest channel x
+under 0.08 the amount x − 6.25x² (so a near-black x shows as 6.25x²);
+below the knee at about 0.76 nothing else changes, so lit planets keep
+their albedo colours, and highlights roll off to white without the hue
+shifts of ACES. The quadratic toe darkens faint display-level light (the
+Milky Way, stars fainter than about V 6) well below its linear value; their
+gains were set by eye under this curve. Its exposure at 1 AU is 1.2,
 which matches the previous ACES look on a lit planet (a scene value of 0.5
 shows as 0.56 in both). `?tone=agx` or `?tone=aces` switch curves for
 comparison.
@@ -107,11 +112,16 @@ surfaces would record no stars at all). It has two layers
   fixed width in device pixels (σ = 0.55 + 0.35 × the pixel ratio) centred
   on its true sub-pixel position, so its light is the same wherever it falls
   and it neither shimmers nor vanishes as the view turns. Its peak is
-  30 × 10^(−0.4 V) of display white in the colour of its B−V, so stars of
-  magnitude 0 saturate and bloom a little, magnitude 3 is a third of white
-  and magnitude 7 is just visible on a dark screen. Each sprite is only as
-  wide as the star's light above 1/512 of white (none at all past about
-  V 9.6), so the many faint stars cost few fragments. Stars do not twinkle
+  30 × 10^(−0.4 V) of display white in the colour of its B−V, before the
+  tone curve: magnitude 0 at 30 times white (it saturates and blooms a
+  little), magnitude 3 at about 1.9 times, magnitude 5 at a third,
+  magnitude 7 at 5 % (just visible on a dark screen after the curve's toe).
+  Each sprite is only as wide as the star's light above 1/512 of white, so
+  the many faint stars cost few fragments; that cut falls at V 10.5 when
+  dark-adapted, so every catalogue star (to V 9) is drawn until adaptation
+  dims the sky below about a quarter. The width is held on screen when the
+  adaptive render scale changes the canvas's pixels; below 0.8 of a canvas
+  pixel it stays at 0.8 and the peak drops to keep the star's light. Stars do not twinkle
   in vacuum, so they don't here.
 
 **Adaptation**, the sky's honest motion: faint stars and the Milky Way fade
@@ -119,7 +129,7 @@ when bright light is in view and come back in the dark. The light counted is
 the Sun within 35° of the view's centre (weighted by how much of its disc
 is visible, and tempered to a third: physically its disc in frame would
 leave only the brightest stars, which is too bare for the overview) plus
-each body's share of the view times its lit fraction; the
+twice each body's share of the view times its lit fraction; the
 sky is scaled by 1 / (1 + 4 × that light), approached in 0.3 s toward light
 and 2 s back toward the dark, roughly as eyes adapt. Flying past a sunlit
 planet or turning toward the Sun therefore changes the sky as it would for

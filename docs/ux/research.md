@@ -94,7 +94,7 @@ credit line.
   pmndrs/postprocessing implements it but is a new dependency.
 - **Tone mapping.** three.js ACES multiplies exposure by 1/0.6 and shifts
   hues; AgX (Filament, Blender) has a long shoulder; Khronos PBR Neutral keeps
-  colours below about 0.76 untouched
+  colours below about 0.76 nearly untouched (three.js's version subtracts up to 0.04 and squares the darkest values)
   ([three.js](https://github.com/mrdoob/three.js/blob/dev/src/renderers/shaders/ShaderChunk/tonemapping_pars_fragment.glsl.js);
   [Khronos](https://github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/README.md)).
 - **Glare.** Spencer et al. split the eye's glare into bloom and flare (a

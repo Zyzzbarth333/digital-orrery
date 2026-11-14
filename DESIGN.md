@@ -328,7 +328,7 @@ one), enough to read as lit glass without blurring the digits.
 
 ### Chips
 
-The source tag: 9 px mono in a 1 px ink box, solid for data, dashed for
+The source tag: 10 px mono in a 1 px ink box, solid for data, dashed for
 values worked out in the app. Hover a tag for its source detail.
 
 ### Inputs / Fields

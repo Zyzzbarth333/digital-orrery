@@ -7,7 +7,8 @@ flights between them. Code: `src/scene/cameraRig.ts`, used by
 ## The orbit camera
 
 The camera looks at a pivot and sits `dist` km from it, at an azimuth and
-elevation in the ecliptic frame. Dragging turns it (0.005 rad per pixel);
+elevation in the ecliptic frame. Dragging turns it (0.005 rad per pixel; one pointer at a time, so a
+second finger does not make the view jump);
 the wheel zooms by e^(0.0015 Δy) per event and the distance eases to the
 new value over about a quarter of a second, in log distance, so a zoom
 reads as one motion rather than steps. The pivot is the target's live
@@ -71,7 +72,13 @@ separately. Choosing the body already in view reframes it at the default.
 - **A drag, a scroll or Escape** ends the flight on the spot. The target
   becomes the new body; the aim, which was between the two, settles onto it
   through a critically damped spring (ω = 7 rad/s, no overshoot, about
-  0.6 s), while the user's drag or zoom applies at once.
+  0.6 s), while the user's drag or zoom applies at once. Stopped while still
+  closer than 1.2 of the new body's radii (early in a flight toward
+  something bigger), the zoom eases back out to that distance, so the
+  camera never ends inside a body.
+- **Choosing the body a flight is already heading for** changes nothing.
+- **A body with no position yet** (a link's `?focus=` before the first
+  frame) is reached by a cut.
 - **Reduced motion** (`prefers-reduced-motion: reduce`): a flight is a cut.
 
 ## Maps on the way

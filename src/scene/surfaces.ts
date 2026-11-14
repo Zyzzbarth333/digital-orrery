@@ -68,6 +68,7 @@ interface UploadJob {
   gl: WebGLTexture | null;
   y: number;                            // next row to upload
   resolve: (t: THREE.Texture) => void;
+  reject: (e: Error) => void;
 }
 
 export class TextureUploader {
@@ -80,16 +81,25 @@ export class TextureUploader {
   }
   get pending(): number { return this.queue.length; }
 
+  // The largest texture this GPU takes; decodeImage scales bigger images
+  // down to it (WebGL 2 promises only 2048, so an 8k map can be too big).
+  get maxSize(): number { return this.renderer.capabilities.maxTextureSize; }
+
   upload(bitmap: ImageBitmap, colour: boolean): Promise<THREE.Texture> {
-    return new Promise((resolve) => this.queue.push({ bitmap, colour, gl: null, y: 0, resolve }));
+    return new Promise((resolve, reject) => this.queue.push({ bitmap, colour, gl: null, y: 0, resolve, reject }));
   }
 
   // Forget queued work after a lost context (its textures went with it).
-  clear(): void { for (const j of this.queue) j.bitmap.close(); this.queue = []; }
+  // A lost context took the textures with it: queued work is dropped and
+  // its callers told, so nothing waits forever.
+  clear(): void {
+    for (const j of this.queue) { j.bitmap.close(); j.reject(new Error('WebGL context lost')); }
+    this.queue = [];
+  }
 
   step(): void {
     const job = this.queue[0];
-    if (!job) return;
+    if (!job || this.gl.isContextLost()) return;
     const gl = this.gl, state = this.renderer.state;
     const { bitmap } = job;
     const W = bitmap.width, H = bitmap.height;
@@ -135,7 +145,7 @@ let decoder: Worker | null = null;
 let nextId = 1;
 const waiting = new Map<number, { resolve: (r: { bitmap: ImageBitmap; whiteLuminance?: number }) => void; reject: (e: Error) => void }>();
 
-export function decodeImage(url: string, opts: { premultiply: boolean; brightLuminance?: boolean }): Promise<{ bitmap: ImageBitmap; whiteLuminance?: number }> {
+export function decodeImage(url: string, opts: { premultiply: boolean; brightLuminance?: boolean; maxSize?: number }): Promise<{ bitmap: ImageBitmap; whiteLuminance?: number }> {
   if (!decoder) {
     decoder = new Worker(new URL('./decode.worker.ts', import.meta.url), { type: 'module' });
     decoder.onmessage = (e: MessageEvent<DecodeReply>) => {
@@ -164,7 +174,7 @@ export async function loadTexture(url: string, colour: boolean, uploader: Textur
     t.wrapS = THREE.RepeatWrapping;
     return t;
   }
-  const { bitmap } = await decodeImage(url, { premultiply: true });
+  const { bitmap } = await decodeImage(url, { premultiply: true, maxSize: uploader.maxSize });
   return uploader.upload(bitmap, colour);
 }
 
@@ -212,12 +222,13 @@ export class SurfaceLoader {
       this.month.set(key, m);
       const path = entry.dayMonthly[m];
       const day = await this.load(path, true);
-      if (this.month.get(key) === m) {
-        applySurfaceMaps(material, { day, dayMeanLuminance: entry.dayMeanLuminance, dayWhiteLuminance: entry.dayWhiteLuminance });
-        const old = this.monthPath.get(key);
-        this.monthPath.set(key, path);
-        if (old && old !== path) this.drop(old);
-      }
+      // A month that arrives after the sim has moved on is freed at once
+      // (78 MB each), unless it is the one on show.
+      if (this.month.get(key) !== m) { if (this.monthPath.get(key) !== path) this.drop(path); return; }
+      applySurfaceMaps(material, { day, dayMeanLuminance: entry.dayMeanLuminance, dayWhiteLuminance: entry.dayWhiteLuminance });
+      const old = this.monthPath.get(key);
+      this.monthPath.set(key, path);
+      if (old && old !== path) this.drop(old);
     } else if (entry.day && !this.month.has(key)) {
       this.month.set(key, -1);
       applySurfaceMaps(material, { day: await this.load(entry.day, true), dayMeanLuminance: entry.dayMeanLuminance });

@@ -1,9 +1,9 @@
 // src/app/App.tsx
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { SimClock } from './clock';
 import { SceneView } from '../scene/SceneView';
-import { BodyRail, Plate, RATES, TimeBand } from './panels';
+import { BodyRail, Plate, RATES, TimeBand, craftById } from './panels';
 import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
 import type { OrreryScene } from '../scene/OrreryScene';
@@ -34,6 +34,12 @@ function initialState(): { focus: BodyKey; timeMs: number; tGiven: boolean; sunV
   };
 }
 
+// Whether a media query matches, kept current.
+function useMedia(query: string): boolean {
+  const mql = useMemo(() => matchMedia(query), [query]);
+  return useSyncExternalStore((fn) => { mql.addEventListener('change', fn); return () => mql.removeEventListener('change', fn); }, () => mql.matches);
+}
+
 export function App() {
   const init = useMemo(initialState, []);
   const clock = useMemo(() => new SimClock(init.timeMs), [init]);
@@ -44,6 +50,14 @@ export function App() {
   const [tab, setTab] = useState<ConsoleTab>(init.plan ? 'planner' : 'mission');
   const [flying, setFlying] = useState(false);
   const openConsole = (t: ConsoleTab) => { setTab(t); setConsoleOpen(true); };
+  // Closing from inside the console hands focus back to its key, rather
+  // than dropping it to the page.
+  const closeConsole = () => {
+    const inside = document.activeElement?.closest('.console');
+    setConsoleOpen(false);
+    if (inside) requestAnimationFrame(() => document.querySelector<HTMLElement>('.console-key')?.focus());
+  };
+  const wide = useMedia('(min-width: 1680px)');
   // How much of the sky the console covers on the right (none where it
   // docks below the sky on a phone): the 3D view keeps the body clear of it.
   const dockRef = useRef<HTMLDivElement>(null);
@@ -67,6 +81,8 @@ export function App() {
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
+  // The followed craft's name, kept current (a rocket's climb included).
+  const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
   const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); };
   const onReady = (sc: OrreryScene) => {
     scene.current = sc;
@@ -108,7 +124,7 @@ export function App() {
       if (e.altKey || e.ctrlKey || e.metaKey || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       // Escape stops a flight first (the scene handles that), then closes
       // the console.
-      if (e.key === 'Escape') { if (!e.defaultPrevented && consoleOpen) setConsoleOpen(false); return; }
+      if (e.key === 'Escape') { if (!e.defaultPrevented && consoleOpen) closeConsole(); return; }
       if (e.key === 'm' || e.key === 'M') { setConsoleOpen(!consoleOpen); e.preventDefault(); return; }
       const s = clock.snapshot;
       const ri = Math.max(0, RATES.findIndex((r) => r.rate === s.rate));
@@ -130,15 +146,15 @@ export function App() {
     <div className="app">
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
-        view={following === null ? { kind: 'focus', name: BODY_BY_KEY[focus].name } : { kind: 'follow', name: mission.crafts.find((c) => c.id === following)?.name ?? 'Craft' }}
+        view={following === null ? { kind: 'focus', name: BODY_BY_KEY[focus].name } : { kind: 'follow', name: followName }}
         flying={flying} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
       <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); }} />
-      <Plate clock={clock} focus={focus} />
+      <Plate clock={clock} focus={focus} covered={consoleOpen && !wide} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>
-          <FlightConsole clock={clock} mission={mission} tab={tab} setTab={setTab} onClose={() => setConsoleOpen(false)}
+          <FlightConsole clock={clock} mission={mission} tab={tab} setTab={setTab} onClose={closeConsole}
             onFocusCraft={followCraft} autoPlan={init.plan} />
         </div>
       )}

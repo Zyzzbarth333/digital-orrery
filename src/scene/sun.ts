@@ -80,6 +80,7 @@ uniform float level;        // irradiance at the camera x visible fraction x str
 uniform float sunRadius;    // angular radius, deg
 uniform float time;         // s
 uniform float glareOn;      // 0 when no glare reaches the frame
+uniform float degPerPx;     // field of view per canvas pixel, deg
 uniform vec3 tint;
 
 float glareHash(float n) { return fract(sin(n) * 43758.5453123); }
@@ -99,8 +100,9 @@ vec3 sunGlare(vec2 fragCoord) {
   vec3 ray = normalize(v.xyz / v.w);
   float cosT = dot(ray, sunDir);
   float theta = degrees(acos(clamp(cosT, -1.0, 1.0)));
-  if (theta < sunRadius) return vec3(0.0);
-  float th = max(theta, 0.05);
+  // Over the disc the glare adds to light that is already saturated; where
+  // a body hides part of the disc it carries on across the hidden limb.
+  float th = max(theta, max(sunRadius, 0.05));
   // CIE disability glare, relative to a white surface in the same light.
   float g = 3.14159265 * (10.0 / (th * th * th) + 5.0 / (th * th) + 0.05 / th);
   // Ciliary corona: fine radial needles within 10 deg, drifting slowly.
@@ -110,7 +112,11 @@ vec3 sunGlare(vec2 fragCoord) {
     vec3 r = ray - sunDir * cosT;
     float a = atan(dot(r, up), dot(r, side));
     float drift = 0.15 * sin(time * 0.31) + 0.05 * time;
-    float n = needles(a, 90.0, drift) * 0.7 + needles(a, 211.0, -drift * 1.7) * 0.5;
+    // Each set of needles fades out where they would be closer than a few
+    // pixels apart, rather than alias into crawling speckle.
+    float arcPx = radians(th) * 57.29578 / degPerPx;   // pixels around the circle per radian of angle
+    float f1 = smoothstep(2.0, 5.0, arcPx * 6.2832 / 90.0), f2 = smoothstep(2.0, 5.0, arcPx * 6.2832 / 211.0);
+    float n = needles(a, 90.0, drift) * 0.7 * f1 + needles(a, 211.0, -drift * 1.7) * 0.5 * f2;
     g += n * 8.0 / (th * th) * smoothstep(10.0, 1.0, th);
   }
   return tint * level * g;
@@ -127,6 +133,7 @@ export class SunGlare {
     sunRadius: { value: 0.25 },
     time: { value: 0 },
     glareOn: { value: 0 },
+    degPerPx: { value: 0.05 },
     tint: { value: new THREE.Vector3(...SUN_RGB) },
   };
   private view = new THREE.Matrix4();
@@ -146,6 +153,7 @@ export class SunGlare {
     u.sunRadius.value = (Math.asin(Math.min(1, sunRadius / d)) * 180) / Math.PI;
     u.level.value = irradiance * visible * GLARE_STRENGTH;
     u.time.value = timeS;
+    u.degPerPx.value = camera.fov / Math.max(1, buffer.y);
     // Off when the Sun is so far out of view that its glare at the nearest
     // edge of the frame is under a thousandth of white.
     const fwd = this.tmp.set(0, 0, -1).transformDirection(camera.matrixWorld);

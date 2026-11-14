@@ -45,8 +45,8 @@ origin, so whatever is near it (the focused body) is drawn with full
 precision; whatever is far away has large coordinates, but its errors are
 far below a pixel.
 
-A logarithmic depth buffer covers the depth range, from a near plane of 1 m
-to a far plane of $10^{10}$ render units, with no visible z-fighting.
+A logarithmic depth buffer covers the depth range, from a near plane of 1 km
+(10⁻³ render units) to a far plane of $10^{10}$ render units, with no visible z-fighting.
 
 ## Camera
 

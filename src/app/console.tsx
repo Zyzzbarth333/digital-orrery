@@ -25,11 +25,13 @@ export function FlightConsole({ clock, mission, tab, setTab, onClose, onFocusCra
   return (
     <section className="console screw" aria-label="Flight console">
       <span className="pnl" aria-hidden="true">C1</span>
-      <div className="tabs" role="tablist" aria-label="Flight console">
-        {TABS.map(([k, label]) => (
-          <button key={k} role="tab" id={`ctab-${k}`} aria-selected={tab === k} aria-controls={`cpanel-${k}`} className="key tab"
-            onClick={() => setTab(k)}>{label}</button>
-        ))}
+      <div className="console-head">
+        <div className="tabs" role="tablist" aria-label="Flight console">
+          {TABS.map(([k, label]) => (
+            <button key={k} role="tab" id={`ctab-${k}`} aria-selected={tab === k} aria-controls={`cpanel-${k}`} className="key tab"
+              onClick={() => setTab(k)}>{label}</button>
+          ))}
+        </div>
         <button className="key tab close" onClick={onClose} title="Close the flight console (M or Esc)" aria-label="Close the flight console">Close</button>
       </div>
       <div role="tabpanel" id={`cpanel-${tab}`} aria-labelledby={`ctab-${tab}`} className="tab-panel">

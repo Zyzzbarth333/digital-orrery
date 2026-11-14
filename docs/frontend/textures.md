@@ -8,8 +8,10 @@ conversion), `src/scene/surfaces.ts`, `bodyMaterial.ts`, `rings.ts`,
 ## Sources and credits
 
 All NASA, USGS and NOAA products are US-government public domain; the
-credit lines are the ones each source asks for. Solar System Scope maps are
-CC BY 4.0 and need their attribution.
+credit lines are the ones each source asks for. Solar System Scope maps
+([solarsystemscope.com/textures](https://www.solarsystemscope.com/textures/))
+are [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and need their
+attribution, with a link to the licence; the app's Credits list gives both.
 
 | Body | Map | Source | Credit |
 | --- | --- | --- | --- |
@@ -175,7 +177,7 @@ background on the machine (commit 4a660fe); it is replaced by these.
 ## Loading
 
 A body's maps load the first time its disc is more than three pixels
-across, or when a flight to it starts ([camera](camera.md#maps-on-the-way)).
+in radius (six across), or when a flight to it starts ([camera](camera.md#maps-on-the-way)).
 Maps run to 8192 × 4096, about 180 MB of video memory each with mipmaps,
 and loading them used to freeze the page for up to two seconds. Now:
 

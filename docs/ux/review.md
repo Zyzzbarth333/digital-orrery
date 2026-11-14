@@ -139,6 +139,29 @@ Found while checking, and fixed before commit:
 | 2 | One Escape stopped a flight and also closed the console. | The scene marks the key as handled |
 | 2 | A scroll over a body's label in the sky did nothing (the labels sit over the canvas, which alone listened), so it could not stop a flight there. | The whole sky listens for the wheel |
 
+## Fifth pass: a review before the pull request
+
+Five reviewers each read one area of the branch (rendering, camera,
+texture loading, the interface, data and docs) against the code and
+three.js's own source, and every finding was then given to two more who
+tried to refute it. Thirty-two survived both, none was refuted, and all were
+fixed. The ones a user would meet:
+
+| Sev. | Finding | Fix |
+| --- | --- | --- |
+| 3 | Stopping a flight early (Esc or a drag) toward a bigger body could leave the camera inside it. | The zoom eases back out to 1.2 radii |
+| 3 | From 1301 to about 1490 px, with a craft, a held clock or the ACK key, the header ran off the edge, hiding WARN or ACK (1366 px is the commonest laptop width). | The header may wrap up to 1600 px, keeping one row when it fits; the craft's name gives way first |
+| 3 | After the browser restored a lost WebGL context, Earth's daily clouds were never fetched again and could show as a white disc. | The day is forgotten and fetched again; queued uploads are rejected, not left hanging |
+| 3 | At high warp Earth's 78 MB month maps were fetched and uploaded without end, and months that arrived late were never freed. | Months swap only while Earth is seen and under a week a second; a late month is freed |
+| 2 | While a rocket climbed from the pad, the FLIGHT field read "No craft" and the view plate "Craft". | Both read climbing craft too ("Climb") |
+| 2 | When a followed craft was removed, the view plate kept saying FOLLOW. | The scene tells the app it is back on the body |
+| 2 | Stars changed width and brightness each time the adaptive scale stepped, and the bloom's cost tripled at one step. | Star width and the bloom's first level follow the scale, in CSS pixels |
+| 2 | A frame-rate cap (a browser's power saving) looked like a slow GPU and left the view blurred for good. | A descent that does not help is undone |
+| 2 | Where a body covered part of the Sun, the glare had a sharp dark notch in the shape of the hidden disc. | The glare carries on across the hidden limb |
+| 2 | LIVE and NOW froze while the clock was held. | Re-read every second while held |
+| 2 | The covered data plate stayed in the tab order; the FLIGHT window was announced only as "Flight"; closing the console dropped keyboard focus. | The plate is inert under the console; the window names the craft and its state; focus returns to the CONSOLE key |
+| 1 | Maps larger than the GPU's texture limit were no longer scaled down; credits were not reachable on phones and gave no CC BY licence link. | Scaled in the worker; the credits show on phones, with the licence links |
+
 ## Still to do
 
 - A think-aloud usability test with scenarios 1–8 and three or four

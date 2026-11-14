@@ -8,7 +8,7 @@
 
 import { brightLuminance } from './imageStats';
 
-export interface DecodeRequest { id: number; url: string; premultiply: boolean; brightLuminance?: boolean }
+export interface DecodeRequest { id: number; url: string; premultiply: boolean; brightLuminance?: boolean; maxSize?: number }
 export type DecodeReply = { id: number; bitmap: ImageBitmap; whiteLuminance?: number } | { id: number; error: string };
 
 self.onmessage = async (e: MessageEvent<DecodeRequest>) => {
@@ -16,9 +16,18 @@ self.onmessage = async (e: MessageEvent<DecodeRequest>) => {
   try {
     const r = await fetch(url);
     if (!r.ok) throw new Error(`${url}: ${r.status}`);
-    const bitmap = await createImageBitmap(await r.blob(), {
+    let bitmap = await createImageBitmap(await r.blob(), {
       imageOrientation: 'flipY', colorSpaceConversion: 'none', premultiplyAlpha: premultiply ? 'premultiply' : 'none',
     });
+    // Larger than the GPU takes: scaled down here, as three.js's own loader
+    // would have done.
+    const max = e.data.maxSize ?? Infinity;
+    if (bitmap.width > max || bitmap.height > max) {
+      const k = max / Math.max(bitmap.width, bitmap.height);
+      const big = bitmap;
+      bitmap = await createImageBitmap(big, { resizeWidth: Math.floor(big.width * k), resizeHeight: Math.floor(big.height * k), resizeQuality: 'high' });
+      big.close();
+    }
     const whiteLuminance = e.data.brightLuminance ? brightLuminance(bitmap) : undefined;
     (self as unknown as Worker).postMessage({ id, bitmap, whiteLuminance } satisfies DecodeReply, [bitmap]);
   } catch (err) {

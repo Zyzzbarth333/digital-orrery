@@ -48,11 +48,22 @@ export class DailyEarth {
 
   constructor(private enabled = true) {}
 
+  // After a lost WebGL context: forget the day so the next update fetches it
+  // again (its texture died with the context).
+  reset(): void {
+    const old = this.texture;
+    this.day = null; this.texture = null; this.loadedDayMs = NaN;
+    this.onChange(null);
+    old?.dispose();
+  }
+
   update(simMs: number, rateSimPerReal: number, nowMs = Date.now()): void {
     if (!this.enabled) return;
     // Drop a stale image so the wrong day's weather is never shown.
     if (this.texture && Math.abs(simMs - this.loadedDayMs - DAY_MS / 2) > 2 * DAY_MS) {
-      this.texture.dispose(); this.texture = null; this.loadedDayMs = NaN; this.onChange(null);
+      const old = this.texture;
+      this.texture = null; this.loadedDayMs = NaN; this.onChange(null);
+      old.dispose();
     }
     if (Math.abs(rateSimPerReal) > 86400) return;
     // Today's mosaic is still filling in, so a sim time in the last day uses
@@ -69,21 +80,30 @@ export class DailyEarth {
     const url = gibsUrl(layer.id, day);
     // The mosaic has alpha (no data is transparent), so it is not
     // premultiplied; its bright-cloud level is measured in the worker.
-    const loaded = this.uploader && typeof createImageBitmap === 'function'
-      ? decodeImage(url, { premultiply: false, brightLuminance: true })
-        .then(({ bitmap, whiteLuminance }) => { this.whiteLuminance = whiteLuminance ?? 1; return this.uploader!.upload(bitmap, true); })
+    // A day superseded while it decoded is dropped before its upload, and
+    // its bright-cloud level never replaces the shown day's.
+    const uploader = this.uploader;
+    const loaded: Promise<{ tex: THREE.Texture; white: number } | null> = uploader && typeof createImageBitmap === 'function'
+      ? decodeImage(url, { premultiply: false, brightLuminance: true, maxSize: uploader.maxSize })
+        .then(({ bitmap, whiteLuminance }) => {
+          if (this.day !== day) { bitmap.close(); return null; }
+          return uploader.upload(bitmap, true).then((tex) => ({ tex, white: whiteLuminance ?? 1 }));
+        })
       : new THREE.TextureLoader().loadAsync(url).then((t) => {
         t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping;
-        this.whiteLuminance = brightLuminance(t.image as CanvasImageSource);
-        return t;
+        return { tex: t, white: brightLuminance(t.image as CanvasImageSource) };
       });
-    loaded.then((tex) => {
+    loaded.then((got) => {
+      if (!got) return;
+      const { tex, white } = got;
       if (this.day !== day) { tex.dispose(); return; }
-      this.texture?.dispose();
+      this.whiteLuminance = white;
+      const old = this.texture;
       this.texture = tex;
       this.loadedDayMs = dayMs;
       this.credit = `${layer.id.replace(/_/g, ' ')}, ${day}: NASA GIBS / EOSDIS`;
       this.onChange(tex);
+      old?.dispose();
     }).catch((err) => {
       // Try that day again only after a minute: the mosaic is 15 MB.
       console.warn(`daily Earth ${day} not loaded: ${err}`);

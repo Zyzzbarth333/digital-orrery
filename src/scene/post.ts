@@ -3,7 +3,8 @@
 // The HDR pipeline (docs/frontend/lighting.md#exposure-and-tone-mapping):
 //
 //   scene -> half-float target (4x MSAA below 1.5 device px per CSS px)
-//         -> bloom chain at half resolution (a quarter on 2x screens)
+//         -> bloom chain from two CSS pixels a texel (a quarter of the
+//            target on a 2x screen)
 //         -> one final pass to the screen: the bloom mixed in, the Sun's
 //            glare added (sun.ts), exposure, the tone curve, sRGB.
 //
@@ -98,8 +99,11 @@ export class HdrPipeline {
   private finalMat: THREE.ShaderMaterial;
 
   constructor(msaa: boolean, glare: SunGlare) {
+    // Depth is for the scene's own draws only: nothing samples it, so the
+    // multisampled target neither resolves nor keeps it.
     this.target = new THREE.WebGLRenderTarget(1, 1, {
       type: THREE.HalfFloatType, samples: msaa ? 4 : 0, depthBuffer: true, stencilBuffer: false,
+      resolveDepthBuffer: false, resolveStencilBuffer: false,
     });
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.Float32BufferAttribute([-1, 3, 0, -1, -1, 0, 3, -1, 0], 3));
@@ -117,11 +121,13 @@ export class HdrPipeline {
     this.quad.frustumCulled = false;
   }
 
-  // Drawing-buffer size and pixel ratio: on 2x screens the bloom starts at
-  // a quarter of the target (still a full CSS pixel).
+  // Drawing-buffer size and the render's pixel ratio. The bloom's first
+  // level is two CSS pixels a texel whatever the ratio (a quarter of the
+  // target on a 2x screen, half on a 1x one), so its cost and the halo's
+  // size do not jump when the adaptive render scale steps.
   setSize(width: number, height: number, ratio: number): void {
     this.target.setSize(width, height);
-    this.div = ratio >= 1.5 ? 4 : 2;
+    this.div = Math.max(2, 2 * ratio);
     let w = Math.max(1, Math.round(width / this.div)), h = Math.max(1, Math.round(height / this.div));
     for (let i = 0; i < LEVELS; i++) {
       if (!this.mips[i]) {

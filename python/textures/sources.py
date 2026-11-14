@@ -242,8 +242,11 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0):
             continue
         if mag > vmax:
             continue
-        b = v[col["bv_color"]].strip()
-        ra.append(r); dec.append(d); vm.append(mag); bv.append(float(b) if b else np.nan)
+        try:
+            b = float(v[col["bv_color"]])
+        except (ValueError, IndexError):
+            b = np.nan                      # no B-V: the app draws it at the Sun's colour
+        ra.append(r); dec.append(d); vm.append(mag); bv.append(b)
     ra, dec, vm, bv = (np.radians(np.array(ra)), np.radians(np.array(dec)), np.array(vm), np.array(bv))
     xyz = np.stack([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)], axis=1)
     out_arr = np.empty((len(vm), 5), dtype=np.int16)

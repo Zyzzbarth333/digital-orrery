@@ -5,7 +5,9 @@
 // craft's drawn position, its osculating conic about its primary (amber) and
 // the path it has flown (pale). Lines are drawn relative to the primary and
 // placed at the primary's render position, like the bodies' orbit lines.
-// They are drawing aids, kept out of the exposure and tone mapping.
+// They are drawing aids at a display level: multiplied by 1/exposure
+// (setLevel), so after the HDR pipeline's exposure and tone curve they show
+// at the colours given here.
 
 import * as THREE from 'three';
 import { orbitTrailMaterial } from './orbitTrail';

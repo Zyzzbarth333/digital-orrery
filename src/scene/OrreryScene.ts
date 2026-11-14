@@ -28,7 +28,7 @@ import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
-import { makeStarPoints, makeStars } from './stars';
+import { makeStarPoints, makeStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { orbitTrailMaterial } from './orbitTrail';
@@ -46,7 +46,8 @@ const SUN_RADIUS_KM = 695700;
 // Exposure for sunlight at 1 AU (sets the overall look; scaled by d^2), and
 // the tone curve (docs/frontend/lighting.md#exposure-and-tone-mapping).
 const TONE: Record<string, [THREE.ToneMapping, number]> = {
-  // Khronos PBR Neutral: colours below its knee are left alone, highlights
+  // Khronos PBR Neutral: below its knee colours change only by a small
+  // offset (and a quadratic toe near black; lighting.md), highlights
   // roll off to white. 1.2 matches three's ACES on a lit planet (scene
   // value 0.5 shows as 0.56 in both) without ACES's hue shifts.
   neutral: [THREE.NeutralToneMapping, 1.2],
@@ -157,12 +158,12 @@ export class OrreryScene {
   private craftLayer!: CraftLayer;
 
   private bodyAnchor(key: BodyKey): Anchor {
-    return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null) };
+    return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: BODY_BY_KEY[key].radiusKm * 1.2 };
   }
 
   private craftAnchor(id: number): Anchor {
     const find = (list: CraftView[]) => list.find((c) => c.id === id)?.rEcl ?? null;
-    return { id: `craft:${id}`, pos: () => find(this.lastCrafts) ?? find(this.craftSource()) };
+    return { id: `craft:${id}`, pos: () => find(this.lastCrafts) ?? find(this.craftSource()), minDist: 0.05 };
   }
 
   // Where a flight to a body ends: the user's zoom in radii if they set
@@ -269,7 +270,8 @@ export class OrreryScene {
         });
         if (stars.points) {
           void loadBinary(stars.points).then((buf) => {
-            this.starPoints = makeStarPoints(new Int16Array(buf), renderToEqj().transpose(), this.renderer.getPixelRatio());
+            this.starPoints = makeStarPoints(new Int16Array(buf), renderToEqj().transpose(), this.scale.max);
+            setStarScale(this.starPoints, this.scale.max, this.renderer.getPixelRatio());
             this.scene.add(this.starPoints);
           });
         }
@@ -294,12 +296,13 @@ export class OrreryScene {
   // them loaded again: each body's on its next sighting, the stars now.
   private reloadMaps(): void {
     this.surfaces.reset();
+    this.dailyEarth.reset();
     const m = this.manifest;
     if (!m) return;
     for (const key of Object.keys(m.bodies) as BodyKey[]) this.unloadedSurfaces.add(key);
     if (m.stars && this.stars) {
       const mat = this.stars.material as THREE.ShaderMaterial;
-      void this.surfaces.load(m.stars.map, true).then((tex) => { mat.uniforms.starMap.value = tex; });
+      void this.surfaces.load(m.stars.map, true).then((tex) => { mat.uniforms.starMap.value = tex; }).catch(() => {});
     }
   }
 
@@ -322,8 +325,10 @@ export class OrreryScene {
   }
 
   // Fly to a body. Choosing the body already in view reframes it at the
-  // default distance.
+  // default distance; choosing the body a flight is already heading for
+  // changes nothing.
   focusOn(key: BodyKey): void {
+    if (this.rig.flying && this.rig.destination.id === `body:${key}`) return;
     const reframe = key === this.focus && this.focusCraftId === null;
     this.focusCraftId = null;
     this.focus = key;
@@ -339,7 +344,8 @@ export class OrreryScene {
   private loadSurfaces(key: BodyKey): void {
     if (!this.manifest || !this.unloadedSurfaces.has(key)) return;
     this.unloadedSurfaces.delete(key);
-    void this.surfaces.apply(key, this.manifest.bodies[key]!, this.materials.get(key)!, new Date(this.clock.snapshot.timeMs));
+    void this.surfaces.apply(key, this.manifest.bodies[key]!, this.materials.get(key)!, new Date(this.clock.snapshot.timeMs))
+      .catch(() => this.unloadedSurfaces.add(key));   // a lost context: load again on the next sighting
   }
 
   stateOf(key: BodyKey): BodyState | undefined {
@@ -348,31 +354,43 @@ export class OrreryScene {
 
   private attachControls(): void {
     const el = this.renderer.domElement;
-    let dragging = false, lx = 0, ly = 0;
-    el.addEventListener('pointerdown', (e) => { dragging = true; lx = e.clientX; ly = e.clientY; el.setPointerCapture(e.pointerId); });
-    el.addEventListener('pointerup', (e) => { dragging = false; el.releasePointerCapture(e.pointerId); });
+    // One pointer drags; a second finger is ignored until the first lifts.
+    let pointer: number | null = null, lx = 0, ly = 0;
+    el.addEventListener('pointerdown', (e) => {
+      if (pointer !== null) return;
+      pointer = e.pointerId; lx = e.clientX; ly = e.clientY; el.setPointerCapture(e.pointerId);
+    });
+    const end = (e: PointerEvent) => {
+      if (e.pointerId !== pointer) return;
+      pointer = null;
+      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
     el.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
+      if (e.pointerId !== pointer) return;
       this.rig.rotate(-(e.clientX - lx) * 0.005, (e.clientY - ly) * 0.005);
       lx = e.clientX; ly = e.clientY;
     });
-    // The wheel takes over from a flight and zooms smoothly; the distance
-    // it settles on is remembered for the next body (arrivalDist). It is
-    // heard on the whole sky, labels included (they sit over the canvas).
-    this.container.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const craft = this.focusCraftId !== null;
-      const minDist = craft ? 0.05 : BODY_BY_KEY[this.focus].radiusKm * 1.2;
-      // Lines are 3 % of a page; pixels as they come.
-      const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
-      this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
-      const goal = this.rig.goalDistance;
-      if (craft) this.craftDist = goal;
-      else if (this.focus === 'sun') this.sunDist = goal;
-      else this.userRadii = goal / BODY_BY_KEY[this.focus].radiusKm;
-    }, { passive: false });
+    this.container.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('keydown', this.onKey);
   }
+
+  // The wheel takes over from a flight and zooms smoothly; the distance it
+  // settles on is remembered for the next body (arrivalDist). It is heard on
+  // the whole sky, labels included (they sit over the canvas).
+  private onWheel = (e: WheelEvent): void => {
+    e.preventDefault();
+    const craft = this.focusCraftId !== null;
+    const minDist = craft ? 0.05 : BODY_BY_KEY[this.focus].radiusKm * 1.2;
+    // Lines are 3 % of a page; pixels as they come.
+    const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
+    this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
+    const goal = this.rig.goalDistance;
+    if (craft) this.craftDist = goal;
+    else if (this.focus === 'sun') this.sunDist = goal;
+    else this.userRadii = goal / BODY_BY_KEY[this.focus].radiusKm;
+  };
 
   private onKey = (e: KeyboardEvent): void => {
     if (e.key !== 'Escape' || !this.rig.flying) return;
@@ -388,6 +406,7 @@ export class OrreryScene {
     this.renderer.setSize(w, h, false);
     this.renderer.getDrawingBufferSize(this.buffer);
     this.post.setSize(this.buffer.x, this.buffer.y, this.renderer.getPixelRatio());
+    if (this.starPoints) setStarScale(this.starPoints, this.scale.max, this.renderer.getPixelRatio());
     this.camera.aspect = w / h;
     this.applyInset();
   }
@@ -479,6 +498,7 @@ export class OrreryScene {
     // followed craft that is gone hands the camera back to the focus body.
     if (!this.rig.update(dtReal)) {
       this.focusCraftId = null;
+      this.onFocusChange(this.focus);   // the app stops showing FOLLOW
       this.rig.flyTo(this.bodyAnchor(this.focus), this.arrivalDist(this.focus, false));
       this.rig.update(0);
     }
@@ -579,7 +599,12 @@ export class OrreryScene {
       (m.uniforms.toBody.value as THREE.Matrix3).copy(m3);
       (m.uniforms.bodyCentre.value as THREE.Vector3).copy(this.meshes.get(key)!.position);
       const entry = this.manifest?.bodies[key];
-      if (entry?.dayMonthly && !this.unloadedSurfaces.has(key)) void this.surfaces.updateDay(key, entry, m, date);
+      // Earth's month swaps only while Earth is seen and time runs under a
+      // week a second: at a year a second the month changed every few
+      // frames and the 78 MB maps were fetched and uploaded without end.
+      if (entry?.dayMonthly && !this.unloadedSurfaces.has(key) && this.earthResolved && Math.abs(this.clock.snapshot.rate) <= 7 * 86400) {
+        void this.surfaces.updateDay(key, entry, m, date).catch(() => {});
+      }
       const r = this.states[key].r;
       const dAu = Math.hypot(r[0], r[1], r[2]) / AU_KM;
       const u = m.uniforms;
@@ -701,6 +726,7 @@ export class OrreryScene {
   dispose(): void {
     cancelAnimationFrame(this.raf);
     window.removeEventListener('keydown', this.onKey);
+    this.container.removeEventListener('wheel', this.onWheel);
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
     for (const el of this.labels.values()) el.remove();

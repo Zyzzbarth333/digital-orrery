@@ -27,6 +27,7 @@ type Vec3 = [number, number, number];
 export interface Anchor {
   id: string;                 // 'body:mars', 'craft:3'
   pos: () => Vec3 | null;     // heliocentric ecliptic km, now; null if gone
+  minDist: number;            // closest the camera may be, km (1.2 radii; 0.05 km for a craft)
 }
 
 const RHO = 1.42;             // van Wijk & Nuij's users' mean preference
@@ -105,8 +106,11 @@ export class CameraRig {
     const pNow = this.pivot;
     const from = this.flight ? this.flight.to : this.target;
     const fromPos = from.pos();
+    const toPos = to.pos();
     const retarget = this.flight !== null;
-    if (this.reduced?.matches || !fromPos) {
+    // A cut with reduced motion, or when either end has no position yet
+    // (a ?focus= link before the first frame).
+    if (this.reduced?.matches || !fromPos || !toPos) {
       this.flight = null;
       this.target = to;
       this.settle = [0, 0, 0]; this.settleV = [0, 0, 0];
@@ -119,8 +123,7 @@ export class CameraRig {
       w0: this.dist * WIDTH_PER_KM, w1: endDist * WIDTH_PER_KM,
       t: 0, T: 1, ease: retarget ? easeOut : easeInOut,
     };
-    const toPos = to.pos();
-    const S = toPos ? zoomPath(norm(sub(toPos, pNow)), this.flight.w0, this.flight.w1).S : 0;
+    const S = zoomPath(norm(sub(toPos, pNow)), this.flight.w0, this.flight.w1).S;
     this.flight.T = flightSeconds(S);
     this.settle = [0, 0, 0]; this.settleV = [0, 0, 0];
   }
@@ -134,7 +137,10 @@ export class CameraRig {
     const p = f.to.pos();
     this.settle = p ? sub(this.pivot, p) : [0, 0, 0];
     this.settleV = [0, 0, 0];
-    this.goalDist = this.dist;
+    // Stopped while still closer than the new body's radius (early in a
+    // flight toward something bigger): the zoom eases back out to it while
+    // the aim settles, rather than leaving the camera inside the body.
+    this.goalDist = Math.max(this.dist, f.to.minDist);
     this.onArrive(f.to);
   }
 

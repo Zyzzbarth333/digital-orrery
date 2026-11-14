@@ -31,8 +31,26 @@ export const RATES: { label: string; rate: number }[] = [
 ];
 
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
-const sig10 = (n: number) => n.toLocaleString('en-AU', { maximumSignificantDigits: 10 });
-const fmtGroup = (n: number, digits = 0) => n.toLocaleString('en-AU', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+// Formatters are built once: toLocaleString builds a new one on every call,
+// and the plate formats a dozen numbers ten times a second.
+const SIG10 = new Intl.NumberFormat('en-AU', { maximumSignificantDigits: 10 });
+const GROUP = new Map<number, Intl.NumberFormat>();
+const sig10 = (n: number) => SIG10.format(n);
+const fmtGroup = (n: number, digits = 0) => {
+  let f = GROUP.get(digits);
+  if (!f) { f = new Intl.NumberFormat('en-AU', { minimumFractionDigits: digits, maximumFractionDigits: digits }); GROUP.set(digits, f); }
+  return f.format(n);
+};
+
+// A craft by id: one flying in the kernel, or one still climbing from the
+// pad (an ascent, not yet in mission.crafts).
+export function craftById(mission: Mission, id: number | null): { name: string; climbing: boolean; craft: Mission['crafts'][number] } | null {
+  if (id === null) return null;
+  const c = mission.crafts.find((x) => x.id === id);
+  if (c) return { name: c.name, climbing: false, craft: c };
+  const a = mission.ascents.find((x) => x.craft.id === id);
+  return a ? { name: a.craft.name, climbing: true, craft: a.craft } : null;
+}
 
 function Lamp({ on, label, title, kind = 'advisory' }: { on: boolean; label: string; title: string; kind?: 'advisory' | 'caution' | 'warning' }) {
   return <span className={`lamp k-${kind}`} data-on={on} title={title} aria-label={`${label}: ${on ? 'on' : 'off'}`}><i aria-hidden="true" />{label}</span>;
@@ -71,19 +89,25 @@ function useMissionValue<T>(mission: Mission, select: () => T): T {
 function FlightField({ mission, consoleOpen, onToggleConsole, following, onFollow }: {
   mission: Mission; consoleOpen: boolean; onToggleConsole: () => void; following: number | null; onFollow: (id: number) => void;
 }) {
+  // One snapshot string, re-rendered only when it changes: id, state and
+  // count first, the name last so a name containing the separator survives.
   const key = useMissionValue(mission, () => {
-    const c = mission.selected, n = mission.crafts.length;
-    if (!c) return `none|||${n}`;
-    const state = c.crashed ? 'Lost' : c.error ? 'Fault' : c.thrusting() ? 'Burn' : 'Coast';
-    return `${c.id}|${c.name}|${state}|${n}`;
+    const sel = craftById(mission, mission.snapshot.selected);
+    const n = mission.crafts.length + mission.ascents.length;
+    if (!sel) return `none||${n}|`;
+    const c = sel.craft;
+    const state = sel.climbing ? 'Climb' : c.crashed ? 'Lost' : c.error ? 'Fault' : c.thrusting() ? 'Burn' : 'Coast';
+    return `${c.id}|${state}|${n}|${sel.name}`;
   });
-  const [id, name, state, countStr] = key.split('|');
+  const [id, state, countStr, ...rest] = key.split('|');
+  const name = rest.join('|');
   const craft = id !== 'none', others = Number(countStr) - (craft ? 1 : 0);
+  const spoken = craft ? `Flight: ${name}, ${state.toLowerCase()}${others > 0 ? `, and ${others} more in the console` : ''}. Follow it with the camera.` : 'Flight: no craft yet';
   return (
     <div className="field flight">
       <span className="engraved" id="flight-label">Flight</span>
       <button className={`window craft-window${craft ? '' : ' empty'}${following !== null && String(following) === id ? ' followed' : ''}`}
-        aria-labelledby="flight-label" disabled={!craft} onClick={() => craft && onFollow(Number(id))}
+        aria-label={spoken} disabled={!craft} onClick={() => craft && onFollow(Number(id))}
         title={craft ? `Follow ${name} with the camera` : 'No craft yet: open the console to launch one or fly a real mission'}>
         <span className="glyph" aria-hidden="true" />
         {craft ? <><span className="craft-name">{name}</span><span className={`craft-state s-${state.toLowerCase()}`}>{state}</span></>
@@ -103,6 +127,14 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
   const rate = useClockValue(clock, (s) => s.rate);
   const jump = useClockValue(clock, (s) => s.lastJump);
   const live = useClockValue(clock, (s) => Math.abs(s.timeMs - Date.now()) < 60e3);
+  // The clock is silent while held, but the present moves on: re-read LIVE
+  // (and NOW's state) every second.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (playing) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [playing]);
   const lamps = useMissionValue(mission, () => `${+mission.stepping}${+mission.lagging}${+mission.warning}${+mission.alarm}|${mission.warningText}`);
   const [flags, warningText] = [lamps.slice(0, 4), lamps.slice(5)];
   const s = { playing, rate };
@@ -204,12 +236,19 @@ function Credits() {
     if (m.stars) items.push(['Sky', m.stars.credit]);
   }
   items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance']);
+  // CC BY 4.0 asks for a link to the licence and, where practical, to the
+  // material; the maps' own credit lines name it.
+  const ccLink = (
+    <>Solar System Scope&apos;s maps (<a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noreferrer">solarsystemscope.com</a>) are
+      used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</>
+  );
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
   return (
     <details className="credits">
       <summary>Credits</summary>
       <dl className="credits-list">
         {items.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+        <div><dt>Licences</dt><dd>{ccLink}</dd></div>
       </dl>
     </details>
   );
@@ -268,14 +307,16 @@ const AE = 'astronomy-engine; within 1e-4 of the Sun distance of DE442, checked 
 
 // The right-hand plate: the data of the body in view. Missions, the
 // planner and the rocket moved to the flight console (console.tsx).
-export function Plate({ clock, focus }: { clock: SimClock; focus: BodyKey }) {
+// covered: the flight console lies over the plate (up to 1680 px wide), so
+// it leaves the tab order and stops re-rendering.
+export function Plate({ clock, focus, covered = false }: { clock: SimClock; focus: BodyKey; covered?: boolean }) {
   const [collapsed, setCollapsed] = useState(true);
   return (
-    <aside className="plate screw" aria-label="Target readouts" data-collapsed={collapsed}>
+    <aside className="plate screw" aria-label="Target readouts" data-collapsed={collapsed} inert={covered || undefined}>
       <span className="pnl" aria-hidden="true">R1</span>
       <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show data' : 'Hide data'}</button>
       <div className="tab-panel">
-        <DataPlate clock={clock} focus={focus} />
+        {!covered && <DataPlate clock={clock} focus={focus} />}
       </div>
     </aside>
   );

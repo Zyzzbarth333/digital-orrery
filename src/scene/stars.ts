@@ -84,6 +84,7 @@ const pointVertex = /* glsl */ `
 attribute float mag;
 attribute vec3 tint;
 uniform float peak0;        // peak display value of a magnitude-0 star
+uniform float peakScale;    // < 1 when sigma is held at its floor (setStarScale)
 uniform float level;        // 1 / exposure
 uniform float visibility;   // the eye's adaptation: 1 dark-adapted, less beside bright light
 uniform float sigma;        // device px
@@ -91,7 +92,7 @@ uniform float size;         // largest sprite, device px
 varying vec3 vColour;
 varying float vSize;
 void main() {
-  float peak = peak0 * pow(10.0, -0.4 * mag) * visibility;
+  float peak = peak0 * peakScale * pow(10.0, -0.4 * mag) * visibility;
   if (peak * 512.0 < 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }   // too faint to show
   gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);
   vColour = tint * (peak * level);
@@ -162,7 +163,6 @@ export function makeStarPoints(data: Int16Array, eqjToRender: THREE.Matrix3, dpr
   geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geom.setAttribute('mag', new THREE.BufferAttribute(mag, 1));
   geom.setAttribute('tint', new THREE.BufferAttribute(tint, 3));
-  const sigma = 0.55 + 0.35 * dpr;
   const mat = new THREE.ShaderMaterial({
     vertexShader: pointVertex,
     fragmentShader: pointFragment,
@@ -174,14 +174,31 @@ export function makeStarPoints(data: Int16Array, eqjToRender: THREE.Matrix3, dpr
     blending: THREE.AdditiveBlending,
     uniforms: {
       peak0: { value: 30 },
+      peakScale: { value: 1 },
       level: { value: 1 },
       visibility: { value: 1 },
-      sigma: { value: sigma },
-      size: { value: Math.ceil(7 * sigma) + 1 },
+      sigma: { value: 1 },
+      size: { value: 8 },
     },
   });
   const pts = new THREE.Points(geom, mat);
   pts.frustumCulled = false;
   pts.renderOrder = -999;
+  setStarScale(pts, dpr, dpr);
   return pts;
+}
+
+// A star's width is fixed on screen: sigma = 0.55 + 0.35 x the device's
+// pixel ratio, in device pixels. Sprites are drawn in the canvas's own
+// pixels, which the adaptive render scale (renderScale.ts) makes coarser,
+// so sigma there is scaled by renderRatio / deviceRatio. Below 0.8 of a
+// canvas pixel it is held at 0.8 and the peak lowered by the area ratio,
+// so each star keeps its light.
+export function setStarScale(points: THREE.Points, deviceRatio: number, renderRatio: number): void {
+  const u = (points.material as THREE.ShaderMaterial).uniforms;
+  const want = (0.55 + 0.35 * deviceRatio) * (renderRatio / deviceRatio);
+  const sigma = Math.max(0.8, want);
+  u.sigma.value = sigma;
+  u.size.value = Math.ceil(7 * sigma) + 1;
+  u.peakScale.value = (want / sigma) ** 2;
 }
