@@ -29,6 +29,7 @@ import { solarSystemBodies } from '../physics/bodies.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
 import { departureHyperbola } from '../physics/launch.js';
 import { RealMission } from '../physics/realMission.js';
+import { ORION_ENTRIES, orionFor } from '../physics/orion.js';
 import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
 import type { CraftView } from '../scene/craftLayer';
 
@@ -54,7 +55,9 @@ export type RealBurns = 'all' | 'first';
 interface Ascent { craft: Craft; liftoffMs: number; cutoffMs: number; track: { ms: number; r: V3; v: V3 }[]; pathEcl: V3[]; flownEcl: V3[]; shown: number; version: number }
 // aimed: the corrections are aimed from the craft (RealMission.aimCorrection)
 // rather than replayed as flown; aimNext: the next of m.aims() to aim.
-interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean; aimed: boolean; aimNext: number; aimedDv: number; asking?: string | null; answer?: unknown }
+// entryId: the mission's Orion entry (orion.js), if it has one; separated:
+// whether the craft is the crew module yet.
+interface RealRun { m: RealMission; fixHours: number | null; lastMs: number; fixes: number; burns: RealBurns; refEcl: V3[]; plan: boolean; aimed: boolean; aimNext: number; aimedDv: number; asking?: string | null; answer?: unknown; entryId: string | null; separated: boolean }
 
 // The real missions the app can fly: file id and label.
 export const REAL_MISSIONS = [
@@ -249,7 +252,7 @@ export class Mission {
     const data = await get(id);
     // A plan flown beside a real mission takes that mission's flown path.
     if (data.flownFrom) data.flown = (await get(data.flownFrom)).flown;
-    return new RealMission(data);
+    return new RealMission({ ...data, id });
   }
 
   // Fly a real mission from its start (the clock should already be there).
@@ -260,7 +263,8 @@ export class Mission {
     c.setScript(new RealMission({ ...m.data, burns: keep }).script());
     c.note(burns === 'all' ? `${m.burns.length} burns scripted as flown` : `${keep[0].name} scripted as flown; the corrections are yours`, s.t);
     const refEcl = m.flown.map((p: number[]) => eqjToEclFast([p[1], p[2], p[3]]));
-    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom, aimed: burns === 'all' && !m.data.flownFrom, aimNext: 0, aimedDv: 0 });
+    const entryId = m.id && (ORION_ENTRIES as Record<string, unknown>)[m.id] ? m.id : null;
+    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom, aimed: burns === 'all' && !m.data.flownFrom, aimNext: 0, aimedDv: 0, entryId, separated: false });
     this.crafts.push(c);
     this.select(c.id);
     return c;
@@ -306,6 +310,31 @@ export class Mission {
     // Aimed corrections: the kernel holds at each one's start, where it is
     // worked out from the craft's own state (RealMission.aimStep).
     if (R.aimed) R.m.aimStep(c, this.sys, R, jumped, (req: object) => this.client.aim(req));
+    else if (jumped) c.holdAt = null;
+    this.entry(c, R, jumped);
+  }
+
+  // Orion's entry (orion.js, entry.js): at the separation time the craft
+  // becomes the crew module, with its mass, size, Mach tables, parachutes and
+  // the guidance's target; the kernel holds there so no request flies past
+  // it as the whole spacecraft. A clock set back before it makes the craft
+  // the whole spacecraft again.
+  private entry(c: Craft, R: RealRun, jumped: boolean): void {
+    const EN = R.entryId ? (ORION_ENTRIES as Record<string, { separationMs: number; target: { lat: number; lon: number } }>)[R.entryId] : null;
+    if (!EN) return;
+    const sepT = kernelSeconds(new Date(EN.separationMs));
+    const become = (capsule: boolean) => {
+      if (capsule) {
+        const C = orionFor(R.entryId as string);
+        c.configure({ dryMass: C.mass, fuel: 0, area: C.area, cd: C.cd, cr: 1.3, vent: null, entry: { aero: C.aero, chutes: C.chutes, target: EN.target } });
+        c.note(`crew module separated from the service module: ${C.mass.toLocaleString()} kg, guided to ${EN.target.lat.toFixed(2)}, ${EN.target.lon.toFixed(2)}`, c.kState.t);
+      } else c.configure({ ...ORION, entry: null });
+      R.separated = capsule;
+    };
+    if (jumped && (c.kState.t >= sepT) !== R.separated) become(c.kState.t >= sepT);
+    if (R.separated) return;
+    if (c.kState.t >= sepT - 1e-6) become(true);
+    else c.holdAt = Math.min(c.holdAt ?? Infinity, sepT);
   }
 
 
@@ -393,15 +422,16 @@ export class Mission {
   // appears and stays until acknowledged.
   private warned = new Set<number>();
   alarm = false;
-  get warning(): boolean { return this.crafts.some((c) => c.crashed || !!c.error); }
+  // A splashdown is how a flight ends, not a warning.
+  get warning(): boolean { return this.crafts.some((c) => (c.crashed && !c.splashed) || !!c.error); }
   get warningText(): string {
-    const c = this.crafts.find((x) => x.crashed || x.error);
+    const c = this.crafts.find((x) => (x.crashed && !x.splashed) || x.error);
     return c ? (c.crashed ? `${c.name}: impact on ${c.impactBody}` : `${c.name}: ${c.error}`) : '';
   }
   acknowledge(): void { this.alarm = false; this.emit(true); }
   private checkAlarm(): void {
     for (const c of this.crafts) {
-      if ((c.crashed || c.error) && !this.warned.has(c.id)) { this.warned.add(c.id); this.alarm = true; }
+      if (((c.crashed && !c.splashed) || c.error) && !this.warned.has(c.id)) { this.warned.add(c.id); this.alarm = true; }
     }
   }
 

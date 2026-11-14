@@ -128,6 +128,14 @@ The app reads both with `src/physics/realMission.js`.
   712,000 km off (`artemis1.validate.mjs`, case 5).
 - **Setting the clock inside the mission** puts the craft where the real one
   was.
+- **Entry.** At the mission's separation time (Artemis I 17:00 UTC on 11
+  December 2022, Artemis II 23:33 UTC on 10 April 2026) the craft becomes
+  Orion's crew module and flies its entry: lift banked by a guidance law to
+  the splashdown point, then drogues and mains to the sea
+  ([entry](../physics/entry.md)). The readout adds the bank and the
+  parachutes; a capsule down under its chutes reads Splashdown, which is
+  not a warning. Setting the clock back before separation makes it the
+  whole spacecraft again.
 - **Artemis II · our own plan** flies the simulator's own design of the
   mission instead. It's planned from the pre-TLI orbit and NASA's published
   targets only ([our own plan](../validation/artemis2.md#6-our-own-plan)),

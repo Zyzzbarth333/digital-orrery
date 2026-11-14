@@ -27,6 +27,7 @@ export class RealMission {
     this.startMs = data.start.ms;
     this.endMs = data.endMs;
     this.flown = data.flown;                 // [ms, x, y, z, vx, vy, vz]
+    this.id = data.id ?? null;               // the file's id (artemis1, ...)
     this.burns = data.burns;
   }
 
