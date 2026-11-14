@@ -25,8 +25,10 @@ the first two editions).
 
 - **The start:** the pad (a parking orbit at a given altitude, reached by
   the rocket below), an orbit, or the selected craft's own state.
-- **Each waypoint:** a body (a planet, the Moon or a named small body) and
-  what happens there:
+- **Each waypoint:** a body and what happens there. The bodies are the
+  planets, the Moon, the planets' other twenty major moons (`moons.js`:
+  JPL's mean elements, with Horizons' GM and radius) and the named small
+  bodies. What can happen:
   - **flyby:** the lowest altitude it may pass at;
   - **orbit:** a circular orbit at an altitude, and a stay;
   - **land:** landing from that orbit, then a stay.
@@ -64,6 +66,10 @@ The burns:
   entry and parachutes are not costed). On an airless body, the capture
   plus the orbit's circular speed, an ideal descent with no losses. Lifting
   off again costs the same, again with no losses.
+- **A moon of another planet:** its GM and radius are Horizons'. In the
+  kernel only Earth's Moon pulls, so at the others the flight aims at the
+  moon itself and its capture is flown as a rendezvous. Titan's atmosphere
+  takes a landing, as the planets' do.
 - **A small body:** its gravity is a guess, a sphere of its diameter at
   2,000 kg/m³. That is tiny either way, so a capture is a rendezvous, about
   $v_\infty$.
@@ -273,6 +279,7 @@ The tests check both against Examples 13.4 and 13.5.
 | B-plane round trip; a flyby needing no burn | geometry | 10⁻⁹ |
 | Restricted and optimal staging | Ex 13.4, 13.5 | 5.657, 7.407, 7.928 km/s; 200,000 kg and the stage masses to the book's figures |
 | Legs chained, stays, orbit changes, options, choosing one | the journey's own rules | all hold |
+| Jupiter's orbit to Europa, then to Ganymede | geometry; Europa at 671,100 km and 13.74 km/s | legs about Jupiter; within 1 % and 2 % |
 | Mariner 10, flown by the kernel (NASA's dates) | the plan | Venus 0.4 km, Mercury 0.1 km off the planned periapsis |
 | Earth to Mars, captured | the plan | 1.4 km |
 | Round the Moon and home | the plan | Moon 17 km; home 3 km from the aimed point |

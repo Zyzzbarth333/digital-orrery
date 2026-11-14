@@ -186,6 +186,16 @@ const MOON_TRIP = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D
   check('choosing the porkchop optimum re-times the leg to it', near(s2.legs[0].depMs, by('porkchop').depMs, 1) && near(s2.legs[0].depDv + s2.legs[0].arrDv, by('porkchop').dv, 1e-6));
   const far = J.legOptions({ start: { body: 'earth', kind: 'orbit', altKm: 629, dateMs: D('2026-12-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'earth', kind: 'orbit', altKm: 98629, dateMs: D('2026-12-01T00:00:00Z') }] }, 0);
   check('bi-elliptic flagged where it beats Hohmann (Earth orbits 7,000 to 105,000 km)', far.options.find((x) => x.type === 'bielliptic').beatsHohmann === true);
+  // The planets' moons (moons.js): a planet's orbit to its moon, and one
+  // moon to another, about Jupiter.
+  const jov = J.solveJourney({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2030-01-01T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'jupiter', kind: 'orbit', altKm: 500000, stayDays: 10, dateMs: D('2032-09-01T00:00:00Z') },
+    { id: 2, body: 'europa', kind: 'orbit', altKm: 200, stayDays: 5, dateMs: D('2032-09-14T00:00:00Z') },
+    { id: 3, body: 'ganymede', kind: 'orbit', altKm: 200, dateMs: D('2032-09-22T00:00:00Z') }] });
+  console.log(`  Jupiter orbit to Europa, then Ganymede: ${jov.legs.slice(1).map((l) => `${l.geometry} about ${l.central}, ${(l.depDv + l.arrDv).toFixed(3)} km/s`).join('; ')}`);
+  check('Jupiter\'s moons as waypoints: legs about Jupiter, from its orbit and between its moons', jov.ok && jov.legs[1].geometry === 'fromCentral' && jov.legs[2].geometry === 'between' && jov.legs.slice(1).every((l) => l.central === 'jupiter'));
+  const eu = J.relState('europa', 'jupiter', D('2032-09-14T00:00:00Z'));
+  check('Europa about Jupiter: at its distance and speed (671,000 km, 13.7 km/s)', Math.abs(norm(eu.r) / 671100 - 1) < 0.01 && Math.abs(norm(eu.v) / 13.74 - 1) < 0.02);
   const sb = J.solveJourney({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2027-01-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'sb:433', kind: 'orbit', altKm: 20, dateMs: D('2027-09-01T00:00:00Z') }] });
   check('a small body as a waypoint (433 Eros): solved, its capture a rendezvous', sb.ok && rel(sb.legs[0].arrDv, norm(sb.legs[0].vinfArr)) < 1e-3);
 }

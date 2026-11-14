@@ -28,7 +28,9 @@
 /** @typedef {{ start: JourneyStart, waypoints: Waypoint[] }} Journey */
 
 import { lambertRevs, propagate } from './orbital.js';
-import { helioStateEcl, ttSeconds } from './ephemeris.js';
+import { helioStateEcl, ttSeconds, eqjToEcl } from './ephemeris.js';
+import { MOON_KEYS, moonStateEqj } from './moons.js';
+import { MOON_DATA } from './moons.data.js';
 import { bodyConstants, MU_SUN } from './bodies.js';
 import { PLANETS } from '../utils/constants.js';
 import { nelderMead } from './trajsearch.js';
@@ -49,7 +51,7 @@ const Z = [0, 0, 1];
 export const PLANET_KEYS = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];
 // An atmosphere deep enough to land through (entry, then parachutes or
 // aerobraking, at no propulsive cost here) or to stop a landing on a giant.
-const ATMOSPHERE = new Set(['venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune']);
+const ATMOSPHERE = new Set(['venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'titan']);
 const MOON_A = 384400;                   // km, the Moon's mean distance (Curtis Table A.1)
 const G_KM = 6.6743e-20;                 // km^3 / (kg s^2)
 const SMALL = new Map();
@@ -68,6 +70,10 @@ export function bodyInfo(key) {
     const c = bodyConstants('moon');
     return { key, name: 'Moon', mu: c.mu, radius: c.radius, parent: 'earth', a: MOON_A, atmosphere: false, kind: 'moon' };
   }
+  // The planets' other major moons (moons.js, JPL's mean elements and
+  // Horizons' GM and radius).
+  const md = MOON_DATA[key];
+  if (md) return { key, name: md.name, mu: md.gm, radius: md.radiusKm, parent: md.planet, a: md.a, atmosphere: ATMOSPHERE.has(key), kind: 'moon' };
   if (PLANET_KEYS.includes(key)) {
     const c = bodyConstants(key), p = PLANETS[key];
     return { key, name: p.name, mu: c.mu, radius: p.radius, parent: 'sun', a: p.semiMajorAxis * AU, atmosphere: ATMOSPHERE.has(key), kind: 'planet' };
@@ -83,6 +89,7 @@ export function journeyBodies() {
   return [
     ...PLANET_KEYS.map((key) => ({ key, name: PLANETS[key].name, group: 'Planets' })),
     { key: 'moon', name: 'Moon', group: 'Moons' },
+    ...MOON_KEYS.filter((k) => PLANET_KEYS.includes(MOON_DATA[k].planet)).map((key) => ({ key, name: MOON_DATA[key].name, group: 'Moons' })),
     ...[...SMALL.entries()].map(([key, s]) => ({ key, name: s.name, group: 'Small bodies' })),
   ];
 }
@@ -100,6 +107,12 @@ const K_GAUSS = 0.01720209895;          // rad/day, sqrt(GM_sun) in au^1.5/day
 export function stateOf(key, ms) {
   if (key === 'sun') return { r: [0, 0, 0], v: [0, 0, 0] };
   if (key === 'moon' || PLANET_KEYS.includes(key)) return helioStateEcl(key, new Date(ms));
+  if (MOON_DATA[key]) {
+    // About its planet (the planet as the ephemeris gives it).
+    const P = helioStateEcl(MOON_DATA[key].planet, new Date(ms)), m = moonStateEqj(key, new Date(ms));
+    const r = eqjToEcl(m.r), v = eqjToEcl(m.v);
+    return { r: [P.r[0] + r[0], P.r[1] + r[1], P.r[2] + r[2]], v: [P.v[0] + v[0], P.v[1] + v[1], P.v[2] + v[2]] };
+  }
   const el = bodyInfo(key).elements, jd = 2451545.0 + ttSeconds(ms) / DAY;
   const n = K_GAUSS / el.a ** 1.5, M = el.M + n * (jd - el.epochJd), e = el.e;
   let E = e < 0.8 ? M : Math.PI;
