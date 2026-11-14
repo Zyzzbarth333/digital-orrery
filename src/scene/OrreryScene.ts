@@ -172,7 +172,7 @@ function relativePosition(key: BodyKey, date: Date, frame: Frame): Vec3 {
 // The fine stretch about the focused body: its centre time and its centre's
 // position about the parent (km), which the line's vertices are relative
 // to, so float32 keeps them to metres.
-interface NearOrbit { key: BodyKey; line: THREE.Line; centreMs: number; centreKm: Vec3; epochMs: number }
+interface NearOrbit { key: BodyKey; line: THREE.Line; centreMs: number; centreKm: Vec3; epochMs: number; frame: Frame }
 
 interface OrbitLine {
   line: THREE.Line;
@@ -557,23 +557,26 @@ export class OrreryScene {
   // is resampled (the trail's offsets count from that line's centre).
   private updateNearOrbits(tMs: number): void {
     const want = new Set<BodyKey>();
-    if (this.focusCraftId === null) {
-      const f = BODY_BY_KEY[this.focus];
-      if (f.parent) want.add(f.key);
-      if (f.parent && f.parent !== 'sun' && BODY_BY_KEY[f.parent].parent) want.add(f.parent);
+    const drawn = (k: BodyKey) => !!orbitOrigin(k, this.refFrame) && !!orbitDays(k, this.refFrame);
+    if (this.focusCraftId === null && !isBary(this.focus)) {
+      const f = BODY_BY_KEY[this.focus as BodyKey];
+      if (drawn(f.key)) want.add(f.key);
+      if (f.parent && isPlanetMoon(f.key) && drawn(f.parent)) want.add(f.parent);
     }
     for (const k of [...this.nearOrbits.keys()]) if (!want.has(k)) this.dropNearOrbit(k);
     for (const key of want) {
-      const b = BODY_BY_KEY[key], o = this.orbits.get(key);
-      if (!b.periodDays || !o) continue;
-      const period = b.periodDays * 86400e3, half = NEAR_HALF * period, n = this.nearOrbits.get(key);
-      if (n && n.epochMs === o.epochMs && Math.abs(tMs - n.centreMs) < 0.2 * half) continue;
+      const b = BODY_BY_KEY[key], o = this.orbits.get(key), frame = this.refFrame;
+      if (!o) continue;
+      // The coarse line's span (a period, or the Sun's drawn path about the
+      // SSB): its trail offsets count in it.
+      const period = orbitDays(key, frame)! * 86400e3, half = NEAR_HALF * period, n = this.nearOrbits.get(key);
+      if (n && n.epochMs === o.epochMs && n.frame === frame && Math.abs(tMs - n.centreMs) < 0.2 * half) continue;
       if (n) this.dropNearOrbit(key);
-      const centreKm = relativePosition(key, new Date(tMs));
+      const centreKm = relativePosition(key, new Date(tMs), frame);
       const pts = new Float32Array((NEAR_SAMPLES + 1) * 3), us = new Float32Array(NEAR_SAMPLES + 1);
       for (let i = 0; i <= NEAR_SAMPLES; i++) {
         const t = tMs - half + (2 * half * i) / NEAR_SAMPLES;
-        toRender(sub(relativePosition(key, new Date(t)), centreKm), this.tmp);
+        toRender(sub(relativePosition(key, new Date(t), frame), centreKm), this.tmp);
         pts.set([this.tmp.x, this.tmp.y, this.tmp.z], i * 3);
         us[i] = (t - o.epochMs) / period;
       }
@@ -583,7 +586,7 @@ export class OrreryScene {
       const line = new THREE.Line(geom, orbitTrailMaterial(b.colour));
       line.frustumCulled = false;
       this.scene.add(line);
-      this.nearOrbits.set(key, { key, line, centreMs: tMs, centreKm, epochMs: o.epochMs });
+      this.nearOrbits.set(key, { key, line, centreMs: tMs, centreKm, epochMs: o.epochMs, frame });
       // The coarse line leaves this stretch to it.
       (o.line.material as THREE.ShaderMaterial).uniforms.gap.value.set((tMs - o.epochMs) / period, NEAR_HALF);
     }
@@ -705,8 +708,9 @@ export class OrreryScene {
       }
     }
     for (const n of this.nearOrbits.values()) {
-      const p = BODY_BY_KEY[n.key];
-      n.line.position.copy(this.meshes.get(p.parent!)!.position).add(toRender(n.centreKm, this.tmp));
+      const origin = orbitOrigin(n.key, n.frame);
+      if (!origin || !this.orbits.get(n.key)) continue;
+      n.line.position.copy(origin === 'ssb' ? this.ssbLinePos : this.meshes.get(origin)!.position).add(toRender(n.centreKm, this.tmp));
       const m = n.line.material as THREE.ShaderMaterial, c = this.orbits.get(n.key)!.line.material as THREE.ShaderMaterial;
       m.uniforms.now.value = c.uniforms.now.value;
       n.line.visible = this.orbits.get(n.key)!.line.visible;
