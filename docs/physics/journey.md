@@ -305,6 +305,76 @@ inside, and its tabs are small raised panel tags with engraved legends on
 stalks, after the guarded toggles of 1970s flight panels. They are not
 drawn from any game's interface.
 
+## The plotting table
+
+The journey gets a full-screen room of its own, the plotting table
+(`src/app/plot-table.tsx`). It opens from the PLANNER tab ("Open the
+plotting table") or the `#plot` link; Escape closes it. While it is open
+the sky stops drawing (`OrreryScene.setPaused`), and the clock and the
+mission run on.
+
+Its PLOT station has five parts:
+- **The editor:** the journey's editor from the PLANNER tab, on the left.
+- **The scope:** the journey from above the ecliptic, about the Sun (or
+  about its planet, for a journey that never leaves one).
+  - What it shows: range rings, the visited bodies' orbits and their
+    places on the time cursor's date, the arcs, the burns, the kernel's
+    flown path, and the craft.
+  - "Compressed" squeezes the radius (its square root about the centre),
+    so the inner and outer planets fit together.
+  - A click on an arc adds a burn node there, and dragging a node slides
+    it along its leg.
+  - The selected node has spring-loaded tabs: P+ P−, R+ R− along their
+    directions on the scope, N+ N− to the side (the scope looks down on
+    the plane). Pulling a tab adds delta-v at a rate that grows as the
+    square of the pull, up to 240 m/s a second at the stalk's full length.
+    Letting go stops it, and the wheel over a tab adds 1 m/s (0.1 with
+    Shift).
+  - The same numbers can be typed in the ledger.
+- **The lamps** (below), in the station's head and listed in full on the
+  right.
+- **The delta-v ledger:** every burn against the ship's budget (from the
+  parking orbit on), with the margin.
+- **The timeline:**
+  - each leg's window profile as a strip, green where the date fits what
+    the budget leaves that leg, amber where it does not; clicking a date
+    leaves on it, at that date's best flight time;
+  - the plan's legs, stays and burns;
+  - the time cursor, which the scope follows.
+
+## The flags
+
+`src/physics/feasibility.js` answers whether the journey can be flown, and
+if not, when. It works from the window profile of each leg that can choose
+its departure (`legProfile`). That profile is the cheapest delta-v for
+each departure date, from when the leg can first leave, across 1.25
+synodic periods (at most 1,100 days), in 8-day steps. Each date's best
+flight time is found from 0.5 to 1.6 times Hohmann's. A leg after a flyby
+has no profile: the flyby fixes its departure. The worker computes the
+profiles when an edit settles.
+
+The lamps (`assess`), each lit only when it means something:
+- **Window** (caution): the leg furthest above its cheapest date, where
+  that is more than 10 % or 0.2 km/s dearer and more than 3 days away.
+  It says when to leave and what that costs instead.
+- **Wait** (caution): the longest stay over 30 days.
+- **Delta-v:** the total against the budget, with the margin, or by how
+  much it is over.
+- **No window** (warning): a leg with no date in its profile under what
+  the budget leaves it (the budget less every other burn).
+- **Miss** (warning): a shaped leg that ends outside its target's sphere
+  of influence.
+- **Flyby:** a pass that needs to go lower than its floor (caution), or
+  whose periapsis is underground (warning).
+- **Kernel:** the worst miss of the n-body flight, and its corrections.
+
+The Mars round trip in the tests shows the point. It arrives on 7 Sep 2027
+and plans to leave 30 days later. The window lamp says the cheapest date
+home is 9 Sep 2028, 368 days after arriving, at 2.00 km/s, instead of
+20.1 km/s. The delta-v lamp says that is over an 8 km/s budget. With a
+5 km/s budget, no date home fits at all. Curtis's Example 8.2, on circular
+orbits, waits 454 days.
+
 ## In the scene
 
 - **Each leg's arc:** a dashed pale-amber line about its central body,
@@ -340,6 +410,8 @@ drawn from any game's interface.
 | A 200 m/s node halfway to Mars, then aimed | Lambert from the node | misses by 3.28 million km; aimed, on target to 1 m |
 | Mariner 10's Venus aim set by hand to the plan's B point | the planned flyby | the same periapsis, unpowered; Mercury missed by 194,000 km without its 29 m/s |
 | An aimed node on the way to Mars, flown | the plan | Mars 1.4 km off the planned periapsis |
+| The return window from Mars (arrive 7 Sep 2027) | Curtis Ex 8.2 (454 d on circular orbits) | 9 Sep 2028, 368 d later, 2.00 km/s; each profile point is the leg solved there |
+| The lamps: leaving Mars after 30 days, at 8 and 5 km/s; leaving at the window | the rules above | window and delta-v lamps lit, then no window; at the window, green with a 368-day wait |
 
 ## Limits
 

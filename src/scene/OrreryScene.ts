@@ -256,6 +256,14 @@ export class OrreryScene {
   private craftLayer!: CraftLayer;
   // The journey being planned (journeyLayer.ts): its arcs and burn nodes.
   journeySource: () => JourneyView | null = () => null;
+  // While a full-screen view covers the sky (the plotting table), stop
+  // drawing it; the clock and the mission keep running.
+  private paused = false;
+  setPaused(on: boolean): void {
+    if (this.paused === on) return;
+    this.paused = on;
+    if (!on) this.lastFrame = performance.now();
+  }
   // What dragging its nodes and aims does (the app's JourneyStore).
   journeyHandlers: JourneyHandlers | null = null;
   private journeyLayer!: JourneyLayer;
@@ -704,6 +712,14 @@ export class OrreryScene {
 
   private frame = (now: number): void => {
     this.raf = requestAnimationFrame(this.frame);
+    // Paused (the plotting table covers the sky): the clock and the mission
+    // run on, nothing is drawn, and the render-scale budget sees no frame.
+    if (this.paused) {
+      this.clock.tick((now - this.lastFrame) / 1000);
+      this.lastFrame = now;
+      this.onFrame(this.clock.snapshot.timeMs, this.clock.snapshot.jumps);
+      return;
+    }
     this.uploader.step();
     const dtReal = Math.min(0.1, Math.max(0, (now - this.lastFrame) / 1000));
     const ratio = this.scale.frame(now, now - this.lastFrame);

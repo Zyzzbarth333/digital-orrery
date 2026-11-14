@@ -8,7 +8,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, aimNode as aimNodeJs, type Journey, type Waypoint } from '../physics/journey.js';
-import type { FlightRequest, FlightReply } from './journey.worker';
+import type { FlightRequest, FlightReply, ProfilesReply, LegProfile } from './journey.worker';
 
 type V3 = [number, number, number];
 const DAY_MS = 86400e3;
@@ -176,9 +176,14 @@ export class JourneyStore {
     if (!this.solution.ok || !this.journey.waypoints.length) return;
     if (!this.worker) {
       this.worker = new Worker(new URL('./journey.worker.ts', import.meta.url), { type: 'module' });
-      this.worker.onmessage = (e: MessageEvent<FlightReply>) => {
+      this.worker.onmessage = (e: MessageEvent<FlightReply | ProfilesReply>) => {
+        if ('type' in e.data && e.data.type === 'profiles') {
+          if (e.data.forVersion === this.version) { this.profiles = e.data.profiles; this.profilesFor = e.data.forVersion; this.notify(); }
+          return;
+        }
         if (e.data.forVersion !== this.kernelFor) return;
-        this.kernel = e.data.error ? { state: 'failed', error: e.data.error, forVersion: e.data.forVersion } : { state: 'done', reply: e.data, forVersion: e.data.forVersion };
+        const r = e.data as FlightReply;
+        this.kernel = r.error ? { state: 'failed', error: r.error, forVersion: r.forVersion } : { state: 'done', reply: r, forVersion: r.forVersion };
         this.notify();
       };
       this.worker.onerror = (e) => { this.kernel = { state: 'failed', error: e.message, forVersion: this.kernelFor }; this.notify(); };
@@ -186,9 +191,26 @@ export class JourneyStore {
     this.kernelFor = this.version;
     this.kernel = { state: 'flying', forVersion: this.version };
     this.worker.postMessage({ journey: this.journey, named: this.named, forVersion: this.version } satisfies FlightRequest);
+    // And each leg's window profile, for the plotting table's strips and lamps.
+    this.worker.postMessage({ type: 'profiles', journey: this.journey, named: this.named, forVersion: this.version } satisfies FlightRequest);
     this.notify();
   }
   private kernelFor = -1;
+  // Each leg's cheapest delta-v by departure date (feasibility.js), from the
+  // worker, for the version it was asked for.
+  profiles: (LegProfile | null)[] = [];
+  profilesFor = -1;
+  // The plotting table (plot-table.tsx): open or not, kept here so the
+  // PLANNER tab can open it and App can show it without passing props.
+  plotOpen = typeof location !== 'undefined' && location.hash === '#plot';
+  setPlotOpen(on: boolean): void {
+    this.plotOpen = on;
+    try { history.replaceState(null, '', on ? '#plot' : location.pathname + location.search); } catch { /* not in a page */ }
+    this.notify();
+  }
+  // The ship's delta-v budget from the parking orbit on (km/s), for the lamps.
+  budget = 8;
+  setBudget(b: number): void { this.budget = b; this.notify(); }
 
   dispose(): void { this.worker?.terminate(); this.worker = null; }
 

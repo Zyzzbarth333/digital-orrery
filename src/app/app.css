@@ -681,3 +681,58 @@ details.section[open] > summary::after { content: '−'; }
 .journey-handle.tab.rad { color: var(--ink-muted); }
 .journey-handle.tab.remove { min-width: 18px; color: var(--warn); cursor: pointer; }
 .journey-handle.aim-ring { margin: -8px 0 0 -8px; width: 16px; height: 16px; box-sizing: border-box; border: 2px solid var(--phosphor); border-radius: 50%; box-shadow: 0 0 6px rgba(255, 178, 46, 0.5); cursor: move; }
+
+/* ---------------- the plotting table (plot-table.tsx) ----------------
+   Full screen over the paused sky: the console's sheet metal round one
+   large recessed scope; the journey's editor left, the ledger right, the
+   timeline under them. */
+.plot-table { position: fixed; inset: 0; z-index: 40; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; padding: 8px max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); background: var(--bezel); }
+.plot-head { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 12px; background: linear-gradient(var(--panel), var(--panel-low)); }
+.plot-title { margin: 0; font: 13px var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
+.plot-route { font-size: 12px; color: var(--ink-muted); }
+.plot-head .spacer { flex: 1 1 0; }
+.plot-lamps { display: flex; flex-wrap: wrap; gap: 6px; }
+.plot-lamp { display: grid; min-width: 78px; max-width: 210px; padding: 4px 8px; border-radius: 2px; background: var(--lamp-dark); color: #8d877a; box-shadow: inset 0 1px 3px #000; font: 9px var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+.plot-lamp b { font: 10px var(--mono); letter-spacing: 0; text-transform: none; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plot-lamp.go { background: #1f3a1b; color: var(--advisory-ink); box-shadow: inset 0 0 8px rgba(127, 224, 106, 0.35); }
+.plot-lamp.caution { background: #4a3c0e; color: var(--caution); box-shadow: inset 0 0 8px rgba(242, 194, 48, 0.35); }
+.plot-lamp.warn { background: #4b130b; color: var(--warn-ink); box-shadow: inset 0 0 10px rgba(255, 106, 77, 0.45); }
+.plot-body { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(220px, 270px); gap: 8px; min-height: 0; }
+.plot-left, .plot-right { min-height: 0; overflow-y: auto; background: linear-gradient(var(--panel), var(--panel-low)); padding: 10px 14px; }
+.plot-left .journey > .strip:first-child, .plot-right > .strip:first-child { margin-top: 0; }
+.plot-right > .strip, .plot-left .journey > .strip { margin: calc(2 * var(--u)) -14px var(--u); }
+.plot-scope { position: relative; min-width: 0; min-height: 0; background: var(--window); border-radius: 2px; box-shadow: inset 0 3px 10px #000, 0 1px 0 var(--sheen); --phosphor: #ffb22e; --phosphor-dim: #ecd9b0; --key-lit: #ff7a3d; }
+.scope-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.scope-date { position: absolute; top: 8px; right: 12px; font: 11px var(--display); letter-spacing: 0.14em; color: var(--phosphor); pointer-events: none; }
+.scope-keys { position: absolute; top: 8px; left: 10px; display: flex; gap: 6px; }
+.scope-legend { position: absolute; left: 12px; bottom: 8px; right: 12px; font: 10px var(--mono); color: var(--phosphor-dim); opacity: 0.75; pointer-events: none; }
+.ledger-bar { position: relative; height: 14px; margin: 6px 0 4px; background: var(--window); border-radius: 2px; box-shadow: inset 0 1px 3px #000; overflow: hidden; }
+.ledger-bar i { position: absolute; top: 0; bottom: 0; border-right: 1px solid var(--window); }
+.ledger-bar i.k0 { background: var(--phosphor); } .ledger-bar i.k1 { background: var(--key-lit); } .ledger-bar i.k2 { background: var(--phosphor-dim); }
+.ledger-bar .budget-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--lamp-on); }
+.readout-line { font: 13px var(--sans); font-variant-numeric: tabular-nums; }
+.lamp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12px; }
+.lamp-list li { padding-left: 10px; border-left: 3px solid var(--lamp-off); }
+.lamp-list li.go { border-color: var(--lamp-on); } .lamp-list li.caution { border-color: var(--caution); } .lamp-list li.warn { border-color: var(--warn); }
+.lamp-list b { font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 400; color: var(--engrave); margin-right: 4px; }
+.plot-timeline { background: var(--window); border-radius: 2px; box-shadow: inset 0 3px 10px #000; padding: 4px 8px; overflow-x: auto; }
+.plot-timeline svg { display: block; width: 100%; min-width: 720px; max-height: 26vh; touch-action: none; }
+.plot-timeline .hint { color: var(--phosphor-dim); margin: 0 0 4px; }
+.tl-year { stroke: #3a3328; }
+.tl-label, .tl-best { fill: var(--phosphor-dim); font: 10px var(--mono); }
+.tl-name { fill: var(--phosphor-dim); font: 9px var(--display); letter-spacing: 0.08em; }
+.tl-ok { fill: var(--lamp-on); cursor: pointer; } .tl-no { fill: var(--phosphor); cursor: pointer; }
+.tl-ok:hover, .tl-no:hover { stroke: var(--sheen); stroke-width: 1; }
+.tl-leg { fill: var(--phosphor); opacity: 0.85; } .tl-leg.bad { fill: var(--key-lit); }
+.tl-stay { fill: none; stroke: var(--phosphor-dim); stroke-dasharray: 4 3; }
+.tl-burn { stroke: var(--sheen); stroke-width: 1.5; }
+.tl-cursor { stroke: var(--key-lit); stroke-width: 2; } .tl-cursor-grip { fill: var(--key-lit); cursor: ew-resize; }
+/* Narrower: one scrolling column, the scope first after the head. */
+@media (max-width: 1100px) {
+  .plot-table { display: flex; flex-direction: column; overflow-y: auto; }
+  .plot-body { display: flex; flex-direction: column; }
+  .plot-scope { order: -1; height: 70vh; min-height: 320px; flex: none; }
+  .plot-left, .plot-right, .plot-body { min-height: auto; overflow: visible; flex: none; }
+  .plot-timeline { flex: none; }
+}
+.plot-right .readout th { white-space: nowrap; }
