@@ -8,6 +8,7 @@
 
 import { solveJourney, registerSmallBodies } from '../physics/journey.js';
 import { planFlight, flyJourney } from '../physics/journeyFlight.js';
+import { legProfile } from '../physics/feasibility.js';
 import { solarSystemBodies } from '../physics/bodies.js';
 import { KERNEL_EPOCH_MS } from '../physics/kernelHost.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
@@ -18,7 +19,10 @@ import type { Journey } from '../physics/journey.js';
 const ready = loadDeTable();
 let sys: ReturnType<typeof solarSystemBodies> | null = null;
 
-export interface FlightRequest { journey: Journey; named: unknown[]; forVersion: number }
+export interface FlightRequest { type?: 'flight' | 'profiles'; journey: Journey; named: unknown[]; forVersion: number }
+export interface ProfilePoint { ms: number; dv: number; tofDays: number }
+export interface LegProfile { k: number; fromMs: number; points: ProfilePoint[]; best: ProfilePoint | null; stepDays: number }
+export interface ProfilesReply { type: 'profiles'; forVersion: number; profiles: (LegProfile | null)[] }
 export interface Arrival { waypoint: number; body: string; closest: number; plannedRp: number; missKm: number; at: number; central: boolean }
 export interface PlannedBurn { t0: number; t1: number; dir: number[]; F: number; m0: number; mdot: number; scripted: boolean; frame?: string; about?: string }
 export interface FlightReply {
@@ -29,6 +33,16 @@ export interface FlightReply {
 self.onmessage = async (e: MessageEvent<FlightRequest>) => {
   await ready;
   const q = e.data, t0 = performance.now();
+  if (q.type === 'profiles') {
+    // Each leg's cheapest delta-v by departure date (feasibility.js).
+    if (q.named?.length) registerSmallBodies(q.named as never);
+    try {
+      const sol = solveJourney(q.journey);
+      const profiles = q.journey.waypoints.map((_, k) => legProfile(q.journey, k, { sol: sol as never }) as LegProfile | null);
+      self.postMessage({ type: 'profiles', forVersion: q.forVersion, profiles } satisfies ProfilesReply);
+    } catch { self.postMessage({ type: 'profiles', forVersion: q.forVersion, profiles: [] } satisfies ProfilesReply); }
+    return;
+  }
   try {
     if (q.named?.length) registerSmallBodies(q.named as never);
     sys ??= solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });

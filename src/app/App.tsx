@@ -6,7 +6,8 @@ import { SceneView } from '../scene/SceneView';
 import { BodyRail, Plate, RATES, TimeBand, craftById } from './panels';
 import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
-import { JourneyStore } from './journey';
+import { JourneyStore, useJourney } from './journey';
+import { PlotTable } from './plot-table';
 import type { Frame, OrreryScene } from '../scene/OrreryScene';
 import { BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
 
@@ -84,6 +85,9 @@ export function App() {
   }, [consoleOpen]);
   const mission = useMemo(() => new Mission(), []);
   const journey = useMemo(() => new JourneyStore(init.timeMs), [init]);
+  // The plotting table covers the sky, which pauses behind it.
+  useJourney(journey);
+  useEffect(() => { scene.current?.setPaused(journey.plotOpen); }, [journey.plotOpen]);
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
@@ -97,6 +101,7 @@ export function App() {
     sc.craftSource = () => mission.views();
     sc.journeySource = () => journey.view();
     sc.journeyHandlers = journey.handlers;
+    sc.setPaused(journey.plotOpen);
     sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
     sc.onFlight = setFlying;
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
@@ -170,6 +175,7 @@ export function App() {
             onFocusCraft={followCraft} autoPlan={init.plan} />
         </div>
       )}
+      {journey.plotOpen && <PlotTable store={journey} clock={clock} mission={mission} onFlown={(id) => { setTab('mission'); followCraft(id); }} />}
     </div>
   );
 }

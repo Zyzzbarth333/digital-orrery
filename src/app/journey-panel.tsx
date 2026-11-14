@@ -27,7 +27,7 @@ const KINDS: [Waypoint['kind'], string][] = [['flyby', 'Flyby'], ['orbit', 'Orbi
 
 interface Option { type: string; name: string; dv: number; tofDays?: number; depMs?: number; arrMs?: number; selectable?: boolean; unreachable?: boolean; beatsHohmann?: boolean; note?: string; windowNote?: string | null; ideal?: boolean; ok?: boolean; flyable?: boolean; gain?: number; delta?: number; rp?: number; bT?: number; bR?: number; tooTight?: boolean; vinf?: number }
 
-export function JourneyPanel({ store, clock, mission, onFlown }: { store: JourneyStore; clock: SimClock; mission: Mission; onFlown: (id: number) => void }) {
+export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }: { store: JourneyStore; clock: SimClock; mission: Mission; onFlown: (id: number) => void; inTable?: boolean }) {
   useJourney(store);
   const j = store.journey, sol = store.solution;
   useEffect(() => { void store.loadSmallBodies(import.meta.env.BASE_URL); }, [store]);
@@ -79,6 +79,12 @@ export function JourneyPanel({ store, clock, mission, onFlown }: { store: Journe
   return (
     <div className="journey">
       <h3 className="strip">Journey</h3>
+      {!inTable && (
+        <div className="keys-row">
+          <button className="key primary" onClick={() => store.setPlotOpen(true)}>Open the plotting table</button>
+          <span className="hint">Full screen: the journey from above, its windows, burn nodes and lamps</span>
+        </div>
+      )}
       <div className="form-grid">
         <label className="num"><span className="engraved">Start</span>
           <select className="input select" value={startKind === 'craft' || j.start.craftId ? 'craft' : startKind} onChange={(e) => {

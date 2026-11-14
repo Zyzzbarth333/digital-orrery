@@ -17,6 +17,7 @@ import * as X from './transfers.js';
 import { restrictedStaging, restrictedPayloadRatio, sizeLauncher, launchBudget, STAGE_TECH } from './staging.js';
 import * as J from './journey.js';
 import { planFlight, flyJourney } from './journeyFlight.js';
+import * as F from './feasibility.js';
 import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS } from './kernelHost.js';
 
@@ -252,6 +253,33 @@ header('CASE 6: shaping a journey by hand: burn nodes and an aimed flyby');
   const fl = flyJourney(sys, planFlight(J.solveJourney(J.aimNode(withNode({ pro: 0.05, rad: 0.03 }), 0, 7))));
   console.log(`  Earth to Mars with an aimed node, flown: ${fl.arrivals[0].missKm.toFixed(1)} km off the planned periapsis, corrections ${(fl.correctionsDv * 1000).toFixed(1)} m/s`);
   check('a leg with a burn node, flown by the kernel: the node flown, Mars within 20 km of plan', !fl.impact && fl.arrivals[0].missKm < 20 && fl.burns.length >= 3);
+}
+
+header('CASE 7: can it be flown, and when: window profiles and the lamps');
+{
+  // Mars and back: arrive 7 Sep 2027, leave 30 days later.
+  const rt = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-11-01T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'mars', kind: 'orbit', altKm: 400, stayDays: 30, dateMs: D('2027-09-07T00:00:00Z') },
+    { id: 2, body: 'earth', kind: 'land', altKm: 120, dateMs: D('2028-08-10T00:00:00Z') }] };
+  const sol = J.solveJourney(rt);
+  const p1 = F.legProfile(rt, 1, { sol });
+  const waitD = (p1.best.ms - sol.stops[1].arrMs) / DAY_MS;
+  console.log(`  leave Mars: from ${new Date(p1.fromMs).toISOString().slice(0, 10)}, best ${new Date(p1.best.ms).toISOString().slice(0, 10)} (${waitD.toFixed(0)} d after arriving) at ${p1.best.dv.toFixed(2)} km/s; ${p1.points.length} dates`);
+  check('the return window: about a year after arriving (Curtis Ex 8.2 waits 454 d on circular orbits), near 2 km/s', waitD > 300 && waitD < 460 && p1.best.dv < 2.5);
+  check('each date\'s profile point is a real leg: its delta-v matches the leg solved at that date and flight time', (() => { const q = p1.points[5], L = J.solveLeg(sol.stops[1], sol.stops[2], q.ms, q.ms + q.tofDays * DAY_MS); return Math.abs(L.depDv + L.arrDv - q.dv) < 1e-9; })());
+  const lamps = F.assess(rt, sol, { budget: 8, profiles: [F.legProfile(rt, 0, { sol }), p1] });
+  const lamp = (k) => lamps.find((x) => x.key === k);
+  console.log(`  lamps leaving after 30 days: ${lamps.map((x) => `${x.key}=${x.level}`).join(', ')}; ${lamp('window')?.text}`);
+  check('leaving Mars after 30 days lights the window lamp, pointing at the return window', lamp('window')?.level === 'caution' && lamp('window').leg === 1 && Math.abs(lamp('window').bestMs - p1.best.ms) < 1);
+  check('and the delta-v lamp: over an 8 km/s budget', lamp('dv')?.level === 'warn');
+  const tight = F.assess(rt, sol, { budget: 5, profiles: [p1] });
+  check('with 5 km/s, no date home fits after the outbound legs: the no-window lamp', tight.some((x) => x.key === 'nowindow' && x.level === 'warn'));
+  // At the window: the lamps go out or green.
+  const atWin = { ...rt, waypoints: [{ ...rt.waypoints[0], stayDays: (p1.best.ms - sol.stops[1].arrMs) / DAY_MS }, { ...rt.waypoints[1], dateMs: p1.best.ms + p1.best.tofDays * DAY_MS }] };
+  const s2 = J.solveJourney(atWin), l2 = F.assess(atWin, s2, { budget: 8, profiles: [F.legProfile(atWin, 1, { sol: s2 })] });
+  console.log(`  at the window: total ${s2.totalDv.toFixed(2)} km/s; ${l2.map((x) => `${x.key}=${x.level}`).join(', ')}`);
+  check('leaving at the window: window and delta-v lamps green, the year at Mars shown as a wait', l2.find((x) => x.key === 'window')?.level === 'go' && l2.find((x) => x.key === 'dv')?.level === 'go' && l2.find((x) => x.key === 'wait')?.level === 'caution');
+  check('a leg after a flyby has no profile (its departure is fixed)', F.legProfile(MARINER10, 1) === null);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
