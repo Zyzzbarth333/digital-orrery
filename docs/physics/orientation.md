@@ -113,14 +113,20 @@ models astronomy-engine and pck00011 take from different IAU reports.
 
 - B. A. Archinal et al., "Report of the IAU Working Group on Cartographic
   Coordinates and Rotational Elements: 2015", *Celestial Mechanics and
-  Dynamical Astronomy* 130:22 (2018).
+  Dynamical Astronomy* 130:22 (2018),
+  [doi:10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5).
 - G. Petit and B. Luzum (eds.), *IERS Conventions (2010)*, IERS Technical
   Note 36: the Earth Rotation Angle.
 - R. Howard, J. W. Harvey and S. Forgach, "Solar surface velocity fields
   determined from small magnetic features", *Solar Physics* 130, 295
-  (1990).
+  (1990), doi:10.1007/BF00156795, ADS 1990SoPh..130..295H. SunPy's
+  `differential_rotation` uses the same coefficients by default
+  ([docs](https://docs.sunpy.org/en/stable/generated/api/sunpy.sun.models.differential_rotation.html)).
 - M. J. Reid and A. Brunthaler, "The proper motion of Sagittarius A*. II.
-  The mass of Sagittarius A*", *ApJ* 616, 872 (2004).
+  The mass of Sagittarius A*", *ApJ* 616, 872 (2004),
+  [doi:10.1086/424960](https://doi.org/10.1086/424960): 6.379 ± 0.024
+  mas/yr.
 - D. R. Williams, NASA NSSDCA planetary fact sheets,
   [nssdc.gsfc.nasa.gov/planetary/factsheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/).
-- CODATA 2018 value of G (NIST).
+- CODATA 2018 value of G,
+  [physics.nist.gov](https://physics.nist.gov/cgi-bin/cuu/Value?bg).
