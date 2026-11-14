@@ -50,6 +50,13 @@ the full table, per moon, is in [Moons](frontend/moons.md#how-right-they-are).
 | astronomy-engine's Jupiter to Pluto are system barycentres | Horizons heliocentric x and x99, Nov 2026, less a quadratic | 1.1–1.2 km rms against x; 26–2,116 km against x99 |
 | moons about the system barycentre and, relative to the planet, about the Sun | Horizons, 7 moons, Nov 2026 | same as about the planet's centre (Charon 26 km; 2,139 km without the offset) |
 
+## Barycentres (`barycentres.test.mjs`)
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| SSB about the Sun, from every planet system, Earth, the Moon and Pluto | Horizons (0 about 10), daily Nov 2026 and yearly 2000–2050 | 115 km, 145 km (astronomy-engine's own SSB: 444 km, 1,485 km) |
+| Earth-Moon barycentre about the Sun, from DE442 | Horizons (3 about 10) | 0.11 km, the fixture's rounding |
+
 ## Trajectory search (`trajsearch.test.mjs`)
 
 Against NASA Ames's Trajectory Browser, its 2026–2040 optima for the seven

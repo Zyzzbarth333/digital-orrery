@@ -103,7 +103,7 @@ typography:
     lineHeight: 1.4
     letterSpacing: "0.08em"
   equation:
-    fontFamily: "DejaVu Math TeX Gyre, STIX Two Math, Cambria Math, Latin Modern Math, math"
+    fontFamily: "Orrery Math, STIX Two Math, Cambria Math, Latin Modern Math, math"
     fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.45
@@ -245,13 +245,14 @@ Product truth is in [PRODUCT.md](PRODUCT.md).
 
 All three are SIL OFL and self-hosted.
 
-Equations, in a tag's detail, are MathML set by the browser in the
-system's math font: DejaVu Math TeX Gyre first (a sans face, nearest
-B612), then STIX Two Math (macOS), Cambria Math (Windows), Latin Modern
-Math, else the browser's own `math`. No web font is loaded for them: a
-math font needs its OpenType MATH table to stretch brackets and radicals,
-which B612 doesn't have. (Noto Sans Math is left out: Chromium doesn't
-stretch with it.)
+Equations, in a tag's detail, are MathML set by the browser in DejaVu
+Math TeX Gyre: a sans math face, nearest B612, with the OpenType MATH table
+a math font needs to stretch brackets and radicals (B612 has none). It is
+bundled (`src/app/fonts`, 186 KB as WOFF2, Bitstream Vera licence) under
+the name Orrery Math, an installed copy first, so every machine sets the
+maths alike; the browser fetches it only when an equation first shows.
+STIX Two Math, Cambria Math and Latin Modern Math are the fallbacks while
+it loads. (Noto Sans Math is left out: Chromium doesn't stretch with it.)
 
 ### Hierarchy
 

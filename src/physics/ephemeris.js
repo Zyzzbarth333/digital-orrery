@@ -94,6 +94,12 @@ function deState(key, date) {
   return ms >= LEAP_TABLE_START_MS ? deHelioState(key, tdbSeconds(ms)) : null;
 }
 
+/** Whether the Earth's or Moon's state at this date comes from DE442's
+ *  table (else astronomy-engine): what the data plate's tags name. */
+export function fromDe442(key, date) {
+  return deState(key, date) !== null;
+}
+
 export function helioStateEqj(key, date) {
   return deState(key, date) ?? toKm(Astronomy.HelioState(bodyOf(key), date));
 }

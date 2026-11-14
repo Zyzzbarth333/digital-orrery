@@ -6,10 +6,12 @@ import { SceneView } from '../scene/SceneView';
 import { BodyRail, Plate, RATES, TimeBand, craftById } from './panels';
 import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
-import type { OrreryScene } from '../scene/OrreryScene';
-import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
+import type { Frame, OrreryScene } from '../scene/OrreryScene';
+import { BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
 
 // Optional start state from the URL: ?focus=mars&t=2030-01-01T00:00Z&view=sun
+// (focus may be a barycentre: ssb, emb, jupiter-bary; &frame=ssb gives
+// orbits and distances about the solar system barycentre)
 // (or &phase=90: the camera at that angle from the Sun, seen from the body).
 // Missions too: &craft=orbit,400,51.6 (altitude km, inclination deg) or
 // &craft=departure,2.95,prograde (v_inf km/s, direction), followed by the
@@ -17,12 +19,13 @@ import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 // Real missions: &mission=artemis2 (or artemis2,first to fly only the first
 // burn), &fix=12 for a tracking fix every 12 h; with &t= inside the mission
 // the craft starts where the real one was then.
-function initialState(): { focus: BodyKey; timeMs: number; tGiven: boolean; sunView: boolean; phaseDeg: number; craft: string | null; plan: string | null; real: string | null; fix: number | null } {
+function initialState(): { focus: FocusKey; frame: Frame; timeMs: number; tGiven: boolean; sunView: boolean; phaseDeg: number; craft: string | null; plan: string | null; real: string | null; fix: number | null } {
   const q = new URLSearchParams(window.location.search);
   const f = q.get('focus');
   const t = Date.parse(q.get('t') ?? '');
   return {
-    focus: f && f in BODY_BY_KEY ? (f as BodyKey) : 'sun',
+    focus: f && (f in BODY_BY_KEY || f in BARY_BY_KEY) ? (f as FocusKey) : 'sun',
+    frame: q.get('frame') === 'ssb' ? 'ssb' : 'sun',
     timeMs: Number.isFinite(t) ? t : Date.now(),
     tGiven: Number.isFinite(t),
     real: q.get('mission'),
@@ -43,7 +46,8 @@ function useMedia(query: string): boolean {
 export function App() {
   const init = useMemo(initialState, []);
   const clock = useMemo(() => new SimClock(init.timeMs), [init]);
-  const [focus, setFocus] = useState<BodyKey>(init.focus);
+  const [focus, setFocus] = useState<FocusKey>(init.focus);
+  const [frame, setFrame] = useState<Frame>(init.frame);
   // The flight console is the app's, not a body's: choosing a body never
   // closes it (docs/ux/overhaul-plan.md, point 5).
   const [consoleOpen, setConsoleOpen] = useState(Boolean(init.plan || init.craft || init.real));
@@ -129,7 +133,8 @@ export function App() {
       if (e.key === 'm' || e.key === 'M') { setConsoleOpen(!consoleOpen); e.preventDefault(); return; }
       const s = clock.snapshot;
       const ri = Math.max(0, RATES.findIndex((r) => r.rate === s.rate));
-      const bi = BODIES.findIndex((b) => b.key === focus);
+      // From a barycentre, up and down step from its body.
+      const bi = BODIES.findIndex((b) => b.key === (isBary(focus) ? systemOf(focus) : focus));
       if (e.key === ' ') clock.setPlaying(!s.playing);
       else if (e.key === 'ArrowRight') clock.setRate(RATES[Math.min(RATES.length - 1, ri + 1)].rate);
       else if (e.key === 'ArrowLeft') clock.setRate(RATES[Math.max(0, ri - 1)].rate);
@@ -147,13 +152,14 @@ export function App() {
     <div className="app">
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
-        view={following === null ? { kind: 'focus', name: BODY_BY_KEY[focus].name } : { kind: 'follow', name: followName }}
-        flying={flying} />
+        view={following === null ? { kind: 'focus', name: focusName(focus) } : { kind: 'follow', name: followName }}
+        flying={flying} frame={frame} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
       <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); }}
+        frame={frame} onFrame={setFrame}
         smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }} />
-      <Plate clock={clock} focus={focus} covered={consoleOpen && !wide} />
+      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>
           <FlightConsole clock={clock} mission={mission} tab={tab} setTab={setTab} onClose={closeConsole}

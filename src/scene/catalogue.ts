@@ -133,3 +133,27 @@ export const BODY_BY_KEY = Object.fromEntries(BODIES.map((b) => [b.key, b])) as 
 
 // A moon of a planet other than Earth (src/physics/moons.js draws these).
 export const isPlanetMoon = (key: BodyKey): key is MoonKey => !!BODY_BY_KEY[key].moon;
+
+// The barycentres the camera can centre on (src/physics/barycentres.js):
+// the solar system's, the Earth-Moon pair's, and each planet system's with
+// moons drawn. `of` is the body it is listed and hidden behind; `viewKm`
+// how far away the camera arrives, to frame the system about it.
+export type BaryKey = 'ssb' | 'emb' | 'mars-bary' | 'jupiter-bary' | 'saturn-bary' | 'uranus-bary' | 'neptune-bary' | 'pluto-bary';
+export type FocusKey = BodyKey | BaryKey;
+export interface BaryInfo { key: BaryKey; name: string; short: string; of: BodyKey; viewKm: number; members: string }
+export const BARYS: BaryInfo[] = [
+  { key: 'ssb', name: 'Solar system barycentre', short: 'SSB', of: 'sun', viewKm: 6e6, members: 'the Sun, the planets, the Moon and Pluto' },
+  { key: 'emb', name: 'Earth-Moon barycentre', short: 'EMB', of: 'earth', viewKm: 1.2e6, members: 'Earth and the Moon' },
+  { key: 'mars-bary', name: 'Mars barycentre', short: 'Barycentre', of: 'mars', viewKm: 9e4, members: 'Mars, Phobos and Deimos' },
+  { key: 'jupiter-bary', name: 'Jupiter barycentre', short: 'Barycentre', of: 'jupiter', viewKm: 5e6, members: 'Jupiter and its moons' },
+  { key: 'saturn-bary', name: 'Saturn barycentre', short: 'Barycentre', of: 'saturn', viewKm: 3.5e6, members: 'Saturn and its moons' },
+  { key: 'uranus-bary', name: 'Uranus barycentre', short: 'Barycentre', of: 'uranus', viewKm: 1.6e6, members: 'Uranus and its moons' },
+  { key: 'neptune-bary', name: 'Neptune barycentre', short: 'Barycentre', of: 'neptune', viewKm: 1e6, members: 'Neptune and its moons' },
+  { key: 'pluto-bary', name: 'Pluto barycentre', short: 'Barycentre', of: 'pluto', viewKm: 6e4, members: 'Pluto and its moons' },
+];
+export const BARY_BY_KEY = Object.fromEntries(BARYS.map((b) => [b.key, b])) as Record<BaryKey, BaryInfo>;
+export const isBary = (key: FocusKey): key is BaryKey => key in BARY_BY_KEY;
+export const focusName = (key: FocusKey): string => (isBary(key) ? BARY_BY_KEY[key].name : BODY_BY_KEY[key].name);
+// The body whose system a focus belongs to (a moon's planet, a
+// barycentre's body), for the rail's grouping.
+export const systemOf = (key: FocusKey): BodyKey => (isBary(key) ? BARY_BY_KEY[key].of : isPlanetMoon(key) ? BODY_BY_KEY[key].parent! : key);
