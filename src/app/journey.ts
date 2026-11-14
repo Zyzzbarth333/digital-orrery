@@ -7,7 +7,7 @@
 // through useJourney(); the scene through view().
 
 import { useSyncExternalStore } from 'react';
-import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, type Journey, type Waypoint } from '../physics/journey.js';
+import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, aimNode as aimNodeJs, type Journey, type Waypoint } from '../physics/journey.js';
 import type { FlightRequest, FlightReply } from './journey.worker';
 
 type V3 = [number, number, number];
@@ -18,17 +18,29 @@ export interface Stop { body: string; kind: string; altKm: number; arrMs: number
 export interface Leg {
   index: number; geometry: string; central: string; from: string; to: string; depMs: number; arrMs: number; tofDays: number;
   depDv: number; arrDv: number; midDv: number; ok: boolean; error?: string; revs?: number; vinfDep: number[] | null; vinfArr: number[] | null;
+  shaped?: boolean; missKm?: number; reaches?: boolean; nodes?: { id: number; ms: number; dv: number }[];
 }
-export interface Flyby { body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
+export interface Flyby { byHand?: boolean; body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
 export interface Burn { ms: number; body: string; dv: number; kind: string; label: string; leg: number }
 export interface JourneySolution { stops: Stop[]; legs: Leg[]; flybys: (Flyby | undefined)[]; burns: Burn[]; totalDv: number; startMs: number; endMs: number; durationDays: number; ok: boolean; error?: string }
 const solveJourney = (j: Journey) => solveJs(j) as unknown as JourneySolution;
 const defaultArrival = (p: Stop, body: string, alt: number, kind: string) => defaultArrivalJs(p as never, body, alt, kind) as number;
 export type { Journey, Waypoint };
 
-export interface JourneyArcView { central: string; pts: V3[]; leg: number }
-export interface JourneyMarkView { central: string; at: V3; label: string; dv: number; kind: string; ms: number }
-export interface JourneyView { version: number; arcs: JourneyArcView[]; marks: JourneyMarkView[]; flown: { central: string; pts: V3[] } | null }
+export interface JourneyArcView { central: string; pts: V3[]; leg: number; t1: number; t2: number }
+export interface JourneyMarkView { central: string; at: V3; label: string; dv: number; kind: string; ms: number; id?: string; frame?: { T: V3; N: V3; R: V3 }; b?: [number, number] }
+export interface JourneyView { version: number; arcs: JourneyArcView[]; marks: JourneyMarkView[]; flown: { central: string; pts: V3[] } | null; selected: string | null }
+
+// What the scene's handles do to the journey (journeyLayer.ts).
+export interface JourneyHandlers {
+  select(id: string | null): void;
+  nudge(id: string, axis: 'pro' | 'nor' | 'rad', dKmS: number): void;
+  move(id: string, ms: number): void;
+  add(leg: number, ms: number): void;
+  remove(id: string): void;
+  aim(id: string, bT: number, bR: number): void;
+  release(): void;
+}
 
 export interface KernelCheck { state: 'idle' | 'flying' | 'done' | 'failed'; reply?: FlightReply; forVersion?: number; error?: string }
 
@@ -125,6 +137,40 @@ export class JourneyStore {
   }
   editStart(patch: Partial<Journey['start']>): void { this.set({ ...this.journey, start: { ...this.journey.start, ...patch } }); }
 
+  // ---------------- burn nodes and flyby aims, from the scene ----------------
+  // Ids: "node:<leg>:<node id>" (a node on the leg into waypoint <leg>) and
+  // "aim:<waypoint>" (a flyby's aim point).
+  selected: string | null = null;
+  private patchNodes(k: number, f: (nodes: NonNullable<Waypoint['nodes']>) => NonNullable<Waypoint['nodes']>): void {
+    const w = this.journey.waypoints[k];
+    if (!w) return;
+    this.set({ ...this.journey, waypoints: this.journey.waypoints.map((x, i) => (i === k ? { ...w, nodes: f(w.nodes ?? []) } : x)) });
+  }
+  private parse(id: string): { kind: string; k: number; n: number } { const [kind, k, n] = id.split(':'); return { kind, k: Number(k), n: Number(n) }; }
+  node(id: string) { const { k, n } = this.parse(id); return this.journey.waypoints[k]?.nodes?.find((x) => x.id === n) ?? null; }
+  handlers: JourneyHandlers = {
+    select: (id) => { this.selected = id; this.notify(); },
+    nudge: (id, axis, d) => { const { k, n } = this.parse(id); this.patchNodes(k, (ns) => ns.map((x) => (x.id === n ? { ...x, [axis]: x[axis] + d } : x))); },
+    move: (id, ms) => { const { k, n } = this.parse(id); this.patchNodes(k, (ns) => ns.map((x) => (x.id === n ? { ...x, ms } : x))); },
+    add: (k, ms) => { const id = nextId++; this.patchNodes(k, (ns) => [...ns, { id, ms, pro: 0, nor: 0, rad: 0 }]); this.selected = `node:${k}:${id}`; this.notify(); },
+    remove: (id) => {
+      const { kind, k, n } = this.parse(id);
+      if (kind === 'node') this.patchNodes(k, (ns) => ns.filter((x) => x.id !== n));
+      else this.set({ ...this.journey, waypoints: this.journey.waypoints.map((w, i) => (i === k ? { ...w, aim: undefined } : w)) });
+      if (this.selected === id) this.selected = null;
+      this.notify();
+    },
+    aim: (id, bT, bR) => { const { k } = this.parse(id); this.set({ ...this.journey, waypoints: this.journey.waypoints.map((w, i) => (i === k ? { ...w, aim: { bT, bR } } : w)) }); },
+    release: () => this.check(),
+  };
+  // The selected node's burn set so its leg reaches its target (Lambert).
+  aimSelected(): void {
+    if (!this.selected?.startsWith('node:')) return;
+    const { k, n } = this.parse(this.selected);
+    this.set(aimNodeJs(this.journey, k, n) as Journey);
+    this.check();
+  }
+
   // The kernel flies the journey (once an edit is let go).
   check(): void {
     if (!this.solution.ok || !this.journey.waypoints.length) return;
@@ -158,11 +204,11 @@ export class JourneyStore {
   view(): JourneyView | null {
     if (!this.journey.waypoints.length) return null;
     if (this.views) return this.views;
-    const p = journeyPath(this.solution as never) as { arcs: { central: string; pts: V3[]; leg: number }[]; marks: JourneyMarkView[] };
+    const p = journeyPath(this.solution as never) as { arcs: JourneyArcView[]; marks: JourneyMarkView[] };
     let flown: JourneyView['flown'] = null;
     const r = this.kernel.state === 'done' && this.kernel.forVersion === this.version ? this.kernel.reply : null;
     if (r) flown = { central: r.frame, pts: r.pathEcl as V3[] };
-    this.views = { version: this.version, arcs: p.arcs.map((a) => ({ central: a.central, pts: a.pts, leg: a.leg })), marks: p.marks, flown };
+    this.views = { version: this.version, arcs: p.arcs, marks: p.marks, flown, selected: this.selected };
     return this.views;
   }
 

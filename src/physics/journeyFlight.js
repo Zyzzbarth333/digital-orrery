@@ -148,7 +148,13 @@ export function planFlight(sol) {
     const crossing = (key, vinf) => (KERNEL.has(key) && vinf ? sphereOfInfluence(key) / norm(vinf) : 0) * 1000;
     const clearP = leg.central === P.body ? Math.min(0.1 * dur, 2 * 3600e3) : Math.max(Math.min(0.1 * dur, 2 * 3600e3), 1.5 * crossing(P.body, leg.vinfDep));
     const tIn = without ? crossing(Q.body, leg.vinfArr) : 0;
-    const first = leg.mid ? leg.mid.ms : leg.depMs + Math.min(clearP, 0.3 * dur);
+    // Burn nodes dragged onto the leg are flown as planned (their burns as
+    // planned vectors); the aims come after the last of them, so the flight
+    // keeps the shape given and corrects only what is left.
+    const nodes = (leg.nodes ?? []).filter((n) => n.dv > 0);
+    for (const n of nodes) events.push({ kind: 'impulse', ms: n.ms, dvEqj: ecl(n.dvVec), node: true });
+    const afterNodes = nodes.length ? nodes[nodes.length - 1].ms + 0.02 * dur : -Infinity;
+    const first = Math.max(afterNodes, leg.mid ? leg.mid.ms : leg.depMs + Math.min(clearP, 0.3 * dur));
     events.push({ kind: 'aim', ms: first, ...target });
     const second = Math.max(first + 0.25 * (leg.arrMs - first), leg.arrMs - 3 * tIn);
     if (second < leg.arrMs - 0.6 * tIn && leg.arrMs - first > 2 * DAY * 1000) events.push({ kind: 'aim', ms: second, ...target });
@@ -193,7 +199,7 @@ function withoutBody(sys, key) {
 
 export function flyJourney(sys, plan, { samples = 400 } = {}) {
   const without = (key) => withoutBody(sys, key);
-  const out = { burns: [], path: [], arrivals: [], log: [], impact: null };
+  const out = { burns: [], path: [], arrivals: [], log: [], impact: null, correctionsDv: 0 };
   if (!plan.start) return out;
   const body = (key, t) => sys.bodiesAt(t).find((b) => b.key === key);
   let s = { r: [...plan.start.r], v: [...plan.start.v], t: kernelSeconds(new Date(plan.start.ms)) };
@@ -320,6 +326,7 @@ export function flyJourney(sys, plan, { samples = 400 } = {}) {
       continue;
     }
     if (e.kind === 'aim') {
+      if (kernelSeconds(new Date(e.arrive)) - s.t < 3600) continue;      // too late to aim: nodes ran into it
       const Tk = kernelSeconds(new Date(e.arrive));
       const target = add(posAt(sys, e.body, Tk), e.offsetEqj);
       const future = out.burns.filter((b) => b.t1 > s.t);
@@ -332,6 +339,7 @@ export function flyJourney(sys, plan, { samples = 400 } = {}) {
       if (!k) { out.log.push(`aim at ${e.body} failed`); continue; }
       const dv = norm(k.dv);
       if (dv > 1e-7) burn(s.t + durOf(dv) / 2, k.dv, dv);
+      out.correctionsDv = (out.correctionsDv ?? 0) + dv;
       out.log.push(`aim at ${e.body}: ${(dv * 1000).toFixed(2)} m/s (miss ${k.miss.toFixed(0)} km, aimed ${k.after.toFixed(2)} km)`);
       continue;
     }

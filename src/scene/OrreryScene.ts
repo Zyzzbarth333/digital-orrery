@@ -35,7 +35,7 @@ import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { JourneyLayer } from './journeyLayer';
-import type { JourneyView } from '../app/journey';
+import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
@@ -239,6 +239,8 @@ export class OrreryScene {
   private craftLayer!: CraftLayer;
   // The journey being planned (journeyLayer.ts): its arcs and burn nodes.
   journeySource: () => JourneyView | null = () => null;
+  // What dragging its nodes and aims does (the app's JourneyStore).
+  journeyHandlers: JourneyHandlers | null = null;
   private journeyLayer!: JourneyLayer;
   private journeyCentral = (key: string): Vec3 | null => (key === 'sun' ? [0, 0, 0] : this.states[key as BodyKey]?.r ?? null);
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
@@ -372,7 +374,7 @@ export class OrreryScene {
     });
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
-    this.journeyLayer = new JourneyLayer(this.scene, this.overlay);
+    this.journeyLayer = new JourneyLayer(this.scene, this.overlay, () => this.journeyHandlers);
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     // The GPU can drop the WebGL context (sleep, driver reset, memory
@@ -454,19 +456,24 @@ export class OrreryScene {
     const el = this.renderer.domElement;
     // One pointer drags; a second finger is ignored until the first lifts.
     let pointer: number | null = null, lx = 0, ly = 0;
+    // A press that does not move (a click) goes to the journey: a burn
+    // node on the arc under it, or the selection cleared.
+    let sx = 0, sy = 0, travel = 0;
     el.addEventListener('pointerdown', (e) => {
       if (pointer !== null) return;
-      pointer = e.pointerId; lx = e.clientX; ly = e.clientY; el.setPointerCapture(e.pointerId);
+      pointer = e.pointerId; lx = sx = e.clientX; ly = sy = e.clientY; travel = 0; el.setPointerCapture(e.pointerId);
     });
     const end = (e: PointerEvent) => {
       if (e.pointerId !== pointer) return;
       pointer = null;
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      if (e.type === 'pointerup' && travel < 4) this.journeyLayer.click(sx, sy);
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
     el.addEventListener('pointermove', (e) => {
       if (e.pointerId !== pointer) return;
+      travel = Math.max(travel, Math.hypot(e.clientX - sx, e.clientY - sy));
       this.rig.rotate(-(e.clientX - lx) * 0.005, (e.clientY - ly) * 0.005);
       lx = e.clientX; ly = e.clientY;
     });

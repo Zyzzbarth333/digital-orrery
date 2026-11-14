@@ -23,7 +23,7 @@ export interface Arrival { waypoint: number; body: string; closest: number; plan
 export interface PlannedBurn { t0: number; t1: number; dir: number[]; F: number; m0: number; mdot: number; scripted: boolean; frame?: string; about?: string }
 export interface FlightReply {
   forVersion: number; error?: string; frame: string; pathEcl: number[][]; arrivals: Arrival[]; burns: PlannedBurn[];
-  start: { r: number[]; v: number[]; ms: number } | null; unsupported: string[]; log: string[]; impact: { body: string; t: number } | null; ms: number;
+  start: { r: number[]; v: number[]; ms: number } | null; unsupported: string[]; log: string[]; impact: { body: string; t: number } | null; ms: number; correctionsDv: number;
 }
 
 self.onmessage = async (e: MessageEvent<FlightRequest>) => {
@@ -34,7 +34,7 @@ self.onmessage = async (e: MessageEvent<FlightRequest>) => {
     sys ??= solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
     const sol = solveJourney(q.journey);
     const plan = planFlight(sol) as { start: FlightReply['start']; unsupported: string[] };
-    const f = flyJourney(sys, plan as never) as { burns: PlannedBurn[]; path: { t: number; r: number[] }[]; arrivals: Arrival[]; log: string[]; impact: FlightReply['impact'] };
+    const f = flyJourney(sys, plan as never) as { burns: PlannedBurn[]; path: { t: number; r: number[] }[]; arrivals: Arrival[]; log: string[]; impact: FlightReply['impact']; correctionsDv: number };
     // Drawn about the journey's frame: the Sun, or Earth for a journey that
     // never leaves it.
     const centrals = new Set(sol.legs.map((l: { central: string }) => l.central));
@@ -44,9 +44,9 @@ self.onmessage = async (e: MessageEvent<FlightRequest>) => {
       const c = helioStateEqj(frame, new Date(sys!.msAt(p.t))).r;
       return eqjToEclFast([p.r[0] - c[0], p.r[1] - c[1], p.r[2] - c[2]]);
     });
-    const reply: FlightReply = { forVersion: q.forVersion, frame, pathEcl, arrivals: f.arrivals, burns: f.burns, start: plan.start, unsupported: plan.unsupported, log: f.log, impact: f.impact, ms: performance.now() - t0 };
+    const reply: FlightReply = { forVersion: q.forVersion, frame, pathEcl, arrivals: f.arrivals, burns: f.burns, start: plan.start, unsupported: plan.unsupported, log: f.log, impact: f.impact, ms: performance.now() - t0, correctionsDv: f.correctionsDv };
     self.postMessage(reply);
   } catch (err) {
-    self.postMessage({ forVersion: q.forVersion, error: String((err as Error)?.message ?? err), frame: 'sun', pathEcl: [], arrivals: [], burns: [], start: null, unsupported: [], log: [], impact: null, ms: 0 } satisfies FlightReply);
+    self.postMessage({ forVersion: q.forVersion, error: String((err as Error)?.message ?? err), frame: 'sun', pathEcl: [], arrivals: [], burns: [], start: null, unsupported: [], log: [], impact: null, ms: 0, correctionsDv: 0 } satisfies FlightReply);
   }
 };

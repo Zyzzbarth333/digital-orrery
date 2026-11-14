@@ -96,6 +96,7 @@ export function App() {
     sc.onFrame = (t, jumps) => mission.frame(t, jumps);
     sc.craftSource = () => mission.views();
     sc.journeySource = () => journey.view();
+    sc.journeyHandlers = journey.handlers;
     sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
     sc.onFlight = setFlying;
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);

@@ -163,6 +163,15 @@ export function JourneyPanel({ store, clock, mission, onFlown }: { store: Journe
                 <button className="key small" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)} disabled={!leg}>{open === i ? 'Hide options' : 'Compare options'}</button>
                 {w.chosen && <span className="hint">chosen: {w.chosen}</span>}
               </div>
+              {(w.nodes?.length || w.aim) ? (
+                <div className="keys-row wrap">
+                  {w.nodes?.length ? <>
+                    <button className="key small" onClick={() => { store.handlers.select(`node:${i}:${w.nodes![w.nodes!.length - 1].id}`); store.aimSelected(); }} title="Set the last node's burn so this leg reaches its waypoint on its date">Aim last node</button>
+                    <button className="key small" onClick={() => { store.edit(i, { nodes: [] }); store.handlers.select(null); }}>Clear nodes</button>
+                  </> : null}
+                  {w.aim && <button className="key small" onClick={() => store.handlers.remove(`aim:${i}`)} title="Let the planner aim this flyby, so the next leg is Lambert's arc again">Planner aims the flyby</button>}
+                </div>
+              ) : null}
               {open === i && <LegOptions store={store} k={i} />}
             </li>
           );
@@ -209,8 +218,11 @@ function LegLine({ leg, fb, last }: { leg?: Leg; fb?: Flyby; last: boolean }) {
     <table className="readout compact"><tbody>
       <tr><th scope="row">Leg</th><td className="value">{iso(leg.depMs)} → {iso(leg.arrMs)} · {fmt(leg.tofDays, leg.tofDays < 10 ? 2 : 0)} d<span className="alt">{leg.geometry === 'local' ? `orbit change about ${nameOf(leg.central)}` : `about ${nameOf(leg.central)}${leg.revs ? `, ${leg.revs} revolution${leg.revs > 1 ? 's' : ''}` : ''}`}</span></td><td className="src"><SourceTag src="Lambert" derived info="journey-leg" /></td></tr>
       <tr><th scope="row">Δv</th><td className="value">{fmt(leg.depDv + leg.midDv + leg.arrDv, 3)} km/s<span className="alt">{[leg.depDv && `leave ${fmt(leg.depDv, 3)}`, leg.midDv && `on the way ${fmt(leg.midDv, 3)}`, leg.arrDv && `arrive ${fmt(leg.arrDv, 3)}`].filter(Boolean).join(' · ') || 'no burn'}{leg.vinfArr ? ` · v∞ ${fmt(Math.hypot(...leg.vinfArr), 2)} km/s on arrival` : ''}</span></td><td className="src"><SourceTag src="2-body" derived info="journey-leg" /></td></tr>
+      {leg.shaped && (
+        <tr><th scope="row">Shaped</th><td className={`value${leg.reaches ? '' : ' bad'}`}>{leg.reaches ? 'reaches' : 'misses'} {nameOf(leg.to)} by {fmt(leg.missKm ?? 0, 0)} km<span className="alt">{(leg.nodes ?? []).length} node{(leg.nodes ?? []).length === 1 ? '' : 's'}, {fmt((leg.nodes ?? []).reduce((a, n) => a + n.dv, 0) * 1000, 1)} m/s · flown free from {leg.nodes?.length ? 'the departure through each node' : 'the flyby aimed by hand'}{leg.reaches ? '' : ' · drag a node\'s tabs, or aim the last node'}</span></td><td className="src"><SourceTag src="2-body" derived info="journey-shaped" /></td></tr>
+      )}
       {fb && (
-        <tr><th scope="row">Flyby</th><td className="value">{fb.unpoweredOnly ? 'unpowered' : `${fmt(fb.dv * 1000, 0)} m/s`} · turn {fmt(fb.delta * 180 / Math.PI, 1)}°<span className="alt">periapsis {fmt(fb.rp - bodyInfo(fb.body).radius, 0)} km up · B·T {fmt(fb.bT, 0)}, B·R {fmt(fb.bR, 0)} km{fb.tooTight ? ' · the turn needs a lower pass: steered at the edge of its sphere' : ''}{last ? '' : ''}</span></td><td className="src"><SourceTag src="B-plane" derived info="flyby" /></td></tr>
+        <tr><th scope="row">Flyby</th><td className="value">{fb.unpoweredOnly ? 'unpowered' : `${fmt(fb.dv * 1000, 0)} m/s`} · turn {fmt(fb.delta * 180 / Math.PI, 1)}°<span className="alt">{fb.byHand ? 'aimed by hand · ' : ''}periapsis {fmt(fb.rp - bodyInfo(fb.body).radius, 0)} km up{fb.byHand && fb.rp < bodyInfo(fb.body).radius ? ' (below the surface!)' : ''} · B·T {fmt(fb.bT, 0)}, B·R {fmt(fb.bR, 0)} km{fb.tooTight ? ' · the turn needs a lower pass: steered at the edge of its sphere' : ''}{last ? '' : ''}</span></td><td className="src"><SourceTag src="B-plane" derived info="flyby" /></td></tr>
       )}
     </tbody></table>
   );
@@ -266,7 +278,7 @@ function Summary({ store }: { store: JourneyStore }) {
           <tr key={i} className="burn-row"><th scope="row">{iso(b.ms)}</th><td className="value">{fmt(b.dv * 1000, 0)} m/s<span className="alt">{b.label}</span></td><td /></tr>
         ))}
         <tr><th scope="row">Kernel</th>
-          <td className="value">{k.state === 'flying' || (k.state !== 'idle' && !now) ? 'flying it…' : k.state === 'failed' ? <span className="bad">failed: {k.error}</span> : r ? `flown in ${fmt(r.ms / 1000, 1)} s` : 'waits for an edit to settle'}
+          <td className="value">{k.state === 'flying' || (k.state !== 'idle' && !now) ? 'flying it…' : k.state === 'failed' ? <span className="bad">failed: {k.error}</span> : r ? `flown in ${fmt(r.ms / 1000, 1)} s · corrections ${fmt(r.correctionsDv * 1000, 1)} m/s` : 'waits for an edit to settle'}
             {r && <span className="alt">{r.arrivals.map((a) => `${nameOf(a.body)} ${a.central ? `${fmt(a.missKm, 0)} km from the aim point` : `${fmt(a.missKm, 0)} km off the planned periapsis`}`).join(' · ')}{r.impact ? ` · hits ${nameOf(r.impact.body)}` : ''}</span>}
             {r && r.unsupported.length > 0 && <span className="alt">{r.unsupported.join(' · ')}</span>}
           </td>

@@ -253,15 +253,67 @@ With identical stages, the Lagrange optimum is restricted staging (Curtis
 $$v_{bo} = N c \ln\frac{1}{\pi^{1/N}(1-\varepsilon) + \varepsilon}.$$
 The tests check both against Examples 13.4 and 13.5.
 
+## Shaping it by hand
+
+In the sky, the journey can be shaped with the pointer. Every change
+re-solves it by patched conics at once, and the kernel flies it again when
+the pointer is let go.
+
+- **A burn node:** a click on a leg's dashed arc adds one there.
+  - Dragging its reticle slides it along the arc to the point nearest the
+    pointer.
+  - Selected, it grows three pairs of tabs on stalks along its local axes:
+    prograde and retrograde (P+, P−), normal and anti-normal (N+, N−),
+    radial out and in (R+, R−).
+  - Dragging a tab along its stalk adds delta-v that way, 1 m/s a pixel
+    (0.1 with Shift).
+  - The × tab or Delete removes it. Nodes at the same time add up.
+- **A node's frame** (`nodeFrame`), the same as the app's manoeuvre
+  nodes, about the leg's central body:
+  - $\hat T = \mathbf v / v$;
+  - $\hat N = \mathbf r \times \mathbf v / |\mathbf r \times \mathbf v|$;
+  - $\hat R = \hat T \times \hat N$, radial outward.
+- **A leg with nodes is flown free** (`shapeLeg`):
+  - it leaves on its Lambert arc, and Kepler's two-body motion
+    (`propagate`) takes it from node to node, each burn added there;
+  - it arrives wherever that takes it at the arrival date;
+  - the miss from the waypoint is shown, and the leg counts as reaching
+    the waypoint inside its sphere of influence;
+  - the arrival is costed with the velocity it has.
+  
+  A node with no burn leaves the leg as it was. **Aim last node** sets the
+  last node's burn to the Lambert arc from its place to the waypoint, so
+  the leg reaches it again.
+- **A flyby's aim:** selecting a flyby's mark shows a ring on a stalk out
+  from the planet, toward its B vector.
+  - Dragging the ring out or in scales $|B|$ (doubling over a stalk's
+    length), raising or lowering the pass.
+  - Dragging it round turns the B vector about the approach.
+  - With the aim set by hand, the flyby is unpowered: $r_p$ from $B$, and
+    the turn $\delta$ about $\mathbf B \times \mathbf S$
+    (`flybyFromB`).
+  - The leg after it is flown free from it, downstream legs included
+    through each flyby they reach.
+  - **Planner aims the flyby** goes back to the joining powered flyby.
+- **In the kernel:** a leg's node burns are flown as planned vectors, and
+  the aimed corrections begin after the last of them. A hand-shaped leg
+  that misses its waypoint is brought to it by the corrections, and their
+  total is shown.
+
+The handles are the app's own: a node is a square reticle with a diamond
+inside, and its tabs are small raised panel tags with engraved legends on
+stalks, after the guarded toggles of 1970s flight panels. They are not
+drawn from any game's interface.
+
 ## In the scene
 
 - **Each leg's arc:** a dashed pale-amber line about its central body,
   placed at that body each frame. A leg about Earth moves with Earth.
 - **The kernel's flown path:** a thin solid amber line about the journey's
   frame (the Sun, or Earth for a journey that never leaves it).
-- **Each burn:** a burn node, an open square reticle with a centre dot
-  (orange for a capture or landing, dashed for a flyby), with its delta-v
-  in a window tag.
+- **Each burn:** an open square reticle with a centre dot (orange for a
+  capture or landing, dashed for a flyby), with its delta-v in a window
+  tag. Burn nodes and flyby aims are the shaping marks above.
 
 ## Validation (`journey.test.mjs`)
 
@@ -284,6 +336,10 @@ The tests check both against Examples 13.4 and 13.5.
 | Earth to Mars, captured | the plan | 1.4 km |
 | Round the Moon and home | the plan | Moon 17 km; home 3 km from the aimed point |
 | Earth orbit, Moon orbit for 3 days, home | the plan | Moon 0.9 km; home 0.5 km |
+| A burn node with no burn; a node's frame | Lambert's arc; geometry | on target to 1 m, the same delta-v; orthonormal, radial out |
+| A 200 m/s node halfway to Mars, then aimed | Lambert from the node | misses by 3.28 million km; aimed, on target to 1 m |
+| Mariner 10's Venus aim set by hand to the plan's B point | the planned flyby | the same periapsis, unpowered; Mercury missed by 194,000 km without its 29 m/s |
+| An aimed node on the way to Mars, flown | the plan | Mars 1.4 km off the planned periapsis |
 
 ## Limits
 
@@ -292,8 +348,7 @@ The tests check both against Examples 13.4 and 13.5.
   and the flown journey's corrections are part of its delta-v as flown.
 - **A return to the same body after whole years:** the two ends are nearly
   the same point, so Lambert's plane is the ecliptic and the arc can be far
-  from the cheapest resonant orbit. A deep-space node, coming with drag
-  editing, is the way to shape it.
+  from the cheapest resonant orbit. Burn nodes are the way to shape it.
 - **Landings:** the entry through an atmosphere and the losses of an ascent
   or a descent are not costed.
 - **The ideal options:** Hohmann, bi-elliptic and plane change use mean

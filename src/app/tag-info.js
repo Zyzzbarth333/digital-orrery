@@ -417,6 +417,12 @@ export const TAG_INFO = {
     where: 'B: the aiming radius, the size of the B vector in the B-plane (B·T in the ecliptic, B·R across it)',
     source: 'Curtis, 4th ed., §8.9, eqs. 8.71 and 8.75 (Example 8.6) · docs/physics/journey.md',
   },
+  'journey-shaped': {
+    what: 'The leg flown free by two-body motion from its departure (or from a flyby aimed by hand), each burn node adding its prograde, normal and radial delta-v; how far from the waypoint it ends at the arrival date.',
+    tex: ['\\Delta\\mathbf v = \\Delta v_P\\,\\hat{\\mathbf T} + \\Delta v_N\\,\\hat{\\mathbf N} + \\Delta v_R\\,\\hat{\\mathbf R}', '\\hat{\\mathbf T} = \\frac{\\mathbf v}{v},\\quad \\hat{\\mathbf N} = \\frac{\\mathbf r \\times \\mathbf v}{|\\mathbf r \\times \\mathbf v|},\\quad \\hat{\\mathbf R} = \\hat{\\mathbf T} \\times \\hat{\\mathbf N}'],
+    where: 'about the leg\'s central body, at the node\'s place; the miss counts as reached inside the target\'s sphere of influence',
+    source: 'journey.js shapeLeg · docs/physics/journey.md#shaping-it-by-hand',
+  },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
     tex: ['\\Delta v = \\sum \\Delta v_\\text{burn}'],
