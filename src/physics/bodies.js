@@ -173,6 +173,28 @@ const ZONAL = {
   uranus: { j2: 3510.7e-6, rJ2: 25559 },
   neptune: { j2: 3408.43e-6, rJ2: 25225 },
 };
+// The large moons' degree-2 fields, unnormalised, with the reference radius
+// they are referred to (docs/physics/nbody-kernel.md#moons has the sources):
+//   Io:       Park et al. 2025, Nature 638, 69 (Juno and Galileo):
+//             J2 = 1834.6e-6, C22 = 549.6e-6; R = 1821.6 km (mean radius).
+//   Europa:   Gomez Casajus et al. 2021, Icarus 358, 114187 (Galileo
+//             reanalysed): J2 = 437.6e-6 (+-77.5), C22 = 138.62e-6;
+//             R = 1560.8 km (mean radius), as a JUICE review tabulates them.
+//   Ganymede: Gomez Casajus et al. 2022, GRL 49, e2022GL099475 (Juno and
+//             Galileo), its dataset (Zenodo 6949645): normalised 5.948167e-5
+//             and 6.128513e-5, so J2 = 133.0e-6, C22 = 39.56e-6; R = 2631.2.
+//   Callisto: Anderson et al. 2001, Icarus 153, 157: J2 = 32.7e-6, C22 =
+//             10.2e-6; R = 2410.3 km, as the same review tabulates them.
+//   Titan:    Iess et al. 2010, Science 327, 1367, Table 1 (SOL1):
+//             J2 = 31.808e-6, C22 = 9.983e-6; R = 2575 km.
+// Each turns with its orbit (x toward the planet, z the orbit's pole).
+const MOON_ZONAL = {
+  io: { j2: 1834.6e-6, c22: 549.6e-6, rJ2: 1821.6 },
+  europa: { j2: 437.6e-6, c22: 138.62e-6, rJ2: 1560.8 },
+  ganymede: { j2: 133.0e-6, c22: 39.56e-6, rJ2: 2631.2 },
+  callisto: { j2: 32.7e-6, c22: 10.2e-6, rJ2: 2410.3 },
+  titan: { j2: 31.808e-6, c22: 9.983e-6, rJ2: 2575 },
+};
 const POLE_REFRESH = 86400;   // s
 // Surfaces that are not the mean sphere, for impacts (nbody.below): the
 // Earth's sea level is the WGS-84 ellipsoid, a = 6378.137 km, 1/f =
@@ -238,6 +260,8 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
       G.moons = MOONS_OF[key].map((k) => {
         const about = new HermiteEphemeris((t) => sat.moon(k, tt0 + t), MOON_SPACING[k]);
         const m = body(k, MOON_DATA[k].gm, MOON_DATA[k].radiusKm, key, new SumEphemeris(G.centre.eph, about));
+        const z = zonal && MOON_ZONAL[k];
+        if (z) Object.assign(m, { j2: z.j2, c22: z.c22, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], axisX: [1, 0, 0], axisY: [0, 1, 0], orbitEph: about });
         byKey.set(k, m);
         return m;
       });
@@ -250,9 +274,21 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
   // placed counts position updates, so a view can tell that no other view
   // has moved a body it shares since it last looked.
   let placed = 0;
+  const ra = [0, 0, 0], va = [0, 0, 0];
   const place = (b, t) => {
     b.eph.position(t, b.r);
-    if (b.j2 && !(Math.abs(t - b.poleT) < POLE_REFRESH)) {
+    if (b.orbitEph) {
+      // A moon turns with its orbit: x toward the planet, z along the
+      // orbit's pole, at every placing.
+      b.orbitEph.position(t, ra); b.orbitEph.velocity(t, va);
+      const rn = Math.hypot(ra[0], ra[1], ra[2]);
+      const zx = ra[1] * va[2] - ra[2] * va[1], zy = ra[2] * va[0] - ra[0] * va[2], zz = ra[0] * va[1] - ra[1] * va[0];
+      const zn = Math.hypot(zx, zy, zz);
+      const X = b.axisX, Z = b.pole, Y = b.axisY;
+      X[0] = -ra[0] / rn; X[1] = -ra[1] / rn; X[2] = -ra[2] / rn;
+      Z[0] = zx / zn; Z[1] = zy / zn; Z[2] = zz / zn;
+      Y[0] = Z[1] * X[2] - Z[2] * X[1]; Y[1] = Z[2] * X[0] - Z[0] * X[2]; Y[2] = Z[0] * X[1] - Z[1] * X[0];
+    } else if (b.j2 && !(Math.abs(t - b.poleT) < POLE_REFRESH)) {
       b.pole = bodyAxesEqj(b.key, new Date(msAt(t)))[2];
       b.poleT = t;
     }
