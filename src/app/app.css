@@ -163,7 +163,9 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
   box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen);
 }
 .rate option { background: var(--window); color: var(--phosphor-dim); }
-.keys-row { display: flex; align-items: center; gap: var(--u); }
+.keys-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--u); }
+.keys-row > .key { flex: none; max-width: 100%; }
+.keys-row > .hint { flex: 1 1 12em; }
 .key {
   height: 34px; min-width: 58px; padding: 0 12px; cursor: pointer;
   font: 10px var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
