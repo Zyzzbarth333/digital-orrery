@@ -23,6 +23,7 @@ import { SmallBodyPlate } from './small-body-plate';
 import type { Named } from '../scene/smallBodies';
 import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
+import type { GuideKey } from '../scene/guides';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -207,11 +208,20 @@ const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; l
   { key: 'comets', label: 'Comets', colour: '#73dbf2', title: 'Periodic comets (orbits from their last apparition for most)' },
 ];
 
+// Drawing aids for gravity (src/scene/guides.ts), each off until switched on.
+const GUIDE_ROWS: { key: GuideKey; label: string; colour: string; title: string }[] = [
+  { key: 'axes', label: 'Spin axes', colour: '#c8c2b4', title: "Each body's spin axis through its poles (IAU rotation models), north marked N" },
+  { key: 'field', label: 'Gravity field', colour: '#2f8fb0', title: 'The real gravity field on the surface: EGM2008 for Earth, GRAIL for the Moon, J2 for the planets' },
+  { key: 'spheres', label: 'SOI and Hill', colour: '#ffb22e', title: "Each body's sphere of influence (solid) and Hill sphere (dashed) about its parent" },
+  { key: 'lagrange', label: 'Lagrange', colour: '#ecd9b0', title: 'L1 to L5 of Sun-Earth, Earth-Moon, Sun-Jupiter and the focused body with its parent' },
+  { key: 'pulls', label: 'Pulls', colour: '#ff7a3d', title: 'The four strongest gravitational pulls on the focused body, GM / d²' },
+];
+
 // The moons each planet has in the rail (Earth's Moon is always shown).
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey, boolean>; onGuides?: (key: GuideKey, on: boolean) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -328,6 +338,22 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
               </select>
             </label>
           )}
+        </>
+      )}
+      {guides && onGuides && (
+        <>
+          <h2 className="strip split"><span>Guides</span><span title="shown">On</span></h2>
+          <ul className="body-list small-bodies guides">
+            {GUIDE_ROWS.map((g) => (
+              <li key={g.key}>
+                <button className="body-row" role="switch" aria-checked={guides[g.key]} onClick={() => onGuides(g.key, !guides[g.key])} title={g.title}>
+                  <span className="lamp-sq" style={{ background: guides[g.key] ? g.colour : 'transparent', borderColor: g.colour }} />
+                  <span>{g.label}</span>
+                  <span className="dist">{guides[g.key] ? 'on' : 'off'}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </>
       )}
       <div className="rail-foot">

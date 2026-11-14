@@ -164,7 +164,7 @@ class SumEphemeris {
 // planet's centre.
 // The pole is the body's spin axis of date (orientation.js), refreshed once a
 // simulated day: Earth's moves 0.14" a day.
-const ZONAL = {
+export const ZONAL = {
   mercury: { j2: 2.250253697653e-5 * Math.sqrt(5), rJ2: 2440.0 },
   venus: { j2: 1.96972335776e-6 * Math.sqrt(5), rJ2: 6051.0 },
   earth: { j2: 4.84165143790815e-4 * Math.sqrt(5), rJ2: 6378.1363 },

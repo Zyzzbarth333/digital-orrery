@@ -39,6 +39,7 @@ import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { SmallBodyLayer } from './smallBodies';
+import { GuideLayer } from './guides';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
@@ -253,6 +254,7 @@ export class OrreryScene {
   private craftLayer!: CraftLayer;
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
+  guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
 
   private bodyAnchor(key: FocusKey): Anchor {
     // A barycentre is a point: the camera may close to a kilometre.
@@ -407,6 +409,8 @@ export class OrreryScene {
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    this.guides = new GuideLayer(this.scene, this.overlay, toRender,
+      (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
@@ -756,6 +760,10 @@ export class OrreryScene {
     this.updateGlare(sunPos, cam, now);
     this.updateAdaptation(dtReal, sunPos);
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
+      // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
+      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
+      level: 1 / this.renderer.toneMappingExposure, date });
 
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
@@ -1007,6 +1015,7 @@ export class OrreryScene {
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
     this.smallBodies.dispose();
+    this.guides.dispose();
     for (const el of this.labels.values()) el.remove();
     for (const el of this.baryLabels.values()) el.remove();
     this.post.dispose();
