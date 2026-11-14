@@ -31,6 +31,7 @@ import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStarPoints, makeStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
+import { SmallBodyLayer } from './smallBodies';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
@@ -156,6 +157,8 @@ export class OrreryScene {
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
   private craftLayer!: CraftLayer;
+  // The asteroids and comets (smallBodies.ts), for the rail's toggles.
+  smallBodies!: SmallBodyLayer;
 
   private bodyAnchor(key: BodyKey): Anchor {
     return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: BODY_BY_KEY[key].radiusKm * 1.2 };
@@ -279,6 +282,8 @@ export class OrreryScene {
     });
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
+    this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     // The GPU can drop the WebGL context (sleep, driver reset, memory
     // pressure): say so rather than show a black view, and carry on when the
     // browser restores it.
@@ -407,6 +412,7 @@ export class OrreryScene {
     this.renderer.getDrawingBufferSize(this.buffer);
     this.post.setSize(this.buffer.x, this.buffer.y, this.renderer.getPixelRatio());
     if (this.starPoints) setStarScale(this.starPoints, this.scale.max, this.renderer.getPixelRatio());
+    this.smallBodies?.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.camera.aspect = w / h;
     this.applyInset();
   }
@@ -528,6 +534,7 @@ export class OrreryScene {
     this.camera.updateMatrixWorld();
     this.updateGlare(sunPos, cam, now);
     this.updateAdaptation(dtReal, sunPos);
+    this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
 
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
@@ -729,6 +736,7 @@ export class OrreryScene {
     this.container.removeEventListener('wheel', this.onWheel);
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
+    this.smallBodies.dispose();
     for (const el of this.labels.values()) el.remove();
     this.post.dispose();
     this.renderer.dispose();

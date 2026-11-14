@@ -509,3 +509,9 @@ details.section[open] > summary::after { content: '−'; }
   .flight { flex: 1 1 100%; }
   .craft-window { flex: 1; }
 }
+
+/* Small bodies (src/scene/smallBodies.ts): named ones get a smaller, dimmer
+   marker than the planets'; the rail's toggles show their population colour. */
+.body-marker.small-body .dot { width: 5px; height: 5px; margin: 1px; border-color: rgba(236, 217, 176, 0.45); }
+.body-marker.small-body .name { opacity: 0.75; font-size: 8px; }
+.small-bodies .lamp-sq { border: 1px solid; }

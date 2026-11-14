@@ -81,6 +81,7 @@ export function App() {
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
+  const [smallOn, setSmallOn] = useState<Record<string, boolean>>({ belt: true, neo: true, trojans: true, outer: true, comets: true });
   // The followed craft's name, kept current (a rocket's climb included).
   const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
   const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); };
@@ -150,7 +151,8 @@ export function App() {
         flying={flying} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
-      <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); }} />
+      <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); }}
+        smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); scene.current?.smallBodies.setGroup(k, on); }} />
       <Plate clock={clock} focus={focus} covered={consoleOpen && !wide} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>

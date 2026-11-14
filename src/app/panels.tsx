@@ -183,7 +183,16 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
   );
 }
 
-export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: BodyKey | null; onSelect: (k: BodyKey) => void }) {
+// The small-body populations the rail can show or hide (src/scene/smallBodies.ts).
+const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; label: string; colour: string; title: string }[] = [
+  { key: 'belt', label: 'Main belt', colour: '#a3a3a3', title: 'Main-belt asteroids brighter than H 15 (JPL SBDB)' },
+  { key: 'neo', label: 'Near-Earth', colour: '#ff9e4d', title: 'Every near-Earth asteroid in JPL SBDB' },
+  { key: 'trojans', label: 'Trojans', colour: '#8fcc85', title: "Jupiter's trojans, ahead of and behind it in its orbit" },
+  { key: 'outer', label: 'Kuiper belt', colour: '#b399f2', title: 'Centaurs and trans-Neptunian objects, Eris, Haumea and Makemake among them' },
+  { key: 'comets', label: 'Comets', colour: '#73dbf2', title: 'Periodic comets (orbits from their last apparition for most)' },
+];
+
+export function BodyRail({ clock, focus, onSelect, smallBodies, onSmallBodies }: { clock: SimClock; focus: BodyKey | null; onSelect: (k: BodyKey) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets', on: boolean) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   const dists = useClockValue(clock, (s) => {
     const date = new Date(s.timeMs);
@@ -209,6 +218,22 @@ export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: B
           );
         })}
       </ul>
+      {smallBodies && onSmallBodies && (
+        <>
+          <h2 className="strip split"><span>Small bodies</span><span title="shown">On</span></h2>
+          <ul className="body-list small-bodies">
+            {SMALL_BODY_ROWS.map((g) => (
+              <li key={g.key}>
+                <button className="body-row" role="switch" aria-checked={!!smallBodies[g.key]} onClick={() => onSmallBodies(g.key, !smallBodies[g.key])} title={g.title}>
+                  <span className="lamp-sq" style={{ background: smallBodies[g.key] ? g.colour : 'transparent', borderColor: g.colour }} />
+                  <span>{g.label}</span>
+                  <span className="dist">{smallBodies[g.key] ? 'on' : 'off'}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <div className="rail-foot">
         <p><kbd>Space</kbd> run/hold · <kbd>←</kbd><kbd>→</kbd> rate</p>
         <p><kbd>↑</kbd><kbd>↓</kbd> body · <kbd>N</kbd> now</p>
