@@ -23,11 +23,12 @@
 //   defaultArrival(...)          a first guess at a new waypoint's date
 //   journeyPath(solution)        points along every arc, for drawing
 
-/** @typedef {{ id: number, body: string, kind: 'flyby' | 'orbit' | 'land', altKm: number, stayDays?: number, dateMs: number, via?: string, chosen?: string, revs?: number, branch?: string, leadDeg?: number, incDeg?: number }} Waypoint */
+/** @typedef {{ id: number, ms: number, pro: number, nor: number, rad: number }} BurnNode */
+/** @typedef {{ id: number, body: string, kind: 'flyby' | 'orbit' | 'land', altKm: number, stayDays?: number, dateMs: number, via?: string, chosen?: string, revs?: number, branch?: string, leadDeg?: number, incDeg?: number, nodes?: BurnNode[], aim?: { bT: number, bR: number } }} Waypoint */
 /** @typedef {{ body: string, kind: 'pad' | 'orbit' | 'craft', altKm: number, dateMs: number, latDeg?: number, incDeg?: number, state?: { r: number[], v: number[] }, craftId?: number }} JourneyStart */
 /** @typedef {{ start: JourneyStart, waypoints: Waypoint[] }} Journey */
 
-import { lambertRevs, propagate } from './orbital.js';
+import { lambert, lambertRevs, propagate } from './orbital.js';
 import { helioStateEcl, ttSeconds, eqjToEcl } from './ephemeris.js';
 import { MOON_KEYS, moonStateEqj } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
@@ -381,6 +382,19 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     leg.index = k - 1;
     legs.push(leg);
   }
+  // Shaped legs: burn nodes along a leg, or a flyby aimed by hand before
+  // it, fly it free from there (shapeLeg).
+  const aimed = [];
+  for (let k = 1; k < S.length; k++) {
+    const leg = legs[k - 1], w = journey.waypoints[k - 1], P = S[k - 1];
+    const pw = k > 1 ? journey.waypoints[k - 2] : null;
+    const from = P.kind === 'flyby' && pw?.aim && legs[k - 2]?.ok && legs[k - 2].vinfArr ? { vinfIn: legs[k - 2].vinfArr, aim: pw.aim } : null;
+    if (leg.ok && leg.geometry !== 'local' && leg.geometry !== 'craft' && (from || w.nodes?.length)) {
+      const sh = shapeLeg(leg, S[k], w.nodes ?? [], from);
+      legs[k - 1] = sh.leg;
+      if (sh.flyby) aimed[k - 2] = sh.flyby;
+    }
+  }
   // Flybys: the turn between the legs either side.
   for (let k = 1; k < S.length; k++) {
     const Q = S[k];
@@ -388,7 +402,8 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     const inLeg = legs[k - 1], outLeg = legs[k];
     const B = bodyInfo(Q.body), rpMin = B.radius + (Q.altKm ?? 300);
     if (!inLeg.ok || !inLeg.vinfArr) continue;
-    if (outLeg && outLeg.ok && outLeg.vinfDep) {
+    if (aimed[k - 1]) flybys[k - 1] = { ...aimed[k - 1], body: Q.body, ms: Q.arrMs, vinf: norm(inLeg.vinfArr) };
+    else if (outLeg && outLeg.ok && outLeg.vinfDep) {
       const f = X.poweredFlyby({ vinfIn: inLeg.vinfArr, vinfOut: outLeg.vinfDep, mu: B.mu, rpMin });
       flybys[k - 1] = { ...f, body: Q.body, ms: Q.arrMs, vinf: norm(inLeg.vinfArr) };
     } else {
@@ -407,6 +422,7 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     const name = (k) => bodyInfo(k).name;
     if (leg.depDv > 0) burns.push({ ms: leg.depMs, body: P.body, dv: leg.depDv, kind: P.kind === 'land' ? 'ascend' : 'depart', label: `${P.kind === 'land' ? 'Lift off from' : 'Leave'} ${name(P.body)}`, leg: leg.index });
     if (leg.midDv > 0) burns.push({ ms: leg.mid?.ms ?? (leg.arcs[1]?.t1 ?? leg.depMs), body: leg.central, dv: leg.midDv, kind: 'mid', label: leg.geometry === 'local' ? 'Transfer burn' : 'Apoapsis burn', leg: leg.index });
+    for (const n of leg.nodes ?? []) if (n.dv > 0) burns.push({ ms: n.ms, body: leg.central, dv: n.dv, kind: 'node', label: 'Node burn', leg: leg.index, node: n.id });
     const fb = flybys[leg.index];
     if (fb && fb.dv > 0) burns.push({ ms: fb.ms, body: Q.body, dv: fb.dv, kind: 'flyby', label: `Powered flyby of ${name(Q.body)}`, leg: leg.index });
     if (leg.arrDv > 0) burns.push({ ms: leg.arrMs, body: Q.body, dv: leg.arrDv, kind: Q.kind === 'land' ? 'land' : 'capture', label: `${Q.kind === 'land' ? 'Land on' : leg.geometry === 'local' ? 'Circularise at' : 'Capture at'} ${name(Q.body)}`, leg: leg.index });
@@ -435,6 +451,74 @@ function solveCraftLeg(P, Q, depMs, arrMs, w) {
   const base = { geometry: 'craft', central, from: P.body, to: Q.body, depMs, arrMs, tofDays: tof / DAY, arcs: [], vinfDep: null, vinfArr: null, depDv: 0, arrDv: 0, midDv: 0 };
   if (!sol) return { ...base, ok: false, error: 'no Lambert arc from the craft between these dates' };
   return { ...base, arcs: [{ r1, v1: sol.v1, t1: depMs, t2: arrMs, mu }], vinfArr: sub(sol.v2, b.v), depDv: norm(sub(sol.v1, v0)), arrDv: arriveCost(Q, norm(sub(sol.v2, b.v)), B, g.viaB), ok: true, revs: sol.revs, branch: sol.branch, endB: g.endB ?? Q.body };
+}
+
+// ---------------- shaping a leg: burn nodes and an aimed flyby ----------------
+
+// The local frame of a state about a central body: prograde along v, normal
+// along r x v, radial out (prograde x normal), as craft.js's manoeuvre
+// nodes are.
+export function nodeFrame(r, v) {
+  const T = unit(v), N = unit(cross(r, v));
+  return { T, N, R: cross(T, N) };
+}
+
+// A leg flown free instead of by Lambert's arc: from its departure (the
+// planned arc's velocity, or, after a flyby aimed by hand, the flyby's own
+// outgoing velocity), two-body about the central body, with each node's
+// burn (prograde, normal, radial km/s) at its time. It arrives where it
+// arrives: the miss from the target at the arrival date is kept, and the
+// arrival is costed with the velocity it has. Returns the new leg, and the
+// aimed flyby (its turn, periapsis and aim) when there is one.
+export function shapeLeg(leg, Q, nodes, from = null) {
+  const mu = bodyInfo(leg.central).mu;
+  const out = { ...leg, arcs: [], nodes: [] };
+  let r = leg.arcs[0].r1, v = leg.arcs[0].v1, t = leg.depMs, flyby = null;
+  if (from) {
+    const P = bodyInfo(leg.from), p = relState(leg.endA ?? leg.from, leg.central, leg.depMs);
+    const f = X.flybyFromB({ vinfIn: from.vinfIn, mu: P.mu, bT: from.aim.bT, bR: from.aim.bR });
+    v = add(p.v, f.vinfOut);
+    out.vinfDep = f.vinfOut; out.depDv = 0;
+    flyby = { delta: f.delta, rp: f.rp, dv: 0, periapsisDv: 0, steerDv: 0, gain: norm(sub(f.vinfOut, from.vinfIn)), bT: from.aim.bT, bR: from.aim.bR, aim: Math.hypot(from.aim.bT, from.aim.bR), byHand: true, tooTight: f.rp < P.radius };
+  }
+  const list = nodes.filter((n) => n.ms > leg.depMs && n.ms < leg.arrMs).sort((a, b) => a.ms - b.ms);
+  for (const n of list) {
+    const x = propagate(r, v, (n.ms - t) / 1000, mu);
+    if (!x) return { leg: { ...leg, ok: false, error: 'a node\'s arc could not be flown' }, flyby };
+    out.arcs.push({ r1: r, v1: v, t1: t, t2: n.ms, mu });
+    const F = nodeFrame(x.r, x.v), dv = [0, 1, 2].map((i) => F.T[i] * n.pro + F.N[i] * n.nor + F.R[i] * n.rad);
+    out.nodes.push({ id: n.id, ms: n.ms, r: x.r, v: x.v, frame: F, dv: norm(dv), dvVec: dv });
+    r = x.r; v = add(x.v, dv); t = n.ms;
+  }
+  const end = propagate(r, v, (leg.arrMs - t) / 1000, mu);
+  if (!end) return { leg: { ...leg, ok: false, error: 'the shaped arc could not be flown' }, flyby };
+  out.arcs.push({ r1: r, v1: v, t1: t, t2: leg.arrMs, mu });
+  const atEnd = relState(leg.endB ?? leg.to, leg.central, leg.arrMs);
+  const target = leg.ringArr ?? atEnd.r;
+  out.missKm = norm(sub(end.r, target));
+  out.vinfArr = sub(end.v, leg.ringArr ? [0, 0, 0] : atEnd.v);
+  const B = bodyInfo(leg.to), g = legGeometry(leg.from, leg.to, leg.from === leg.to);
+  out.arrDv = leg.ringArr ? leg.arrDv : arriveCost(Q, norm(out.vinfArr), B, g.viaB);
+  out.midDv = (leg.midDv ?? 0);
+  out.reaches = out.missKm < (leg.ringArr ? 0.05 * norm(target) : Math.max(sphereOfInfluence(leg.endB ?? leg.to), B.radius * 2));
+  out.shaped = true;
+  return { leg: out, flyby };
+}
+
+// The burn at node id that brings leg k's free arc to its target at the
+// arrival date (Lambert's arc from the node's place): the journey with that
+// node's prograde, normal and radial set. Later nodes on the leg are left
+// as they are, so it aims the last one best.
+export function aimNode(journey, k, id) {
+  const sol = solveJourney(journey), leg = sol.legs[k];
+  const n = leg?.nodes?.find((x) => x.id === id);
+  if (!n) return journey;
+  const atEnd = relState(leg.endB ?? leg.to, leg.central, leg.arrMs), target = leg.ringArr ?? atEnd.r;
+  const s = lambert(n.r, target, (leg.arrMs - n.ms) / 1000, bodyInfo(leg.central).mu, true);
+  if (!s) return journey;
+  const d = sub(s.v1, n.v);
+  const w = journey.waypoints[k];
+  return { ...journey, waypoints: journey.waypoints.map((x, i) => (i === k ? { ...w, nodes: (w.nodes ?? []).map((m) => (m.id === id ? { ...m, pro: dot(d, n.frame.T), nor: dot(d, n.frame.N), rad: dot(d, n.frame.R) } : m)) } : x)) };
 }
 
 // ---------------- options for one leg, compared ----------------
@@ -641,7 +725,20 @@ export function journeyPath(sol, perArc = 160) {
     else if (leg.geometry === 'local') pos = b.kind === 'depart' ? leg.arcs[0].r1 : propagate(leg.arcs.at(-1).r1, leg.arcs.at(-1).v1, (leg.arcs.at(-1).t2 - leg.arcs.at(-1).t1) / 1000, leg.mu ?? bodyInfo(central).mu)?.r ?? [0, 0, 0];
     else if (b.kind === 'depart' || b.kind === 'ascend') pos = leg.ringDep ?? at(leg.endA ?? b.body, central, b.ms);
     else pos = leg.ringArr ?? at(leg.endB ?? b.body, central, b.ms);
+    if (b.kind === 'node') continue;
     marks.push({ central, at: pos, ms: b.ms, label: b.label, dv: b.dv, kind: b.kind });
   }
+  // Burn nodes, with their frames for the handles; and at each flyby, its
+  // aim point's B-plane axes (T, R in the central body's frame).
+  for (const leg of sol.legs) {
+    for (const n of leg.nodes ?? []) marks.push({ central: leg.central, at: n.r, ms: n.ms, label: 'Node', dv: n.dv, kind: 'node', id: `node:${leg.index}:${n.id}`, frame: n.frame });
+  }
+  sol.flybys.forEach((f, k) => {
+    if (!f) return;
+    const leg = sol.legs[k], inV = leg?.vinfArr;
+    if (!inV) return;
+    const ax = X.bPlaneAxes(inV);
+    marks.push({ central: leg.central, at: at(leg.endB ?? f.body, leg.central, f.ms), ms: f.ms, label: `Aim at ${bodyInfo(f.body).name}`, dv: f.dv, kind: 'aim', id: `aim:${k}`, frame: { T: ax.T, R: ax.R, N: ax.S }, b: [f.bT, f.bR] });
+  });
   return { arcs, marks };
 }

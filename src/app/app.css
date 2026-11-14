@@ -656,3 +656,28 @@ details.section[open] > summary::after { content: '−'; }
 .burn-node.capture .reticle, .burn-node.land .reticle { border-color: var(--key-lit); }
 .burn-node.capture .reticle::after, .burn-node.land .reticle::after { background: var(--key-lit); }
 .burn-node.flyby .reticle { border-style: dashed; }
+
+/* Shaping by hand (journeyLayer.ts): a burn node is a square reticle with
+   a diamond inside; selected, it grows stalks to engraved tabs, P N R and
+   their negatives, the way a panel's guarded toggles carry their legends.
+   A flyby's aim is a ring on a stalk out from the planet. */
+.burn-node.grip { pointer-events: auto; cursor: grab; }
+.burn-node.grip:active { cursor: grabbing; }
+.burn-node.node .reticle { border-color: var(--phosphor-dim); }
+.burn-node.node .reticle::after { width: 6px; height: 6px; margin: -3px 0 0 -3px; background: transparent; border: 1.5px solid var(--phosphor); transform: rotate(45deg); box-sizing: border-box; }
+.burn-node.aim .reticle { border-radius: 50%; border-style: dotted; }
+.burn-node.selected .reticle { border-color: var(--phosphor); box-shadow: 0 0 8px rgba(255, 178, 46, 0.6); }
+.burn-node.selected .dv { color: var(--phosphor); }
+.journey-stalk { position: absolute; left: 0; top: 0; height: 1px; background: rgba(236, 217, 176, 0.7); transform-origin: 0 50%; pointer-events: none; }
+.journey-handle { position: absolute; left: 0; top: 0; pointer-events: auto; touch-action: none; user-select: none; cursor: grab; }
+.journey-handle.tab {
+  margin: -9px 0 0 -12px; min-width: 24px; height: 18px; box-sizing: border-box; padding: 0 3px; display: grid; place-items: center;
+  font: 10px var(--display); letter-spacing: 0.06em; color: var(--engrave);
+  background: linear-gradient(var(--panel-raised), var(--panel-low)); border: 1px solid var(--seam-strong); border-radius: 2px;
+  box-shadow: 0 1px 0 var(--seam-strong);
+}
+.journey-handle.tab:active { cursor: grabbing; transform-origin: center; filter: brightness(1.08); }
+.journey-handle.tab.nor { color: var(--ink); }
+.journey-handle.tab.rad { color: var(--ink-muted); }
+.journey-handle.tab.remove { min-width: 18px; color: var(--warn); cursor: pointer; }
+.journey-handle.aim-ring { margin: -8px 0 0 -8px; width: 16px; height: 16px; box-sizing: border-box; border: 2px solid var(--phosphor); border-radius: 50%; box-shadow: 0 0 6px rgba(255, 178, 46, 0.5); cursor: move; }

@@ -223,5 +223,36 @@ header('CASE 5: journeys flown by the n-body kernel');
   check('Earth orbit, Moon orbit for 3 days, home: the Moon within 50 km, home within 10 km, no impact on the way', mt.arrivals[0].missKm < 50 && mt.arrivals[1].missKm < 10 && (!mt.impact || mt.impact.body === 'earth'));
 }
 
+header('CASE 6: shaping a journey by hand: burn nodes and an aimed flyby');
+{
+  const em = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-11-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z') }] };
+  const base = J.solveJourney(em), mid = (em.start.dateMs + em.waypoints[0].dateMs) / 2;
+  const withNode = (n) => ({ ...em, waypoints: [{ ...em.waypoints[0], nodes: [{ id: 7, ms: mid, pro: 0, nor: 0, rad: 0, ...n }] }] });
+  const zero = J.solveJourney(withNode({}));
+  check('a node with no burn leaves the leg as Lambert\'s arc: on target to 1 m, the same delta-v', zero.legs[0].missKm < 1e-3 && Math.abs(zero.totalDv - base.totalDv) < 1e-9 && zero.legs[0].reaches);
+  const F = J.nodeFrame([1.2e8, 3e7, 1e5], [-5, 28, 0.4]), d = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  check('a node\'s frame: prograde, normal and radial unit and square to each other, radial outward', [F.T, F.N, F.R].every((x) => Math.abs(norm(x) - 1) < 1e-12) && Math.abs(d(F.T, F.N)) < 1e-12 && Math.abs(d(F.T, F.R)) < 1e-12 && d(F.R, [1.2e8, 3e7, 1e5]) > 0);
+  const pushed = J.solveJourney(withNode({ pro: 0.2 }));
+  console.log(`  a 200 m/s prograde node halfway: misses Mars by ${(pushed.legs[0].missKm / 1e6).toFixed(2)} million km`);
+  check('a prograde push at a node misses the target, and its burn is counted', !pushed.legs[0].reaches && pushed.legs[0].missKm > 1e5 && pushed.burns.some((b) => b.kind === 'node' && Math.abs(b.dv - 0.2) < 1e-12));
+  const fixed = J.solveJourney(J.aimNode(withNode({ pro: 0.2 }), 0, 7));
+  check('aiming the node (Lambert from its place) brings the leg back to Mars to 1 m', fixed.legs[0].missKm < 1e-3 && Math.abs(fixed.totalDv - base.totalDv) < 1e-6);
+  const raised = J.solveJourney(J.aimNode(withNode({ nor: 0.5 }), 0, 7));
+  check('aiming a node with a sideways burn keeps the leg on target', raised.legs[0].missKm < 1e-3);
+  // The flyby's aim set by hand to the planner's own B-plane point: the same
+  // pass, now unpowered, and the next leg flown free from it.
+  const s0 = J.solveJourney(MARINER10), f0 = s0.flybys[0];
+  const s1 = J.solveJourney({ ...MARINER10, waypoints: [{ ...MARINER10.waypoints[0], aim: { bT: f0.bT, bR: f0.bR } }, MARINER10.waypoints[1]] });
+  console.log(`  Mariner 10, Venus aimed by hand at the planner's point: periapsis ${s1.flybys[0].rp.toFixed(1)} km (planned ${f0.rp.toFixed(1)}), Mercury missed by ${(s1.legs[1].missKm / 1000).toFixed(0)} thousand km without the ${(f0.dv * 1000).toFixed(0)} m/s`);
+  check('a flyby aimed by hand at the planned B-plane point passes at the planned periapsis, unpowered', s1.flybys[0].byHand && Math.abs(s1.flybys[0].rp - f0.rp) < 1 && s1.flybys[0].dv === 0 && s1.legs[1].shaped);
+  check('and the leg after it is flown from it: the planned 29 m/s left out shows as a miss at Mercury', s1.legs[1].missKm > 1e4 && s1.legs[1].missKm < 1e6);
+  // A node and an aimed flyby, flown by the kernel: the node as planned,
+  // the aims after it still reach the waypoint.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const fl = flyJourney(sys, planFlight(J.solveJourney(J.aimNode(withNode({ pro: 0.05, rad: 0.03 }), 0, 7))));
+  console.log(`  Earth to Mars with an aimed node, flown: ${fl.arrivals[0].missKm.toFixed(1)} km off the planned periapsis, corrections ${(fl.correctionsDv * 1000).toFixed(1)} m/s`);
+  check('a leg with a burn node, flown by the kernel: the node flown, Mars within 20 km of plan', !fl.impact && fl.arrivals[0].missKm < 20 && fl.burns.length >= 3);
+}
+
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
 process.exit(failures ? 1 : 0);

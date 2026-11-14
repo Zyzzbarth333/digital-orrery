@@ -385,6 +385,13 @@ numerals, an engraved label above, and the unit beside.
   Earth, it stays put while our craft drifts off it.
 - **Orbit lines:** each planet's orbit is a faint outline with a glowing
   trail behind the planet (see docs/frontend/scene.md).
+- **A journey's plan:** each leg a dashed pale-amber line, the kernel's
+  flown path of it solid amber. Burns are open square reticles with their
+  delta-v in a window tag (orange at a capture). A burn node is the
+  reticle with a diamond inside; selected, it grows stalks to small raised
+  panel tabs with engraved legends (P+ P−, N+ N−, R+ R−, × in warning
+  red), after a panel's guarded toggles. A flyby's aim is a phosphor ring
+  on a stalk from the planet.
 - **Porkchop:** shaded on the console's own ramp, from sheen through amber,
   key orange and engraving to window black, so low C3 glows. The minimum is
   outlined in ink and the picked cell in lamp green.
