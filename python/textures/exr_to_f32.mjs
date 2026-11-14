@@ -1,18 +1,20 @@
-// Decode an OpenEXR image with three.js's EXRLoader and write raw float32
-// RGB (row 0 at the top) plus its size, for build_textures.py to read.
-// Usage: node python/textures/exr_to_f32.mjs <in.exr> <out.f32>
+// Decode an OpenEXR image with three.js's EXRLoader and write raw RGB (row 0
+// at the top) plus its size, for build_textures.py to read: float32, or
+// float16 with --half (a 16384 x 8192 map is 1.6 GB as float32).
+// Usage: node python/textures/exr_to_f32.mjs <in.exr> <out.f32> [--half]
 import fs from 'node:fs';
 import * as THREE from 'three';
 import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader.js';
 
-const [, , input, output] = process.argv;
+const [, , input, output, flag] = process.argv;
+const half = flag === '--half';
 const buf = fs.readFileSync(input);
 const loader = new EXRLoader();
-loader.setDataType(THREE.FloatType);
+loader.setDataType(half ? THREE.HalfFloatType : THREE.FloatType);
 const tex = loader.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
 const { width, height, data } = tex;
 const ch = data.length / (width * height);
-const rgb = new Float32Array(width * height * 3);
+const rgb = half ? new Uint16Array(width * height * 3) : new Float32Array(width * height * 3);
 // EXRLoader returns rows bottom-up; write them top-down.
 for (let y = 0; y < height; y++) {
   const src = (height - 1 - y) * width, dst = y * width;
@@ -21,5 +23,5 @@ for (let y = 0; y < height; y++) {
   }
 }
 fs.writeFileSync(output, Buffer.from(rgb.buffer));
-fs.writeFileSync(`${output}.json`, JSON.stringify({ width, height }));
+fs.writeFileSync(`${output}.json`, JSON.stringify({ width, height, dtype: half ? 'float16' : 'float32' }));
 console.log(`decoded ${input}: ${width}x${height}, ${ch} channels`);
