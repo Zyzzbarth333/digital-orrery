@@ -381,6 +381,15 @@ export function ascentTrack(result, opts) {
 // default to 1.5 km/s, typical of a large launcher (Curtis's Example 13.3,
 // a single stage, loses 1.7 km/s); an ascent() of the actual stack gives
 // its own.
+// A sample of the ascent's history ({ h, v, gamma }: inertial, in the
+// launch plane) as speed relative to the Earth's surface, as launch
+// webcasts show it: the rotation's push (rotation, m/s at the pad, as
+// rotationBonus gives) taken off the horizontal speed, scaled with radius.
+export function surfaceSpeed(sample, rotation, R = EARTH.R) {
+  const g = sample.gamma * Math.PI / 180;
+  return Math.hypot(sample.v * Math.sin(g), sample.v * Math.cos(g) - rotation * (R + sample.h) / R);
+}
+
 export function deltaVToOrbit({ h, lat, az, losses = 1500 }) {
   return circularSpeed(h) - rotationBonus(lat, az) + losses;
 }

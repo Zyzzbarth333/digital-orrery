@@ -137,7 +137,11 @@ export class GravityFieldLayer {
       if (shell) {
         shell.visible = show;
         if (show) {
-          shell.position.copy(meshes.get(k)!.position);
+          // Just outside the body's own ellipsoid, turned with it.
+          const m = meshes.get(k)!;
+          shell.position.copy(m.position);
+          shell.quaternion.copy(m.quaternion);
+          shell.scale.copy(m.scale).multiplyScalar(1.0015);
           (shell.material as THREE.ShaderMaterial).uniforms.level.value = level;
         }
       }
@@ -197,7 +201,6 @@ export class GravityFieldLayer {
       },
     });
     const shell = new THREE.Mesh(this.geometry, mat);
-    shell.scale.setScalar((body.radiusKm / 1000) * 1.0015);
     shell.renderOrder = 10;             // over the atmosphere shell, which writes no depth
     shell.visible = false;
     this.scene.add(shell);

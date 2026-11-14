@@ -63,6 +63,12 @@ export const TAG_INFO = {
     where: 'd: the distance from the Earth; c is exact, by the SI definition of the metre',
     source: 'BIPM, the SI Brochure, 9th ed. (2019)',
   },
+  triaxial: {
+    what: 'The body\'s reference ellipsoid: its semi-axes along the prime meridian, 90° east of it, and the pole. Spinning giants bulge at the equator; small moons are stretched toward their planet. The scene draws this shape.',
+    tex: ['\\frac{x^2}{a^2} + \\frac{y^2}{b^2} + \\frac{z^2}{c^2} = 1', 'f = \\frac{a - c}{a}'],
+    where: 'x, y, z: body-fixed, x through 0° longitude, z through the north pole',
+    source: 'IAU WGCCRE, as NAIF\'s planetary constants kernel pck00011 gives it',
+  },
   'mean-radius': {
     what: 'The radius of a sphere of the same volume as the body.',
     tex: [],
@@ -78,6 +84,7 @@ export const TAG_INFO = {
   'gm-planet': {
     what: 'G times the mass of the planet alone, without its moons.',
     tex: [],
+    where: 'the spacecraft kernel pulls with it near the planet, where the moons pull with their own',
     source: 'NAIF satellite kernels, fitted with the moons\' orbits · docs/physics/ephemerides-and-gm.md',
   },
   // panels.tsx: ownGm / R^2 * 1000
@@ -91,6 +98,40 @@ export const TAG_INFO = {
     what: 'How bright the full disc is, against a white disc of the same size.',
     tex: [],
     source: 'NASA NSSDCA planetary fact sheets',
+  },
+  // The barycentres (barycentres.js) and the SSB frame
+  'bary-what': {
+    what: 'A centre of mass: the point the bodies it holds all orbit together. The ephemeris gives each planet system as its barycentre; the solar system\'s is where the whole system balances.',
+    tex: ['\\mathbf r_\\text{B} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\sum_i \\mu_i}'],
+    where: '𝐫ᵢ: heliocentric positions, μᵢ: GMs (DE442). Mars to Pluto: astronomy-engine\'s planet positions, which are these barycentres; Earth and the Moon: DE442; the SSB: the Sun, every planet system, Earth, the Moon and Pluto, within 150 km of JPL Horizons',
+    source: 'DE442 GMs; astronomy-engine; JPL Horizons for the checks · docs/frontend/barycentres.md',
+  },
+  'bary-gm': {
+    what: 'G times the mass of everything this barycentre is the centre of.',
+    tex: ['\\mu = \\sum_i \\mu_i'],
+    source: 'JPL DE442 GMs (gm_de442.tpc) · docs/physics/ephemerides-and-gm.md',
+  },
+  'bary-offset': {
+    what: 'How far the body\'s centre is from the barycentre: its moons pull it round this point.',
+    tex: ['\\mathbf r_\\text{planet} - \\mathbf r_\\text{B} = -\\sum_i \\frac{\\mu_i}{\\mu_\\text{system}}\\,\\mathbf r_i'],
+    where: '𝐫ᵢ: each moon about the planet\'s centre; for Earth, the Moon from DE442',
+    source: 'moons.js and DE442 · docs/frontend/moons.md',
+  },
+  'ssb-offset': {
+    what: 'How far the Sun\'s centre is from the solar system barycentre. The Sun wanders round it, mostly with Jupiter and Saturn, often by more than its own radius.',
+    tex: ['\\mathbf r_\\text{SSB} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\mu_\\odot + \\sum_i \\mu_i}'],
+    where: '𝐫ᵢ: heliocentric positions of every planet system, Earth, the Moon and Pluto; within 150 km of JPL Horizons over 2000–2050',
+    source: 'DE442 GMs; astronomy-engine and DE442 positions · docs/frontend/barycentres.md',
+  },
+  'ssb-distance': {
+    what: 'Distance from the solar system barycentre, the centre of mass of the Sun and everything that orbits it.',
+    tex: ['d = |\\mathbf r - \\mathbf r_\\text{SSB}|'],
+    source: 'barycentres.js · docs/frontend/barycentres.md',
+  },
+  'ssb-speed': {
+    what: 'Speed relative to the solar system barycentre.',
+    tex: ['v = |\\mathbf v - \\mathbf v_\\text{SSB}|'],
+    source: 'barycentres.js · docs/frontend/barycentres.md',
   },
   // The planets' major moons (moons.js, moons.data.js)
   'moon-orbit': {
@@ -107,6 +148,7 @@ export const TAG_INFO = {
   'moon-gm': {
     what: 'G times the moon\'s mass. Orbits depend on this product, which tracking measures far better than G or the mass alone.',
     tex: ['\\mu = GM'],
+    where: 'the spacecraft kernel pulls with it within 1.25 times its planet\'s sphere of influence',
     source: 'the moon\'s JPL Horizons object page (G times the mass where it gives no GM)',
   },
   'moon-albedo': {
@@ -115,9 +157,10 @@ export const TAG_INFO = {
     source: 'the moon\'s JPL Horizons object page',
   },
   'moon-rotation': {
-    what: 'Time for one turn against the stars. Tides have locked the moon: it turns once each orbit, keeping one face to its planet.',
-    tex: ['P_\\text{rot} = P_\\text{orbit}'],
-    source: 'JPL SSD planetary satellite mean elements (the period) · docs/frontend/moons.md',
+    what: 'Time for one turn against the stars. Tides have locked the moon: it turns once each orbit, keeping one face to its planet, rocking a little about it (its libration).',
+    tex: ['P_\\text{rot} = \\frac{360°}{|W_1|}', 'W = W_0 + W_1 d + \\sum_j w_j \\sin\\theta_j'],
+    where: 'W: the prime meridian\'s angle from the node of the moon\'s equator; d: days from J2000; θ_j: the system\'s nutation-precession angles',
+    source: 'IAU WGCCRE 2015 report, as NAIF\'s pck00011 gives it · docs/physics/orientation.md',
   },
   // panels.tsx: a = 1 / (2/rr - vv^2/mu), T = 2 pi sqrt(a^3/mu)
   'orbital-period': {

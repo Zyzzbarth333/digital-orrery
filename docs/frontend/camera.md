@@ -73,7 +73,7 @@ separately. Choosing the body already in view reframes it at the default.
   becomes the new body; the aim, which was between the two, settles onto it
   through a critically damped spring (ω = 7 rad/s, no overshoot, about
   0.6 s), while the user's drag or zoom applies at once. Stopped while still
-  closer than 1.2 of the new body's radii (early in a flight toward
+  closer than 1.2 times the new body's largest semi-axis (early in a flight toward
   something bigger), the zoom eases back out to that distance, so the
   camera never ends inside a body.
 - **Choosing the body a flight is already heading for** changes nothing.

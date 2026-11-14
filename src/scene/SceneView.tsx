@@ -6,12 +6,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SimClock } from '../app/clock';
 import { OrreryScene } from './OrreryScene';
-import type { BodyKey } from './catalogue';
+import type { FocusKey } from './catalogue';
+import type { Frame } from './OrreryScene';
 
 interface Props {
   clock: SimClock;
-  focus: BodyKey;
-  onFocusChange: (key: BodyKey) => void;
+  focus: FocusKey;
+  onFocusChange: (key: FocusKey) => void;
+  frame?: Frame;                                         // orbits about the Sun or the SSB
   onReady?: (scene: OrreryScene) => void;
   onFrame?: (timeMs: number, jumps: number) => void;   // used only without WebGL
   insetRight?: number;                                  // px of the sky covered on the right (the console)
@@ -33,7 +35,7 @@ function ViewPlate({ view, flying }: { view: Props['view']; flying: boolean }) {
   );
 }
 
-export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, view, flying = false }: Props) {
+export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, view, flying = false, frame = 'sun' }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<OrreryScene | null>(null);
@@ -75,6 +77,8 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
   }, [focus]);
 
   useEffect(() => { sceneRef.current?.setInsetRight(insetRight); }, [insetRight]);
+
+  useEffect(() => { sceneRef.current?.setFrame(frame); }, [frame]);
 
   return (
     <div className="scene-host" ref={hostRef}>

@@ -119,8 +119,9 @@ surface along the plane) to the cutoff state, which is `ascentToState`'s.
 
 The ROCKET tab:
 - **Vehicle:** each stage's numbers, and the stack's delta-v, burn times
-  and thrust-to-weight. Two starting points: a generic two-stage launcher
-  sized for 22 t to low orbit, and Curtis's Example 13.3 rocket.
+  and thrust-to-weight. Starting points: four real launchers
+  ([below](#real-launchers)), a generic two-stage launcher sized for 22 t to
+  low orbit, and Curtis's Example 13.3 rocket.
 - **The job:** an orbit, a geostationary transfer, the Moon, or the
   PLANNER's window. It shows what the job needs against what the stack
   has, and sizes the stack for it.
@@ -152,6 +153,65 @@ The book's checks use Curtis's exponential atmosphere, 1.225 kg/m³ with a
 instead ([the space environment](environment.md#drag)): the 1976 standard
 to 86 km, with its pressure for the Isp, and NASA's MET above 90 km for the
 date and the pad.
+
+## Real launchers
+
+The ROCKET tab starts from four real launchers (`src/physics/launchers.js`).
+
+**How the figures show:**
+- A real launcher's figures sit in unlit, greyed windows as published.
+- A figure its maker doesn't publish has a dashed outline, and its tooltip
+  says it is an estimate.
+- Changing any vehicle figure makes the design the user's own: the windows
+  light, the preset reads "Custom, from …", and **Back to published**
+  restores it.
+- Choosing a real launcher also sets its pad, inclination and orbit.
+- After an ascent, the launcher's real flight is set beside the model's at
+  the same times after liftoff.
+
+| Launcher | Source | Not published (estimated) | Flight beside it |
+| --- | --- | --- | --- |
+| Saturn V (Apollo 11) | NASA SP-2000-4029, *Apollo by the Numbers*: actual weights at ignition, p. 284; F-1 and J-2 ratings as NASA's Saturn V news reference gives them | the drag coefficient; the engine ratings via secondary copies | Apollo 11, p. 103 (space-fixed) |
+| Falcon 9 Block 5 (booster landing) | SpaceX, *Falcon User's Guide* (2025), §2: diameter, thrust | masses, Isp (commonly cited); the landing reserve, fitted | Crew Dragon Demo-1 webcast telemetry (public domain), speed over the ground |
+| Falcon 9 Block 5 (expendable) | as above; 22.8 t to low orbit | as above | none |
+| Electron | Rocket Lab, *Electron Payload User's Guide* v7.0, pp. 12-13 | dry masses, first-stage propellant and sea-level Isp, the kick stage | no open telemetry found |
+
+**How each is modelled:**
+- **Saturn V.** Apollo 11's stage rows add up exactly to its 6,477,875 lb
+  at ignition. Mass that fell away with a stage rides with it, because the
+  model drops mass only at staging: the S-IC/S-II interstage and the escape
+  tower ride on the S-IC, the S-II/S-IVB interstage on the S-II, and the
+  instrument unit on the S-IVB.
+- **Falcon 9 (booster landing).** A recovered first stage keeps propellant
+  back to land, and SpaceX publishes neither that nor the stage masses. The
+  landing preset burns 355 t on the way up, the amount at which the
+  model's first stage cuts off at Demo-1's measured 1.881 km/s over the
+  ground. It carries the other 55.9 t as dead weight.
+- **Electron.** The 13,000 kg at liftoff is Rocket Lab's figure. The dry
+  masses, the first stage's propellant and its sea-level Isp are estimates,
+  and the kick stage rides as part of the 0.3 t payload.
+
+**Against the real flights** (`launchers.test.mjs`):
+
+| Check | Real | Here |
+| --- | --- | --- |
+| Saturn V: S-IC burnout | 161.63 s, 66.1 km, 2.764 km/s | 163.1 s, 82.1 km, 2.661 km/s |
+| Saturn V: S-IVB propellant to reach orbit | 147.13 s at the rated flow: 36.5 t | 38.4 t, keeping 68.7 t for the translunar burn |
+| Saturn V: parking orbit | 186 × 183 km | about 380 km |
+| Falcon 9 (landing): first-stage cutoff | 158 s, 85.3 km, 1.881 km/s | 127 s, 65.3 km, 1.871 km/s (fitted) |
+| Falcon 9 (landing): second-stage cutoff | 548.9 s, 198 km, 7.548 km/s | 493 s, 307 km, 7.423 km/s, 2.5 t left |
+| Falcon 9 (expendable): 22.8 t to low orbit | SpaceX's figure | reaches orbit with every tonne spent |
+| Electron: 0.3 t with the kick stage | 200 kg to 500 km sun-synchronous | reaches orbit at 181 km, every tonne spent |
+
+**What the model leaves out:**
+- **Guidance.** The masses, burn times and staging speeds land close, but
+  the model has no closed-loop guidance: it kicks once and ends level
+  wherever the gravity turn takes it, higher than the real ascents, which
+  were steered to their orbits.
+- **Throttling.** Demo-1 throttled down through max q, so its first stage
+  burned 31 s longer than the model's.
+- **Saturn V's centre engines.** The real S-IC and S-II cut their centre
+  engines early, which the model also leaves out.
 
 ## Checks (`rocket.test.mjs`)
 
