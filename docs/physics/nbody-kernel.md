@@ -337,9 +337,27 @@ period (at most 2,048 steps), with the other accelerations still held
 constant. That gives 5×10⁻⁵ km after 10 minutes and 6.5 m after an hour.
 
 That is within 0.06 km in low orbit and 0.09 km in cruise in the browser.
-During a close planetary pass at very high warp (100 days/s) the drawn
-position can be off by about 11,000 km for a frame (the Moon moves too far for
-a second-order term to follow); the physics itself is unaffected.
+
+Two more rules keep long carries honest (`Craft.carryForward`):
+- **In pieces near a body.** A carry longer than a quarter of the dynamical
+  time $\sqrt{r^3/\mu}$ at the closest the osculating conic comes is split
+  into that many pieces (at most 32), the acceleration found afresh at each.
+  Held through Artemis I's pass 130 km above the Moon, one 25-minute carry was
+  163 km out; in pieces it is 0.15 km.
+- **Burns apart.** The kernel's acceleration holds the thrust of a burn
+  burning at its instant, which a carry would push past the burn's end, and
+  none of a burn that starts within the carry. So the thrust is taken out,
+  the craft coasts to each burn, takes its velocity change there at once (20
+  s of it at a time, each piece along its own direction in the orbital frame
+  of the moment), and coasts on. A 100 m/s burn ten minutes into an hour's
+  carry is drawn within 0.2 km of the kernel; carried with the kernel's
+  acceleration alone it was left out entirely.
+
+At very high warp the kernel can still be a frame or more behind, most of
+all while it holds at a burn for an aimed correction: at a day a second the
+drawn Artemis I was 1,100 km off for a frame, eight hours past its outbound
+powered flyby. The physics itself is unaffected. The drawn state is worked
+out once per frame and shared by the scene and the readouts.
 
 ## Sources
 

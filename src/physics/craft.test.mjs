@@ -166,6 +166,27 @@ header('CASE 5: clock jumps, impacts and errors');
   check('a NaN physics time is flagged, not silently frozen', late.buildRequest() === null && !!late.error);
 }
 
+header('CASE 5b: drawing the craft across a burn the kernel has not reached');
+{
+  // A 100 m/s prograde burn of 100 s, ten minutes after the kernel's state,
+  // in a 7,000 km orbit; the clock an hour on. The drawn state against the
+  // kernel flown to the clock. Carried with the kernel's acceleration alone
+  // the burn was left out: 100 m/s for 50 minutes.
+  for (const startIn of [600, 0]) {
+    const mk = () => { const c = makeCraft('carry', { rk: 7000 }); c.setScript([{ t0: T0 + startIn, t1: T0 + startIn + 100, dir: [1, 0, 0], accel: 1.0 }]); return c; };
+    const drawn = mk(), flown = mk();
+    // Under way: the kernel stopped 30 s into the burn, its acceleration
+    // holding the thrust.
+    if (startIn === 0) { frame(drawn, T0 + startIn + 30); frame(flown, T0 + startIn + 30); }
+    drawn.advanceClock(T0 + 3600);
+    const d = drawn.displayState();
+    frame(flown, T0 + 3600);
+    const err = norm(diff(d.r, flown.kState.r)), errV = norm(diff(d.v, flown.kState.v)) * 1000;
+    console.log(`  burn ${startIn > 0 ? 'starting 10 min into' : '30 s under way at the start of'} an hour's carry: drawn ${err.toFixed(1)} km, ${errV.toFixed(2)} m/s from the kernel's state`);
+    check(`the drawn craft carries a burn ${startIn > 0 ? 'that starts within the carry' : 'under way at its start, and stops it at its end'} (within 20 km and 2 m/s of 100 m/s over an hour)`, err < 20 && errV < 2);
+  }
+}
+
 header('CASE 6: launches and flying a Lambert plan');
 {
   {

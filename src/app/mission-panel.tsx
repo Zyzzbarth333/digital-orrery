@@ -11,6 +11,7 @@ import { useClock } from './clock';
 import { useMission, REAL_MISSIONS, altitudeRadius, type Mission, type DepartureDirection, type RealBurns } from './mission';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { kernelSeconds, kernelMs } from '../physics/kernelHost.js';
+import { heightAbove } from '../physics/entry.js';
 
 const DEG = 180 / Math.PI;
 const fmt = (n: number, d = 1) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -93,6 +94,18 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       ['Speed', `${fmt(rel.v, 4)} km/s`, <Tag src="kernel" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
     ];
     const site = c.crashed ? c.impactSite : null;
+    // Entry (a crew module with its guidance): the bank the guidance flies
+    // and the chutes, by height above the ellipsoid.
+    if (c.entry && !c.crashed && P?.key === 'earth') {
+      const E = mission.sys.bodiesAt(c.clockT).find((b: { key: string }) => b.key === 'earth') as unknown as { eph: { position: (t: number) => number[] }; pole?: number[] };
+      const h = heightAbove(st.r.map((x: number, i: number) => x - E.eph.position(c.clockT)[i]), E.pole ?? [0, 0, 1]);
+      const g = c.entryState as { sign: number; sigma: number; held: boolean } | null;
+      const ch = (c.entry as { chutes?: { drogue: { height: number }; main: { height: number } } }).chutes;
+      const chutes = !ch || h > ch.drogue.height ? 'stowed' : h > ch.main.height ? 'drogues open' : 'mains open';
+      rows.splice(4, 0,
+        ['Bank', g ? `${fmt(g.sign * g.sigma * DEG, 1)}°${g.held ? ', held' : ''}` : '—', <Tag src="guidance" detail="the lift's roll about the air-relative velocity, positive to the left; the size sets the range, the sign steers (entry.js, a predictor-corrector)" />],
+        ['Parachutes', `${chutes} (${fmt(h, 1)} km)`, <Tag src="model" detail={ch ? `drogues below ${fmt(ch.drogue.height, 1)} km, mains below ${fmt(ch.main.height, 1)} km, above the WGS-84 ellipsoid` : ''} />]);
+    }
     if (site) {
       // Down: where and when, not an orbit (it lies on the ground, turning
       // with the body).
@@ -127,7 +140,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     }
     const plan = mission.plan(c);
     if (plan) rows.push([`Closest to ${plan.name}`, `${fmt(plan.closest / 1000, 0)} thousand km`, <Tag src="kernel" derived detail={`so far; planned arrival ${new Date(plan.arrivalMs).toISOString().slice(0, 10)}`} />]);
-    const state = c.crashed ? `Impact: ${c.impactBody}` : c.error ? `Error: ${c.error}` : c.lagSeconds > 60 ? `Behind the clock by ${fmt(c.lagSeconds / 60, 1)} min` : 'Stepping';
+    const state = c.splashed ? 'Splashdown' : c.crashed ? `Impact: ${c.impactBody}` : c.error ? `Error: ${c.error}` : c.lagSeconds > 60 ? `Behind the clock by ${fmt(c.lagSeconds / 60, 1)} min` : 'Stepping';
     readout = (
       <>
         <table className="readout"><tbody>

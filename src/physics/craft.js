@@ -20,7 +20,8 @@
 //   and burns for exactly that long, so it delivers its delta-v.
 // - The drawn state is the kernel state carried forward to the clock along a
 //   two-body orbit about the primary, with the rest of the acceleration to
-//   second order (the kernel answers a frame or more late).
+//   second order, in pieces near a body and with the burns between taken one
+//   by one (the kernel answers a frame or more late).
 
 import { makeEnvironment } from './environment.js';
 import { addJ2 } from './zonal.js';
@@ -28,6 +29,7 @@ import { propagate, rvToElements } from './orbital.js';
 import { accelHeliocentric, primaryOf } from './nbody.js';
 import { eqjToEcl } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
+import { vnbDirection } from './kernelHost.js';
 
 export const G0 = 9.80665;                 // m/s^2, for Isp
 const MAX_CARRY_S = 30 * 86400;
@@ -84,7 +86,8 @@ export class Craft {
   // { degree: 0 } for J2 alone), and cd the drag coefficient.
   // vent: the venting model's options (vent.js; {} for Artemis II's
   // calibration), or null for none.
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null) }) {
+  // entry: a lifting capsule's entry (environment.js, entry.js), or null.
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null) }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys;
@@ -96,6 +99,8 @@ export class Craft {
     this.cr = cr;
     this.cd = cd;
     this.earth = earth;
+    this.entry = entry;
+    this.entryState = null;          // the entry guidance's, from the kernel
     this.vent = vent;
     const bodies = sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
@@ -112,6 +117,7 @@ export class Craft {
     this.crashed = false;
     this.impactBody = null;
     this.impactSite = null;          // { key, t, local: body-fixed km }
+    this.splashed = false;           // came down under its chutes, not crashed
     this.error = null;
     this.log = [];                   // { t, text } for the app to show
     this.clockJumped = false;
@@ -284,14 +290,24 @@ export class Craft {
   }
 
   // What the kernel's environment model needs of this craft.
-  envParams() { return { mass: this.mass, area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}), ...(this.vent ? { vent: this.vent } : {}) }; }
+  envParams() { return { mass: this.mass, area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}), ...(this.vent ? { vent: this.vent } : {}), ...(this.entry ? { entry: { ...this.entry, state: this.entryState } } : {}) }; }
 
   // The same environment, for drawing the craft while the kernel lags
-  // (rebuilt when the mass changes).
+  // (rebuilt when the mass changes). Without the entry's lift and guidance:
+  // a frame's carry is no place for the guidance's predictions.
   environment() {
     const key = `${this.mass}|${this.area}|${this.cr}|${this.cd}`;
-    if (this._envKey !== key) { this._env = makeEnvironment(this.sys, this.envParams()); this._envKey = key; }
+    if (this._envKey !== key) { const { entry, ...p } = this.envParams(); this._env = makeEnvironment(this.sys, p); this._envKey = key; }
     return this._env;
+  }
+
+  // A new configuration from a time on (a capsule leaving its service
+  // module): mass, area, drag coefficient, entry. The kernel's next request
+  // flies it.
+  configure({ dryMass = this.dryMass, fuel = this.fuel, area = this.area, cd = this.cd, cr = this.cr, entry = this.entry, vent = this.vent }) {
+    Object.assign(this, { dryMass, fuel, area, cd, cr, entry, vent });
+    this.entryState = null;
+    this.version++;
   }
 
   // A request whose result will never come: nothing to undo (burns are tied
@@ -303,11 +319,18 @@ export class Craft {
     if (res.error) { this.error = res.error; this.note(`kernel error: ${res.error}`); return; }
     if (res.version !== this.version) return;
     const prev = this.kState.primary;
-    this.kState = { r: res.r, v: res.v, t: res.t, primary: res.primary, accel: res.accel };
+    this.kState = { r: res.r, v: res.v, t: res.t, primary: res.primary, accel: res.accel, withThrust: true };
+    if (res.envState?.entry) this.entryState = res.envState.entry;
     const impact = res.events.find((e) => e.type === 'impact');
     this.lagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
     for (const e of res.events) {
-      if (e.type === 'impact') { this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.impactSite = this.siteOn(e.body, res.r, res.t); this.note(`impact on ${e.body}`, e.t); }
+      if (e.type === 'impact') {
+        this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.impactSite = this.siteOn(e.body, res.r, res.t);
+        // A capsule down on the Earth under its chutes, slower than 25 m/s
+        // over the ground, has splashed down; anything else has crashed.
+        this.splashed = !!this.entry && e.body === 'earth' && this.groundSpeed(res.r, res.v, res.t) < 0.025;
+        this.note(this.splashed ? `splashdown at ${(this.groundSpeed(res.r, res.v, res.t) * 1000).toFixed(1)} m/s` : `impact on ${e.body}`, e.t);
+      }
     }
     if (res.primary !== prev) this.note(`now in the sphere of influence of ${res.primary}`, res.t);
   }
@@ -327,7 +350,19 @@ export class Craft {
     if (this.crashed) return this.onSite(this.clockT) ?? { r: [...this.kState.r], v: [...this.kState.v] };
     let dtx = this.clockT - this.kState.t;
     if (!(dtx > 0)) dtx = 0;
-    return this.carryForward(Math.min(dtx, MAX_CARRY_S));
+    // Asked for several times a frame (the scene, the readouts): carried once.
+    const key = `${this.clockT}|${this.kState.t}|${this.version}|${this.script.length}|${this.burns.length}`, sh = this._shown;
+    if (!sh || sh.key !== key || sh.from !== this.kState || sh.r0 !== this.kState.r) this._shown = { key, from: this.kState, r0: this.kState.r, s: this.carryForward(Math.min(dtx, MAX_CARRY_S)) };
+    return { r: [...this._shown.s.r], v: [...this._shown.s.v] };
+  }
+
+  // Speed over the Earth's turning surface (km/s) at heliocentric r, v.
+  groundSpeed(r, v, t) {
+    const E = this.sys.bodiesAt(t).find((b) => b.key === 'earth');
+    if (!E?.eph) return Infinity;
+    const d = sub(r, E.eph.position(t)), w = E.pole ?? [0, 0, 1], om = 7.2921158553e-5, ve = E.eph.velocity(t);
+    const spin = [om * (w[1] * d[2] - w[2] * d[1]), om * (w[2] * d[0] - w[0] * d[2]), om * (w[0] * d[1] - w[1] * d[0])];
+    return norm([v[0] - ve[0] - spin[0], v[1] - ve[1] - spin[1], v[2] - ve[2] - spin[2]]);
   }
 
   // The impact point in the body's own frame (orientation.js), so it can be
@@ -355,15 +390,100 @@ export class Craft {
     return { r: [0, 1, 2].map((i) => rB[i] + d0[i]), v: [0, 1, 2].map((i) => vB[i] + d1[i] - d0[i]) };
   }
 
+  // The kernel state carried dtx seconds on, for drawing. The burns are
+  // taken separately: the kernel's acceleration holds the thrust of a burn
+  // burning at that instant, which would otherwise be carried past the
+  // burn's end, and none of a burn that starts within the carry (after a
+  // 290 m/s powered flyby, carried a frame of hours, the craft was drawn
+  // thousands of kilometres off). So the craft coasts, without thrust, to
+  // each burn, takes the burn's velocity change there at once, and coasts
+  // on. A burn's 5 s pieces are taken 20 s at a time (through a powered
+  // flyby 130 km above the Moon the orbital frame turns a degree in that),
+  // each along its own direction in the orbital frame of the moment.
   carryForward(dtx) {
     const { r: r0, v: v0, accel: a } = this.kState;
     if (!(dtx > 0)) return { r: [...r0], v: [...v0] };
     const t0 = this.kState.t, t1 = t0 + dtx;
+    const push = (b, t) => b.F / (b.m0 - b.mdot * (t - b.t0)) / 1000;    // km/s^2
+    const along = (b, t, x) => {
+      if (b.frame !== 'vnb') return b.dir;
+      const B = this.sys.bodiesAt(t).find((y) => y.key === b.about);
+      if (!B?.eph) return [0, 0, 0];
+      return vnbDirection(b.dir, sub(x.r, B.eph.position(t)), sub(x.v, B.eph.velocity(t)));
+    };
+    const parts = [...this.burns, ...this.script]
+      .map((b) => ({ b, p: Math.max(b.t0, t0), q: Math.min(b.t1, t1) })).filter((x) => x.q > x.p)
+      .sort((x, y) => x.p - y.p);
+    // The kernel's acceleration holds the thrust at its instant; one set
+    // here (a new craft, a fix) holds gravity alone.
+    const coastAccel = [...a];
+    for (const { b } of this.kState.withThrust ? parts : []) {
+      if (t0 >= b.t0 && t0 < b.t1) { const d = along(b, t0, { r: r0, v: v0 }), k = push(b, t0); for (let i = 0; i < 3; i++) coastAccel[i] -= k * d[i]; }
+    }
+    if (!parts.length) return this.carryCoast(dtx, coastAccel);
+    const groups = [];
+    for (const x of parts) {
+      const g = groups.at(-1);
+      if (g && x.p - g.q < 60 && x.q - g.p <= 20) { g.items.push(x); g.q = Math.max(g.q, x.q); } else groups.push({ p: x.p, q: x.q, items: [x] });
+    }
+    let at = { r: [...r0], v: [...v0], t: t0, accel: coastAccel, primary: this.kState.primary };
+    for (const g of groups) {
+      const tm = (g.p + g.q) / 2;
+      if (tm > at.t) {
+        const x = this.carryCoast(tm - at.t, at.accel, at);
+        at = { ...x, t: tm, accel: accelHeliocentric(x.r, this.sys.bodiesAt(tm), this.sys.muSun), primary: at.primary };
+      }
+      const dv = [0, 0, 0];
+      for (const { b, p, q } of g.items) {
+        const d = along(b, tm, at), k = push(b, (p + q) / 2) * (q - p);
+        for (let i = 0; i < 3; i++) dv[i] += d[i] * k;
+      }
+      at.v = at.v.map((x, i) => x + dv[i]);
+    }
+    return t1 > at.t ? this.carryCoast(t1 - at.t, at.accel, at) : { r: at.r, v: at.v };
+  }
+
+  // The kernel state carried dtx seconds on under gravity and the rest of
+  // acceleration a (the kernel's, less any thrust).
+  // from: the state to carry (default the kernel's), with t and primary.
+  // Near a body a long carry goes in pieces of a quarter of the dynamical
+  // time at the closest the conic comes within it, the acceleration found
+  // afresh at each: held for 25 minutes through Artemis I's pass 130 km
+  // above the Moon, one second-order carry was 163 km out.
+  carryCoast(dtx, a, from = this.kState) {
+    const key = from.primary;
+    const P = key && key !== 'sun' ? this.sys.bodiesAt(from.t).find((b) => b.key === key) : null;
+    let n = 1;
+    if (P?.eph) {
+      const d = sub(from.r, P.eph.position(from.t)), w = sub(from.v, P.eph.velocity(from.t));
+      const r = norm(d), h = norm([d[1] * w[2] - d[2] * w[1], d[2] * w[0] - d[0] * w[2], d[0] * w[1] - d[1] * w[0]]);
+      const e = Math.sqrt(Math.max(0, 1 + (dot(w, w) - 2 * P.mu / r) * h * h / (P.mu * P.mu)));
+      const closest = dot(d, w) < 0 ? Math.min(r, h * h / P.mu / (1 + e)) : r;
+      const piece = 0.25 * Math.sqrt(closest ** 3 / P.mu);
+      n = Math.min(32, Math.max(1, Math.ceil(dtx / piece)));
+    }
+    if (n === 1) return this.carryPiece(dtx, a, from);
+    const env = this.environment();
+    let at = { r: from.r, v: from.v, t: from.t, primary: from.primary }, acc = a, x = null;
+    for (let i = 0; i < n; i++) {
+      x = this.carryPiece(dtx / n, acc, at);
+      at = { r: x.r, v: x.v, t: at.t + dtx / n, primary: from.primary };
+      if (i + 1 < n) {
+        acc = accelHeliocentric(at.r, this.sys.bodiesAt(at.t), this.sys.muSun);
+        if (env) env(at.t, at.r, at.v, acc);
+      }
+    }
+    return x;
+  }
+
+  carryPiece(dtx, a, from) {
+    const { r: r0, v: v0 } = from;
+    const t0 = from.t, t1 = t0 + dtx;
     const bodies = this.sys.bodiesAt(t0);
     // Within three spheres of influence of a planet its pull changes too fast
     // across a frame to be a correction to a solar orbit: carry the craft
     // around that planet instead.
-    let key = this.kState.primary;
+    let key = from.primary;
     if (!key || key === 'sun') {
       for (const b of bodies) {
         if (b.parent) continue;
