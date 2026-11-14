@@ -18,7 +18,7 @@ Code: `src/physics/barycentres.js` (positions), `BARYS` in
 
 | Barycentre | Of | Position |
 | --- | --- | --- |
-| Solar system (SSB) | the Sun, every planet system, Earth, the Moon, Pluto | DE442's own (2000–2050); outside it, $\sum_i \mu_i \mathbf r_i / (\mu_\odot + \sum_i \mu_i)$ over heliocentric positions, DE442 GMs |
+| Solar system (SSB) | the Sun, every planet system, Earth, the Moon, Pluto | DE442's own (2000–2050, blended at the table's ends); outside it, $\sum_i \mu_i \mathbf r_i / (\mu_\odot + \sum_i \mu_i)$ over heliocentric positions, DE442 GMs |
 | Earth-Moon (EMB) | Earth and the Moon | $(\mu_\oplus \mathbf r_\oplus + \mu_☾ \mathbf r_☾)/(\mu_\oplus + \mu_☾)$, DE442 |
 | Mars to Pluto | each planet and its moons | the planet's ephemeris position (DE442's, astronomy-engine's outside 2000–2050), which is this barycentre |
 
@@ -40,10 +40,10 @@ Against JPL Horizons (`barycentres.test.mjs`):
 
 The EMB figures are the fixture's rounding. The SSB's are that rounding
 and the gap between DE442 and Horizons' DE440, which moved Uranus and
-Neptune and with them the SSB. Before the DE442 table starts (J2000, noon
-on 1 January 2000) every body, and so each barycentre, is
-astronomy-engine's: the EMB 2,179 km out at midnight that day, the summed
-SSB 121 km.
+Neptune and with them the SSB. The table now runs past 2000–2050, so
+every date here is DE442's. Before that, 2000-01-01 00:00 fell before the
+table and was astronomy-engine's: the EMB 2,179 km out, the summed SSB
+121 km.
 
 ## In the app
 
@@ -77,11 +77,11 @@ centre and the SSB (`AU · SSB`; `&frame=ssb` in the URL). In the SSB frame:
 
 The scene keeps every position heliocentric; only the lines and readouts
 change, since the two frames differ by a translation. Each orbit line's
-samples take the SSB from the four giants alone (within about 700 km of
-the full SSB, unseen at an orbit's scale, and a quarter of the cost of the
-full sum 360 times over), and the line is centred on that same point so it
-still passes through its body. A planet's line then costs about 9 ms to
-sample, against 3 ms about the Sun, paid when the frame changes and as
+samples take the SSB as `baryStateEqj` gives it (DE442's own, one series
+inside the table), and the line is centred on that same point so it still
+passes through its body. Measured when the SSB was summed from the four
+giants, a planet's line cost about 9 ms to sample, against 3 ms about the
+Sun, paid when the frame changes and as
 lines are resampled.
 
 The small bodies (asteroids and comets) stay drawn about the Sun in either

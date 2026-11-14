@@ -25,7 +25,11 @@ every frame:
   [validation](../validation.md#ephemeris-and-porkchop-porkchoptestmjs).
   Its planets are system barycentres too.
 - **The SSB** (the SSB frame, the Sun's path): DE442's own inside the
-  table; outside it, for orbit lines, from the Sun and the four giants.
+  table; outside it, summed over every body.
+- **At the table's ends** each body blends from DE442 into astronomy-engine
+  over 30 days (Earth) to 8 years (Pluto), so no orbit line kinks where one
+  gives way to the other
+  ([ephemerides](../physics/ephemerides-and-gm.md#at-the-tables-ends)).
 - **Twenty major moons** of Mars to Pluto: astronomy-engine's Galilean
   moons and JPL's mean elements, within 0.3 % of their orbits' radii for
   most; see [Moons](moons.md).

@@ -23,11 +23,10 @@
 // and label in an HTML overlay.
 
 import * as THREE from 'three';
-import { helioStateEcl, eqjToEcl, eclToEqj, deSsbEqj } from '../physics/ephemeris.js';
+import { helioStateEcl, eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
 import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
 import { baryStateEqj } from '../physics/barycentres.js';
-import { bodyConstants, MU_SUN } from '../physics/bodies.js';
 import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
@@ -137,20 +136,12 @@ export function baryState(key: BaryKey, date: Date): BodyState {
 export type Frame = 'sun' | 'ssb';
 // The Sun's path about the SSB is drawn over two of Jupiter's years.
 const SUN_PATH_DAYS = 2 * 4332.59;
-// The SSB for orbit lines: DE442's own (one series) inside its table.
-// Outside it, from the four giants alone: within about 700 km of the full
-// SSB (the inner planets' pull), unseen at an orbit's scale, and a quarter
-// of the cost, 360 times over. The line's origin is this same point, so the
-// line still passes through its body.
-const GIANTS = ['jupiter', 'saturn', 'uranus', 'neptune'];
-const GIANT_GM = GIANTS.map((k) => bodyConstants(k).mu as number);
-const GIANT_TOTAL = MU_SUN + GIANT_GM.reduce((a, b) => a + b, 0);
+// The SSB for orbit lines and the SSB frame, as barycentres.js gives it:
+// DE442's own (one series) inside its table, blended at its ends into the
+// sum over every body used outside it. The line's origin is this same
+// point, so the line still passes through its body.
 function ssbForLines(date: Date): Vec3 {
-  const de = deSsbEqj(date);
-  if (de) return eqjToEcl(de.r) as Vec3;
-  const r: Vec3 = [0, 0, 0];
-  GIANTS.forEach((k, i) => { const p = helioStateEcl(k, date).r; for (let j = 0; j < 3; j++) r[j] += (GIANT_GM[i] * p[j]) / GIANT_TOTAL; });
-  return r;
+  return eqjToEcl(baryStateEqj('ssb', date).r) as Vec3;
 }
 
 // Where a body's orbit line is centred, and over how many days it runs.

@@ -1,7 +1,7 @@
 // src/physics/deTable.js
 //
 // DE442 in the app: Chebyshev series fitted to JPL's DE442 by c/de_cheb.c
-// (public/ephemeris/de442-2000-2050.bin, 2.4 MB), J2000 equatorial km,
+// (public/ephemeris/de442-2000-2050.bin, 2.5 MB), J2000 equatorial km,
 // against TDB seconds past J2000. Each series is a target relative to a
 // centre (NAIF codes):
 //   - the Moon relative to the Earth (8-day intervals, worst 0.3 mm) and the
@@ -16,9 +16,10 @@
 //     solar system barycentre (SSB), where an outer planet moves on a smooth
 //     arc a few coefficients per year cover; heliocentric, it would carry the
 //     Sun's 450 km annual wobble. Here they are planet - Sun.
-// Every body relative to the Sun is within 0.82 m of SPICE (de_cheb's own
-// check, docs/physics/ephemerides-and-gm.md). ephemeris.js uses them inside
-// the table's span and astronomy-engine elsewhere.
+// Every body relative to the Sun is within 0.86 m of SPICE (de_cheb's own
+// check, docs/physics/ephemerides-and-gm.md). Each series runs past
+// 2000-2050 by a margin over which ephemeris.js blends it into
+// astronomy-engine, which it uses beyond.
 //
 // The table is installed once per thread before anything asks for a
 // position: deLoad.js in the browser (the main thread and each worker),
@@ -51,6 +52,22 @@ export function parseDeTable(buffer) {
 
 export function installDeTable(parsed) { table = parsed; }
 export function deTableInstalled() { return table !== null; }
+
+// The span a body's state covers, TDB seconds past J2000: its series, and
+// for one about the SSB the Sun's too. 'ssb' is the Sun's series. null when
+// no table is installed or the key is not in it.
+export function deKeySpan(key) {
+  if (!table) return null;
+  const span = (...ids) => {
+    const s = ids.map((id) => table.series.get(id));
+    return [Math.max(...s.map((x) => x.t0)), Math.min(...s.map((x) => x.t0 + x.n * x.len))];
+  };
+  if (key === 'earth' || key === 'moon') return span(3, MOON);
+  if (key === 'ssb') return span(SUN);
+  const id = DE_KEYS[key];
+  if (id === undefined) return null;
+  return table.series.get(id).centre === SSB ? span(id, SUN) : span(id);
+}
 
 // The span covered, in TDB seconds past J2000 (the narrowest of the series).
 export function deSpan() {

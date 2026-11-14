@@ -21,6 +21,8 @@
  *
  *   usage: de_cheb <out.bin> <first year> <last year (exclusive)>
  *
+ * Each series also runs past those years by its margin (BODIES below).
+ *
  * Each body's span is cut into equal intervals; on each the series is fitted
  * at the Chebyshev-Gauss nodes (a discrete cosine transform, exact for a
  * polynomial of that degree), then checked against spkezr_c between the
@@ -46,19 +48,24 @@
 #include <unistd.h>
 #include "SpiceUsr.h"
 
-typedef struct { int id, centre; const char *target, *center; double days; int ncoef; } Body;
+typedef struct { int id, centre; const char *target, *center; double days; int ncoef; double margin; } Body;
+/* Each series runs past the requested years by its margin (days): the app
+ * blends DE442 into astronomy-engine over those margins (ephemeris.js), so
+ * the requested years themselves are DE442 throughout. A margin is as long
+ * as the blend; the Sun's covers the longest of the outer planets it is
+ * subtracted from. */
 static Body BODIES[] = {
-  { 301, 399, "MOON", "EARTH", 8.0, 18 },
-  { 3, 10, "EARTH BARYCENTER", "SUN", 16.0, 14 },
-  { 1, 10, "MERCURY BARYCENTER", "SUN", 16.0, 16 },
-  { 2, 10, "VENUS BARYCENTER", "SUN", 32.0, 13 },
-  { 4, 10, "MARS BARYCENTER", "SUN", 32.0, 12 },
-  { 10, 0, "SUN", "SOLAR SYSTEM BARYCENTER", 32.0, 12 },
-  { 5, 0, "JUPITER BARYCENTER", "SOLAR SYSTEM BARYCENTER", 128.0, 10 },
-  { 6, 0, "SATURN BARYCENTER", "SOLAR SYSTEM BARYCENTER", 256.0, 11 },
-  { 7, 0, "URANUS BARYCENTER", "SOLAR SYSTEM BARYCENTER", 512.0, 12 },
-  { 8, 0, "NEPTUNE BARYCENTER", "SOLAR SYSTEM BARYCENTER", 1024.0, 12 },
-  { 9, 0, "PLUTO BARYCENTER", "SOLAR SYSTEM BARYCENTER", 1024.0, 12 },
+  { 301, 399, "MOON", "EARTH", 8.0, 18, 30 },
+  { 3, 10, "EARTH BARYCENTER", "SUN", 16.0, 14, 30 },
+  { 1, 10, "MERCURY BARYCENTER", "SUN", 16.0, 16, 30 },
+  { 2, 10, "VENUS BARYCENTER", "SUN", 32.0, 13, 30 },
+  { 4, 10, "MARS BARYCENTER", "SUN", 32.0, 12, 60 },
+  { 10, 0, "SUN", "SOLAR SYSTEM BARYCENTER", 32.0, 12, 2922 },
+  { 5, 0, "JUPITER BARYCENTER", "SOLAR SYSTEM BARYCENTER", 128.0, 10, 365 },
+  { 6, 0, "SATURN BARYCENTER", "SOLAR SYSTEM BARYCENTER", 256.0, 11, 365 },
+  { 7, 0, "URANUS BARYCENTER", "SOLAR SYSTEM BARYCENTER", 512.0, 12, 730 },
+  { 8, 0, "NEPTUNE BARYCENTER", "SOLAR SYSTEM BARYCENTER", 1024.0, 12, 1461 },
+  { 9, 0, "PLUTO BARYCENTER", "SOLAR SYSTEM BARYCENTER", 1024.0, 12, 2922 },
 };
 #define NB ((int)(sizeof BODIES / sizeof BODIES[0]))
 #define SUN_SERIES 5
@@ -160,10 +167,12 @@ int main(int argc, char **argv) {
   double head[3] = { 3, NB, kMoon };
   fwrite(head, sizeof(double), 3, f);
   int nint[NB];
+  double t0[NB];
   for (int k = 0; k < NB; k++) {
     const double len = BODIES[k].days * 86400.0;
-    nint[k] = (int)ceil((et1 - et0) / len);
-    double h[6] = { BODIES[k].id, BODIES[k].centre, et0, len, nint[k], BODIES[k].ncoef };
+    t0[k] = et0 - BODIES[k].margin * 86400.0;
+    nint[k] = (int)ceil((et1 + BODIES[k].margin * 86400.0 - t0[k]) / len);
+    double h[6] = { BODIES[k].id, BODIES[k].centre, t0[k], len, nint[k], BODIES[k].ncoef };
     fwrite(h, sizeof(double), 6, f);
   }
   double *all[NB];
@@ -176,7 +185,7 @@ int main(int argc, char **argv) {
     double worst = 0, worstA = 0, jumpR = 0, jumpV = 0, jumpA = 0;
     for (int i = 0; i < nint[k]; i++) {
       double *c = all[k] + (size_t)i * 3 * n;
-      const double a = et0 + i * len, mid = a + len / 2;
+      const double a = t0[k] + i * len, mid = a + len / 2;
       for (int q = 0; q < n; q++) {
         const double x = cos(M_PI * (q + 0.5) / n);
         double p[3];
@@ -216,13 +225,14 @@ int main(int argc, char **argv) {
   }
   /* The derived Earth, against SPICE's Earth relative to the Sun. */
   {
-    const Body earth = { 0, 0, "EARTH", "SUN", 0, 0 };
+    const Body earth = { 0, 0, "EARTH", "SUN", 0, 0, 0 };
     const Body *M = &BODIES[0], *E = &BODIES[1];
     const double lm = M->days * 86400.0, le = E->days * 86400.0;
     double worst = 0, worstA = 0;
-    for (double et = et0 + 1000; et < et1 - 1000; et += 86400.0 * 0.37) {
-      const int im = (int)((et - et0) / lm), ie = (int)((et - et0) / le);
-      const double xm = 2 * (et - (et0 + im * lm)) / lm - 1, xe = 2 * (et - (et0 + ie * le)) / le - 1;
+    const double a = t0[0] > t0[1] ? t0[0] : t0[1], z = et1 + M->margin * 86400.0;
+    for (double et = a + 1000; et < z - 1000; et += 86400.0 * 0.37) {
+      const int im = (int)((et - t0[0]) / lm), ie = (int)((et - t0[1]) / le);
+      const double xm = 2 * (et - (t0[0] + im * lm)) / lm - 1, xe = 2 * (et - (t0[1] + ie * le)) / le - 1;
       double rm[3], vm[3], am[3], re[3], ve[3], ae[3], p[3], ar[3], r[3], ac[3];
       state3(all[0] + (size_t)im * 3 * M->ncoef, M->ncoef, xm, lm, rm, vm, am);
       state3(all[1] + (size_t)ie * 3 * E->ncoef, E->ncoef, xe, le, re, ve, ae);
@@ -239,13 +249,14 @@ int main(int argc, char **argv) {
   for (int k = 2; k < NB; k++) {
     if (k == SUN_SERIES) continue;
     const Body *B = &BODIES[k], *S = &BODIES[SUN_SERIES];
-    const Body helio = { 0, 0, B->target, "SUN", 0, 0 };
+    const Body helio = { 0, 0, B->target, "SUN", 0, 0, 0 };
     const double lb = B->days * 86400.0, ls = S->days * 86400.0;
     const double h = B->centre == 0 ? 3600 : 300;
     double worst = 0, worstA = 0;
-    for (double et = et0 + 1000; et < et1 - 1000; et += 86400.0 * 0.37) {
-      const int ib = (int)((et - et0) / lb), is = (int)((et - et0) / ls);
-      const double xb = 2 * (et - (et0 + ib * lb)) / lb - 1, xs = 2 * (et - (et0 + is * ls)) / ls - 1;
+    const double a = t0[k], z = et1 + B->margin * 86400.0;
+    for (double et = a + 1000; et < z - 1000; et += 86400.0 * 0.37) {
+      const int ib = (int)((et - t0[k]) / lb), is = (int)((et - t0[SUN_SERIES]) / ls);
+      const double xb = 2 * (et - (t0[k] + ib * lb)) / lb - 1, xs = 2 * (et - (t0[SUN_SERIES] + is * ls)) / ls - 1;
       double r[3], v[3], ac[3], rs[3], vs[3], as[3], p[3], ar[3];
       state3(all[k] + (size_t)ib * 3 * B->ncoef, B->ncoef, xb, lb, r, v, ac);
       if (B->centre == 0) {

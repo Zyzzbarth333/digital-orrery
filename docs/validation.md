@@ -31,11 +31,24 @@ tests (it shares no code with the models).
 | --- | --- | --- |
 | the app's eight planets (DE442 Chebyshev table), 3 epochs, from UTC | DE442 via CSPICE | 2.8 m (Mercury at J2000, whose UTC is rounded to 1 ms), 0.002 mm/s |
 | the app's Earth (DE442 Chebyshev table), 4 epochs, from UTC | DE442 via CSPICE | 0.09 m (2.2 m at J2000) |
-| the table's series, every body about the Sun, 2000–2050 between the fitting nodes (`c/de_cheb.c`) | DE442 via CSPICE | under 0.82 m (Neptune); accelerations within 7×10⁻⁹ m/s² |
+| the table's series, every body about the Sun, 2000–2050 and its margins, between the fitting nodes (`c/de_cheb.c`) | DE442 via CSPICE | under 0.86 m (Neptune); accelerations within 7×10⁻⁹ m/s² |
 | astronomy-engine (the fallback outside 2000–2050), Venus/Earth/Mars | DE442 via CSPICE | 2.3×10⁻⁵ relative, 1.3 m/s |
 | astronomy-engine, all eight planets | DE442 | 9.3×10⁻⁵, 9.4 m/s |
 | porkchop cell on MSL dates | DE442 Lambert | C3 agrees to 2.4×10⁻⁶ km²/s², arrival v∞ to 0.5 mm/s (10⁻⁴ and 5 m/s on astronomy-engine) |
 | 2011 Mars window | physical | all 11,011 cells solved; minimum C3 9.00 km²/s² inside the grid |
+
+## The DE442 table's ends (`deTable.test.mjs`)
+
+Each body blends from DE442 into astronomy-engine over the table's
+margins ([ephemerides](physics/ephemerides-and-gm.md#at-the-tables-ends)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| every body and the SSB, 2000-01-01 12:00, 2026 and 2050-12-31 | DE442 alone | yes |
+| each body at the table's ends | astronomy-engine | under 1 mm |
+| velocity inside the blend | central difference of positions | 0.3 mm/s, astronomy-engine's own (Pluto's own: 0.25 m/s) |
+| the ramp's own acceleration | the Sun's pull there | 0.02 % (Earth) to 0.8 % (Pluto) |
+| the kernel's TT path across the end, 2 s | the body's motion | no jump (to 1 m) |
 
 ## Major moons (`moons.test.mjs`)
 
@@ -59,7 +72,7 @@ the full table, per moon, is in [Moons](frontend/moons.md#how-right-they-are).
 | Model | Reference | Result |
 | --- | --- | --- |
 | SSB about the Sun, DE442's own (the table's Sun series) | Horizons (0 about 10, DE440), daily Nov 2026 and yearly 2000–2050 | 0.22 km, 0.24 km (astronomy-engine's own SSB: 444 km, 1,485 km) |
-| SSB about the Sun before the table, from every planet system, Earth, the Moon and Pluto on astronomy-engine | Horizons, 2000-01-01 00:00 | 121 km |
+| SSB from every planet system, Earth, the Moon and Pluto on astronomy-engine (used outside the table) | Horizons, 2000-01-01 00:00, measured when that was before the table | 121 km |
 | Earth-Moon barycentre about the Sun, from DE442 | Horizons (3 about 10) | 0.11 km, the fixture's rounding |
 
 ## Trajectory search (`trajsearch.test.mjs`)
