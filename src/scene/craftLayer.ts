@@ -140,7 +140,8 @@ export class CraftLayer {
       const ndc = toRender([v.rEcl[0] - cam[0], v.rEcl[1] - cam[1], v.rEcl[2] - cam[2]], unitKm, this.tmp).project(camera);
       if (ndc.z > 1 || ndc.z < -1) { d.marker.style.display = 'none'; continue; }
       d.marker.style.display = '';
-      d.marker.style.transform = `translate(${((ndc.x + 1) / 2) * w}px, ${((1 - ndc.y) / 2) * h}px)`;
+      const dpr = window.devicePixelRatio || 1;
+      d.marker.style.transform = `translate(${Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr}px, ${Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr}px)`;
     }
   }
 

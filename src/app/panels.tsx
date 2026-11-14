@@ -1,17 +1,16 @@
 // src/app/panels.tsx
 //
 // The instrument panels around the sky: the header band (clock and rate in
-// readout windows, the RUN and NOW keys, indicator lamps), the body rail and
-// the data plate. Every readout in the plate carries its source (the
-// provenance column): a solid tag for data, a dashed one for values derived
-// here. Numbers are re-read from the ephemeris at most ten times a second.
+// readout windows, the RUN and NOW keys, the FLIGHT field, indicator lamps),
+// the body rail and the data plate. Every readout in the plate carries its
+// source (the provenance column): a solid tag for data, a dashed one for
+// values derived here. Numbers are re-read from the ephemeris at most ten
+// times a second, and the header and rail redraw only when what they show
+// changes.
 
-import { useState } from 'react';
-import { useClock, type SimClock } from './clock';
-import { useMission, type Mission } from './mission';
-import { MissionPanel } from './mission-panel';
-import { PlannerPanel } from './planner-panel';
-import { RocketPanel } from './rocket-panel';
+import { useState, useSyncExternalStore } from 'react';
+import { useClock, useClockValue, type SimClock } from './clock';
+import type { Mission } from './mission';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { bodyState } from '../scene/OrreryScene';
 import { MU_SUN } from '../physics/bodies.js';
@@ -47,21 +46,72 @@ function span(ms: number): string {
   return `${sign}${Math.round(a / 60)} min`;
 }
 
-export function TimeBand({ clock, mission }: { clock: SimClock; mission: Mission }) {
-  const s = useClock(clock);
-  useMission(mission);
-  const iso = new Date(s.timeMs).toISOString();
-  const live = Math.abs(s.timeMs - Date.now()) < 60e3;
-  const jump = s.lastJump;
+// The clock's window: the one part of the header that changes every second.
+function ClockWindow({ clock }: { clock: SimClock }) {
+  const sec = useClockValue(clock, (s) => Math.floor(s.timeMs / 1000));
+  const playing = useClockValue(clock, (s) => s.playing);
+  const iso = new Date(sec * 1000).toISOString();
+  return (
+    <time className={`window clock${playing ? '' : ' held'}`} dateTime={iso} aria-labelledby="utc-label">
+      {iso.slice(0, 10)} {iso.slice(11, 19)}{!playing && <span className="hold">Hold</span>}
+    </time>
+  );
+}
+
+// A store value that redraws only when its key changes (Object.is).
+function useMissionValue<T>(mission: Mission, select: () => T): T {
+  return useSyncExternalStore(mission.subscribe, select);
+}
+
+// The header's FLIGHT field: missions and craft are the app's, not a
+// body's, so they are reached from here whatever is in view. The window
+// names the selected craft and its state, and follows it when pressed;
+// the key opens the flight console.
+function FlightField({ mission, consoleOpen, onToggleConsole, following, onFollow }: {
+  mission: Mission; consoleOpen: boolean; onToggleConsole: () => void; following: number | null; onFollow: (id: number) => void;
+}) {
+  const key = useMissionValue(mission, () => {
+    const c = mission.selected, n = mission.crafts.length;
+    if (!c) return `none|||${n}`;
+    const state = c.crashed ? 'Lost' : c.error ? 'Fault' : c.thrusting() ? 'Burn' : 'Coast';
+    return `${c.id}|${c.name}|${state}|${n}`;
+  });
+  const [id, name, state, countStr] = key.split('|');
+  const craft = id !== 'none', others = Number(countStr) - (craft ? 1 : 0);
+  return (
+    <div className="field flight">
+      <span className="engraved" id="flight-label">Flight</span>
+      <button className={`window craft-window${craft ? '' : ' empty'}${following !== null && String(following) === id ? ' followed' : ''}`}
+        aria-labelledby="flight-label" disabled={!craft} onClick={() => craft && onFollow(Number(id))}
+        title={craft ? `Follow ${name} with the camera` : 'No craft yet: open the console to launch one or fly a real mission'}>
+        <span className="glyph" aria-hidden="true" />
+        {craft ? <><span className="craft-name">{name}</span><span className={`craft-state s-${state.toLowerCase()}`}>{state}</span></>
+          : <span className="craft-name">No craft</span>}
+        {craft && others > 0 && <span className="craft-count" title={`${others} more in the console`}>+{others}</span>}
+      </button>
+      <button className="key console-key" aria-expanded={consoleOpen} aria-controls="flight-console" onClick={onToggleConsole}
+        title={`${consoleOpen ? 'Close' : 'Open'} the flight console: missions, planner, rocket (M)`}>Console</button>
+    </div>
+  );
+}
+
+export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, following, onFollow }: {
+  clock: SimClock; mission: Mission; consoleOpen: boolean; onToggleConsole: () => void; following: number | null; onFollow: (id: number) => void;
+}) {
+  const playing = useClockValue(clock, (s) => s.playing);
+  const rate = useClockValue(clock, (s) => s.rate);
+  const jump = useClockValue(clock, (s) => s.lastJump);
+  const live = useClockValue(clock, (s) => Math.abs(s.timeMs - Date.now()) < 60e3);
+  const lamps = useMissionValue(mission, () => `${+mission.stepping}${+mission.lagging}${+mission.warning}${+mission.alarm}|${mission.warningText}`);
+  const [flags, warningText] = [lamps.slice(0, 4), lamps.slice(5)];
+  const s = { playing, rate };
   return (
     <header className="band screw">
       <span className="pnl" aria-hidden="true">PNL F1</span>
       <h1 className="wordmark">digital-orrery</h1>
       <div className="field">
         <span className="engraved" id="utc-label">UTC</span>
-        <time className={`window clock${s.playing ? '' : ' held'}`} dateTime={iso} aria-labelledby="utc-label">
-          {iso.slice(0, 10)} {iso.slice(11, 19)}{!s.playing && <span className="hold">Hold</span>}
-        </time>
+        <ClockWindow clock={clock} />
         {/* The jump notice hangs just under the clock it is about, so the
             header keeps its width (inline where the header wraps). */}
         {jump && (
@@ -84,31 +134,36 @@ export function TimeBand({ clock, mission }: { clock: SimClock; mission: Mission
         <button className="key hold" role="radio" aria-checked={!s.playing} onClick={() => clock.setPlaying(false)} title="Hold time (Space)">Hold</button>
         <button className="key" onClick={() => clock.setTime(Date.now())} disabled={live} title={live ? 'Already at the present' : 'Jump to now (N)'}>Now</button>
       </div>
+      <FlightField mission={mission} consoleOpen={consoleOpen} onToggleConsole={onToggleConsole} following={following} onFollow={onFollow} />
       {/* Annunciator, after the Shuttle's caution and warning panel: green
           advisories, amber caution, red warning. Every light is labelled
           (never colour alone); a warning sounds the master alarm, which ACK
           clears, but its light stays lit while the condition lasts. */}
       <div className="annunciator" role="group" aria-label="Status">
         <Lamp on={live} label="Live" title="The sim clock is within a minute of now" />
-        <Lamp on={mission.stepping} label="Kernel" title="The n-body kernel is stepping a craft" />
-        <Lamp on={mission.lagging} label="Lag" kind="caution" title="A craft is more than a minute behind the clock; the kernel catches up rather than take unsafe steps" />
-        <Lamp on={mission.warning} label="Warn" kind="warning" title={mission.warningText || 'A craft has crashed or the kernel refused it'} />
-        {mission.alarm && <button className="key small master" onClick={() => mission.acknowledge()} title="Acknowledge the master alarm">Ack</button>}
+        <Lamp on={flags[0] === '1'} label="Kernel" title="The n-body kernel is stepping a craft" />
+        <Lamp on={flags[1] === '1'} label="Lag" kind="caution" title="A craft is more than a minute behind the clock; the kernel catches up rather than take unsafe steps" />
+        <Lamp on={flags[2] === '1'} label="Warn" kind="warning" title={warningText || 'A craft has crashed or the kernel refused it'} />
+        {flags[3] === '1' && <button className="key small master" onClick={() => mission.acknowledge()} title="Acknowledge the master alarm">Ack</button>}
       </div>
     </header>
   );
 }
 
 export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: BodyKey | null; onSelect: (k: BodyKey) => void }) {
-  const s = useClock(clock);
-  const date = new Date(s.timeMs);
+  // Redraw when a shown distance (two decimals) changes, not every tick.
+  const dists = useClockValue(clock, (s) => {
+    const date = new Date(s.timeMs);
+    return BODIES.map((b) => (b.key === 'sun' ? '' : (norm(bodyState(b.key, date).r) / AU_KM).toFixed(3))).join(',');
+  }).split(',');
   return (
     <nav className="rail screw" aria-labelledby="bodies-label">
       <span className="pnl" aria-hidden="true">L1</span>
+      <p className="rail-mark" aria-hidden="true">digital-orrery</p>
       <h2 className="strip split" id="bodies-label"><span>Bodies</span><span title="distance from the Sun">AU</span></h2>
       <ul className="body-list">
-        {BODIES.map((b) => {
-          const r = b.key === 'sun' ? null : norm(bodyState(b.key, date).r) / AU_KM;
+        {BODIES.map((b, i) => {
+          const r = b.key === 'sun' ? null : Number(dists[i]);
           return (
             <li key={b.key}>
               <button className={`body-row${b.parent === 'earth' ? ' child' : ''}`} aria-current={b.key === focus}
@@ -124,7 +179,8 @@ export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: B
       <div className="rail-foot">
         <p><kbd>Space</kbd> run/hold · <kbd>←</kbd><kbd>→</kbd> rate</p>
         <p><kbd>↑</kbd><kbd>↓</kbd> body · <kbd>N</kbd> now</p>
-        <p>Drag to turn, scroll to zoom.</p>
+        <p><kbd>M</kbd> flight console · <kbd>Esc</kbd> stop</p>
+        <p>Choose a body to fly there; drag to turn, scroll to zoom.</p>
         <a href="https://github.com/Zyzzbarth333/digital-orrery/blob/main/docs/README.md" target="_blank" rel="noreferrer">How it works</a>
       </div>
     </nav>
@@ -182,28 +238,16 @@ function Readout({ rows }: { rows: Row[] }) {
 
 const AE = 'astronomy-engine; within 1e-4 of the Sun distance of DE442, checked with CSPICE';
 
-export type PlateTab = 'target' | 'mission' | 'planner' | 'rocket';
-
-// The right-hand plate: three tabs on the same panel.
-export function Plate({ clock, focus, mission, tab, setTab, onFocusCraft, autoPlan = null }: {
-  clock: SimClock; focus: BodyKey; mission: Mission; tab: PlateTab; setTab: (t: PlateTab) => void; onFocusCraft: (id: number) => void; autoPlan?: string | null;
-}) {
+// The right-hand plate: the data of the body in view. Missions, the
+// planner and the rocket moved to the flight console (console.tsx).
+export function Plate({ clock, focus }: { clock: SimClock; focus: BodyKey }) {
   const [collapsed, setCollapsed] = useState(true);
-  const tabs: [PlateTab, string][] = [['target', 'Target'], ['mission', 'Mission'], ['planner', 'Planner'], ['rocket', 'Rocket']];
   return (
-    <aside className="plate screw" aria-label="Readouts" data-collapsed={collapsed}>
+    <aside className="plate screw" aria-label="Target readouts" data-collapsed={collapsed}>
       <span className="pnl" aria-hidden="true">R1</span>
-      <div className="tabs" role="tablist" aria-label="Plate">
-        {tabs.map(([k, label]) => (
-          <button key={k} role="tab" id={`tab-${k}`} aria-selected={tab === k} aria-controls={`panel-${k}`} className="key tab" onClick={() => setTab(k)}>{label}</button>
-        ))}
-        <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show' : 'Hide'}</button>
-      </div>
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="tab-panel">
-        {tab === 'target' && <DataPlate clock={clock} focus={focus} />}
-        {tab === 'mission' && <MissionPanel clock={clock} mission={mission} onFocusCraft={onFocusCraft} />}
-        {tab === 'rocket' && <RocketPanel clock={clock} mission={mission} onFlown={(id) => { setTab('mission'); onFocusCraft(id); }} />}
-        {tab === 'planner' && <PlannerPanel clock={clock} mission={mission} autoPlan={autoPlan} onFlown={(id) => { setTab('mission'); onFocusCraft(id); }} />}
+      <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show data' : 'Hide data'}</button>
+      <div className="tab-panel">
+        <DataPlate clock={clock} focus={focus} />
       </div>
     </aside>
   );

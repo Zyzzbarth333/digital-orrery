@@ -76,8 +76,7 @@ const glareFragment = /* glsl */ `
 #define PI 3.141592653589793
 uniform vec3 sunDir;        // unit vector to the Sun, view space
 uniform vec2 resolution;    // drawing buffer, px
-uniform float tanHalfFov;
-uniform float aspect;
+uniform mat4 projInv;       // inverse projection (honours a view offset)
 uniform float level;        // irradiance at the camera x visible fraction x strength
 uniform float sunRadius;    // angular radius, deg
 uniform float time;         // s
@@ -93,7 +92,8 @@ float needles(float a, float n, float t) {
 
 void main() {
   vec2 ndc = gl_FragCoord.xy / resolution * 2.0 - 1.0;
-  vec3 ray = normalize(vec3(ndc.x * tanHalfFov * aspect, ndc.y * tanHalfFov, -1.0));
+  vec4 v = projInv * vec4(ndc, 1.0, 1.0);
+  vec3 ray = normalize(v.xyz / v.w);
   float cosT = dot(ray, sunDir);
   float theta = degrees(acos(clamp(cosT, -1.0, 1.0)));
   if (theta < sunRadius) discard;              // the disc draws itself
@@ -133,8 +133,7 @@ export class SunGlare {
       uniforms: {
         sunDir: { value: new THREE.Vector3(0, 0, -1) },
         resolution: { value: new THREE.Vector2(1, 1) },
-        tanHalfFov: { value: 1 },
-        aspect: { value: 1 },
+        projInv: { value: new THREE.Matrix4() },
         level: { value: 0 },
         sunRadius: { value: 0.25 },
         time: { value: 0 },
@@ -156,8 +155,7 @@ export class SunGlare {
     const d = sunPos.length();
     (u.sunDir.value as THREE.Vector3).copy(this.tmp.copy(sunPos).transformDirection(this.view));
     (u.resolution.value as THREE.Vector2).copy(buffer);
-    u.tanHalfFov.value = Math.tan((camera.fov * Math.PI) / 360);
-    u.aspect.value = camera.aspect;
+    (u.projInv.value as THREE.Matrix4).copy(camera.projectionMatrixInverse);
     u.sunRadius.value = (Math.asin(Math.min(1, sunRadius / d)) * 180) / Math.PI;
     u.level.value = irradiance * visible * GLARE_STRENGTH;
     u.time.value = timeS;

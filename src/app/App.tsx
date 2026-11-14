@@ -1,9 +1,10 @@
 // src/app/App.tsx
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SimClock } from './clock';
 import { SceneView } from '../scene/SceneView';
-import { BodyRail, Plate, RATES, TimeBand, type PlateTab } from './panels';
+import { BodyRail, Plate, RATES, TimeBand } from './panels';
+import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
 import type { OrreryScene } from '../scene/OrreryScene';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
@@ -37,7 +38,31 @@ export function App() {
   const init = useMemo(initialState, []);
   const clock = useMemo(() => new SimClock(init.timeMs), [init]);
   const [focus, setFocus] = useState<BodyKey>(init.focus);
-  const [tab, setTab] = useState<PlateTab>(init.plan ? 'planner' : init.craft || init.real ? 'mission' : 'target');
+  // The flight console is the app's, not a body's: choosing a body never
+  // closes it (docs/ux/overhaul-plan.md, point 5).
+  const [consoleOpen, setConsoleOpen] = useState(Boolean(init.plan || init.craft || init.real));
+  const [tab, setTab] = useState<ConsoleTab>(init.plan ? 'planner' : 'mission');
+  const [flying, setFlying] = useState(false);
+  const openConsole = (t: ConsoleTab) => { setTab(t); setConsoleOpen(true); };
+  // How much of the sky the console covers on the right (none where it
+  // docks below the sky on a phone): the 3D view keeps the body clear of it.
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [inset, setInset] = useState(0);
+  useLayoutEffect(() => {
+    const dock = dockRef.current;
+    if (!consoleOpen || !dock) { setInset(0); return; }
+    const measure = () => {
+      const host = document.querySelector('.scene-host');
+      if (!host) return;
+      const d = dock.getBoundingClientRect(), sky = host.getBoundingClientRect();
+      const overlapY = Math.min(d.bottom, sky.bottom) - Math.max(d.top, sky.top);
+      setInset(overlapY > sky.height / 2 ? Math.max(0, Math.round(sky.right - d.left)) : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(dock); ro.observe(document.body);
+    return () => ro.disconnect();
+  }, [consoleOpen]);
   const mission = useMemo(() => new Mission(), []);
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
@@ -47,7 +72,8 @@ export function App() {
     scene.current = sc;
     sc.onFrame = (t, jumps) => mission.frame(t, jumps);
     sc.craftSource = () => mission.views();
-    sc.onCraftPick = (id) => { followCraft(id); setTab('mission'); };
+    sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
+    sc.onFlight = setFlying;
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
     const [kind, a, b] = (init.craft ?? '').split(',');
     // React's development double-mount builds the scene twice: a craft
@@ -80,6 +106,10 @@ export function App() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (e.altKey || e.ctrlKey || e.metaKey || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      // Escape stops a flight first (the scene handles that), then closes
+      // the console.
+      if (e.key === 'Escape') { if (!e.defaultPrevented && consoleOpen) setConsoleOpen(false); return; }
+      if (e.key === 'm' || e.key === 'M') { setConsoleOpen(!consoleOpen); e.preventDefault(); return; }
       const s = clock.snapshot;
       const ri = Math.max(0, RATES.findIndex((r) => r.rate === s.rate));
       const bi = BODIES.findIndex((b) => b.key === focus);
@@ -94,15 +124,24 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clock, focus]);
+  }, [clock, focus, consoleOpen]);
 
   return (
     <div className="app">
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady}
-        onFrame={(t, jumps) => mission.frame(t, jumps)} />
-      <TimeBand clock={clock} mission={mission} />
-      <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); setTab('target'); }} />
-      <Plate clock={clock} focus={focus} mission={mission} tab={tab} setTab={setTab} onFocusCraft={followCraft} autoPlan={init.plan} />
+        onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
+        view={following === null ? { kind: 'focus', name: BODY_BY_KEY[focus].name } : { kind: 'follow', name: mission.crafts.find((c) => c.id === following)?.name ?? 'Craft' }}
+        flying={flying} />
+      <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
+        following={following} onFollow={followCraft} />
+      <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); }} />
+      <Plate clock={clock} focus={focus} />
+      {consoleOpen && (
+        <div className="console-dock" id="flight-console" ref={dockRef}>
+          <FlightConsole clock={clock} mission={mission} tab={tab} setTab={setTab} onClose={() => setConsoleOpen(false)}
+            onFocusCraft={followCraft} autoPlan={init.plan} />
+        </div>
+      )}
     </div>
   );
 }

@@ -135,6 +135,13 @@ export class OrreryScene {
   // draws what craftSource returns, and the camera can follow one craft.
   onFrame: (timeMs: number, jumps: number) => void = () => {};
   onContextLost: (lost: boolean) => void = () => {};
+  onFlight: (flying: boolean) => void = () => {};
+  get flying(): boolean { return this.rig.flying; }
+  // Pixels of the sky covered on the right (the flight console): the view's
+  // centre moves left by half of it, easing over a quarter second.
+  private insetGoal = 0;
+  private inset = 0;
+  setInsetRight(px: number): void { this.insetGoal = px; }
   craftSource: () => CraftView[] = () => [];
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
@@ -183,6 +190,7 @@ export class OrreryScene {
     this.camera = new THREE.PerspectiveCamera(45, 1, 1e-3, 1e10);
     this.camera.position.set(0, 0, 0);
     this.rig = new CameraRig(this.bodyAnchor('sun'));
+    this.rig.onArrive = () => this.onFlight(false);
 
     // No light objects: each body's material computes its own sunlight.
     // The Sun's disc is drawn at its true surface brightness relative to a
@@ -295,6 +303,7 @@ export class OrreryScene {
     const d = this.craftDist ?? 2.0e4;
     if (immediate) this.rig.jumpTo(this.craftAnchor(id), d);
     else this.rig.flyTo(this.craftAnchor(id), d);
+    this.onFlight(this.rig.flying);
   }
 
   // Fly to a body. Choosing the body already in view reframes it at the
@@ -305,6 +314,7 @@ export class OrreryScene {
     this.focus = key;
     this.loadSurfaces(key);           // start now: the flight hides the upload
     this.rig.flyTo(this.bodyAnchor(key), this.arrivalDist(key, reframe));
+    this.onFlight(this.rig.flying);
     this.onFocusChange(key);
   }
 
@@ -353,6 +363,7 @@ export class OrreryScene {
     const tag = (e.target as HTMLElement | null)?.tagName;
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     this.rig.interrupt();
+    e.preventDefault();               // handled: the app does not also close the console
   };
 
   private resize(): void {
@@ -360,6 +371,16 @@ export class OrreryScene {
     if (!w || !h) return;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    this.applyInset();
+  }
+
+  // Shift the projection so the pivot sits in the middle of the uncovered
+  // part of the sky.
+  private applyInset(): void {
+    const w = this.container.clientWidth, h = this.container.clientHeight;
+    if (!w || !h) return;
+    if (this.inset > 0.5) this.camera.setViewOffset(w, h, this.inset / 2, 0, w, h);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
   }
 
@@ -409,6 +430,12 @@ export class OrreryScene {
     this.raf = requestAnimationFrame(this.frame);
     this.uploader.step();
     const dtReal = Math.min(0.1, Math.max(0, (now - this.lastFrame) / 1000));
+    if (this.inset !== this.insetGoal) {
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      this.inset = reduced || Math.abs(this.inset - this.insetGoal) < 0.5 ? this.insetGoal
+        : this.inset + (this.insetGoal - this.inset) * (1 - Math.exp(-dtReal / 0.08));
+      this.applyInset();
+    }
     this.clock.tick((now - this.lastFrame) / 1000);
     this.lastFrame = now;
     const tMs = this.clock.snapshot.timeMs;
@@ -560,6 +587,7 @@ export class OrreryScene {
   private placeLabels(): void {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     const pxPerRad = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
+    const dpr = this.renderer.getPixelRatio();
     const screen = new Map<BodyKey, [number, number]>();
     // Discs big enough to hide what lies behind them: x, y, radius in px,
     // distance from the camera.
@@ -580,7 +608,8 @@ export class OrreryScene {
       if (behind) { el.style.display = 'none'; continue; }
       const distRender = p.length();
       const radiusPx = (b.radiusKm / UNIT_KM / distRender) * pxPerRad;
-      const x = ((ndc.x + 1) / 2) * w, y = ((1 - ndc.y) / 2) * h;
+      // Whole device pixels: a fractional offset resamples the label's text.
+      const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
       screen.set(b.key, [x, y]);
       // A moon that sits on top of its planet's marker is hidden until the
       // camera is close enough to separate them (unless it is the focus).

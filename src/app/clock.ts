@@ -89,3 +89,11 @@ export class SimClock {
 export function useClock(clock: SimClock): ClockState {
   return useSyncExternalStore(clock.subscribe, () => clock.snapshot);
 }
+
+// Re-render only when a selected value changes: select must return a
+// primitive (or an object kept by reference), compared with Object.is.
+// The header and rail use it so they redraw when a shown digit or state
+// changes, not on every tick (docs/performance.md#the-panels).
+export function useClockValue<T>(clock: SimClock, select: (s: ClockState) => T): T {
+  return useSyncExternalStore(clock.subscribe, () => select(clock.snapshot));
+}

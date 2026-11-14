@@ -14,9 +14,26 @@ interface Props {
   onFocusChange: (key: BodyKey) => void;
   onReady?: (scene: OrreryScene) => void;
   onFrame?: (timeMs: number, jumps: number) => void;   // used only without WebGL
+  insetRight?: number;                                  // px of the sky covered on the right (the console)
+  view: { kind: 'focus' | 'follow'; name: string };    // what the camera is on, for the view plate
+  flying?: boolean;
 }
 
-export function SceneView({ clock, focus, onFocusChange, onReady, onFrame }: Props) {
+// The view plate names what the camera is on, with two cues for the mode
+// (word and glyph: a circle for a body, a diamond for a craft, as in the
+// sky), and says when a flight is under way and how to stop it.
+function ViewPlate({ view, flying }: { view: Props['view']; flying: boolean }) {
+  return (
+    <div className={`view-plate${flying ? ' flying' : ''}`} role="status" aria-live="polite">
+      <span className={`mode m-${view.kind}`} aria-hidden="true" />
+      <span className="engraved">{view.kind === 'focus' ? 'Focus' : 'Follow'}</span>
+      <span className="name">{view.name}</span>
+      {flying && <span className="enroute">En route · <kbd>Esc</kbd> stop</span>}
+    </div>
+  );
+}
+
+export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, view, flying = false }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<OrreryScene | null>(null);
@@ -57,9 +74,12 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame }: Pro
     if (scene && scene.focus !== focus) scene.focusOn(focus);
   }, [focus]);
 
+  useEffect(() => { sceneRef.current?.setInsetRight(insetRight); }, [insetRight]);
+
   return (
     <div className="scene-host" ref={hostRef}>
       <div className="scene-overlay" ref={overlayRef} />
+      {!failed && <ViewPlate view={view} flying={flying} />}
       {lost && !failed && (
         <div className="scene-error caution" role="alert">
           The graphics card dropped the 3D view (this happens after sleep or a driver reset). It comes back when the browser restores it; the panels and the clock keep running.
