@@ -301,6 +301,9 @@ export class SmallBodyLayer {
   }
 
   // Population colours (the rail's swatches) instead of natural ones.
+  // Before the scene is drawn: the haze's own low-resolution pass.
+  renderHaze(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void { this.haze.render(renderer, camera); }
+
   setColourByGroup(on: boolean): void { this.material.uniforms.uByGroup.value = on ? 1 : 0; }
 
   // The points' width as the stars' (stars.ts setStarScale): the same
