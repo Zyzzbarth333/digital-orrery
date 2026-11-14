@@ -200,8 +200,19 @@ scripted burns on the same kernel. Each step, in time order:
    - **The orbit's plane:** the arrival hyperbola's plane holds the next
      departure's excess velocity too, so the parking orbit already contains
      it.
-5. **Departures from an orbit:** a prograde burn where the departure
-   hyperbola's periapsis is. The craft waits within one orbit to reach it.
+5. **Departures from an orbit:** the burn onto the outgoing asymptote from
+   wherever the craft's orbit now is.
+   - **The burn:** at each of 72 points round the orbit, a first guess from
+     a two-body Lambert arc to a point out along the excess velocity, then
+     Newton's method on the three velocity components until the two-body
+     hyperbola about the body leaves along exactly that excess velocity.
+     The cheapest point's full vector is burned.
+   - **Waiting for the plane:** a long stay turns the orbit's plane (a
+     planet's J2 precesses the node, about 10° a day at 400 km over Mars).
+     So, as a mission would, the departure may wait up to 30 days, in
+     half-day steps, for the plane to hold the way out, when that saves
+     more than 2 %. The excess velocity is re-solved for the later date (a
+     Lambert arc about the leg's central body to the planned arrival).
 6. **Home through the air:** the aim is at the planned arc half an hour
    before the end, so no trial run meets the ground first.
 
@@ -213,6 +224,12 @@ What the kernel does not yet fly:
 - a landing (it waits in the low orbit);
 - leaving a moon for another planet;
 - a plane change between two orbits about one body (planned, not flown).
+
+What the flight costs beyond the plan is its corrections. Most of them
+are on long legs home to a planet: the cruise aims fly without the
+target's own gravity (its pull near arrival is the hyperbola), so they
+leave out its far-field tug too, and the last aim takes it up. On the Mars
+round trip that is about 115 m/s of its 185.
 
 ## The rocket it needs
 
@@ -237,6 +254,13 @@ $$n_i = \frac{c_i\eta - 1}{c_i\varepsilon_i\eta},\qquad m_i = \frac{n_i - 1}{1 -
 - **When none is possible:** a count is beyond what its stages can give
   ($\sum c_i \ln(1/\varepsilon_i)$), or its optimum would leave a stage
   empty, so fewer stages do it better ("no gain").
+
+Against real launchers (`launcherFor`): a launcher's stack (`launchers.js`,
+the ROCKET tab's presets) by the rocket equation with each stage's vacuum
+Isp gives the payload a delta-v. That is set against the job, the climb
+with its 1.5 km/s of losses plus the journey. Bisection on the payload
+gives the most it could carry. It is a delta-v comparison: thrust, drag
+and a booster's landing reserve enter only through the stage figures.
 
 The stage technologies:
 - **Isp:** Curtis Table 6.1's typical values: solid 290 s, nitric acid and
@@ -342,6 +366,37 @@ Its PLOT station has five parts:
   - the plan's legs, stays and burns;
   - the time cursor, which the scope follows.
 
+## STACK and GO
+
+The table's other two stations:
+- **STACK** (`src/app/plot-stack.tsx`): the rocket the journey needs (below).
+  - Its stages are drawn as a stack.
+  - A delta-v waterfall sets the journey's parts (the climb, then each
+    burn) beside the stages that pay for them. Where a stage ends mid-burn,
+    the next finishes it.
+  - The published launchers from `launchers.js` (Saturn V as flown on
+    Apollo 11, Falcon 9 with and without the booster landing, and Electron)
+    are set against the same job, read-only: what each gives the payload,
+    and the most it could carry (`staging.js launcherFor`).
+- **GO** (`src/app/plot-go.tsx`): a go/no-go poll, one row for each of the
+  following:
+  - **trajectory:** the kernel flew it to every waypoint within 50 km,
+    without hitting anything, and with corrections under 250 m/s or a
+    tenth of the plan;
+  - **windows** and **delta-v:** from the lamps;
+  - **flybys:** none underground;
+  - **vehicle:** a stack exists, and which real launchers could fly it;
+  - **launch.**
+
+  When every row reads GO, "Commit to the orrery" jumps the clock to the
+  departure (BACK undoes it), gives a new craft the kernel's burns, and
+  follows it.
+
+The PLANNER tab is now a summary of the journey (route, dates, delta-v
+and lamps) with the key to the table. The porkchop and NASA's list are in
+the table, under the journey's editor. A `?plan=` link opens the table
+with that porkchop computed.
+
 ## The flags
 
 `src/physics/feasibility.js` answers whether the journey can be flown, and
@@ -412,6 +467,9 @@ orbits, waits 454 days.
 | An aimed node on the way to Mars, flown | the plan | Mars 1.4 km off the planned periapsis |
 | The return window from Mars (arrive 7 Sep 2027) | Curtis Ex 8.2 (454 d on circular orbits) | 9 Sep 2028, 368 d later, 2.00 km/s; each profile point is the leg solved there |
 | The lamps: leaving Mars after 30 days, at 8 and 5 km/s; leaving at the window | the rules above | window and delta-v lamps lit, then no window; at the window, green with a 368-day wait |
+| Saturn V, Apollo 11's 45.7 t to 185 km and on to the Moon (TLI 3.13 km/s) | the flight | needs 12.03, gives 12.87 km/s: it can, with 0.84 to spare |
+| Falcon 9 expendable, 22.8 t to 200 km; Electron, 300 kg to 500 km | the user's guides | 8.88 needed, 9.43 given; Electron 0.02 km/s short with its kick stage carried as payload (it burns, in fact) |
+| A year in Mars orbit, then home, flown | the plan | departs 13 d late for the turned plane, 2,058 m/s against 2,000; Mars 0.4 km, Earth 22 km; corrections 182 m/s |
 
 ## Limits
 

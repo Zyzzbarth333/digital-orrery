@@ -12,7 +12,7 @@
 //   launchBudget           a journey's delta-v plus the climb to orbit
 //   STAGE_TECH             propellant classes with Curtis's typical Isp
 
-import { optimalStaging, deltaVToOrbit, G0 } from './rocket.js';
+import { optimalStaging, deltaVToOrbit, stackPerformance, G0 } from './rocket.js';
 
 // Stage technology: Isp from Curtis Table 6.1 ("Some typical specific
 // impulses"); the structural ratio defaults to 0.1, the lower limit that
@@ -75,4 +75,26 @@ export function sizeLauncher({ dv, payload, booster, upper = booster, maxStages 
 export function launchBudget({ journeyDv, h = 200e3, lat = 28.5, az = 90, losses = 1500 }) {
   const toOrbit = deltaVToOrbit({ h, lat, az, losses });
   return { toOrbit, inSpace: journeyDv, total: toOrbit + journeyDv };
+}
+
+// A real launcher (launchers.js: tonnes, kN, s) against a job: the delta-v
+// its stack gives a payload (kg), by the rocket equation with each stage's
+// vacuum Isp (rocket.js stackPerformance), its margin over the job's dv
+// (m/s), and the most payload it could carry for that dv (bisection: the
+// delta-v falls as the payload grows). The comparison is on delta-v alone:
+// the job's dv already holds the ascent's losses (launchBudget), so thrust,
+// drag and a booster's landing reserve are not modelled here beyond what
+// the launcher's own stage figures carry.
+export function launcherFor(launcher, { payload, dv, g0 = G0 }) {
+  const stages = launcher.stages.map((s) => ({ name: s.name, dry: s.dry * 1000, prop: s.prop * 1000, isp: s.isp, ispSl: s.ispSl ?? s.isp, thrust: s.thrust * 1000 }));
+  const perf = (m) => stackPerformance(stages, m, { g0 });
+  const p = perf(payload);
+  let maxPayload = 0;
+  if (perf(0).dv >= dv) {
+    let lo = 0, hi = Math.max(1000, launcher.payload * 1000 * 4);
+    while (perf(hi).dv > dv && hi < 1e8) hi *= 2;
+    for (let k = 0; k < 60; k++) { const m = (lo + hi) / 2; if (perf(m).dv >= dv) lo = m; else hi = m; }
+    maxPayload = lo;
+  }
+  return { key: launcher.key, label: launcher.label, dv: p.dv, margin: p.dv - dv, can: p.dv >= dv, maxPayload, liftoff: p.liftoff, stages: p.stages, source: launcher.source };
 }

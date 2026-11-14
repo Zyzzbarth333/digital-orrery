@@ -14,7 +14,8 @@
 import './deNode.js';
 import fs from 'node:fs';
 import * as X from './transfers.js';
-import { restrictedStaging, restrictedPayloadRatio, sizeLauncher, launchBudget, STAGE_TECH } from './staging.js';
+import { restrictedStaging, restrictedPayloadRatio, sizeLauncher, launchBudget, launcherFor, STAGE_TECH } from './staging.js';
+import { LAUNCHERS } from './launchers.js';
 import * as J from './journey.js';
 import { planFlight, flyJourney } from './journeyFlight.js';
 import * as F from './feasibility.js';
@@ -148,6 +149,29 @@ header('CASE 3: staging (Curtis chapter 13)');
   check('the launch budget is the climb to orbit plus the journey', near(B.total, B.toOrbit + 3600, 1e-9) && near(B.toOrbit, 8876, 2));
 }
 
+header('CASE 3b: real launchers against a job (launchers.js)');
+{
+  // Each launcher's own published job, as a delta-v budget (the climb with
+  // 1.5 km/s of losses, then any departure), against its stack by the
+  // rocket equation with vacuum Isp.
+  const sv = LAUNCHERS.find((l) => l.key === 'saturn-v'), f9 = LAUNCHERS.find((l) => l.key === 'falcon-9'), el = LAUNCHERS.find((l) => l.key === 'electron');
+  const apollo = launchBudget({ journeyDv: 3130, h: 185e3, lat: 28.6, az: 72 });
+  const a = launcherFor(sv, { payload: sv.payload * 1000, dv: apollo.total });
+  console.log(`  Saturn V, Apollo 11's ${sv.payload} t to a 185 km orbit and on to the Moon (TLI 3.13 km/s): needs ${(apollo.total / 1000).toFixed(2)}, gives ${(a.dv / 1000).toFixed(2)} km/s; at most ${(a.maxPayload / 1000).toFixed(1)} t`);
+  check('Saturn V can fly Apollo 11\'s job with its payload, and not by a wide margin (under 1.5 km/s spare)', a.can && a.margin < 1500);
+  const leo = launchBudget({ journeyDv: 0, h: 200e3, lat: 28.5, az: 90 }), b = launcherFor(f9, { payload: f9.payload * 1000, dv: leo.total });
+  console.log(`  Falcon 9 expendable, its ${f9.payload} t to 200 km: needs ${(leo.total / 1000).toFixed(2)}, gives ${(b.dv / 1000).toFixed(2)} km/s`);
+  check('Falcon 9 expendable reaches low orbit with its published payload, within 1 km/s', b.can && b.margin < 1000);
+  const sso = launchBudget({ journeyDv: 0, h: 500e3, lat: -39.3, az: 190 }), c = launcherFor(el, { payload: el.payload * 1000, dv: sso.total });
+  // Electron's 0.3 t in launchers.js includes its Curie kick stage, which
+  // in fact burns to finish the orbit; here it rides as payload, so the
+  // stack comes out just short (the ROCKET tab's ascent reaches 181 km).
+  console.log(`  Electron, 300 kg (kick stage included) to 500 km from Mahia: needs ${(sso.total / 1000).toFixed(2)}, gives ${(c.dv / 1000).toFixed(2)} km/s`);
+  check('Electron comes within 0.1 km/s of its job with the kick stage carried as payload', Math.abs(c.margin) < 100);
+  check('the most payload for a job is where the delta-v just meets it', Math.abs(launcherFor(sv, { payload: a.maxPayload, dv: apollo.total }).margin) < 1);
+  check('no payload at all when even an empty stack falls short (Electron to Mars and back)', launcherFor(el, { payload: 1000, dv: 16556 }).maxPayload === 0);
+}
+
 header('CASE 4: a journey of several legs, chained');
 J.registerSmallBodies(JSON.parse(fs.readFileSync(new URL('../../public/data/smallbodies.json', import.meta.url))).named);
 const D = (s) => Date.parse(s);
@@ -222,6 +246,17 @@ header('CASE 5: journeys flown by the n-body kernel');
   check('round the Moon and home: the flyby within 50 km, home within 10 km', fr.arrivals[0].missKm < 50 && fr.arrivals[1].missKm < 10);
   const mt = fly('Moon and back', MOON_TRIP);
   check('Earth orbit, Moon orbit for 3 days, home: the Moon within 50 km, home within 10 km, no impact on the way', mt.arrivals[0].missKm < 50 && mt.arrivals[1].missKm < 10 && (!mt.impact || mt.impact.body === 'earth'));
+  // A year in Mars orbit, then home: Mars's J2 turns the parking orbit's
+  // plane (about 10 degrees a day at 400 km), so the departure waits for it
+  // to hold the way out, re-solving that way for the later date.
+  const rt = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-11-01T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'mars', kind: 'orbit', altKm: 400, stayDays: 364, dateMs: D('2027-09-07T00:00:00Z') },
+    { id: 2, body: 'earth', kind: 'land', altKm: 120, dateMs: D('2029-08-10T00:00:00Z') }] };
+  const rts = J.solveJourney(rt), rtf = fly('Mars and back', rt);
+  const dep = rtf.log.find((l) => l.startsWith('depart mars'));
+  console.log(`  Mars and back: ${dep}; corrections ${(rtf.correctionsDv * 1000).toFixed(0)} m/s (the plan's leave-Mars burn ${(rts.legs[1].depDv * 1000).toFixed(0)} m/s)`);
+  check('a year at Mars, then home: Mars within 20 km, Earth within 50 km, corrections under 250 m/s', rtf.arrivals[0].missKm < 20 && rtf.arrivals[1].missKm < 50 && rtf.correctionsDv < 0.25);
+  check('and the departure from the turned orbit within 10 % of the plan\'s burn', (() => { const m = /mars: (\d+) m\/s/.exec(dep ?? ''); return m && Number(m[1]) < 1.1 * rts.legs[1].depDv * 1000; })());
 }
 
 header('CASE 6: shaping a journey by hand: burn nodes and an aimed flyby');

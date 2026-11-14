@@ -16,7 +16,7 @@ import type { Mission } from './mission';
 import { useJourney, type JourneyStore, type Waypoint, type Leg, type Flyby } from './journey';
 import { SourceTag } from './source-tag';
 import { journeyBodies, legOptions, applyOption, bodyInfo, defaultArrival } from '../physics/journey.js';
-import { sizeLauncher, launchBudget, STAGE_TECH } from '../physics/staging.js';
+import { assess } from '../physics/feasibility.js';
 import { eqjToEcl } from '../physics/ephemeris.js';
 
 const DAY_MS = 86400e3;
@@ -79,12 +79,6 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
   return (
     <div className="journey">
       <h3 className="strip">Journey</h3>
-      {!inTable && (
-        <div className="keys-row">
-          <button className="key primary" onClick={() => store.setPlotOpen(true)}>Open the plotting table</button>
-          <span className="hint">Full screen: the journey from above, its windows, burn nodes and lamps</span>
-        </div>
-      )}
       <div className="form-grid">
         <label className="num"><span className="engraved">Start</span>
           <select className="input select" value={startKind === 'craft' || j.start.craftId ? 'craft' : startKind} onChange={(e) => {
@@ -203,7 +197,6 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
           <span className="hint">{k.state === 'flying' ? 'The kernel is flying it…' : k.state === 'done' && kernelNow ? `Jumps the clock to ${iso(sol.startMs)} (BACK undoes it) and flies the kernel's burns` : sol.ok ? 'Waiting for the kernel' : 'Needs every leg solved'}</span>
         </div>
       )}
-      {j.waypoints.length > 0 && <RocketFor store={store} />}
     </div>
   );
 }
@@ -294,66 +287,27 @@ function Summary({ store }: { store: JourneyStore }) {
   );
 }
 
-// The stack the journey needs, from the pad (or its orbit) to the end.
-function RocketFor({ store }: { store: JourneyStore }) {
+// The PLANNER tab's view of the journey: its route, dates, burns' total,
+// the lamps, and the key to the plotting table, where it is planned.
+export function JourneySummary({ store }: { store: JourneyStore }) {
+  useJourney(store);
   const j = store.journey, sol = store.solution;
-  const [payload, setPayload] = useState(1000);
-  const [booster, setBooster] = useState<keyof typeof STAGE_TECH>('storable');
-  const [upper, setUpper] = useState<keyof typeof STAGE_TECH>('hydrolox');
-  const [isp1, setIsp1] = useState<number | null>(null), [isp2, setIsp2] = useState<number | null>(null);
-  const [eps1, setEps1] = useState(0.1), [eps2, setEps2] = useState(0.1);
-  const [show, setShow] = useState<number | null>(null);
-  const climb = j.start.kind === 'pad';
-  const budget = launchBudget({ journeyDv: sol.totalDv * 1000, h: j.start.altKm * 1000, lat: j.start.latDeg ?? 28.5, az: 90 });
-  const dv = climb ? budget.total : sol.totalDv * 1000;
-  const B = { isp: isp1 ?? STAGE_TECH[booster].isp, eps: eps1 }, U = { isp: isp2 ?? STAGE_TECH[upper].isp, eps: eps2 };
-  const sized = useMemo(() => sizeLauncher({ dv, payload, booster: B, upper: U, maxStages: 4 }) as { options: { n: number; feasible: boolean; reason?: string; liftoff?: number; payloadFraction?: number; stages?: { isp: number; eps: number; prop: number; dry: number; step: number; dv: number }[] }[]; pick: { n: number } | null }, [dv, payload, B.isp, B.eps, U.isp, U.eps]);
-  if (!sol.ok) return null;
-  const pickN = show ?? sized.pick?.n ?? null, o = sized.options.find((x) => x.n === pickN && x.feasible);
-  const top = o?.stages ? Math.max(...o.stages.map((s) => s.step)) : 1;
+  const fresh = store.profilesFor === store.version;
+  const lamps = j.waypoints.length ? (assess(j, sol as never, { budget: store.budget, profiles: fresh ? store.profiles as never : [] }) as { key: string; level: string; text: string }[]) : [];
   return (
     <>
-      <h3 className="strip">The rocket it needs</h3>
-      <table className="readout"><tbody>
-        <tr><th scope="row">Δv to give</th><td className="value">{fmt(dv / 1000, 2)} km/s<span className="alt">{climb ? `to orbit ${fmt(budget.toOrbit / 1000, 2)} (losses 1.5) + journey ${fmt(sol.totalDv, 2)}` : 'from the orbit: no climb'}</span></td><td className="src"><SourceTag src="budget" derived info="to-orbit" /></td></tr>
-      </tbody></table>
-      <div className="form-grid">
-        <label className="num"><span className="engraved">Payload</span><input className="input" type="number" min={1} step={100} value={payload} onChange={(e) => setPayload(Math.max(1, Number(e.target.value)))} /><span className="unit">kg</span></label>
-        <span />
-        <label className="num"><span className="engraved">Stage 1</span>
-          <select className="input select" value={booster} onChange={(e) => { setBooster(e.target.value as keyof typeof STAGE_TECH); setIsp1(null); }}>{Object.entries(STAGE_TECH).map(([key, t]) => <option key={key} value={key}>{t.name}</option>)}</select>
-        </label>
-        <label className="num"><span className="engraved">Upper stages</span>
-          <select className="input select" value={upper} onChange={(e) => { setUpper(e.target.value as keyof typeof STAGE_TECH); setIsp2(null); }}>{Object.entries(STAGE_TECH).map(([key, t]) => <option key={key} value={key}>{t.name}</option>)}</select>
-        </label>
-        <label className="num"><span className="engraved">Isp, ε</span><input className="input" type="number" min={100} max={1000} step={5} value={B.isp} onChange={(e) => setIsp1(Number(e.target.value))} /><input className="input" type="number" min={0.02} max={0.5} step={0.01} value={eps1} onChange={(e) => setEps1(Number(e.target.value))} /></label>
-        <label className="num"><span className="engraved">Isp, ε</span><input className="input" type="number" min={100} max={1000} step={5} value={U.isp} onChange={(e) => setIsp2(Number(e.target.value))} /><input className="input" type="number" min={0.02} max={0.5} step={0.01} value={eps2} onChange={(e) => setEps2(Number(e.target.value))} /></label>
+      <h3 className="strip">Journey</h3>
+      {j.waypoints.length ? (
+        <table className="readout"><tbody>
+          <tr><th scope="row">Route</th><td className="value">{store.title()}<span className="alt">{store.dates()} · {fmt(sol.durationDays, 0)} d</span></td><td /></tr>
+          <tr><th scope="row">Δv</th><td className="value">{sol.ok ? `${fmt(sol.totalDv, 3)} km/s` : 'a leg has no solution'}<span className="alt">{sol.burns.length} burns, against a {fmt(store.budget, 1)} km/s budget</span></td><td className="src"><SourceTag src="Σ burns" derived info="journey-total" /></td></tr>
+          {lamps.filter((l) => l.level !== 'off').map((l) => <tr key={l.key}><th scope="row">{l.key === 'dv' ? 'Budget' : l.key === 'nowindow' ? 'No window' : l.key[0].toUpperCase() + l.key.slice(1)}</th><td className={`value${l.level === 'warn' ? ' bad' : ''}`}>{l.text}</td><td /></tr>)}
+        </tbody></table>
+      ) : <p className="hint">No journey yet: plan one in the plotting table, from the pad, an orbit or a craft, through any number of flybys, orbits and landings.</p>}
+      <div className="keys-row">
+        <button className="key primary" onClick={() => store.setPlotOpen(true)}>Open the plotting table</button>
+        <span className="hint">Full screen: the journey from above, its windows, burn nodes, the rocket and the go/no-go poll. The porkchop and NASA's list are there too.</span>
       </div>
-      <p className="hint">Isp from Curtis Table 6.1, structural ratio 0.1 (Curtis §13.4); typical values, not any one vehicle's.</p>
-      <div className="keys-row wrap" role="radiogroup" aria-label="Number of stages">
-        {sized.options.map((x) => <button key={x.n} className="key small" role="radio" aria-checked={x.n === pickN} disabled={!x.feasible} onClick={() => setShow(x.n)} title={x.feasible ? `${x.n} stages: ${fmt((x.liftoff ?? 0) / 1000, 1)} t at liftoff` : x.reason === 'empty-stage' ? `${x.n} stages: the lightest would leave a stage empty, so fewer do it better` : `${x.n} stage${x.n > 1 ? 's' : ''} cannot give ${fmt(dv / 1000, 1)} km/s`}>{x.n} {x.feasible ? `· ${fmt((x.liftoff ?? 0) / 1000, 0)} t` : x.reason === 'empty-stage' ? '· no gain' : '· cannot'}</button>)}
-      </div>
-      {!o && <p className="status bad">No stack of up to four of these stages can give {fmt(dv / 1000, 1)} km/s. Try a higher Isp or a lighter structure.</p>}
-      {o && o.stages && (
-        <div className="stage-stack">
-          <figure className="stack" aria-label={`A ${o.n}-stage stack, payload on top`}>
-            <div className="stack-payload"><span>Payload {fmt(payload, 0)} kg</span></div>
-            {[...o.stages].map((s, i) => ({ s, i })).reverse().map(({ s, i }) => (
-              <div key={i} className="stack-stage" style={{ height: `${Math.round(28 + 120 * Math.sqrt(s.step / top))}px` }}>
-                <i style={{ height: `${(100 * s.dry) / s.step}%` }} aria-hidden="true" />
-                <span>S{i + 1}</span>
-              </div>
-            ))}
-            <figcaption>heights by the square root of each stage's mass; the dark band its dry mass</figcaption>
-          </figure>
-          <table className="readout compact"><tbody>
-            <tr><th scope="row">Liftoff</th><td className="value">{fmt((o.liftoff ?? 0) / 1000, 1)} t<span className="alt">payload fraction {fmt((o.payloadFraction ?? 0) * 100, 2)} %</span></td><td className="src"><SourceTag src="Lagrange" derived info="journey-stack" /></td></tr>
-            {o.stages.map((s, i) => (
-              <tr key={i}><th scope="row">Stage {i + 1}</th><td className="value">{fmt(s.prop / 1000, 1)} t propellant<span className="alt">{fmt(s.dry / 1000, 2)} t dry · Isp {s.isp} s · Δv {fmt(s.dv / 1000, 2)} km/s</span></td><td /></tr>
-            ))}
-          </tbody></table>
-        </div>
-      )}
     </>
   );
 }
