@@ -30,7 +30,7 @@ export interface SurfaceEntry {
 export interface Manifest {
   bodies: Partial<Record<BodyKey, SurfaceEntry>>;
   rings?: { saturn?: { tau: string; innerKm: number; outerKm: number; credit: string } };
-  stars?: { map: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; detail?: SkyDetailEntry; points?: string; pointCount?: number; credit: string };
+  stars?: { map: string; preview?: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; detail?: SkyDetailEntry; points?: string; pointCount?: number; credit: string };
 }
 
 export const BASE = `${import.meta.env.BASE_URL}textures/`;
@@ -199,8 +199,9 @@ export class SurfaceLoader {
   // After a lost context: every map has to be loaded again.
   reset(): void { this.cache.clear(); this.month.clear(); this.monthPath.clear(); this.uploader.clear(); }
 
-  // Free a map no longer shown (Earth's previous month: 78 MB each).
-  private drop(path: string): void {
+  // Free a map no longer shown (Earth's previous month: 78 MB each; the
+  // sky's preview once the full map is up).
+  drop(path: string): void {
     const p = this.cache.get(path);
     if (!p) return;
     this.cache.delete(path);

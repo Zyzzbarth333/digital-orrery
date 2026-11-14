@@ -133,18 +133,32 @@ So they are drawn as a haze (`src/scene/beltHaze.ts`):
    among the 8 nearest cells of a 3D grid (`beltGrid.ts`): 256 × 256 × 48
    cells over ±5.6 au in x and y and ±1.6 au in z, heliocentric ecliptic.
    That takes about 0.7 s and is redone whenever the clock has moved
-   2 days. The belt turns about 0.25° a day at 2.7 au, under a cell
+   2 days. The first time, a grid from every eighth body (each counted
+   eight times) is posted first, after 90 ms, so the haze shows about a
+   second sooner. The grid goes to the GPU as half floats, scaled so its
+   largest cell is 30,000 (a part in 2,000 everywhere that shows): half the
+   upload of 32-bit floats, and filterable on every WebGL 2 device, which
+   32-bit float textures are not. The belt turns about 0.25° a day at 2.7 au, under a cell
    (0.9° there) in four.
 3. **Drawing.** A box around the Sun is drawn from its far faces, and each
-   pixel's ray marches 32 jittered steps through the grid as a 3D texture.
+   pixel's ray marches 48 jittered steps through the grid as a 3D texture.
+   The haze changes over tens of pixels (a cell is about a degree across
+   seen from the Earth), so the rays are marched into a target of two CSS
+   pixels a texel (a sixteenth of the pixels on a 2× screen) before the
+   scene is drawn, and one full-screen pass adds it, upsampled, where the
+   box used to be drawn: after the stars, before the points and the
+   bodies. Screenshots of the two at the same view differ by 0.7 of 255
+   (RMS) with the same mean level.
    A cloud of emitters with emissivity j has surface brightness
    (1 / 4π) ∫ j ds along the line of sight, whatever its distance.
 
 The haze is metered as the points are (5 log₁₀ of the camera's distance
 from the Sun), with its range halved by a square root. It sits a little
 below the brightest points, which keep the belt's detail. The phase angle
-is left out. On the Intel GPU the haze costs about 5 ms a frame, and its
-cost does not grow with the number of bodies. The main-belt switch shows
+is left out. On the Intel GPU at 2× (a 1720 × 1672 canvas) the haze costs
+1.5 to 2.3 ms a frame, down from 7.5 to 12 ms when it was marched at full
+resolution ([performance](../performance.md#the-belts-haze-and-the-load)), and its cost does not grow
+with the number of bodies. The main-belt switch shows
 or hides the haze with the points.
 
 ## Flying to one

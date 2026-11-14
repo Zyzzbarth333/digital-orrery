@@ -395,10 +395,20 @@ export class OrreryScene {
       if (stars) {
         // The light between the stars, then the stars as points over it.
         const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
-        void this.surfaces.load(stars.map, true).then((tex) => {
+        // A 2048-wide preview first (0.6 MB, on screen in about a second),
+        // then the full map, which takes seconds to decode, in its place.
+        const show = (tex: THREE.Texture) => {
+          if (this.stars) { (this.stars.material as THREE.ShaderMaterial).uniforms.starMap.value = tex; return; }
           this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain,
             stars.detail && { entry: stars.detail, base: TEXTURE_BASE });
           this.scene.add(this.stars);
+        };
+        let full = false;
+        if (stars.preview) void this.surfaces.load(stars.preview, true).then((tex) => { if (!full) show(tex); }).catch(() => {});
+        void this.surfaces.load(stars.map, true).then((tex) => {
+          full = true;
+          show(tex);
+          if (stars.preview) this.surfaces.drop(stars.preview);
         });
         if (stars.points) {
           void loadBinary(stars.points).then((buf) => {
@@ -420,6 +430,9 @@ export class OrreryScene {
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.onContextLost(true); });
     this.renderer.domElement.addEventListener('webglcontextrestored', () => { this.reloadMaps(); this.onContextLost(false); });
     this.attachControls();
+    // ?debug exposes the scene as window.orrery, for the frame-time harness
+    // (docs/performance.md#measuring) and for poking at it from the console.
+    if (new URLSearchParams(location.search).has('debug')) (window as unknown as { orrery: OrreryScene }).orrery = this;
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
@@ -762,6 +775,7 @@ export class OrreryScene {
     this.updateAdaptation(dtReal, sunPos);
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
 
+    this.smallBodies.renderHaze(this.renderer, this.camera);
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
