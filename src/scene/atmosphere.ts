@@ -7,7 +7,11 @@
 // reaches the surface (sunset reddening at the terminator).
 //
 // All lengths in the shaders are km, relative to the planet's centre;
-// coefficients are per km.
+// coefficients are per km. The planet is an ellipsoid and so is its
+// atmosphere: positions and directions go through atmoShape, the body
+// frame scaled so the ellipsoid is the sphere of the ground radius (the
+// mean radius), and the scattering is worked in that sphere. For Earth the
+// scale differs from 1 by 0.3 % at most, so only the shape changes.
 
 import * as THREE from 'three';
 
@@ -65,6 +69,7 @@ uniform vec3 atmoBetaO;
 uniform float atmoOzC;
 uniform float atmoOzW;
 uniform sampler2D atmoTransLut;
+uniform mat3 atmoShape;     // render -> body frame scaled to the ground sphere (rows X Rg/a, Y Rg/b, Z Rg/c)
 `;
 
 export const ATMO_FUNCS = /* glsl */ `
@@ -193,30 +198,35 @@ void main() {
   #include <logdepthbuf_fragment>
   // Draw each ray once: front faces from outside, back faces from inside.
   if ((inside > 0.5) == gl_FrontFacing) discard;
-  vec3 d = normalize(vWorld);                       // camera at the origin
-  vec3 p = inside > 0.5 ? -centre * unitKm : (vWorld - centre) * unitKm;
+  // In the ground sphere's space; stretch converts its lengths back to km.
+  vec3 dS = atmoShape * normalize(vWorld);          // camera at the origin
+  float stretch = length(dS);
+  vec3 d = dS / stretch;
+  vec3 p = atmoShape * (inside > 0.5 ? -centre * unitKm : (vWorld - centre) * unitKm);
+  vec3 sunS = normalize(atmoShape * sunDir);
   vec2 top = atmoSphere(p, d, atmoRt);
   float tEnd = max(top.y, 0.0);
   vec2 ground = atmoSphere(p, d, atmoRg);
   if (ground.x > 0.0) tEnd = min(tEnd, ground.x);
   if (tEnd <= 0.0) discard;
 
-  float mu = dot(d, sunDir);
+  float mu = dot(d, sunS);
   float phR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
   float g = atmoG, g2 = g * g;
   float phM = 3.0 / (8.0 * PI) * (1.0 - g2) * (1.0 + mu * mu) / ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));
 
   const int N = 32;
   float ds = tEnd / float(N);
+  float dsKm = ds / stretch;
   vec3 tau = vec3(0.0), L = vec3(0.0);
   for (int i = 0; i < N; i++) {
     vec3 q = p + d * ((float(i) + 0.5) * ds);
     float h = length(q) - atmoRg;
     vec3 ext = atmoExtinction(h);
-    vec3 tauMid = tau + 0.5 * ext * ds;
+    vec3 tauMid = tau + 0.5 * ext * dsKm;
     vec3 scat = atmoBetaR * exp(-h / atmoHR) * phR + atmoBetaMs * exp(-h / atmoHM) * phM;
-    L += exp(-tauMid) * atmoSunTransmittance(q, sunDir) * scat * ds;
-    tau += ext * ds;
+    L += exp(-tauMid) * atmoSunTransmittance(q, sunS) * scat * dsKm;
+    tau += ext * dsKm;
   }
   vec3 T = exp(-tau);
   // In the scene's units a white surface lit face-on shows irradiance, so
@@ -243,6 +253,7 @@ export function atmosphereUniforms(a: AtmosphereParams, groundKm: number): Recor
     atmoOzC: { value: a.ozoneCentreKm },
     atmoOzW: { value: a.ozoneHalfWidthKm },
     atmoTransLut: { value: transmittanceLut(a, groundKm) },
+    atmoShape: { value: new THREE.Matrix3() },
   };
 }
 
