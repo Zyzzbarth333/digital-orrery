@@ -33,7 +33,7 @@ import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
-import { loadJson, loadManifest, SurfaceLoader, type Manifest } from './surfaces';
+import { loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
 const ORBIT_SAMPLES = 360;
@@ -87,6 +87,7 @@ export class OrreryScene {
   private occluderKeys = new Map<BodyKey, BodyKey[]>();
   private manifest: Manifest | null = null;
   private surfaces: SurfaceLoader;
+  private uploader: TextureUploader;
   private rings: THREE.Mesh | null = null;
   private stars: THREE.Mesh | null = null;
   readonly dailyEarth = new DailyEarth();
@@ -178,7 +179,9 @@ export class OrreryScene {
       applyAtmosphere(this.materials.get(key)!, a, R);
     }
 
-    this.surfaces = new SurfaceLoader(this.renderer);
+    this.uploader = new TextureUploader(this.renderer);
+    this.surfaces = new SurfaceLoader(this.uploader);
+    this.dailyEarth.uploader = this.uploader;
     this.dailyEarth.onChange = (tex) => {
       const m = this.materials.get('earth')!;
       if (tex) applySurfaceMaps(m, { cloud: tex, cloudWhiteLuminance: this.dailyEarth.whiteLuminance });
@@ -214,13 +217,26 @@ export class OrreryScene {
     // pressure): say so rather than show a black view, and carry on when the
     // browser restores it.
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.onContextLost(true); });
-    this.renderer.domElement.addEventListener('webglcontextrestored', () => this.onContextLost(false));
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => { this.reloadMaps(); this.onContextLost(false); });
     this.attachControls();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
     this.lastFrame = performance.now();
     this.raf = requestAnimationFrame(this.frame);
+  }
+
+  // Maps are uploaded by hand (surfaces.ts), so a restored context needs
+  // them loaded again: each body's on its next sighting, the stars now.
+  private reloadMaps(): void {
+    this.surfaces.reset();
+    const m = this.manifest;
+    if (!m) return;
+    for (const key of Object.keys(m.bodies) as BodyKey[]) this.unloadedSurfaces.add(key);
+    if (m.stars && this.stars) {
+      const mat = this.stars.material as THREE.ShaderMaterial;
+      void this.surfaces.load(m.stars.map, true).then((tex) => { mat.uniforms.starMap.value = tex; });
+    }
   }
 
   private makeLabel(key: BodyKey, name: string): HTMLDivElement {
@@ -319,6 +335,7 @@ export class OrreryScene {
 
   private frame = (now: number): void => {
     this.raf = requestAnimationFrame(this.frame);
+    this.uploader.step();
     this.clock.tick((now - this.lastFrame) / 1000);
     this.lastFrame = now;
     const tMs = this.clock.snapshot.timeMs;
