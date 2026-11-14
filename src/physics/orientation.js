@@ -32,12 +32,18 @@
 // The sums carry each moon's forced libration and the precession of its
 // orbit's plane (Triton's pole swings 32 deg in RA over 690 years).
 //
+// A moon with no IAU model (Methone, Polydeuces, Hyperion, which tumbles,
+// Nereid, Uranus's irregular moons, Pluto's four small moons) is drawn
+// turning with its orbit: X toward the planet, Z along the orbit's pole,
+// flipped to the north side of the invariable plane for a retrograde orbit.
+//
 // Checked against CSPICE pxform (ITRF93, MOON_ME, IAU_*) in
 // orientation.test.mjs.
 
 import * as Astronomy from 'astronomy-engine';
 import { ttSeconds } from './ephemeris.js';   // also sets astronomy-engine's ΔT from the leap seconds
 import { NUT_PREC_ANGLES, ROTATION } from './pck.data.js';
+import { isMoonKey, moonStateEqj } from './moons.js';
 
 const AE_BODY = {
   sun: Astronomy.Body.Sun, mercury: Astronomy.Body.Mercury, venus: Astronomy.Body.Venus,
@@ -88,6 +94,17 @@ function earthAxes(date) {
   return [X, unit(cross(Z, X)), Z];
 }
 
+// The pole of the solar system's invariable plane in the ICRF (Souami and
+// Souchay 2012: RA 273.8527 deg, Dec 66.9911 deg).
+const INVARIABLE_POLE = [Math.cos(66.9911 * DEG) * Math.cos(273.8527 * DEG), Math.cos(66.9911 * DEG) * Math.sin(273.8527 * DEG), Math.sin(66.9911 * DEG)];
+function orbitAxes(key, date) {
+  const { r, v } = moonStateEqj(key, date);
+  const X = unit([-r[0], -r[1], -r[2]]);
+  let Z = unit(cross(r, v));
+  if (Z[0] * INVARIABLE_POLE[0] + Z[1] * INVARIABLE_POLE[1] + Z[2] * INVARIABLE_POLE[2] < 0) Z = [-Z[0], -Z[1], -Z[2]];
+  return [X, unit(cross(Z, X)), Z];
+}
+
 export function bodyAxesEqj(key, date) {
   if (key === 'earth') return earthAxes(date);
   const moon = ROTATION[key];
@@ -95,6 +112,7 @@ export function bodyAxesEqj(key, date) {
     const [a0, d0, W] = iauAngles(moon, tdbDays(date));
     return axesFrom(a0 * DEG, d0 * DEG, W * DEG);
   }
+  if (isMoonKey(key)) return orbitAxes(key, date);
   const body = AE_BODY[key];
   if (body === undefined) throw new Error(`no rotation model for ${key}`);
   const ax = Astronomy.RotationAxis(body, date);

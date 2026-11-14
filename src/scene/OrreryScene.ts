@@ -27,12 +27,13 @@
 // and label in an HTML overlay.
 
 import * as THREE from 'three';
-import { helioStateEcl, eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
+import { helioStateEcl, eqjToEcl, eclToEqj, ttSeconds } from '../physics/ephemeris.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
 import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
+import { moonTablesVersion, wantMoonTables } from '../physics/moonTables.js';
 import { baryStateEqj } from '../physics/barycentres.js';
 import type { SimClock } from '../app/clock';
-import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
+import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, systemOf, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, shadowAxes } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
@@ -104,6 +105,14 @@ function renderToEqj(): THREE.Matrix3 {
 // offset from that by its moons' pull (2,100 km for Pluto), and each moon
 // about that centre.
 const SYSTEMS: ReadonlySet<BodyKey> = new Set(Object.keys(MOONS_OF) as BodyKey[]);
+
+// The moons' tables (moonTables.js) are fetched for a system in view: the
+// focused one, and any the camera is within MOON_TABLE_RANGE_KM of. Each
+// fetch covers the years its moons' orbit lines span (half the longest
+// period either side; Ferdinand's is 7.6 years).
+const MOON_TABLE_RANGE_KM = 3e7;
+const MOON_LINE_DAYS = Object.fromEntries([...SYSTEMS].map((p) =>
+  [p, Math.max(...(MOONS_OF as Record<string, string[]>)[p].map((k) => BODY_BY_KEY[k as BodyKey].periodDays ?? 0)) / 2])) as Record<string, number>;
 
 function addEcl(base: BodyState, rel: { r: number[]; v: number[] }): BodyState {
   const r = eqjToEcl(rel.r), v = eqjToEcl(rel.v);
@@ -185,6 +194,7 @@ export class OrreryScene {
   private camera: THREE.PerspectiveCamera;
   private meshes = new Map<BodyKey, THREE.Mesh>();
   private orbits = new Map<BodyKey, OrbitLine>();
+  private moonTablesSeen = -1;
   private nearOrbits = new Map<BodyKey, NearOrbit>();
   private labels = new Map<BodyKey, HTMLDivElement>();
   private baryLabels = new Map<BaryKey, HTMLDivElement>();
@@ -635,6 +645,12 @@ export class OrreryScene {
 
   private updateOrbits(tMs: number, now: number): void {
     const start = performance.now();
+    // A year of the moons' tables has arrived: their lines are redrawn
+    // from it (they were drawn from the mean elements).
+    if (moonTablesVersion() !== this.moonTablesSeen) {
+      this.moonTablesSeen = moonTablesVersion();
+      for (const [key, o] of this.orbits) if (isPlanetMoon(key)) { o.epochMs = NaN; o.sampledAt = -Infinity; }
+    }
     for (const b of BODIES) {
       const days = orbitDays(b.key, this.refFrame);
       if (!orbitOrigin(b.key, this.refFrame) || !days) continue;
@@ -723,6 +739,13 @@ export class OrreryScene {
     const ce = Math.cos(el);
     const offset: Vec3 = [dist * ce * Math.cos(az), dist * ce * Math.sin(az), dist * Math.sin(el)];
     const cam: Vec3 = [f[0] + offset[0], f[1] + offset[1], f[2] + offset[2]];
+    const sys = this.focusCraftId === null ? systemOf(this.focus) : null;
+    for (const p of SYSTEMS) {
+      const r = this.states[p].r;
+      if (p === sys || Math.hypot(r[0] - cam[0], r[1] - cam[1], r[2] - cam[2]) < MOON_TABLE_RANGE_KM) {
+        wantMoonTables(p, ttSeconds(tMs), MOON_LINE_DAYS[p]);
+      }
+    }
 
     for (const b of BODIES) {
       toRender(sub(this.states[b.key].r, cam), this.meshes.get(b.key)!.position);

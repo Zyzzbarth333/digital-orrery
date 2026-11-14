@@ -4,9 +4,10 @@
 // mean radii (constants.js, SPICE); GM values are DE442 (bodies.js): the
 // system GM for Mars to Neptune, whose positions are system barycentres.
 // Colours are approximate true mean colours, placeholders until real
-// textures arrive. The other planets' major moons (src/physics/moons.js)
-// carry their radius, GM and geometric albedo from JPL Horizons. Every
-// body's shape is its IAU triaxial ellipsoid (pck00011, pck.data.js).
+// textures arrive. The other planets' moons (src/physics/moons.js) carry
+// their radius, GM and geometric albedo from JPL Horizons. Every body's
+// shape is its IAU triaxial ellipsoid (pck00011, pck.data.js) where it has
+// one.
 
 import { PLANETS } from '../utils/constants.js';
 import { bodyConstants, MU_SUN, PLANET_GM as KERNEL_PLANET_GM } from '../physics/bodies.js';
@@ -16,13 +17,17 @@ import { RADII } from '../physics/pck.data.js';
 export type PlanetKey =
   | 'sun' | 'mercury' | 'venus' | 'earth' | 'moon' | 'mars'
   | 'jupiter' | 'saturn' | 'uranus' | 'neptune' | 'pluto';
-// The major moons of Mars to Pluto, in order out from each planet.
+// The moons of Mars to Pluto that JPL's satellite ephemerides carry, in
+// order out from each planet.
 export type MoonKey =
   | 'phobos' | 'deimos'
-  | 'io' | 'europa' | 'ganymede' | 'callisto'
-  | 'mimas' | 'enceladus' | 'tethys' | 'dione' | 'rhea' | 'titan' | 'iapetus'
+  | 'metis' | 'adrastea' | 'amalthea' | 'thebe' | 'io' | 'europa' | 'ganymede' | 'callisto'
+  | 'mimas' | 'methone' | 'enceladus' | 'tethys' | 'telesto' | 'calypso' | 'dione' | 'helene' | 'polydeuces'
+  | 'rhea' | 'titan' | 'hyperion' | 'iapetus' | 'phoebe'
   | 'miranda' | 'ariel' | 'umbriel' | 'titania' | 'oberon'
-  | 'triton' | 'charon';
+  | 'francisco' | 'caliban' | 'stephano' | 's2023u1' | 'trinculo' | 'sycorax' | 'margaret' | 'prospero' | 'setebos' | 'ferdinand'
+  | 'naiad' | 'triton' | 'nereid'
+  | 'charon' | 'styx' | 'nix' | 'kerberos' | 'hydra';
 export type BodyKey = PlanetKey | MoonKey;
 
 export interface BodyInfo {
@@ -55,6 +60,16 @@ const COLOUR: Record<BodyKey, number> = {
   mimas: 0xb5b2ad, enceladus: 0xf0f0ee, tethys: 0xd7d4cf, dione: 0xc9c6c0, rhea: 0xbdb9b2, titan: 0xd29b4a, iapetus: 0x8c8070,
   miranda: 0xa7a6a3, ariel: 0xb4b2ae, umbriel: 0x7a7874, titania: 0xa59f97, oberon: 0x928a82,
   triton: 0xd7c8bd, charon: 0x9e9a95,
+  // The small moons: approximate, from their published colours and albedos
+  // (Amalthea's red, Phoebe's and the irregular moons' dark grey, the
+  // Trojan and co-orbital moons' bright ice).
+  metis: 0x6e6660, adrastea: 0x6e6660, amalthea: 0x9a5a45, thebe: 0x7d6a5e,
+  methone: 0xd6d3ce, telesto: 0xe2e0dc, calypso: 0xe2e0dc, helene: 0xdcdad5, polydeuces: 0xd6d3ce,
+  hyperion: 0xa69a88, phoebe: 0x4f4b47,
+  francisco: 0x5f5a55, caliban: 0x6a5a50, stephano: 0x5f5a55, s2023u1: 0x5f5a55, trinculo: 0x5f5a55,
+  sycorax: 0x6a5a50, margaret: 0x5f5a55, prospero: 0x5f5a55, setebos: 0x5f5a55, ferdinand: 0x5f5a55,
+  naiad: 0x8a8680, nereid: 0x9a9690,
+  styx: 0xc8c6c2, nix: 0xc8c6c2, kerberos: 0xc8c6c2, hydra: 0xc8c6c2,
 };
 
 // Planet-only GMs from the NAIF satellite kernels' body tables (the
@@ -78,7 +93,7 @@ const GEOMETRIC_ALBEDO: Partial<Record<BodyKey, number>> = {
 type PlanetRow = { name: string; radius: number; orbitalPeriod?: number };
 const P = PLANETS as Record<string, PlanetRow>;
 
-type MoonRow = { name: string; planet: string; naif: number; ephemeris: string; frame: string; P: number; radiusKm: number; radiusNote?: string; gm: number; gmNote?: string; geometricAlbedo: number | null };
+type MoonRow = { name: string; planet: string; naif: number; ephemeris: string; frame: string; P: number; radiusKm: number; radiusNote?: string; gm: number | null; gmNote?: string; geometricAlbedo: number | null };
 const MOON_ROWS = MOON_DATA as unknown as Record<MoonKey, MoonRow>;
 const GALILEAN = new Set<BodyKey>(['io', 'europa', 'ganymede', 'callisto']);
 
@@ -92,7 +107,7 @@ function moon(key: MoonKey): BodyBase {
     moon: {
       naif: m.naif, radiusNote: m.radiusNote, gmNote: m.gmNote,
       elements: GALILEAN.has(key) ? "astronomy-engine's JupiterMoons (Lieske's E5 theory, as L1.2)"
-        : `JPL mean elements (${m.ephemeris}, ${m.frame} frame), phases fitted to Horizons`,
+        : `JPL mean elements (${m.ephemeris}, ${m.frame} frame), fitted to Horizons`,
     },
   };
 }
@@ -135,7 +150,10 @@ const LIST: BodyBase[] = [
   planet('neptune'), ...moonsOf('neptune'),
   planet('pluto'), ...moonsOf('pluto'),
 ];
-const RADII_KM = RADII as Record<BodyKey, [number, number, number]>;
+// pck00011 has no shape for Uranus's irregular moons and Pluto's small
+// ones: they are spheres of their Horizons radius.
+const RADII_KM = Object.fromEntries(LIST.map((b) => [b.key, (RADII as unknown as Record<string, [number, number, number]>)[b.key]
+  ?? [b.radiusKm, b.radiusKm, b.radiusKm]])) as Record<BodyKey, [number, number, number]>;
 export const BODIES: BodyInfo[] = LIST.map((b) => ({ ...b, radiiKm: RADII_KM[b.key] }));
 // The largest semi-axis: nothing of the body lies farther from its centre.
 export const maxRadiusKm = (key: BodyKey): number => Math.max(...RADII_KM[key]);

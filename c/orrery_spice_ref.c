@@ -228,19 +228,23 @@ int main(int argc, char **argv) {
      Earth is ITRF93 from the high-precision Earth PCK (precession, nutation,
      UT1 and polar motion); the Moon is MOON_ME, the mean-Earth/polar-axis
      frame the LRO maps are made in; the rest are the IAU frames from
-     pck00011 (Mars from Konopliv 2026), the planets' 20 major moons
-     among them. */
+     pck00011 (Mars from Konopliv 2026), every moon of the app's with an
+     IAU model among them. */
   const char *okeys[] = {"sun", "mercury", "venus", "earth", "moon", "mars", "jupiter",
                          "saturn", "uranus", "neptune", "pluto",
                          "phobos", "deimos", "io", "europa", "ganymede", "callisto",
                          "mimas", "enceladus", "tethys", "dione", "rhea", "titan", "iapetus",
-                         "miranda", "ariel", "umbriel", "titania", "oberon", "triton", "charon"};
+                         "miranda", "ariel", "umbriel", "titania", "oberon", "triton", "charon",
+                         "metis", "adrastea", "amalthea", "thebe", "telesto", "calypso", "helene",
+                         "phoebe", "naiad"};
   const char *oframes[] = {"IAU_SUN", "IAU_MERCURY", "IAU_VENUS", "ITRF93", "MOON_ME", "IAU_MARS",
                            "IAU_JUPITER", "IAU_SATURN", "IAU_URANUS", "IAU_NEPTUNE", "IAU_PLUTO",
                            "IAU_PHOBOS", "IAU_DEIMOS", "IAU_IO", "IAU_EUROPA", "IAU_GANYMEDE",
                            "IAU_CALLISTO", "IAU_MIMAS", "IAU_ENCELADUS", "IAU_TETHYS", "IAU_DIONE",
                            "IAU_RHEA", "IAU_TITAN", "IAU_IAPETUS", "IAU_MIRANDA", "IAU_ARIEL",
-                           "IAU_UMBRIEL", "IAU_TITANIA", "IAU_OBERON", "IAU_TRITON", "IAU_CHARON"};
+                           "IAU_UMBRIEL", "IAU_TITANIA", "IAU_OBERON", "IAU_TRITON", "IAU_CHARON",
+                           "IAU_METIS", "IAU_ADRASTEA", "IAU_AMALTHEA", "IAU_THEBE", "IAU_TELESTO",
+                           "IAU_CALYPSO", "IAU_HELENE", "IAU_PHOEBE", "IAU_NAIAD"};
   const int nO = (int)(sizeof okeys / sizeof okeys[0]);
   {
     const char *oepochs[] = {"2000 JAN 01 12:00:00 UTC", "2011 NOV 26 15:02:00 UTC",
@@ -264,14 +268,18 @@ int main(int argc, char **argv) {
 
   /* ---- body shapes: the triaxial ellipsoid's radii along body-fixed X, Y,
      Z, as SPICE reads them from the loaded PCKs (bodvrd_c RADII) ---- */
+  /* and the moons with a shape but no rotation model */
+  const char *rextra[] = {"methone", "polydeuces", "hyperion", "nereid"};
+  const int nR = nO + (int)(sizeof rextra / sizeof rextra[0]);
   fprintf(f, "  \"radii\": {");
-  for (int b = 0; b < nO; b++) {
+  for (int b = 0; b < nR; b++) {
     SpiceInt nr;
     SpiceDouble r[3];
-    const char *name = strcmp(okeys[b], "sun") == 0 ? "SUN" : okeys[b];
+    const char *key = b < nO ? okeys[b] : rextra[b - nO];
+    const char *name = strcmp(key, "sun") == 0 ? "SUN" : key;
     bodvrd_c(name, "RADII", 3, &nr, r);
-    die_if_failed(okeys[b]);
-    fprintf(f, "%s\"%s\": [%.17g, %.17g, %.17g]", b ? ", " : "", okeys[b], r[0], r[1], r[2]);
+    die_if_failed(key);
+    fprintf(f, "%s\"%s\": [%.17g, %.17g, %.17g]", b ? ", " : "", key, r[0], r[1], r[2]);
   }
   fprintf(f, "}\n}\n");
 

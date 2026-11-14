@@ -35,6 +35,7 @@ The meta-kernel (`data/metakernel.tm`) loads these, resolved relative to `python
 | `spk/satellites/ura184_part-3.bsp` | `spk/satellites/ura184_part-3.bsp` | 387 MB | Uranus centre and its five major moons (1600-2400) |
 | `spk/satellites/nep097.bsp` | `spk/satellites/nep097.bsp` | 105 MB | Neptune centre, Triton (1600-2400) |
 | `spk/satellites/plu060.bsp` | `spk/satellites/plu060.bsp` | 135 MB | Pluto centre, Charon and the small moons (1800-2200) |
+| `spk/satellites/nep098_part-1.bsp` | `spk/satellites/nep098_part-1.bsp` | 822 MB | Neptune centre, Triton, Nereid, Naiad (1800-2200); not in the metakernel: only `c/moon_cheb.c` reads it, for the app's moon tables (Horizons serves nep098; nep097's Triton is up to 385 km from it) |
 | `spk/asteroids/sb441-n16.bsp` | JPL `ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/` | 646 MB | The 16 asteroids the DE ephemerides use as perturbers (MD5 `03b8f72822ff459643f43bc83a07506e`; JPL publishes no checksum) |
 | `spk/de442.bsp` | `spk/planets/de442.bsp` | 120 MB | Planetary ephemeris DE442 (Feb 2025; MD5 `446656322267e7b819a26cb08a0d8718`) |
 
@@ -54,7 +55,7 @@ curl -fL -o data/kernels/pck/moon_pa_de440_200625.bpc       $B/pck/moon_pa_de440
 curl -fL -o data/kernels/fk/moon_de440_250416.tf            $B/fk/satellites/moon_de440_250416.tf
 curl -fL -o data/kernels/pck/mars_konopliv_2026_n0066_v1.tpc $B/pck/mars_konopliv_2026_n0066_v1.tpc
 curl -fL -o data/kernels/spk/de442.bsp                      $B/spk/planets/de442.bsp
-for f in mar099s jup365 sat441 ura184_part-3 nep097 plu060; do
+for f in mar099s jup365 sat441 ura184_part-3 nep097 plu060 nep098_part-1; do
   curl -fL -o data/kernels/spk/satellites/$f.bsp $B/spk/satellites/$f.bsp
 done
 curl -fL -o data/kernels/spk/asteroids/sb441-n16.bsp https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/sb441-n16.bsp

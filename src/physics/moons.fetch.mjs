@@ -2,7 +2,8 @@
 //
 // The data behind the major moons (moons.js), fetched once and committed:
 // - moons.data.js: for each moon, its row of JPL's planetary satellite mean
-//   elements (https://ssd.jpl.nasa.gov/sats/elem/); its radius, GM and
+//   elements (https://ssd.jpl.nasa.gov/sats/elem/), the fallback outside
+//   the satellite-ephemeris tables (moonTables.js); its radius, GM and
 //   geometric albedo from the header of its JPL Horizons object page; and,
 //   for the moons drawn from the elements, corrections to the mean anomaly,
 //   its rate, the periapsis and the node, fitted to Horizons vectors from
@@ -29,15 +30,33 @@ const ELEM_URL = 'https://ssd.jpl.nasa.gov/sats/elem/';
 const API = 'https://ssd.jpl.nasa.gov/api/horizons.api';
 const UA = { 'User-Agent': 'digital-orrery data fetch' };
 
-// key, NAIF id, planet (key and NAIF centre id).
+// key, NAIF id, planet (key and NAIF centre id), in order out from each
+// planet. The twenty major moons pull on spacecraft in the kernel
+// (bodies.js); the others are drawn only.
+export const MAJOR_MOONS = new Set(['phobos', 'deimos', 'io', 'europa', 'ganymede', 'callisto', 'mimas', 'enceladus', 'tethys',
+  'dione', 'rhea', 'titan', 'iapetus', 'miranda', 'ariel', 'umbriel', 'titania', 'oberon', 'triton', 'charon']);
 export const MOON_IDS = [
   ['phobos', 401, 'mars', 499], ['deimos', 402, 'mars', 499],
+  ['metis', 516, 'jupiter', 599], ['adrastea', 515, 'jupiter', 599], ['amalthea', 505, 'jupiter', 599], ['thebe', 514, 'jupiter', 599],
   ['io', 501, 'jupiter', 599], ['europa', 502, 'jupiter', 599], ['ganymede', 503, 'jupiter', 599], ['callisto', 504, 'jupiter', 599],
-  ['mimas', 601, 'saturn', 699], ['enceladus', 602, 'saturn', 699], ['tethys', 603, 'saturn', 699], ['dione', 604, 'saturn', 699],
-  ['rhea', 605, 'saturn', 699], ['titan', 606, 'saturn', 699], ['iapetus', 608, 'saturn', 699],
+  ['mimas', 601, 'saturn', 699], ['methone', 632, 'saturn', 699], ['enceladus', 602, 'saturn', 699], ['tethys', 603, 'saturn', 699],
+  ['telesto', 613, 'saturn', 699], ['calypso', 614, 'saturn', 699], ['dione', 604, 'saturn', 699], ['helene', 612, 'saturn', 699],
+  ['polydeuces', 634, 'saturn', 699], ['rhea', 605, 'saturn', 699], ['titan', 606, 'saturn', 699], ['hyperion', 607, 'saturn', 699],
+  ['iapetus', 608, 'saturn', 699], ['phoebe', 609, 'saturn', 699],
   ['miranda', 705, 'uranus', 799], ['ariel', 701, 'uranus', 799], ['umbriel', 702, 'uranus', 799], ['titania', 703, 'uranus', 799],
-  ['oberon', 704, 'uranus', 799], ['triton', 801, 'neptune', 899], ['charon', 901, 'pluto', 999],
+  ['oberon', 704, 'uranus', 799], ['francisco', 722, 'uranus', 799], ['caliban', 716, 'uranus', 799], ['stephano', 720, 'uranus', 799],
+  ['s2023u1', 75051, 'uranus', 799], ['trinculo', 721, 'uranus', 799], ['sycorax', 717, 'uranus', 799], ['margaret', 723, 'uranus', 799],
+  ['prospero', 718, 'uranus', 799], ['setebos', 719, 'uranus', 799], ['ferdinand', 724, 'uranus', 799],
+  ['naiad', 803, 'neptune', 899], ['triton', 801, 'neptune', 899], ['nereid', 802, 'neptune', 899],
+  ['charon', 901, 'pluto', 999], ['styx', 905, 'pluto', 999], ['nix', 902, 'pluto', 999], ['kerberos', 904, 'pluto', 999],
+  ['hydra', 903, 'pluto', 999],
 ];
+// The name in the elements table, and the one shown, where they differ.
+const ROW_NAME = { s2023u1: 'S2023_U1' };
+const SHOWN_NAME = { s2023u1: 'S/2023 U 1' };
+// A moon with no measured size (Horizons gives none, or only a bound) is
+// drawn at this radius, and says so.
+const NOMINAL_RADIUS_KM = 10;
 const MONTH = ['2026-11-01', '2026-12-01'];
 const YEARS = Array.from({ length: 51 }, (_, k) => `${2000 + k}-01-01`);
 const G = 6.6743e-20;                 // km^3 / (kg s^2), CODATA 2018
@@ -80,9 +99,15 @@ function parseRow(c, i) {
 // Radius (mean, or the volume-equivalent sphere of a triaxial a x b x c),
 // GM (or G times the mass) and geometric albedo, from a Horizons header.
 function parseHeader(text) {
-  const rad = text.match(/Radius \(km[^)]*\)\s*=\s*([\d.]+)\s*(?:x\s*([\d.]+)\s*x\s*([\d.]+))?/i);
-  if (!rad) throw new Error('no radius');
-  const radiusKm = rad[2] ? Math.cbrt(Number(rad[1]) * Number(rad[2]) * Number(rad[3])) : Number(rad[1]);
+  // "Radius (km) = 8.2", "Mean radius (km) = 83.5", "Radius (km),mean = 16",
+  // "Radius (km) = 16.3x11.8x9.8", "Radii (IAU2015): 1.94 x 1.29 x 1.21 km",
+  // "Radius (km) = ~30"; or "< 50 km", or nothing, for a moon not measured.
+  const rad = text.match(/Radi(?:us \(km[^)]*\)[^=\n]*=|i \(IAU ?2015\):)\s*~?\s*([\d.]+)\s*(?:x\s*([\d.]+)\s*x\s*([\d.]+))?/i);
+  const bound = text.match(/Radius \(km\)\s*=\s*<\s*([\d.]+)/i);
+  const approx = /Radius \(km\)\s*=\s*~/i.test(text);
+  const radiusKm = !rad ? NOMINAL_RADIUS_KM : rad[2] ? Math.cbrt(Number(rad[1]) * Number(rad[2]) * Number(rad[3])) : Number(rad[1]);
+  const radiusNote = !rad ? `not measured${bound ? ` (under ${bound[1]} km)` : ''}; drawn at a nominal ${NOMINAL_RADIUS_KM} km`
+    : rad[2] ? `volume-equivalent of ${rad[1]} x ${rad[2]} x ${rad[3]}` : approx ? 'approximate' : undefined;
   const gmM = text.match(/GM\s*\(km\^3\/s\^2\)\s*=\s*([\d.]+)/);
   let gm = gmM ? Number(gmM[1]) : null;
   if (gm === null) {
@@ -90,8 +115,8 @@ function parseHeader(text) {
     if (m) gm = G * Number(m[2]) * 10 ** (Number(m[1]) + Number(m[3]));
   }
   const alb = text.match(/Geometric Albedo\s*=\s*([\d.]+)/i);
-  return { radiusKm: Number(radiusKm.toFixed(2)), radiusNote: rad[2] ? `volume-equivalent of ${rad[1]} x ${rad[2]} x ${rad[3]}` : undefined,
-    gm, gmNote: gmM ? undefined : 'G x mass', geometricAlbedo: alb ? Number(alb[1]) : null };
+  return { radiusKm: Number(radiusKm.toFixed(2)), radiusNote,
+    gm, gmNote: gmM ? undefined : gm === null ? 'not measured' : 'G x mass', geometricAlbedo: alb ? Number(alb[1]) : null };
 }
 
 function vectors(text) {
@@ -110,11 +135,12 @@ const moons = {};
 const checks = { source: 'JPL Horizons API: planetocentric (500@x99) ICRF vectors in km, TDB; JD TDB, x, y, z', fetched, month: {}, years: {}, centres: {} };
 const dense = {}, quarter = {};
 for (const [key, id, planet, centre] of MOON_IDS) {
-  const name = key[0].toUpperCase() + key.slice(1);
-  const at = c.findIndex((s, k) => s === name && c[k + 1] === String(id));
-  if (at < 0) throw new Error(`no row for ${name}`);
+  const rowName = ROW_NAME[key] ?? key[0].toUpperCase() + key.slice(1);
+  const name = SHOWN_NAME[key] ?? rowName;
+  const at = c.findIndex((s, k) => s === rowName && c[k + 1] === String(id));
+  if (at < 0) throw new Error(`no row for ${rowName}`);
   const header = parseHeader(await horizons(`hdr_${id}.txt`, { COMMAND: `'${id}'`, OBJ_DATA: "'YES'", MAKE_EPHEM: "'NO'" }));
-  moons[key] = { name, planet, ...parseRow(c, at - 1), ...header };
+  moons[key] = { name, planet, major: MAJOR_MOONS.has(key), ...parseRow(c, at - 1), ...header };
   const q = { ...VEC, COMMAND: `'${id}'`, CENTER: `'500@${centre}'` };
   checks.month[key] = vectors(await horizons(`month_${id}.txt`, { ...q, START_TIME: `'${MONTH[0]}'`, STOP_TIME: `'${MONTH[1]}'`, STEP_SIZE: "'1 d'" }));
   checks.years[key] = vectors(await horizons(`years_${id}.txt`, { ...q, TLIST: YEARS.map((d) => `'${d}'`).join(' '), TLIST_TYPE: "'CAL'" }));
@@ -155,18 +181,24 @@ const DATA = new URL('./moons.data.js', import.meta.url);
 const writeData = () => fs.writeFileSync(DATA, `// src/physics/moons.data.js (written by moons.fetch.mjs; do not edit)
 //
 // Source: JPL Solar System Dynamics, Planetary Satellite Mean Elements,
-// ${ELEM_URL}, fetched ${fetched}. Epoch 2000-01-01.5 TDB; a in km, angles
-// in degrees, P in days, P apsis and P node in years. Laplace-frame rows
-// carry the Laplace pole (ICRF RA, Dec) and its tilt from the planet's
-// equator; equatorial-frame rows are referred to the planet's equator
-// (Uranus's about the pole its moons orbit). Triton's 675.2 yr, in the
-// table's apsis column, is used as its node's period (its orbit is
-// circular). Io to Callisto are drawn from astronomy-engine instead.
+// ${ELEM_URL}, fetched ${fetched}. Epoch as given (2000-01-01.5 TDB, or
+// 2020-01-01.0 for Uranus's irregular moons); a in km, angles in degrees,
+// P in days, P apsis and P node in years. Laplace-frame rows carry the
+// Laplace pole (ICRF RA, Dec) and its tilt from the planet's equator;
+// equatorial-frame rows are referred to the planet's equator (Uranus's
+// about the pole its moons orbit); ecliptic-frame rows to the J2000
+// ecliptic. Triton's 675.2 yr, in the table's apsis column, is used as its
+// node's period (its orbit is circular). These are the fallback outside
+// 2000-2049: there every moon comes from JPL's satellite ephemerides
+// (moonTables.js), and the elements are not used.
 // Radius (mean, or the volume-equivalent sphere), GM (or G x mass) and
-// geometric albedo: each moon's JPL Horizons object page, fetched ${fetched}.
+// geometric albedo: each moon's JPL Horizons object page, fetched ${fetched};
+// a moon with no measured radius is drawn at a nominal ${NOMINAL_RADIUS_KM} km. major: the
+// twenty moons that pull on spacecraft in the kernel (bodies.js).
 // fit: corrections fitted to Horizons over 2000-2050: M += dM + dn t
 // (deg, deg/day, t in days from J2000), w += dW, node += dNode (deg);
-// rmsKm and maxKm are what is left of the fit there.
+// rmsKm and maxKm are what is left of the fit there. Io to Callisto have
+// none: astronomy-engine's JupiterMoons is their fallback.
 
 export const MOON_DATA = ${JSON.stringify(moons, null, 1)};
 `);

@@ -6,11 +6,14 @@
 //
 //   npm run build:pck            (or: node src/physics/pck.build.mjs [path/to/pck00011_n0066.tpc])
 //
-// - RADII: the triaxial ellipsoid (a, b, c) of every body the scene draws,
-//   km along its body-fixed X (0 deg longitude), Y and Z (north pole).
-// - ROTATION: the IAU pole and prime meridian of the planets' 20 major
-//   moons, with their nutation-precession (libration) terms, and the
-//   angles those terms are of (BODYn_NUT_PREC_ANGLES of each system).
+// - RADII: the triaxial ellipsoid (a, b, c) of every body the scene draws
+//   that has one, km along its body-fixed X (0 deg longitude), Y and Z
+//   (north pole). Uranus's irregular moons, Naiad and Pluto's small moons
+//   have none: the scene draws them as spheres of their Horizons radius.
+// - ROTATION: the IAU pole and prime meridian of every moon that has one,
+//   with its nutation-precession (libration) terms, and the angles those
+//   terms are of (BODYn_NUT_PREC_ANGLES of each system). The others turn
+//   with their orbits (orientation.js).
 //
 // Only \begindata blocks are read, and a later assignment replaces an
 // earlier one, as SPICE's pool does. mars_konopliv_2026_n0066_v1.tpc,
@@ -55,12 +58,16 @@ function main() {
   const pool = parseTextKernel(fs.readFileSync(SRC, 'utf8'));
   const need = (n) => { if (!pool[n]) throw new Error(`pck: ${n} missing`); return pool[n]; };
   const radii = {};
-  for (const [k, id] of Object.entries(BODY_IDS)) radii[k] = need(`BODY${id}_RADII`);
+  for (const [k, id] of Object.entries(BODY_IDS)) {
+    if (pool[`BODY${id}_RADII`]) radii[k] = pool[`BODY${id}_RADII`];
+    else if (!MOON_DATA[k]) need(`BODY${id}_RADII`);
+  }
   const rotation = {};
   const systems = new Set();
   const trim = (a) => { let n = a.length; while (n > 0 && a[n - 1] === 0) n--; return a.slice(0, n); };
   for (const [k, m] of Object.entries(MOON_DATA)) {
     const id = m.naif;
+    if (!pool[`BODY${id}_POLE_RA`]) continue;
     const r = { ra: need(`BODY${id}_POLE_RA`), dec: need(`BODY${id}_POLE_DEC`), pm: need(`BODY${id}_PM`) };
     const nr = trim(pool[`BODY${id}_NUT_PREC_RA`] ?? []), nd = trim(pool[`BODY${id}_NUT_PREC_DEC`] ?? []), np = trim(pool[`BODY${id}_NUT_PREC_PM`] ?? []);
     if (nr.length || nd.length || np.length) {

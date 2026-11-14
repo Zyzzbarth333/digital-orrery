@@ -1,10 +1,13 @@
 // src/physics/moons.test.mjs
 //
-// The major moons (moons.js) against JPL Horizons (fixtures/moons_horizons.json,
+// The moons (moons.js) against JPL Horizons (fixtures/moons_horizons.json,
 // from moons.fetch.mjs): planetocentric positions daily over November 2026
 // and yearly 2000-2050, and each planet's centre about its system
-// barycentre. The limits are the errors found when the fit was made, with
-// a little room; docs/frontend/moons.md lists them.
+// barycentre. Twice: from the satellite-ephemeris tables (moonTables.js),
+// which should hold every moon within about a kilometre of Horizons, and
+// from the fallback (the mean elements and astronomy-engine), whose limits
+// are the errors found when its fit was made, with a little room.
+// docs/frontend/moons.md lists both.
 //
 // Every Horizons vector here is geometric, in the ICRF, at TDB. The moons'
 // are about their planet's body centre (Titan about 699, not the Saturn
@@ -14,20 +17,20 @@
 //   node src/physics/moons.test.mjs
 
 import fs from 'node:fs';
-import './deNode.js';                 // DE442's table, as in the app
+import './deNode.js';                 // DE442's table and the moons' tables, as in the app
 import * as Astronomy from 'astronomy-engine';
-import { moonStateEqj, planetCentreOffsetEqj, systemEqj, MOON_KEYS, MOONS_OF } from './moons.js';
+import { moonStateEqj, planetCentreOffsetEqj, systemEqj, MOON_KEYS, MOONS_OF, MAJOR_MOONS_OF, moonSource } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
 import { bodyAxesEqj } from './orientation.js';
+import { setMoonTablesEnabled, MOON_TABLE_YEARS } from './moonTables.js';
 import { utcMsAtTt, helioStateEqj } from './ephemeris.js';
 
 const hz = JSON.parse(fs.readFileSync(new URL('./fixtures/moons_horizons.json', import.meta.url)));
 const J2000_JD = 2451545.0;
 // JD TDB -> Date (UTC), through TT (TDB - TT is under 2 ms).
 const dateOf = (jd) => new Date(utcMsAtTt((jd - J2000_JD) * 86400));
-const err = (key, rows) => rows.map(([jd, x, y, z]) => { const { r } = moonStateEqj(key, dateOf(jd)); return Math.hypot(r[0] - x, r[1] - y, r[2] - z); });
-
-// Largest error allowed (km): November 2026 daily, and 2000-2050 yearly.
+// Largest error allowed (km) from the fallback: November 2026 daily, and
+// 2000-2050 yearly. Every moon in the fixture has one.
 const LIMIT = {
   phobos: [700, 700], deimos: [200, 200],
   io: [300, 400], europa: [600, 800], ganymede: [800, 1200], callisto: [2000, 3500],
@@ -36,15 +39,45 @@ const LIMIT = {
   miranda: [4500, 4500], ariel: [1200, 1200], umbriel: [800, 800], titania: [2200, 2200], oberon: [3000, 3000],
   triton: [300, 300], charon: [40, 40],
 };
-
+// From the tables, every moon: the fit leaves each series within 0.5 km of
+// the SPK, so a moon about its planet within 1 km; Horizons serves the
+// same solutions (nep098 for Neptune), and the worst found is 0.58 km.
+const TABLE_LIMIT_KM = 0.75;
 let failed = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (!ok) failed++; };
 
+const err = (key, rows) => rows.map(([jd, x, y, z]) => { const { r } = moonStateEqj(key, dateOf(jd)); return Math.hypot(r[0] - x, r[1] - y, r[2] - z); });
+
+// Every moon is in the fixture and the tables.
+check(MOON_KEYS.every((k) => hz.month[k] && hz.years[k]), `all ${MOON_KEYS.length} moons have Horizons vectors`);
+check(MOON_KEYS.every((k) => moonSource(k, new Date(Date.UTC(2026, 10, 14))) === 'table'), `all ${MOON_KEYS.length} moons come from the tables in 2026`);
+
+console.log('\nFrom the tables:');
+console.log('moon         a (km)    Nov 2026 max  2000-2050 max   (km; limit)');
+const inSpan = (rows) => rows.filter(([jd]) => { const y = dateOf(jd).getUTCFullYear(); return y >= MOON_TABLE_YEARS[0] && y <= MOON_TABLE_YEARS[1] + 1; });
+for (const key of MOON_KEYS) {
+  const mo = Math.max(...err(key, hz.month[key])), yr = Math.max(...err(key, inSpan(hz.years[key])));
+  const lim = TABLE_LIMIT_KM;
+  check(mo < lim && yr < lim, `${key.padEnd(10)} ${String(MOON_DATA[key].a).padStart(8)} ${mo.toFixed(3).padStart(12)} ${yr.toFixed(3).padStart(14)}   (${lim})`);
+}
+
+// The planet's centre about its barycentre, against Horizons (x99 about x):
+// the tables carry JPL's own.
+for (const planet of Object.keys(MOONS_OF)) {
+  const rows = hz.centres[planet];
+  const e = rows.map(([jd, x, y, z]) => { const c = planetCentreOffsetEqj(planet, dateOf(jd)); return Math.hypot(c[0] - x, c[1] - y, c[2] - z); });
+  const size = Math.max(...rows.map(([, x, y, z]) => Math.hypot(x, y, z)));
+  check(Math.max(...e) < 0.5, `${planet} centre about barycentre: up to ${size.toFixed(2)} km, error ${Math.max(...e).toFixed(3)} km (limit 0.5)`);
+}
+
+// The fallback, for dates outside 2000-2049 or before a year has loaded.
+setMoonTablesEnabled(false);
+console.log('\nFrom the fallback (mean elements; astronomy-engine for the Galilean moons):');
 console.log('moon         a (km)    Nov 2026 max  2000-2050 max   (km; limit)');
 for (const key of MOON_KEYS) {
   const mo = Math.max(...err(key, hz.month[key])), yr = Math.max(...err(key, hz.years[key]));
-  const [lm, ly] = LIMIT[key];
-  check(mo < lm && yr < ly, `${key.padEnd(10)} ${String(MOON_DATA[key].a).padStart(8)} ${mo.toFixed(0).padStart(12)} ${yr.toFixed(0).padStart(14)}   (${lm}, ${ly})`);
+  const m = MOON_DATA[key], [lm, ly] = LIMIT[key] ?? [m.fit.maxKm * 1.2 + 10, m.fit.maxKm * 1.2 + 10];
+  check(mo < lm && yr < ly, `${key.padEnd(10)} ${String(m.a).padStart(8)} ${mo.toFixed(0).padStart(12)} ${yr.toFixed(0).padStart(14)}   (${lm.toFixed(0)}, ${ly.toFixed(0)})`);
 }
 
 // The planet's centre about its barycentre, from the moons here, against
@@ -56,6 +89,7 @@ for (const planet of Object.keys(MOONS_OF)) {
   const size = Math.max(...rows.map(([, x, y, z]) => Math.hypot(x, y, z)));
   check(Math.max(...e) < CENTRE_LIMIT[planet], `${planet} centre about barycentre: up to ${size.toFixed(2)} km, error ${Math.max(...e).toFixed(3)} km (limit ${CENTRE_LIMIT[planet]})`);
 }
+setMoonTablesEnabled(true);
 
 // The app's planets from Mars out are their system barycentres, from
 // DE442's table, against Horizons' barycentres (n about the Sun's centre).
@@ -126,15 +160,19 @@ for (const key of Object.keys(hz.moonsBary)) {
     eh = Math.max(eh, Math.hypot(b[0] + o[0] + m[0] - mh[1], b[1] + o[1] + m[1] - mh[2], b[2] + o[2] + m[2] - mh[3]));
     eSelf = Math.max(eSelf, Math.hypot(mc[1] + c[1] - x, mc[2] + c[2] - y, mc[3] + c[3] - z));
   });
-  const [lm] = LIMIT[key];
-  check(eb < lm && erel < lm && eh < lm && eSelf < 0.2, `${key.padEnd(8)} about barycentre ${n}: ${eb.toFixed(0)} km (${eNo.toFixed(0)} without the planet's offset); about the Sun: ${eh.toFixed(0)} km, relative to the planet ${erel.toFixed(0)} km; Horizons frames agree to ${eSelf.toFixed(2)} km`);
+  const lm = TABLE_LIMIT_KM + 0.5, lh = 30;
+  check(eb < lm && erel < lm && eh < lh && eSelf < 0.2, `${key.padEnd(8)} about barycentre ${n}: ${eb.toFixed(3)} km (${eNo.toFixed(0)} without the planet's offset); relative to the planet, about the Sun: ${erel.toFixed(3)} km (limit ${lm}); about the Sun: ${eh.toFixed(1)} km, the planet's own error (limit ${lh}); Horizons frames agree to ${eSelf.toFixed(2)} km`);
 }
 
-// Data: every moon has a radius, a GM and a period.
+// Data: every moon has a radius (measured, or a nominal one that says so),
+// a period, and a GM if it pulls on spacecraft.
 for (const key of MOON_KEYS) {
   const m = MOON_DATA[key];
-  check(m.radiusKm > 1 && m.gm > 0 && m.P > 0, `${key} radius ${m.radiusKm} km, GM ${m.gm}, P ${m.P} d`);
+  const radius = m.radiusKm > 1 && (!/nominal/.test(m.radiusNote ?? '') || /not measured/.test(m.radiusNote));
+  const gm = m.gm > 0 || (!m.major && m.gmNote === 'not measured');
+  check(radius && gm && m.P > 0, `${key} radius ${m.radiusKm} km${m.radiusNote ? ` (${m.radiusNote})` : ''}, GM ${m.gm ?? m.gmNote}, P ${m.P} d`);
 }
+check(Object.values(MAJOR_MOONS_OF).flat().length === 20, `the kernel pulls with the twenty major moons: ${Object.values(MAJOR_MOONS_OF).flat().join(', ')}`);
 
 // Body frame (bodyAxesEqj, pck00011): Z is the IAU's north pole, checked
 // here against the WGCCRE 2015 report's own formulae, so the USGS maps,

@@ -7,6 +7,8 @@
 import { readFileSync } from 'node:fs';
 import { parseDeTable, installDeTable } from './deTable.js';
 import { installSpaceWeather } from './spaceWeather.js';
+// The moons' satellite-ephemeris tables, read as they are needed.
+import './moonNode.js';
 
 const buf = readFileSync(new URL('../../public/ephemeris/de442-2000-2050.bin', import.meta.url));
 installDeTable(parseDeTable(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)));

@@ -12,7 +12,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { useClock, useClockValue, type SimClock } from './clock';
 import type { Mission } from './mission';
-import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf, type BaryKey, type BodyKey, type FocusKey } from '../scene/catalogue';
+import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf, type BaryKey, type BodyKey, type FocusKey, type MoonKey } from '../scene/catalogue';
+import { moonSource, MOON_KERNEL } from '../physics/moons.js';
 import { baryState, bodyState, type Frame } from '../scene/OrreryScene';
 import { baryGm } from '../physics/barycentres.js';
 import { MU_SUN } from '../physics/bodies.js';
@@ -365,7 +366,7 @@ function Credits() {
     if (m.stars) items.push(['Sky', m.stars.credit]);
   }
   items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance']);
-  items.push(['Moon orbits', 'JPL Solar System Dynamics, planetary satellite mean elements, and JPL Horizons; the Galilean moons from astronomy-engine']);
+  items.push(['Moon orbits', "JPL's satellite ephemerides (mar099s, jup365, sat441, ura184, nep098, plu060) for 2000–2049; outside that, JPL Solar System Dynamics' planetary satellite mean elements fitted to JPL Horizons, and astronomy-engine for the Galilean moons"]);
   // CC BY 4.0 asks for a link to the licence and, where practical, to the
   // material; the maps' own credit lines name it.
   const ccLink = (
@@ -383,6 +384,15 @@ function Credits() {
       </dl>
     </details>
   );
+}
+
+// A moon's motion row: JPL's satellite ephemeris where its system's table
+// for the year is loaded, else the fallback the catalogue names.
+function moonRow(key: MoonKey, date: Date, fallback: string): Row {
+  const src = moonSource(key, date);
+  const planet = BODY_BY_KEY[key].parent! as keyof typeof MOON_KERNEL;
+  if (src === 'table') return { label: 'Motion', value: 'Ephemeris', alt: 'about its planet, on rails', src: 'JPL', info: 'moon-orbit', detail: `JPL ${MOON_KERNEL[planet]}, within 1 km` };
+  return { label: 'Motion', value: 'Mean orbit', alt: 'about its planet, on rails', src: src === 'theory' ? 'AE' : 'JPL', info: 'moon-orbit', detail: fallback };
 }
 
 export interface Row { label: string; value: string; unit?: string; alt?: string; src: string; derived?: boolean; info: TagInfoKey; detail?: string; hint?: string }
@@ -481,7 +491,7 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
       ? { label: 'Motion', value: 'About the SSB', alt: 'swung by the giant planets', src: eph, info: 'ssb-offset' }
       : { label: 'Motion', value: 'Fixed', alt: 'the centre of the frame', src: 'frame', derived: true, info: 'frame' }
     : pm
-      ? { label: 'Motion', value: 'Mean orbit', alt: 'about its planet, on rails', src: pm.elements.startsWith('JPL') ? 'JPL' : 'AE', info: 'moon-orbit', detail: pm.elements }
+      ? moonRow(focus as MoonKey, date, pm.elements)
       : { label: 'Motion', value: 'Ephemeris', alt: 'on rails, not integrated', src: eph, info: 'ephemeris' });
   if (ssb) {
     const r = norm(sub3(st.r, ssb.r)), v = norm(sub3(st.v, ssb.v));
@@ -500,7 +510,7 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     });
   }
   rows.push(pm
-    ? { label: 'Mean radius', value: fmtGroup(b.radiusKm, b.radiusKm < 100 ? 2 : 1), unit: 'km', src: 'JPL', info: 'moon-radius', detail: `NAIF ${pm.naif}${pm.radiusNote ? `: the sphere of equal volume to ${pm.radiusNote.replace('volume-equivalent of ', '')} km` : ''}` }
+    ? { label: 'Mean radius', value: fmtGroup(b.radiusKm, b.radiusKm < 100 ? 2 : 1), unit: 'km', src: 'JPL', info: 'moon-radius', detail: `NAIF ${pm.naif}${!pm.radiusNote ? '' : pm.radiusNote.startsWith('volume-equivalent of ') ? `: the sphere of equal volume to ${pm.radiusNote.replace('volume-equivalent of ', '')} km` : `: ${pm.radiusNote}`}` }
     : { label: 'Mean radius', value: fmtGroup(b.radiusKm, b.radiusKm < 10000 ? 1 : 0), unit: 'km', src: 'IAU', info: 'mean-radius' });
   // The shape the scene draws, where it is not a sphere.
   const [ra, rb, rc] = b.radiiKm;
@@ -517,6 +527,8 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     rows.push(pm
       ? { label: 'GM', value: sig10(b.gm), unit: 'km³/s²', src: 'JPL', info: 'moon-gm', detail: b.gmNote }
       : { label: b.planetGm ? 'GM, system' : 'GM', value: sig10(b.gm), unit: 'km³/s²', src: 'DE442', info: 'gm', detail: b.gmNote });
+  } else if (pm) {
+    rows.push({ label: 'GM', value: 'Not measured', src: 'JPL', info: 'moon-gm', detail: `NAIF ${pm.naif}: Horizons gives no mass for it` });
   }
   if (b.planetGm) {
     const [naif, kernel] = (b.planetGmNote ?? '').split(', ');
@@ -536,7 +548,7 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
       ? { label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(2), src: 'JPL', info: 'moon-albedo', detail: `NAIF ${pm.naif}` }
       : { label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(3), src: 'NSSDCA', info: 'albedo' });
   }
-  if (focus !== 'sun' && b.gm) {
+  if (focus !== 'sun' && (b.gm || pm)) {
     // The period of the osculating orbit at this instant, from the state:
     // a = 1 / (2/r - v^2/mu), with mu = the Sun's GM plus the body's (the
     // Moon's about Earth: Earth's plus the Moon's).
@@ -548,7 +560,7 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     const o = !host && b.planetGm ? (helioStateEcl(focus, date) as { r: number[]; v: number[] }) : st;
     const rr = norm([o.r[0] - about.r[0], o.r[1] - about.r[1], o.r[2] - about.r[2]]);
     const vv = norm([o.v[0] - about.v[0], o.v[1] - about.v[1], o.v[2] - about.v[2]]);
-    const mu = (host ? (host.planetGm ?? host.gm!) : MU_SUN) + b.gm;
+    const mu = (host ? (host.planetGm ?? host.gm!) : MU_SUN) + (b.gm ?? 0);
     const a = 1 / (2 / rr - (vv * vv) / mu);
     const T = 2 * Math.PI * Math.sqrt(a ** 3 / mu) / 86400;
     rows.push({ label: 'Orbital period', value: fmtGroup(T, 3), unit: 'd', src: '2-body', derived: true, info: 'orbital-period', detail: `of the osculating orbit about ${host ? host.name : 'the Sun'} at this instant (a = ${fmtGroup(a, 0)} km); the real orbit is perturbed` });
@@ -556,7 +568,11 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
   // How it turns (the IAU rotation model, bodyfacts.js): the sidereal
   // period, the solar day where it differs by more than 0.1 %, and the tilt
   // of the spin axis to the orbit (over 90°: it turns backwards).
-  if (pm) {
+  if (pm && !(focus in ROTATION)) {
+    // No IAU model (Hyperion tumbles; the small and irregular moons' spins
+    // are unknown): drawn turning with its orbit (orientation.js).
+    rows.push({ label: 'Rotation', value: 'Not modelled', alt: 'drawn turning with its orbit', src: 'IAU', info: 'moon-rotation', detail: `NAIF ${pm.naif}: pck00011 has no rotation model for it` });
+  } else if (pm) {
     // The planets' moons all turn once each orbit; the period is the IAU
     // model's prime meridian rate (pck00011, orientation.js).
     const W1 = ROTATION[focus as keyof typeof ROTATION].pm[1];

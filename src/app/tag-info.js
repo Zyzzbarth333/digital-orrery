@@ -114,8 +114,8 @@ export const TAG_INFO = {
   'bary-offset': {
     what: 'How far the body\'s centre is from the barycentre: its moons pull it round this point.',
     tex: ['\\mathbf r_\\text{planet} - \\mathbf r_\\text{B} = -\\sum_i \\frac{\\mu_i}{\\mu_\\text{system}}\\,\\mathbf r_i'],
-    where: '𝐫ᵢ: each moon about the planet\'s centre; for Earth, the Moon from DE442',
-    source: 'moons.js and DE442 · docs/frontend/moons.md',
+    where: '𝐫ᵢ: each moon about the planet\'s centre; for Earth, the Moon from DE442. From 2000 to 2049 the offset is the satellite ephemeris\'s own planet centre, which sums every moon',
+    source: 'moons.js (JPL satellite ephemerides) and DE442 · docs/frontend/moons.md',
   },
   'ssb-offset': {
     what: 'How far the Sun\'s centre is from the solar system barycentre. The Sun wanders round it, mostly with Jupiter and Saturn, often by more than its own radius.',
@@ -135,10 +135,10 @@ export const TAG_INFO = {
   },
   // The planets' major moons (moons.js, moons.data.js)
   'moon-orbit': {
-    what: 'Where the moon is about its planet: astronomy-engine\'s theory for Jupiter\'s four large moons; for the others, a precessing ellipse from JPL\'s mean elements, with corrections fitted to JPL Horizons.',
+    what: 'Where the moon is about its planet. From 2000 to 2049, JPL\'s satellite ephemerides, as Chebyshev series within 1 km of them, loaded a system and a year at a time. Outside that, or until the year has loaded: astronomy-engine\'s theory for Jupiter\'s four large moons, and for the others a precessing ellipse from JPL\'s mean elements with corrections fitted to JPL Horizons.',
     tex: ['M = M_0 + \\frac{360°\\,t}{P} + \\delta M + \\delta n\\,t', '\\omega = \\omega_0 + \\delta\\omega + \\frac{360°\\,t}{P_\\omega}', '\\Omega = \\Omega_0 + \\delta\\Omega \\mp \\frac{360°\\,t}{P_\\Omega}'],
-    where: 't: days from J2000; the ellipse lies in the moon\'s Laplace plane (Mars, Saturn) or its planet\'s equator; the planet is drawn at its centre, offset from its system barycentre by its moons\' pull',
-    source: 'JPL SSD planetary satellite mean elements; JPL Horizons; Lieske\'s E5 theory via astronomy-engine · docs/frontend/moons.md',
+    where: 'The ellipse (the fallback): t days from its epoch, in the moon\'s Laplace plane (Mars, Jupiter\'s inner moons, Saturn), its planet\'s equator, or the ecliptic (Uranus\'s irregular moons); the planet is drawn at its centre, offset from its system barycentre by its moons\' pull',
+    source: 'JPL satellite ephemerides mar099s, jup365, sat441, ura184, nep098, plu060 (NAIF); JPL SSD planetary satellite mean elements; JPL Horizons; Lieske\'s E5 theory via astronomy-engine · docs/frontend/moons.md',
   },
   'moon-radius': {
     what: 'The radius of a sphere of the same volume as the moon.',

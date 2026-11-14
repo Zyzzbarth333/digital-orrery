@@ -6,10 +6,13 @@
 
 import { createKernelHost } from './kernelHost.js';
 import { loadDeTable } from './deLoad.js';
+import { installMoonLoader } from './moonLoad.js';
 
 const host = createKernelHost();
 // DE442's Earth and Moon before the first step (deTable.js).
 const ready = loadDeTable();
+// The moons' tables for a system a craft comes near (moonLoad.js).
+installMoonLoader({ onMiss: true });
 
 self.onmessage = async (e) => {
   await ready;

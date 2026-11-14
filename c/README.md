@@ -79,3 +79,24 @@ per series and per body as the app composes it about the Sun, the worst
 position and acceleration error, checked between the fitting nodes against
 `spkezr_c`, and the jumps where intervals meet. `DAYS_<id>` and `N_<id>`
 (NAIF code, 301 for the Moon) override a series' interval and coefficients.
+
+## The moons for the app
+
+`moon_cheb.c` fits the moons' tables
+([docs/frontend/moons.md](../docs/frontend/moons.md#2000-to-2049-jpls-satellite-ephemerides))
+from NAIF's satellite SPKs (`mar099s`, `jup365`, `sat441`, `ura184_part-3`,
+`nep098_part-1`, `plu060`, 3.3 GB, in `python/data/kernels/spk/satellites/`, or the
+folder `$SAT_KERNELS` names):
+
+```bash
+cmake --build c/build
+c/build/moon_cheb survey 0.5 2000 2050
+c/build/moon_cheb public/ephemeris/moons 0.5 2000 2050
+```
+
+The arguments are the tolerance in km for each series (a moon and its
+planet's centre, each about the barycentre, so a moon about its planet is
+within twice that), the first year and the year after the last. `survey`
+only prints the size each body would take. The full run takes about six
+minutes and prints, for each body, its intervals a year, coefficients, worst
+error over every interval, and the jumps where intervals meet.

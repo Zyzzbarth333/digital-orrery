@@ -33,7 +33,7 @@ import { helioStateEqjAtTt, ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
 import { ZONAL_CUTOFF } from './zonal.js';
 import { MOON_DATA } from './moons.data.js';
-import { MOONS_OF, moonStateEqjAtTt, systemEqjAtTt } from './moons.js';
+import { MAJOR_MOONS_OF, moonStateEqjAtTt, planetOffsetEqjAtTt } from './moons.js';
 import { PLANETS } from '../utils/constants.js';
 
 // GM (km^3/s^2) from DE442 (python/data/gm_de442.tpc), matched to what each
@@ -227,7 +227,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
   // through leap seconds; msAt and secondsAt convert to and from UTC.
   const tt0 = ttSeconds(epochMs);
   const msAt = (t) => utcMsAtTt(tt0 + t), secondsAt = (ms) => ttSeconds(ms) - tt0;
-  const sat = satellites ?? { moon: moonStateEqjAtTt, offset: (planet, tt) => systemEqjAtTt(planet, tt).offset };
+  const sat = satellites ?? { moon: moonStateEqjAtTt, offset: planetOffsetEqjAtTt };
   const withJ2 = (b) => {
     const z = zonal && ZONAL[b.key];
     if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN });
@@ -247,7 +247,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
     const helio = DIFFERENCED.has(key) ? differenced(key, tt0) : (t) => helioStateEqjAtTt(key, tt0 + t);
     const b = withJ2(body(key, c.mu, c.radius, c.parent, new HermiteEphemeris(helio, SPACING[key])));
     byKey.set(key, b);
-    const splits = moons && MOONS_OF[key];
+    const splits = moons && MAJOR_MOONS_OF[key];
     if (!splits && !REACH[key]) return b;
     const G = { key, bary: b, centre: null, moons: [], soiK: (c.mu / muSun) ** 0.4, reach: REACH[key] ?? Infinity };
     if (splits) {
@@ -259,7 +259,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
       };
       G.centre = withJ2(body(key, PLANET_GM[key], c.radius, null, new HermiteEphemeris(centreAt, CENTRE_SPACING)));
       byKey.set(key, G.centre);
-      G.moons = MOONS_OF[key].map((k) => {
+      G.moons = MAJOR_MOONS_OF[key].map((k) => {
         const about = new HermiteEphemeris((t) => sat.moon(k, tt0 + t), MOON_SPACING[k]);
         const m = body(k, MOON_DATA[k].gm, MOON_DATA[k].radiusKm, key, new SumEphemeris(G.centre.eph, about));
         const z = zonal && MOON_ZONAL[k];
