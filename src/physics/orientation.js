@@ -20,11 +20,15 @@
 //   Z = (cos d0 cos a0, cos d0 sin a0, sin d0)    north pole
 //   X = cos W N + sin W (Z x N),   Y = Z x X
 //
+// The planets' moons turn synchronously, 0 deg longitude toward the planet
+// (moons.js, moonAxesEqj).
+//
 // Checked against CSPICE pxform (ITRF93, MOON_ME, IAU_*) in
 // orientation.test.mjs.
 
 import * as Astronomy from 'astronomy-engine';
 import './ephemeris.js';               // sets astronomy-engine's ΔT from the leap seconds
+import { isMoonKey, moonAxesEqj } from './moons.js';
 
 const AE_BODY = {
   sun: Astronomy.Body.Sun, mercury: Astronomy.Body.Mercury, venus: Astronomy.Body.Venus,
@@ -49,6 +53,7 @@ function earthAxes(date) {
 
 export function bodyAxesEqj(key, date) {
   if (key === 'earth') return earthAxes(date);
+  if (isMoonKey(key)) return moonAxesEqj(key, date);     // the planets' moons: synchronous (moons.js)
   const body = AE_BODY[key];
   if (body === undefined) throw new Error(`no rotation model for ${key}`);
   const ax = Astronomy.RotationAxis(body, date);

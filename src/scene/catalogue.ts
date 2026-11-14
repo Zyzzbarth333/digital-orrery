@@ -4,14 +4,24 @@
 // mean radii (constants.js, SPICE); GM values are DE442 (bodies.js): the
 // system GM for Mars to Neptune, whose positions are system barycentres.
 // Colours are approximate true mean colours, placeholders until real
-// textures arrive.
+// textures arrive. The other planets' major moons (src/physics/moons.js)
+// carry their radius, GM and geometric albedo from JPL Horizons.
 
 import { PLANETS } from '../utils/constants.js';
 import { bodyConstants, MU_SUN } from '../physics/bodies.js';
+import { MOON_DATA } from '../physics/moons.data.js';
 
-export type BodyKey =
+export type PlanetKey =
   | 'sun' | 'mercury' | 'venus' | 'earth' | 'moon' | 'mars'
   | 'jupiter' | 'saturn' | 'uranus' | 'neptune' | 'pluto';
+// The major moons of Mars to Pluto, in order out from each planet.
+export type MoonKey =
+  | 'phobos' | 'deimos'
+  | 'io' | 'europa' | 'ganymede' | 'callisto'
+  | 'mimas' | 'enceladus' | 'tethys' | 'dione' | 'rhea' | 'titan' | 'iapetus'
+  | 'miranda' | 'ariel' | 'umbriel' | 'titania' | 'oberon'
+  | 'triton' | 'charon';
+export type BodyKey = PlanetKey | MoonKey;
 
 export interface BodyInfo {
   key: BodyKey;
@@ -27,12 +37,19 @@ export interface BodyInfo {
   periodDays: number | null;    // orbital period about its primary
   parent: BodyKey | null;       // what it orbits (for its orbit line)
   colour: number;
+  // Where a moon's numbers come from, for the data plate.
+  moon?: { naif: number; elements: string; radiusNote?: string; gmNote?: string };
 }
 
 const COLOUR: Record<BodyKey, number> = {
   sun: 0xfff4e0, mercury: 0x8f8a85, venus: 0xe6d6ae, earth: 0x4a6d9c, moon: 0x9c9a95,
   mars: 0xb4623a, jupiter: 0xc9b48f, saturn: 0xd8c690, uranus: 0xa9d8de, neptune: 0x4b6fd0,
   pluto: 0xc9b49a,
+  phobos: 0x6e655c, deimos: 0x8a7f72,
+  io: 0xd8c66e, europa: 0xc9bca6, ganymede: 0x9d9286, callisto: 0x6f6556,
+  mimas: 0xb5b2ad, enceladus: 0xf0f0ee, tethys: 0xd7d4cf, dione: 0xc9c6c0, rhea: 0xbdb9b2, titan: 0xd29b4a, iapetus: 0x8c8070,
+  miranda: 0xa7a6a3, ariel: 0xb4b2ae, umbriel: 0x7a7874, titania: 0xa59f97, oberon: 0x928a82,
+  triton: 0xd7c8bd, charon: 0x9e9a95,
 };
 
 // Planet-only GMs from the NAIF satellite kernels' body tables (the
@@ -56,7 +73,26 @@ const GEOMETRIC_ALBEDO: Partial<Record<BodyKey, number>> = {
 type PlanetRow = { name: string; radius: number; orbitalPeriod?: number };
 const P = PLANETS as Record<string, PlanetRow>;
 
-function planet(key: Exclude<BodyKey, 'sun' | 'moon'>): BodyInfo {
+type MoonRow = { name: string; planet: string; naif: number; ephemeris: string; frame: string; P: number; radiusKm: number; radiusNote?: string; gm: number; gmNote?: string; geometricAlbedo: number | null };
+const MOON_ROWS = MOON_DATA as unknown as Record<MoonKey, MoonRow>;
+const GALILEAN = new Set<BodyKey>(['io', 'europa', 'ganymede', 'callisto']);
+
+function moon(key: MoonKey): BodyInfo {
+  const m = MOON_ROWS[key];
+  return {
+    key, name: m.name, radiusKm: m.radiusKm, gm: m.gm, gmNote: `NAIF ${m.naif}, JPL Horizons${m.gmNote ? ` (${m.gmNote})` : ''}`,
+    geometricAlbedo: m.geometricAlbedo, periodDays: m.P, parent: m.planet as BodyKey, colour: COLOUR[key],
+    moon: {
+      naif: m.naif, radiusNote: m.radiusNote, gmNote: m.gmNote,
+      elements: GALILEAN.has(key) ? "astronomy-engine's JupiterMoons (Lieske's E5 theory, as L1.2)"
+        : `JPL mean elements (${m.ephemeris}, ${m.frame} frame), phases fitted to Horizons`,
+    },
+  };
+}
+const moonsOf = (planetKey: BodyKey): BodyInfo[] =>
+  (Object.keys(MOON_ROWS) as MoonKey[]).filter((k) => MOON_ROWS[k].planet === planetKey).map(moon);
+
+function planet(key: Exclude<PlanetKey, 'sun' | 'moon'>): BodyInfo {
   let gm: number | null = null;
   let gmNote = '';
   if (key === 'pluto') {
@@ -85,12 +121,15 @@ export const BODIES: BodyInfo[] = [
   { key: 'moon', name: 'Moon', radiusKm: 1737.4, gm: bodyConstants('moon').mu, gmNote: 'NAIF 301 (DE442)',
     geometricAlbedo: GEOMETRIC_ALBEDO.moon!,
     periodDays: 27.321661, parent: 'earth', colour: COLOUR.moon },
-  planet('mars'),
-  planet('jupiter'),
-  planet('saturn'),
-  planet('uranus'),
-  planet('neptune'),
-  planet('pluto'),
+  planet('mars'), ...moonsOf('mars'),
+  planet('jupiter'), ...moonsOf('jupiter'),
+  planet('saturn'), ...moonsOf('saturn'),
+  planet('uranus'), ...moonsOf('uranus'),
+  planet('neptune'), ...moonsOf('neptune'),
+  planet('pluto'), ...moonsOf('pluto'),
 ];
 
 export const BODY_BY_KEY = Object.fromEntries(BODIES.map((b) => [b.key, b])) as Record<BodyKey, BodyInfo>;
+
+// A moon of a planet other than Earth (src/physics/moons.js draws these).
+export const isPlanetMoon = (key: BodyKey): key is MoonKey => !!BODY_BY_KEY[key].moon;
