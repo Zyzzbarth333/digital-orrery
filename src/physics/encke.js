@@ -172,6 +172,7 @@ export function advanceEncke(state, tEnd, opts) {
     bodiesAt, muSun, tolKm = 1e-7, hMax = 86400, eta = 0.01, maxSteps = 200000,
     breakpoints = null, extraAccel = null, sunRadius = 695700, primaryOf, tidal = true,
   } = opts;
+  const focus = opts.focus ?? bodiesAt.focus;
   const key = state.primary;
   const bodies0 = () => bodiesAt(state.t);
   const P = bodies0().find((b) => b.key === key);
@@ -344,6 +345,7 @@ export function advanceEncke(state, tEnd, opts) {
       events.push({ type: 'impact', body: 'sun', t: state.t });
       return { steps, events, complete: false, left: false };
     }
+    if (focus) focus(r, state.t);
     const now = bodiesAt(state.t);
     for (const b of now) {
       if (below(r, b)) {

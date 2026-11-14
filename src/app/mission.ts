@@ -121,11 +121,11 @@ export class Mission {
     for (const c of this.crafts) this.track(c, timeMs, jumped);
     this.client.tick(this.crafts);
     this.checkAlarm();
-    // Closest approach so far to a planned destination (its system barycentre).
+    // Closest approach so far to a planned destination (the planet's centre).
     for (const c of this.crafts) {
       const p = this.plans.get(c.id);
       if (!p) continue;
-      const B = this.sys.bodiesAt(c.kState.t).find((b: { key: string }) => b.key === p.target);
+      const B = this.sys.bodyAt(p.target, c.kState.t);
       if (B) p.closest = Math.min(p.closest, Math.hypot(c.kState.r[0] - B.r[0], c.kState.r[1] - B.r[1], c.kState.r[2] - B.r[2]));
     }
     this.emit();
@@ -140,7 +140,7 @@ export class Mission {
   }
   private primary(c: Craft) {
     const key = c.kState.primary;
-    return key && key !== 'sun' ? this.sys.bodiesAt(c.clockT).find((b: { key: string }) => b.key === key) : null;
+    return key && key !== 'sun' ? this.sys.bodyAt(key, c.clockT) : null;
   }
   primaryVelocity(c: Craft): number[] { const P = this.primary(c); return P ? P.eph.velocity(c.clockT) : [0, 0, 0]; }
 
@@ -368,7 +368,7 @@ export class Mission {
       if (s.i !== a.shown) { a.flownEcl = [...a.pathEcl.slice(0, s.i + 1)]; a.shown = s.i; a.version++; }
       const rel = eqjToEclFast(s.r);
       const t = kernelSeconds(new Date(timeMs));
-      const earth = this.sys.bodiesAt(t).find((b: { key: string }) => b.key === 'earth');
+      const earth = this.sys.bodyAt('earth', t);
       const rE: number[] = earth ? earth.eph.position(t) : [0, 0, 0];
       const rEcl = eqjToEclFast([s.r[0] + rE[0], s.r[1] + rE[1], s.r[2] + rE[2]]);
       return {
@@ -384,7 +384,7 @@ export class Mission {
     return this.crafts.map((c) => {
       const s = c.displayState();
       const key = c.kState.primary as string;
-      const P = key && key !== 'sun' ? this.sys.bodiesAt(c.clockT).find((b: { key: string }) => b.key === key) : null;
+      const P = key && key !== 'sun' ? this.sys.bodyAt(key, c.clockT) : null;
       const rP: number[] = P ? P.eph.position(c.clockT) : [0, 0, 0];
       const vP: number[] = P ? P.eph.velocity(c.clockT) : [0, 0, 0];
       const rel = [s.r[0] - rP[0], s.r[1] - rP[1], s.r[2] - rP[2]];
@@ -403,7 +403,7 @@ export class Mission {
       }
       if (changed) path.version++;
       const R = this.real.get(c.id);
-      const E = R ? this.sys.bodiesAt(c.clockT).find((b: { key: string }) => b.key === 'earth') : null;
+      const E = R ? this.sys.bodyAt('earth', c.clockT) : null;
       return {
         id: c.id, name: c.name, rEcl: eqjToEclFast(s.r), primaryEcl: eqjToEclFast(rP),
         conicEcl: path.conic, trailEcl: path.trail.points, pathVersion: path.version,

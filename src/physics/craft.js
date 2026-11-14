@@ -80,6 +80,9 @@ function carryWithJ2(r0, v0, dtx, P, ap, extra = null, t0 = 0) {
 
 export class Craft {
   // sys: { bodiesAt, muSun } from bodies.solarSystemBodies (same epoch as t).
+  // The craft takes its own view of it (sys.view()), focused on where it
+  // is, so a planet's moons are in its list near the planet whatever the
+  // other craft are doing.
   // area (m^2) and cr: the sunlit cross-section and its reflectivity
   // (1 absorbs, 2 mirrors) for sunlight pressure (environment.js).
   // earth: the environment's Earth field options (environment.js; e.g.
@@ -93,7 +96,7 @@ export class Craft {
   constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null), scriptIsp = /** @type {number | null} */ (null) }) {
     this.id = nextId++;
     this.name = name;
-    this.sys = sys;
+    this.sys = sys.view ? sys.view() : sys;
     this.dryMass = dryMass;          // kg
     this.fuel = fuel;                // kg, one tank
     this.thrust = thrust;            // N
@@ -105,7 +108,8 @@ export class Craft {
     this.entry = entry;
     this.entryState = null;          // the entry guidance's, from the kernel
     this.vent = vent;
-    const bodies = sys.bodiesAt(t);
+    this.sys.focus?.(r, t);
+    const bodies = this.sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
     this.version = 0;
     this.clockT = t;                 // the sim clock as last seen
@@ -272,6 +276,7 @@ export class Craft {
 
   // A tracking fix: the craft's state replaced by a measured one at time t.
   setState(r, v, t) {
+    this.sys.focus?.(r, t);
     const bodies = this.sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, this.sys.muSun), accel: accelHeliocentric(r, bodies, this.sys.muSun) };
     this.lagSeconds = 0;
@@ -369,6 +374,7 @@ export class Craft {
     if (res.version !== this.version) return;
     const prev = this.kState.primary;
     this.kState = { r: res.r, v: res.v, t: res.t, primary: res.primary, accel: res.accel, withThrust: true };
+    this.sys.focus?.(res.r, res.t);
     if (res.envState?.entry) this.entryState = res.envState.entry;
     const impact = res.events.find((e) => e.type === 'impact');
     this.lagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
@@ -386,9 +392,14 @@ export class Craft {
 
   // ---------------- drawing ----------------
 
+  // A body by key at t (any planet, its centre, or moon, split or not).
+  body(key, t) {
+    return this.sys.bodyAt ? this.sys.bodyAt(key, t) : this.sys.bodiesAt(t).find((b) => b.key === key);
+  }
+
   primaryBody(key) {
     if (!key || key === 'sun') return null;
-    return this.sys.bodiesAt(this.kState.t).find((b) => b.key === key) ?? null;
+    return this.body(key, this.kState.t) ?? null;
   }
 
   // The state at the sim clock (kState carried forward, at most 30 days).
@@ -407,7 +418,7 @@ export class Craft {
 
   // Speed over the Earth's turning surface (km/s) at heliocentric r, v.
   groundSpeed(r, v, t) {
-    const E = this.sys.bodiesAt(t).find((b) => b.key === 'earth');
+    const E = this.body('earth', t);
     if (!E?.eph) return Infinity;
     const d = sub(r, E.eph.position(t)), w = E.pole ?? [0, 0, 1], om = 7.2921158553e-5, ve = E.eph.velocity(t);
     const spin = [om * (w[1] * d[2] - w[2] * d[1]), om * (w[2] * d[0] - w[0] * d[2]), om * (w[0] * d[1] - w[1] * d[0])];
@@ -417,7 +428,7 @@ export class Craft {
   // The impact point in the body's own frame (orientation.js), so it can be
   // carried with the body's motion and spin.
   siteOn(key, r, t) {
-    const B = this.sys.bodiesAt(t).find((b) => b.key === key);
+    const B = this.body(key, t);
     if (!B?.eph || !this.sys.msAt) return null;
     const d = sub(r, B.eph.position(t));
     const [X, Y, Z] = bodyAxesEqj(key, new Date(this.sys.msAt(t)));
@@ -429,7 +440,7 @@ export class Craft {
   onSite(t) {
     const S = this.impactSite;
     if (!S) return null;
-    const B = this.sys.bodiesAt(t).find((b) => b.key === S.key);
+    const B = this.body(S.key, t);
     if (!B?.eph) return null;
     const at = (tt) => {
       const [X, Y, Z] = bodyAxesEqj(S.key, new Date(this.sys.msAt(tt)));
@@ -456,7 +467,7 @@ export class Craft {
     const push = (b, t) => b.F / (b.m0 - b.mdot * (t - b.t0)) / 1000;    // km/s^2
     const along = (b, t, x) => {
       if (b.frame !== 'vnb') return b.dir;
-      const B = this.sys.bodiesAt(t).find((y) => y.key === b.about);
+      const B = this.body(b.about, t);
       if (!B?.eph) return [0, 0, 0];
       return vnbDirection(b.dir, sub(x.r, B.eph.position(t)), sub(x.v, B.eph.velocity(t)));
     };
@@ -501,7 +512,7 @@ export class Craft {
   // above the Moon, one second-order carry was 163 km out.
   carryCoast(dtx, a, from = this.kState) {
     const key = from.primary;
-    const P = key && key !== 'sun' ? this.sys.bodiesAt(from.t).find((b) => b.key === key) : null;
+    const P = key && key !== 'sun' ? this.body(key, from.t) : null;
     let n = 1;
     if (P?.eph) {
       const d = sub(from.r, P.eph.position(from.t)), w = sub(from.v, P.eph.velocity(from.t));

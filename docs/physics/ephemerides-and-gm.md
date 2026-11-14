@@ -126,7 +126,9 @@ $$
 | Mercury, Venus | planet (no moons) | 2.20318685514×10⁴, 3.24858592×10⁵ |
 | Earth | Earth centre (399) | 3.98600435543531×10⁵ |
 | Moon | Moon centre (301) | 4.90280010414135×10³ |
-| Mars to Neptune | system barycentre | DE442 system values |
+| Mars to Pluto, far from them | system barycentre | DE442 system values (Pluto's within 5 AU of it only) |
+| Mars to Pluto, near them (split) | planet centre (499, 599, ...) | planet-only values from the NAIF satellite kernels (`PLANET_GM`) |
+| their 20 major moons, near their planet | moon centre | each moon's GM from Horizons ([moons](../frontend/moons.md#physical-data)) |
 
 (`constants.js` keeps the planet-only GMs for planet-centred uses such as
 escape from the planet itself.)
@@ -147,13 +149,16 @@ The result matches the same table's km³/s² column to its printed precision
 checks every kernel GM against the value SPICE reads from that file (worst
 5.9×10⁻¹⁶) and that the giant planets carry their moons.
 
-## Next: planet systems inside their sphere of influence
+## Planet systems near them
 
 From far away a planet system is one mass at its barycentre. Close in, the
-moons matter (the Galilean moons near Jupiter, Titan near Saturn). The plan is
-to switch, inside a planet's sphere of influence, from the barycentre to the
-planet and its major moons as separate bodies with their own GMs, using
-positions from the satellite kernels.
+moons matter (the Galilean moons near Jupiter, Titan near Saturn). So,
+within 1.25 times a planet's sphere of influence, the kernel switches from
+the barycentre to the planet at its centre and its major moons as separate
+bodies, each with its own GM (the table above). The planet-only GM and the
+centre go together, as the system GM and the barycentre do. The positions
+are `moons.js`'s, not the satellite kernels': see
+[the kernel](nbody-kernel.md#moons).
 
 ## Sources
 
