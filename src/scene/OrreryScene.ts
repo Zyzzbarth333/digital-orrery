@@ -29,13 +29,13 @@ import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, isPlanetMoon, type BodyKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
-import { makeStarPoints, makeStars, setStarScale } from './stars';
+import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { SmallBodyLayer } from './smallBodies';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
-import { loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
+import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
 import { HdrPipeline } from './post';
 import { makeSunMaterial, SunGlare, visibleFraction } from './sun';
@@ -302,7 +302,8 @@ export class OrreryScene {
         // The light between the stars, then the stars as points over it.
         const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
         void this.surfaces.load(stars.map, true).then((tex) => {
-          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain);
+          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain,
+            stars.detail && { entry: stars.detail, base: TEXTURE_BASE });
           this.scene.add(this.stars);
         });
         if (stars.points) {
@@ -341,6 +342,7 @@ export class OrreryScene {
     for (const key of Object.keys(m.bodies) as BodyKey[]) this.unloadedSurfaces.add(key);
     if (m.stars && this.stars) {
       const mat = this.stars.material as THREE.ShaderMaterial;
+      resetStars(this.stars);
       void this.surfaces.load(m.stars.map, true).then((tex) => { mat.uniforms.starMap.value = tex; }).catch(() => {});
     }
   }

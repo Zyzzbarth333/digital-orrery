@@ -10,16 +10,19 @@
 // reddened toward the limb (blue darkens more). The centre is brighter than
 // the mean by 1/0.805, so the disc's total light is unchanged.
 //
-// Glare: light scattered in the eye or a camera's optics, drawn over the
-// whole view. Its profile is the CIE's disability glare for a young eye,
-// L / E = 10 / theta^3 + 5 / theta^2 + 0.05 / theta (theta in degrees):
-// relative to a white surface under the same sunlight (L = E / pi), pi
-// times that, which an eye would see as a white veil a few degrees across.
-// It is drawn at 3 % of that, closer to a good camera than an eye, with the
-// fine radial needles of the eye's ciliary corona close in, drifting
-// slowly as a pupil does.
-// It scales with the visible fraction of the Sun's disc, so a planet in
-// front of the Sun takes it away.
+// Glare: light scattered in a camera's optics, drawn over the whole view.
+// Its point-spread function, relative to a white surface under the same
+// sunlight, is G(theta) = A / theta^2 + B / theta (theta in degrees): the
+// inverse-square fall-off of scatter from polished lens surfaces (Harvey's
+// model) with a faint wide tail. Spread over the disc, the A term averages
+// to A ln(theta^2 / (theta^2 - r^2)) / r^2 for a disc of angular radius r,
+// so close to the Sun the halo follows the limb instead of a point. The
+// glare's strength is the sunlight at the camera relative to the exposure:
+// steady while the exposure follows the distance (beyond 0.2 AU), so its
+// apparent size does not change as you zoom; growing as 1/d^2 inside that.
+// The fine radial needles of an eye's ciliary corona are kept, faint, close
+// in, drifting slowly. The glare scales with the visible fraction of the
+// Sun's disc, so a planet in front of the Sun takes it away.
 
 import * as THREE from 'three';
 
@@ -27,7 +30,11 @@ import * as THREE from 'three';
 export const SUN_RGB: [number, number, number] = [1.097, 0.977, 0.943];
 export const SUN_DISC_RADIANCE = 46000;          // mean, relative to white lit at 1 AU
 const LIMB_MEAN = 0.3 + 0.93 * (2 / 3) - 0.23 * 0.5;   // disc average of the law above
-const GLARE_STRENGTH = 0.03;                     // of the eye's disability glare
+// The glare's point-spread function (header): white out to about 0.4 deg
+// at the exposure for the camera's own sunlight, 10 % of white at 1.2 deg,
+// 1 % at 4 deg. In all, about 0.1 % of the Sun's light is scattered.
+export const GLARE_A = 0.15;                     // deg^2
+export const GLARE_B = 0.005;                    // deg
 
 const discVertex = /* glsl */ `
 #include <common>
@@ -76,12 +83,13 @@ export const GLARE_GLSL = /* glsl */ `
 uniform vec3 sunDir;        // unit vector to the Sun, view space
 uniform vec2 resolution;    // drawing buffer, px
 uniform mat4 projInv;       // inverse projection (honours a view offset)
-uniform float level;        // irradiance at the camera x visible fraction x strength
+uniform float level;        // irradiance at the camera x visible fraction
 uniform float sunRadius;    // angular radius, deg
 uniform float time;         // s
 uniform float glareOn;      // 0 when no glare reaches the frame
 uniform float degPerPx;     // field of view per canvas pixel, deg
 uniform vec3 tint;
+uniform vec2 psf;           // A, B (sun.ts)
 
 float glareHash(float n) { return fract(sin(n) * 43758.5453123); }
 float needles(float a, float n, float t) {
@@ -103,21 +111,24 @@ vec3 sunGlare(vec2 fragCoord) {
   // Over the disc the glare adds to light that is already saturated; where
   // a body hides part of the disc it carries on across the hidden limb.
   float th = max(theta, max(sunRadius, 0.05));
-  // CIE disability glare, relative to a white surface in the same light.
-  float g = 3.14159265 * (10.0 / (th * th * th) + 5.0 / (th * th) + 0.05 / th);
+  // The A term spread over the disc (header); a point while x is tiny.
+  float r = max(sunRadius, 0.05);
+  float x = min(r * r / (th * th), 0.999);
+  float near = x < 1e-3 ? 1.0 / (th * th) : -log(1.0 - x) / (r * r);
+  float g = psf.x * near + psf.y / th;
   // Ciliary corona: fine radial needles within 10 deg, drifting slowly.
   if (th < 10.0) {
     vec3 side = normalize(cross(sunDir, vec3(0.0, 0.0, 1.0)) + vec3(1e-5, 0.0, 0.0));
     vec3 up = cross(side, sunDir);
-    vec3 r = ray - sunDir * cosT;
-    float a = atan(dot(r, up), dot(r, side));
+    vec3 rr = ray - sunDir * cosT;
+    float a = atan(dot(rr, up), dot(rr, side));
     float drift = 0.15 * sin(time * 0.31) + 0.05 * time;
     // Each set of needles fades out where they would be closer than a few
     // pixels apart, rather than alias into crawling speckle.
     float arcPx = radians(th) * 57.29578 / degPerPx;   // pixels around the circle per radian of angle
     float f1 = smoothstep(2.0, 5.0, arcPx * 6.2832 / 90.0), f2 = smoothstep(2.0, 5.0, arcPx * 6.2832 / 211.0);
     float n = needles(a, 90.0, drift) * 0.7 * f1 + needles(a, 211.0, -drift * 1.7) * 0.5 * f2;
-    g += n * 8.0 / (th * th) * smoothstep(10.0, 1.0, th);
+    g += n * 0.3 * psf.x * near * smoothstep(10.0, 1.0, th);
   }
   return tint * level * g;
 }
@@ -135,13 +146,15 @@ export class SunGlare {
     glareOn: { value: 0 },
     degPerPx: { value: 0.05 },
     tint: { value: new THREE.Vector3(...SUN_RGB) },
+    psf: { value: new THREE.Vector2(GLARE_A, GLARE_B) },
   };
   private view = new THREE.Matrix4();
   private tmp = new THREE.Vector3();
 
   // sunPos: the Sun's centre in render units relative to the camera;
-  // irradiance: sunlight at the camera, (1 AU / d)^2; visible: the fraction
-  // of the disc not hidden by a body.
+  // irradiance: sunlight at the camera, (1 AU / d)^2, in the scene's units
+  // (the exposure then scales it); visible: the fraction of the disc not
+  // hidden by a body.
   update(camera: THREE.PerspectiveCamera, sunPos: THREE.Vector3, sunRadius: number, irradiance: number,
     visible: number, buffer: THREE.Vector2, timeS: number): void {
     const u = this.uniforms;
@@ -151,17 +164,20 @@ export class SunGlare {
     (u.resolution.value as THREE.Vector2).copy(buffer);
     (u.projInv.value as THREE.Matrix4).copy(camera.projectionMatrixInverse);
     u.sunRadius.value = (Math.asin(Math.min(1, sunRadius / d)) * 180) / Math.PI;
-    u.level.value = irradiance * visible * GLARE_STRENGTH;
+    u.level.value = irradiance * visible;
     u.time.value = timeS;
     u.degPerPx.value = camera.fov / Math.max(1, buffer.y);
     // Off when the Sun is so far out of view that its glare at the nearest
-    // edge of the frame is under a thousandth of white.
+    // edge of the frame is under a thousandth of white (at the exposure
+    // for the camera's sunlight).
     const fwd = this.tmp.set(0, 0, -1).transformDirection(camera.matrixWorld);
     const thetaC = (Math.acos(Math.max(-1, Math.min(1, fwd.dot(sunPos) / d))) * 180) / Math.PI;
     const t = Math.tan((camera.fov * Math.PI) / 360);
     const halfDiag = (Math.atan(t * Math.hypot(1, camera.aspect)) * 180) / Math.PI;
     const edge = Math.max(0.05, thetaC - halfDiag);
-    const atEdge = Math.PI * (10 / edge ** 3 + 5 / edge ** 2 + 0.05 / edge) * GLARE_STRENGTH * visible;
+    // Inside 0.2 AU the exposure stops following the distance
+    // (OrreryScene.updateLighting), so the Sun outshines it by (0.2 AU / d)^2.
+    const atEdge = (GLARE_A / edge ** 2 + GLARE_B / edge) * visible * Math.max(1, 0.04 * irradiance);
     u.glareOn.value = visible > 0 && atEdge > 1e-3 ? 1 : 0;
   }
 }
