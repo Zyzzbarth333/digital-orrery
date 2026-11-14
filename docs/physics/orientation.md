@@ -38,7 +38,72 @@ $$
 \mathbf Y = \mathbf Z \times \mathbf X .
 $$
 
-$\alpha_0$, $\delta_0$ and $W$ come from astronomy-engine's `RotationAxis`.
+For the Sun, the planets and Pluto, $\alpha_0$, $\delta_0$ and $W$ come from
+astronomy-engine's `RotationAxis`.
+
+### The planets' moons
+
+The 20 major moons the scene draws (Phobos to Charon) use the IAU models as
+NAIF's `pck00011_n0066.tpc` gives them, the same constants SPICE's
+`IAU_<MOON>` frames use. `src/physics/pck.build.mjs` reads the kernel's
+data blocks (a later assignment replacing an earlier one, as SPICE's pool
+does) and writes `src/physics/pck.data.js`. With $d$ days and $T$ Julian
+centuries TDB from J2000, as SPICE's `bodeul` evaluates them:
+
+$$
+\theta_j = A_j + B_j T,
+$$
+
+$$
+\alpha_0 = \alpha_{00} + \alpha_{01}T + \alpha_{02}T^2 + \sum_j a_j\sin\theta_j, \qquad
+\delta_0 = \delta_{00} + \delta_{01}T + \delta_{02}T^2 + \sum_j d_j\cos\theta_j,
+$$
+
+$$
+W = W_0 + W_1 d + W_2 d^2 + \sum_j w_j\sin\theta_j,
+$$
+
+where the $\theta_j$ are the system's nutation-precession angles
+(`BODY4_NUT_PREC_ANGLES` for Mars's moons, `BODY5_` for Jupiter's, and so
+on). The sums carry each moon's forced libration and the precession of its
+orbit's plane: Phobos's prime meridian librates by over a degree, Mimas's by 45° (its
+orbit's libration in the resonance with Tethys), and Triton's pole
+circles 32° in right ascension over Neptune's 690-year nodal cycle. TT
+stands in for TDB (under 2 ms apart).
+
+Before this the moons were drawn turning synchronously, with $X$ toward the
+planet and $Z$ along the orbit's pole. Against the IAU frame, 2000 to 2050,
+that put the sub-planet point up to 3° off 0° longitude for most moons,
+5–7° for Enceladus, Titan and Iapetus and 37° for Mimas (both errors of the
+mean-element orbit and the IAU model's own libration), and it flipped the
+pole of the Uranian moons and Triton: the IAU puts a body's north on the
+solar system's north side, and these moons orbit the other way about it
+($W_1 < 0$), so a map would have been drawn mirrored.
+
+### Shapes
+
+`pck.data.js` also carries each drawn body's triaxial ellipsoid,
+`BODYnnn_RADII`: the semi-axes $(a, b, c)$ along body-fixed $X$, $Y$ and $Z$.
+The scene draws these ([the 3D scene](../frontend/scene.md#shapes)):
+
+| Body | $a \times b \times c$ (km) | Flattening $(a - c)/a$ |
+| --- | --- | --- |
+| Earth | 6,378.1366 × 6,356.7519 | 0.34 % (1/298.3) |
+| Mars | 3,396.19 × 3,376.20 | 0.59 % |
+| Jupiter | 71,492 × 66,854 | 6.5 % |
+| Saturn | 60,268 × 54,364 | 9.8 % |
+| Uranus | 25,559 × 24,973 | 2.3 % |
+| Neptune | 24,764 × 24,341 | 1.7 % |
+| Phobos | 13.0 × 11.4 × 9.1 | |
+| Deimos | 7.8 × 6.0 × 5.1 | |
+| Io | 1,829.4 × 1,819.4 × 1,815.7 | |
+| Mimas | 207.8 × 196.7 × 190.6 | |
+| Iapetus | 745.7 × 712.1 | 4.5 % |
+
+The long axis of a tidally locked moon points at its planet (0° longitude).
+Mercury, Enceladus, Tethys, Dione, Rhea, Titan, Miranda and Ariel are
+slightly triaxial as well; Venus, the Moon, Pluto, Ganymede, Callisto,
+Umbriel, Titania, Oberon, Triton and Charon are spheres in pck00011.
 
 ## Rotation periods and tilts on the data plate
 
@@ -91,7 +156,8 @@ density to 1 %. Two differ, and the plate says so:
 
 `npm test` runs `orientation.test.mjs`, which compares the axes with CSPICE
 `pxform_c` from J2000 to each body-fixed frame at four epochs from 2000 to
-2026:
+2026 (the fixture is `src/physics/fixtures/spice_reference.json`, written by
+`c/orrery_spice_ref.c`):
 
 | Body | CSPICE frame | Worst axis error | At the surface |
 | --- | --- | --- | --- |
@@ -104,12 +170,22 @@ density to 1 %. Two differ, and the plate says so:
 | Uranus, Neptune | IAU frames | 0.037°, 0.040° | 16 km, 17 km |
 | Pluto | IAU_PLUTO | 0.0042° | 86 m |
 | Sun | IAU_SUN | 0.0011° | 13 km |
+| The 20 major moons | IAU_PHOBOS … IAU_CHARON | 1.9×10⁻⁵° (Phobos); 8.5×10⁻⁷° to 6.6×10⁻⁶° the others | under 1 m |
+
+The moons use SPICE's own model, so only TT for TDB and rounding are left.
+The same test checks the 31 ellipsoids in `pck.data.js` against SPICE's
+`bodvrd_c` reading of `RADII`: equal to the last digit.
 
 The giant planets have no surface; their "longitude" is a rotation model
 (System III), so these differences only move cloud bands, and only for the
 models astronomy-engine and pck00011 take from different IAU reports.
 
 ## Sources
+
+- NAIF, `pck00011_n0066.tpc`, the generic text PCK in the N0066 toolkit's
+  format (<https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/>): the
+  moons' rotation models and every body's radii, as the IAU 2015 report and
+  its later corrections give them.
 
 - B. A. Archinal et al., "Report of the IAU Working Group on Cartographic
   Coordinates and Rotational Elements: 2015", *Celestial Mechanics and

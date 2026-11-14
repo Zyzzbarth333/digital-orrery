@@ -238,10 +238,18 @@ export function advanceEncke(state, tEnd, opts) {
   // the full primaryOf() runs only near those edges.
   const kids = bodies0().filter((b) => b.parent === key);
   let soiP = 0, soiKids = [], soiAge = Infinity;
+  // A moon's sphere is about its planet (as primaryOf has it), not the Sun:
+  // taken about the Sun, the Moon's would be 2.5 million km instead of
+  // 66,000. In practice the planet's tide ends Encke about a moon well
+  // inside either (the ratio passes ENCKE_OUT about 2,000 km from the
+  // Moon), so this only keeps the two checks in agreement.
   const refreshSoi = () => {
     const bs = bodiesAt(state.t);
     const p = bs.find((b) => b.key === key);
-    soiP = len3(p.r[0], p.r[1], p.r[2]) * Math.pow(mu / muSun, 0.4);
+    const host = p.parent ? bs.find((b) => b.key === p.parent) : null;
+    soiP = host
+      ? len3(p.r[0] - host.r[0], p.r[1] - host.r[1], p.r[2] - host.r[2]) * Math.pow(mu / host.mu, 0.4)
+      : len3(p.r[0], p.r[1], p.r[2]) * Math.pow(mu / muSun, 0.4);
     soiKids = kids.map((k) => {
       const b = bs.find((x) => x.key === k.key);
       return len3(b.r[0] - p.r[0], b.r[1] - p.r[1], b.r[2] - p.r[2]) * Math.pow(b.mu / mu, 0.4);

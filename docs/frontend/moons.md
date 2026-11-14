@@ -201,10 +201,13 @@ the CODATA 2018 $G$. Charon has no albedo there, so it is drawn at 0.3.
   but Titan, whose haze is closer to Lambert. No maps yet: USGS
   Astrogeology's global mosaics (Galilean moons, Saturn's and Uranus's major
   moons, Triton, Charon) are NASA/USGS public domain and could follow.
-- **Turning:** every one of these moons rotates synchronously, so its
-  body-fixed frame puts 0° longitude toward the planet and its pole along
-  the orbit's pole (`moonAxesEqj`), which is the IAU's prime meridian for
-  them to within their small librations.
+- **Turning:** each moon turns by its IAU rotation model from NAIF's
+  pck00011, pole and prime meridian with their libration terms
+  ([orientation](../physics/orientation.md#the-planets-moons)), the frame
+  the USGS maps are made in. All of them turn once each orbit; the
+  Uranian moons and Triton turn backwards about the IAU north pole.
+- **Shape:** each is its IAU triaxial ellipsoid, long axis toward the
+  planet (Phobos 26 × 23 × 18 km, Mimas 416 × 393 × 381 km).
 - **Shadows:** a planet takes the four largest of its moons as shadow
   casters (`MAX_OCCLUDERS`), so the Galilean moons' shadows cross Jupiter,
   and a moon is eclipsed by its planet. One moon's shadow on another is not
@@ -225,8 +228,10 @@ Computing all six systems takes about 0.1 ms a frame.
   323 km off after nine hours with these moons against 4 km with JPL's.
   JPL's satellite kernels (`jup365` and the rest), as Chebyshev tables like
   the Earth's and Moon's, would bring that down; they need a download.
-- **The moons' own oblateness** and gravity fields (Titan's, Ganymede's
-  $J_2$), for orbits about a moon.
+- **The moons' gravity fields beyond degree 2.** Io, Europa, Ganymede,
+  Callisto and Titan carry their $J_2$ and $C_{22}$
+  ([kernel](../physics/nbody-kernel.md#the-moons-own-fields)); the others
+  are point masses.
 - Surface maps for the moons (above).
 - Mimas's libration, which a sinusoidal term in its mean longitude could hold.
 

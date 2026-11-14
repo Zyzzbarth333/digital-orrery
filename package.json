@@ -18,6 +18,7 @@
     "export:artemis1": "node src/physics/artemis1.export.mjs",
     "fetch:smallbodies": "node src/physics/smallbodies.fetch.mjs && node src/physics/smallbodies.horizons.mjs",
     "build:smallbodies": "node src/physics/smallbodies.build.mjs",
+    "build:pck": "node src/physics/pck.build.mjs",
     "fetch:moons": "node src/physics/moons.fetch.mjs",
     "fetch:flyby": "node src/physics/flyby.fetch.mjs",
     "crosscheck:artemis1": "node src/physics/artemis1.crosscheck.mjs",
