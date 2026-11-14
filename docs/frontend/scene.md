@@ -20,6 +20,11 @@ every frame:
 - **The other planets:** astronomy-engine, within 1×10⁻⁴ of each planet's
   distance from the Sun against DE442; see
   [validation](../validation.md#ephemeris-and-porkchop-porkchoptestmjs).
+  These are system barycentres; Mars to Pluto are drawn at their own
+  centres, offset by their moons' pull.
+- **Twenty major moons** of Mars to Pluto: astronomy-engine's Galilean
+  moons and JPL's mean elements, within 0.3 % of their orbits' radii for
+  most; see [Moons](moons.md).
 
 ## Frame and units
 
@@ -61,11 +66,11 @@ the Sun, or the zoom the user last chose in radii. See [Camera](camera.md).
 ## Orbit lines
 
 Each orbit line is the body's real path for one orbital period, centred on
-the sim time and relative to its parent (the Sun, or Earth for the Moon),
+the sim time and relative to its parent (the Sun, or the planet for a moon),
 sampled at 360 points from the same ephemeris. It is drawn at the parent's
 current position. A line is resampled when the sim time moves more than 5% of
-a period from its centre (at most every 0.5 s), so it always passes through
-the body. Because it is the ephemeris path and not a Kepler ellipse, it
+a period from its centre (at most every 0.5 s a line, and for at most 2 ms
+a frame), so it always passes through the body. Because it is the ephemeris path and not a Kepler ellipse, it
 includes the perturbations the ephemeris has.
 
 The line is a faint outline of the whole orbit with a glowing trail behind

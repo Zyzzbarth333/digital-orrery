@@ -92,6 +92,33 @@ export const TAG_INFO = {
     tex: [],
     source: 'NASA NSSDCA planetary fact sheets',
   },
+  // The planets' major moons (moons.js, moons.data.js)
+  'moon-orbit': {
+    what: 'Where the moon is about its planet: astronomy-engine\'s theory for Jupiter\'s four large moons; for the others, a precessing ellipse from JPL\'s mean elements, with corrections fitted to JPL Horizons.',
+    tex: ['M = M_0 + \\frac{360°\\,t}{P} + \\delta M + \\delta n\\,t', '\\omega = \\omega_0 + \\delta\\omega + \\frac{360°\\,t}{P_\\omega}', '\\Omega = \\Omega_0 + \\delta\\Omega \\mp \\frac{360°\\,t}{P_\\Omega}'],
+    where: 't: days from J2000; the ellipse lies in the moon\'s Laplace plane (Mars, Saturn) or its planet\'s equator; the planet is drawn at its centre, offset from its system barycentre by its moons\' pull',
+    source: 'JPL SSD planetary satellite mean elements; JPL Horizons; Lieske\'s E5 theory via astronomy-engine · docs/frontend/moons.md',
+  },
+  'moon-radius': {
+    what: 'The radius of a sphere of the same volume as the moon.',
+    tex: [],
+    source: 'the moon\'s JPL Horizons object page',
+  },
+  'moon-gm': {
+    what: 'G times the moon\'s mass. Orbits depend on this product, which tracking measures far better than G or the mass alone.',
+    tex: ['\\mu = GM'],
+    source: 'the moon\'s JPL Horizons object page (G times the mass where it gives no GM)',
+  },
+  'moon-albedo': {
+    what: 'How bright the full disc is, against a white disc of the same size.',
+    tex: [],
+    source: 'the moon\'s JPL Horizons object page',
+  },
+  'moon-rotation': {
+    what: 'Time for one turn against the stars. Tides have locked the moon: it turns once each orbit, keeping one face to its planet.',
+    tex: ['P_\\text{rot} = P_\\text{orbit}'],
+    source: 'JPL SSD planetary satellite mean elements (the period) · docs/frontend/moons.md',
+  },
   // panels.tsx: a = 1 / (2/rr - vv^2/mu), T = 2 pi sqrt(a^3/mu)
   'orbital-period': {
     what: 'Time for one orbit, from the osculating orbit at this instant: the conic the body would follow if only its primary pulled.',

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/app/tex.test.mjs && node src/physics/orbital.test.mjs && node src/physics/porkchop.test.mjs && node src/physics/nbody.test.mjs && node src/physics/orientation.test.mjs && node src/physics/bodyfacts.test.mjs && node src/physics/craft.test.mjs && node src/physics/trajsearch.test.mjs && node src/physics/nesc.test.mjs && node src/physics/environment.test.mjs && node src/physics/rocket.test.mjs && node src/physics/rocket.xcheck.test.mjs && node src/physics/ork.test.mjs && node src/physics/entry.test.mjs && node src/physics/smallbodies.test.mjs && node src/physics/artemis2.validate.mjs && node src/physics/artemis1.validate.mjs",
+    "test": "node src/app/tex.test.mjs && node src/physics/orbital.test.mjs && node src/physics/porkchop.test.mjs && node src/physics/nbody.test.mjs && node src/physics/orientation.test.mjs && node src/physics/bodyfacts.test.mjs && node src/physics/craft.test.mjs && node src/physics/trajsearch.test.mjs && node src/physics/nesc.test.mjs && node src/physics/environment.test.mjs && node src/physics/rocket.test.mjs && node src/physics/rocket.xcheck.test.mjs && node src/physics/ork.test.mjs && node src/physics/entry.test.mjs && node src/physics/smallbodies.test.mjs && node src/physics/moons.test.mjs && node src/physics/artemis2.validate.mjs && node src/physics/artemis1.validate.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "bench": "node src/physics/bench.mjs",
     "validate:artemis2": "node src/physics/artemis2.validate.mjs && node src/physics/artemis1.validate.mjs",
@@ -18,6 +18,7 @@
     "export:artemis1": "node src/physics/artemis1.export.mjs",
     "fetch:smallbodies": "node src/physics/smallbodies.fetch.mjs && node src/physics/smallbodies.horizons.mjs",
     "build:smallbodies": "node src/physics/smallbodies.build.mjs",
+    "fetch:moons": "node src/physics/moons.fetch.mjs",
     "crosscheck:artemis1": "node src/physics/artemis1.crosscheck.mjs",
     "fetch:environment": "node src/physics/environment.fetch.mjs",
     "oracle:openrocket": "node src/physics/rocket.openrocket.mjs"
