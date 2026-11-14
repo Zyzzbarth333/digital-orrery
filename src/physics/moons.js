@@ -141,16 +141,30 @@ export function systemEqj(planet, date) {
 
 export const planetCentreOffsetEqj = (planet, date) => systemEqj(planet, date).offset.r;
 
+// The pole of the solar system's invariable plane in the ICRF (Souami and
+// Souchay 2012: RA 273.8527 deg, Dec 66.9911 deg).
+const INVARIABLE_POLE = (() => {
+  const ra = 273.8527 * DEG, dec = 66.9911 * DEG;
+  return [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
+})();
+
 // Body-fixed axes of a moon, all of which turn synchronously: X (0 deg
-// longitude) toward the planet, Z along the orbit's pole, Y = Z x X. This
-// is the IAU's prime meridian for these moons to within their libration
-// and the small offsets of their own rotation models.
+// longitude) toward the planet, Z along the IAU's north pole, Y = Z x X, so
+// longitude is east-positive about Z as in the USGS maps. The IAU's north
+// pole of a planet's moon is the one on the north side of the invariable
+// plane: the orbit's pole for most, its opposite for Triton (retrograde)
+// and the Uranian moons (which orbit Uranus's tipped spin). Charon, as a
+// dwarf planet's moon, takes the right-hand pole: its orbit's. This is the
+// IAU's prime meridian for these moons to within their libration and the
+// small offsets of their own rotation models.
 export function moonAxesEqj(key, date) {
   const { r, v } = moonStateEqj(key, date);
   const unit = (a) => { const n = Math.hypot(a[0], a[1], a[2]); return [a[0] / n, a[1] / n, a[2] / n]; };
   const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
   const X = unit([-r[0], -r[1], -r[2]]);
-  const Z = unit(cross(r, v));
+  let Z = unit(cross(r, v));
+  const P = INVARIABLE_POLE;
+  if (MOON_DATA[key].planet !== 'pluto' && Z[0] * P[0] + Z[1] * P[1] + Z[2] * P[2] < 0) Z = [-Z[0], -Z[1], -Z[2]];
   return [X, cross(Z, X), Z];
 }
 
