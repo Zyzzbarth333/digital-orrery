@@ -13,20 +13,30 @@ import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import {
   stackPerformance, optimalStaging, levelAscent, ascentToState, ascentTrack, launchAzimuth, rotationBonus, realAtmosphere,
-  deltaVToOrbit, deltaVDeparture, deltaVToApoapsis, circularSpeed, EARTH, G0,
+  deltaVToOrbit, deltaVDeparture, deltaVToApoapsis, circularSpeed, surfaceSpeed, EARTH, G0,
 } from '../physics/rocket.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
+import { LAUNCHERS } from '../physics/launchers.js';
 import { SourceTag } from './source-tag';
 import { rvToElements } from '../physics/orbital.js';
 import { orkXml, readOrk, vehicleFromOrk, flyOrk } from '../physics/ork.js';
 
-interface StageRow { name: string; dry: number; prop: number; isp: number; ispSl: number; thrust: number }   // t, t, s, s, kN
-interface Preset { label: string; payload: number; diameter: number; cd: number; stages: StageRow[] }
+interface StageRow { name: string; dry: number; prop: number; isp: number; ispSl: number; thrust: number; est?: string[] }   // t, t, s, s, kN
+interface Flown { flight: string; frame: 'inertial' | 'surface'; events: { name: string; t: number; h: number; v: number }[]; source: string }
+interface Preset {
+  label: string; payload: number; diameter: number; cd: number; stages: StageRow[];
+  // A real launcher's: where its figures come from, the job it flew, and
+  // the flight to set the ascent beside.
+  source?: { text: string; url: string }; est?: { cd?: boolean; payload?: boolean }; job?: { pad: string; inc: number; alt: number }; flown?: Flown;
+}
 
-// Two presets: a generic two-stage launcher sized for 22 t to low orbit
-// (not any real rocket), and the single stage of Curtis's Example 13.3,
-// which the tests check the ascent against.
+// The presets: real launchers from their published figures
+// (src/physics/launchers.js), shown greyed until changed; then a generic
+// two-stage launcher sized for 22 t to low orbit (not any real rocket), and
+// the single stage of Curtis's Example 13.3, which the tests check the
+// ascent against.
 const PRESETS: Preset[] = [
+  ...(LAUNCHERS as Preset[]),
   { label: 'Two-stage example', payload: 22, diameter: 3.7, cd: 0.3, stages: [
     { name: 'First stage', dry: 22, prop: 400, isp: 311, ispSl: 282, thrust: 7600 },
     { name: 'Second stage', dry: 4, prop: 92, isp: 348, ispSl: 348, thrust: 980 },
@@ -58,11 +68,14 @@ function useSaved<T>(key: string, initial: T): [T, (v: T) => void] {
 }
 
 export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; mission: Mission; onFlown: (id: number) => void }) {
-  const [preset, setPreset] = useSaved('preset', 0);
-  const [stages, setStages] = useSaved<StageRow[]>('stages', PRESETS[0].stages);
-  const [payload, setPayload] = useSaved('payload', PRESETS[0].payload);
-  const [diameter, setDiameter] = useSaved('diameter', PRESETS[0].diameter);
-  const [cd, setCd] = useSaved('cd', PRESETS[0].cd);
+  const [preset, setPreset] = useSaved('preset', LAUNCHERS.length);
+  // A real launcher's figures are shown greyed, as published, until one is
+  // changed: then the design is the user's own.
+  const [custom, setCustom] = useSaved('custom', false);
+  const [stages, setStages] = useSaved<StageRow[]>('stages', PRESETS[LAUNCHERS.length].stages);
+  const [payload, setPayload] = useSaved('payload', PRESETS[LAUNCHERS.length].payload);
+  const [diameter, setDiameter] = useSaved('diameter', PRESETS[LAUNCHERS.length].diameter);
+  const [cd, setCd] = useSaved('cd', PRESETS[LAUNCHERS.length].cd);
   const [job, setJob] = useSaved<Job>('job', 'orbit');
   const [alt, setAlt] = useSaved('alt', 200);
   const [inc, setInc] = useSaved('inc', 51.6);
@@ -74,14 +87,22 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
 
   const usePreset = (i: number) => {
     const p = PRESETS[i];
-    setPreset(i); setStages(p.stages); setPayload(p.payload); setDiameter(p.diameter); setCd(p.cd); setFlight(null); setLosses(null); setNote(null);
+    setPreset(i); setCustom(false); setStages(p.stages); setPayload(p.payload); setDiameter(p.diameter); setCd(p.cd); setFlight(null); setLosses(null); setNote(null);
+    if (p.job) { setPad(p.job.pad); setInc(p.job.inc); setAlt(p.job.alt); setJob('orbit'); }
   };
+  const P0 = PRESETS[preset];
+  const published = !!P0.source && !custom;
+  const own = () => { if (!custom) setCustom(true); };
   const edit = (i: number, k: keyof StageRow, v: string | number) => {
     setStages(stages.map((s, j) => (j === i ? { ...s, [k]: k === 'name' ? v : Number(v) } : s)));
-    setFlight(null);
+    setFlight(null); own();
   };
-  const addStage = () => setStages([...stages, { name: `Stage ${stages.length + 1}`, dry: 2, prop: 20, isp: 340, ispSl: 340, thrust: 200 }]);
-  const removeStage = (i: number) => setStages(stages.filter((_, j) => j !== i));
+  const addStage = () => { setStages([...stages, { name: `Stage ${stages.length + 1}`, dry: 2, prop: 20, isp: 340, ispSl: 340, thrust: 200 }]); own(); };
+  const removeStage = (i: number) => { setStages(stages.filter((_, j) => j !== i)); own(); };
+  const inputClass = published ? 'input published' : 'input';
+  // A figure the maker doesn't publish: dashed, as the app's worked-out tags are.
+  const estClass = (e?: boolean) => (published && e ? 'input published est' : inputClass);
+  const estTitle = (e?: boolean) => (published && e ? 'Not published by the maker: an estimate (see the source note)' : undefined);
 
   // The stack in SI units, and whether every number makes sense.
   const si = useMemo(() => stages.map((s) => ({ name: s.name, dry: s.dry * 1000, prop: s.prop * 1000, isp: s.isp, ispSl: s.ispSl, thrust: s.thrust * 1000 })), [stages]);
@@ -110,7 +131,7 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
       const twr = perf.stages[i].twr;
       return { ...s, dry: o.empty[i] / 1000, prop: o.prop[i] / 1000, thrust: twr * G0 * (o.step.slice(i).reduce((a, b) => a + b, 0) + payload * 1000) / 1000 };
     }));
-    setFlight(null);
+    setFlight(null); own();
     setNote(`Sized for ${fmt(needed / 1000, 3)} km/s: ${fmt(o.m0 / 1000, 1)} t at liftoff, payload fraction ${fmt(o.payloadFraction * 100, 2)} %. Thrust scaled to keep each stage's thrust-to-weight.`);
   };
 
@@ -145,7 +166,7 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
     const left = res.remaining ? res.remaining.prop : 0;
     const fuel = left + si.slice(k + 1).reduce((a, x) => a + x.prop, 0);
     const dryMass = payload * 1000 + si.slice(k).reduce((a, x) => a + x.dry, 0);
-    return { name: `${PRESETS[preset].label.split(' (')[0]} from ${flight!.pad.name.split(',')[0]}`, props: { dryMass, fuel, area: Math.PI * diameter * diameter / 4, thrust: si[k].thrust, isp: si[k].isp } };
+    return { name: `${custom && P0.source ? 'Custom ' : ''}${P0.label.split(' (')[0]} from ${flight!.pad.name.split(',')[0]}`, props: { dryMass, fuel, area: Math.PI * diameter * diameter / 4, thrust: si[k].thrust, isp: si[k].isp } };
   };
   const insert = () => {
     if (!flight?.res || !orbit) return;
@@ -179,29 +200,36 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
         <div className="form-grid">
           <label className="num wide"><span className="engraved">Start from</span>
             <select className="input" value={preset} onChange={(e) => usePreset(Number(e.target.value))}>
-              {PRESETS.map((p, i) => <option key={p.label} value={i}>{p.label}</option>)}
+              {PRESETS.map((p, i) => <option key={p.label} value={i}>{custom && i === preset ? `Custom, from ${p.label}` : p.label}</option>)}
             </select>
           </label>
+          {P0.source && (
+            <p className="hint wide preset-src">
+              {published
+                ? <>Published figures, greyed: <a href={P0.source.url} target="_blank" rel="noreferrer">{P0.source.text}</a>. Change any to make the design your own.</>
+                : <>Custom: changed from {P0.label}'s published figures. <button className="key small" onClick={() => usePreset(preset)}>Back to published</button></>}
+            </p>
+          )}
           <label className="num"><span className="engraved">Payload</span>
             <input className="input" type="number" min={0} step={0.1} aria-invalid={!(payload >= 0)} value={payload} onChange={(e) => { setPayload(Number(e.target.value)); setFlight(null); }} /><span className="unit">t</span>
           </label>
           <label className="num"><span className="engraved">Diameter</span>
-            <input className="input" type="number" min={0.1} step={0.1} aria-invalid={!(diameter > 0)} value={diameter} onChange={(e) => { setDiameter(Number(e.target.value)); setFlight(null); }} /><span className="unit">m</span>
+            <input className={inputClass} type="number" min={0.1} step={0.1} aria-invalid={!(diameter > 0)} value={diameter} onChange={(e) => { setDiameter(Number(e.target.value)); setFlight(null); own(); }} /><span className="unit">m</span>
           </label>
           <label className="num"><span className="engraved" title="drag coefficient, held constant">Drag coeff.</span>
-            <input className="input" type="number" min={0.05} step={0.05} aria-invalid={!(cd > 0)} value={cd} onChange={(e) => { setCd(Number(e.target.value)); setFlight(null); }} />
+            <input className={estClass(P0.est?.cd)} title={estTitle(P0.est?.cd)} type="number" min={0.05} step={0.05} aria-invalid={!(cd > 0)} value={cd} onChange={(e) => { setCd(Number(e.target.value)); setFlight(null); own(); }} />
           </label>
         </div>
         {stages.map((s, i) => (
           <fieldset className="stage" key={i}>
             <div className="stage-head">
-              <input className="input" aria-label={`stage ${i + 1} name`} value={s.name} onChange={(e) => edit(i, 'name', e.target.value)} />
+              <input className={inputClass} aria-label={`stage ${i + 1} name`} value={s.name} onChange={(e) => edit(i, 'name', e.target.value)} />
               <button className="key small" aria-label={`remove ${s.name}`} disabled={stages.length < 2} onClick={() => removeStage(i)}>Remove</button>
             </div>
             <div className="form-grid">
               {([['dry', 'Dry mass', 't', 'empty: structure, engines, tanks'], ['prop', 'Propellant', 't', ''], ['isp', 'Isp vacuum', 's', 'specific impulse in vacuum'], ['ispSl', 'Isp sea level', 's', 'specific impulse at sea level'], ['thrust', 'Thrust', 'kN', 'vacuum thrust']] as const).map(([k, label, unit, title]) => (
                 <label className="num" key={k}><span className="engraved" title={title || undefined}>{label}</span>
-                  <input className="input" type="number" min={0} step="any" aria-invalid={!(s[k] > 0)} value={Number(s[k].toPrecision(6))} onChange={(e) => edit(i, k, e.target.value)} /><span className="unit">{unit}</span>
+                  <input className={estClass(s.est?.includes(k))} title={estTitle(s.est?.includes(k))} type="number" min={0} step="any" aria-invalid={!(s[k] > 0)} value={Number(s[k].toPrecision(6))} onChange={(e) => edit(i, k, e.target.value)} /><span className="unit">{unit}</span>
                 </label>
               ))}
             </div>
@@ -282,6 +310,17 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
               <tr><th scope="row">{flight.res.remaining ? 'At cutoff' : 'At burnout'}</th><td className="value">{fmt(flight.res.burnout.h / 1000, 1)} km, {fmt(flight.res.burnout.v / 1000, 3)} km/s<span className="alt">{fmt(flight.res.burnout.t, 0)} s after liftoff, {fmt(flight.res.burnout.x / 1000, 0)} km downrange, kick to {fmt(flight.res.gamma0, 3)}°{flight.res.remaining ? ` · ${stages[flight.res.remaining.stage].name} keeps ${fmt(flight.res.remaining.prop / 1000, 1)} t of propellant` : ' · all propellant spent'}</span></td><td className="src"><SourceTag src="ascent" info="ascent" /></td></tr>
               <tr><th scope="row">Orbit</th><td className="value">{Number.isFinite(orbit.apo) ? `${fmt(orbit.peri, 0)} × ${fmt(orbit.apo, 0)} km` : 'escape'}<span className="alt">{fmt(orbit.inc, 2)}° inclined{orbit.peri < 120 ? ' · perigee in the atmosphere: it will come down' : ''}</span></td><td className="src"><SourceTag src="2-body" info="burnout-orbit" /></td></tr>
               <tr><th scope="row">Losses</th><td className="value">{fmt((flight.res.losses.gravity + flight.res.losses.drag) / 1000, 3)} km/s<span className="alt">gravity {fmt(flight.res.losses.gravity / 1000, 3)}, drag {fmt(flight.res.losses.drag / 1000, 3)} · max q {fmt(flight.res.maxQ.q / 1000, 1)} kPa at {fmt(flight.res.maxQ.h / 1000, 1)} km</span></td><td className="src"><SourceTag src="ascent" info="losses" /></td></tr>
+              {P0.flown && !custom && P0.flown.events.map((ev) => {
+                // Ours at the same moment of the flight, beside the real one.
+                const hs = flight.res!.history, k = hs.findIndex((x: { t: number }) => x.t >= ev.t);
+                const o = k < 0 ? null : hs[k];
+                const v = o ? (P0.flown!.frame === 'surface' ? surfaceSpeed(o, rotationBonus(flight.pad.lat, flight.az)) : o.v) : 0;
+                return (
+                  <tr key={ev.name}><th scope="row">{ev.name}</th>
+                    <td className="value">{fmt(ev.h, 1)} km, {fmt(ev.v, 3)} km/s<span className="alt">{P0.flown!.flight} at T+{fmt(ev.t, 0)} s{P0.flown!.frame === 'surface' ? ' (speed over the ground)' : ''}{o ? ` · here ${fmt(o.h / 1000, 1)} km, ${fmt(v / 1000, 3)} km/s` : ' · here already in orbit'}</span></td>
+                    <td className="src"><SourceTag src="flown" detail={P0.flown!.source} /></td></tr>
+                );
+              })}
             </tbody></table>
             <div className="keys-row">
               <button className="key primary" onClick={launch}>Launch from the pad</button>
