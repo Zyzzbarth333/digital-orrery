@@ -144,6 +144,18 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | Relativity: the Earth's Schwarzschild and Lense–Thirring terms, orbit-averaged | 3.2496″ a year at 12,270 km, e = 0.1 | 3.2496″ a year (0.1 %) |
 | The planets' J2: a Jupiter orbiter's node, 10 days | secular theory, 11.901° | 11.931° (0.25 %) |
 
+## Entry (`entry.test.mjs`)
+
+Orion's crew module from the end of each mission's flight data, guided to
+its target. See [entry](physics/entry.md).
+
+| Check | Result |
+| --- | --- |
+| The guidance's fast prediction against the kernel, at a held bank | within 0.5 km on direct entries (1 % of the range on a 3,470 km one) |
+| A direct entry to a target 100 km beyond and 0.3° beside a held-bank landing | 1.3 km from the target, at 7.8 m/s under the mains |
+| Artemis I from 17:19 UTC, to AAS 24-174's splashdown | skips (dip 58.5 km, top 97.6 km; flown 61 and 87.6); drogues 17:35:20, mains 17:36:35 (flown 17:36:06, 17:37:26); 9.1 km from NASA's splashdown |
+| Artemis II from 23:29 UTC, to an approximate target off San Diego | drogues 00:03:15, mains 00:04:30, down 00:08:26 (flown about 00:03, 00:04, 00:07); 0.3 km from the target |
+
 ## Real flight: Artemis I (`artemis1.validate.mjs`)
 
 Orion's burns and coast arcs flown by the kernel against NASA/JSC

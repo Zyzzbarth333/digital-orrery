@@ -10,11 +10,10 @@
 // Earth.
 
 import { helioStateEqj } from './ephemeris.js';
-import { kernelSeconds, stepCraft } from './kernelHost.js';
+import { kernelSeconds, aimTo } from './kernelHost.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
 // A correction aims at the start of the next burn at least this far on (or
 // the end of the data): one followed sooner by another (the first of the two
 // outbound trims) is flown as it was, and the later one aims for both.
@@ -28,6 +27,7 @@ export class RealMission {
     this.startMs = data.start.ms;
     this.endMs = data.endMs;
     this.flown = data.flown;                 // [ms, x, y, z, vx, vy, vz]
+    this.id = data.id ?? null;               // the file's id (artemis1, ...)
     this.burns = data.burns;
   }
 
@@ -134,34 +134,22 @@ export class RealMission {
   // it), after (km, with it), off (km and km/s from the flown state) }, or
   // null outside the data or if a trial run fails or hits a body.
   aimCorrection(sys, r, v, aim, burns = []) {
-    const x = this.fixAt(aim.atMs), target = this.fixAt(aim.targetMs);
-    if (!x || !target) return null;
-    const t0 = kernelSeconds(new Date(aim.atMs)), T = target.t;
-    const list = burns.filter((b) => !b.aimed && b.t1 > t0 && b.t0 < T);
-    const fly = (vv) => {
-      const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: vv, t: t0, tEnd: T, primary: null, burns: list.map((b) => ({ ...b })), maxSteps: 1e6 });
-      return res.complete && !res.events.some((e) => e.type === 'impact') ? res.r : null;
-    };
-    let base = fly([...v]);
-    if (!base) return null;
-    const miss0 = Math.hypot(...sub(base, target.r));
-    let dv = [0, 0, 0], best = { dv, after: miss0 };
-    for (let round = 0; round < 4 && best.after > 0.01; round++) {
-      const miss = sub(base, target.r), h = 1e-5;
-      const cols = [0, 1, 2].map((j) => { const vv = add(v, dv); vv[j] += h; const p = fly(vv); return p && sub(p, base).map((d) => d / h); });
-      if (cols.some((c) => !c)) break;
-      const A = [0, 1, 2].map((i) => [cols[0][i], cols[1][i], cols[2][i]]), D = det3(A);
-      if (!(Math.abs(D) > 0)) break;
-      const step = [0, 1, 2].map((k) => det3(A.map((row, i) => row.map((val, c) => (c === k ? -miss[i] : val)))) / D);
-      dv = add(dv, step);
-      const next = fly(add(v, dv));
-      if (!next) break;
-      base = next;
-      const after = Math.hypot(...sub(base, target.r));
-      if (after < best.after) best = { dv, after };
-      else break;
-    }
-    return { dv: best.dv, miss: miss0, after: best.after, off: { km: Math.hypot(...sub(r, x.r)), kms: Math.hypot(...sub(v, x.v)) } };
+    const req = this.aimRequest(r, v, aim, burns);
+    const k = req && aimTo(sys, req);
+    return k && this.aimed(k, r, v, aim);
+  }
+
+  // What aimTo needs for an aim from heliocentric r, v at its start, or
+  // null outside the data; and its answer with the craft's offset from the
+  // flown state added.
+  aimRequest(r, v, aim, burns = []) {
+    const target = this.fixAt(aim.targetMs);
+    if (!target || !this.fixAt(aim.atMs)) return null;
+    return { r: [...r], v: [...v], t0: kernelSeconds(new Date(aim.atMs)), T: target.t, target: target.r, burns: burns.filter((b) => !b.aimed).map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted })) };
+  }
+  aimed(k, r, v, aim) {
+    const x = this.fixAt(aim.atMs);
+    return { ...k, off: { km: Math.hypot(...sub(r, x.r)), kms: Math.hypot(...sub(v, x.v)) } };
   }
 
   // One frame of aimed corrections for craft c (after its clock and any fix,
@@ -170,10 +158,15 @@ export class RealMission {
   // own state and added to the burn as flown, spread over the burn; then the
   // kernel runs on to the next. run: { aimNext, aimedDv } kept between frames
   // (the next aim's index; m/s added so far). jumped: the clock was set, so
-  // aims after the new time are pending again.
-  aimStep(c, sys, run, jumped = false) {
+  // aims after the new time are pending again. aimer: an async aimTo (the
+  // kernel worker's, KernelClient.aim); without it the aim is worked out
+  // here, at once. With it the craft holds until the answer comes (a later
+  // frame finds it in run.answer).
+  /** @param {any} c @param {any} sys @param {any} run @param {boolean} [jumped] @param {((req: object) => Promise<any>) | null} [aimer] */
+  aimStep(c, sys, run, jumped = false, aimer = null) {
     const aims = this.aims(), at = (i) => kernelSeconds(new Date(aims[i].atMs));
     if (jumped) {
+      run.asking = null; run.answer = null;
       c.dropAimed(c.kState.t);
       run.aimNext = aims.findIndex((a) => kernelSeconds(new Date(a.atMs)) >= c.kState.t);
       if (run.aimNext < 0) run.aimNext = aims.length;
@@ -182,7 +175,20 @@ export class RealMission {
     if (run.aimNext >= aims.length) { c.holdAt = null; return null; }
     const a = aims[run.aimNext];
     if (!(Math.abs(c.kState.t - at(run.aimNext)) < 1e-6)) { c.holdAt = at(run.aimNext); return null; }
-    const k = this.aimCorrection(sys, c.kState.r, c.kState.v, a, c.script);
+    let k;
+    if (aimer) {
+      const key = `${run.aimNext}@${c.kState.t}`;
+      if (run.answer?.key === key) { k = run.answer.k; run.answer = null; run.asking = null; }
+      else {
+        if (run.asking !== key) {
+          run.asking = key;
+          const req = this.aimRequest(c.kState.r, c.kState.v, a, c.script), r = [...c.kState.r], v = [...c.kState.v];
+          (req ? aimer(req) : Promise.resolve(null)).then((ans) => { if (run.asking === key) run.answer = { key, k: ans && this.aimed(ans, r, v, a) }; }, () => { if (run.asking === key) run.answer = { key, k: null }; });
+        }
+        c.holdAt = at(run.aimNext);
+        return null;
+      }
+    } else k = this.aimCorrection(sys, c.kState.r, c.kState.v, a, c.script);
     if (k) {
       const dv = Math.hypot(k.dv[0], k.dv[1], k.dv[2]), span = (a.endMs - a.atMs) / 1000;
       if (dv > 0) c.addScripted({ t0: c.kState.t, t1: c.kState.t + span, dir: k.dv, accel: dv * 1000 / span });
