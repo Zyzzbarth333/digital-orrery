@@ -84,7 +84,11 @@ export class DailyEarth {
       this.loadedDayMs = dayMs;
       this.credit = `${layer.id.replace(/_/g, ' ')}, ${day}: NASA GIBS / EOSDIS`;
       this.onChange(tex);
-    }).catch(() => { if (this.day === day) this.day = null; });
+    }).catch((err) => {
+      // Try that day again only after a minute: the mosaic is 15 MB.
+      console.warn(`daily Earth ${day} not loaded: ${err}`);
+      if (this.day === day) setTimeout(() => { if (this.day === day) this.day = null; }, 60e3);
+    });
   }
 }
 

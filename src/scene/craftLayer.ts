@@ -37,6 +37,7 @@ function lineOf(colour: number, opacity: number): THREE.Line {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
   const m = new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity, toneMapped: false, depthWrite: false });
+  m.userData.base = new THREE.Color(colour);
   const line = new THREE.Line(g, m);
   line.frustumCulled = false;
   return line;
@@ -67,6 +68,21 @@ function trailOf(colour: number): THREE.Line {
 export class CraftLayer {
   private drawn = new Map<number, Drawn>();
   private tmp = new THREE.Vector3();
+  private level = 1;
+
+  // Lines are drawn at a display level: 1 / the exposure the HDR output
+  // applies.
+  setLevel(level: number): void {
+    this.level = level;
+    for (const d of this.drawn.values()) {
+      for (const line of [d.conic, d.flown]) {
+        if (!line) continue;
+        const m = line.material as THREE.LineBasicMaterial;
+        m.color.copy(m.userData.base as THREE.Color).multiplyScalar(level);
+      }
+      (d.trail.material as THREE.ShaderMaterial).uniforms.level.value = level;
+    }
+  }
 
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, private onPick: (id: number) => void) {}
 
@@ -105,6 +121,7 @@ export class CraftLayer {
       d.marker.classList.toggle('lost', v.crashed);
       d.marker.classList.toggle('selected', v.selected);
     }
+    this.setLevel(this.level);
     for (const [id, d] of this.drawn) {
       if (seen.has(id)) continue;
       this.scene.remove(d.conic, d.trail);

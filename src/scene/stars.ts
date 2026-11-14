@@ -28,6 +28,7 @@ uniform mat3 toEqj;          // render direction -> J2000 equatorial
 uniform float raAtLeft;      // RA (rad) at the map's left edge
 uniform float raDirection;   // +1 if RA increases to the right, -1 to the left
 uniform float gain;
+uniform float level;         // 1 / exposure: a display level through the HDR output
 varying vec3 vDir;
 void main() {
   #include <logdepthbuf_fragment>
@@ -40,7 +41,7 @@ void main() {
   vec2 dxA = dFdx(uv), dyA = dFdy(uv), dxB = dFdx(uvB), dyB = dFdy(uvB);
   bool useB = abs(dxB.x) + abs(dyB.x) < abs(dxA.x) + abs(dyA.x);
   vec3 c = textureGrad(starMap, uv, useB ? dxB : dxA, useB ? dyB : dyA).rgb;
-  gl_FragColor = vec4(c * gain, 1.0);
+  gl_FragColor = vec4(c * gain * level, 1.0);
   #include <colorspace_fragment>
 }
 `;
@@ -60,6 +61,7 @@ export function makeStars(map: THREE.Texture, toEqj: THREE.Matrix3, raAtLeftDeg:
       raAtLeft: { value: (raAtLeftDeg * Math.PI) / 180 },
       raDirection: { value: raIncreasesRight ? 1 : -1 },
       gain: { value: gain },
+      level: { value: 1 },
     },
   });
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 32), mat);

@@ -35,13 +35,24 @@ import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
+import { BloomEffect } from './bloom';
+import { makeSunMaterial, SunGlare, visibleFraction } from './sun';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
 const ORBIT_SAMPLES = 360;
 const AU_KM = 149597870.7;
 const SUN_RADIUS_KM = 695700;
-// Exposure for sunlight at 1 AU (sets the overall look; scaled by d^2).
-const EXPOSURE_1AU = 1.0;
+// Exposure for sunlight at 1 AU (sets the overall look; scaled by d^2), and
+// the tone curve (docs/frontend/lighting.md#exposure-and-tone-mapping).
+const TONE: Record<string, [THREE.ToneMapping, number]> = {
+  // Khronos PBR Neutral: colours below its knee are left alone, highlights
+  // roll off to white. 1.2 matches three's ACES on a lit planet (scene
+  // value 0.5 shows as 0.56 in both) without ACES's hue shifts.
+  neutral: [THREE.NeutralToneMapping, 1.2],
+  agx: [THREE.AgXToneMapping, 1 / 0.6],
+  aces: [THREE.ACESFilmicToneMapping, 1.0],   // three's ACES already scales by 1 / 0.6
+};
+const [TONE_MAPPING, EXPOSURE_1AU] = TONE[new URLSearchParams(location.search).get('tone') ?? 'neutral'] ?? TONE.neutral;
 // Bodies whose surfaces are bare regolith (Lommel-Seeliger scattering).
 const AIRLESS: ReadonlySet<BodyKey> = new Set<BodyKey>(['mercury', 'moon', 'pluto']);
 type Vec3 = [number, number, number];
@@ -95,7 +106,9 @@ export class OrreryScene {
   private atmospheres = new Map<BodyKey, THREE.Mesh>();
   private unloadedSurfaces = new Set<BodyKey>();
   private earthResolved = false;
-  private sunGlow: THREE.Sprite;
+  private glare = new SunGlare();
+  private bloom = new BloomEffect();
+  private buffer = new THREE.Vector2();
   private states = {} as Record<BodyKey, BodyState>;
   private raf = 0;
   private lastFrame = 0;
@@ -151,9 +164,19 @@ export class OrreryScene {
   viewFromSun(phase = 0.35): void { this.sunViewPending = true; this.sunViewPhase = phase; }
 
   constructor(private container: HTMLElement, private overlay: HTMLElement, private clock: SimClock) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // HDR: the scene renders linear light into a half-float target (4x
+    // multisampled below 1.5 device pixels per CSS pixel; above that the
+    // pixels are small enough), bloom runs on it, and three's output pass
+    // applies exposure, tone mapping and the sRGB encode once, at the end.
+    // A dual-GPU laptop is asked for its discrete GPU.
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: dpr < 1.5, logarithmicDepthBuffer: true, powerPreference: 'high-performance',
+      outputBufferType: THREE.HalfFloatType,
+    });
+    this.renderer.setPixelRatio(dpr);
+    this.renderer.toneMapping = TONE_MAPPING;
+    this.renderer.setEffects([this.bloom]);
     this.renderer.setClearColor(0x000000, 1);
     container.appendChild(this.renderer.domElement);
 
@@ -168,9 +191,7 @@ export class OrreryScene {
     for (const b of BODIES) {
       let material: THREE.Material;
       if (b.key === 'sun') {
-        const sun = new THREE.MeshBasicMaterial({ color: b.colour });
-        sun.color.multiplyScalar((AU_KM / SUN_RADIUS_KM) ** 2);
-        material = sun;
+        material = makeSunMaterial();
       } else {
         const m = makeBodyMaterial(b.colour, b.geometricAlbedo ?? 0.3, AIRLESS.has(b.key));
         this.materials.set(b.key, m);
@@ -186,12 +207,7 @@ export class OrreryScene {
       this.meshes.set(b.key, mesh);
       this.labels.set(b.key, this.makeLabel(b.key, b.name));
     }
-    this.sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: glowTexture(), color: 0xffd9a0, transparent: true, depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    }));
-    this.sunGlow.scale.setScalar((SUN_RADIUS_KM * 8) / UNIT_KM);
-    this.scene.add(this.sunGlow);
+    this.scene.add(this.glare.mesh);
 
     // Atmospheres: a scattering shell, and the same medium on the surface's
     // sunlight.
@@ -429,7 +445,6 @@ export class OrreryScene {
       toRender(sub(this.states[b.key].r, cam), this.meshes.get(b.key)!.position);
     }
     const sunPos = this.meshes.get('sun')!.position;
-    this.sunGlow.position.copy(sunPos);
     this.updateLighting(sunPos, cam, date);
     for (const b of BODIES) {
       const o = this.orbits.get(b.key);
@@ -444,11 +459,32 @@ export class OrreryScene {
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(toRender([-offset[0], -offset[1], -offset[2]], this.tmp));
     this.camera.updateMatrixWorld();
+    this.updateGlare(sunPos, cam, now);
 
     this.renderer.render(this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
+
+  // The Sun's glare: its strength follows the sunlight at the camera and
+  // the part of the disc that no body hides (the eclipse overlap again).
+  private updateGlare(sunPos: THREE.Vector3, cam: Vec3, now: number): void {
+    const dSun = sunPos.length();
+    const a = Math.asin(Math.min(1, SUN_RADIUS_KM / UNIT_KM / dSun));
+    let visible = 1;
+    for (const b of BODIES) {
+      if (b.key === 'sun' || visible === 0) continue;
+      const p = this.meshes.get(b.key)!.position;
+      const d = p.length();
+      if (d >= dSun || p.dot(sunPos) <= 0) continue;
+      const beta = Math.asin(Math.min(1, b.radiusKm / UNIT_KM / d));
+      const c = Math.acos(Math.max(-1, Math.min(1, p.dot(sunPos) / (d * dSun))));
+      visible *= visibleFraction(a, beta, c);
+    }
+    const dCamAu = Math.hypot(cam[0], cam[1], cam[2]) / AU_KM;
+    this.renderer.getDrawingBufferSize(this.buffer);
+    this.glare.update(this.camera, sunPos, SUN_RADIUS_KM / UNIT_KM, 1 / (dCamAu * dCamAu), visible, this.buffer, now / 1000);
+  }
 
   // Per-body sunlight and shadow casters, and the camera's exposure.
   private updateLighting(sunPos: THREE.Vector3, cam: Vec3, date: Date): void {
@@ -481,7 +517,14 @@ export class OrreryScene {
     // view from beside the Sun is not exposed for its photosphere).
     const dCamAu = Math.max(0.2, Math.hypot(cam[0], cam[1], cam[2]) / AU_KM);
     this.renderer.toneMappingExposure = EXPOSURE_1AU * dCamAu * dCamAu;
-    for (const m of this.materials.values()) m.uniforms.invExposure.value = 1 / this.renderer.toneMappingExposure;
+    const inv = 1 / this.renderer.toneMappingExposure;
+    for (const m of this.materials.values()) m.uniforms.invExposure.value = inv;
+    // Drawings at a display level (orbit lines, craft lines, the star
+    // background) are divided by the exposure the output pass applies.
+    this.bloom.exposure = this.renderer.toneMappingExposure;
+    for (const o of this.orbits.values()) (o.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
+    this.craftLayer.setLevel(inv);
+    if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.level.value = inv;
 
     for (const [key, shell] of this.atmospheres) {
       const p = this.meshes.get(key)!.position;
@@ -581,19 +624,3 @@ export class OrreryScene {
   }
 }
 
-// A soft radial glow for the Sun (display only).
-function glowTexture(): THREE.Texture {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d')!;
-  const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
-  grad.addColorStop(0.0, 'rgba(255,255,255,0.9)');
-  grad.addColorStop(0.12, 'rgba(255,230,180,0.5)');
-  grad.addColorStop(0.35, 'rgba(255,200,120,0.12)');
-  grad.addColorStop(1.0, 'rgba(255,180,100,0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 256, 256);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}

@@ -23,16 +23,70 @@ squared distance from the camera to the Sun (no closer than 0.2 AU), so a
 planet looks properly exposed when you are near it, and the planets keep
 their true relative brightness when you look at several from one place.
 
-The Sun's disc is drawn at its true surface brightness relative to a white
-surface lit face-on at 1 AU:
+## Exposure and tone mapping
+
+The scene renders linear light into a half-float target (three.js's HDR
+output: `outputBufferType: HalfFloatType`), multisampled 4× where a CSS
+pixel is under 1.5 device pixels. Bloom runs on that light, and one final
+pass multiplies by the exposure, applies the tone curve and encodes sRGB.
+No material tone-maps on its own any more.
+
+The curve is Khronos PBR Neutral: colours below its knee (about 0.76) are
+left as they are, so planets keep their albedo colours, and highlights roll
+off to white without the hue shifts of ACES. Its exposure at 1 AU is 1.2,
+which matches the previous ACES look on a lit planet (a scene value of 0.5
+shows as 0.56 in both). `?tone=agx` or `?tone=aces` switch curves for
+comparison.
+
+Drawings that are not light (orbit and craft lines, the star background,
+city lights) are written at a display level divided by the exposure, so
+they look the same at any distance from the Sun.
+
+## The Sun
+
+The Sun's disc is drawn at its true mean surface brightness relative to a
+white surface lit face-on at 1 AU:
 
 $$
 \frac{L_\odot}{L_\text{white}} = \frac{E/\Omega_\odot}{E/\pi}
 = \left(\frac{1\ \text{AU}}{R_\odot}\right)^2 \approx 46\,000,
 $$
 
-which saturates to white through the ACES tone curve at any sensible
-exposure, as a real photograph of it does.
+which saturates to white at any sensible exposure, as a real photograph of
+it does. Its colour is the Sun's chromaticity, CIE xy (0.3233, 0.3326)
+(about 5,772 K), which is linear sRGB (1.097, 0.977, 0.943) at luminance 1.
+It is limb-darkened with the quadratic law at 550 nm,
+I(μ)/I(1) = 0.3 + 0.93μ − 0.23μ², whose disc average is 0.805, so the
+centre is drawn 1/0.805 brighter and the total light is unchanged. Blue
+darkens more toward the limb than red; the colour of the limb is an
+approximation (the channel exponents 0.8, 1, 1.25 are not fitted to Neckel
+and Labs).
+
+Granulation and the corona are not drawn: at an exposure for sunlit
+surfaces the disc is pure white, so granulation cannot show, and the
+corona (about 10⁻⁶ of the disc) would be lost in the glare.
+
+## Glare and bloom
+
+Light scatters in any eye or lens. Two parts, both before the tone curve:
+
+- **The Sun's glare** (`sun.ts`) uses the CIE disability-glare function for
+  a young eye, L/E = 10/θ³ + 5/θ² + 0.05/θ with θ in degrees. Relative to a
+  white surface in the same sunlight (L = E/π) that is π times as much: an
+  eye looking near the Sun sees a white veil a few degrees across. It is
+  drawn at 3 % of that, closer to a good camera than an eye, with the fine
+  radial needles of the eye's ciliary corona within about 10°, drifting
+  slowly as a pupil does: the sky's one honest animation of light. The glare
+  is scaled by the fraction of the Sun's disc that no body hides (the disc
+  overlap below), so a planet in front of the Sun takes it away.
+- **Bloom** (`bloom.ts`) scatters 2 % of all light: Jimenez's chain (a
+  13-tap downsample through six half-resolution levels, Karis's average on
+  the first so no lone pixel flickers, a tent upsample adding each level
+  into the one above) with no threshold, mixed rather than added, so the
+  image keeps its energy. What enters it is capped at 20 times display
+  white: a lit limb or a bright star blooms, but the Sun's disc, whose
+  scatter is the glare above, does not (and half floats overflow past
+  65,504).
 
 ## Surface reflectance
 
