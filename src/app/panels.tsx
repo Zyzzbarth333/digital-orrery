@@ -192,7 +192,7 @@ const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; l
   { key: 'comets', label: 'Comets', colour: '#73dbf2', title: 'Periodic comets (orbits from their last apparition for most)' },
 ];
 
-export function BodyRail({ clock, focus, onSelect, smallBodies, onSmallBodies }: { clock: SimClock; focus: BodyKey | null; onSelect: (k: BodyKey) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets', on: boolean) => void }) {
+export function BodyRail({ clock, focus, onSelect, smallBodies, onSmallBodies }: { clock: SimClock; focus: BodyKey | null; onSelect: (k: BodyKey) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   const dists = useClockValue(clock, (s) => {
     const date = new Date(s.timeMs);
@@ -231,6 +231,13 @@ export function BodyRail({ clock, focus, onSelect, smallBodies, onSmallBodies }:
                 </button>
               </li>
             ))}
+            <li>
+              <button className="body-row" role="switch" aria-checked={!!smallBodies.colours} onClick={() => onSmallBodies('colours', !smallBodies.colours)} title="Colour each population as its swatch; off, asteroids are drawn a natural grey and comets pale blue">
+                <span className="lamp-sq" style={{ background: smallBodies.colours ? 'var(--phosphor)' : 'transparent', borderColor: 'var(--phosphor)' }} />
+                <span>Colour by kind</span>
+                <span className="dist">{smallBodies.colours ? 'on' : 'off'}</span>
+              </button>
+            </li>
           </ul>
         </>
       )}
