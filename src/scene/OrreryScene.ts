@@ -39,6 +39,8 @@ import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
+import { JourneyLayer } from './journeyLayer';
+import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { GuideLayer } from './guides';
 import { orbitTrailMaterial } from './orbitTrail';
@@ -262,6 +264,20 @@ export class OrreryScene {
   focusSmall: string | null = null;
   onSmallPick: (pdes: string) => void = () => {};
   private craftLayer!: CraftLayer;
+  // The journey being planned (journeyLayer.ts): its arcs and burn nodes.
+  journeySource: () => JourneyView | null = () => null;
+  // While a full-screen view covers the sky (the plotting table), stop
+  // drawing it; the clock and the mission keep running.
+  private paused = false;
+  setPaused(on: boolean): void {
+    if (this.paused === on) return;
+    this.paused = on;
+    if (!on) this.lastFrame = performance.now();
+  }
+  // What dragging its nodes and aims does (the app's JourneyStore).
+  journeyHandlers: JourneyHandlers | null = null;
+  private journeyLayer!: JourneyLayer;
+  private journeyCentral = (key: string): Vec3 | null => (key === 'sun' ? [0, 0, 0] : this.states[key as BodyKey]?.r ?? null);
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
   guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
@@ -428,6 +444,7 @@ export class OrreryScene {
     });
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
+    this.journeyLayer = new JourneyLayer(this.scene, this.overlay, () => this.journeyHandlers);
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.guides = new GuideLayer(this.scene, this.overlay, toRender,
       (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
@@ -517,19 +534,24 @@ export class OrreryScene {
     const el = this.renderer.domElement;
     // One pointer drags; a second finger is ignored until the first lifts.
     let pointer: number | null = null, lx = 0, ly = 0;
+    // A press that does not move (a click) goes to the journey: a burn
+    // node on the arc under it, or the selection cleared.
+    let sx = 0, sy = 0, travel = 0;
     el.addEventListener('pointerdown', (e) => {
       if (pointer !== null) return;
-      pointer = e.pointerId; lx = e.clientX; ly = e.clientY; el.setPointerCapture(e.pointerId);
+      pointer = e.pointerId; lx = sx = e.clientX; ly = sy = e.clientY; travel = 0; el.setPointerCapture(e.pointerId);
     });
     const end = (e: PointerEvent) => {
       if (e.pointerId !== pointer) return;
       pointer = null;
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      if (e.type === 'pointerup' && travel < 4) this.journeyLayer.click(sx, sy);
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
     el.addEventListener('pointermove', (e) => {
       if (e.pointerId !== pointer) return;
+      travel = Math.max(travel, Math.hypot(e.clientX - sx, e.clientY - sy));
       this.rig.rotate(-(e.clientX - lx) * 0.005, (e.clientY - ly) * 0.005);
       lx = e.clientX; ly = e.clientY;
     });
@@ -706,6 +728,14 @@ export class OrreryScene {
 
   private frame = (now: number): void => {
     this.raf = requestAnimationFrame(this.frame);
+    // Paused (the plotting table covers the sky): the clock and the mission
+    // run on, nothing is drawn, and the render-scale budget sees no frame.
+    if (this.paused) {
+      this.clock.tick((now - this.lastFrame) / 1000);
+      this.lastFrame = now;
+      this.onFrame(this.clock.snapshot.timeMs, this.clock.snapshot.jumps);
+      return;
+    }
     this.uploader.step();
     const dtReal = Math.min(0.1, Math.max(0, (now - this.lastFrame) / 1000));
     const ratio = this.scale.frame(now, now - this.lastFrame);
@@ -789,6 +819,8 @@ export class OrreryScene {
     }
 
     this.craftLayer.place(crafts, cam, UNIT_KM);
+    const journey = this.journeySource();
+    this.journeyLayer.place(journey, this.journeyCentral, cam, UNIT_KM, dist);
 
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(toRender([-offset[0], -offset[1], -offset[2]], this.tmp));
@@ -805,6 +837,7 @@ export class OrreryScene {
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
+    this.journeyLayer.label(this.journeyCentral, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
 
   // The Sun's glare: its strength follows the sunlight at the camera and
@@ -923,6 +956,7 @@ export class OrreryScene {
     for (const o of this.orbits.values()) (o.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     for (const n of this.nearOrbits.values()) (n.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     this.craftLayer.setLevel(inv);
+    this.journeyLayer?.setLevel(inv);
     if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     if (this.starPoints) (this.starPoints.material as THREE.ShaderMaterial).uniforms.level.value = inv;
 
@@ -1051,6 +1085,7 @@ export class OrreryScene {
     this.container.removeEventListener('wheel', this.onWheel);
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
+    this.journeyLayer.dispose();
     this.smallBodies.dispose();
     this.guides.dispose();
     for (const el of this.labels.values()) el.remove();

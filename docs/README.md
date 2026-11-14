@@ -18,6 +18,7 @@ they come from, and how each part is checked.
 | [A 6-DOF vehicle in Earth orbit](physics/sixdof.md) | Rigid-body attitude, the Earth's gravity field to any degree, Earth rotation (IAU 1976/1980), drag and thrust, NASA's 6-DOF check cases |
 | [The space environment](physics/environment.md) | Forces beyond gravity's point masses and J2 on the app's craft: sunlight pressure with the Earth's and Moon's shadows, and the steps across a shadow's edge |
 | [Rockets: stages, staging and the ascent](physics/rocket.md) | The ROCKET tab: stage performance, optimal staging (Curtis 13.6), delta-v budgets worked back from a job, a gravity-turn ascent from a pad into orbit; thrust curves and drag against Mach, checked against OpenRocket and RocketPy; OpenRocket design files flown in the app |
+| [Journeys: legs, transfers, flybys and the rocket](physics/journey.md) | A journey of any number of legs by patched conics, each leg's transfers compared (Hohmann, bi-elliptic, plane change, Lambert, the porkchop optimum, phasing, gravity assists and the B-plane), flown by the kernel to each waypoint, and the stack of stages it needs |
 
 ## Front end
 

@@ -11,6 +11,8 @@ import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import type { GridRequest } from './porkchop.worker';
 import { TrajBrowserPanel } from './trajbrowser-panel';
+import { JourneySummary } from './journey-panel';
+import type { JourneyStore } from './journey';
 import { SourceTag } from './source-tag';
 import { transfer } from '../physics/trajsearch.js';
 import { helioStateEcl, eclToEqj } from '../physics/ephemeris.js';
@@ -43,7 +45,20 @@ function shade(x: number): [number, number, number] {
   return [0, 1, 2].map((k) => Math.round(RAMP[i][k] + (RAMP[i + 1][k] - RAMP[i][k]) * u)) as [number, number, number];
 }
 
-export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clock: SimClock; mission: Mission; onFlown: (id: number) => void; autoPlan?: string | null }) {
+// The PLANNER tab: the journey in summary, and the key that opens the
+// plotting table, where it is planned (plot-table.tsx). A ?plan= link opens
+// the table with this porkchop computed.
+export function PlannerPanel({ journey, autoPlan = null }: { clock: SimClock; mission: Mission; journey: JourneyStore; onFlown: (id: number) => void; autoPlan?: string | null }) {
+  const opened = useRef(false);
+  useEffect(() => {
+    if (autoPlan && !opened.current) { opened.current = true; journey.autoPlan = autoPlan; journey.setPlotOpen(true); }
+  }, [autoPlan, journey]);
+  return <div className="tab-body"><JourneySummary store={journey} /></div>;
+}
+
+// The porkchop from Earth and NASA's Trajectory Browser list: one leg's
+// windows in detail, now inside the plotting table.
+export function PorkchopPanel({ clock, mission, onFlown, autoPlan = null }: { clock: SimClock; mission: Mission; onFlown: (id: number) => void; autoPlan?: string | null }) {
   const [dest, setDest] = useState(DESTS.some((x) => x.key === autoPlan) ? autoPlan! : 'mars');
   const [startIso, setStartIso] = useState(() => iso(clock.snapshot.timeMs));
   const [span, setSpan] = useState(780);
@@ -144,8 +159,8 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
   };
 
   return (
-    <div className="tab-body">
-      <h3 className="strip">Transfer from Earth</h3>
+    <div className="tab-body porkchop-panel">
+      <h3 className="strip">One leg from Earth: the porkchop</h3>
       <div className="form-grid">
         <label className="num"><span className="engraved">To</span>
           <select className="input select" value={dest} onChange={(e) => { setDest(e.target.value); setGrid(null); }}>
