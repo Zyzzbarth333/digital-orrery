@@ -165,6 +165,11 @@ export function primaryOf(r, bodies, muSun) {
 //               (encke.js). Needs bodies with a Hermite ephemeris; off for
 //               fixedStep and 'leapfrog'.
 //   tolKm       Encke's per-step position tolerance (default 1e-7 km)
+//   focus(r, t) optional (default bodiesAt.focus): told the craft's
+//               position at the start and after every step, so the bodies
+//               can change with it (bodies.js splits a planet's system into
+//               the planet and its moons near it). The list bodiesAt
+//               returns may then change between steps, never within one.
 //
 // Returns { steps, events, complete }. complete is false when the budget ran
 // out (state.t is then short of tEnd) or an impact stopped the advance.
@@ -172,6 +177,8 @@ export function primaryOf(r, bodies, muSun) {
 export function advance(state, tEnd, opts) {
   const { bodiesAt, muSun, method = 'yoshida4', fixedStep = null, maxSteps = 200000 } = opts;
   const useEncke = opts.encke !== false && !fixedStep && method === 'yoshida4';
+  const focus = opts.focus ?? bodiesAt.focus;
+  if (focus) focus(state.r, state.t);
   if (!useEncke) return advanceCowell(state, tEnd, opts, false);
   if (state.primary === null) state.primary = primaryOf(state.r, bodiesAt(state.t), muSun);
   const dir = tEnd >= state.t ? 1 : -1;
@@ -214,6 +221,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   } = opts;
   const integrate = METHODS[method];
   if (!integrate) throw new Error(`nbody: unknown method '${method}'`);
+  const focus = opts.focus ?? bodiesAt.focus;
 
   const extra = [0, 0, 0], vEnd = [0, 0, 0];
   let mid = state.t;
@@ -284,6 +292,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
       events.push({ type: 'impact', body: 'sun', t: state.t });
       return { steps, events, complete: false };
     }
+    if (focus) focus(r, state.t);
     const now = bodiesAt(state.t);
     for (const b of now) {
       if (below(r, b)) {

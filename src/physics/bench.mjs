@@ -48,3 +48,32 @@ for (const [name, r, v] of scenarios) {
   const c = steady(r, v, { encke: false }), e = steady(r, v, {});
   console.log(`kernel ${name.padEnd(26)} Cowell ${c.toFixed(0).padStart(7)} sim days/s | hybrid ${e.toFixed(0).padStart(7)} sim days/s`);
 }
+
+// Among Jupiter's moons: a craft on a 1.5 million km orbit about Jupiter
+// (between Ganymede and Callisto), with the system split into Jupiter and
+// its four large moons (the default), and folded up at its barycentre
+// (moons: false, as before the moons had gravity). The split costs the
+// moons' ephemeris nodes and four more bodies a step.
+{
+  const epochMs = Date.UTC(2026, 10, 12);
+  const jov = (o) => {
+    const s = solarSystemBodies({ epochMs, ...o });
+    const J = s.bodyAt('jupiter', 0), vJ = J.eph.velocity(0), R = 1.5e6, vc = Math.sqrt(J.mu / R);
+    return [s, [J.r[0] + R, J.r[1], J.r[2]], [vJ[0], vJ[1] + vc * 0.9, vJ[2] + vc * 0.3]];
+  };
+  const run = ([s, r, v], o) => {
+    const st = createState(r, v, 0);
+    const perDay = [];
+    for (let c = 0; c < 9; c++) {
+      const c0 = process.cpuUsage();
+      advance(st, st.t + 10 * DAY, { bodiesAt: s.bodiesAt, muSun: s.muSun, maxSteps: 1e8, ...o });
+      const u = process.cpuUsage(c0);
+      perDay.push((u.user + u.system) / 1000 / 10);
+    }
+    return 1000 / perDay.slice(4).sort((a, b) => a - b)[2];
+  };
+  for (const [name, o] of [['among Jupiter\'s moons', {}], ['Jupiter, moons folded up', { moons: false }]]) {
+    const c = run(jov(o), { encke: false }), e = run(jov(o), {});
+    console.log(`kernel ${name.padEnd(26)} Cowell ${c.toFixed(0).padStart(7)} sim days/s | hybrid ${e.toFixed(0).padStart(7)} sim days/s`);
+  }
+}
