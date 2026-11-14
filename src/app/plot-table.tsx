@@ -377,7 +377,7 @@ function Ledger({ store, lamps }: { store: JourneyStore; lamps: Lamp[] }) {
         </>
       )}
       <h3 className="strip">Lamps</h3>
-      <ul className="lamp-list">{lamps.map((l) => <li key={l.key} className={l.level}><b>{LAMP_NAME[l.key] ?? l.key}</b> {l.text}</li>)}</ul>
+      <ul className="lamp-list">{lamps.map((l) => <li key={l.key} className={l.level}><span><span className="sr-only">{{ go: 'Go: ', caution: 'Caution: ', warn: 'Warning: ', off: '' }[l.level]}</span><b>{LAMP_NAME[l.key] ?? l.key}</b> {l.text}</span></li>)}</ul>
     </>
   );
 }

@@ -45,7 +45,7 @@ import { ttMinusUtc } from './timescale.js';
 import { ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { EGM2008 } from './egm2008.js';
 import { GRAIL, PA_TO_ME } from './grail.js';
-import { bodyAxesEqj } from './orientation.js';
+import { bodyAxesEqj, earthFixedAxes } from './orientation.js';
 import { makeVent } from './vent.js';
 import { density } from './atmosphere.js';
 import { makeEntryGuidance, liftDirection, chuteArea, chuteHeights, heightAbove, aeroAt, machAt } from './entry.js';
@@ -98,26 +98,36 @@ export function shadow(r, bodies, sunRadius = SUN_RADIUS) {
   return nu;
 }
 
-// The J2000 -> Earth-fixed matrix at kernel time t, cheaply: precession,
-// nutation and sidereal time once an hour (earthRotation.js), and the
-// Earth's spin about its pole of date analytically in between (the pole
-// moves by 3e-8 rad in an hour).
+// The J2000 -> Earth-fixed (ITRF93) matrix at kernel time t, cheaply:
+// precession, nutation, sidereal time and the day's Earth orientation
+// parameters once an hour (orientation.js's earthFixedAxes, the same Earth
+// the scene and the launch sites use), and the Earth's spin about its pole
+// of date analytically in between (the pole moves by 3e-8 rad in an hour),
+// before polar motion turns the result to the crust. opts.dut1 or
+// opts.leapSeconds instead give the time offsets by hand, with no polar
+// motion (NASA's check cases).
 export function earthFixedAt(epochMs, opts = {}) {
-  let t0 = NaN, M0 = null;
+  let t0 = NaN, P0 = null, W = null;
   const tt0 = ttSeconds(epochMs);
+  const byHand = opts.dut1 !== undefined || opts.leapSeconds !== undefined;
   return (t) => {
     if (!(Math.abs(t - t0) < 1800)) {
       t0 = Math.round(t / 3600) * 3600;
       const ms = utcMsAtTt(tt0 + t0);
-      M0 = earthFixedMatrix(ms, { leapSeconds: opts.leapSeconds ?? ttMinusUtc(ms) - 32.184, dut1: opts.dut1 ?? 0 }).M;
+      const m = byHand
+        ? earthFixedMatrix(ms, { leapSeconds: opts.leapSeconds ?? ttMinusUtc(ms) - 32.184, dut1: opts.dut1 ?? 0 })
+        : earthFixedAxes(ms);
+      P0 = m.pef; W = m.W;
     }
     const a = EARTH_ROTATION * (t - t0), c = Math.cos(a), s = Math.sin(a);
-    // R3(a) M0: the first two rows turn about the third.
-    return [
-      [c * M0[0][0] + s * M0[1][0], c * M0[0][1] + s * M0[1][1], c * M0[0][2] + s * M0[1][2]],
-      [-s * M0[0][0] + c * M0[1][0], -s * M0[0][1] + c * M0[1][1], -s * M0[0][2] + c * M0[1][2]],
-      M0[2],
+    // R3(a) P0: the first two rows turn about the third.
+    const R = [
+      [c * P0[0][0] + s * P0[1][0], c * P0[0][1] + s * P0[1][1], c * P0[0][2] + s * P0[1][2]],
+      [-s * P0[0][0] + c * P0[1][0], -s * P0[0][1] + c * P0[1][1], -s * P0[0][2] + c * P0[1][2]],
+      P0[2],
     ];
+    if (!W) return R;
+    return W.map((w) => [0, 1, 2].map((j) => w[0] * R[0][j] + w[1] * R[1][j] + w[2] * R[2][j]));
   };
 }
 

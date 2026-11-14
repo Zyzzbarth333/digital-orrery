@@ -14,6 +14,7 @@ The fixture holds:
 - the states of Mercury to Neptune at three epochs, for checking astronomy-engine;
 - the J2000 to body-fixed rotation (`pxform_c`) of the Sun, the planets, the Moon, Pluto and the
   planets' 20 major moons (`IAU_PHOBOS` … `IAU_CHARON`) at four epochs, for `orientation.test.mjs`;
+- the Earth's (ITRF93) at 408 instants from 2000 to 2126, for the Earth orientation table;
 - the triaxial radii (`bodvrd_c` `RADII`) of the same 31 bodies, for checking `src/physics/pck.data.js`;
 - the toolkit version, every kernel loaded, and the GM of each body the JS kernel uses, from `python/data/gm_de442.tpc` (system barycentres for Mercury to Neptune, the Earth and Moon themselves).
 
@@ -104,3 +105,22 @@ for 2020–2035 only, and `public/ephemeris/moons-extra` is git-ignored. `survey
 only prints the size each body would take. The full run takes about
 eleven minutes and prints, for each body, its intervals a year, coefficients, worst
 error over every interval, and the jumps where intervals meet.
+
+## The Earth's orientation for the app
+
+`earth_orientation.c` samples ITRF93 from NAIF's two Earth PCKs, each read
+alone, for the Earth orientation table
+([docs/physics/orientation.md](../docs/physics/orientation.md#earth));
+`src/physics/eop.build.mjs` fits each day's UT1 − UTC, polar motion and
+nutation corrections to the samples:
+
+```bash
+cmake --build c/build
+c/build/earth_orientation python/data/kernels/pck/earth_latest_high_prec.bpc \
+  python/data/kernels/pck/earth_2026_260806_2126_predict.bpc /tmp/itrf93.bin
+node src/physics/eop.build.mjs /tmp/itrf93.bin
+```
+
+The samples file is 26 MB and not kept. The build prints the fit's worst
+residual (4 mm) and the offset where it joins the long-term file onto the
+high-precision one.

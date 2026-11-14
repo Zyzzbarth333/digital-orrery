@@ -25,7 +25,8 @@ The meta-kernel (`data/metakernel.tm`) loads these, resolved relative to `python
 | --- | --- | --- | --- |
 | `lsk/naif0012.tls` | `lsk/naif0012.tls` | 5 KB | Leap seconds (no new leap second since 2017) |
 | `pck/pck00011_n0066.tpc` | `pck/pck00011_n0066.tpc` | 132 KB | IAU sizes and orientation, in the format for toolkit N0066 and later |
-| `pck/earth_latest_high_prec.bpc` | `pck/earth_latest_high_prec.bpc` | 5 MB | Precise Earth orientation (NAIF refreshes it often) |
+| `pck/earth_2026_260806_2126_predict.bpc` | `pck/earth_2026_260806_2126_predict.bpc` | 19 MB | The Earth's orientation to 2126: NAIF's long-term prediction (Aug 2026), listed before the next so that one wins where both cover |
+| `pck/earth_latest_high_prec.bpc` | `pck/earth_latest_high_prec.bpc` | 5 MB | Precise Earth orientation, 2000 to three months ahead (NAIF refreshes it often; the copy here is of 13 Nov 2026, to 9 Feb 2027) |
 | `pck/moon_pa_de440_200625.bpc` | `pck/moon_pa_de440_200625.bpc` | 13 MB | Lunar libration |
 | `fk/moon_de440_250416.tf` | `fk/satellites/moon_de440_250416.tf` | 19 KB | Lunar frames |
 | `pck/mars_konopliv_2026_n0066_v1.tpc` | `pck/mars_konopliv_2026_n0066_v1.tpc` | 20 KB | Mars rotation (Konopliv 2026) |
@@ -53,6 +54,7 @@ mkdir -p data/kernels/lsk data/kernels/pck data/kernels/spk/satellites data/kern
 B=https://naif.jpl.nasa.gov/pub/naif/generic_kernels
 curl -fL -o data/kernels/lsk/naif0012.tls                   $B/lsk/naif0012.tls
 curl -fL -o data/kernels/pck/pck00011_n0066.tpc             $B/pck/pck00011_n0066.tpc
+curl -fL -o data/kernels/pck/earth_2026_260806_2126_predict.bpc $B/pck/earth_2026_260806_2126_predict.bpc
 curl -fL -o data/kernels/pck/earth_latest_high_prec.bpc     $B/pck/earth_latest_high_prec.bpc
 curl -fL -o data/kernels/pck/moon_pa_de440_200625.bpc       $B/pck/moon_pa_de440_200625.bpc
 curl -fL -o data/kernels/fk/moon_de440_250416.tf            $B/fk/satellites/moon_de440_250416.tf

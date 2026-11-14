@@ -44,3 +44,12 @@ target_link_libraries(moon_cheb PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
 target_compile_options(moon_cheb PRIVATE -O2 -Wall -Wextra)
 target_compile_definitions(moon_cheb PRIVATE
   ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")
+
+# The Earth's orientation for the app (docs/physics/orientation.md):
+# NAIF's ITRF93 sampled for src/physics/eop.build.mjs.
+add_executable(earth_orientation earth_orientation.c)
+target_include_directories(earth_orientation PRIVATE "${CSPICE_ROOT}/include")
+target_link_libraries(earth_orientation PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
+target_compile_options(earth_orientation PRIVATE -O2 -Wall -Wextra)
+target_compile_definitions(earth_orientation PRIVATE
+  ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")

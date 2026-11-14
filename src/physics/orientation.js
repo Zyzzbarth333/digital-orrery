@@ -10,8 +10,12 @@
 // (east longitude positive). A vector v in EQJ has body-fixed components
 // (X.v, Y.v, Z.v).
 //
-// Earth: from astronomy-engine's ObserverVector, which includes precession,
-// nutation and Greenwich apparent sidereal time (not polar motion, ~10 m).
+// Earth: ITRF93, as NAIF's Earth PCKs give it: the IAU 1976/1980
+// precession, nutation and sidereal time of earthRotation.js with the day's
+// UT1 - UTC, polar motion and nutation corrections from eop.js, 2000 to
+// 2126 (outside that, or before the table is installed, UTC for UT1 and no
+// polar motion: 180 m at the surface). earthFixedAxes(ms) gives the rest of
+// what goes with them (the rotation axis of date, environment.js's frame).
 // Everything else: the IAU rotation model, pole (alpha0, delta0) and prime
 // meridian angle W (Archinal et al., IAU WG on Cartographic Coordinates and
 // Rotational Elements), via astronomy-engine's RotationAxis:
@@ -43,6 +47,9 @@
 import * as Astronomy from 'astronomy-engine';
 import { ttSeconds } from './ephemeris.js';   // also sets astronomy-engine's ΔT from the leap seconds
 import { NUT_PREC_ANGLES, ROTATION } from './pck.data.js';
+import { J2000_UTC_MS } from './timescale.js';
+import { earthFixedMatrix } from './earthRotation.js';
+import { eopAt } from './eop.js';
 import { isMoonKey, moonStateEqj } from './moons.js';
 
 const AE_BODY = {
@@ -53,7 +60,6 @@ const AE_BODY = {
 };
 
 const DEG = Math.PI / 180;
-const unit = (v) => { const n = Math.hypot(v[0], v[1], v[2]); return [v[0] / n, v[1] / n, v[2] / n]; };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 // Axes from a pole (a0, d0) and prime meridian W, radians.
@@ -85,14 +91,19 @@ export function iauAngles(m, d) {
 // TT stands in for TDB (under 2 ms apart: 0.0006 deg of Phobos's turn).
 const tdbDays = (date) => ttSeconds(date.getTime()) / 86400;
 
+// The J2000 -> ITRF93 rotation at a UTC instant (Unix ms), with the Earth
+// orientation parameters of the day: earthFixedMatrix's { M, pef, W, gast,
+// pole }, whose rows of M are the Earth-fixed axes in J2000.
+export function earthFixedAxes(ms) {
+  const eop = eopAt(ms);
+  // TAI - UTC, or before 1972 the TT - UT model's equivalent (ephemeris.js).
+  const leapSeconds = ttSeconds(ms) - (ms - J2000_UTC_MS) / 1000 - 32.184;
+  return earthFixedMatrix(ms, eop ? { leapSeconds, ...eop } : { leapSeconds });
+}
+
 function earthAxes(date) {
-  const at = (lat, lon) => {
-    const v = Astronomy.ObserverVector(date, new Astronomy.Observer(lat, lon, 0), false);
-    return unit([v.x, v.y, v.z]);
-  };
-  const X = at(0, 0);
-  const Z = at(90, 0);
-  return [X, unit(cross(Z, X)), Z];
+  const { M } = earthFixedAxes(date.getTime());
+  return [M[0], M[1], M[2]];
 }
 
 // The pole of the solar system's invariable plane in the ICRF (Souami and

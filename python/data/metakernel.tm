@@ -12,8 +12,13 @@ KPL/MK
       lsk/naif0012.tls                  <- generic_kernels/lsk/
       pck/pck00011_n0066.tpc            <- generic_kernels/pck/ (IAU orientation,
                                            N0066+ toolkit format)
+      pck/earth_2026_260806_2126_predict.bpc <- generic_kernels/pck/ (the
+                                           Earth's orientation to 2126, NAIF's
+                                           long-term prediction)
       pck/earth_latest_high_prec.bpc    <- generic_kernels/pck/ (precise Earth
-                                           orientation; NAIF updates it often)
+                                           orientation; NAIF updates it often;
+                                           loaded after the long-term file so
+                                           it wins where both cover)
       pck/moon_pa_de440_200625.bpc      <- generic_kernels/pck/ (lunar libration)
       fk/moon_de440_250416.tf           <- generic_kernels/fk/satellites/
       pck/mars_konopliv_2026_n0066_v1.tpc <- generic_kernels/pck/ (Mars rotation)
@@ -59,6 +64,7 @@ KPL/MK
        '$KERNELS/lsk/naif0012.tls'
        '$KERNELS/pck/pck00011_n0066.tpc'
        '$DATA/gm_de442.tpc'
+       '$KERNELS/pck/earth_2026_260806_2126_predict.bpc'
        '$KERNELS/pck/earth_latest_high_prec.bpc'
        '$KERNELS/pck/moon_pa_de440_200625.bpc'
        '$KERNELS/fk/moon_de440_250416.tf'
