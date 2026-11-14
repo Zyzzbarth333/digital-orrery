@@ -8,7 +8,8 @@
 // times a second, and the header and rail redraw only when what they show
 // changes.
 
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { loadManifest, type Manifest } from '../scene/surfaces';
 import { useClock, useClockValue, type SimClock } from './clock';
 import type { Mission } from './mission';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
@@ -181,9 +182,36 @@ export function BodyRail({ clock, focus, onSelect }: { clock: SimClock; focus: B
         <p><kbd>↑</kbd><kbd>↓</kbd> body · <kbd>N</kbd> now</p>
         <p><kbd>M</kbd> flight console · <kbd>Esc</kbd> stop</p>
         <p>Choose a body to fly there; drag to turn, scroll to zoom.</p>
-        <a href="https://github.com/Zyzzbarth333/digital-orrery/blob/main/docs/README.md" target="_blank" rel="noreferrer">How it works</a>
+        <div className="foot-links">
+          <a href="https://github.com/Zyzzbarth333/digital-orrery/blob/main/docs/README.md" target="_blank" rel="noreferrer">How it works</a>
+          <Credits />
+        </div>
       </div>
     </nav>
+  );
+}
+
+// Where every image and catalogue comes from, as their providers ask
+// (docs/frontend/textures.md#sources-and-credits), read from the texture
+// manifest so it always matches what is drawn.
+function Credits() {
+  const [m, setM] = useState<Manifest | null>(null);
+  useEffect(() => { void loadManifest().then(setM); }, []);
+  const items: [string, string][] = [];
+  if (m) {
+    for (const [k, e] of Object.entries(m.bodies)) if (e) items.push([BODY_BY_KEY[k as BodyKey].name, e.credit]);
+    if (m.rings?.saturn) items.push(["Saturn's rings", m.rings.saturn.credit]);
+    if (m.stars) items.push(['Sky', m.stars.credit]);
+  }
+  items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance']);
+  items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
+  return (
+    <details className="credits">
+      <summary>Credits</summary>
+      <dl className="credits-list">
+        {items.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+      </dl>
+    </details>
   );
 }
 

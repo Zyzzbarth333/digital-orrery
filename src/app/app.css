@@ -301,7 +301,19 @@ kbd {
 .legend .sw.flown { border-color: var(--flown-line); }
 .rail-foot { margin-top: auto; padding: var(--u) calc(2.25 * var(--u)) calc(3 * var(--u)); display: grid; gap: 4px; font-size: 11px; color: var(--ink-muted); }
 .rail-foot p { margin: 0; }
-.rail-foot a { color: var(--engrave); font: 10px var(--display); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 4px; }
+.rail-foot a, .credits summary { color: var(--engrave); font: 10px var(--display); letter-spacing: 0.14em; text-transform: uppercase; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 4px calc(1.5 * var(--u)); align-items: baseline; margin-top: 4px; position: relative; }
+.foot-links a, .credits summary { white-space: nowrap; }
+.credits summary { cursor: pointer; text-decoration: underline; list-style: none; }
+.credits summary::-webkit-details-marker { display: none; }
+.credits-list {
+  position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 6; width: 340px; max-height: 60vh; overflow-y: auto; margin: 0;
+  padding: calc(1.5 * var(--u)) calc(2 * var(--u)); background: var(--window); color: var(--phosphor-dim); border-radius: 2px;
+  box-shadow: inset 0 0 0 var(--hair) var(--seam-strong), 0 6px 16px rgba(0, 0, 0, 0.5); font: 11px/1.45 var(--sans);
+}
+.credits-list div + div { margin-top: var(--u); }
+.credits-list dt { font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--label-dim); }
+.credits-list dd { margin: 2px 0 0; }
 .input[aria-invalid='true'] { box-shadow: inset 0 2px 5px #000, 0 0 0 2px var(--warn); }
 
 /* ---------------- annunciator ---------------- */

@@ -185,171 +185,83 @@ BODIES = {
 }
 
 
-def _shift_reduce(a, r, fn, axis):
-    """Sliding min or max of width 2r+1 along an axis (wrapping in RA, axis 1;
-    clamped at the poles, axis 0)."""
-    out = a.copy()
-    for k in range(1, r + 1):
-        for d in (k, -k):
-            if axis == 1:
-                sh = np.roll(a, d, axis=1)
-            else:
-                idx = np.clip(np.arange(a.shape[0]) - d, 0, a.shape[0] - 1)
-                sh = a[idx]
-            out = fn(out, sh)
-    return out
+def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0):
+    """The sky in two layers (docs/frontend/textures.md#stars).
 
+    The light between the stars: NASA SVS Deep Star Maps 2020, the Milky Way
+    layer (milkyway_2020_4k.exr), which is the full star map with the
+    Hipparcos and Tycho stars taken out; linear half-float, ICRF plate
+    carree, RA 0h at the centre and increasing to the left. Written as 8-bit
+    sRGB with its brightest 0.01 % at white.
 
-def _box(a, r):
-    """Box blur of width 2r+1, wrapping in RA."""
-    out = np.zeros_like(a)
-    for dx in range(-r, r + 1):
-        out += np.roll(a, dx, axis=1)
-    a = out / (2 * r + 1)
-    out = np.zeros_like(a)
-    for dy in range(-r, r + 1):
-        idx = np.clip(np.arange(a.shape[0]) - dy, 0, a.shape[0] - 1)
-        out += a[idx]
-    return out / (2 * r + 1)
-
-
-# The twenty brightest stars (RA, Dec in degrees, J2000; V magnitude): Sirius,
-# Canopus, Alpha Centauri (A and B together), Arcturus, Vega, Capella, Rigel,
-# Procyon, Achernar, Betelgeuse, Hadar, Altair, Acrux, Aldebaran, Antares,
-# Spica, Pollux, Fomalhaut, Deneb, Mimosa; and Polaris.
-BRIGHT_STARS = [
-    (101.287, -16.716, -1.46), (95.988, -52.696, -0.74), (219.900, -60.834, -0.27), (213.915, 19.182, -0.05),
-    (279.234, 38.784, 0.03), (79.172, 45.998, 0.08), (78.634, -8.202, 0.13), (114.825, 5.225, 0.34),
-    (24.429, -57.237, 0.46), (88.793, 7.407, 0.50), (210.956, -60.373, 0.61), (297.696, 8.868, 0.76),
-    (186.650, -63.099, 0.76), (68.980, 16.509, 0.86), (247.352, -26.432, 0.96), (201.298, -11.161, 0.97),
-    (116.329, 28.026, 1.14), (344.413, -29.622, 1.16), (310.358, 45.280, 1.25), (191.930, -59.689, 1.25),
-    (37.955, 89.264, 1.98),   # Polaris: smeared along the map's top rows, so it is pinned too
-]
-
-
-def stars(src, out, colour_map, heights_km, normal_map, count=20000):
-    """NASA SVS Deep Star Maps 2020 (Hipparcos-2, Tycho-2, Gaia DR2), linear
-    half-float EXR in ICRF, RA 0h at the centre, RA increasing to the left,
-    split into the stars and the light between them.
-
-    At 4096 x 2048 a texel is 0.088 deg, magnified 1.6 to 3.4 times on
-    screen, so stars drawn from the map are soft blobs. Instead:
-    - the diffuse light is estimated with a grey-scale opening (7 x 7 min,
-      then max) and a 5 x 5 box blur;
-    - stars are the `count` brightest local maxima of the map minus that
-      estimate, at least 4 texels apart (wider toward the poles); each is
-      measured in a 7 x 7 aperture weighted by cos Dec (flux in R, G, B,
-      flux-weighted centroid) and replaced in the map by the estimate over
-      9 x 9, feathered at the edge;
-    - the map that is left (the Milky Way and every star too faint to pick
-      out) is written as 8-bit sRGB, its brightest 0.01 % at white;
-    - the stars are written as points (stars/points.bin, float32 x, y, z in
-      J2000 equatorial, magnitude, linear R, G, B at luminance 1), their
-      magnitudes by rank against all-sky star counts (see below), since the
-      map's own photometry is compressed.
-    The scene draws them as sharp points over the map (src/scene/stars.ts)."""
+    The stars: the Hipparcos main catalogue (ESA 1997), 118,218 stars, via
+    NASA HEASARC (heasarc_hipparcos.tdat.gz). Stars to V `vmax` are kept,
+    each as int16 x, y, z (J2000 unit vector times 32767), int16 V x 1000
+    and int16 B-V x 1000 (-32768 where the catalogue has none): 10 bytes a
+    star. The app turns B-V into a colour (stars.ts)."""
+    import gzip
     import json
     import subprocess
-    exr = src / "starmap_2020_4k.exr"
-    raw = src / "_work" / "starmap.f32"
+    exr = src / "milkyway_2020_4k.exr"
+    raw = src / "_work" / "milkyway.f32"
     raw.parent.mkdir(exist_ok=True)
     if not raw.exists():
         subprocess.run(["node", str(Path(__file__).with_name("exr_to_f32.mjs")), str(exr), str(raw)], check=True)
     size = json.loads(raw.with_suffix(".f32.json").read_text())
-    H, W = size["height"], size["width"]
-    a = np.maximum(np.fromfile(raw, dtype=np.float32).reshape(H, W, 3), 0.0)
-    lumw = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
-
-    bg = _shift_reduce(a, 3, np.minimum, 1)
-    bg = _shift_reduce(bg, 3, np.minimum, 0)
-    bg = _shift_reduce(bg, 3, np.maximum, 1)
-    bg = _shift_reduce(bg, 3, np.maximum, 0)
-    bg = _box(bg, 2).astype(np.float32)
-    res = a - bg
-    rl = res @ lumw
-    peak = rl == _shift_reduce(_shift_reduce(rl, 2, np.maximum, 1), 2, np.maximum, 0)
-    ys, xs = np.nonzero(peak & (rl > 0))
-    order = np.argsort(-rl[ys, xs])[: int(count * 1.6)]
-    ys, xs = ys[order], xs[order]
-    # Bright stars are drawn as flat discs a few texels wide, with several
-    # local maxima: keep the brightest within 4 texels of each.
-    # Rows near the poles cover less sky (cos Dec), so a star spreads over
-    # more texels there: the window widens and texels are weighted by it.
-    cosrow = np.cos(np.radians(90.0 - 180.0 * (np.arange(H) + 0.5) / H))
-    taken = np.zeros((H, W), dtype=bool)
-    keep = []
-    for i, (y0, x0) in enumerate(zip(ys, xs)):
-        y1, y2 = max(0, y0 - 4), min(H, y0 + 5)
-        rx = min(W // 2, int(np.ceil(4 / max(cosrow[y0], 0.02))))
-        cols = np.arange(x0 - rx, x0 + rx + 1) % W
-        if taken[y1:y2][:, cols].any():
-            continue
-        keep.append(i)
-        taken[y0, x0] = True
-        if len(keep) == count:
-            break
-    ys, xs = ys[keep], xs[keep]
-
-    flux = np.zeros((len(ys), 3))
-    cx = np.zeros(len(ys)); cy = np.zeros(len(ys)); wsum = np.zeros(len(ys))
-    clean = a.copy()
-    for dy in range(-4, 5):
-        yy = np.clip(ys + dy, 0, H - 1)
-        for dx in range(-4, 5):
-            xx = (xs + dx) % W
-            # Feathered: the outer ring keeps half the original, so the patch
-            # does not show as a smooth square in the map's grain.
-            ring = max(abs(dy), abs(dx))
-            t = 1.0 if ring <= 2 else (0.75 if ring == 3 else 0.4)
-            clean[yy, xx] = clean[yy, xx] * (1 - t) + bg[yy, xx] * t
-            if ring > 3:
-                continue
-            f = np.maximum(res[yy, xx], 0.0) * cosrow[yy][:, None]
-            flux += f
-            w = f @ lumw
-            cx += w * dx; cy += w * dy; wsum += w
-    fl = flux @ lumw
-    keep = fl > 0
-    flux, fl, cx, cy, wsum, ys, xs = flux[keep], fl[keep], cx[keep], cy[keep], wsum[keep], ys[keep], xs[keep]
-    x = xs + cx / wsum + 0.5
-    y = ys + cy / wsum + 0.5
-    ra = np.radians(180.0 - 360.0 * x / W)      # RA 180 deg at the left edge, increasing to the left
-    dec = np.radians(90.0 - 180.0 * y / H)
-    # Magnitudes by rank: a 5 x 5 aperture on this map compresses the range
-    # (bright stars are drawn wider than the aperture), giving -1.5 to 4.4
-    # for 40,000 stars that really reach V 8. So each star takes the
-    # magnitude whose all-sky count matches its rank (cumulative counts
-    # N(< V) of the standard star-count tables, interpolated in log N).
-    rank = np.empty(len(fl)); rank[np.argsort(-fl)] = np.arange(1, len(fl) + 1)
-    n_tab = np.log10([1, 15, 48, 171, 513, 1602, 4800, 14000, 41000, 117000])
-    v_tab = np.array([-1.46, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-    mag = np.interp(np.log10(rank), n_tab, v_tab)
-    # The brightest stars keep their own V magnitudes (matched within 0.3 deg).
-    for ra0, de0, v in BRIGHT_STARS:
-        r0, d0 = np.radians(ra0), np.radians(de0)
-        cosd = np.sin(dec) * np.sin(d0) + np.cos(dec) * np.cos(d0) * np.cos(ra - r0)
-        j = int(np.argmax(cosd))
-        if cosd[j] > np.cos(np.radians(0.3)):
-            mag[j] = v
-    rgb = flux / fl[:, None]
-    pts = np.stack([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec), mag,
-                    rgb[:, 0], rgb[:, 1], rgb[:, 2]], axis=1).astype(np.float32)
-    p = out / "stars" / "points.bin"
-    p.parent.mkdir(parents=True, exist_ok=True)
-    pts.tofile(p)
-    print(f"  wrote stars/points.bin: {len(pts)} stars, magnitude {mag.min():.2f} to {mag.max():.2f}, {p.stat().st_size / 1e6:.2f} MB")
-
-    scale = 1.0 / np.percentile(clean.max(axis=2), 99.99)
-    lin = np.clip(clean * scale, 0, 1)
+    a = np.maximum(np.fromfile(raw, dtype=np.float32).reshape(size["height"], size["width"], 3), 0.0)
+    scale = 1.0 / np.percentile(a.max(axis=2), 99.99)
+    lin = np.clip(a * scale, 0, 1)
     srgb = np.where(lin <= 0.0031308, 12.92 * lin, 1.055 * lin ** (1 / 2.4) - 0.055)
     img = Image.fromarray(np.rint(srgb * 255).astype(np.uint8), "RGB")
     m = out / "stars" / "milky-way.webp"
+    m.parent.mkdir(parents=True, exist_ok=True)
     img.save(m, "WEBP", quality=92, method=6)
-    print(f"  wrote stars/milky-way.webp {img.size[0]}x{img.size[1]} {m.stat().st_size / 1e6:.1f} MB (stars removed)")
+    print(f"  wrote stars/milky-way.webp {img.size[0]}x{img.size[1]} {m.stat().st_size / 1e6:.1f} MB")
+
+    names = None
+    rows = []
+    with gzip.open(src / "heasarc_hipparcos.tdat.gz", "rt") as f:
+        data = False
+        for line in f:
+            if line.startswith("line[1] = "):
+                names = line.split("=", 1)[1].split()
+            elif line.startswith("<DATA>"):
+                data = True
+            elif line.startswith("<END>"):
+                break
+            elif data and names:
+                v = line.rstrip("\n").split("|")
+                rows.append(v)
+    col = {n: i for i, n in enumerate(names)}
+    ra, dec, vm, bv = [], [], [], []
+    for v in rows:
+        try:
+            mag = float(v[col["vmag"]])
+            r, d = float(v[col["ra"]]), float(v[col["dec"]])
+        except (ValueError, IndexError):
+            continue
+        if mag > vmax:
+            continue
+        b = v[col["bv_color"]].strip()
+        ra.append(r); dec.append(d); vm.append(mag); bv.append(float(b) if b else np.nan)
+    ra, dec, vm, bv = (np.radians(np.array(ra)), np.radians(np.array(dec)), np.array(vm), np.array(bv))
+    xyz = np.stack([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)], axis=1)
+    out_arr = np.empty((len(vm), 5), dtype=np.int16)
+    out_arr[:, :3] = np.rint(xyz * 32767)
+    out_arr[:, 3] = np.rint(vm * 1000)
+    out_arr[:, 4] = np.where(np.isnan(bv), -32768, np.rint(np.nan_to_num(bv) * 1000))
+    p = out / "stars" / "hipparcos.bin"
+    out_arr.tofile(p)
+    old = out / "stars" / "points.bin"
+    if old.exists():
+        old.unlink()
+    print(f"  wrote stars/hipparcos.bin: {len(vm)} of {len(rows)} stars to V {vmax}, "
+          f"{np.isnan(bv).sum()} without B-V, {p.stat().st_size / 1e6:.2f} MB")
     return {"map": "stars/milky-way.webp", "raAtLeftDeg": 180.0, "raIncreasesRight": False, "gain": 1.0,
-            "points": "stars/points.bin", "pointCount": int(len(pts)),
-            "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020. "
-                      "Gaia DR2: ESA/Gaia/DPAC."}
+            "points": "stars/hipparcos.bin", "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000",
+            "pointCount": int(len(vm)),
+            "credit": "Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020; "
+                      "Gaia DR2: ESA/Gaia/DPAC. Stars: the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC."}
 
 
 BODIES["stars"] = stars

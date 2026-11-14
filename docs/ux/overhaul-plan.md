@@ -82,8 +82,9 @@ What the numbers say:
   glow goes.
 - Stars as points from a catalogue (Hipparcos, or the Bright Star Catalogue
   if the larger download is declined) with flux from magnitude and colour
-  from B−V, over the SVS star-free Milky Way. **Both downloads need the
-  user's approval** (sizes and terms in the research).
+  from B−V, over the SVS star-free Milky Way. Both downloads needed the
+  user's approval (sizes and terms in the research); it was given on
+  14 November 2026.
 - Honest motion: the eye adapts as bright bodies and the Sun enter or leave
   the view, so faint stars fade in a dark view and wash out beside a lit
   limb; exposure changes are smoothed over about a second.

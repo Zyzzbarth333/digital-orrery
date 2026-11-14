@@ -81,9 +81,10 @@
     "raAtLeftDeg": 180.0,
     "raIncreasesRight": false,
     "gain": 1.0,
-    "credit": "NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020. Gaia DR2: ESA/Gaia/DPAC.",
-    "points": "stars/points.bin",
-    "pointCount": 20000,
-    "mapWhiteOverSiriusFlux": 0.03403015345541456
+    "credit": "Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020; Gaia DR2: ESA/Gaia/DPAC. Stars: the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC.",
+    "points": "stars/hipparcos.bin",
+    "pointCount": 83392,
+    "mapWhiteOverSiriusFlux": 0.03403015345541456,
+    "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000"
   }
 }

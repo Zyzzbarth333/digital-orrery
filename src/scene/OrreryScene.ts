@@ -35,8 +35,9 @@ import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
-import { BloomEffect } from './bloom';
+import { HdrPipeline } from './post';
 import { makeSunMaterial, SunGlare, visibleFraction } from './sun';
+import { RenderScale } from './renderScale';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
 const ORBIT_SAMPLES = 360;
@@ -111,10 +112,11 @@ export class OrreryScene {
   private unloadedSurfaces = new Set<BodyKey>();
   private earthResolved = false;
   private glare = new SunGlare();
+  private post: HdrPipeline;
   private sunVisible = 1;
   private adapt = 1;              // the eye's adaptation: 1 dark-adapted
-  private bloom = new BloomEffect();
   private buffer = new THREE.Vector2();
+  private scale: RenderScale;
   private states = {} as Record<BodyKey, BodyState>;
   private raf = 0;
   private lastFrame = 0;
@@ -178,19 +180,18 @@ export class OrreryScene {
   viewFromSun(phase = 0.35): void { this.sunViewPending = true; this.sunViewPhase = phase; }
 
   constructor(private container: HTMLElement, private overlay: HTMLElement, private clock: SimClock) {
-    // HDR: the scene renders linear light into a half-float target (4x
-    // multisampled below 1.5 device pixels per CSS pixel; above that the
-    // pixels are small enough), bloom runs on it, and three's output pass
-    // applies exposure, tone mapping and the sRGB encode once, at the end.
-    // A dual-GPU laptop is asked for its discrete GPU.
+    // HDR (post.ts): the scene renders linear light into a half-float
+    // target (4x multisampled below 1.5 device pixels per CSS pixel; above
+    // that the pixels are small enough), and one final pass mixes in the
+    // bloom and the Sun's glare and applies exposure, the tone curve and
+    // the sRGB encode. A dual-GPU laptop is asked for its discrete GPU.
     const dpr = Math.min(window.devicePixelRatio, 2);
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: dpr < 1.5, logarithmicDepthBuffer: true, powerPreference: 'high-performance',
-      outputBufferType: THREE.HalfFloatType,
-    });
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, logarithmicDepthBuffer: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(dpr);
+    this.post = new HdrPipeline(dpr < 1.5, this.glare);
+    // ?scale=fixed keeps the full ratio (for measuring the raw cost).
+    this.scale = new RenderScale(dpr, new URLSearchParams(location.search).get('scale') === 'fixed');
     this.renderer.toneMapping = TONE_MAPPING;
-    this.renderer.setEffects([this.bloom]);
     this.renderer.setClearColor(0x000000, 1);
     container.appendChild(this.renderer.domElement);
 
@@ -222,7 +223,6 @@ export class OrreryScene {
       this.meshes.set(b.key, mesh);
       this.labels.set(b.key, this.makeLabel(b.key, b.name));
     }
-    this.scene.add(this.glare.mesh);
 
     // Atmospheres: a scattering shell, and the same medium on the surface's
     // sunlight.
@@ -269,7 +269,7 @@ export class OrreryScene {
         });
         if (stars.points) {
           void loadBinary(stars.points).then((buf) => {
-            this.starPoints = makeStarPoints(new Float32Array(buf), renderToEqj().transpose(), this.renderer.getPixelRatio());
+            this.starPoints = makeStarPoints(new Int16Array(buf), renderToEqj().transpose(), this.renderer.getPixelRatio());
             this.scene.add(this.starPoints);
           });
         }
@@ -357,8 +357,9 @@ export class OrreryScene {
       lx = e.clientX; ly = e.clientY;
     });
     // The wheel takes over from a flight and zooms smoothly; the distance
-    // it settles on is remembered for the next body (arrivalDist).
-    el.addEventListener('wheel', (e) => {
+    // it settles on is remembered for the next body (arrivalDist). It is
+    // heard on the whole sky, labels included (they sit over the canvas).
+    this.container.addEventListener('wheel', (e) => {
       e.preventDefault();
       const craft = this.focusCraftId !== null;
       const minDist = craft ? 0.05 : BODY_BY_KEY[this.focus].radiusKm * 1.2;
@@ -385,6 +386,8 @@ export class OrreryScene {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     if (!w || !h) return;
     this.renderer.setSize(w, h, false);
+    this.renderer.getDrawingBufferSize(this.buffer);
+    this.post.setSize(this.buffer.x, this.buffer.y, this.renderer.getPixelRatio());
     this.camera.aspect = w / h;
     this.applyInset();
   }
@@ -445,6 +448,8 @@ export class OrreryScene {
     this.raf = requestAnimationFrame(this.frame);
     this.uploader.step();
     const dtReal = Math.min(0.1, Math.max(0, (now - this.lastFrame) / 1000));
+    const ratio = this.scale.frame(now, now - this.lastFrame);
+    if (ratio !== null) { this.renderer.setPixelRatio(ratio); this.resize(); }
     if (this.inset !== this.insetGoal) {
       const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
       this.inset = reduced || Math.abs(this.inset - this.insetGoal) < 0.5 ? this.insetGoal
@@ -504,7 +509,7 @@ export class OrreryScene {
     this.updateGlare(sunPos, cam, now);
     this.updateAdaptation(dtReal, sunPos);
 
-    this.renderer.render(this.scene, this.camera);
+    this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
@@ -538,7 +543,9 @@ export class OrreryScene {
     const fwd = this.tmp.set(0, 0, -1).transformDirection(this.camera.matrixWorld);
     const cosSun = fwd.dot(sunPos) / sunPos.length();
     const thetaSun = (Math.acos(Math.max(-1, Math.min(1, cosSun))) * 180) / Math.PI;
-    let light = this.sunVisible * Math.max(0, Math.min(1, (35 - thetaSun) / 20));
+    // The Sun's disc in frame would blind an eye to faint stars outright;
+    // it is tempered to a third so the overview keeps a sky.
+    let light = 0.35 * this.sunVisible * Math.max(0, Math.min(1, (35 - thetaSun) / 20));
     const h = this.container.clientHeight, w = this.container.clientWidth;
     const pxPerRad = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
     for (const b of BODIES) {
@@ -596,7 +603,7 @@ export class OrreryScene {
     for (const m of this.materials.values()) m.uniforms.invExposure.value = inv;
     // Drawings at a display level (orbit lines, craft lines, the star
     // background) are divided by the exposure the output pass applies.
-    this.bloom.exposure = this.renderer.toneMappingExposure;
+    this.post.exposure = this.renderer.toneMappingExposure;
     for (const o of this.orbits.values()) (o.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     this.craftLayer.setLevel(inv);
     if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.level.value = inv;
@@ -636,7 +643,7 @@ export class OrreryScene {
   private placeLabels(): void {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     const pxPerRad = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
-    const dpr = this.renderer.getPixelRatio();
+    const dpr = window.devicePixelRatio || 1;     // the screen's pixels, not the render scale
     const screen = new Map<BodyKey, [number, number]>();
     // Discs big enough to hide what lies behind them: x, y, radius in px,
     // distance from the camera.
@@ -697,6 +704,7 @@ export class OrreryScene {
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
     for (const el of this.labels.values()) el.remove();
+    this.post.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

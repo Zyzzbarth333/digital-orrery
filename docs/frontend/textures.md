@@ -26,7 +26,8 @@ CC BY 4.0 and need their attribution.
 | Venus | Cloud tops (4096×2048) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
 | Saturn, Uranus, Neptune | Colour (4096, 2048, 2048 wide) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
 | Saturn's rings | Normal optical depth, 10 km bins | Cassini UVIS 126 Tau egress occultation (COUVIS_8001) | NASA PDS Ring-Moon Systems Node (Colwell et al.) |
-| Stars | 4096×2048 linear star map, split into 20,000 point stars and the light between them | Deep Star Maps 2020 (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
+| Stars | The Hipparcos main catalogue: 83,392 stars to V 9 with V and B−V | ESA 1997 (SP-1200), via NASA HEASARC | ESA, *The Hipparcos and Tycho Catalogues* (1997) |
+| Milky Way | 4096×2048 linear map of the light between the stars (Hipparcos and Tycho stars removed) | Deep Star Maps 2020, Milky Way layer (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
 
 The Venus surface is not shown: in visible light Venus is its cloud deck.
 No Sun map is used, since at its true brightness the disc saturates to
@@ -131,42 +132,45 @@ The ring photometry, transparency and shadow on Saturn are in
 
 ## Stars
 
-The SVS star map is plate carrée in ICRF (J2000 equatorial), centred on
-RA 0h with RA increasing to the left, in linear half-float light. At
-4096 × 2048 a texel is 0.088°, magnified 1.6 to 3.4 times on screen, so stars
-drawn from the map are soft blobs. The build (`sources.py`, `stars`) splits
-it instead:
+The sky is two layers, both downloaded with the user's approval on
+14 November 2026 and kept as originals in the texture source folder:
 
-1. **The diffuse light** is estimated with a grey-scale opening (a 7 × 7
-   minimum, then maximum, wrapping in RA) and a 5 × 5 box blur.
-2. **Stars** are the 20,000 brightest local maxima of the map minus that
-   estimate, at least 4 texels apart (wider toward the poles, where a row
-   covers less sky). Each is measured in a 7 × 7 aperture weighted by
-   cos Dec, for its flux in R, G and B and a flux-weighted centroid, and
-   replaced in the map by the estimate over 9 × 9, feathered at the edge so
-   the patch does not show in the map's grain.
-3. **The map that is left** (`stars/milky-way.webp`) is written as 8-bit
-   sRGB with its brightest 0.01 % at white.
-4. **The stars** (`stars/points.bin`, 0.56 MB) are float32 x, y, z in J2000
-   equatorial, V magnitude, and linear R, G, B at luminance 1.
+| Layer | Source | Download | Shipped |
+| --- | --- | --- | --- |
+| The light between the stars | NASA SVS Deep Star Maps 2020, Milky Way layer `milkyway_2020_4k.exr` (the full star map with the Hipparcos and Tycho stars taken out) | 36.4 MB | `stars/milky-way.webp`, 4096 × 2048 8-bit sRGB, 3.0 MB |
+| The stars | The Hipparcos main catalogue (ESA 1997), 118,218 stars, from NASA HEASARC (`heasarc_hipparcos.tdat.gz`) | 14.8 MB | `stars/hipparcos.bin`, the 83,392 stars to V 9.0, 0.83 MB |
 
-**Magnitudes come from rank, not from the map's photometry.** A 7 × 7
-aperture on this map compresses the range (bright stars are drawn wider
-than the aperture; the first pass gave −1.5 to 4.4 for stars that really
-reach V 8), so each star takes the magnitude whose all-sky count matches its
-rank: the standard cumulative counts N(<V) of about 15 stars to V 1, 1,600
-to V 5, 4,800 to V 6 and 41,000 to V 8, interpolated in log N. The twenty
-brightest stars, and Polaris (smeared along the map's top rows), are matched
-within 0.3° to their published positions and given their V magnitudes. The
-brightest twelve then come out in their true order: Sirius, Canopus, α
-Centauri, Arcturus, Vega, Capella, Rigel, Procyon, Achernar, Betelgeuse,
-Hadar and Altair.
+**The Milky Way map** is plate carrée in ICRF (J2000 equatorial), centred on
+RA 0h with RA increasing to the left, in linear half-float light. It is
+written as sRGB with its brightest 0.01 % at white; the scene draws it at
+half that (lighting.md). Stars fainter than Tycho's limit stay in it as
+unresolved light, so the Milky Way's grain is real; stars between V 9 and
+Tycho's limit (about V 11.5) are in neither layer, which at the scene's
+display level is below visibility anyway.
 
-This is a stopgap built from the map already on disk. A catalogue
-(Hipparcos, 118,218 stars with measured V and B−V) and the SVS star-free
-Milky Way map would replace it with measured magnitudes and colours and a
-background that was never touched; both need the user's approval to
-download ([research](../ux/research.md#data)).
+**The star file** holds, per star, five int16: x, y, z of the J2000 unit
+vector times 32,767 (about 6″ resolution), V × 1,000 and B−V × 1,000
+(−32,768 for the 131 stars without one, drawn at the Sun's 0.65). The
+catalogue's positions are ICRS at epoch J1991.25; proper motion since then
+(under 1′ for all but a handful) is not applied.
+
+**Colour** comes from B−V in the app (`stars.ts`, `bvToRgb`): a temperature
+from Ballesteros's (2012) formula,
+T = 4600 (1/(0.92 (B−V) + 1.7) + 1/(0.92 (B−V) + 0.62)) K, a Planck spectrum
+at that temperature integrated over 380–780 nm with the CIE 1931
+colour-matching functions (Wyman, Sloan and Shirley's 2013 multi-lobe fit),
+and the XYZ-to-linear-sRGB matrix, at luminance 1. As a check, B−V 0.65
+gives 5,778 K and (1.11, 0.98, 0.91), against (1.10, 0.98, 0.94) from the
+Sun's measured chromaticity ([lighting](lighting.md#the-sun)).
+
+**Credits**, as the SVS page asks (checked 14 November 2026; it states no
+licence terms beyond credit): NASA/Goddard Space Flight Center Scientific
+Visualization Studio; Gaia DR2: ESA/Gaia/DPAC. Hipparcos: ESA 1997, *The
+Hipparcos and Tycho Catalogues*, ESA SP-1200, via NASA HEASARC; ESA makes the
+catalogue freely available with this acknowledgement.
+
+An earlier stopgap split the SVS combined star map into points and
+background on the machine (commit 4a660fe); it is replaced by these.
 
 ## Loading
 

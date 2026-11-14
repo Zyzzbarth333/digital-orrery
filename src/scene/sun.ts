@@ -68,91 +68,76 @@ export function makeSunMaterial(): THREE.ShaderMaterial {
   });
 }
 
-const glareVertex = /* glsl */ `
-void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }
-`;
-
-const glareFragment = /* glsl */ `
-#define PI 3.141592653589793
+// The glare as a function of the pixel, called in the HDR pipeline's final
+// pass (post.ts): no pass of its own, so it costs arithmetic, not memory
+// traffic. Returns scene-referred light (before exposure), none inside the
+// Sun's disc, which draws itself.
+export const GLARE_GLSL = /* glsl */ `
 uniform vec3 sunDir;        // unit vector to the Sun, view space
 uniform vec2 resolution;    // drawing buffer, px
 uniform mat4 projInv;       // inverse projection (honours a view offset)
 uniform float level;        // irradiance at the camera x visible fraction x strength
 uniform float sunRadius;    // angular radius, deg
 uniform float time;         // s
+uniform float glareOn;      // 0 when no glare reaches the frame
 uniform vec3 tint;
 
-float hash(float n) { return fract(sin(n) * 43758.5453123); }
+float glareHash(float n) { return fract(sin(n) * 43758.5453123); }
 float needles(float a, float n, float t) {
   float x = a * n + t;
   float i = floor(x), f = fract(x);
-  float h = mix(hash(i), hash(i + 1.0), smoothstep(0.0, 1.0, f));
+  float h = mix(glareHash(i), glareHash(i + 1.0), smoothstep(0.0, 1.0, f));
   return h * h * h * h;
 }
 
-void main() {
-  vec2 ndc = gl_FragCoord.xy / resolution * 2.0 - 1.0;
+vec3 sunGlare(vec2 fragCoord) {
+  if (glareOn < 0.5) return vec3(0.0);
+  vec2 ndc = fragCoord / resolution * 2.0 - 1.0;
   // Unproject on the near plane: the far plane is 1e13 times further and
   // its w is lost in single precision.
   vec4 v = projInv * vec4(ndc, -1.0, 1.0);
   vec3 ray = normalize(v.xyz / v.w);
   float cosT = dot(ray, sunDir);
   float theta = degrees(acos(clamp(cosT, -1.0, 1.0)));
-  if (theta < sunRadius) discard;              // the disc draws itself
+  if (theta < sunRadius) return vec3(0.0);
   float th = max(theta, 0.05);
   // CIE disability glare, relative to a white surface in the same light.
-  float veil = PI * (10.0 / (th * th * th) + 5.0 / (th * th) + 0.05 / th);
-  // Ciliary corona: fine radial needles around the Sun's image, within a
-  // few degrees, drifting slowly.
-  vec3 side = normalize(cross(sunDir, vec3(0.0, 0.0, 1.0)) + vec3(1e-5, 0.0, 0.0));
-  vec3 up = cross(side, sunDir);
-  vec3 r = ray - sunDir * cosT;
-  float a = atan(dot(r, up), dot(r, side));
-  float drift = 0.15 * sin(time * 0.31) + 0.05 * time;
-  float n = needles(a, 90.0, drift) * 0.7 + needles(a, 211.0, -drift * 1.7) * 0.5;
-  float corona = n * 8.0 / (th * th) * smoothstep(10.0, 1.0, th);
-  vec3 c = tint * level * (veil + corona);
-  gl_FragColor = vec4(c, 1.0);
+  float g = 3.14159265 * (10.0 / (th * th * th) + 5.0 / (th * th) + 0.05 / th);
+  // Ciliary corona: fine radial needles within 10 deg, drifting slowly.
+  if (th < 10.0) {
+    vec3 side = normalize(cross(sunDir, vec3(0.0, 0.0, 1.0)) + vec3(1e-5, 0.0, 0.0));
+    vec3 up = cross(side, sunDir);
+    vec3 r = ray - sunDir * cosT;
+    float a = atan(dot(r, up), dot(r, side));
+    float drift = 0.15 * sin(time * 0.31) + 0.05 * time;
+    float n = needles(a, 90.0, drift) * 0.7 + needles(a, 211.0, -drift * 1.7) * 0.5;
+    g += n * 8.0 / (th * th) * smoothstep(10.0, 1.0, th);
+  }
+  return tint * level * g;
 }
 `;
 
+// Keeps the glare's uniforms, shared with the pipeline's final pass.
 export class SunGlare {
-  readonly mesh: THREE.Mesh;
-  private mat: THREE.ShaderMaterial;
+  readonly uniforms: Record<string, THREE.IUniform> = {
+    sunDir: { value: new THREE.Vector3(0, 0, -1) },
+    resolution: { value: new THREE.Vector2(1, 1) },
+    projInv: { value: new THREE.Matrix4() },
+    level: { value: 0 },
+    sunRadius: { value: 0.25 },
+    time: { value: 0 },
+    glareOn: { value: 0 },
+    tint: { value: new THREE.Vector3(...SUN_RGB) },
+  };
   private view = new THREE.Matrix4();
   private tmp = new THREE.Vector3();
-
-  constructor() {
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.Float32BufferAttribute([-1, 3, 0, -1, -1, 0, 3, -1, 0], 3));
-    this.mat = new THREE.ShaderMaterial({
-      vertexShader: glareVertex,
-      fragmentShader: glareFragment,
-      depthTest: false,
-      depthWrite: false,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      uniforms: {
-        sunDir: { value: new THREE.Vector3(0, 0, -1) },
-        resolution: { value: new THREE.Vector2(1, 1) },
-        projInv: { value: new THREE.Matrix4() },
-        level: { value: 0 },
-        sunRadius: { value: 0.25 },
-        time: { value: 0 },
-        tint: { value: new THREE.Vector3(...SUN_RGB) },
-      },
-    });
-    this.mesh = new THREE.Mesh(geom, this.mat);
-    this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = 1000;
-  }
 
   // sunPos: the Sun's centre in render units relative to the camera;
   // irradiance: sunlight at the camera, (1 AU / d)^2; visible: the fraction
   // of the disc not hidden by a body.
   update(camera: THREE.PerspectiveCamera, sunPos: THREE.Vector3, sunRadius: number, irradiance: number,
     visible: number, buffer: THREE.Vector2, timeS: number): void {
-    const u = this.mat.uniforms;
+    const u = this.uniforms;
     this.view.copy(camera.matrixWorld).invert();
     const d = sunPos.length();
     (u.sunDir.value as THREE.Vector3).copy(this.tmp.copy(sunPos).transformDirection(this.view));
@@ -161,7 +146,15 @@ export class SunGlare {
     u.sunRadius.value = (Math.asin(Math.min(1, sunRadius / d)) * 180) / Math.PI;
     u.level.value = irradiance * visible * GLARE_STRENGTH;
     u.time.value = timeS;
-    this.mesh.visible = visible > 0;
+    // Off when the Sun is so far out of view that its glare at the nearest
+    // edge of the frame is under a thousandth of white.
+    const fwd = this.tmp.set(0, 0, -1).transformDirection(camera.matrixWorld);
+    const thetaC = (Math.acos(Math.max(-1, Math.min(1, fwd.dot(sunPos) / d))) * 180) / Math.PI;
+    const t = Math.tan((camera.fov * Math.PI) / 360);
+    const halfDiag = (Math.atan(t * Math.hypot(1, camera.aspect)) * 180) / Math.PI;
+    const edge = Math.max(0.05, thetaC - halfDiag);
+    const atEdge = Math.PI * (10 / edge ** 3 + 5 / edge ** 2 + 0.05 / edge) * GLARE_STRENGTH * visible;
+    u.glareOn.value = visible > 0 && atEdge > 1e-3 ? 1 : 0;
   }
 }
 

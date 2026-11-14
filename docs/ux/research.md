@@ -56,7 +56,10 @@ not be fetched, so nothing below rests on it.
 
 Sizes are from HEAD requests on 14 November 2026. CDS (VizieR) refused
 connections from this machine, so HEASARC and Harvard are the working
-mirrors.
+mirrors. The user approved the Hipparcos catalogue and the star-free Milky
+Way the same day, and the app now uses both
+([textures](../frontend/textures.md#stars)); the SVS page asks only for its
+credit line.
 
 ### Drawing it
 

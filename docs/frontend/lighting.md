@@ -25,11 +25,14 @@ their true relative brightness when you look at several from one place.
 
 ## Exposure and tone mapping
 
-The scene renders linear light into a half-float target (three.js's HDR
-output: `outputBufferType: HalfFloatType`), multisampled 4× where a CSS
-pixel is under 1.5 device pixels. Bloom runs on that light, and one final
-pass multiplies by the exposure, applies the tone curve and encodes sRGB.
-No material tone-maps on its own any more.
+The scene renders linear light into a half-float target, multisampled 4×
+where a CSS pixel is under 1.5 device pixels (`post.ts`). Bloom runs on that
+light, and one final pass to the screen mixes in the bloom, adds the Sun's
+glare, multiplies by the exposure, applies the tone curve and encodes sRGB.
+No material tone-maps on its own any more. Everything after the scene is
+that one full-screen pass: with three.js's own HDR output the bloom's mix,
+the glare and the tone curve took three, about 19 ms of a 43 ms frame on the
+Intel iGPU at 2680 × 2032 ([performance](../performance.md#rendering)).
 
 The curve is Khronos PBR Neutral: colours below its knee (about 0.76) are
 left as they are, so planets keep their albedo colours, and highlights roll
@@ -70,7 +73,7 @@ corona (about 10⁻⁶ of the disc) would be lost in the glare.
 
 Light scatters in any eye or lens. Two parts, both before the tone curve:
 
-- **The Sun's glare** (`sun.ts`) uses the CIE disability-glare function for
+- **The Sun's glare** (`sun.ts`, evaluated in the final pass) uses the CIE disability-glare function for
   a young eye, L/E = 10/θ³ + 5/θ² + 0.05/θ with θ in degrees. Relative to a
   white surface in the same sunlight (L = E/π) that is π times as much: an
   eye looking near the Sun sees a white veil a few degrees across. It is
@@ -79,8 +82,9 @@ Light scatters in any eye or lens. Two parts, both before the tone curve:
   slowly as a pupil does: the sky's one honest animation of light. The glare
   is scaled by the fraction of the Sun's disc that no body hides (the disc
   overlap below), so a planet in front of the Sun takes it away.
-- **Bloom** (`bloom.ts`) scatters 2 % of all light: Jimenez's chain (a
-  13-tap downsample through six half-resolution levels, Karis's average on
+- **Bloom** (`post.ts`) scatters 2 % of all light: Jimenez's chain (a
+  13-tap downsample through five levels starting at half resolution, or a
+  quarter on 2× screens where that is still a CSS pixel, Karis's average on
   the first so no lone pixel flickers, a tent upsample adding each level
   into the one above) with no threshold, mixed rather than added, so the
   image keeps its energy. What enters it is capped at 20 times display
@@ -99,19 +103,23 @@ surfaces would record no stars at all). It has two layers
   and every star too faint to pick out, a 4096 × 2048 map looked up by each
   view direction's right ascension and declination, at half of its own
   brightest light.
-- **The stars**: 20,000 points, each a Gaussian of fixed width in device
-  pixels (σ = 0.55 + 0.35 × the pixel ratio) centred on its true sub-pixel
-  position, so its light is the same wherever it falls and it neither
-  shimmers nor vanishes as the view turns. Its peak is 30 × 10^(−0.4 m) of
-  display white with the star's colour, so stars of magnitude 0 saturate and
-  bloom a little, magnitude 3 is a third of white and magnitude 7 is just
-  visible on a dark screen. Stars do not twinkle in vacuum, so they don't
-  here.
+- **The stars**: the 83,392 Hipparcos stars to V 9, each a Gaussian of
+  fixed width in device pixels (σ = 0.55 + 0.35 × the pixel ratio) centred
+  on its true sub-pixel position, so its light is the same wherever it falls
+  and it neither shimmers nor vanishes as the view turns. Its peak is
+  30 × 10^(−0.4 V) of display white in the colour of its B−V, so stars of
+  magnitude 0 saturate and bloom a little, magnitude 3 is a third of white
+  and magnitude 7 is just visible on a dark screen. Each sprite is only as
+  wide as the star's light above 1/512 of white (none at all past about
+  V 9.6), so the many faint stars cost few fragments. Stars do not twinkle
+  in vacuum, so they don't here.
 
 **Adaptation**, the sky's honest motion: faint stars and the Milky Way fade
 when bright light is in view and come back in the dark. The light counted is
 the Sun within 35° of the view's centre (weighted by how much of its disc
-is visible) plus each body's share of the view times its lit fraction; the
+is visible, and tempered to a third: physically its disc in frame would
+leave only the brightest stars, which is too bare for the overview) plus
+each body's share of the view times its lit fraction; the
 sky is scaled by 1 / (1 + 4 × that light), approached in 0.3 s toward light
 and 2 s back toward the dark, roughly as eyes adapt. Flying past a sunlit
 planet or turning toward the Sun therefore changes the sky as it would for
