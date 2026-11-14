@@ -126,6 +126,22 @@ for (const [planet, n] of [['mars', 4], ['jupiter', 5], ['saturn', 6], ['uranus'
   checks.centres[planet] = vectors(await horizons(`centre_${n}99.txt`, { ...VEC, COMMAND: `'${n}99'`, CENTER: `'500@${n}'`, START_TIME: `'${MONTH[0]}'`, STOP_TIME: `'${MONTH[1]}'`, STEP_SIZE: "'1 d'" }));
 }
 
+// Which point astronomy-engine's planets are (barycentre or centre), and
+// the moons' places in other frames: heliocentric (500@10) vectors of each
+// system's barycentre and its planet's centre, and a few moons about the
+// Sun and about their system's barycentre, over the same month.
+checks.helio = {};
+for (const n of [4, 5, 6, 7, 8, 9]) for (const id of [n, n * 100 + 99]) {
+  checks.helio[id] = vectors(await horizons(`helio_${id}_month.txt`, { ...VEC, COMMAND: `'${id}'`, CENTER: "'500@10'", START_TIME: `'${MONTH[0]}'`, STOP_TIME: `'${MONTH[1]}'`, STEP_SIZE: "'1 d'" }));
+}
+checks.moonsHelio = {};
+checks.moonsBary = {};
+for (const [key, id] of [['phobos', 401], ['io', 501], ['callisto', 504], ['titan', 606], ['titania', 703], ['triton', 801], ['charon', 901]]) {
+  checks.moonsHelio[key] = vectors(await horizons(`helio_${id}_month.txt`, { ...VEC, COMMAND: `'${id}'`, CENTER: "'500@10'", START_TIME: `'${MONTH[0]}'`, STOP_TIME: `'${MONTH[1]}'`, STEP_SIZE: "'1 d'" }));
+  const bary = String(id)[0];
+  checks.moonsBary[key] = vectors(await horizons(`bary_${id}_month.txt`, { ...VEC, COMMAND: `'${id}'`, CENTER: `'500@${bary}'`, START_TIME: `'${MONTH[0]}'`, STOP_TIME: `'${MONTH[1]}'`, STEP_SIZE: "'1 d'" }));
+}
+
 const DATA = new URL('./moons.data.js', import.meta.url);
 const writeData = () => fs.writeFileSync(DATA, `// src/physics/moons.data.js (written by moons.fetch.mjs; do not edit)
 //
@@ -243,4 +259,5 @@ for (const [key, m] of Object.entries(moons)) {
 writeData();
 const round = (rows) => rows.map(([jd, x, y, z]) => [jd, Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10]);
 for (const k of Object.keys(checks.month)) { checks.month[k] = round(checks.month[k]); checks.years[k] = round(checks.years[k]); }
+for (const g of ['helio', 'moonsHelio', 'moonsBary']) for (const k of Object.keys(checks[g])) checks[g][k] = round(checks[g][k]);
 fs.writeFileSync(new URL('./fixtures/moons_horizons.json', import.meta.url), JSON.stringify(checks));

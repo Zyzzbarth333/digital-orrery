@@ -150,6 +150,35 @@ planet's centre, 599 etc., about its barycentre, 5 etc.) to 0.05 km for
 Jupiter, 0.4 km for Saturn, 0.9 km for Uranus, 0.07 km for Neptune and 3 km
 for Pluto (Charon's 29 km times its 11 % share).
 
+### Which point each position is
+
+Every error above is the moon about its planet's **body centre**, on both
+sides: the Horizons vectors are about the planet's centre (Titan about 699,
+not the Saturn barycentre 6 nor the solar system barycentre), geometric
+(no light time), ICRF, TDB, and `moons.js` gives the moon about the
+planet's centre too (`JupiterMoons` is documented as jovicentric, about
+Jupiter's centre). `moons.test.mjs` checks the rest of the chain:
+
+- **astronomy-engine's planets are system barycentres.** Its error against
+  JPL changes slowly over a month, so astronomy-engine minus a Horizons
+  point, less a quadratic in time, leaves only what moves with the moons.
+  Against the barycentre (5, 6, ...) that is 1.1–1.2 km rms; against the
+  planet's centre (599, 699, ...) it is the moons' whole pull: 137 km for
+  Jupiter, 274 km for Saturn, 26 km for Uranus, 73 km for Neptune, 2,116 km
+  for Pluto. (Mars's moons move it by millimetres, so there the two cannot
+  be told apart, and it does not matter.)
+- **About the barycentre**, the moon as the scene composes it (about the
+  centre, plus the centre's offset) has the same error as about the centre:
+  Charon 26 km, which would be 2,139 km with the offset left out.
+- **About the Sun** (the scene's origin is the Sun's centre, not the solar
+  system barycentre), a moon is off by its planet's astronomy-engine error,
+  16,000 km for Jupiter up to 335,000 km for Neptune, and so is its planet:
+  the system moves as one. The moon about its planet there is again within
+  the figures above.
+- Horizons' own frames agree with one another to 0.14 km (moon about the
+  barycentre against moon about the centre plus centre about the
+  barycentre), the rounding of the fixture.
+
 ## Physical data
 
 Radius, GM and geometric albedo come from each moon's JPL Horizons object

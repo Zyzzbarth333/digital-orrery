@@ -47,6 +47,8 @@ the full table, per moon, is in [Moons](frontend/moons.md#how-right-they-are).
 | 15 of the 16 element moons, 2000–2050 | Horizons, yearly | within 3 % of the orbit's radius, most within 0.3 % |
 | Mimas | Horizons | 136,881 km: its 44° libration with Tethys is beyond a precessing ellipse |
 | planet centre about the system barycentre, from the moons' GMs | Horizons x99 about x, Nov 2026 | 0.05 km (Jupiter) to 3 km (Pluto, whose offset is 2,130 km) |
+| astronomy-engine's Jupiter to Pluto are system barycentres | Horizons heliocentric x and x99, Nov 2026, less a quadratic | 1.1–1.2 km rms against x; 26–2,116 km against x99 |
+| moons about the system barycentre and, relative to the planet, about the Sun | Horizons, 7 moons, Nov 2026 | same as about the planet's centre (Charon 26 km; 2,139 km without the offset) |
 
 ## Trajectory search (`trajsearch.test.mjs`)
 
