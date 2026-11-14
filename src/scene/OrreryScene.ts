@@ -213,7 +213,7 @@ export class OrreryScene {
     });
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
-    this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, UNIT_KM, import.meta.env.BASE_URL);
+    this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
     // pressure): say so rather than show a black view, and carry on when the
     // browser restores it.
@@ -354,8 +354,8 @@ export class OrreryScene {
     }
     const sunPos = this.meshes.get('sun')!.position;
     this.sunGlow.position.copy(sunPos);
-    this.smallBodies.update(tMs, sunPos);
     this.updateLighting(sunPos, cam, date);
+    this.smallBodies.update(tMs, cam, 1);
     for (const b of BODIES) {
       const o = this.orbits.get(b.key);
       if (o && b.parent) {
@@ -373,7 +373,6 @@ export class OrreryScene {
     this.renderer.render(this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
-    this.smallBodies.label(tMs, sunPos, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
 
   // Per-body sunlight and shadow casters, and the camera's exposure.
