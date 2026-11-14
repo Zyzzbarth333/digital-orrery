@@ -346,7 +346,7 @@ published equations and Fortran listings
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| Earth axes (precession, nutation, sidereal time) | CSPICE `pxform_c` to ITRF93 | 0.0016° (180 m at the surface) |
+| Earth axes (precession, nutation, sidereal time from UT1, polar motion: the Earth orientation table) | CSPICE `pxform_c` to ITRF93, 408 instants 2000 to 2126 | to 9 Feb 2027 (the high-precision PCK): worst 4.2 cm, rms 1.6 cm at the surface; after it, a steady 82.5 m from NAIF's Aug 2026 long-term prediction, which the table joins onto newer data instead ([orientation](physics/orientation.md#earth)). Was 0.0016° (180 m), with UTC for UT1 and no polar motion |
 | Moon axes (IAU model) | CSPICE to MOON_ME (DE440 libration) | 0.0036° (110 m) |
 | Mercury, Venus, Pluto, Sun | CSPICE to IAU frames (pck00011) | under 0.0011° |
 | Mars | CSPICE to IAU_MARS (Konopliv 2026) | 0.027° (1.6 km) |

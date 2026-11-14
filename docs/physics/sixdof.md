@@ -48,7 +48,10 @@ $$\dot{\mathbf r} = \mathbf v,\quad \dot{\mathbf v} = \mathbf a_g + \mathbf a_{3
     equinoxes, $\Delta\psi\cos\epsilon$. NASA's tools leave out the 1994
     terms in $\Omega$: with them, their Earth-fixed positions are 5 cm away
     instead of 1 cm.
-  - There is no polar motion.
+  - There is no polar motion: NASA's cases hold it at zero and give
+    UT1 − UTC by hand. The app's own craft get both, and the nutation
+    corrections, from the Earth orientation table
+    ([orientation](orientation.md#earth)).
 - **Third bodies:** point masses with the indirect term,
   $\mu_k\left[(\mathbf r_k - \mathbf r)/|\mathbf r_k - \mathbf r|^3 - \mathbf r_k/|\mathbf r_k|^3\right]$.
   The Sun and the Moon come from the app's DE442 ephemeris.

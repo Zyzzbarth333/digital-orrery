@@ -76,6 +76,7 @@ is planned for the exact-ephemeris phase.
 | kernel | **TT** seconds from `KERNEL_EPOCH_MS` = 2000-01-01 12:00 UTC: `kernelSeconds(date)` and `kernelMs(t)` (`kernelHost.js`), `sys.secondsAt` and `sys.msAt` (`bodies.js`) |
 | astronomy-engine | takes UTC dates; TT − UTC is set from the leap-second table (`timescale.js`: 32.184 s + TAI − UTC, 69.184 s since 2017), not the library's extrapolation (75.2 s for 2026) |
 | DE442 table | TDB seconds past J2000, from UTC by `timescale.js`: TT − UTC from the leap seconds, then TDB − TT ≈ 0.001657 s sin g + 0.000014 s sin 2g |
+| the Earth's turn (`earthRotation.js`) | **UT1** for sidereal time, UTC plus the day's UT1 − UTC from the Earth orientation table (`eop.js`, 2000 to 2126); TT for precession and nutation |
 
 The kernel counts uniform seconds: TT seconds since the TT instant of
 `KERNEL_EPOCH_MS`, by the same TT − UTC the ephemerides use (the
@@ -102,8 +103,22 @@ seconds; the Earth's quarter-second steps through the 2016 leap second equal
 to 1 part in 10⁶. Earth at MSL's launch, given as a UTC date, is 0.09 m
 from SPICE.
 
+### UT1
+
+The Earth's rotation keeps its own time, UT1: the angle it has turned.
+UTC is held within 0.9 s of it by leap seconds, and 0.9 s of the Earth's
+turn is 400 m at the equator. So the Earth's orientation does not use UTC
+directly. It adds the day's UT1 − UTC from NAIF's Earth PCKs, read into
+`public/ephemeris/earth-orientation-2000-2126.bin` with the day's polar
+motion ([orientation](orientation.md#earth)). Between days, the table
+interpolates UT1 − TAI, which runs smoothly where UT1 − UTC jumps a second
+at a leap second. Outside 2000 to 2126 the Earth turns on UTC, 180 m out.
+`earthRotation.js` counts its days from J2000 rather than as Julian dates,
+since a double holds a Julian date only to 40 µs (2 cm of the Earth's
+turn).
+
 ## Sources
 
 - IAU 2012 Resolution B2 (the astronomical unit).
-- NAIF SPICE Required Reading: Frames, Time.
+- NAIF SPICE Required Reading: Frames, Time, PCK (ITRF93).
 - astronomy-engine documentation (EQJ, ECL, rotation functions).
