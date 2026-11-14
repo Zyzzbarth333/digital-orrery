@@ -134,6 +134,15 @@ checks.helio = {};
 for (const n of [4, 5, 6, 7, 8, 9]) for (const id of [n, n * 100 + 99]) {
   checks.helio[id] = vectors(await horizons(`helio_${id}_month.txt`, { ...VEC, COMMAND: `'${id}'`, CENTER: "'500@10'", START_TIME: `'${MONTH[0]}'`, STOP_TIME: `'${MONTH[1]}'`, STEP_SIZE: "'1 d'" }));
 }
+// The solar system (0) and Earth-Moon (3) barycentres about the Sun, for
+// barycentres.js: daily over the month and yearly 2000-2050.
+checks.bary = {};
+for (const id of [0, 3]) {
+  checks.bary[id] = {
+    month: vectors(await horizons(`helio_${id}_month.txt`, { ...VEC, COMMAND: `'${id}'`, CENTER: "'500@10'", START_TIME: `'${MONTH[0]}'`, STOP_TIME: `'${MONTH[1]}'`, STEP_SIZE: "'1 d'" })),
+    years: vectors(await horizons(`helio_${id}_years.txt`, { ...VEC, COMMAND: `'${id}'`, CENTER: "'500@10'", TLIST: YEARS.map((d) => `'${d}'`).join(' '), TLIST_TYPE: "'CAL'" })),
+  };
+}
 checks.moonsHelio = {};
 checks.moonsBary = {};
 for (const [key, id] of [['phobos', 401], ['io', 501], ['callisto', 504], ['titan', 606], ['titania', 703], ['triton', 801], ['charon', 901]]) {
@@ -260,4 +269,5 @@ writeData();
 const round = (rows) => rows.map(([jd, x, y, z]) => [jd, Math.round(x * 10) / 10, Math.round(y * 10) / 10, Math.round(z * 10) / 10]);
 for (const k of Object.keys(checks.month)) { checks.month[k] = round(checks.month[k]); checks.years[k] = round(checks.years[k]); }
 for (const g of ['helio', 'moonsHelio', 'moonsBary']) for (const k of Object.keys(checks[g])) checks[g][k] = round(checks[g][k]);
+for (const k of Object.keys(checks.bary)) for (const span of ['month', 'years']) checks.bary[k][span] = round(checks.bary[k][span]);
 fs.writeFileSync(new URL('./fixtures/moons_horizons.json', import.meta.url), JSON.stringify(checks));

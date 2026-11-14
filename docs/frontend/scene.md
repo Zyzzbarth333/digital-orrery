@@ -29,7 +29,8 @@ every frame:
 ## Frame and units
 
 The scene frame is heliocentric ecliptic J2000, with ecliptic north up on
-screen (three.js is $y$-up):
+screen (three.js is $y$-up); orbits and distances can be given about the
+solar system barycentre instead ([Barycentres](barycentres.md)):
 
 $$
 (x, y, z)_\text{render} = \frac{1}{1000\ \text{km}}\,
