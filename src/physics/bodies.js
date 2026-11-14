@@ -1,8 +1,9 @@
 // src/physics/bodies.js
 //
 // The bodies the spacecraft kernel (nbody.js) pulls toward: the planets, the
-// Moon, Pluto and the planets' major moons, with positions from
-// astronomy-engine and moons.js (heliocentric J2000 equatorial, km)
+// Moon, Pluto and the planets' major moons, with positions from DE442's
+// table (astronomy-engine outside 2000-2050; ephemeris.js) and moons.js
+// (heliocentric J2000 equatorial, km)
 // interpolated between cached nodes, and GM values from DE442 and the NAIF
 // satellite kernels.
 //
@@ -79,10 +80,11 @@ const SPACING = {
   jupiter: 86400, saturn: 86400, uranus: 2 * 86400, neptune: 2 * 86400, pluto: 2 * 86400,
 };
 
-// astronomy-engine's Pluto has velocities that are not the derivative of its
-// positions: a Hermite cubic through them is 0.4 km out at 6-hour nodes and
-// 3 km at two days. Its velocity here is a central difference of the
-// positions over a minute instead (5e-8 of its speed from the curve).
+// astronomy-engine's Pluto (outside DE442's table) has velocities that are
+// not the derivative of its positions: a Hermite cubic through them is
+// 0.4 km out at 6-hour nodes and 3 km at two days. Its velocity here is a
+// central difference of the positions over a minute instead (5e-8 of its
+// speed from the curve; DE442's own velocity agrees with that).
 const DIFFERENCED = new Set(['pluto']);
 const differenced = (key, tt0) => (t) => {
   const s = helioStateEqjAtTt(key, tt0 + t), a = helioStateEqjAtTt(key, tt0 + t - 60).r, b = helioStateEqjAtTt(key, tt0 + t + 60).r;

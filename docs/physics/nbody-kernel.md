@@ -293,7 +293,8 @@ skimming a boundary can switch back and forth.
 
 ## Body positions between ephemeris calls
 
-Calling astronomy-engine at every force evaluation would be slow, so each
+Calling the ephemeris (DE442's table, or astronomy-engine outside it) at
+every force evaluation would be slow, so each
 body's state is computed at nodes spaced $\Delta$ apart (1 h for the Moon, 2 h
 for Earth, 6 h for the other inner planets, 1-2 days outside) and
 interpolated with a cubic Hermite polynomial, using position and velocity at
@@ -308,14 +309,17 @@ h_{00} = 2s^3 - 3s^2 + 1,\quad h_{10} = s^3 - 2s^2 + s,\quad h_{01} = -2s^3 + 3s
 $$
 
 The interpolation itself errs by about $(\Delta n)^4 a/384$ for an orbit of
-radius $a$ and mean motion $n$. Measured against direct astronomy-engine calls
-over 30 days, the worst error is 21 m (`nbody.test.mjs` case 7), set by how
-closely astronomy-engine's velocities match its own positions.
+radius $a$ and mean motion $n$. Measured against direct ephemeris calls
+over 30 days, the worst error is 20 m (`nbody.test.mjs` case 7): Mercury,
+whose 6-hour nodes give 15 m by that formula. DE442's velocities are its
+series' own derivative. On astronomy-engine it was 21 m, set by how closely
+its velocities match its own positions.
 
 Two sources' velocities do not match their positions well enough, so they
 are replaced by central differences of the positions:
 
-- **astronomy-engine's Pluto:** a cubic through its velocities is 0.4 km
+- **astronomy-engine's Pluto** (outside DE442's table; inside it the
+  difference agrees with the series' own velocity): a cubic through its velocities is 0.4 km
   out at 6-hour nodes and 3 km at two days. Differenced over a minute, it
   is 29 m at two days. Wider nodes do worse, as $\Delta^2$, because its
   positions are themselves piecewise.
