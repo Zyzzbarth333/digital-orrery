@@ -49,6 +49,8 @@ the full table, per moon, is in [Moons](frontend/moons.md#how-right-they-are).
 | planet centre about the system barycentre, from the moons' GMs | Horizons x99 about x, Nov 2026 | 0.05 km (Jupiter) to 3 km (Pluto, whose offset is 2,130 km) |
 | astronomy-engine's Jupiter to Pluto are system barycentres | Horizons heliocentric x and x99, Nov 2026, less a quadratic | 1.1–1.2 km rms against x; 26–2,116 km against x99 |
 | moons about the system barycentre and, relative to the planet, about the Sun | Horizons, 7 moons, Nov 2026 | same as about the planet's centre (Charon 26 km; 2,139 km without the offset) |
+| body-frame pole (`bodyAxesEqj`, pck00011), Phobos, Io, Rhea, Ariel, Titania, Triton, Charon | WGCCRE 2015 poles, constant terms only (Triton's precessing series in full), 14 Nov 2026 | within 1.07° (Phobos, whose periodic terms the check leaves out), Triton 0.00°; right-handed |
+| moon surface maps, longitude and latitude (by eye, not in the test) | named features at their gazetteer positions, against their mirror images ([textures](frontend/textures.md#the-moons-maps)) | all 14 east-positive with the west edge at −180°, none flipped |
 
 ## Barycentres (`barycentres.test.mjs`)
 
@@ -337,3 +339,12 @@ published equations and Fortran listings
 | --- | --- |
 | The TeX subset's MathML and plain text | fractions, roots, scripts, fences, function names, unary signs |
 | Every tag's equations (`tag-info.js`, 59 entries) | all parse; each has what it is and a source |
+
+## A small body's plate (`smallbodies.test.mjs`)
+
+| Fact | Reference | Result |
+| --- | --- | --- |
+| Ceres's period, perihelion and aphelion | NASA: 4.6 years, 2.55 to 2.99 au | 4.599 yr, 2.545 au, 2.986 au (osculating, 2026) |
+| Halley's period and perihelion | NASA: about 76 years, 0.59 au | 75.47 yr, 0.572 au (osculating, 2026) |
+| Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
+| Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |

@@ -95,3 +95,41 @@ export function positionAu({ a, e, i, node, peri, M }, jd) {
   const xp = cw * x - sw * y, yp = sw * x + cw * y;
   return [cn * xp - sn * ci * yp, sn * xp + cn * ci * yp, si * yp];
 }
+
+// What JPL's SBDB orbit classes mean (ssd-api.jpl.nasa.gov/doc/sbdb_filter.html),
+// in the words the data plate uses.
+export const SB_CLASS_NAMES = {
+  MBA: 'main-belt asteroid', IMB: 'inner main-belt asteroid', OMB: 'outer main-belt asteroid', MCA: 'Mars-crosser',
+  IEO: 'Atira (inside the Earth\'s orbit)', ATE: 'Aten (Earth-crossing)', APO: 'Apollo (Earth-crossing)', AMO: 'Amor (Earth-approaching)',
+  TJN: 'Jupiter trojan', CEN: 'centaur', TNO: 'trans-Neptunian object', AST: 'asteroid',
+  JFc: 'Jupiter-family comet', JFC: 'Jupiter-family comet', HTC: 'Halley-type comet', ETc: 'Encke-type comet',
+  CTc: 'Chiron-type comet', COM: 'comet', PAR: 'comet on a parabolic orbit', HYP: 'comet on a hyperbolic orbit',
+};
+
+// The Sun's GM in au^3/day^2 (the Gaussian constant squared), and 1 au/day in km/s.
+const MU_AU = K * K;
+const AU_PER_DAY_KMS = 149597870.7 / 86400;
+
+// The facts the data plate shows for a named body { a, e, i, ... } at
+// Julian date jd (TT): its heliocentric position (au) and distance, its
+// speed by vis-viva, perihelion and aphelion, and its period by Kepler's
+// third law, with the same Gaussian constant the drawing uses.
+//   v = sqrt(GM (2/r - 1/a)),  q = a(1 - e),  Q = a(1 + e),  T = 2 pi sqrt(a^3 / GM)
+export function smallBodyFacts(b, jd) {
+  const r = positionAu(b, jd);
+  const dist = Math.hypot(r[0], r[1], r[2]);
+  return {
+    r, dist,
+    speedKms: Math.sqrt(MU_AU * (2 / dist - 1 / b.a)) * AU_PER_DAY_KMS,
+    perihelion: b.a * (1 - b.e),
+    aphelion: b.a * (1 + b.e),
+    periodDays: TAU * Math.sqrt(b.a ** 3 / MU_AU),
+  };
+}
+
+// An asteroid's diameter from its absolute magnitude H and geometric albedo
+// p, where neither is measured: D = 1329 km / sqrt(p) 10^(-H/5) (JPL CNEOS's
+// size estimator; Fowler & Chillemi in The IRAS Minor Planet Survey, 1992).
+// A comet's H is its coma's, not its nucleus's, so this does not apply to
+// comets.
+export const diameterFromH = (H, p) => (1329 / Math.sqrt(p)) * 10 ** (-H / 5);

@@ -27,6 +27,14 @@ attribution, with a link to the licence; the app's Credits list gives both.
 | Jupiter | Global map (3601×1801) | Cassini PIA07782 | NASA/JPL/Space Science Institute |
 | Venus | Cloud tops (4096×2048) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
 | Saturn, Uranus, Neptune | Colour (4096, 2048, 2048 wide) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
+| Phobos | Viking Orbiter mosaic, 40 px/deg, DLR control (2048×1024) | USGS Astrogeology GeoTIFF (Stooke) | NASA/JPL, USGS Astrogeology |
+| Deimos | Viking Orbiter map (2048×1024) | USGS map server (Philip Stooke, 2001; Thomas et al. shape model) | NASA/JPL, USGS Astrogeology |
+| Io | Galileo SSI and Voyager colour mosaic, 1 km/px (4096×2048) | USGS map server | NASA/JPL, USGS Astrogeology |
+| Europa, Ganymede, Callisto | Galileo SSI and Voyager mosaics, 500 m and 1 km/px (4096×2048 grey) | USGS map server | NASA/JPL, USGS Astrogeology |
+| Mimas, Dione, Rhea, Iapetus | Cassini ISS and Voyager mosaics, 154–803 m/px (2048×1024 grey) | USGS map server | NASA/JPL/Space Science Institute, USGS Astrogeology |
+| Enceladus, Tethys | Cassini ISS mosaics, 110 and 293 m/px (2048×1024 grey) | USGS map server | NASA/JPL/Space Science Institute, USGS Astrogeology |
+| Triton | Voyager 2 mosaic, 600 m/px (4096×2048, kept grey) | USGS map server (Paul Schenk, LPI) | NASA/JPL, USGS Astrogeology |
+| Charon | New Horizons LORRI/MVIC mosaic, 300 m/px (2048×1024 grey) | USGS map server | NASA/JHUAPL/SwRI, USGS Astrogeology |
 | Saturn's rings | Normal optical depth, 10 km bins | Cassini UVIS 126 Tau egress occultation (COUVIS_8001) | NASA PDS Ring-Moon Systems Node (Colwell et al.) |
 | Stars | The Hipparcos main catalogue: 83,392 stars to V 9 with V and B−V | ESA 1997 (SP-1200), via NASA HEASARC | ESA, *The Hipparcos and Tycho Catalogues* (1997) |
 | Milky Way | Map of the light between the stars (Hipparcos and Tycho stars removed), 8192×4096, refined to 16384×8192 in tiles where the screen can show it | Deep Star Maps 2020, Milky Way layer (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
@@ -35,12 +43,109 @@ The Venus surface is not shown: in visible light Venus is its cloud deck.
 No Sun map is used, since at its true brightness the disc saturates to
 white.
 
+### The moons' maps
+
+Fourteen of the twenty major moons have a USGS Astrogeology global mosaic,
+fetched by `python/textures/fetch_moons.py`. The USGS lists each as public
+domain, or with no access constraint (Europa, Charon); the credits name the
+missions and USGS. Most are single requests to the USGS planetary map server
+(WMS `GetMap`, `EPSG:4326`, `BBOX=-180,-90,180,90`), which reprojects each
+mosaic to the layout below whatever its own longitude convention. The
+server's only Phobos layer is a synthetic shaded relief, so Phobos uses the
+full 99 MB Viking GeoTIFF instead.
+
+- **Colour.** Io's map is the colour mosaic. The others are grey, and are
+  drawn in the moon's catalogue colour (`tint` in the manifest): the shader
+  scales that colour to unit luminance, so the map's mean still sets the
+  geometric albedo. Triton's mosaic is in colour, but synthesised from
+  orange, violet and ultraviolet filters (green and blue-white, not the
+  real pinkish white), so it is used grey too.
+- **Gaps.** Where no spacecraft imaged (Triton north of about 45° N,
+  Charon south of about 30° S, Galilean polar gaps), the mosaic is solid
+  black or white. Blocks of that value at least 1/256 of the width across
+  are filled with the imaged part's mean colour (linear light, weighted by
+  area) and their edge softened, so an unseen pole shows the moon's mean
+  colour.
+- **Photometry.** These mosaics are normalised for mapping, so albedo
+  contrasts are weaker than on the real moons. Iapetus shows it most: its
+  dark leading hemisphere (Cassini Regio) is about ten times darker than the
+  trailing side, but only about a quarter darker in the mosaic.
+- **Not mapped.** Titan, since in visible light it is its haze (its surface
+  maps are near-infrared), and the five Uranian moons. Voyager 2 saw only
+  their southern hemispheres, and USGS publishes no digital global mosaic
+  of them.
+
+Sources, each read on 14 November 2026. For each moon the map server's
+GetCapabilities layer abstract was read too
+(`https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=/maps/<planet>/<moon>_simp_cyl.map&service=WMS&request=GetCapabilities`).
+The Astropedia pages give each product's resolution, longitude convention
+and access constraint:
+
+- USGS Astrogeology planetary map server (WMS):
+  [planetarymaps.usgs.gov/cgi-bin/mapserv](https://planetarymaps.usgs.gov/cgi-bin/mapserv)
+- Phobos: [Phobos Viking Global Mosaic 5m](https://astrogeology.usgs.gov/search/map/phobos_viking_global_mosaic_5m)
+  (Stooke; file [Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif](https://planetarymaps.usgs.gov/mosaic/Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif))
+- Deimos: map server layer `VIKING` (no Astropedia page found). The
+  layer's abstract credits Philip Stooke, with Chris Jongkind and Megan
+  Arntz, and control from Peter Thomas's Cornell shape model, released
+  26 October 2001. It states no licence.
+- Io: [Io Galileo SSI / Voyager Color Merged Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/io_galileo_ssi_voyager_color_merged_global_mosaic_1km)
+- Europa: [Europa Voyager - Galileo SSI Global Mosaic 500m](https://astrogeology.usgs.gov/search/map/Europa/Voyager-Galileo/Europa_Voyager_GalileoSSI_global_mosaic_500m)
+- Ganymede: [Ganymede Voyager - Galileo SSI Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_global_mosaic_1km)
+- Callisto: [Callisto Galileo/Voyager Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km)
+- Mimas: map server layer `CASSINI_VOYAGER`. Its abstract gives Cassini
+  with Voyager fill, 216 m/px, May 2010, an update of PDS PIA11118, credit
+  NASA/JPL/Space Science Institute.
+- Enceladus: [Enceladus Cassini Global Mosaic 110m](https://astrogeology.usgs.gov/search/map/enceladus_cassini_global_mosaic_110m)
+- Tethys: [Tethys Cassini Global Mosaic 293m](https://astrogeology.usgs.gov/search/map/tethys_cassini_global_mosaic_293m)
+- Dione: [Dione Cassini - Voyager Global Mosaic 154m](https://astrogeology.usgs.gov/search/map/dione_cassini_voyager_global_mosaic_154m)
+- Rhea: [Rhea Cassini - Voyager Global Mosaic 417m](https://astrogeology.usgs.gov/search/map/rhea_cassini_voyager_global_mosaic_417m)
+- Iapetus: [Iapetus Cassini - Voyager Global Mosaic 803m](https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m)
+- Triton: [Triton Voyager 2 Global Color Mosaic 600m](https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m)
+- Charon: [Charon New Horizons LORRI MVIC Global Mosaic 300m](https://astrogeology.usgs.gov/search/map/charon_new_horizons_lorri_mvic_global_mosaic_300m)
+- The Uranian moons: USGS's [Foundational Data Products for Uranus and its satellites](https://fdp.astrogeology.usgs.gov/fdp/uranus/)
+  lists airbrush and photomosaic maps of their southern hemispheres
+  (USGS I-1920 and others), but no digital global mosaic.
+- Feature positions for the orientation checks: the IAU/USGS
+  [Gazetteer of Planetary Nomenclature](https://planetarynames.wr.usgs.gov/).
+- The moons' north poles: the IAU WGCCRE 2015 report, Archinal et al.,
+  *Celest. Mech. Dyn. Astron.* 130, 22 (2018),
+  [doi:10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5).
+
+Each map's orientation was checked by finding named features at their
+gazetteer positions, and not at their mirror images (planetographic; west
+longitude for the synchronous moons, east for Triton and Charon):
+
+| Moon | Feature | Gazetteer centre | Where it is on the map |
+| --- | --- | --- | --- |
+| Io | [Pele](https://planetarynames.wr.usgs.gov/Feature/4638) | 18.71° S, 255.28° W | red ring at 103° E, 16° S |
+| Europa | [Pwyll](https://planetarynames.wr.usgs.gov/Feature/4878) | 25.20° S, 271.40° W | rayed crater at 85° E, 25° S |
+| Ganymede | [Tros](https://planetarynames.wr.usgs.gov/Feature/6091) | 11.14° N, 27.26° W | rayed crater at 29° W, 13° N |
+| Callisto | Asgard ([PIA01634](https://photojournal.jpl.nasa.gov/catalog/PIA01634)) | about 30° N, 142° W | bright basin near 135° W |
+| Mimas | [Herschel](https://planetarynames.wr.usgs.gov/Feature/2478) | 1.38° S, 111.76° W | crater at 112° W, 5° S |
+| Tethys | [Odysseus](https://planetarynames.wr.usgs.gov/Feature/4406) | 32.82° N, 128.89° W | basin at 133° W, 29° N |
+| Rhea | [Inktomi](https://planetarynames.wr.usgs.gov/Feature/14671) | 14.10° S, 112.10° W | bright rays at 108–120° W |
+| Phobos | [Stickney](https://planetarynames.wr.usgs.gov/Feature/5707) | 1° N, 49° W | depression near 45° W, 3° S |
+| Deimos | [Voltaire](https://planetarynames.wr.usgs.gov/Feature/6431) | 22° N, 3.5° W | bright crater there, nothing at 3.5° E |
+| Triton | [Ruach Planitia](https://planetarynames.wr.usgs.gov/Feature/5208), [Tuonela Planitia](https://planetarynames.wr.usgs.gov/Feature/6134), [Leviathan Patera](https://planetarynames.wr.usgs.gov/Feature/3368) | 28° N 24° E, 34° N 14.5° E, 17° N 28.5° E | smooth walled plains and the pit there; cantaloupe terrain at the mirrored spots |
+| Charon | Kubrick Mons, Dorothy ([Fourmilab's copy of the gazetteer table](https://fourmilab.ch/earthview/features/CHARON_nomenclature.html)) | 3.6° N 30.8° E, 58.5° N 40.6° E | the moated peak and the crater rim there |
+
+Dione has no single feature here: its bright wispy fractures lie on the
+trailing (+90° E) side, as they should. Iapetus's leading (90° W) half is the darker one even in its flattened
+mosaic. Enceladus comes from the same Cassini map series and server as
+Tethys, Dione and Rhea. Swift on
+Deimos (12.5° N, 358.2° W) lies too near 0° to tell east from west.
+
 ## One layout for every map
 
 Every map is equirectangular, with its west edge at −180° east longitude and
 its top row at +90° latitude. Sources in other layouts are rolled to it (the
 MOLA grid starts at 0° E). The USGS map server returns at most 4096 pixels a
 side, so its maps are fetched as west and east halves and joined.
+
+The moons' body frames (`bodyAxesEqj`: the IAU rotation models from NAIF's
+pck00011) are the frames the USGS maps are made in, east-positive about the
+IAU north pole, so the maps need no flip: see [moons](moons.md#drawing).
 
 Conventions were checked against known features, not assumed: on the Moon
 the nearside maria are dark and the farside highlands bright where expected,
@@ -239,9 +344,11 @@ in view:
 ```bash
 python3 python/textures/build_textures.py            # all bodies
 python3 python/textures/build_textures.py --only moon,rings
+python3 python/textures/fetch_moons.py               # the moons' sources (about 160 MB)
+python3 python/textures/build_textures.py --only io,europa,triton
 ```
 
 The sources live outside the repo in `~/.cache/digital-orrery/textures-src`
-(about 375 MB). Converted textures go to `public/textures/` with
+(about 535 MB with the moons'). Converted textures go to `public/textures/` with
 `manifest.json`; without the manifest every body keeps its flat albedo
 colour.

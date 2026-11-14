@@ -8,7 +8,7 @@
 //   node src/physics/smallbodies.test.mjs
 
 import fs from 'node:fs';
-import { decodeSmallBodies, positionAu, SB_EPOCH_JD, SB_CLASSES } from './smallBodies.js';
+import { decodeSmallBodies, positionAu, SB_EPOCH_JD, SB_CLASSES, SB_CLASS_NAMES, smallBodyFacts, diameterFromH } from './smallBodies.js';
 import { GRID, loadBelt, buildBelt } from './beltGrid.js';
 
 let failures = 0;
@@ -123,6 +123,31 @@ header("THE SHADER'S KEPLER SOLVE (Danby's start, 12 Newton steps, float32) agai
     const t = performance.now(); buildBelt(FB, days);
     console.log(`  the faint belt (${FB.count} bodies) binned in ${(performance.now() - t).toFixed(0)} ms`);
   }
+}
+
+header('THE DATA PLATE\'S FACTS (smallBodyFacts, diameterFromH)');
+{
+  const byName = Object.fromEntries(meta.named.map((b) => [b.name, b]));
+  const C = byName.Ceres, H = byName['1P/Halley'];
+  const fc = smallBodyFacts(C, SB_EPOCH_JD), fh = smallBodyFacts(H, SB_EPOCH_JD);
+  console.log(`  Ceres: period ${(fc.periodDays / 365.25).toFixed(3)} yr, q ${fc.perihelion.toFixed(3)} au, Q ${fc.aphelion.toFixed(3)} au, ${fc.speedKms.toFixed(2)} km/s at ${fc.dist.toFixed(3)} au`);
+  console.log(`  Halley: period ${(fh.periodDays / 365.25).toFixed(2)} yr, q ${fh.perihelion.toFixed(3)} au, Q ${fh.aphelion.toFixed(2)} au`);
+  // NASA's Ceres page: 4.6 years, 2.55 to 2.99 au from the Sun; Halley's:
+  // 76 years, 0.6 au at perihelion. Osculating elements at 2026 differ a
+  // little from those means.
+  check('Ceres goes round in 4.6 years, between 2.55 and 2.99 au', Math.abs(fc.periodDays / 365.25 - 4.6) < 0.05 && Math.abs(fc.perihelion - 2.55) < 0.02 && Math.abs(fc.aphelion - 2.99) < 0.02);
+  check('Halley goes round in about 76 years, about 0.59 au from the Sun at perihelion', Math.abs(fh.periodDays / 365.25 - 75.5) < 1.5 && Math.abs(fh.perihelion - 0.586) < 0.02);
+  // Vis-viva against the speed from differencing the drawn positions a minute apart.
+  const p0 = positionAu(C, SB_EPOCH_JD - 30 / 86400), p1 = positionAu(C, SB_EPOCH_JD + 30 / 86400);
+  const vNum = dist(p0, p1) * AU / 60;
+  check(`vis-viva speed matches the drawn motion (${fc.speedKms.toFixed(4)} against ${vNum.toFixed(4)} km/s)`, Math.abs(fc.speedKms - vNum) < 1e-3);
+  check('the distance is the position\'s length', Math.abs(fc.dist - Math.hypot(...fc.r)) < 1e-12);
+  // H and albedo to diameter: by definition 1329 km at H 0 and albedo 1;
+  // Ceres, H 3.34 with SBDB's albedo 0.090, against its measured 939.4 km.
+  const dc = diameterFromH(C.H, 0.09);
+  check('1329 km at H = 0 and albedo 1', Math.abs(diameterFromH(0, 1) - 1329) < 1e-9);
+  check(`Ceres's diameter from H ${C.H} and albedo 0.090: ${dc.toFixed(0)} km (SBDB ${C.diameter} km)`, Math.abs(dc - C.diameter) / C.diameter < 0.03);
+  check('every named body has a class the plate can name', meta.named.every((b) => SB_CLASS_NAMES[b.cls]));
 }
 
 console.log('='.repeat(60));
