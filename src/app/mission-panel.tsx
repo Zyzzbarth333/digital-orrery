@@ -12,6 +12,7 @@ import { useMission, REAL_MISSIONS, altitudeRadius, type Mission, type Departure
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { kernelSeconds, kernelMs } from '../physics/kernelHost.js';
 import { heightAbove } from '../physics/entry.js';
+import { SourceTag } from './source-tag';
 
 const DEG = 180 / Math.PI;
 const fmt = (n: number, d = 1) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -33,9 +34,6 @@ function Num({ label, value, onChange, step = 1, unit, min, max }: { label: stri
   );
 }
 
-function Tag({ src, derived = false, detail }: { src: string; derived?: boolean; detail: string }) {
-  return <span className={`src-tag${derived ? ' derived' : ''}`} title={detail}>{src}</span>;
-}
 
 export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock; mission: Mission; onFocusCraft: (id: number) => void }) {
   const s = useClock(clock);
@@ -90,10 +88,10 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     // have drawn the dry mass down).
     const dvLeft = c.ve * Math.log(c.mass / (c.mass - c.fuel));
     const rows: [string, React.ReactNode, React.ReactNode][] = [
-      ['Motion', 'Integrated', <Tag src="kernel" detail="stepped under the gravity of the Sun, planets and Moon (n-body), not on a fixed track like the planets" />],
-      ['About', P ? P.name : 'Sun', <Tag src="kernel" detail="the body whose sphere of influence holds the craft" />],
-      [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <Tag src="kernel" detail={`n-body state (Encke near a planet, Cowell elsewhere) carried to the clock${altNote}`} />],
-      ['Speed', `${fmt(rel.v, 4)} km/s`, <Tag src="kernel" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
+      ['Motion', 'Integrated', <SourceTag src="kernel" info="kernel-motion" detail="not on a fixed track like the planets" />],
+      ['About', P ? P.name : 'Sun', <SourceTag src="kernel" info="soi" />],
+      [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <SourceTag src="kernel" info="altitude" detail={`n-body state (Encke near a planet, Cowell elsewhere) carried to the clock${altNote}`} />],
+      ['Speed', `${fmt(rel.v, 4)} km/s`, <SourceTag src="kernel" info="craft-speed" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
     ];
     const site = c.crashed ? c.impactSite : null;
     // Entry (a crew module with its guidance): the bank the guidance flies
@@ -105,43 +103,43 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       const ch = (c.entry as { chutes?: { drogue: { height: number }; main: { height: number } } }).chutes;
       const chutes = !ch || h > ch.drogue.height ? 'stowed' : h > ch.main.height ? 'drogues open' : 'mains open';
       rows.splice(4, 0,
-        ['Bank', g ? `${fmt(g.sign * g.sigma * DEG, 1)}°${g.held ? ', held' : ''}` : '—', <Tag src="guidance" detail="the lift's roll about the air-relative velocity, positive to the left; the size sets the range, the sign steers (entry.js, a predictor-corrector)" />],
-        ['Parachutes', `${chutes} (${fmt(h, 1)} km)`, <Tag src="model" detail={ch ? `drogues below ${fmt(ch.drogue.height, 1)} km, mains below ${fmt(ch.main.height, 1)} km, above the WGS-84 ellipsoid` : ''} />]);
+        ['Bank', g ? `${fmt(g.sign * g.sigma * DEG, 1)}°${g.held ? ', held' : ''}` : '—', <SourceTag src="guidance" info="bank" detail="entry.js, a numerical predictor-corrector, every 2 s" />],
+        ['Parachutes', `${chutes} (${fmt(h, 1)} km)`, <SourceTag src="model" info="chutes" detail={ch ? `drogues below ${fmt(ch.drogue.height, 1)} km, mains below ${fmt(ch.main.height, 1)} km, above the WGS-84 ellipsoid` : undefined} />]);
     }
     if (site) {
       // Down: where and when, not an orbit (it lies on the ground, turning
       // with the body).
       const [x, y, z] = site.local, lat = Math.atan2(z, Math.hypot(x, y)) * DEG, lon = Math.atan2(y, x) * DEG;
       rows.splice(2, 2,
-        ['Came down', utc(site.t), <Tag src="kernel" detail={`below the surface of ${BODY_BY_KEY[site.key as BodyKey]?.name ?? site.key}${site.key === 'earth' ? ' (sea level, the WGS-84 ellipsoid)' : ''} at the end of a kernel step`} />],
-        ['Where', `${fmt(Math.abs(lat), 2)}° ${lat >= 0 ? 'N' : 'S'}, ${fmt(Math.abs(lon), 2)}° ${lon >= 0 ? 'E' : 'W'}`, <Tag src="kernel" derived detail="geocentric latitude and longitude in the body's own frame; it stays there, turning with the body" />]);
+        ['Came down', utc(site.t), <SourceTag src="kernel" info="impact" detail={`below the surface of ${BODY_BY_KEY[site.key as BodyKey]?.name ?? site.key}${site.key === 'earth' ? ' (sea level, the WGS-84 ellipsoid)' : ''} at the end of a kernel step`} />],
+        ['Where', `${fmt(Math.abs(lat), 2)}° ${lat >= 0 ? 'N' : 'S'}, ${fmt(Math.abs(lon), 2)}° ${lon >= 0 ? 'E' : 'W'}`, <SourceTag src="kernel" derived info="lat-lon" detail="it stays there, turning with the body" />]);
     } else if (el.e < 1) {
-      rows.push(['Periapsis', `${fmt(el.a * (1 - el.e) - R, 1)} km`, <Tag src="2-body" derived detail={`osculating, about ${P ? P.name : 'the Sun'}${altNote}`} />]);
-      rows.push(['Apoapsis', `${fmt(el.a * (1 + el.e) - R, 1)} km`, <Tag src="2-body" derived detail={`osculating${altNote}`} />]);
-      rows.push(['Period', `${fmt((2 * Math.PI * Math.sqrt(el.a ** 3 / (P ? P.gm ?? 1 : mission.sys.muSun))) / 60, 2)} min`, <Tag src="2-body" derived detail="osculating" />]);
+      rows.push(['Periapsis', `${fmt(el.a * (1 - el.e) - R, 1)} km`, <SourceTag src="2-body" derived info="periapsis" detail={`osculating, about ${P ? P.name : 'the Sun'}${altNote}`} />]);
+      rows.push(['Apoapsis', `${fmt(el.a * (1 + el.e) - R, 1)} km`, <SourceTag src="2-body" derived info="apoapsis" detail={`osculating${altNote}`} />]);
+      rows.push(['Period', `${fmt((2 * Math.PI * Math.sqrt(el.a ** 3 / (P ? P.gm ?? 1 : mission.sys.muSun))) / 60, 2)} min`, <SourceTag src="2-body" derived info="period" />]);
     } else if (!site) {
-      rows.push(['Excess speed', `${fmt(Math.sqrt(-(P ? P.gm ?? 1 : mission.sys.muSun) / el.a), 4)} km/s`, <Tag src="2-body" derived detail="v-infinity of the osculating hyperbola" />]);
+      rows.push(['Excess speed', `${fmt(Math.sqrt(-(P ? P.gm ?? 1 : mission.sys.muSun) / el.a), 4)} km/s`, <SourceTag src="2-body" derived info="excess-speed" />]);
     }
     if (!site) {
-      rows.push(['Eccentricity', fmt(el.e, 6), <Tag src="2-body" derived detail="osculating" />]);
-      rows.push(['Inclination', `${fmt(el.i * DEG, 3)}°`, <Tag src="2-body" derived detail={`to the ${el.frame}`} />]);
+      rows.push(['Eccentricity', fmt(el.e, 6), <SourceTag src="2-body" derived info="eccentricity" />]);
+      rows.push(['Inclination', `${fmt(el.i * DEG, 3)}°`, <SourceTag src="2-body" derived info="inclination" detail={`to the ${el.frame}`} />]);
     }
     const run = mission.realRun(c);
     // The model engine's tank means nothing when every burn is the real
     // craft's, scripted from its data.
     if (run?.burns !== 'all') {
-      rows.push(['Propellant', `${fmt(c.fuel, 2)} kg`, <Tag src="model" derived detail={`one tank; dry mass ${c.dryMass} kg, ${c.thrust} N at Isp ${c.isp} s`} />]);
-      rows.push(['Δv left', `${fmt(dvLeft, 1)} m/s`, <Tag src="rocket eq." derived detail="ve ln(m / (m − fuel)): the fuel left, against the mass now" />]);
+      rows.push(['Propellant', `${fmt(c.fuel, 2)} kg`, <SourceTag src="model" derived info="propellant" detail={`one tank; dry mass ${c.dryMass} kg, ${c.thrust} N at Isp ${c.isp} s`} />]);
+      rows.push(['Δv left', `${fmt(dvLeft, 1)} m/s`, <SourceTag src="rocket eq." derived info="dv-left" />]);
     }
     if (run) {
       const d = mission.distanceFromFlown(c);
-      rows.push(['From the flown path', d === null ? 'outside the data' : `${fmt(d, 1)} km`, <Tag src="BET" detail="distance from where the real craft was at this time: JSC's reconstructed trajectory (BET revF), interpolated" />]);
+      rows.push(['From the flown path', d === null ? 'outside the data' : `${fmt(d, 1)} km`, <SourceTag src="BET" info="flown-path" />]);
       const nb = run.m.burnAt(s.timeMs);
       const inBurns = run.burns === 'all' || nb?.burn === run.m.burns[0];
-      rows.push(['Next burn', !nb ? 'none left' : nb.on ? `${nb.burn.name}, burning` : `${nb.burn.name} in ${fmtDuration(nb.inMs ?? 0)}${inBurns ? '' : ' (yours to fly)'}`, <Tag src="BET" detail={nb ? `${fmt(nb.burn.mps * 1000 / 304.8, 1)} ft/s (${fmt(nb.burn.mps, 3)} m/s) as flown${nb.burn.nasa ? `; NASA: ${nb.burn.nasa}` : ''}` : 'every burn of the mission is done'} />]);
+      rows.push(['Next burn', !nb ? 'none left' : nb.on ? `${nb.burn.name}, burning` : `${nb.burn.name} in ${fmtDuration(nb.inMs ?? 0)}${inBurns ? '' : ' (yours to fly)'}`, <SourceTag src="BET" info="next-burn" detail={nb ? `${fmt(nb.burn.mps * 1000 / 304.8, 1)} ft/s (${fmt(nb.burn.mps, 3)} m/s) as flown${nb.burn.nasa ? `; NASA: ${nb.burn.nasa}` : ''}` : 'every burn of the mission is done'} />]);
     }
     const plan = mission.plan(c);
-    if (plan) rows.push([`Closest to ${plan.name}`, `${fmt(plan.closest / 1000, 0)} thousand km`, <Tag src="kernel" derived detail={`so far; planned arrival ${new Date(plan.arrivalMs).toISOString().slice(0, 10)}`} />]);
+    if (plan) rows.push([`Closest to ${plan.name}`, `${fmt(plan.closest / 1000, 0)} thousand km`, <SourceTag src="kernel" derived info="closest" detail={`planned arrival ${new Date(plan.arrivalMs).toISOString().slice(0, 10)}`} />]);
     const state = c.splashed ? 'Splashdown' : c.crashed ? `Impact: ${c.impactBody}` : c.error ? `Error: ${c.error}` : c.lagSeconds > 60 ? `Behind the clock by ${fmt(c.lagSeconds / 60, 1)} min` : 'Stepping';
     readout = (
       <>
@@ -253,7 +251,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       )}
       {ascent && (
         <table className="readout" aria-live="off"><tbody>
-          <tr><th scope="row">Climbing</th><td className="value">{ascent.name}<span className="alt">{ascent.t < 0 ? `liftoff in ${Math.ceil(-ascent.t)} s` : `T+${Math.floor(ascent.t / 60)}:${String(Math.floor(ascent.t % 60)).padStart(2, '0')} · ${ascent.h.toFixed(1)} km up · ${ascent.v.toFixed(3)} km/s`}; in orbit at engine cutoff</span></td><td className="src"><span className="src-tag" title="the ascent flown in the ROCKET tab, a gravity turn in the launch plane">ascent</span></td></tr>
+          <tr><th scope="row">Climbing</th><td className="value">{ascent.name}<span className="alt">{ascent.t < 0 ? `liftoff in ${Math.ceil(-ascent.t)} s` : `T+${Math.floor(ascent.t / 60)}:${String(Math.floor(ascent.t % 60)).padStart(2, '0')} · ${ascent.h.toFixed(1)} km up · ${ascent.v.toFixed(3)} km/s`}; in orbit at engine cutoff</span></td><td className="src"><SourceTag src="ascent" info="ascent-climb" /></td></tr>
         </tbody></table>
       )}
       {readout}

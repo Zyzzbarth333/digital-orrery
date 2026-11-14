@@ -102,6 +102,12 @@ typography:
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "0.08em"
+  equation:
+    fontFamily: "DejaVu Math TeX Gyre, STIX Two Math, Cambria Math, Latin Modern Math, math"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.45
+    letterSpacing: "0em"
 rounded:
   none: "0px"
   window: "2px"
@@ -149,6 +155,12 @@ components:
     typography: "{typography.code}"
     rounded: "{rounded.none}"
     padding: "0 5px"
+  tag-detail:
+    backgroundColor: "{colors.window}"
+    textColor: "{colors.phosphor-dim}"
+    typography: "{typography.body-small}"
+    rounded: "{rounded.window}"
+    padding: "10px 12px"
 ---
 
 # Design System: digital-orrery
@@ -233,6 +245,14 @@ Product truth is in [PRODUCT.md](PRODUCT.md).
 
 All three are SIL OFL and self-hosted.
 
+Equations, in a tag's detail, are MathML set by the browser in the
+system's math font: DejaVu Math TeX Gyre first (a sans face, nearest
+B612), then STIX Two Math (macOS), Cambria Math (Windows), Latin Modern
+Math, else the browser's own `math`. No web font is loaded for them: a
+math font needs its OpenType MATH table to stretch brackets and radicals,
+which B612 doesn't have. (Noto Sans Math is left out: Chromium doesn't
+stretch with it.)
+
 ### Hierarchy
 
 | Role | Face and size |
@@ -244,6 +264,7 @@ All three are SIL OFL and self-hosted.
 | Rail | 12 px B612, uppercase |
 | Engraved labels | 11 px or 10 px Michroma, tracked 0.14em |
 | Tags | 10 px B612 Mono |
+| Equations (tag detail) | 15 px math font, phosphor |
 | Panel codes | 9 px B612 Mono |
 
 Nothing is set below 10 px except the panel codes (decoration, 9 px):
@@ -329,7 +350,13 @@ one), enough to read as lit glass without blurring the digits.
 ### Chips
 
 The source tag: 10 px mono in a 1 px ink box, solid for data, dashed for
-values worked out in the app. Hover a tag for its source detail.
+values worked out in the app. It is a button: hovering it, focusing it or
+tapping it opens its detail, a small readout window under the tag (above
+it when there is no room). The detail says what the value is, gives the
+equation in phosphor, then its source, under engraved labels. A tap or
+click pins it; Escape, a press elsewhere or moving focus away closes it.
+Screen readers get the same as one line of text, the button's
+description.
 
 ### Inputs / Fields
 
