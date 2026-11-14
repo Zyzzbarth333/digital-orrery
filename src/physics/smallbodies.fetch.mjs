@@ -29,7 +29,8 @@ const PAGE = 20000;
 const AST = 'spkid,pdes,name,class,epoch,e,a,i,om,w,ma,H,diameter,albedo';
 const COM = 'spkid,pdes,name,prefix,class,epoch,e,q,i,om,w,tp,M1,K1';
 export const GROUPS = [
-  { key: 'mainbelt', params: { 'sb-class': 'IMB,MBA,OMB,MCA', 'sb-cdata': JSON.stringify({ AND: ['H|LE|16'] }), fields: AST } },
+  // Every catalogued main-belt asteroid (about 1.3 million).
+  { key: 'mainbelt-all', params: { 'sb-class': 'IMB,MBA,OMB,MCA', fields: AST } },
   { key: 'neo', params: { 'sb-class': 'IEO,ATE,APO,AMO', fields: AST } },
   { key: 'trojans', params: { 'sb-class': 'TJN', fields: AST } },
   { key: 'outer', params: { 'sb-class': 'CEN,TNO', fields: AST } },

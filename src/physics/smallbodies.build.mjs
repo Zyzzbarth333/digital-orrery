@@ -33,20 +33,26 @@ const wrap = (x) => ((x % TAU) + TAU) % TAU;
 // (smallbodies.horizons.mjs): SBDB's solutions for some are years old.
 const FRESH = JSON.parse(fs.readFileSync(new URL('./fixtures/smallbodies_named.json', import.meta.url))).elements;
 
-const rows = [];
-for (const g of GROUPS) {
-  const files = fs.readdirSync(CACHE).filter((f) => f.startsWith(g.key + '_')).sort();
-  for (const f of files) {
-    const { fields, data } = JSON.parse(fs.readFileSync(`${CACHE}/${f}`, 'utf8'));
-    const ix = Object.fromEntries(fields.map((n, i) => [n, i]));
-    for (const d of data) rows.push({ group: g.key, d, ix });
+// The cache, page by page (about 1.4 million rows in all).
+function* rowsOf() {
+  for (const g of GROUPS) {
+    const files = fs.readdirSync(CACHE).filter((f) => f.startsWith(g.key + '_')).sort();
+    for (const f of files) {
+      const { fields, data } = JSON.parse(fs.readFileSync(`${CACHE}/${f}`, 'utf8'));
+      const ix = Object.fromEntries(fields.map((n, i) => [n, i]));
+      for (const d of data) yield { group: g.key, d, ix };
+    }
   }
 }
-console.log(`${rows.length} rows read`);
 
-const kept = [], named = [];
+// kept: the brighter bodies and every other population (smallbodies.bin,
+// loaded first); faint: main-belt asteroids fainter than H 15
+// (smallbodies-belt.bin, loaded after).
+const kept = [], faint = [], named = [];
 let skipped = 0;
-for (const { group, d, ix } of rows) {
+let read = 0;
+for (const { group, d, ix } of rowsOf()) {
+  read++;
   const num = (k) => (d[ix[k]] === null || d[ix[k]] === undefined ? NaN : Number(d[ix[k]]));
   const spkid = String(d[ix.spkid]), pdes = String(d[ix.pdes]), cls = d[ix.class];
   if (pdes === '134340') { skipped++; continue; }            // Pluto: a planet in the app
@@ -65,7 +71,7 @@ for (const { group, d, ix } of rows) {
   } else {
     a = num('a'); M0 = num('ma') * D2R; H = num('H');
   }
-  if (group === 'mainbelt' && !(H <= 15)) continue;
+  const dim = group === 'mainbelt-all' && !(H <= 15);
   if (![a, e, i, node, peri, M0, epoch].every(Number.isFinite) || !(a > 0) || !(e >= 0 && e < 0.995)) { skipped++; continue; }
   const n = K / Math.pow(a, 1.5);
   let M = wrap(M0 + n * (SB_EPOCH_JD - epoch));
@@ -73,32 +79,39 @@ for (const { group, d, ix } of rows) {
   if (fresh) { a = fresh.a; M = wrap(fresh.M); }
   const code = SB_CLASSES.indexOf(cls) >= 0 ? SB_CLASSES.indexOf(cls) : SB_CLASSES.indexOf(group === 'comets' ? 'COM' : 'AST');
   const el = fresh ? { a, e: fresh.e, i: fresh.i, node: fresh.node, peri: fresh.peri, M } : { a, e, i, node, peri, M };
-  kept.push({ ...el, H: Number.isFinite(H) ? H : 18, code, k1 });
+  (dim ? faint : kept).push({ ...el, H: Number.isFinite(H) ? H : 18, code, k1 });
   const label = NOTABLE[pdes];
   if (label) named.push({ pdes, spkid, name: label.name ?? (d[ix.name] || d[ix.pdes]), kind: label.kind, cls, ...el, H: Number.isFinite(H) ? H : null, diameter: num('diameter') || null, epochJd: SB_EPOCH_JD, elements: fresh ? 'JPL Horizons at the epoch' : 'SBDB' });
 }
 
-const buf = Buffer.alloc(kept.length * 16), u16 = (x) => Math.max(0, Math.min(65535, Math.round(x)));
-kept.forEach((k, j) => {
-  const o = j * 16;
-  buf.writeFloatLE(k.a, o);
-  buf.writeUInt16LE(u16(k.e * 65535), o + 4);
-  buf.writeUInt16LE(u16(wrap(k.i) / TAU * 65535), o + 6);
-  buf.writeUInt16LE(u16(wrap(k.node) / TAU * 65535), o + 8);
-  buf.writeUInt16LE(u16(wrap(k.peri) / TAU * 65535), o + 10);
-  buf.writeUInt16LE(u16(k.M / TAU * 65535), o + 12);
-  buf.writeUInt8(Math.max(0, Math.min(255, Math.round((k.H + 2) * 7))), o + 14);
-  buf.writeUInt8(k.code | (k.k1 << 5), o + 15);
-});
+const u16 = (x) => Math.max(0, Math.min(65535, Math.round(x)));
+function pack(list) {
+  const buf = Buffer.alloc(list.length * 16);
+  list.forEach((k, j) => {
+    const o = j * 16;
+    buf.writeFloatLE(k.a, o);
+    buf.writeUInt16LE(u16(k.e * 65535), o + 4);
+    buf.writeUInt16LE(u16(wrap(k.i) / TAU * 65535), o + 6);
+    buf.writeUInt16LE(u16(wrap(k.node) / TAU * 65535), o + 8);
+    buf.writeUInt16LE(u16(wrap(k.peri) / TAU * 65535), o + 10);
+    buf.writeUInt16LE(u16(k.M / TAU * 65535), o + 12);
+    buf.writeUInt8(Math.max(0, Math.min(255, Math.round((k.H + 2) * 7))), o + 14);
+    buf.writeUInt8(k.code | (k.k1 << 5), o + 15);
+  });
+  return buf;
+}
+const buf = pack(kept), beltBuf = pack(faint);
+console.log(`${read} rows read`);
 fs.mkdirSync(new URL('../../public/data/', import.meta.url), { recursive: true });
 fs.writeFileSync(new URL('../../public/data/smallbodies.bin', import.meta.url), buf);
+fs.writeFileSync(new URL('../../public/data/smallbodies-belt.bin', import.meta.url), beltBuf);
 const counts = {};
 for (const k of kept) counts[SB_CLASSES[k.code]] = (counts[SB_CLASSES[k.code]] ?? 0) + 1;
 const missing = Object.keys(NOTABLE).filter((s) => !named.some((n) => n.pdes === s));
 fs.writeFileSync(new URL('../../public/data/smallbodies.json', import.meta.url), JSON.stringify({
   source: 'JPL Small-Body Database query API (ssd-api.jpl.nasa.gov/sbdb_query.api), fetched ' + new Date(fs.statSync(CACHE).mtimeMs).toISOString().slice(0, 10),
-  epochJd: SB_EPOCH_JD, count: kept.length, classes: SB_CLASSES, counts, named,
+  epochJd: SB_EPOCH_JD, count: kept.length, beltCount: faint.length, classes: SB_CLASSES, counts, named,
 }));
 console.log(`kept ${kept.length} (skipped ${skipped}): ${JSON.stringify(counts)}`);
 console.log(`named ${named.length}${missing.length ? `; not found: ${missing.map((s) => NOTABLE[s].name).join(', ')}` : ''}`);
-console.log(`smallbodies.bin ${(buf.length / 1e6).toFixed(2)} MB`);
+console.log(`smallbodies.bin ${(buf.length / 1e6).toFixed(2)} MB; smallbodies-belt.bin ${faint.length} bodies, ${(beltBuf.length / 1e6).toFixed(2)} MB`);
