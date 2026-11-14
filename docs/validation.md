@@ -66,6 +66,8 @@ the full table, per moon, is in [Moons](frontend/moons.md#how-right-they-are).
 | astronomy-engine's Mars to Pluto, the same | Horizons heliocentric x | 1,809 km (Mars) to 335,209 km (Neptune) |
 | astronomy-engine's Jupiter to Pluto are system barycentres | Horizons heliocentric x and x99, Nov 2026, less a quadratic | 1.1–1.2 km rms against x; 26–2,116 km against x99 |
 | moons about the system barycentre, and about the Sun (absolute, and relative to the planet) | Horizons, 7 moons, Nov 2026 | same as about the planet's centre (Charon 26 km; 2,139 km without the offset); on astronomy-engine the absolute figure carried its planet's error |
+| body-frame pole (`bodyAxesEqj`, pck00011), Phobos, Io, Rhea, Ariel, Titania, Triton, Charon | WGCCRE 2015 poles, constant terms only (Triton's precessing series in full), 14 Nov 2026 | within 1.07° (Phobos, whose periodic terms the check leaves out), Triton 0.00°; right-handed |
+| moon surface maps, longitude and latitude (by eye, not in the test) | named features at their gazetteer positions, against their mirror images ([textures](frontend/textures.md#the-moons-maps)) | all 14 east-positive with the west edge at −180°, none flipped |
 
 ## Barycentres (`barycentres.test.mjs`)
 

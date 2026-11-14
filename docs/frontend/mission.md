@@ -139,7 +139,10 @@ The app reads both with `src/physics/realMission.js`.
   the splashdown point, then drogues and mains to the sea
   ([entry](../physics/entry.md)). The readout adds the bank and the
   parachutes; a capsule down under its chutes reads Splashdown, which is
-  not a warning. Setting the clock back before separation makes it the
+  not a warning. The header's FLIGHT field then reads DOWN, in the
+  advisory green; LOST, in red with the WARN light, is kept for a craft
+  that crashed. One rule decides both (`src/app/craft-state.js`, tested
+  in `craft-state.test.mjs`). Setting the clock back before separation makes it the
   whole spacecraft again.
 - **Artemis II · our own plan** flies the simulator's own design of the
   mission instead. It's planned from the pre-TLI orbit and NASA's published
