@@ -152,7 +152,8 @@ def main() -> int:
         print(key)
         entry = build(args.src, OUT, colour_map, heights_km, normal_map)
         if key in ("rings", "stars"):
-            manifest.setdefault(key, {}).update(entry)
+            # Replaced, not merged: a field a newer build drops must not linger.
+            manifest[key] = {**manifest.get(key, {}), **entry} if key == "rings" else entry
         else:
             manifest["bodies"][key] = entry
     OUT.mkdir(parents=True, exist_ok=True)

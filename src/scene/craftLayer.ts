@@ -5,7 +5,9 @@
 // craft's drawn position, its osculating conic about its primary (amber) and
 // the path it has flown (pale). Lines are drawn relative to the primary and
 // placed at the primary's render position, like the bodies' orbit lines.
-// They are drawing aids, kept out of the exposure and tone mapping.
+// They are drawing aids at a display level: multiplied by 1/exposure
+// (setLevel), so after the HDR pipeline's exposure and tone curve they show
+// at the colours given here.
 
 import * as THREE from 'three';
 import { orbitTrailMaterial } from './orbitTrail';
@@ -37,6 +39,7 @@ function lineOf(colour: number, opacity: number): THREE.Line {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
   const m = new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity, toneMapped: false, depthWrite: false });
+  m.userData.base = new THREE.Color(colour);
   const line = new THREE.Line(g, m);
   line.frustumCulled = false;
   return line;
@@ -67,6 +70,21 @@ function trailOf(colour: number): THREE.Line {
 export class CraftLayer {
   private drawn = new Map<number, Drawn>();
   private tmp = new THREE.Vector3();
+  private level = 1;
+
+  // Lines are drawn at a display level: 1 / the exposure the HDR output
+  // applies.
+  setLevel(level: number): void {
+    this.level = level;
+    for (const d of this.drawn.values()) {
+      for (const line of [d.conic, d.flown]) {
+        if (!line) continue;
+        const m = line.material as THREE.LineBasicMaterial;
+        m.color.copy(m.userData.base as THREE.Color).multiplyScalar(level);
+      }
+      (d.trail.material as THREE.ShaderMaterial).uniforms.level.value = level;
+    }
+  }
 
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, private onPick: (id: number) => void) {}
 
@@ -105,6 +123,7 @@ export class CraftLayer {
       d.marker.classList.toggle('lost', v.crashed);
       d.marker.classList.toggle('selected', v.selected);
     }
+    this.setLevel(this.level);
     for (const [id, d] of this.drawn) {
       if (seen.has(id)) continue;
       this.scene.remove(d.conic, d.trail);
@@ -123,7 +142,8 @@ export class CraftLayer {
       const ndc = toRender([v.rEcl[0] - cam[0], v.rEcl[1] - cam[1], v.rEcl[2] - cam[2]], unitKm, this.tmp).project(camera);
       if (ndc.z > 1 || ndc.z < -1) { d.marker.style.display = 'none'; continue; }
       d.marker.style.display = '';
-      d.marker.style.transform = `translate(${((ndc.x + 1) / 2) * w}px, ${((1 - ndc.y) / 2) * h}px)`;
+      const dpr = window.devicePixelRatio || 1;
+      d.marker.style.transform = `translate(${Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr}px, ${Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr}px)`;
     }
   }
 

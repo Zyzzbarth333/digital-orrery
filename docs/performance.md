@@ -1,7 +1,9 @@
 # Performance
 
 What each part costs, measured with `npm run bench` (`src/physics/bench.mjs`,
-Node 20, November 2026), and what is planned to make the slow parts fast.
+Node 20, November 2026) for the physics and in a browser on real GPUs for
+the drawing ([rendering](#rendering)), and what is planned to make the slow
+parts fast.
 
 ## Measured
 
@@ -31,6 +33,119 @@ frame. The limits are elsewhere:
   video memory uncompressed. Maps now load only when a body's disc is more
   than three pixels across, so the overview loads only the star map; a view
   of one planet loads that planet's maps.
+
+## Rendering
+
+Measured on 14 November 2026 for the [overhaul](ux/overhaul-plan.md),
+before (main at f5273e6) and after (feat/ui-overhaul), both as production
+builds.
+
+**Method.**
+
+- **Browser and GPUs.** Headless Chromium 1254 driven over the DevTools
+  protocol, rendering on this machine's real GPUs through ANGLE's GL-EGL
+  backend: an Intel UHD (Raptor Lake-S) integrated GPU and an NVIDIA
+  RTX 5070 Ti Laptop GPU. SwiftShader, which draws on the CPU, gives
+  meaningless timings and was not used.
+- **Viewport.** 1920 × 1080 at a device pixel ratio of 1 and 2, so the sky's
+  canvas is 1340 × 1016 or 2680 × 2032.
+- **Frame cost.** The render loop's callback plus a one-pixel `readPixels`,
+  which waits for the GPU to finish the frame: CPU and GPU time together,
+  independent of the display's 60 Hz pacing. Median over 4 s after 12 s of
+  loading, at a fixed render scale (`?scale=fixed`).
+- **Fairness.** Other work loaded the machine heavily during the runs (load
+  averages of 16 to 200 on 32 threads), so before and after ran
+  interleaved, scenario by scenario. Repeat runs differ by 10 to 20 %.
+
+**Frame cost, before → after** (median, ms):
+
+| Scene | Intel, DPR 1 | Intel, DPR 2 | RTX, DPR 1 | RTX, DPR 2 |
+| --- | --- | --- | --- | --- |
+| Overview (the Sun, 1.6 × 10⁹ km) | 12.6 → 14.7 | 19.3 → 29.6 | 6.4 → 6.7 | 13.0 → 13.4 |
+| Earth close-up | 21.6 → 17.4 | 55.7 → 40.8 | 6.6 → 6.7 | 12.6 → 6.2 |
+| Artemis II in flight, near Earth | 44.0 → 21.2 | 119 → 54.4 | 8.7 → 4.4 | 9.6 → 7.8 |
+
+At 60 Hz this is, on the Intel GPU at DPR 1, Earth from 44 to 55 fps and
+Artemis II from 21 to 44 fps; on the RTX at DPR 2, the overview from 47 to
+60 fps (slow frames from 41 to 2 in 6 s) and Earth from 53 to 60 fps.
+
+**The overview got dearer**, by 2 ms at DPR 1 and 10 ms at DPR 2 on the
+Intel GPU: HDR is memory traffic (a half-float target is 8 bytes a pixel, 43
+MB at 2680 × 2032), and the overview had little else to cut. Switching
+parts off in the first HDR version showed the bloom and the Sun's glare
+costing about 19 ms of a 43 ms frame there, in three full-screen passes;
+they became one ([lighting](frontend/lighting.md#exposure-and-tone-mapping)),
+and the bloom starts at a quarter of the resolution on 2× screens.
+
+**The adaptive render scale** (`renderScale.ts`) covers what is left: when
+frames run over 20 ms the canvas's pixel ratio steps down by 0.2, to no less
+than 1 (the full resolution of a normal screen; the panels' text is never
+scaled), and steps back up after a calm spell. A step that does not shorten
+the frames is undone and the scale holds (a browser capping frames at 30 Hz
+to save power looks slow but is not). Star widths and the bloom's
+resolution follow the scale, so neither jumps when it steps. On the Intel
+GPU at DPR 2, 60 Hz paced, an earlier version with its floor at 1.2 took the
+overview from 33 to 50 fps (settling at 1.4), Earth from 24 to 30 fps and
+Artemis II from 14 to 28 fps, the last two held back by that floor. With
+the floor now at 1, its logic was checked by driving the class with
+simulated frames (60 Hz display, GPU cost proportional to pixels):
+
+| Frame at full DPR 2 | Settles at | Frame then |
+| --- | --- | --- |
+| 10 ms (GPU) | 2 (no change) | 16.7 ms |
+| 30 ms (GPU) | 1.4 | 16.7 ms |
+| 55 ms (GPU) | 1.0 | 16.7 ms |
+| 120 ms (GPU) | 1.0 | 33.3 ms |
+| 30 Hz cap, 5 ms of GPU work | 2, after one undone descent; retried after 30 s, 60 s, … | 33.3 ms |
+| 90 ms of CPU, 10 ms of GPU | 2, the same | 100 ms |
+
+Live runs at the end, under a load average of 63 from other work on the
+machine, were CPU-bound at about 100 ms a frame whatever the resolution:
+the scale stepped down, found no gain and went back, as in the last row.
+
+**Choosing a body**: main-thread tasks over 50 ms in the 6 s after a click
+in the rail, at DPR 1 (the worst single frame in brackets):
+
+| Body | Intel before | Intel after | RTX before | RTX after |
+| --- | --- | --- | --- | --- |
+| Mars | 3 tasks, 2.35 s (1.78 s) | 12 tasks, 1.34 s (0.22 s) | 2 tasks, 1.80 s (1.38 s) | none (33 ms) |
+| Earth | 3 tasks, 1.84 s (1.37 s) | none (83 ms) | 2 tasks, 1.77 s (1.37 s) | none (17 ms) |
+| Moon | 2 tasks, 2.01 s (1.42 s) | none (50 ms) | 2 tasks, 1.79 s (1.20 s) | 9 tasks, 0.65 s (117 ms) |
+
+The page no longer freezes: each 8k map is decoded in a worker and
+uploaded 4 MB a frame ([textures](frontend/textures.md#loading)), so the
+worst frame fell from 1.2–1.8 s to 0.02–0.22 s. Under heavy load a strip
+upload can still pass 50 ms (Mars on the Intel GPU, the Moon on the RTX
+above); on a quiet machine Mars and the Moon showed none.
+
+**What changed, and why:**
+
+| Change | Where | Effect |
+| --- | --- | --- |
+| Earth's sunlight transmittance from a table, not a ray march per sample | `atmosphere.ts` | Earth view on the Intel GPU 19–20 → 14 ms (the table alone) |
+| Maps decoded in a worker, uploaded in 4 MB strips as `ExternalTexture`s | `decode.worker.ts`, `surfaces.ts` | no freeze on choosing a body; loading starts with the flight |
+| HDR in one final pass: bloom mix, glare and tone mapping together | `post.ts`, `sun.ts` | two fewer full-screen passes than three.js's own HDR output |
+| No MSAA at 1.5 device pixels per CSS pixel or more | `post.ts` | MSAA cost 6 ms of 24 at DPR 2 on the Intel GPU |
+| Bloom from a quarter of the resolution on 2× screens | `post.ts` | the first downsample reads a quarter of the pixels |
+| Glare skipped when the Sun is well out of view | `sun.ts` | no full-screen glare when it cannot reach the frame |
+| Star sprites only as wide as each star's light | `stars.ts` | 83,392 stars, most a few pixels |
+| Header and rail redraw only when what they show changes | `clock.ts`, `panels.tsx` | see below |
+| Adaptive render scale | `renderScale.ts` | holds the frame rate on weak GPUs at DPR 2 |
+| The renderer asks for the discrete GPU | `OrreryScene.ts` | `powerPreference: 'high-performance'` |
+
+### The panels
+
+The panels read the clock through `useSyncExternalStore`, which re-renders
+a component whenever the store notifies (ten times a second). The header,
+the rail and the data plate all re-rendered on every tick, and in a
+development-mode profile of the overview React's JSX runtime took 672 ms of
+every 4 s of main thread, in bursts that each cost a frame. Now the header
+and the rail subscribe through `useClockValue`, which re-renders only when a
+selected value changes: the clock's window once a second, the RUN/HOLD pair
+when it changes, the rail when a distance's third decimal does. The same
+profile now shows 111 ms (−83 %), and the main thread is busy 21 % of the
+time instead of 58 %. The data plate still re-renders ten times a second,
+since its numbers do change.
 
 ## Planned, in order of payoff
 
