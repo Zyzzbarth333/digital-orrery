@@ -4,9 +4,11 @@
 // do, size it for a job (an orbit, the Moon, or the window picked in the
 // PLANNER), and fly it from a pad into the simulation
 // (docs/frontend/rocket.md). The physics is src/physics/rocket.js, after
-// Curtis, Orbital Mechanics for Engineering Students, chapter 13.
+// Curtis, Orbital Mechanics for Engineering Students, chapter 13. It also
+// flies OpenRocket designs (.ork files) with the same ascent, beside
+// OpenRocket's own result (src/physics/ork.js).
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import {
@@ -15,6 +17,7 @@ import {
 } from '../physics/rocket.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
 import { rvToElements } from '../physics/orbital.js';
+import { orkXml, readOrk, vehicleFromOrk, flyOrk } from '../physics/ork.js';
 
 interface StageRow { name: string; dry: number; prop: number; isp: number; ispSl: number; thrust: number }   // t, t, s, s, kN
 interface Preset { label: string; payload: number; diameter: number; cd: number; stages: StageRow[] }
@@ -287,7 +290,141 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
           </>
         )}
       </details>
+
+      <OrkSection />
     </div>
+  );
+}
+
+// An OpenRocket design (.ork): one of the simulations OpenRocket saved in
+// it, flown by this app's ascent and set beside OpenRocket's own result
+// (src/physics/ork.js; docs/physics/rocket.md#openrocket-designs-in-the-rocket-tab).
+// The file is read in the browser and never leaves it.
+type OrkDesign = ReturnType<typeof readOrk>;
+interface OrkSim { index: number; name: string; status: string; branches: { length: number }[] }
+interface OrkResult { apogee: number; apogeeTime: number; maxSpeed: number | null; history: number[][] }
+const grams = (kg: number) => (kg < 1 ? `${fmt(kg * 1000, 1)} g` : `${fmt(kg, kg < 10 ? 3 : 2)} kg`);
+// This app's value against OpenRocket's, as a signed percentage that does
+// not break before its unit.
+const diff = (a: number, b: number) => { const p = Number(((a / b - 1) * 100).toFixed(2)); return `this app ${p === 0 ? '±' : p > 0 ? '+' : '−'}${fmt(Math.abs(p), 2)}\u00a0%`; };
+
+function OrkSection() {
+  const [design, setDesign] = useSaved<{ file: string; d: OrkDesign } | null>('ork', null);
+  const [simIndex, setSimIndex] = useSaved('orkSim', 0);
+  const [drag, setDrag] = useSaved<'mach' | 'replay'>('orkDrag', 'mach');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const hasFlight = (s: OrkSim) => s.branches.length > 0 && s.branches[0].length > 2;
+
+  const open = async (f: File | undefined) => {
+    if (!f || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const d = readOrk(await orkXml(await f.arrayBuffer()));
+      setDesign({ file: f.name, d });
+      const first = d.simulations.find(hasFlight);
+      setSimIndex(first ? first.index : 0);
+    } catch (e) {
+      // The design already open, if any, stays.
+      setError(`${f.name} isn't an OpenRocket design this can read (${(e as Error).message.slice(0, 80)}).${design ? ` Still showing ${design.file}.` : ''}`);
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  };
+
+  const sim = design?.d.simulations[simIndex] ?? null;
+  const flown = useMemo(() => {
+    if (!design || !sim || !hasFlight(sim)) return null;
+    try {
+      const v = vehicleFromOrk(sim, design.d.motors);
+      return { v, r: flyOrk(v, { drag }), error: null as string | null };
+    } catch (e) {
+      return { v: null, r: null, error: (e as Error).message };
+    }
+  }, [design, sim, drag]);
+  const c = flown?.v?.conditions;
+  const atm = c?.atmosphere;
+  const or = flown?.v?.openrocket as OrkResult | undefined;
+  const noFlights = design && !design.d.simulations.some(hasFlight);
+
+  return (
+    <details className="section" open>
+      <summary className="strip">OpenRocket design</summary>
+      <div className="keys-row">
+        <button className="key" aria-disabled={busy} onClick={() => { if (!busy) input.current?.click(); }}>{busy ? 'Reading…' : design ? 'Open another' : 'Open .ork file'}</button>
+        <input ref={input} type="file" accept=".ork" hidden onChange={(e) => void open(e.target.files?.[0])} />
+        <span className="hint">Flies a simulation saved in an OpenRocket file with this app's own ascent, beside OpenRocket's result. Separate from the vehicle above. Read in this browser; nothing is uploaded.</span>
+      </div>
+      {error && <p className="status bad" role="alert">{error}</p>}
+      {noFlights && <p className="status bad" role="alert">{design!.file} holds OpenRocket's results but not its flights. In OpenRocket, save it again with the simulated data stored (the save dialog's simulation data option), then open it here.</p>}
+      <p className="sr-only" role="status">{design ? `${design.file} open: ${design.d.simulations.length} simulations${sim ? `, showing ${sim.name}` : ''}` : ''}</p>
+      {design && (
+        <>
+          <p className="hint">{design.d.name} · {design.file} · {design.d.creator || 'OpenRocket'}</p>
+          <div className="form-grid">
+            <label className="num wide"><span className="engraved">Simulation</span>
+              <select className="input" value={simIndex} onChange={(e) => setSimIndex(Number(e.target.value))}>
+                {design.d.simulations.map((s: OrkSim) => (
+                  <option key={s.index} value={s.index} disabled={!hasFlight(s)}>{s.name}{!hasFlight(s) ? ' (no saved flight)' : s.status === 'outdated' || s.status === 'cantrun' ? ' (saved before the design last changed)' : ''}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </>
+      )}
+      {flown?.error && <p className="status bad" role="alert">{flown.error}</p>}
+      {flown?.v && flown.r && c && or && (
+        <>
+          <div className="keys-row wrap" role="radiogroup" aria-labelledby="ork-drag">
+            <span className="engraved" id="ork-drag">Drag coefficient</span>
+            {([['mach', 'By Mach (from the record)'], ['replay', 'By time (as recorded)']] as const).map(([k, label]) => (
+              <button key={k} className="key small" role="radio" aria-checked={drag === k} onClick={() => setDrag(k)}>{label}</button>
+            ))}
+          </div>
+          <table className="readout"><tbody>
+            {flown.v.stages.map((s: { name: string; impulse: number; burn: number; prop: number; dry: number }, i: number) => (
+              <tr key={i}><th scope="row">{s.name}</th>
+                <td className="value">{fmt(s.impulse, 1)} N·s<span className="alt">{fmt(s.burn, 2)} s burn · uses {grams(s.prop)}{s.dry > 0 ? ` · drops ${grams(s.dry)}` : ''}</span></td>
+                <td className="src"><span className="src-tag derived" title="worked out from OpenRocket's saved thrust and mass">saved</span></td></tr>
+            ))}
+            <tr><th scope="row">Rocket</th><td className="value">{grams(flown.v.liftoff)}<span className="alt">at liftoff · {grams(flown.v.payload)} at apogee · {fmt(flown.v.diameter * 1000, 0)} mm reference diameter</span></td><td className="src"><span className="src-tag derived" title="worked out from OpenRocket's saved mass and drag">saved</span></td></tr>
+            <tr><th scope="row">Launch</th><td className="value">{fmt(c.rodLength ?? 0, 2)} m rod{c.rodAngle ? ` at ${fmt(c.rodAngle, 1)}°` : ''}<span className="alt">{fmt(c.windAverage ?? 0, 1)} m/s wind{c.windTurbulence ? ` (its gusts left out)` : ''}{c.latitude !== null ? ` · ${fmt(Math.abs(c.latitude), 2)}° ${c.latitude < 0 ? 'S' : 'N'}` : ''}{c.altitude !== null ? ` · pad ${fmt(c.altitude, 0)} m above sea level` : ''} · {atm?.model === 'extendedisa' && atm.baseTemperature && atm.basePressure ? `${fmt(atm.baseTemperature - 273.15, 1)} °C, ${fmt(atm.basePressure / 100, 1)} hPa at the pad` : 'standard atmosphere'}</span></td><td className="src"><span className="src-tag" title="the simulation's launch conditions, as the file holds them">.ork</span></td></tr>
+          </tbody></table>
+          <FlightPlot ours={flown.r.history} theirs={or.history} />
+          <table className="readout"><tbody>
+            <tr><th scope="row">Apogee</th><td className="value">{fmt(flown.r.apogee, 1)} m<span className="alt">OpenRocket {fmt(or.apogee, 1)} m · {diff(flown.r.apogee, or.apogee)}</span></td><td className="src"><span className="src-tag" title="this app's ascent (rocket.js), a point mass">ascent</span></td></tr>
+            <tr><th scope="row">Time to apogee</th><td className="value">{fmt(flown.r.timeToApogee, 2)} s<span className="alt">OpenRocket {fmt(or.apogeeTime, 2)} s · {diff(flown.r.timeToApogee, or.apogeeTime)}</span></td><td className="src"><span className="src-tag" title="this app's ascent; OpenRocket's time is where its climb rate crosses zero, between its samples">ascent</span></td></tr>
+            <tr><th scope="row">Top speed</th><td className="value">{fmt(flown.r.maxSpeed, 1)} m/s<span className="alt">Mach {fmt(flown.r.maxMach, 3)}{or.maxSpeed !== null ? ` · OpenRocket ${fmt(or.maxSpeed, 1)} m/s · ${diff(flown.r.maxSpeed, or.maxSpeed)}` : ''}</span></td><td className="src"><span className="src-tag" title="this app's ascent (rocket.js), a point mass">ascent</span></td></tr>
+          </tbody></table>
+          {flown.v.deployedAt !== null && <p className="hint">OpenRocket opened a parachute {fmt(flown.v.deployedAt, 2)} s after launch, before apogee. From then on this app's flight uses OpenRocket's recorded drag, whichever drag is picked.</p>}
+          {flown.v.flagged.length > 0 && <p className="status bad">OpenRocket flagged this flight ({flown.v.flagged.join(', ')}) before apogee: its result may not be one to compare with.</p>}
+          <p className="hint">This app flies the rocket as a point mass: up the launch rod, then along its velocity through the air, its axis turning into the average wind with a 0.1 s lag, in the air OpenRocket recorded. Thrust is OpenRocket's saved samples joined by straight lines (the file names its motors but holds no thrust curves); masses are as its flight carried them, saved to three or four figures. Not launched into the scene.</p>
+        </>
+      )}
+    </details>
+  );
+}
+
+// Height against time: OpenRocket's flight in the flown-path green, wider,
+// under this app's in amber, so where they agree it shows as an amber line
+// edged in green.
+function FlightPlot({ ours, theirs }: { ours: number[][]; theirs: number[][] }) {
+  const W = 300, H = 120;
+  const tMax = Math.max(ours.at(-1)?.[0] ?? 0, theirs.at(-1)?.[0] ?? 0) || 1;
+  const hMax = Math.max(1, ...ours.map((p) => p[1]), ...theirs.map((p) => p[1]));
+  const line = (pts: number[][]) => pts.map(([t, h]) => `${(t / tMax * W).toFixed(1)},${(H - h / hMax * H).toFixed(1)}`).join(' ');
+  return (
+    <figure className="porkchop ascent-plot">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Height against time, this app's flight and OpenRocket's, up to ${fmt(hMax, 0)} m in ${fmt(tMax, 1)} s`}>
+        <polyline points={line(theirs)} fill="none" style={{ stroke: 'var(--flown-line)', strokeWidth: 3.5 }} />
+        <polyline points={line(ours)} fill="none" />
+      </svg>
+      <figcaption><span>{fmt(hMax, 0)} m up</span><span>{fmt(tMax, 1)} s after launch</span></figcaption>
+      <ul className="legend"><li><i className="sw conic" />This app's flight</li><li><i className="sw flown" />OpenRocket's saved flight</li></ul>
+    </figure>
   );
 }
 
