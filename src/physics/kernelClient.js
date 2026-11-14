@@ -19,6 +19,8 @@ export class KernelClient {
     this.sentAt = 0;
     this.replyTimeoutMs = replyTimeoutMs;
     this.inflight = new Map();
+    this.aiming = new Map();     // id -> resolve, for aim requests
+    this.aimId = 0;
     this.lastMs = 0;            // kernel time for the last batch
     this.mode = 'main-thread';
     this.host = null;
@@ -26,7 +28,7 @@ export class KernelClient {
     if (useWorker && typeof Worker !== 'undefined') {
       try {
         this.worker = new Worker(new URL('./kernel.worker.js', import.meta.url), { type: 'module' });
-        this.worker.onmessage = (e) => this.onReply(e.data);
+        this.worker.onmessage = (e) => (e.data && e.data.type === 'aimed' ? this.onAimed(e.data) : this.onReply(e.data));
         this.worker.onerror = (e) => this.fallBack(`worker error: ${e.message || e}`);
         this.worker.onmessageerror = () => this.fallBack('worker reply could not be read');
         this.mode = 'worker';
@@ -44,8 +46,11 @@ export class KernelClient {
     this.host = this.host || createKernelHost();
     this.mode = 'main-thread';
     // Anything in flight is lost; the crafts resend from their own state and
-    // take back the thrust those requests carried.
+    // take back the thrust those requests carried. Aims in flight answer
+    // null (the craft asks again).
     for (const craft of this.inflight.values()) craft.dropped?.();
+    for (const resolve of this.aiming.values()) resolve(null);
+    this.aiming.clear();
     this.busy = false;
     this.inflight.clear();
   }
@@ -54,8 +59,9 @@ export class KernelClient {
   // (src/physics/craft.js).
   tick(crafts) {
     if (this.busy) {
-      // A Worker that never answers would otherwise freeze every craft.
-      if (this.worker && performance.now() - this.sentAt > this.replyTimeoutMs) {
+      // A Worker that never answers would otherwise freeze every craft (an
+      // aim ahead of the step in its queue may take a while).
+      if (this.worker && !this.aiming.size && performance.now() - this.sentAt > this.replyTimeoutMs) {
         this.fallBack(`no reply in ${this.replyTimeoutMs} ms`);
       } else {
         return false;
@@ -103,6 +109,24 @@ export class KernelClient {
       if (craft) craft.applyResult(res);
     }
     this.inflight.clear();
+  }
+
+  // An aim (kernelHost.aimTo) worked out in the worker, off this thread:
+  // resolves with its answer, or null if it failed. In the worker's queue
+  // with the steps; without a worker, worked out here at once.
+  aim(req) {
+    const id = ++this.aimId, msg = { type: 'aim', id, ...req };
+    if (!this.worker) {
+      const reply = this.host.handle(msg);
+      return Promise.resolve(reply.result ?? null);
+    }
+    return new Promise((resolve) => { this.aiming.set(id, resolve); this.worker.postMessage(msg); });
+  }
+  onAimed(reply) {
+    const resolve = this.aiming.get(reply.id);
+    this.aiming.delete(reply.id);
+    if (reply.error) console.warn(`KernelClient: aim failed: ${reply.error}`);
+    resolve?.(reply.result ?? null);
   }
 
   dispose() {
