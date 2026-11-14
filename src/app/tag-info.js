@@ -19,7 +19,7 @@ const TWO_BODY = 'Curtis, Orbital Mechanics for Engineering Students, 4th ed., A
 const KERNEL = 'docs/physics/nbody-kernel.md';
 const ROCKET_EQ = 'Curtis, 4th ed., §13.3–13.4 · docs/physics/burns-and-launch.md';
 const ASCENT = 'Curtis, 4th ed., §13.2 (gravity turn), eq. 13.27 (losses) · docs/physics/rocket.md';
-const EPHEMERIS = 'Earth and the Moon: JPL DE442, a Chebyshev fit for 2000–2050; the other planets, and outside those years: astronomy-engine (MIT), within 10⁻⁴ of DE442 · docs/physics/ephemerides-and-gm.md';
+const EPHEMERIS = 'JPL DE442 for every planet, Pluto and the Moon, a Chebyshev fit for 2000–2050 within a metre of it; outside those years astronomy-engine (MIT), within 10⁻⁴ of DE442 · docs/physics/ephemerides-and-gm.md';
 const VIS_VIVA = 'a = \\left(\\frac{2}{r} - \\frac{v^2}{\\mu}\\right)^{-1}';
 
 /** @satisfies {Record<string, { what: string, tex: string[], where?: string, source: string }>} */
@@ -103,8 +103,8 @@ export const TAG_INFO = {
   'bary-what': {
     what: 'A centre of mass: the point the bodies it holds all orbit together. The ephemeris gives each planet system as its barycentre; the solar system\'s is where the whole system balances.',
     tex: ['\\mathbf r_\\text{B} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\sum_i \\mu_i}'],
-    where: '𝐫ᵢ: heliocentric positions, μᵢ: GMs (DE442). Mars to Pluto: astronomy-engine\'s planet positions, which are these barycentres; Earth and the Moon: DE442; the SSB: the Sun, every planet system, Earth, the Moon and Pluto, within 150 km of JPL Horizons',
-    source: 'DE442 GMs; astronomy-engine; JPL Horizons for the checks · docs/frontend/barycentres.md',
+    where: '𝐫ᵢ: heliocentric positions, μᵢ: GMs (DE442). Mars to Pluto: DE442\'s system barycentres, which are the planets\' positions; the EMB from DE442\'s Earth and Moon; the SSB: DE442\'s own for 2000–2050, else from the Sun, every planet system, Earth, the Moon and Pluto (within 150 km of JPL Horizons)',
+    source: 'JPL DE442; astronomy-engine outside 2000–2050; JPL Horizons for the checks · docs/frontend/barycentres.md',
   },
   'bary-gm': {
     what: 'G times the mass of everything this barycentre is the centre of.',
@@ -120,8 +120,8 @@ export const TAG_INFO = {
   'ssb-offset': {
     what: 'How far the Sun\'s centre is from the solar system barycentre. The Sun wanders round it, mostly with Jupiter and Saturn, often by more than its own radius.',
     tex: ['\\mathbf r_\\text{SSB} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\mu_\\odot + \\sum_i \\mu_i}'],
-    where: '𝐫ᵢ: heliocentric positions of every planet system, Earth, the Moon and Pluto; within 150 km of JPL Horizons over 2000–2050',
-    source: 'DE442 GMs; astronomy-engine and DE442 positions · docs/frontend/barycentres.md',
+    where: 'For 2000–2050, DE442\'s own SSB, which counts every body JPL integrates; outside it, 𝐫ᵢ: heliocentric positions of every planet system, Earth, the Moon and Pluto, within 150 km of JPL Horizons',
+    source: 'JPL DE442; DE442 GMs and astronomy-engine outside 2000–2050 · docs/frontend/barycentres.md',
   },
   'ssb-distance': {
     what: 'Distance from the solar system barycentre, the centre of mass of the Sun and everything that orbits it.',
@@ -483,6 +483,45 @@ export const TAG_INFO = {
     tex: ['\\Delta v = \\sqrt{v_\\infty^2 + \\frac{2\\mu}{r}} - \\sqrt{\\frac{\\mu}{r}}'],
     where: 'once at each end, with that planet\'s μ and orbit radius r',
     source: 'patched conics; Curtis, 4th ed., §8.5–8.6 · docs/physics/burns-and-launch.md',
+  },
+
+  // ---------------- the journey planner (journey-panel.tsx) ----------------
+  // journey.js solveLeg, departCost, arriveCost
+  'journey-leg': {
+    what: 'One leg of the journey by patched conics: the Lambert arc between the two stops about the body they share, and the burns at each end onto and off it.',
+    tex: ['\\Delta v_\\text{dep} = \\sqrt{v_\\infty^2 + \\frac{2\\mu}{r_p}} - \\sqrt{\\frac{\\mu}{r_p}}', '\\Delta v_\\text{cap} = \\sqrt{v_\\infty^2 + \\frac{2\\mu}{r_p}} - \\sqrt{\\frac{\\mu(1+e)}{r_p}}'],
+    where: 'v∞: the arc\'s velocity less the body\'s; r_p: the parking or capture orbit\'s radius; e = 0 (circular)',
+    source: 'Curtis, 4th ed., §8.6–8.8, eqs. 8.40 and 8.58 · docs/physics/journey.md',
+  },
+  // transfers.js poweredFlyby, bPlane
+  flyby: {
+    what: 'The flyby that turns the excess velocity arriving onto the one the next leg leaves with: the periapsis whose two half-hyperbolas make the turn, and a burn at periapsis for any change of speed.',
+    tex: ['\\delta = \\sin^{-1}\\frac{1}{e_\\text{in}} + \\sin^{-1}\\frac{1}{e_\\text{out}},\\quad e = 1 + \\frac{r_p v_\\infty^2}{\\mu}', 'B = r_p\\sqrt{1 + \\frac{2\\mu}{r_p v_\\infty^2}}'],
+    where: 'B: the aiming radius, the size of the B vector in the B-plane (B·T in the ecliptic, B·R across it)',
+    source: 'Curtis, 4th ed., §8.9, eqs. 8.71 and 8.75 (Example 8.6) · docs/physics/journey.md',
+  },
+  'journey-shaped': {
+    what: 'The leg flown free by two-body motion from its departure (or from a flyby aimed by hand), each burn node adding its prograde, normal and radial delta-v; how far from the waypoint it ends at the arrival date.',
+    tex: ['\\Delta\\mathbf v = \\Delta v_P\\,\\hat{\\mathbf T} + \\Delta v_N\\,\\hat{\\mathbf N} + \\Delta v_R\\,\\hat{\\mathbf R}', '\\hat{\\mathbf T} = \\frac{\\mathbf v}{v},\\quad \\hat{\\mathbf N} = \\frac{\\mathbf r \\times \\mathbf v}{|\\mathbf r \\times \\mathbf v|},\\quad \\hat{\\mathbf R} = \\hat{\\mathbf T} \\times \\hat{\\mathbf N}'],
+    where: 'about the leg\'s central body, at the node\'s place; the miss counts as reached inside the target\'s sphere of influence',
+    source: 'journey.js shapeLeg · docs/physics/journey.md#shaping-it-by-hand',
+  },
+  'journey-total': {
+    what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
+    tex: ['\\Delta v = \\sum \\Delta v_\\text{burn}'],
+    source: 'docs/physics/journey.md',
+  },
+  'kernel-check': {
+    what: 'The journey flown by the n-body kernel: aimed corrections to each waypoint\'s B-plane on the way, the periapsis trimmed inside its sphere of influence, and the closest approach measured.',
+    tex: ['\\Delta r = |r_\\text{closest}| - r_{p,\\text{planned}}'],
+    source: 'journeyFlight.js · docs/physics/journey.md#flying-it',
+  },
+  // staging.js sizeLauncher (rocket.js optimalStaging)
+  'journey-stack': {
+    what: 'The lightest stack of stages for the journey\'s delta-v and the climb to orbit, each stage sized by optimal staging.',
+    tex: ['\\sum_i c_i \\ln\\frac{c_i\\eta - 1}{c_i\\varepsilon_i\\eta} = \\Delta v', 'n_i = \\frac{c_i\\eta - 1}{c_i\\varepsilon_i\\eta},\\quad m_i = \\frac{n_i - 1}{1 - n_i\\varepsilon_i}\,m_\\text{above}'],
+    where: 'c_i = I_sp g₀; ε_i: structural ratio; η: the Lagrange multiplier',
+    source: 'Curtis, 4th ed., §13.6, eqs. 13.83–13.86 (Example 13.7) · docs/physics/journey.md#the-rocket-it-needs',
   },
 
   // ---------------- the ROCKET tab (rocket-panel.tsx) ----------------

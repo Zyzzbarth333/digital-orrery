@@ -67,28 +67,39 @@ export function transfer(o, depMs, tofDays) {
   return best;
 }
 
+// Nelder-Mead minimisation of f over n parameters from p0, the first
+// simplex stepped by `steps` along each axis. Stops when the simplex's
+// values agree to 1e-7 and its points to 1e-4, or after 200 rounds.
+// Returns the best point.
+export function nelderMead(f, p0, steps, { iterations = 200 } = {}) {
+  const n = p0.length, ev = (p) => ({ p, v: f(p) });
+  let s = [ev([...p0]), ...steps.map((h, i) => ev(p0.map((x, j) => (j === i ? x + h : x))))];
+  for (let it = 0; it < iterations; it++) {
+    s.sort((a, b) => a.v - b.v);
+    const spread = Math.max(...s.slice(1).map((x) => Math.hypot(...x.p.map((c, j) => c - s[0].p[j]))));
+    if (Math.abs(s[n].v - s[0].v) < 1e-7 && spread < 1e-4) break;
+    const c = p0.map((_, j) => s.slice(0, n).reduce((a, x) => a + x.p[j], 0) / n);
+    const at = (k) => ev(c.map((cj, j) => cj + k * (s[n].p[j] - cj)));
+    const r = at(-1);
+    if (r.v < s[0].v) { const e = at(-2); s[n] = e.v < r.v ? e : r; } else if (r.v < s[n - 1].v) s[n] = r;
+    else {
+      const k = at(r.v < s[n].v ? -0.5 : 0.5);
+      if (k.v < Math.min(r.v, s[n].v)) s[n] = k;
+      else s = [s[0], ...s.slice(1).map((x) => ev(x.p.map((pj, j) => (pj + s[0].p[j]) / 2)))];
+    }
+  }
+  s.sort((a, b) => a.v - b.v);
+  return s[0].p;
+}
+
 // Nelder-Mead on (launch day, flight days), from a grid cell.
 function refine(o, best, stepLaunch, stepTof) {
   const f = (p) => {
     const t = transfer(o, p[0] * DAY_MS, p[1]);
     return t && p[1] >= o.tofMinDays && p[1] <= o.tofMaxDays && p[0] * DAY_MS >= o.launchStartMs && p[0] * DAY_MS <= o.launchEndMs ? t.totalDv : Infinity;
   };
-  let s = [[best.depMs / DAY_MS, best.tofDays], [best.depMs / DAY_MS + stepLaunch, best.tofDays], [best.depMs / DAY_MS, best.tofDays + stepTof]].map((p) => ({ p, v: f(p) }));
-  for (let it = 0; it < 200; it++) {
-    s.sort((a, b) => a.v - b.v);
-    if (Math.abs(s[2].v - s[0].v) < 1e-7 && Math.hypot(s[2].p[0] - s[0].p[0], s[2].p[1] - s[0].p[1]) < 1e-4) break;
-    const c = [(s[0].p[0] + s[1].p[0]) / 2, (s[0].p[1] + s[1].p[1]) / 2];
-    const at = (k) => { const p = [c[0] + k * (s[2].p[0] - c[0]), c[1] + k * (s[2].p[1] - c[1])]; return { p, v: f(p) }; };
-    const r = at(-1);
-    if (r.v < s[0].v) { const e = at(-2); s[2] = e.v < r.v ? e : r; } else if (r.v < s[1].v) s[2] = r;
-    else {
-      const k = at(r.v < s[2].v ? -0.5 : 0.5);
-      if (k.v < Math.min(r.v, s[2].v)) s[2] = k;
-      else s = [s[0], ...s.slice(1).map((x) => { const p = [(x.p[0] + s[0].p[0]) / 2, (x.p[1] + s[0].p[1]) / 2]; return { p, v: f(p) }; })];
-    }
-  }
-  s.sort((a, b) => a.v - b.v);
-  return transfer(o, s[0].p[0] * DAY_MS, s[0].p[1]);
+  const p = nelderMead(f, [best.depMs / DAY_MS, best.tofDays], [stepLaunch, stepTof]);
+  return transfer(o, p[0] * DAY_MS, p[1]);
 }
 
 // opts:

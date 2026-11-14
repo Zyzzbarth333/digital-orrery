@@ -1,16 +1,16 @@
 // src/physics/deLoad.js
 //
-// Fetches and installs the DE442 Earth-Moon table (deTable.js) and SB441's
-// asteroids (sbTable.js) in a browser thread: the main thread before the app
-// starts, and each worker before its first job. If a fetch fails the app
-// runs without that table (astronomy-engine for the Earth and the Moon, no
-// asteroids in the kernel) and says so in the console.
+// Fetches and installs the DE442 table (deTable.js) and SB441's asteroids
+// (sbTable.js) in a browser thread: the main thread before the app starts,
+// and each worker before its first job. If a fetch fails the app runs
+// without that table (astronomy-engine for every body, or no asteroids in
+// the kernel) and says so in the console.
 
 import { parseDeTable, installDeTable } from './deTable.js';
 import { parseSbTable, installSbTable } from './sbTable.js';
 import { installSpaceWeather } from './spaceWeather.js';
 
-export const DE_TABLE_URL = `${import.meta.env.BASE_URL}ephemeris/de442-earth-moon-2000-2050.bin`;
+export const DE_TABLE_URL = `${import.meta.env.BASE_URL}ephemeris/de442-2000-2050.bin`;
 
 export const SB_TABLE_URL = `${import.meta.env.BASE_URL}ephemeris/sb441-asteroids-2000-2050.bin`;
 
@@ -32,7 +32,7 @@ export async function loadDeTable(url = DE_TABLE_URL) {
     await sb;
     return true;
   } catch (err) {
-    console.warn(`DE442 Earth-Moon table not loaded (${err}); using astronomy-engine for Earth and the Moon`);
+    console.warn(`DE442 table not loaded (${err}); using astronomy-engine for every body`);
     await sb;
     return false;
   }

@@ -287,6 +287,19 @@ def _milky_way(src: Path, n: int) -> np.ndarray:
     return np.memmap(raw, dtype=np.float16, mode="r", shape=(n // 2, n, 3))
 
 
+def _sky_preview(a: np.ndarray, scale: float, out: Path, width: int = 2048) -> Path:
+    """A 2048-wide copy of the base map (the mean of each block of its
+    linear light), shown while the full map decodes: the 8k one takes
+    seconds."""
+    h, w = a.shape[0], a.shape[1]
+    k = w // width
+    small = np.asarray(a, dtype=np.float32).reshape(h // k, k, width, k, 3).mean(axis=(1, 3)) * scale
+    pv = out / "stars" / f"milky-way-{width // 1024}k.webp"
+    Image.fromarray(_srgb8(small), "RGB").save(pv, "WEBP", quality=90, method=6)
+    print(f"  wrote {pv.relative_to(out)} {width}x{width // 2} {pv.stat().st_size / 1e6:.2f} MB (preview)")
+    return pv
+
+
 def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, detail=16384, tile=1024, gutter=2):
     """The sky in two layers (docs/frontend/textures.md#stars).
 
@@ -324,6 +337,7 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, det
     if old.exists():
         old.unlink()
     print(f"  wrote {m.relative_to(out)} {img.size[0]}x{img.size[1]} {m.stat().st_size / 1e6:.1f} MB")
+    _sky_preview(a, scale, out)
     del a, img
 
     # The detail tiles, at the same white (scale per base pixel / 4 per doubling).
@@ -387,7 +401,7 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, det
         old.unlink()
     print(f"  wrote stars/hipparcos.bin: {len(vm)} of {len(rows)} stars to V {vmax}, "
           f"{np.isnan(bv).sum()} without B-V, {p.stat().st_size / 1e6:.2f} MB")
-    return {"map": f"stars/milky-way-{base // 1024}k.webp", "raAtLeftDeg": 180.0, "raIncreasesRight": False, "gain": 1.0,
+    return {"map": f"stars/milky-way-{base // 1024}k.webp", "preview": "stars/milky-way-2k.webp", "raAtLeftDeg": 180.0, "raIncreasesRight": False, "gain": 1.0,
             "detail": {"tiles": f"stars/milky-way-{detail // 1024}k/{{row}}-{{col}}.webp", "width": detail,
                        "tile": tile, "gutter": gutter},
             "points": "stars/hipparcos.bin", "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000",

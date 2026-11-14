@@ -14,9 +14,11 @@ they come from, and how each part is checked.
 | [The n-body kernel](physics/nbody-kernel.md) | Force model and indirect term, leapfrog and Yoshida, step size, budget, events, Hermite interpolation, the Web Worker and drawing |
 | [Burns, launches and the porkchop](physics/burns-and-launch.md) | Finite burns and the rocket equation, manoeuvre nodes, the departure hyperbola, C3 and porkchop grids |
 | [Body orientation](physics/orientation.md) | Body-fixed frames, Earth's rotation, the IAU pole and prime-meridian model, checks against CSPICE |
+| [Gravity guides](physics/gravity-guides.md) | Spin axes, Earth's and the Moon's real gravity fields (EGM2008, GRAIL) as anomaly maps, spheres of influence and Hill spheres, Lagrange points, the strongest pulls on a body |
 | [A 6-DOF vehicle in Earth orbit](physics/sixdof.md) | Rigid-body attitude, the Earth's gravity field to any degree, Earth rotation (IAU 1976/1980), drag and thrust, NASA's 6-DOF check cases |
 | [The space environment](physics/environment.md) | Forces beyond gravity's point masses and J2 on the app's craft: sunlight pressure with the Earth's and Moon's shadows, and the steps across a shadow's edge |
 | [Rockets: stages, staging and the ascent](physics/rocket.md) | The ROCKET tab: stage performance, optimal staging (Curtis 13.6), delta-v budgets worked back from a job, a gravity-turn ascent from a pad into orbit; thrust curves and drag against Mach, checked against OpenRocket and RocketPy; OpenRocket design files flown in the app |
+| [Journeys: legs, transfers, flybys and the rocket](physics/journey.md) | A journey of any number of legs by patched conics, each leg's transfers compared (Hohmann, bi-elliptic, plane change, Lambert, the porkchop optimum, phasing, gravity assists and the B-plane), flown by the kernel to each waypoint, and the stack of stages it needs |
 
 ## Front end
 

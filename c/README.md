@@ -62,20 +62,23 @@ after it restrict sampling to those windows; the burn fixture
 (`artemis2_burns.json`) is the windows around each burn at 5 s, with the
 command in [docs/validation/artemis2.md](../docs/validation/artemis2.md#regenerate).
 
-## DE442's Earth and Moon for the app
+## DE442 for the app
 
-`de_cheb.c` fits the Chebyshev series that the app uses for Earth and the
-Moon ([docs/physics/ephemerides-and-gm.md](../docs/physics/ephemerides-and-gm.md#de442-in-the-app)),
+`de_cheb.c` fits the Chebyshev series that the app uses for every planet,
+Pluto, the Moon and the SSB
+([docs/physics/ephemerides-and-gm.md](../docs/physics/ephemerides-and-gm.md#de442-in-the-app)),
 from the same kernels as the reference generator:
 
 ```bash
 cmake --build c/build
-c/build/de_cheb public/ephemeris/de442-earth-moon-2000-2050.bin 2000 2051
+c/build/de_cheb public/ephemeris/de442-2000-2050.bin 2000 2051
 ```
 
-The arguments are the first year and the year after the last. It prints the
-worst position error per body, checked between the fitting nodes against
-`spkezr_c`.
+The arguments are the first year and the year after the last. It prints,
+per series and per body as the app composes it about the Sun, the worst
+position and acceleration error, checked between the fitting nodes against
+`spkezr_c`, and the jumps where intervals meet. `DAYS_<id>` and `N_<id>`
+(NAIF code, 301 for the Moon) override a series' interval and coefficients.
 
 ## SB441's largest asteroids for the app
 

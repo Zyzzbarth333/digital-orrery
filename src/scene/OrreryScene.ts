@@ -3,7 +3,8 @@
 // The 3D solar system, at true scale and true positions.
 //
 // Positions: every frame, each body's heliocentric ecliptic J2000 state comes
-// from the ephemeris (src/physics/ephemeris.js, astronomy-engine). Orbit lines
+// from the ephemeris (src/physics/ephemeris.js: DE442's table for 2000-2050,
+// astronomy-engine outside it). Orbit lines
 // are sampled from the same ephemeris, not drawn as ellipses.
 //
 // Precision (floating origin): all positions are kept in km as doubles. The
@@ -30,7 +31,6 @@ import { helioStateEcl, eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
 import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
 import { baryStateEqj } from '../physics/barycentres.js';
-import { bodyConstants, MU_SUN } from '../physics/bodies.js';
 import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, shadowAxes } from './bodyMaterial';
@@ -38,7 +38,10 @@ import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
+import { JourneyLayer } from './journeyLayer';
+import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
+import { GuideLayer } from './guides';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
@@ -99,7 +102,7 @@ function renderToEqj(): THREE.Matrix3 {
     cols[0][2], cols[1][2], cols[2][2]);
 }
 
-// Planets whose moons are drawn (moons.js). astronomy-engine places each at
+// Planets whose moons are drawn (moons.js). The ephemeris places each at
 // its system barycentre; the scene draws the planet at its own centre,
 // offset from that by its moons' pull (2,100 km for Pluto), and each moon
 // about that centre.
@@ -140,17 +143,12 @@ export function baryState(key: BaryKey, date: Date): BodyState {
 export type Frame = 'sun' | 'ssb';
 // The Sun's path about the SSB is drawn over two of Jupiter's years.
 const SUN_PATH_DAYS = 2 * 4332.59;
-// The SSB for orbit lines, from the four giants alone: within about 700 km
-// of the full SSB (the inner planets' pull), unseen at an orbit's scale,
-// and a quarter of the cost, 360 times over. The line's origin is this
-// same point, so the line still passes through its body.
-const GIANTS = ['jupiter', 'saturn', 'uranus', 'neptune'];
-const GIANT_GM = GIANTS.map((k) => bodyConstants(k).mu as number);
-const GIANT_TOTAL = MU_SUN + GIANT_GM.reduce((a, b) => a + b, 0);
-function ssbOfGiants(date: Date): Vec3 {
-  const r: Vec3 = [0, 0, 0];
-  GIANTS.forEach((k, i) => { const p = helioStateEcl(k, date).r; for (let j = 0; j < 3; j++) r[j] += (GIANT_GM[i] * p[j]) / GIANT_TOTAL; });
-  return r;
+// The SSB for orbit lines and the SSB frame, as barycentres.js gives it:
+// DE442's own (one series) inside its table, blended at its ends into the
+// sum over every body used outside it. The line's origin is this same
+// point, so the line still passes through its body.
+function ssbForLines(date: Date): Vec3 {
+  return eqjToEcl(baryStateEqj('ssb', date).r) as Vec3;
 }
 
 // Where a body's orbit line is centred, and over how many days it runs.
@@ -169,7 +167,7 @@ function orbitDays(key: BodyKey, frame: Frame): number | null {
 function relativePosition(key: BodyKey, date: Date, frame: Frame): Vec3 {
   if (isPlanetMoon(key)) return eqjToEcl(moonPositionEqj(key, date)) as Vec3;
   const origin = orbitOrigin(key, frame)!;
-  if (origin === 'ssb') return sub(key === 'sun' ? [0, 0, 0] : bodyState(key, date).r, ssbOfGiants(date));
+  if (origin === 'ssb') return sub(key === 'sun' ? [0, 0, 0] : bodyState(key, date).r, ssbForLines(date));
   return sub(bodyState(key, date).r, bodyState(origin, date).r);
 }
 
@@ -256,8 +254,23 @@ export class OrreryScene {
   focusSmall: string | null = null;
   onSmallPick: (pdes: string) => void = () => {};
   private craftLayer!: CraftLayer;
+  // The journey being planned (journeyLayer.ts): its arcs and burn nodes.
+  journeySource: () => JourneyView | null = () => null;
+  // While a full-screen view covers the sky (the plotting table), stop
+  // drawing it; the clock and the mission keep running.
+  private paused = false;
+  setPaused(on: boolean): void {
+    if (this.paused === on) return;
+    this.paused = on;
+    if (!on) this.lastFrame = performance.now();
+  }
+  // What dragging its nodes and aims does (the app's JourneyStore).
+  journeyHandlers: JourneyHandlers | null = null;
+  private journeyLayer!: JourneyLayer;
+  private journeyCentral = (key: string): Vec3 | null => (key === 'sun' ? [0, 0, 0] : this.states[key as BodyKey]?.r ?? null);
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
+  guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
 
   private bodyAnchor(key: FocusKey): Anchor {
     // A barycentre is a point: the camera may close to a kilometre.
@@ -395,10 +408,20 @@ export class OrreryScene {
       if (stars) {
         // The light between the stars, then the stars as points over it.
         const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
-        void this.surfaces.load(stars.map, true).then((tex) => {
+        // A 2048-wide preview first (0.6 MB, on screen in about a second),
+        // then the full map, which takes seconds to decode, in its place.
+        const show = (tex: THREE.Texture) => {
+          if (this.stars) { (this.stars.material as THREE.ShaderMaterial).uniforms.starMap.value = tex; return; }
           this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain,
             stars.detail && { entry: stars.detail, base: TEXTURE_BASE });
           this.scene.add(this.stars);
+        };
+        let full = false;
+        if (stars.preview) void this.surfaces.load(stars.preview, true).then((tex) => { if (!full) show(tex); }).catch(() => {});
+        void this.surfaces.load(stars.map, true).then((tex) => {
+          full = true;
+          show(tex);
+          if (stars.preview) this.surfaces.drop(stars.preview);
         });
         if (stars.points) {
           void loadBinary(stars.points).then((buf) => {
@@ -411,7 +434,10 @@ export class OrreryScene {
     });
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
+    this.journeyLayer = new JourneyLayer(this.scene, this.overlay, () => this.journeyHandlers);
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    this.guides = new GuideLayer(this.scene, this.overlay, toRender,
+      (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
@@ -420,6 +446,9 @@ export class OrreryScene {
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.onContextLost(true); });
     this.renderer.domElement.addEventListener('webglcontextrestored', () => { this.reloadMaps(); this.onContextLost(false); });
     this.attachControls();
+    // ?debug exposes the scene as window.orrery, for the frame-time harness
+    // (docs/performance.md#measuring) and for poking at it from the console.
+    if (new URLSearchParams(location.search).has('debug')) (window as unknown as { orrery: OrreryScene }).orrery = this;
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
@@ -495,19 +524,24 @@ export class OrreryScene {
     const el = this.renderer.domElement;
     // One pointer drags; a second finger is ignored until the first lifts.
     let pointer: number | null = null, lx = 0, ly = 0;
+    // A press that does not move (a click) goes to the journey: a burn
+    // node on the arc under it, or the selection cleared.
+    let sx = 0, sy = 0, travel = 0;
     el.addEventListener('pointerdown', (e) => {
       if (pointer !== null) return;
-      pointer = e.pointerId; lx = e.clientX; ly = e.clientY; el.setPointerCapture(e.pointerId);
+      pointer = e.pointerId; lx = sx = e.clientX; ly = sy = e.clientY; travel = 0; el.setPointerCapture(e.pointerId);
     });
     const end = (e: PointerEvent) => {
       if (e.pointerId !== pointer) return;
       pointer = null;
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      if (e.type === 'pointerup' && travel < 4) this.journeyLayer.click(sx, sy);
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
     el.addEventListener('pointermove', (e) => {
       if (e.pointerId !== pointer) return;
+      travel = Math.max(travel, Math.hypot(e.clientX - sx, e.clientY - sy));
       this.rig.rotate(-(e.clientX - lx) * 0.005, (e.clientY - ly) * 0.005);
       lx = e.clientX; ly = e.clientY;
     });
@@ -678,6 +712,14 @@ export class OrreryScene {
 
   private frame = (now: number): void => {
     this.raf = requestAnimationFrame(this.frame);
+    // Paused (the plotting table covers the sky): the clock and the mission
+    // run on, nothing is drawn, and the render-scale budget sees no frame.
+    if (this.paused) {
+      this.clock.tick((now - this.lastFrame) / 1000);
+      this.lastFrame = now;
+      this.onFrame(this.clock.snapshot.timeMs, this.clock.snapshot.jumps);
+      return;
+    }
     this.uploader.step();
     const dtReal = Math.min(0.1, Math.max(0, (now - this.lastFrame) / 1000));
     const ratio = this.scale.frame(now, now - this.lastFrame);
@@ -733,7 +775,7 @@ export class OrreryScene {
       toRender(sub(this.states[b.key].r, cam), this.meshes.get(b.key)!.position);
     }
     for (const b of BARYS) toRender(sub(this.states[b.key].r, cam), this.baryPos.get(b.key)!);
-    if (this.refFrame === 'ssb') toRender(sub(ssbOfGiants(date), cam), this.ssbLinePos);
+    if (this.refFrame === 'ssb') toRender(sub(ssbForLines(date), cam), this.ssbLinePos);
     const sunPos = this.meshes.get('sun')!.position;
     this.updateLighting(sunPos, cam, date);
     for (const b of BODIES) {
@@ -754,6 +796,8 @@ export class OrreryScene {
     }
 
     this.craftLayer.place(crafts, cam, UNIT_KM);
+    const journey = this.journeySource();
+    this.journeyLayer.place(journey, this.journeyCentral, cam, UNIT_KM, dist);
 
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(toRender([-offset[0], -offset[1], -offset[2]], this.tmp));
@@ -761,10 +805,16 @@ export class OrreryScene {
     this.updateGlare(sunPos, cam, now);
     this.updateAdaptation(dtReal, sunPos);
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
+      // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
+      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
+      level: 1 / this.renderer.toneMappingExposure, date });
 
+    this.smallBodies.renderHaze(this.renderer, this.camera);
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
+    this.journeyLayer.label(this.journeyCentral, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
 
   // The Sun's glare: its strength follows the sunlight at the camera and
@@ -883,6 +933,7 @@ export class OrreryScene {
     for (const o of this.orbits.values()) (o.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     for (const n of this.nearOrbits.values()) (n.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     this.craftLayer.setLevel(inv);
+    this.journeyLayer?.setLevel(inv);
     if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     if (this.starPoints) (this.starPoints.material as THREE.ShaderMaterial).uniforms.level.value = inv;
 
@@ -1011,7 +1062,9 @@ export class OrreryScene {
     this.container.removeEventListener('wheel', this.onWheel);
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
+    this.journeyLayer.dispose();
     this.smallBodies.dispose();
+    this.guides.dispose();
     for (const el of this.labels.values()) el.remove();
     for (const el of this.baryLabels.values()) el.remove();
     this.post.dispose();

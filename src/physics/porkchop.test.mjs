@@ -1,13 +1,15 @@
 // src/physics/porkchop.test.mjs
 //
-// Tests for the porkchop grid and the astronomy-engine ephemeris adapter.
+// Tests for the porkchop grid and the ephemeris adapter (DE442's table, and
+// astronomy-engine outside it).
 // Needs `npm install` (astronomy-engine). Run with:
 //     node src/physics/porkchop.test.mjs
 // Reference values come from src/physics/fixtures/spice_reference.json
 // (CSPICE + DE442, see c/README.md).
 
-import './deNode.js';                 // DE442's Earth and Moon, as in the app
+import './deNode.js';                 // DE442's table, as in the app
 import { readFileSync } from 'node:fs';
+import * as Astronomy from 'astronomy-engine';
 import { lambert } from './orbital.js';
 import { helioStateEqj, helioStateEcl } from './ephemeris.js';
 import { porkchopGrid, transferBetween, range } from './porkchop.js';
@@ -39,13 +41,37 @@ const INNER = new Set(['venus', 'earth', 'mars']);
 let mslC3 = NaN;   // set by case 2 from the DE442 states, used by case 3
 
 console.log('='.repeat(60));
-console.log('CASE 1: the app ephemeris vs DE442 (heliocentric J2000; Earth is DE442 itself, case 1b)');
+console.log('CASE 1: the app ephemeris (DE442 table) vs DE442 through SPICE (heliocentric J2000)');
 console.log('='.repeat(60));
 {
-  let worstInnerR = 0, worstInnerV = 0, worstAllR = 0, worstAllV = 0;
+  // Every planet comes from the Chebyshev table (deTable.js) between 2000
+  // and 2050, through the app's own UTC -> TDB conversion. The J2000 epoch,
+  // given here as UTC to the millisecond, is 0.07 ms off its exact instant:
+  // 2.8 m along Mercury's orbit, 2.2 m along Earth's.
+  let worstR = 0, worstV = 0, worstAt = '';
   for (const p of SPICE.planets) {
     const key = KEY[p.s.body];
     const s = helioStateEqj(key, EPOCH_UTC[p.epoch]);
+    const dR = norm(diff(s.r, p.s.state.slice(0, 3))), dV = norm(diff(s.v, p.s.state.slice(3)));
+    if (dR > worstR) { worstR = dR; worstAt = `${key} at ${p.epoch}`; }
+    worstV = Math.max(worstV, dV);
+  }
+  console.log(`  all 8 bodies: worst ${(worstR * 1000).toFixed(3)} m (${worstAt}), ${(worstV * 1e6).toFixed(3)} mm/s`);
+  check('all planets within 5 m of DE442', worstR < 5e-3);
+  check('all planets velocity within 1 mm/s of DE442', worstV < 1e-6);
+}
+
+console.log('='.repeat(60));
+console.log('CASE 1a: astronomy-engine (the fallback outside 2000-2050) vs DE442');
+console.log('='.repeat(60));
+{
+  const AU_KM = 149597870.7;
+  const BODY = { mercury: 'Mercury', venus: 'Venus', earth: 'Earth', mars: 'Mars', jupiter: 'Jupiter', saturn: 'Saturn', uranus: 'Uranus', neptune: 'Neptune' };
+  let worstInnerR = 0, worstInnerV = 0, worstAllR = 0, worstAllV = 0;
+  for (const p of SPICE.planets) {
+    const key = KEY[p.s.body];
+    const a = Astronomy.HelioState(Astronomy.Body[BODY[key]], EPOCH_UTC[p.epoch]);
+    const s = { r: [a.x, a.y, a.z].map((x) => x * AU_KM), v: [a.vx, a.vy, a.vz].map((x) => (x * AU_KM) / DAY) };
     const r = p.s.state.slice(0, 3), v = p.s.state.slice(3);
     const relR = norm(diff(s.r, r)) / norm(r);
     const dV = norm(diff(s.v, v));
@@ -83,7 +109,7 @@ console.log('='.repeat(60));
 }
 
 console.log('='.repeat(60));
-console.log('CASE 2: MSL cell, astronomy-engine vs DE442 states');
+console.log("CASE 2: MSL cell, the app's ephemeris vs DE442 states");
 console.log('='.repeat(60));
 {
   const m = SPICE.msl;
@@ -101,10 +127,12 @@ console.log('='.repeat(60));
   const arr = { mu: GRAVITATIONAL_PARAMETERS.mars / 1e9, rPark: PLANETS.mars.radius + 400, capture: true };
   const t = transferBetween(helioStateEcl('earth', launch), helioStateEcl('mars', arrive), tof, muSun, dep, arr);
   console.log(`  DE442:            C3 = ${c3Ref.toFixed(4)} km^2/s^2   arrival v_inf = ${vinfArrRef.toFixed(4)} km/s`);
-  console.log(`  astronomy-engine: C3 = ${t.c3.toFixed(4)} km^2/s^2   arrival v_inf = ${t.vinfArr.toFixed(4)} km/s`);
+  console.log(`  app ephemeris:    C3 = ${t.c3.toFixed(4)} km^2/s^2   arrival v_inf = ${t.vinfArr.toFixed(4)} km/s`);
   console.log(`  tof SPICE ${(m.tof_s / DAY).toFixed(4)} d vs UTC ${(tof / DAY).toFixed(4)} d`);
-  check('C3 agrees with DE442 within 0.02 km^2/s^2', Math.abs(t.c3 - c3Ref) < 0.02);
-  check('arrival v_inf agrees with DE442 within 5 m/s', Math.abs(t.vinfArr - vinfArrRef) < 5e-3);
+  console.log(`  differences: C3 ${Math.abs(t.c3 - c3Ref).toExponential(2)} km^2/s^2, arrival v_inf ${(Math.abs(t.vinfArr - vinfArrRef) * 1e3).toExponential(2)} m/s`);
+  // On astronomy-engine the limits were 0.02 km^2/s^2 and 5 m/s.
+  check('C3 agrees with DE442 within 1e-4 km^2/s^2', Math.abs(t.c3 - c3Ref) < 1e-4);
+  check('arrival v_inf agrees with DE442 within 1 cm/s', Math.abs(t.vinfArr - vinfArrRef) < 1e-5);
   check('MSL arc is Type I', t.type === 1);
 }
 
