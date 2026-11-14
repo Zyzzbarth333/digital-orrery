@@ -25,6 +25,7 @@ they come from, and how each part is checked.
 | [The 3D scene](frontend/scene.md) | True scale, the render frame, the floating origin, camera, orbit lines, time |
 | [Camera](frontend/camera.md) | The orbit camera, flights on van Wijk and Nuij's zoom-and-pan path, interrupting and redirecting them, zoom kept between bodies |
 | [Lighting](frontend/lighting.md) | Inverse-square sunlight and exposure, HDR and tone mapping, the Sun's disc and glare, bloom, point stars and adaptation, albedo and scattering laws, eclipses, ring photometry |
+| [Source tags](frontend/source-tags.md) | What each readout's tag opens: the value, its equation and its source; how it behaves, its accessibility, the MathML typesetting, and every reference the tags cite |
 | [Missions](frontend/mission.md) | The craft model, launches, manoeuvre nodes, the readout and its tags, the porkchop planner |
 | [Moons](frontend/moons.md) | Twenty major moons of Mars to Pluto: astronomy-engine's Galilean moons, JPL's mean elements with corrections fitted to Horizons, planets drawn at their centres, the errors against Horizons |
 | [Asteroids and comets](frontend/small-bodies.md) | 135,353 small bodies from JPL's SBDB drawn by the GPU, the named ones, how right they are |

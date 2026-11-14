@@ -351,9 +351,35 @@ kbd {
 
 /* ---------------- tags, strips, sections ---------------- */
 button.src-tag { cursor: pointer; }
-.src-tag.open { background: var(--window); color: var(--phosphor); border-color: var(--window); }
-.tag-detail { margin: 6px 0 0; min-height: 2.9em; font-size: 11px; color: var(--ink-muted); }
-.tag-detail b { font: 10px var(--mono); color: var(--ink); margin-right: 4px; text-transform: uppercase; }
+button.src-tag:hover { background: var(--panel-sunk); }
+.src-tag.open, button.src-tag.open:hover { background: var(--window); color: var(--phosphor); border-color: var(--window); }
+
+/* A tag's detail: a small readout window over the panel, the equation in
+   phosphor. Placed by source-tag.tsx (fixed, under or over its tag). */
+.tag-pop {
+  position: fixed; z-index: 50; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--window); color: var(--phosphor-dim); border: 0; border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--seam-strong), 0 3px 0 rgba(0, 0, 0, 0.35);
+  padding: 10px 12px 11px; font: 11px/1.45 var(--sans); text-align: left; white-space: normal;
+}
+.tag-pop:focus { outline: none; }
+.tag-pop p { margin: 0; }
+.tag-pop > * + * { margin-top: 7px; }
+.tag-pop-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--u); padding-bottom: 6px; border-bottom: 1px solid var(--lamp-dark); }
+.tag-pop-src { font: 10px var(--mono); color: var(--phosphor); text-transform: uppercase; letter-spacing: 0.08em; }
+.tag-pop-kind, .tag-pop-label { font: 10px/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--label-dim); }
+.tag-pop-what { font-size: 12px; color: var(--sheen); }
+.tag-pop-eq { padding: 6px 0; border-top: 1px solid var(--lamp-dark); border-bottom: 1px solid var(--lamp-dark); overflow-x: auto; }
+.tag-pop-line { display: block; }
+.tag-pop-line + .tag-pop-line { margin-top: 4px; }
+.tag-pop math {
+  margin: 0; color: var(--phosphor); font-size: 15px; text-shadow: var(--glow); text-align: left; math-style: normal;
+  font-family: 'DejaVu Math TeX Gyre', 'TeX Gyre DejaVu Math', 'STIX Two Math', 'Cambria Math', 'Latin Modern Math', math;
+}
+.tag-pop-where, .tag-pop-note { color: var(--phosphor-dim); }
+.tag-pop-where { color: var(--label-dim); }
+.tag-pop-source { color: var(--label-dim); }
+.tag-pop-label { display: block; margin-bottom: 1px; }
 .strip.split { display: flex; justify-content: space-between; }
 .plate, .console { scrollbar-gutter: stable; }
 details.section > summary { list-style: none; cursor: pointer; margin: calc(2 * var(--u)) calc(-2.5 * var(--u)) var(--u); display: flex; justify-content: space-between; }

@@ -307,3 +307,21 @@ published equations and Fortran listings
 | Mars | CSPICE to IAU_MARS (Konopliv 2026) | 0.027° (1.6 km) |
 | Jupiter to Neptune (rotation models) | CSPICE to IAU frames | under 0.065° |
 
+
+## The data plate's facts (`bodyfacts.test.mjs`)
+
+| Fact | Reference | Result |
+| --- | --- | --- |
+| Sidereal rotation, ten bodies | NASA NSSDCA planetary fact sheets | within 0.02 %; Neptune checked against the IAU rate (541.1397757°/day, 15.966 h), as NSSDCA gives Voyager's 16.11 h |
+| Solar day, nine bodies | NSSDCA length of day | within 0.04 % (Venus 2,802 h, Mercury 4,222.6 h) |
+| Axial tilt | NSSDCA obliquity to orbit | within 0.05°; the Moon within 0.2° (its plane rocks); Pluto 119.6° from the IAU 2015 pole against NSSDCA's 122.53° |
+| Mean density, escape speed | NSSDCA | density within 1 %; escape speed within 0.5 % (the giants' at their 1-bar equator, as NSSDCA takes it; Mercury to NSSDCA's 0.1 km/s) |
+| The Sun's rotation | Howard, Harvey & Forgach 1990; IAU 14.1844°/day | 25.13 d at the equator, 34.70 d at the poles; 25.38 d |
+| The Sun's Galactic orbit | Reid & Brunthaler 2004, 30.24 km/s/kpc | 203 million years, within 0.5 million |
+
+## Source tags (`tex.test.mjs`)
+
+| Check | Result |
+| --- | --- |
+| The TeX subset's MathML and plain text | fractions, roots, scripts, fences, function names, unary signs |
+| Every tag's equations (`tag-info.js`, 59 entries) | all parse; each has what it is and a source |

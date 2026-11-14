@@ -9,6 +9,7 @@
 
 import fs from 'node:fs';
 import { decodeSmallBodies, positionAu, SB_EPOCH_JD, SB_CLASSES } from './smallBodies.js';
+import { GRID, loadBelt, buildBelt } from './beltGrid.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
@@ -87,6 +88,41 @@ header("THE SHADER'S KEPLER SOLVE (Danby's start, 12 Newton steps, float32) agai
   // float32 runs out of digits for a comet of e near 0.99 close to its
   // perihelion (cos E - e is then small); the rest are well under 20".
   check('the shader puts every body within 2 arcminutes of the exact solution', worst * 180 / Math.PI * 60 < 2);
+}
+
+{
+  header("The faint belt's grid (beltGrid.js): binning keeps each body's light and place");
+  // The main-belt points stand in for the faint file (the same packing).
+  const all = bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength);
+  const B = loadBelt(all), days = 400;
+  const grid = buildBelt(B, days);
+  const { nx, ny, nz, halfXY, halfZ } = GRID;
+  const cx = (ix) => -halfXY + (ix + 0.5) * (2 * halfXY / nx), cy = (iy) => -halfXY + (iy + 0.5) * (2 * halfXY / ny), cz = (iz) => -halfZ + (iz + 0.5) * (2 * halfZ / nz);
+  // The grid's total and light-weighted centre...
+  let s0 = 0, s1 = [0, 0, 0];
+  for (let iz = 0; iz < nz; iz++) for (let iy = 0; iy < ny; iy++) for (let ix = 0; ix < nx; ix++) {
+    const v = grid[(iz * ny + iy) * nx + ix]; if (!v) continue;
+    s0 += v; s1[0] += v * cx(ix); s1[1] += v * cy(iy); s1[2] += v * cz(iz);
+  }
+  // ...against the bodies' own, placed by the exact solution.
+  let t0 = 0, t1 = [0, 0, 0], inside = 0;
+  for (let j = 0; j < d.count; j++) {
+    const p = positionAu({ a: d.a[j], e: d.e[j], i: d.i[j], node: d.node[j], peri: d.peri[j], M: d.M[j] }, SB_EPOCH_JD + days);
+    const gx = (p[0] + halfXY) * nx / (2 * halfXY) - 0.5, gy = (p[1] + halfXY) * ny / (2 * halfXY) - 0.5, gz = (p[2] + halfZ) * nz / (2 * halfZ) - 0.5;
+    if (gx < 0 || gy < 0 || gz < 0 || gx >= nx - 1 || gy >= ny - 1 || gz >= nz - 1) continue;
+    const w = Math.pow(10, -0.4 * d.H[j]) / (p[0] ** 2 + p[1] ** 2 + p[2] ** 2);
+    t0 += w; t1 = t1.map((x, k) => x + w * p[k]); inside++;
+  }
+  const centre = dist(s1.map((x) => x / s0), t1.map((x) => x / t0));
+  console.log(`  ${inside} of ${d.count} bodies inside the grid; light ${(s0 / t0).toFixed(5)} of theirs; centre ${(centre * AU).toFixed(0)} km apart`);
+  check('the grid holds the light of the bodies inside it (to 0.1%)', Math.abs(s0 / t0 - 1) < 1e-3);
+  check('its light-weighted centre is theirs (within 0.001 au)', centre < 1e-3);
+  const belt = new URL('../../public/data/smallbodies-belt.bin', import.meta.url);
+  if (fs.existsSync(belt)) {
+    const fb = fs.readFileSync(belt), FB = loadBelt(fb.buffer.slice(fb.byteOffset, fb.byteOffset + fb.byteLength));
+    const t = performance.now(); buildBelt(FB, days);
+    console.log(`  the faint belt (${FB.count} bodies) binned in ${(performance.now() - t).toFixed(0)} ms`);
+  }
 }
 
 console.log('='.repeat(60));
