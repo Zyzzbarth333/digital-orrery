@@ -115,6 +115,18 @@ behind them. Textbooks are cited by section, not quoted.
   path and burns ([validation](../validation.md)).
 - *U.S. Standard Atmosphere, 1976* (NOAA-S/T 76-1562) and NASA's MET-1999
   thermosphere: the air ([the space environment](../physics/environment.md)).
+- JPL Small-Body Database: orbit classes
+  ([ssd-api.jpl.nasa.gov/doc/sbdb_filter.html](https://ssd-api.jpl.nasa.gov/doc/sbdb_filter.html)),
+  diameters and absolute magnitudes; JPL Horizons: the named bodies'
+  elements at 2026-01-01 ([small bodies](small-bodies.md)).
+- JPL SB441 small-body ephemerides
+  ([ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/)):
+  the place and osculating elements of the 14 named bodies they cover
+  (tag SB441; [small bodies](small-bodies.md#exact-positions-for-the-largest)).
+- JPL CNEOS, asteroid size estimator
+  ([cneos.jpl.nasa.gov/tools/ast_size_est.html](https://cneos.jpl.nasa.gov/tools/ast_size_est.html)),
+  and Fowler and Chillemi in *The IRAS Minor Planet Survey* (1992,
+  PL-TR-92-2049): a diameter from H and albedo.
 - CODATA 2018, the Newtonian constant of gravitation,
   G = 6.67430 × 10⁻¹¹ m³ kg⁻¹ s⁻²
   ([NIST](https://physics.nist.gov/cgi-bin/cuu/Value?bg)): mean density.

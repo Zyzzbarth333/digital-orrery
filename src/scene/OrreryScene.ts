@@ -251,6 +251,10 @@ export class OrreryScene {
   craftSource: () => CraftView[] = () => [];
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
+  // A named asteroid or comet the camera is on (smallBodies.ts), like a
+  // followed craft: `focus` keeps the last body.
+  focusSmall: string | null = null;
+  onSmallPick: (pdes: string) => void = () => {};
   private craftLayer!: CraftLayer;
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
@@ -258,6 +262,27 @@ export class OrreryScene {
   private bodyAnchor(key: FocusKey): Anchor {
     // A barycentre is a point: the camera may close to a kilometre.
     return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: isBary(key) ? 1 : maxRadiusKm(key) * 1.2 };
+  }
+
+  private smallAnchor(pdes: string): Anchor {
+    return { id: `small:${pdes}`, pos: () => this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs), minDist: this.smallBodies.radiusKm(pdes) * 1.2 };
+  }
+
+  // Fly to a named small body: framed at eight radii, at least 1 km out.
+  focusOnSmall(pdes: string): void {
+    if (!this.smallBodies.body(pdes)) return;
+    if (this.rig.flying && this.rig.destination.id === `small:${pdes}`) return;
+    this.focusCraftId = null;
+    this.focusSmall = pdes;
+    this.smallBodies.setFocus(pdes);
+    this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallBodies.radiusKm(pdes) * 8, 1));
+    this.onFlight(this.rig.flying);
+    this.onSmallPick(pdes);
+  }
+  private clearSmall(): void {
+    if (this.focusSmall === null) return;
+    this.focusSmall = null;
+    this.smallBodies.setFocus(null);
   }
 
   private craftAnchor(id: number): Anchor {
@@ -388,6 +413,7 @@ export class OrreryScene {
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
+    this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
     // pressure): say so rather than show a black view, and carry on when the
     // browser restores it.
@@ -428,6 +454,7 @@ export class OrreryScene {
 
   // Follow a craft: fly to it, or (immediate) start there.
   focusOnCraft(id: number, immediate = false): void {
+    this.clearSmall();
     this.focusCraftId = id;
     const d = this.craftDist ?? 2.0e4;
     if (immediate) this.rig.jumpTo(this.craftAnchor(id), d);
@@ -440,8 +467,9 @@ export class OrreryScene {
   // changes nothing.
   focusOn(key: FocusKey): void {
     if (this.rig.flying && this.rig.destination.id === `body:${key}`) return;
-    const reframe = key === this.focus && this.focusCraftId === null;
+    const reframe = key === this.focus && this.focusCraftId === null && this.focusSmall === null;
     this.focusCraftId = null;
+    this.clearSmall();
     this.focus = key;
     if (!isBary(key)) this.loadSurfaces(key);   // start now: the flight hides the upload
     this.rig.flyTo(this.bodyAnchor(key), this.arrivalDist(key, reframe));
@@ -494,12 +522,14 @@ export class OrreryScene {
     e.preventDefault();
     const craft = this.focusCraftId !== null;
     const focus = this.focus;
-    const minDist = craft ? 0.05 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
+    const small = this.focusSmall;
+    const minDist = craft ? 0.05 : small ? this.smallBodies.radiusKm(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
     // Lines are 3 % of a page; pixels as they come.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
     this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
     const goal = this.rig.goalDistance;
     if (craft) this.craftDist = goal;
+    else if (small) { /* a small body's zoom is its own */ }
     else if (focus === 'sun') this.sunDist = goal;
     else if (!isBary(focus)) this.userRadii = goal / BODY_BY_KEY[focus].radiusKm;
   };
@@ -944,7 +974,7 @@ export class OrreryScene {
       el.classList.toggle('resolved', radiusPx > 4);
       if (b.key === 'earth') this.earthResolved = radiusPx > 3;
       if (radiusPx > 3) this.loadSurfaces(b.key);
-      el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null);
+      el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null && this.focusSmall === null);
     }
     // Barycentres: hidden while they sit on their body's marker (unless
     // focused). They are drawn over discs, the Sun's or a planet's, that
@@ -954,7 +984,7 @@ export class OrreryScene {
       const ndc = this.tmp.copy(this.baryPos.get(b.key)!).project(this.camera);
       if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
       const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
-      const focused = b.key === this.focus && this.focusCraftId === null;
+      const focused = b.key === this.focus && this.focusCraftId === null && this.focusSmall === null;
       const ps = screen.get(b.of);
       if (!focused && ps && Math.hypot(x - ps[0], y - ps[1]) < 14) { el.style.display = 'none'; continue; }
       el.style.display = '';

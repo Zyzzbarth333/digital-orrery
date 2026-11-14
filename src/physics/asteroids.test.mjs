@@ -12,7 +12,7 @@ import './deNode.js';
 import fs from 'node:fs';
 import { sbHelioState, sbIds, sbSpan, kepler } from './sbTable.js';
 import { PERTURBERS } from './asteroids.js';
-import { positionAu, keplerAu, naifIdOf, exactOrbit, decodeSmallBodies, SB_EPOCH_JD } from './smallBodies.js';
+import { positionAu, keplerAu, naifIdOf, exactOrbit, decodeSmallBodies, SB_EPOCH_JD, smallBodyFacts } from './smallBodies.js';
 import { solarSystemBodies } from './bodies.js';
 import { advance, createState } from './nbody.js';
 import { ttSeconds } from './ephemeris.js';
@@ -105,6 +105,13 @@ header('THE LABELS (smallBodies.positionAu)');
     worst = Math.max(worst, dist(keplerAu(ceres, jd2), positionAu(ceres, jd2)) * AU);
   }
   console.log(`  Ceres's 2026 ellipse against SB441, 2000 to 2050: up to ${(worst / 1e6).toFixed(1)} million km`);
+  // The data plate (smallBodyFacts): for a covered body, the table's place
+  // and its osculating ellipse now, so vis-viva gives the table's speed.
+  const jd3 = 2451545 + 40 * 365.25, f = smallBodyFacts(ceres, jd3), fb = smallBodyFacts(bennu, jd3);
+  const v = sbHelioState(2000001, tdbFromTt((jd3 - 2451545) * DAY)).v;
+  console.log(`  the plate in 2040: Ceres a ${f.a.toFixed(4)} au (2026: ${ceres.a.toFixed(4)}), ${f.speedKms.toFixed(4)} km/s against the table's ${Math.hypot(...v).toFixed(4)}`);
+  check('the plate takes Ceres\'s place and osculating ellipse from the table (speed to 1 m/s)', f.exact && Math.abs(f.speedKms - Math.hypot(...v)) < 1e-3 && dist(f.r, positionAu(ceres, jd3)) === 0);
+  check('and Bennu\'s from its 2026 ellipse', !fb.exact && fb.a === bennu.a);
 }
 
 header('THE POINTS (src/scene/smallBodies.ts refreshes the covered bodies every 5 days)');

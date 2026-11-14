@@ -157,3 +157,45 @@ export function keplerAu({ a, e, i, node, peri, M }, jd) {
   const xp = cw * x - sw * y, yp = sw * x + cw * y;
   return [cn * xp - sn * ci * yp, sn * xp + cn * ci * yp, si * yp];
 }
+
+// What JPL's SBDB orbit classes mean (ssd-api.jpl.nasa.gov/doc/sbdb_filter.html),
+// in the words the data plate uses.
+export const SB_CLASS_NAMES = {
+  MBA: 'main-belt asteroid', IMB: 'inner main-belt asteroid', OMB: 'outer main-belt asteroid', MCA: 'Mars-crosser',
+  IEO: 'Atira (inside the Earth\'s orbit)', ATE: 'Aten (Earth-crossing)', APO: 'Apollo (Earth-crossing)', AMO: 'Amor (Earth-approaching)',
+  TJN: 'Jupiter trojan', CEN: 'centaur', TNO: 'trans-Neptunian object', AST: 'asteroid',
+  JFc: 'Jupiter-family comet', JFC: 'Jupiter-family comet', HTC: 'Halley-type comet', ETc: 'Encke-type comet',
+  CTc: 'Chiron-type comet', COM: 'comet', PAR: 'comet on a parabolic orbit', HYP: 'comet on a hyperbolic orbit',
+};
+
+// The Sun's GM in au^3/day^2 (the Gaussian constant squared), and 1 au/day in km/s.
+const MU_AU = K * K;
+const AU_PER_DAY_KMS = 149597870.7 / 86400;
+
+// The facts the data plate shows for a named body { pdes, a, e, i, ... } at
+// Julian date jd (TT): its heliocentric position (au) and distance, its
+// speed by vis-viva, perihelion and aphelion, and its period by Kepler's
+// third law, with the same Gaussian constant the drawing uses. For a body
+// SB441's table covers (exact: true) the position is the table's and the
+// elements (a, e, i) are its osculating ellipse at jd; for the rest, the
+// fixed 2026 ellipse.
+//   v = sqrt(GM (2/r - 1/a)),  q = a(1 - e),  Q = a(1 + e),  T = 2 pi sqrt(a^3 / GM)
+export function smallBodyFacts(b, jd) {
+  const r = positionAu(b, jd);
+  const dist = Math.hypot(r[0], r[1], r[2]);
+  const ex = b.pdes !== undefined ? exactOrbit(b.pdes, jd) : null, el = ex ?? b;
+  return {
+    r, dist, exact: ex !== null, a: el.a, e: el.e, i: el.i,
+    speedKms: Math.sqrt(MU_AU * (2 / dist - 1 / el.a)) * AU_PER_DAY_KMS,
+    perihelion: el.a * (1 - el.e),
+    aphelion: el.a * (1 + el.e),
+    periodDays: TAU * Math.sqrt(el.a ** 3 / MU_AU),
+  };
+}
+
+// An asteroid's diameter from its absolute magnitude H and geometric albedo
+// p, where neither is measured: D = 1329 km / sqrt(p) 10^(-H/5) (JPL CNEOS's
+// size estimator; Fowler & Chillemi in The IRAS Minor Planet Survey, 1992).
+// A comet's H is its coma's, not its nucleus's, so this does not apply to
+// comets.
+export const diameterFromH = (H, p) => (1329 / Math.sqrt(p)) * 10 ** (-H / 5);

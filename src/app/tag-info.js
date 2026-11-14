@@ -237,6 +237,80 @@ export const TAG_INFO = {
     source: 'Reid & Brunthaler 2004, ApJ 616, 872 (VLBA astrometry of Sgr A*)',
   },
 
+  // ---------------- a small body's plate (small-body-plate.tsx) ----------------
+  'sb-class': {
+    what: 'The body\'s orbit class in JPL\'s Small-Body Database, which sorts asteroids and comets by where their orbits go.',
+    tex: [],
+    source: 'JPL SBDB orbit classes, ssd-api.jpl.nasa.gov/doc/sbdb_filter.html · docs/frontend/small-bodies.md',
+  },
+  // smallBodies.js positionAu
+  'sb-position': {
+    what: 'Where the body is, carried along a fixed ellipse about the Sun from its elements: as its point and marker are drawn.',
+    tex: ['M = M_0 + n(t - t_0),\\quad n = \\frac{k}{a^{3/2}}', 'E - e\\sin E = M'],
+    where: 'k = 0.01720209895, the Gaussian constant (rad/day, a in au); t₀ = 2026-01-01 TT. The planets\' pull moves the real body off this ellipse slowly: Ceres by 75,000 km in a year',
+    source: 'elements from JPL Horizons at t₀ · docs/frontend/small-bodies.md',
+  },
+  // smallBodies.js positionAu, sbTable.js
+  'sb-position-exact': {
+    what: 'Where the body is in JPL\'s own integration of it, with the planets\' and the largest asteroids\' pull: as its point and marker are drawn.',
+    tex: [],
+    where: 'a Chebyshev fit to JPL\'s SB441 ephemeris, within 1 km of it from 2000 to 2050; outside those years, a fixed ellipse from the nearer end',
+    source: 'JPL SB441 (sb441-n373s.bsp; Farnocchia 2021, JPL IOM 392R-21-005) · docs/frontend/small-bodies.md',
+  },
+  'sb-elements-exact': {
+    what: 'The osculating orbital elements now: the ellipse the body is on at this moment, from its position and velocity in JPL\'s integration.',
+    tex: [VIS_VIVA],
+    where: 'a: semi-major axis; e: eccentricity; i: inclination to the ecliptic; μ⊙ = k² au³/day²',
+    source: 'JPL SB441, through the Chebyshev fit · docs/frontend/small-bodies.md',
+  },
+  // smallBodies.js smallBodyFacts
+  'sb-speed': {
+    what: 'Speed relative to the Sun, on its ellipse.',
+    tex: ['v = \\sqrt{\\mu_\\odot\\left(\\frac{2}{r} - \\frac{1}{a}\\right)}'],
+    where: 'μ⊙ = k² au³/day²',
+    source: 'the vis-viva equation; Curtis, 4th ed., ch. 2',
+  },
+  'sb-elements': {
+    what: 'The osculating orbital elements at 2026-01-01 TT: the ellipse the body was on then.',
+    tex: [],
+    where: 'a: semi-major axis; e: eccentricity; i: inclination to the ecliptic',
+    source: 'JPL Horizons, osculating elements at the epoch (SBDB\'s for the unnamed bodies)',
+  },
+  'sb-apsides': {
+    what: 'The nearest and farthest the body comes to the Sun on that ellipse.',
+    tex: ['q = a(1 - e),\\quad Q = a(1 + e)'],
+    source: 'from the elements above',
+  },
+  'sb-period': {
+    what: 'Time for one orbit of the Sun, by Kepler\'s third law.',
+    tex: ['T = 2\\pi\\sqrt{\\frac{a^3}{\\mu_\\odot}} = \\frac{2\\pi}{n}'],
+    source: 'from the semi-major axis, with the Gaussian constant the drawing uses',
+  },
+  'sb-diameter': {
+    what: 'The body\'s diameter as measured: by spacecraft, radar, occultations or its heat (infrared).',
+    tex: [],
+    source: 'JPL Small-Body Database',
+  },
+  // smallBodies.js diameterFromH, smallBodies.ts sizeOf
+  'sb-size-assumed': {
+    what: 'JPL\'s database gives no diameter, so the sphere drawn is a guess, and says so.',
+    tex: ['D = \\frac{1329\\ \\text{km}}{\\sqrt{p}}\\,10^{-H/5}'],
+    where: 'p: geometric albedo, taken as 0.15; a comet\'s H is its coma\'s, so a comet is drawn as a 5 km nucleus',
+    source: 'JPL CNEOS, asteroid size estimator (cneos.jpl.nasa.gov/tools/ast_size_est.html); Fowler & Chillemi, in The IRAS Minor Planet Survey (1992, PL-TR-92-2049)',
+  },
+  'sb-h': {
+    what: 'Absolute magnitude: how bright the body would be 1 au from both the Sun and the observer, fully lit.',
+    tex: ['m = H + 5\\log_{10}(r\\Delta) - 2.5\\log_{10}\\Phi(\\alpha)'],
+    where: 'r, Δ: distances from the Sun and the observer (au); Φ(α): the H-G phase function, G = 0.15',
+    source: 'JPL Small-Body Database; Bowell et al. 1989 (the H-G system) · docs/frontend/small-bodies.md',
+  },
+  'sb-m1': {
+    what: 'A comet\'s total magnitude, its coma and all, at 1 au from the Sun and the observer.',
+    tex: ['m = M_1 + 5\\log_{10}\\Delta + K_1\\log_{10} r'],
+    where: 'K₁: how fast it brightens toward the Sun',
+    source: 'JPL Small-Body Database · docs/frontend/small-bodies.md',
+  },
+
   // ---------------- the MISSION tab (mission-panel.tsx) ----------------
   // nbody.js force model, environment.js drag and sunlight
   'kernel-motion': {
