@@ -138,6 +138,30 @@ Way at their relative brightness, then stored as sRGB. The scene draws it on
 a sphere around the camera, looked up by each view direction's RA and Dec,
 at a fixed display brightness (see [lighting](lighting.md)).
 
+## Loading
+
+A body's maps load the first time its disc is more than three pixels
+across, or when a flight to it starts ([camera](camera.md#maps-on-the-way)).
+Maps run to 8192 × 4096, about 180 MB of video memory each with mipmaps,
+and loading them used to freeze the page for up to two seconds. Now:
+
+- **Decoding** happens in a worker (`decode.worker.ts`): it fetches the
+  file, decodes and flips it with `createImageBitmap`, and transfers the
+  bitmap back. Doing that on the main thread still blocked it for 59 ms (no
+  options) to 246 ms (flipped, not premultiplied) per 8k map after the
+  decode itself. Body maps are opaque, so they are premultiplied, which
+  changes no value; the cloud mosaic has alpha and is not.
+- **Uploading** happens 4 MB per frame at the top of the frame
+  (`TextureUploader` in `surfaces.ts`): an immutable texture
+  (`texStorage2D`) is filled in strips with `texSubImage2D`, mipmapped once
+  and handed to three.js as an `ExternalTexture`. One `texImage2D` of an 8k
+  map blocked for 0.41–0.55 s; a 128-row strip takes 2–3 ms, so the map goes
+  up over about 32 frames.
+- **Earth's months**: only the current month's day map is kept; the
+  previous one (78 MB) is freed when the month changes.
+- **A lost WebGL context** takes these textures with it, so on restore the
+  maps load again.
+
 ## Rebuilding
 
 ```bash
