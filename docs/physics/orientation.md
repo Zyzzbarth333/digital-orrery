@@ -40,6 +40,53 @@ $$
 
 $\alpha_0$, $\delta_0$ and $W$ come from astronomy-engine's `RotationAxis`.
 
+## Rotation periods and tilts on the data plate
+
+`src/physics/bodyfacts.js` reads the same IAU model for the facts the data
+plate shows.
+- **Sidereal rotation:** $P = 360°/|\dot W|$, with $\dot W$ the mean rate
+  of $W$ over 1,000 days from J2000 (the Moon's and Mercury's librations
+  average out). The IAU puts a planet's north pole on the north side of
+  the invariable plane, so Venus and Uranus have $\dot W < 0$; a dwarf
+  planet's pole is the positive one, so Pluto's $\dot W > 0$. The Earth's
+  is the Earth Rotation Angle's rate (IERS Conventions 2010), the stellar
+  day.
+- **Axial tilt:** the spin axis $\hat{\mathbf s} = \operatorname{sign}(\dot W)\,\mathbf Z$
+  against the osculating orbit's normal $\hat{\mathbf h}$,
+  $\cos\varepsilon = \hat{\mathbf s}\cdot\hat{\mathbf h}$ (the Moon's about
+  the Earth, the Sun's against the ecliptic pole). Over 90°, the body turns
+  backwards.
+- **Solar day:** $P_\odot = 360°/|\omega - n|$, with $\omega = \pm 360°/P$
+  (negative when the tilt is over 90°) and $n$ the mean motion about the
+  Sun (the Earth's, for the Moon, whose solar day is then the synodic
+  month).
+- **Mean density** $\bar\rho = (GM/G)/(\tfrac43\pi R^3)$ and **escape speed**
+  $\sqrt{2GM/R}$, from the body's own GM and its mean radius, with
+  $G = 6.67430\times10^{-11}$ m³ kg⁻¹ s⁻² (CODATA 2018).
+
+For the Sun:
+- **By latitude:** $\omega(\varphi) = A + B\sin^2\varphi + C\sin^4\varphi$,
+  sidereal, $A = 2.894$, $B = -0.428$, $C = -0.370$ µrad/s (Howard,
+  Harvey & Forgach 1990, from small magnetic features): 25.1 days at the
+  equator, 34.7 near the poles (the fit carried there). The IAU's own rate,
+  14.1844°/day (25.38 days), is Carrington's.
+- **Its Galactic orbit:** Sgr A* drifts along the Galactic plane by
+  6.379 mas/yr (Reid & Brunthaler 2004), the Sun's motion round it. As an
+  angular rate $\Omega_\odot = 4.74047\,\mu$ km/s/kpc $= 30.24$, so
+  $T = 2\pi/\Omega_\odot = 203$ million years, with no need for the
+  distance to the centre. The often quoted 225–250 million years comes
+  from the older round values of 8.5 kpc and 220 km/s.
+- **The barycentre:** $\mathbf r_\text{SSB} = \sum\mu_i\mathbf r_i/\sum\mu_i$,
+  from astronomy-engine (the Sun and the four giant planets).
+
+`bodyfacts.test.mjs` checks them against NASA's planetary fact sheets
+(NSSDCA): rotation to 0.02 %, the solar day to 0.04 %, the tilts to 0.05°,
+density to 1 %. Two differ, and the plate says so:
+- **Neptune:** NSSDCA gives 16.11 h, Voyager 2's radio period; the IAU
+  model, as NAIF's pck00011 has it, turns at 541.1397757°/day, 15.966 h.
+- **Pluto:** the IAU 2015 pole tilts it 119.6° to its orbit; NSSDCA lists
+  122.53°.
+
 ## Checks
 
 `npm test` runs `orientation.test.mjs`, which compares the axes with CSPICE
@@ -61,3 +108,19 @@ $\alpha_0$, $\delta_0$ and $W$ come from astronomy-engine's `RotationAxis`.
 The giant planets have no surface; their "longitude" is a rotation model
 (System III), so these differences only move cloud bands, and only for the
 models astronomy-engine and pck00011 take from different IAU reports.
+
+## Sources
+
+- B. A. Archinal et al., "Report of the IAU Working Group on Cartographic
+  Coordinates and Rotational Elements: 2015", *Celestial Mechanics and
+  Dynamical Astronomy* 130:22 (2018).
+- G. Petit and B. Luzum (eds.), *IERS Conventions (2010)*, IERS Technical
+  Note 36: the Earth Rotation Angle.
+- R. Howard, J. W. Harvey and S. Forgach, "Solar surface velocity fields
+  determined from small magnetic features", *Solar Physics* 130, 295
+  (1990).
+- M. J. Reid and A. Brunthaler, "The proper motion of Sagittarius A*. II.
+  The mass of Sagittarius A*", *ApJ* 616, 872 (2004).
+- D. R. Williams, NASA NSSDCA planetary fact sheets,
+  [nssdc.gsfc.nasa.gov/planetary/factsheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/).
+- CODATA 2018 value of G (NIST).

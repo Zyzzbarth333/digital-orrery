@@ -100,6 +100,73 @@ export const TAG_INFO = {
     source: 'the vis-viva equation; Curtis, 4th ed., ch. 2 · docs/physics/two-body.md',
   },
 
+  // bodyfacts.js density, escapeSpeed
+  density: {
+    what: 'The mass over the volume of the mean sphere.',
+    tex: ['\\bar\\rho = \\frac{GM/G}{\\frac{4}{3}\\pi R^3}'],
+    where: 'G = 6.67430 × 10⁻²⁰ km³ kg⁻¹ s⁻² (CODATA 2018); the body\'s own GM, without its moons; R: the mean radius',
+    source: 'from the GM and mean radius above; NASA NSSDCA fact sheets give the same to their rounding',
+  },
+  'escape-speed': {
+    what: 'The speed that, at the mean surface and with no air and no further push, carries a thing away for good.',
+    tex: ['v_\\text{esc} = \\sqrt{\\frac{2GM}{R}}'],
+    where: 'the body\'s own GM; R: the mean radius; not counting its spin. NASA\'s fact sheet takes the giants\' at their equator (Jupiter 59.5 km/s)',
+    source: 'energy: ½v² = GM/R · docs/physics/two-body.md',
+  },
+  // bodyfacts.js siderealDays: 360 / |Ẇ|, Ẇ over 1,000 days
+  rotation: {
+    what: 'Time for one turn about its axis, against the stars (sidereal).',
+    tex: ['W = W_0 + \\dot W d', 'P = \\frac{360°}{|\\dot W|}'],
+    where: 'W: the prime meridian\'s angle, d: days from J2000; Ẇ is the mean rate, so librations average out. Ẇ < 0 for a planet turning backwards',
+    source: 'IAU WGCCRE 2015 report (Archinal et al. 2018, Celest. Mech. Dyn. Astr. 130:22), via astronomy-engine · docs/physics/orientation.md',
+  },
+  'rotation-sun': {
+    what: 'Time for one turn of the Sun against the stars, at the IAU\'s rate: Carrington\'s, from sunspots at middle latitudes.',
+    tex: ['W = 84.176° + 14.1844° d', 'P = \\frac{360°}{14.1844°\\ \\text{/day}}'],
+    source: 'IAU WGCCRE 2015 report (Archinal et al. 2018) · docs/physics/orientation.md',
+  },
+  // bodyfacts.js sunRotationDays
+  'sun-differential': {
+    what: 'The Sun is gas, and turns faster at its equator than near its poles.',
+    tex: ['\\omega(\\varphi) = A + B\\sin^2\\varphi + C\\sin^4\\varphi', 'P = \\frac{2\\pi}{\\omega}'],
+    where: 'φ: latitude; A = 2.894, B = −0.428, C = −0.370 µrad/s, sidereal, fitted to small magnetic features. Few features are seen near the poles, so the polar figure is the fit carried there',
+    source: 'Howard, Harvey & Forgach 1990, Solar Physics 130, 295 (the default model in SunPy)',
+  },
+  // bodyfacts.js solarDays
+  'solar-day': {
+    what: 'Time from one noon to the next: a turn against the Sun, whose direction moves round as the body goes round its orbit.',
+    tex: ['P_\\odot = \\frac{360°}{|\\omega - n|}'],
+    where: 'ω = ±360°/P, negative when the body turns backwards; n = 360°/T, the mean motion about the Sun (the osculating year)',
+    source: 'from the rotation above and the orbit; Venus\'s and Mercury\'s match NASA NSSDCA\'s 2,802 h and 4,222.6 h to 0.03 %',
+  },
+  // bodyfacts.js obliquity
+  obliquity: {
+    what: 'The tilt of the spin axis to the orbit\'s axis (obliquity). Over 90°, the body turns backwards.',
+    tex: ['\\cos\\varepsilon = \\hat{\\mathbf s}\\cdot\\hat{\\mathbf h}', '\\mathbf h = \\mathbf r\\times\\mathbf v'],
+    where: 'ŝ: the spin axis, the IAU pole (flipped where Ẇ < 0); 𝐡: the osculating orbit\'s angular momentum at this instant',
+    source: 'IAU WGCCRE 2015 poles (Archinal et al. 2018), via astronomy-engine · docs/physics/orientation.md',
+  },
+  'sun-tilt': {
+    what: 'The tilt of the Sun\'s equator to the ecliptic, the plane of the Earth\'s orbit.',
+    tex: ['\\cos\\varepsilon = \\hat{\\mathbf s}\\cdot\\hat{\\mathbf z}_\\text{ecl}'],
+    where: 'ŝ: the IAU pole of the Sun, α₀ = 286.13°, δ₀ = 63.87°',
+    source: 'IAU WGCCRE 2015 report (Archinal et al. 2018)',
+  },
+  // bodyfacts.js sunFromBarycentreKm
+  barycentre: {
+    what: 'How far the solar system\'s centre of mass is from the Sun\'s centre. The Sun wanders round it, mostly with Jupiter and Saturn, often by more than its own radius.',
+    tex: ['\\mathbf r_\\text{SSB} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\sum_i \\mu_i}'],
+    where: '𝐫ᵢ: heliocentric positions; astronomy-engine counts the Sun and the four giant planets',
+    source: 'astronomy-engine (MIT), its CalcSolarSystemBarycenter',
+  },
+  // bodyfacts.js galacticYears
+  'galactic-orbit': {
+    what: 'Time for the Sun to go once round the centre of the Milky Way, at its present angular rate.',
+    tex: ['\\Omega_\\odot = 4.74047\\,\\mu_\\text{Sgr A*}', 'T = \\frac{2\\pi}{\\Omega_\\odot}'],
+    where: 'µ = 6.379 mas/yr: Sgr A*, at the centre, drifts along the Galactic plane as the Sun goes round; Ω in km/s per kpc. No distance to the centre is needed. The often quoted 225–250 million years comes from older, rounder values (8.5 kpc, 220 km/s)',
+    source: 'Reid & Brunthaler 2004, ApJ 616, 872 (VLBA astrometry of Sgr A*)',
+  },
+
   // ---------------- the MISSION tab (mission-panel.tsx) ----------------
   // nbody.js force model, environment.js drag and sunlight
   'kernel-motion': {

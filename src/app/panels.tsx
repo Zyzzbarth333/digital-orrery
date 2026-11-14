@@ -16,6 +16,7 @@ import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { bodyState } from '../scene/OrreryScene';
 import { MU_SUN } from '../physics/bodies.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
+import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears, sunFromBarycentreKm } from '../physics/bodyfacts.js';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -296,6 +297,15 @@ export const HINTS: Record<string, string> = {
   'Surface gravity': 'GM divided by the radius squared: the pull at the surface of a non-spinning sphere',
   'Geometric albedo': 'How bright the full disc is compared with a white disc of the same size',
   'Orbital period': 'Time for one orbit of the Sun (or of Earth, for the Moon)',
+  'Rotation': 'Time for one turn about its axis, against the stars',
+  'Solar day': 'Time from one noon to the next: one turn against the Sun, which the orbit moves along the sky',
+  'Axial tilt': 'Angle between the spin axis and the orbit\'s axis (obliquity)',
+  'Mean density': 'Mass over volume',
+  'Escape speed': 'Speed needed at the surface to leave for good, without further push',
+  'At the equator': 'The Sun is gas: its equator turns faster than its poles',
+  'Near the poles': 'The Sun is gas: its poles turn slower than its equator',
+  'From the barycentre': 'How far the solar system\'s centre of mass is from the Sun\'s centre: the Sun wanders round it as the giant planets go round',
+  'Galactic orbit': 'Time for the Sun to go once round the centre of the Milky Way',
 };
 
 // Each row's source tag opens what the value is, its equation and its
@@ -336,6 +346,11 @@ export function Plate({ clock, focus, covered = false }: { clock: SimClock; focu
   );
 }
 
+// A period as hours below two days, else days.
+function period(days: number): { value: string; unit: string } {
+  return days < 2 ? { value: (days * 24).toFixed(3), unit: 'h' } : { value: fmtGroup(days, 2), unit: 'd' };
+}
+
 export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey }) {
   const s = useClock(clock);
   const b = BODY_BY_KEY[focus];
@@ -372,8 +387,14 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
     const [naif, kernel] = (b.planetGmNote ?? '').split(', ');
     rows.push({ label: 'GM, planet', value: sig10(b.planetGm), unit: 'km³/s²', src: kernel?.split(' ')[0] ?? 'NAIF', info: 'gm-planet', detail: `${naif}, from the satellite kernel ${kernel}` });
   }
+  if (ownGm) {
+    rows.push({ label: 'Mean density', value: (density(ownGm, b.radiusKm) / 1000).toFixed(3), unit: 'g/cm³', src: 'M/V', derived: true, info: 'density' });
+  }
   if (ownGm && focus !== 'sun') {
     rows.push({ label: 'Surface gravity', value: ((ownGm / (b.radiusKm * b.radiusKm)) * 1000).toFixed(3), unit: 'm/s²', alt: 'sphere, no rotation', src: 'GM/R²', derived: true, info: 'surface-gravity' });
+  }
+  if (ownGm) {
+    rows.push({ label: 'Escape speed', value: escapeSpeed(ownGm, b.radiusKm).toFixed(focus === 'sun' ? 1 : 3), unit: 'km/s', alt: 'from the surface', src: '√2GM/R', derived: true, info: 'escape-speed' });
   }
   if (b.geometricAlbedo) {
     rows.push({ label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(3), src: 'NSSDCA', info: 'albedo' });
@@ -389,6 +410,43 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
     const a = 1 / (2 / rr - (vv * vv) / mu);
     const T = 2 * Math.PI * Math.sqrt(a ** 3 / mu) / 86400;
     rows.push({ label: 'Orbital period', value: fmtGroup(T, 3), unit: 'd', src: '2-body', derived: true, info: 'orbital-period', detail: `of the osculating orbit about ${focus === 'moon' ? 'Earth' : 'the Sun'} at this instant (a = ${fmtGroup(a, 0)} km); the real orbit is perturbed` });
+  }
+  // How it turns (the IAU rotation model, bodyfacts.js): the sidereal
+  // period, the solar day where it differs by more than 0.1 %, and the tilt
+  // of the spin axis to the orbit (over 90°: it turns backwards).
+  if (focus !== 'sun') {
+    const about = focus === 'moon' ? earth : null;
+    const rel = about ? { r: st.r.map((x, i) => x - about.r[i]), v: st.v.map((x, i) => x - about.v[i]) } : st;
+    const tilt = obliquity(focus, date, rel);
+    const P = siderealDays(focus);
+    // The Sun's direction turns at the mean motion about the Sun: the
+    // Earth's, for the Moon.
+    const helio = focus === 'moon' ? earth : st;
+    const muH = MU_SUN + (focus === 'moon' ? BODY_BY_KEY.earth.gm! + b.gm! : b.gm ?? 0);
+    const rH = norm(helio.r), vH = norm(helio.v);
+    const yearDays = 2 * Math.PI * Math.sqrt((1 / (2 / rH - (vH * vH) / muH)) ** 3 / muH) / 86400;
+    const solar = solarDays(focus, date, rel, yearDays);
+    const back = tilt > 90;
+    rows.push({
+      label: 'Rotation', ...period(P), alt: `sidereal${back ? ', turning backwards' : ''}`, src: 'IAU', info: 'rotation',
+      detail: focus === 'earth' ? 'the Earth Rotation Angle\'s rate (IAU 2000, IERS Conventions 2010): the stellar day'
+        : focus === 'neptune' ? 'NASA\'s fact sheet gives 16.11 h, the period of Voyager 2\'s radio bursts; the IAU model turns at 541.14° a day'
+          : focus === 'moon' ? 'locked: it turns once each orbit of the Earth' : undefined,
+    });
+    if (Math.abs(solar - P) / P > 0.001) rows.push({ label: 'Solar day', ...period(solar), alt: 'noon to noon', src: '2-body', derived: true, info: 'solar-day', detail: `with a year of ${fmtGroup(yearDays, 2)} d${focus === 'moon' ? ' (the Earth\'s): the Moon\'s day is the month from new moon to new moon' : ''}` });
+    rows.push({
+      label: 'Axial tilt', value: tilt.toFixed(2), unit: '°', alt: `to the ${focus === 'moon' ? 'orbit about Earth' : 'orbit'}${back ? ': over 90°, retrograde' : ''}`, src: 'IAU', derived: true, info: 'obliquity',
+      detail: focus === 'pluto' ? 'NASA\'s fact sheet gives 122.53°; the IAU 2015 pole puts it at this'
+        : focus === 'moon' ? 'its orbit\'s plane rocks, so this varies by about 0.1° (6.68° on average)' : undefined,
+    });
+  } else {
+    rows.push({ label: 'Rotation', ...period(siderealDays('sun')), alt: 'sidereal, the IAU\'s (Carrington) rate', src: 'IAU', info: 'rotation-sun' });
+    rows.push({ label: 'At the equator', ...period(sunRotationDays(0)), alt: 'sidereal', src: 'HHF 1990', info: 'sun-differential' });
+    rows.push({ label: 'Near the poles', ...period(sunRotationDays(90)), alt: 'sidereal, the fit carried to 90°', src: 'HHF 1990', info: 'sun-differential' });
+    rows.push({ label: 'Axial tilt', value: obliquity('sun', date).toFixed(2), unit: '°', alt: 'its equator to the ecliptic', src: 'IAU', derived: true, info: 'sun-tilt' });
+    const ssb = sunFromBarycentreKm(date);
+    rows.push({ label: 'From the barycentre', value: fmtGroup(ssb), unit: 'km', alt: `${(ssb / b.radiusKm).toFixed(2)} solar radii, from its centre`, src: 'AE', derived: true, info: 'barycentre' });
+    rows.push({ label: 'Galactic orbit', value: fmtGroup(galacticYears() / 1e6, 0), unit: 'million yr', alt: 'once round the Galaxy\'s centre', src: 'VLBA', derived: true, info: 'galactic-orbit' });
   }
   const kind = focus === 'sun' ? 'Star, at the centre of the frame' : focus === 'moon' ? 'Moon of Earth' : focus === 'pluto' ? 'Dwarf planet' : 'Planet';
   return (

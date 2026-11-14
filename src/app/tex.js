@@ -236,7 +236,11 @@ function flat(n) {
 
 // A sign with nothing before it, or after another operator, is unary.
 const unary = (c, prev) => c.k === 'mo' && ['−', '+', '±', '∓'].includes(c.v)
-  && (!prev || (prev.k === 'mo' && !')]|‖'.includes(prev.v)));
+  && (!prev || (prev.k === 'mo' && !')]|‖°′'.includes(prev.v)));
+// A degree sign or prime closes the number before it.
+const POSTFIX = new Set(['°', '′']);
+// A function name, alone or with a power (sin²).
+const fnLike = (c) => (c.k === 'mi' && c.fn) || (c.k === 'script' && c.base.k === 'mi' && c.base.fn);
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const one = (n) => { const m = ml(n); return n.k === 'row' ? m : `<mrow>${m}</mrow>`; };
@@ -246,17 +250,17 @@ function ml(n) {
     case 'mi': return n.upright || n.fn || [...n.v].length > 1 ? `<mi mathvariant="normal">${esc(n.v)}</mi>` : `<mi>${esc(n.v)}</mi>`;
     case 'mn': return `<mn>${esc(n.v)}</mn>`;
     case 'mtext': return `<mtext>${esc(n.v)}</mtext>`;
-    case 'mo': return n.fence ? `<mo stretchy="false" lspace="0" rspace="0">${esc(n.v)}</mo>` : n.large ? `<mo largeop="true" movablelimits="false">${esc(n.v)}</mo>` : `<mo>${esc(n.v)}</mo>`;
+    case 'mo': return POSTFIX.has(n.v) ? `<mo form="postfix">${esc(n.v)}</mo>` : n.fence ? `<mo stretchy="false" lspace="0" rspace="0">${esc(n.v)}</mo>` : n.large ? `<mo largeop="true" movablelimits="false">${esc(n.v)}</mo>` : `<mo>${esc(n.v)}</mo>`;
     case 'space': return `<mspace width="${n.w}em"></mspace>`;
     case 'row': return `<mrow>${n.c.map((c, i) => {
       const prev = n.c[i - 1], next = n.c[i + 1];
       if (unary(c, prev)) return `<mo form="prefix">${esc(c.v)}</mo>`;
       // A function name: a thin space either side, as TeX sets \cos,
       // with the (invisible) function application after it.
-      if (c.k === 'mi' && c.fn) {
+      if (fnLike(c)) {
         const before = prev && prev.k !== 'mo' && prev.k !== 'space' ? '<mspace width="0.167em"></mspace>' : '';
-        const tight = next && (next.k === 'fence' || (next.k === 'mo' && next.v === '('));
-        return `${before}${ml(c)}<mo lspace="0" rspace="${tight ? 0 : 0.167}em">\u2061</mo>`;
+        const snug = next && (next.k === 'fence' || (next.k === 'mo' && next.v === '('));
+        return `${before}${ml(c)}<mo lspace="0" rspace="${snug ? 0 : 0.167}em">\u2061</mo>`;
       }
       return ml(c);
     }).join('')}</mrow>`;
@@ -275,6 +279,10 @@ function ml(n) {
     default: throw new Error(`tex: node ${n.k}`);
   }
 }
+
+// A script's text: no space around its operators (x⁻¹, a_(p,a)), but its
+// words kept apart (μ_(Sgr A*)).
+const tight = (t) => t.trim().replace(/\s+/g, ' ').replace(/ ?([−+=,/]) ?/g, '$1');
 
 // One line of plain text. Atomic nodes need no brackets around them.
 const atomic = (n) => n.k === 'mi' || n.k === 'mn' || n.k === 'fence' || n.k === 'accent' || n.k === 'sqrt'
@@ -305,10 +313,10 @@ function txt(n) {
     case 'fence': return `${n.open}${txt(n.a)}${n.close}`;
     case 'script': {
       let s = n.base.k === 'row' && n.base.c.length === 0 ? '' : wrap(n.base);
-      if (n.base.k === 'mo') s = n.base.v;
-      if (n.sub) { const t = txt(n.sub).replace(/\s+/g, ''); s += ([...t].length === 1 ? mapAll(t, SUB) : null) ?? (atomic(n.sub) || /^\w+$/u.test(t) ? `_${t}` : `_(${t})`); }
-      if (n.sup) { const t = txt(n.sup).replace(/\s+/g, ''); s += mapAll(t, SUP) ?? (atomic(n.sup) ? `^${t}` : `^(${t})`); }
-      return n.base.k === 'mo' ? `${s} ` : s;
+      if (n.base.k === 'mo' || (n.base.k === 'mi' && n.base.fn)) s = n.base.v;
+      if (n.sub) { const t = tight(txt(n.sub)); s += ([...t].length === 1 ? mapAll(t, SUB) : null) ?? (atomic(n.sub) || /^\w+$/u.test(t) ? `_${t}` : `_(${t})`); }
+      if (n.sup) { const t = tight(txt(n.sup)); s += mapAll(t, SUP) ?? (atomic(n.sup) ? `^${t}` : `^(${t})`); }
+      return n.base.k === 'mo' || n.base.fn ? ` ${s} ` : s;
     }
     default: throw new Error(`tex: node ${n.k}`);
   }
