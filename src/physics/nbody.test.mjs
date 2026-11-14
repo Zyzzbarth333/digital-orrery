@@ -203,19 +203,28 @@ header('CASE 6: events');
 
 // ---- cases that need the real ephemeris (astronomy-engine) ----
 const { solarSystemBodies } = await import('./bodies.js');
-const { helioStateEqj } = await import('./ephemeris.js');
+const { helioStateEqj, ttSeconds } = await import('./ephemeris.js');
+const { sbHelioState } = await import('./sbTable.js');
+const { perturber } = await import('./asteroids.js');
+const { tdbFromTt } = await import('./timescale.js');
 
 header('CASE 7: ephemeris interpolation');
 {
   // bodies.js serves positions by cubic Hermite interpolation between cached
-  // astronomy-engine nodes. Check it against direct calls over 30 days.
+  // astronomy-engine nodes (SB441's series for the asteroids). Check it
+  // against direct calls over 30 days.
   const epochMs = Date.parse('2026-01-01T00:00:00Z');
-  const sys = solarSystemBodies({ epochMs });
+  const sys = solarSystemBodies({ epochMs, asteroidReach: Infinity });
+  const direct = (key, t) => {
+    const a = perturber(key);
+    return a ? sbHelioState(a.id, tdbFromTt(ttSeconds(epochMs) + t)) : helioStateEqj(key, new Date(sys.msAt(t)));
+  };
+  check('the sixteen asteroids are in the kernel (SB441 installed by deNode.js)', sys.asteroids.length === 16 && sys.bodiesAt(0).filter((b) => perturber(b.key)).length === 16);
   let worst = 0, worstKey = '';
   for (let i = 0; i < 400; i++) {
     const t = (i + 0.37) * (30 * DAY / 400);
     for (const b of sys.bodiesAt(t)) {
-      const s = helioStateEqj(b.key, new Date(sys.msAt(t)));
+      const s = direct(b.key, t);
       const e = norm(sub(b.r, s.r));
       if (e > worst) { worst = e; worstKey = b.key; }
     }

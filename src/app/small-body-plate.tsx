@@ -1,10 +1,10 @@
 // src/app/small-body-plate.tsx
 //
 // The data plate for a named asteroid or comet the camera is on (chosen by
-// its marker in the sky or from the rail's list): where it is now, from the
-// same elements and Kepler solve its point is drawn with
-// (src/physics/smallBodies.js), and what JPL's Small-Body Database says of
-// it. Each value carries its source tag, as on the bodies' plate.
+// its marker in the sky or from the rail's list): where it is now, as its
+// point is drawn (src/physics/smallBodies.js: JPL's SB441 for the largest,
+// the 2026 ellipse for the rest), and what JPL's Small-Body Database says
+// of it. Each value carries its source tag, as on the bodies' plate.
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
@@ -26,12 +26,20 @@ export function SmallBodyPlate({ clock, body: b }: { clock: SimClock; body: Name
   const size = sizeOf(b);
   const lt = fromEarth / C_KM_S;
   const years = f.periodDays / 365.25;
+  // From SB441's table (the largest asteroids and a few named others), or
+  // the fixed 2026 ellipse.
+  const pos = f.exact ? { src: 'SB441', info: 'sb-position-exact' as const } : { src: 'Kepler', info: 'sb-position' as const };
+  const els = f.exact
+    ? { src: 'SB441', info: 'sb-elements-exact' as const, detail: 'osculating now, from JPL\'s SB441' }
+    : { src: 'Horizons', info: 'sb-elements' as const, detail: b.elements };
   const rows: Row[] = [
     { label: 'Class', value: SB_CLASS_NAMES[b.cls as keyof typeof SB_CLASS_NAMES] ?? b.cls, alt: `SBDB ${b.cls}`, src: 'SBDB', info: 'sb-class' },
-    { label: 'Motion', value: 'Kepler ellipse', alt: 'on rails, about the Sun', src: 'Kepler', derived: true, info: 'sb-position' },
-    { label: 'From the Sun', value: f.dist.toFixed(6), unit: 'AU', alt: `${fmtGroup(f.dist * AU_KM)} km`, src: 'Kepler', derived: true, info: 'sb-position' },
+    f.exact
+      ? { label: 'Motion', value: 'JPL integration', alt: 'SB441, on rails', ...pos, derived: true }
+      : { label: 'Motion', value: 'Kepler ellipse', alt: 'on rails, about the Sun', ...pos, derived: true },
+    { label: 'From the Sun', value: f.dist.toFixed(6), unit: 'AU', alt: `${fmtGroup(f.dist * AU_KM)} km`, ...pos, derived: true },
     { label: 'Speed', value: f.speedKms.toFixed(3), unit: 'km/s', alt: 'heliocentric', src: '2-body', derived: true, info: 'sb-speed' },
-    { label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'Kepler', derived: true, info: 'sb-position', detail: 'less the Earth\'s position (DE442)' },
+    { label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', ...pos, derived: true, detail: 'less the Earth\'s position (DE442)' },
     {
       label: 'Light time', value: lt < 60 ? lt.toFixed(3) : lt < 3600 ? (lt / 60).toFixed(2) : (lt / 3600).toFixed(3),
       unit: lt < 60 ? 's' : lt < 3600 ? 'min' : 'h', src: 'd/c', derived: true, info: 'light-time',
@@ -46,9 +54,9 @@ export function SmallBodyPlate({ clock, body: b }: { clock: SimClock; body: Name
     ...(b.H === null ? [] : [comet
       ? { label: 'Total magnitude', value: b.H.toFixed(2), alt: 'M1', src: 'SBDB', info: 'sb-m1' } as Row
       : { label: 'Absolute magnitude', value: b.H.toFixed(2), alt: 'H', src: 'SBDB', info: 'sb-h' } as Row]),
-    { label: 'Semi-major axis', value: b.a.toFixed(6), unit: 'AU', src: 'Horizons', info: 'sb-elements', detail: b.elements },
-    { label: 'Eccentricity', value: b.e.toFixed(6), src: 'Horizons', info: 'sb-elements', detail: b.elements },
-    { label: 'Inclination', value: (b.i * DEG).toFixed(3), unit: '°', alt: 'to the ecliptic', src: 'Horizons', info: 'sb-elements', detail: b.elements },
+    { label: 'Semi-major axis', value: f.a.toFixed(6), unit: 'AU', ...els },
+    { label: 'Eccentricity', value: f.e.toFixed(6), ...els },
+    { label: 'Inclination', value: (f.i * DEG).toFixed(3), unit: '°', alt: 'to the ecliptic', ...els },
     { label: 'Perihelion', value: f.perihelion.toFixed(4), unit: 'AU', alt: `aphelion ${f.aphelion.toFixed(4)} AU`, src: '2-body', derived: true, info: 'sb-apsides' },
     { label: 'Orbital period', value: years < 2 ? fmtGroup(f.periodDays, 1) : fmtGroup(years, years < 100 ? 3 : 1), unit: years < 2 ? 'd' : 'yr', src: '2-body', derived: true, info: 'sb-period' },
   ];
@@ -62,7 +70,9 @@ export function SmallBodyPlate({ clock, body: b }: { clock: SimClock; body: Name
       <p className="strip" aria-hidden="true">Readout · source</p>
       <Readout rows={rows} />
       <div className="plate-notes">
-        <p>Drawn on a fixed ellipse from its elements at 2026-01-01: a fair place for months, not for navigation. Choose a body in the rail to leave it.</p>
+        <p>{f.exact
+          ? 'Placed by JPL\'s SB441 integration (within 1 km of it, 2000–2050); its gravity is in the spacecraft kernel if it is one of the sixteen heaviest. Choose a body in the rail to leave it.'
+          : 'Drawn on a fixed ellipse from its elements at 2026-01-01: a fair place for months, not for navigation. Choose a body in the rail to leave it.'}</p>
       </div>
     </div>
   );

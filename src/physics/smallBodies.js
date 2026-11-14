@@ -11,6 +11,13 @@
 // the planets' pull moves the real bodies off these ellipses slowly, most for
 // the near-Earth asteroids, so a drawn position is for showing where the
 // populations are, not for navigation.
+//
+// The largest asteroids have exact positions instead: positionAu takes a
+// numbered body that JPL's SB441 files cover from sbTable.js (within 1 km of
+// SB441 from 2000 to 2050), and the ellipse only for the rest.
+
+import { sbHelioState } from './sbTable.js';
+import { tdbFromTt } from './timescale.js';
 
 export const SB_EPOCH_JD = 2461041.5;          // 2026-01-01 00:00 TT
 const K = 0.01720209895;                        // Gaussian gravitational constant, rad/day
@@ -79,9 +86,64 @@ export function decodeSmallBodies(buffer) {
   return out;
 }
 
+// The obliquity of the J2000 ecliptic (IAU 1976, 84381.448"), as
+// astronomy-engine's and SPICE's ECLIPJ2000 use it.
+const EPS = 84381.448 / 3600 * Math.PI / 180, CE = Math.cos(EPS), SE = Math.sin(EPS);
+const AU_KM = 149597870.7;
+
+// The NAIF id of a numbered asteroid by its SBDB designation (2000000 plus
+// its number, as SB441 numbers them), or 0 for anything else.
+export const naifIdOf = (pdes) => (/^\d+$/.test(String(pdes)) && Number(pdes) < 1000000 ? 2000000 + Number(pdes) : 0);
+
 // Heliocentric ecliptic J2000 position (au) of an orbit { a, e, i, node,
-// peri, M (at SB_EPOCH_JD) } at Julian date jd (TT), by Kepler's equation.
-export function positionAu({ a, e, i, node, peri, M }, jd) {
+// peri, M (at SB_EPOCH_JD), pdes? } at Julian date jd (TT): from SB441's
+// table when the orbit names a body it covers (outside its span, two-body
+// from its nearer end), else by Kepler's equation.
+export function positionAu(orbit, jd) {
+  const id = orbit.pdes !== undefined ? naifIdOf(orbit.pdes) : 0;
+  const s = id ? sbHelioState(id, tdbFromTt((jd - 2451545.0) * 86400)) : null;
+  if (s) {
+    const [x, y, z] = s.r;
+    return [x / AU_KM, (CE * y + SE * z) / AU_KM, (-SE * y + CE * z) / AU_KM];
+  }
+  return keplerAu(orbit, jd);
+}
+
+// The osculating ellipse { a, e, i, node, peri, M (at SB_EPOCH_JD) } of a
+// body SB441's table covers, at Julian date jd (TT): heliocentric ecliptic
+// J2000 with the Gaussian constant, as the drawn points carry it, so a point
+// whose elements are refreshed from it every few days stays on the body's
+// exact track. null for a body the table does not cover.
+export function exactOrbit(pdes, jd) {
+  const id = naifIdOf(pdes);
+  const s = id ? sbHelioState(id, tdbFromTt((jd - 2451545.0) * 86400)) : null;
+  if (!s) return null;
+  const ecl = ([x, y, z], k) => [x * k, (CE * y + SE * z) * k, (-SE * y + CE * z) * k];
+  return elementsOf(ecl(s.r, 1 / AU_KM), ecl(s.v, 86400 / AU_KM), jd);
+}
+
+// Elliptic elements of heliocentric r (au), v (au/day) at jd, M carried back
+// to SB_EPOCH_JD.
+export function elementsOf(r, v, jd) {
+  const mu = K * K;
+  const rn = Math.hypot(...r), v2 = v[0] ** 2 + v[1] ** 2 + v[2] ** 2, rv = r[0] * v[0] + r[1] * v[1] + r[2] * v[2];
+  const h = [r[1] * v[2] - r[2] * v[1], r[2] * v[0] - r[0] * v[2], r[0] * v[1] - r[1] * v[0]], hn = Math.hypot(...h);
+  const a = 1 / (2 / rn - v2 / mu);
+  const ev = [0, 1, 2].map((d) => ((v2 - mu / rn) * r[d] - rv * v[d]) / mu), e = Math.hypot(...ev);
+  const i = Math.acos(h[2] / hn), node = Math.atan2(h[0], -h[1]);
+  // The argument of perihelion, from the ascending node in the orbit's
+  // plane (the node's direction and the one 90 degrees on).
+  const nx = Math.cos(node), ny = Math.sin(node);
+  const qx = -Math.cos(i) * ny, qy = Math.cos(i) * nx, qz = Math.sin(i);
+  const peri = Math.atan2(ev[0] * qx + ev[1] * qy + ev[2] * qz, ev[0] * nx + ev[1] * ny);
+  const E = Math.atan2(rv / Math.sqrt(mu * a), 1 - rn / a), Mjd = E - e * Math.sin(E);
+  const M = Mjd - K / Math.pow(a, 1.5) * (jd - SB_EPOCH_JD);
+  const wrap = (x) => ((x % TAU) + TAU) % TAU;
+  return { a, e, i, node: wrap(node), peri: wrap(peri), M: wrap(M) };
+}
+
+// The two-body ellipse alone, for every body (the drawn points do this).
+export function keplerAu({ a, e, i, node, peri, M }, jd) {
   const n = K / Math.pow(a, 1.5);
   const Mt = ((M + n * (jd - SB_EPOCH_JD)) % TAU + TAU) % TAU;
   let E = e < 0.8 ? Mt : Math.PI;
@@ -110,20 +172,24 @@ export const SB_CLASS_NAMES = {
 const MU_AU = K * K;
 const AU_PER_DAY_KMS = 149597870.7 / 86400;
 
-// The facts the data plate shows for a named body { a, e, i, ... } at
+// The facts the data plate shows for a named body { pdes, a, e, i, ... } at
 // Julian date jd (TT): its heliocentric position (au) and distance, its
 // speed by vis-viva, perihelion and aphelion, and its period by Kepler's
-// third law, with the same Gaussian constant the drawing uses.
+// third law, with the same Gaussian constant the drawing uses. For a body
+// SB441's table covers (exact: true) the position is the table's and the
+// elements (a, e, i) are its osculating ellipse at jd; for the rest, the
+// fixed 2026 ellipse.
 //   v = sqrt(GM (2/r - 1/a)),  q = a(1 - e),  Q = a(1 + e),  T = 2 pi sqrt(a^3 / GM)
 export function smallBodyFacts(b, jd) {
   const r = positionAu(b, jd);
   const dist = Math.hypot(r[0], r[1], r[2]);
+  const ex = b.pdes !== undefined ? exactOrbit(b.pdes, jd) : null, el = ex ?? b;
   return {
-    r, dist,
-    speedKms: Math.sqrt(MU_AU * (2 / dist - 1 / b.a)) * AU_PER_DAY_KMS,
-    perihelion: b.a * (1 - b.e),
-    aphelion: b.a * (1 + b.e),
-    periodDays: TAU * Math.sqrt(b.a ** 3 / MU_AU),
+    r, dist, exact: ex !== null, a: el.a, e: el.e, i: el.i,
+    speedKms: Math.sqrt(MU_AU * (2 / dist - 1 / el.a)) * AU_PER_DAY_KMS,
+    perihelion: el.a * (1 - el.e),
+    aphelion: el.a * (1 + el.e),
+    periodDays: TAU * Math.sqrt(el.a ** 3 / MU_AU),
   };
 }
 

@@ -32,8 +32,8 @@ KPL/MK
       spk/satellites/nep097.bsp         <- (Neptune, Triton)
       spk/satellites/plu060.bsp         <- (Pluto, Charon and the small moons)
       spk/asteroids/sb441-n16.bsp       <- ssd.jpl.nasa.gov/ftp/eph/small_bodies/
-                                           asteroids_de441/ (the 16 asteroids
-                                           the DE ephemerides use as perturbers)
+                                           asteroids_de441/ (the 16 most massive
+                                           asteroids, JPL's small-body perturbers)
 
    Load order matters: SPICE uses the last-loaded kernel that covers a body,
    and each satellite kernel also carries its own (older) copy of the

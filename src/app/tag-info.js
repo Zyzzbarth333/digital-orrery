@@ -250,6 +250,19 @@ export const TAG_INFO = {
     where: 'k = 0.01720209895, the Gaussian constant (rad/day, a in au); t₀ = 2026-01-01 TT. The planets\' pull moves the real body off this ellipse slowly: Ceres by 75,000 km in a year',
     source: 'elements from JPL Horizons at t₀ · docs/frontend/small-bodies.md',
   },
+  // smallBodies.js positionAu, sbTable.js
+  'sb-position-exact': {
+    what: 'Where the body is in JPL\'s own integration of it, with the planets\' and the largest asteroids\' pull: as its point and marker are drawn.',
+    tex: [],
+    where: 'a Chebyshev fit to JPL\'s SB441 ephemeris, within 1 km of it from 2000 to 2050; outside those years, a fixed ellipse from the nearer end',
+    source: 'JPL SB441 (sb441-n373s.bsp; Farnocchia 2021, JPL IOM 392R-21-005) · docs/frontend/small-bodies.md',
+  },
+  'sb-elements-exact': {
+    what: 'The osculating orbital elements now: the ellipse the body is on at this moment, from its position and velocity in JPL\'s integration.',
+    tex: [VIS_VIVA],
+    where: 'a: semi-major axis; e: eccentricity; i: inclination to the ecliptic; μ⊙ = k² au³/day²',
+    source: 'JPL SB441, through the Chebyshev fit · docs/frontend/small-bodies.md',
+  },
   // smallBodies.js smallBodyFacts
   'sb-speed': {
     what: 'Speed relative to the Sun, on its ellipse.',

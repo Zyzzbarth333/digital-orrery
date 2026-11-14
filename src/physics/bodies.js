@@ -22,6 +22,12 @@
 // the moons' ephemerides are never evaluated. Pluto is in the list at all
 // only within REACH of it. docs/physics/nbody-kernel.md#moons.
 //
+// The sixteen most massive asteroids, JPL's small-body perturbers
+// (asteroids.js: Ceres, Vesta, Pallas and the rest), are point masses too, with DE441's GMs and
+// positions from SB441 (sbTable.js), whenever that table is installed. Each
+// is in the list only within ASTEROID_REACH of the craft, like Pluto; near
+// one it is the primary, as Vesta was Dawn's. docs/physics/nbody-kernel.md#asteroids.
+//
 // Which systems are split is state, set by focus(r, t) from the craft's
 // position: the kernel calls it at the start and after every step
 // (bodiesAt.focus). Each craft should have its own view (sys.view()), so one
@@ -34,6 +40,9 @@ import { bodyAxesEqj } from './orientation.js';
 import { ZONAL_CUTOFF } from './zonal.js';
 import { MOON_DATA } from './moons.data.js';
 import { MAJOR_MOONS_OF, moonStateEqjAtTt, planetOffsetEqjAtTt } from './moons.js';
+import { PERTURBERS, perturber } from './asteroids.js';
+import { sbCovers, sbHelioState } from './sbTable.js';
+import { tdbFromTt } from './timescale.js';
 import { PLANETS } from '../utils/constants.js';
 
 // GM (km^3/s^2) from DE442 (python/data/gm_de442.tpc), matched to what each
@@ -79,6 +88,11 @@ const SPACING = {
   mercury: 6 * 3600, venus: 6 * 3600, earth: 2 * 3600, moon: 3600, mars: 6 * 3600,
   jupiter: 86400, saturn: 86400, uranus: 2 * 86400, neptune: 2 * 86400, pluto: 2 * 86400,
 };
+// An asteroid's nodes, from its Chebyshev series: a day apart, a cubic
+// through them errs by 2e-4 km in the main belt (a n^4 D^4 / 384), and
+// smooths the series' joins (continuous there in position only) into a
+// curve with continuous velocity.
+const ASTEROID_SPACING = 86400;
 
 // astronomy-engine's Pluto (outside DE442's table) has velocities that are
 // not the derivative of its positions: a Hermite cubic through them is
@@ -122,6 +136,14 @@ export const EXPAND = 1.25, COLLAPSE = 1.5;
 // and the inner solar system never comes within 28 AU of it. Elsewhere it
 // would only add a tenth to every force sum.
 export const REACH = { pluto: 5 * 1.495978707e8 };
+// The asteroids likewise, within 1 AU (and out beyond 1.2 AU): from there
+// Ceres, the heaviest, pulls by 2.8e-15 km/s^2, 0.1 km in a hundred days.
+// From 2000 to 2050 only Iris comes within 1 AU of the Earth (to 0.85 AU,
+// on 1.7 % of days). In every force sum they would make 25 bodies of 9 and
+// the kernel about three times slower in low Earth orbit, for nothing; what
+// the reach leaves out of a cruise is 0.16 to 0.3 km a year
+// (asteroids.test.mjs).
+export const ASTEROID_REACH = 1.495978707e8;
 // Faster than any of these planets moves about the Sun (Mars at perihelion,
 // 26.5 km/s), with room for its sphere of influence changing size.
 const VMAX = 30;                    // km/s
@@ -208,6 +230,8 @@ export const KERNEL_BODIES = ['mercury', 'venus', 'earth', 'moon', 'mars', 'jupi
 // For a planet with moons, its system barycentre's (the body far from it).
 export function bodyConstants(key) {
   if (key === 'moon') return { mu: GM.moon, radius: MOON_RADIUS, parent: 'earth' };
+  const ast = perturber(key);
+  if (ast) return { mu: ast.gm, radius: ast.radius, parent: null };
   const m = MOON_DATA[key];
   if (m) return { mu: m.gm, radius: m.radiusKm, parent: m.planet };
   return { mu: GM[key], radius: PLANETS[key].radius, parent: null };
@@ -220,8 +244,11 @@ export const MU_SUN = GM.sun;
 // system's GM), for comparisons. satellites replaces moons.js as the source
 // of the moons, for tests against JPL's own: { moon(key, tt) -> { r, v }
 // about the planet's centre, offset(planet, tt) -> { r, v } the centre about
-// the barycentre }, EQJ km and km/s at TT seconds past J2000.
-export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true, moons = true, satellites = null }) {
+// the barycentre }, EQJ km and km/s at TT seconds past J2000. asteroids:
+// false leaves out the sixteen asteroids (they are in only when SB441's
+// table is installed: deNode.js, deLoad.js); an array of their keys takes
+// just those. asteroidReach: Infinity keeps them in the list everywhere.
+export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true, moons = true, satellites = null, asteroids = true, asteroidReach = ASTEROID_REACH }) {
   const muSun = GM.sun;
   // t: TT seconds from epochMs (kernelHost.kernelSeconds), so uniform
   // through leap seconds; msAt and secondsAt convert to and from UTC.
@@ -271,7 +298,18 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
     groups.push(G);
     return G;
   });
+  // The asteroids: point masses, each in the list only within reach of the
+  // craft (one bit each in a view's mask).
+  const rocks = [];
+  for (const a of PERTURBERS) {
+    if (!asteroids || (Array.isArray(asteroids) && !asteroids.includes(a.key)) || !sbCovers(a.id)) continue;
+    const helio = (t) => sbHelioState(a.id, tdbFromTt(tt0 + t));
+    const b = body(a.key, a.gm, a.radius, null, new HermiteEphemeris(helio, ASTEROID_SPACING));
+    byKey.set(a.key, b);
+    rocks.push(b);
+  }
   const AWAY = 1, FOLDED = 0, SPLIT = 2;      // a group's state: 2 bits each
+  const GROUP_SPAN = 4 ** groups.length;      // list keys: state + mask x GROUP_SPAN
 
   // placed counts position updates, so a view can tell that no other view
   // has moved a body it shares since it last looked.
@@ -298,10 +336,12 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
     placed++;
   };
 
-  // The body list for each combination of group states, built once.
+  // The body list for each combination of group states and asteroids in
+  // reach, built once.
   const lists = new Map();
-  const listFor = (state) => {
-    let list = lists.get(state);
+  const listFor = (state, mask) => {
+    const key = state + mask * GROUP_SPAN;
+    let list = lists.get(key);
     if (!list) {
       list = [];
       for (const e of entries) {
@@ -309,18 +349,21 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
         const g = (state >> (2 * groups.indexOf(e))) & 3;
         if (g === SPLIT) list.push(e.centre, ...e.moons); else if (g === FOLDED) list.push(e.bary);
       }
-      lists.set(state, list);
+      rocks.forEach((b, i) => { if (mask & (1 << i)) list.push(b); });
+      lists.set(key, list);
     }
     return list;
   };
 
   // A group starts away if it has a reach (so a view never focused lists
-  // what the kernel listed before the moons), folded otherwise.
+  // what the kernel listed before the moons), folded otherwise; the
+  // asteroids start out of reach, unless their reach is unlimited.
   let start = 0;
   groups.forEach((G, i) => { if (G.reach < Infinity) start |= AWAY << (2 * i); });
+  const startMask = asteroidReach === Infinity ? (1 << rocks.length) - 1 : 0;
 
   const view = () => {
-    let state = start, list = listFor(start), lastT = NaN, lastPlaced = -1;
+    let state = start, mask = startMask, list = listFor(start, startMask), lastT = NaN, lastPlaced = -1;
     // Returns the same array for the same states each call, with positions
     // updated in place, so the kernel's inner loop allocates nothing.
     const bodiesAt = (t) => {
@@ -331,11 +374,13 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
     };
     // Moves each group to the state the craft at r calls for: within reach
     // or not, split within EXPAND spheres of influence and folded beyond
-    // COLLAPSE. The distance is from the barycentre or the centre, whichever
-    // the list has (they differ by under 2,200 km). Each full check notes how
-    // far the craft is from the nearest edge; until the craft could have
-    // covered that, counting the planets' own motion at up to VMAX, nothing
-    // can change and the check is skipped (in low Earth orbit, for weeks).
+    // COLLAPSE; and each asteroid into the list or out of it. The distance
+    // is from the barycentre or the centre, whichever the list has (they
+    // differ by under 2,200 km). Each full check notes how far the craft is
+    // from the nearest edge; until the craft could have covered that,
+    // counting the bodies' own motion at up to VMAX (the asteroids are
+    // slower than Mars), nothing can change and the check is skipped (in low
+    // Earth orbit, for weeks).
     const fr = [0, 0, 0];
     let ft = NaN, margin = 0;
     const focus = (r, t) => {
@@ -363,12 +408,23 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
         }
         if (n !== g) s = (s & ~(3 << (2 * i))) | (n << (2 * i));
       }
-      if (s !== state) { state = s; list = listFor(s); lastT = NaN; }
+      let k = mask;
+      if (asteroidReach < Infinity) {
+        for (let i = 0; i < rocks.length; i++) {
+          const b = rocks[i];
+          if (b.t !== t) place(b, t);
+          const d = Math.hypot(r[0] - b.r[0], r[1] - b.r[1], r[2] - b.r[2]), bit = 1 << i;
+          if (k & bit) { if (d > 1.2 * asteroidReach) k &= ~bit; } else if (d < asteroidReach) k |= bit;
+          m = Math.min(m, Math.abs(d - (k & bit ? 1.2 : 1) * asteroidReach));
+        }
+      }
+      if (s !== state || k !== mask) { state = s; mask = k; list = listFor(s, k); lastT = NaN; }
       fr[0] = r[0]; fr[1] = r[1]; fr[2] = r[2]; ft = t; margin = m;
     };
     bodiesAt.focus = focus;
     const split = () => groups.filter((_, i) => ((state >> (2 * i)) & 3) === SPLIT).map((G) => G.key);
-    return { bodiesAt, focus, split };
+    const near = () => rocks.filter((_, i) => mask & (1 << i)).map((b) => b.key);
+    return { bodiesAt, focus, split, near };
   };
   const main = view();
 
@@ -381,9 +437,9 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
     return b;
   };
 
-  const common = { muSun, bodyAt, keys, systems: groups.filter((G) => G.centre).map((G) => G.key), epochMs, msAt, secondsAt };
+  const common = { muSun, bodyAt, keys, asteroids: rocks.map((b) => b.key), systems: groups.filter((G) => G.centre).map((G) => G.key), epochMs, msAt, secondsAt };
   return {
-    ...common, bodiesAt: main.bodiesAt, focus: main.focus, split: main.split,
-    view: () => { const v = view(); return { ...common, bodiesAt: v.bodiesAt, focus: v.focus, split: v.split }; },
+    ...common, bodiesAt: main.bodiesAt, focus: main.focus, split: main.split, near: main.near,
+    view: () => { const v = view(); return { ...common, bodiesAt: v.bodiesAt, focus: v.focus, split: v.split, near: v.near }; },
   };
 }

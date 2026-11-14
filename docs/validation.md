@@ -183,6 +183,29 @@ The same file checks:
 | a fall onto Ganymede at 3 km/s | impact event | `impact` on `ganymede`, found 46 km in (one 14 s step) |
 | the moons' $J_2$ and $C_{22}$ acceleration, Ganymede's field about tilted axes | central differences of the potential | $7.6\times10^{-10}$ relative |
 
+## The largest asteroids (`asteroids.test.mjs`)
+
+SB441's 25 asteroids in the app (`sbTable.js`; the 16 most massive and the
+9 other named bodies `sb441-n373s.bsp` covers), and the 16's gravity in the
+kernel ([small bodies](frontend/small-bodies.md#exact-positions-for-the-largest),
+[kernel](physics/nbody-kernel.md#asteroids)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the Chebyshev table, asteroid less Sun | SB441 (`c/sb_cheb.c`, `spkezr_c` every 0.37 days, 2000–2050) | within 0.94 km |
+| the JavaScript reader | SB441 (`fixtures/asteroids_sb441.json`: `spkezr_c`, 25 bodies, 11 dates) | within 0.49 km and 1.4 mm/s |
+| main belt and Eros, 2000–2050 | JPL Horizons, current orbit solutions (`fixtures/asteroids_horizons.json`) | within 340 km (Hygiea, 2050), within 200 km in 2025; Ceres 49 km, Vesta 73, Psyche 280, Eros 3 |
+| the trans-Neptunian objects | Horizons | 9,900 to 198,000 km (Orcus): their 2021 solutions; the 2026 ellipses are 9 to 10 million km off |
+| the 2026 ellipses the labels used before | Horizons | 2.4 million km (Eros) to 72 million (Hygiea) |
+| the points refreshed from the table every 5 days | the table | within 0.48′ as seen from the Sun; Sedna 3.7′, half a step of its packed M |
+| two-body past the table's ends | the end's state carried a minute | within 6 m; there and back over 30 days to 1 mm |
+| 300 days of cruise from the Earth; a year in the belt | the same with no asteroids, and with all 16 everywhere | 0.16 km and 0.30 km in all; the 1 AU reach leaves out 0.16 and 0.30 |
+| a Dawn-like orbit about Vesta (950 km, August 2011), two days | two-body about Vesta | 950.0 km throughout; 23,300 km away without the asteroids |
+| a Psyche-like approach from 15,000 km at 50 m/s, August 2029 | the two-body hyperbola about Psyche, pericentre 560.3 km | 561.5 km (hourly samples); 1,003 km without the asteroids |
+
+Horizons and SB441 differ by what the orbits have learned since 2021, so
+the Horizons rows bound the source, not the fit.
+
 ## Spacecraft in the app (`craftKernel.test.mjs`)
 
 | Behaviour | Result |
