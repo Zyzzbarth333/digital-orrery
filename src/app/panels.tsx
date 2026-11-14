@@ -15,7 +15,7 @@ import type { Mission } from './mission';
 import { BODIES, BODY_BY_KEY, isPlanetMoon, type BodyKey } from '../scene/catalogue';
 import { bodyState } from '../scene/OrreryScene';
 import { MU_SUN } from '../physics/bodies.js';
-import { helioStateEcl } from '../physics/ephemeris.js';
+import { helioStateEcl, fromDe442 } from '../physics/ephemeris.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears, sunFromBarycentreKm } from '../physics/bodyfacts.js';
 
@@ -401,18 +401,21 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
   const fromEarth = norm([st.r[0] - earth.r[0], st.r[1] - earth.r[1], st.r[2] - earth.r[2]]);
   const ownGm = b.planetGm ?? b.gm;
   const rows: Row[] = [];
+  // The Earth and the Moon come from DE442's table where it covers the date
+  // (2000-2050), every other body from astronomy-engine.
+  const eph = fromDe442(focus, date) ? 'DE442' : 'AE';
   const pm = b.moon;
   rows.push(focus === 'sun'
     ? { label: 'Motion', value: 'Fixed', alt: 'the centre of the frame', src: 'frame', derived: true, info: 'frame' }
     : pm
       ? { label: 'Motion', value: 'Mean orbit', alt: 'about its planet, on rails', src: pm.elements.startsWith('JPL') ? 'JPL' : 'AE', info: 'moon-orbit', detail: pm.elements }
-      : { label: 'Motion', value: 'Ephemeris', alt: 'on rails, not integrated', src: 'AE', info: 'ephemeris' });
+      : { label: 'Motion', value: 'Ephemeris', alt: 'on rails, not integrated', src: eph, info: 'ephemeris' });
   if (focus !== 'sun') {
-    rows.push({ label: 'From the Sun', value: (rSun / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(rSun)} km`, src: 'AE', info: 'sun-distance' });
-    rows.push({ label: 'Speed', value: norm(st.v).toFixed(3), unit: 'km/s', alt: 'heliocentric', src: 'AE', info: 'sun-speed' });
+    rows.push({ label: 'From the Sun', value: (rSun / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(rSun)} km`, src: eph, info: 'sun-distance' });
+    rows.push({ label: 'Speed', value: norm(st.v).toFixed(3), unit: 'km/s', alt: 'heliocentric', src: eph, info: 'sun-speed' });
   }
   if (focus !== 'earth') {
-    rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'AE', info: 'earth-distance' });
+    rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: focus === 'moon' ? eph : 'AE', info: 'earth-distance' });
     const lt = fromEarth / C_KM_S;
     rows.push({
       label: 'Light time', value: lt < 60 ? lt.toFixed(3) : lt < 3600 ? (lt / 60).toFixed(2) : (lt / 3600).toFixed(3),

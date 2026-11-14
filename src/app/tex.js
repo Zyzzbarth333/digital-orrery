@@ -303,7 +303,7 @@ function txt(n) {
       // A fraction after a function name is its argument: ln(m₀/m_f).
       if (c.k === 'frac' && prev?.k === 'mi' && prev.fn) return `(${txt(c)})`;
       // Keep products apart where they would run together: ½ρ v², C_D A.
-      const operand = (x) => x && x.k !== 'mo' && x.k !== 'space';
+      const operand = (x) => x && x.k !== 'mo' && x.k !== 'space' && !(x.k === 'script' && x.base.k === 'mo' && !x.base.large);
       if (operand(prev) && operand(c) && (['script', 'frac', 'sqrt'].includes(prev.k) || c.k === 'frac')) return ` ${txt(c)}`;
       return txt(c);
     }).join('');
@@ -316,7 +316,7 @@ function txt(n) {
       if (n.base.k === 'mo' || (n.base.k === 'mi' && n.base.fn)) s = n.base.v;
       if (n.sub) { const t = tight(txt(n.sub)); s += ([...t].length === 1 ? mapAll(t, SUB) : null) ?? (atomic(n.sub) || /^\w+$/u.test(t) ? `_${t}` : `_(${t})`); }
       if (n.sup) { const t = tight(txt(n.sup)); s += mapAll(t, SUP) ?? (atomic(n.sup) ? `^${t}` : `^(${t})`); }
-      return n.base.k === 'mo' || n.base.fn ? ` ${s} ` : s;
+      return n.base.large || n.base.fn ? ` ${s} ` : s;
     }
     default: throw new Error(`tex: node ${n.k}`);
   }
