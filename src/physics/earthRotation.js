@@ -8,8 +8,11 @@
 //   nutation    IAU 1980 (Wahr), the full 106-term series
 //   sidereal    GMST (IAU 1982, Aoki et al.) plus the equation of the
 //               equinoxes, so Greenwich apparent sidereal time
-//   polar motion  none (the check cases hold it at zero)
-// M(t) = R3(GAST) N P, so r_ecef = M r_j2000. Pure ES module.
+//   polar motion  xp, yp when given (eop.js gives them, with UT1 - UTC
+//               and the IERS corrections to the 1980 nutation; the check
+//               cases hold them at zero)
+// M(t) = R1(-yp) R2(-xp) R3(GAST) N P, so r_ecef = M r_j2000. This is how
+// NAIF builds ITRF93 in its Earth PCKs. Pure ES module.
 //
 // The nutation series and its fundamental arguments are NAIF's (CSPICE
 // zzwahr.c, from the Explanatory Supplement to the Astronomical Almanac,
@@ -20,8 +23,7 @@
 const AS2R = Math.PI / (180 * 3600);
 const D2R = Math.PI / 180;
 const DAY_S = 86400;
-const JD_J2000 = 2451545.0;
-const MJD_UNIX = 2440587.5;    // JD of the Unix epoch
+const J2000_MS = Date.UTC(2000, 0, 1, 12);   // JD 2451545.0 as a Unix-ms clock reading
 
 const NUT80 = [
   [0, 0, 0, 0, 1, -171996, -1742, 92025, 89],
@@ -169,34 +171,46 @@ export function precession1976(T) {
   return mul(R3(-z), mul(R2(theta), R3(-zeta)));
 }
 
-// GMST, IAU 1982, radians in [0, 2 pi). jdUt1: Julian date UT1.
-export function gmst1982(jdUt1) {
-  const Tu = (jdUt1 - JD_J2000) / 36525;
-  // Seconds of time: the polynomial plus the elapsed fraction of the day.
-  const frac = ((jdUt1 - 0.5) % 1 + 1) % 1;
+// GMST, IAU 1982, radians in [0, 2 pi). du: days of UT1 from J2000
+// (JD 2451545.0 UT1). Taken as days from J2000 rather than a Julian date,
+// which a double holds only to 40 us (2 cm of the Earth's turn).
+export function gmst1982(du) {
+  const Tu = du / 36525;
+  // Seconds of time: the polynomial plus the elapsed fraction of the day
+  // (from 0h UT1, half a day off J2000's noon).
+  const frac = ((du + 0.5) % 1 + 1) % 1;
   const s = 24110.54841 + Tu * (8640184.812866 + Tu * (0.093104 - Tu * 6.2e-6)) + frac * DAY_S;
   return ((s % DAY_S + DAY_S) % DAY_S) / DAY_S * 2 * Math.PI;
 }
 
 // The J2000 -> Earth-fixed matrix at a UTC instant (Unix ms), with the
-// time offsets as given: TAI - UTC (leap seconds) and UT1 - UTC.
-// Returns { M, gast, pole } where pole is the Earth's rotation axis of
-// date in J2000 (M's third row).
+// time offsets as given: TAI - UTC (leap seconds) and UT1 - UTC; and the
+// rest of the Earth orientation parameters when given (eop.js): polar
+// motion xp, yp and the corrections ddpsi, ddeps to the 1980 nutation, all
+// in arcseconds.
+// Returns { M, pef, W, gast, pole }: M = W pef, where pef = R3(GAST) N P is
+// the frame of the true pole of date and W = R1(-yp) R2(-xp) turns it to
+// the Earth's crust; pole is the rotation axis of date in J2000 (pef's third
+// row), which polar motion tilts M's third row away from by about 10 m.
 // eqeq1994: add the 1994 terms in Omega to the equation of the equinoxes
 // (IERS Conventions 1996). Off by default: NASA's check-case simulations
 // leave them out (with them, their Earth-fixed positions are 5 cm away
 // instead of 1 cm).
-export function earthFixedMatrix(utcMs, { leapSeconds = 37, dut1 = 0, eqeq1994 = false } = {}) {
-  const jdUtc = utcMs / 86400e3 + MJD_UNIX;
-  const jdTt = jdUtc + (leapSeconds + 32.184) / DAY_S, jdUt1 = jdUtc + dut1 / DAY_S;
-  const T = (jdTt - JD_J2000) / 36525;
+export function earthFixedMatrix(utcMs, { leapSeconds = 37, dut1 = 0, xp = 0, yp = 0, ddpsi = 0, ddeps = 0, eqeq1994 = false } = {}) {
+  // Days from J2000 (JD 2451545.0) in UTC, TT and UT1.
+  const dUtc = (utcMs - J2000_MS) / 86400e3;
+  const dTt = dUtc + (leapSeconds + 32.184) / DAY_S, dUt1 = dUtc + dut1 / DAY_S;
+  const T = dTt / 36525;
   const P = precession1976(T);
   const eps = meanObliquity1980(T);
-  const { dpsi, deps, omega } = nutation1980(jdTt - JD_J2000);
+  const nut = nutation1980(dTt);
+  const dpsi = nut.dpsi + ddpsi * AS2R, deps = nut.deps + ddeps * AS2R;
   const N = mul(R1(-(eps + deps)), mul(R3(-dpsi), R1(eps)));
   // Equation of the equinoxes.
+  const omega = nut.omega;
   const eqeq = dpsi * Math.cos(eps + deps) + (eqeq1994 ? (0.00264 * Math.sin(omega) + 0.000063 * Math.sin(2 * omega)) * AS2R : 0);
-  const gast = gmst1982(jdUt1) + eqeq;
-  const M = mul(R3(gast), mul(N, P));
-  return { M, gast, pole: M[2] };
+  const gast = gmst1982(dUt1) + eqeq;
+  const pef = mul(R3(gast), mul(N, P));
+  const W = xp || yp ? mul(R1(-yp * AS2R), R2(-xp * AS2R)) : null;
+  return { M: W ? mul(W, pef) : pef, pef, W, gast, pole: pef[2] };
 }
