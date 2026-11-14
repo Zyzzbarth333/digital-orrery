@@ -21,6 +21,7 @@
     "build:smallbodies": "node src/physics/smallbodies.build.mjs",
     "build:pck": "node src/physics/pck.build.mjs",
     "fetch:moons": "node src/physics/moons.fetch.mjs",
+    "build:moon-tables": "cmake -S c -B c/build -DCMAKE_BUILD_TYPE=Release && cmake --build c/build --target moon_cheb && mkdir -p public/ephemeris/moons-extra && c/build/moon_cheb public/ephemeris/moons 0.5 2000 2050 public/ephemeris/moons-extra 2020 2036",
     "fetch:flyby": "node src/physics/flyby.fetch.mjs",
     "crosscheck:artemis1": "node src/physics/artemis1.crosscheck.mjs",
     "fetch:environment": "node src/physics/environment.fetch.mjs",

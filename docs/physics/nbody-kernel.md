@@ -343,11 +343,17 @@ a system's sphere of influence, `bodies.js` **splits** it. Beyond
 `COLLAPSE` = 1.5 times, it folds it up again. Split, the system is:
 
 - **the planet at its own centre**, with its planet-only GM and its $J_2$.
-  The centre is the barycentre plus $-\sum_i \mu_i\mathbf r_i/\mu_\text{system}$
+  The centre is the barycentre plus the satellite ephemeris's own planet
+  centre (from 2000 to 2049), or else $-\sum_i \mu_i\mathbf r_i/\mu_\text{system}$
   over the moons ([moons](../frontend/moons.md#planets-drawn-at-their-centres)).
-- **each moon at the planet's centre plus its planetocentric place** from
-  `moons.js`, with its own GM. The five largest also carry their degree-2
-  fields ([below](#the-moons-own-fields)).
+- **each major moon at the planet's centre plus its planetocentric place**
+  from `moons.js`, with its own GM. The five largest also carry their
+  degree-2 fields ([below](#the-moons-own-fields)). The twenty major moons
+  are those in the table below; the 56 small moons `moons.js` also draws
+  (Jupiter's inner four; Saturn's ring, co-orbital and small moons,
+  Hyperion and Phoebe; Uranus's inner and irregular moons; Neptune's inner
+  moons and Nereid; Pluto's four small moons) are left out, the largest of
+  them, Proteus, with about Mimas's GM.
 
 | System | Planet GM (km³/s², NAIF) | Moons in the kernel (GM, km³/s²) |
 | --- | --- | --- |
@@ -409,14 +415,21 @@ over 20 days (`flyby.test.mjs` case 1):
 | Neptune's centre; Triton | 6 h; 2 h | 1 m; 58 m |
 | Pluto's centre; Charon | 6 h; 3 h | 20 m (Charon's 2,100 km swing); 20 m |
 
-That is far inside how well `moons.js` knows the moons themselves: 130 to
-650 km for the Galilean moons, 1,600 km for Titan
+Those were measured with the moons from their mean elements. From the
+satellite-ephemeris tables (2000–2049) the worst over all of them is 104 m
+(Callisto): each interval of a table is pinned to the SPK at its ends, but
+its velocity there is a few cm/s off, which a cubic over a 36-minute node
+spacing turns into tens of metres.
+
+`moons.js` knows the moons themselves to within 1 km from 2000 to 2049
+(JPL's satellite ephemerides as tables) and, outside that, to 130 to 650 km
+for the Galilean moons and 1,600 km for Titan
 ([moons](../frontend/moons.md#how-right-they-are)). Those errors, not the
 kernel, set how closely a flyby of a moon can be followed. On Juno's pass
 over Ganymede the kernel follows JPL's trajectory to 4 km after nine hours
-with JPL's moons (Ganymede where Juno's own track puts it; 21 km with the
-Ganymede Horizons serves), 323 km with `moons.js`'s, and 9,300 km with no
-moons
+with JPL's moons (Ganymede where Juno's own track puts it), 20.8 km with
+`moons.js`'s (20.9 km with the Ganymede Horizons serves; 323 km with the
+fallback's), and 9,300 km with no moons
 ([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
 
 **Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never

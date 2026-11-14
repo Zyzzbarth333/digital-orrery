@@ -1,43 +1,145 @@
-# The planets' major moons
+# The planets' moons
 
-Twenty moons besides our own are drawn as real bodies, at their real radii
-and true positions about their planets:
+Seventy-six moons besides our own are drawn as real bodies, at their real
+sizes and true positions about their planets: every moon in the JPL
+satellite ephemerides used here (below). The twenty major ones are
+in bold.
 
 | Planet | Moons |
 | --- | --- |
-| Mars | Phobos, Deimos |
-| Jupiter | Io, Europa, Ganymede, Callisto |
-| Saturn | Mimas, Enceladus, Tethys, Dione, Rhea, Titan, Iapetus |
-| Uranus | Miranda, Ariel, Umbriel, Titania, Oberon |
-| Neptune | Triton |
-| Pluto | Charon |
+| Mars | **Phobos**, **Deimos** |
+| Jupiter | Metis, Adrastea, Amalthea, Thebe, **Io**, **Europa**, **Ganymede**, **Callisto** |
+| Saturn | Pan, Atlas, Prometheus, Pandora, Epimetheus, Janus, Aegaeon, **Mimas**, Methone, Anthe, Pallene, **Enceladus**, **Tethys**, Telesto, Calypso, **Dione**, Helene, Polydeuces, **Rhea**, **Titan**, Hyperion, **Iapetus**, Phoebe |
+| Uranus | Cordelia, Ophelia, S/2025 U 1, Bianca, Cressida, Desdemona, Juliet, Portia, Rosalind, Cupid, Belinda, Perdita, Puck, Mab, **Miranda**, **Ariel**, **Umbriel**, **Titania**, **Oberon**, and the irregular Francisco, Caliban, Stephano, S/2023 U 1, Trinculo, Sycorax, Margaret, Prospero, Setebos, Ferdinand |
+| Neptune | Naiad, Thalassa, Despina, Galatea, Larissa, Hippocamp, Proteus, **Triton**, Nereid |
+| Pluto | **Charon**, Styx, Nix, Kerberos, Hydra |
 
 Each has a marker and label like the planets', an orbit line about its
 planet, and a place in the body rail under its planet. Choosing one flies the
 camera there (the same `focusOn` and [camera](camera.md) path as a planet).
-Near its planet each also pulls on spacecraft with its own GM: the kernel
-splits the planet's system into the planet and its moons there
+Near its planet each major moon also pulls on spacecraft with its own GM:
+the kernel splits the planet's system into the planet and those moons there
 ([kernel](../physics/nbody-kernel.md#moons)), from the same positions.
 That is checked on Juno's 2021 flyby of Ganymede
 ([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
+The small moons are drawn only; the largest of them, Proteus, Phoebe,
+Hyperion and Janus, have GMs of 2.6, 0.55, 0.37 and 0.13 km³/s², about Mimas's at most.
 
 ![Jupiter and the Galilean moons on 14 November 2026, with their orbit lines; the rail lists the moons under Jupiter](moons-jupiter.jpg)
 
 ![Saturn and its moons out to Titan on the same date](moons-saturn.jpg)
 
-Code: `src/physics/moons.js` (positions), `src/physics/moons.data.js` (the
-data, written by `src/physics/moons.fetch.mjs`), `src/physics/moons.test.mjs`
-(the checks), and the scene's `systemStates` in `src/scene/OrreryScene.ts`;
-for the kernel, `src/physics/bodies.js` and `src/physics/flyby.test.mjs`.
+Code: `src/physics/moons.js` (positions), `src/physics/moonTables.js` (the
+satellite-ephemeris tables, fitted by `c/moon_cheb.c` into
+`public/ephemeris/moons/`, loaded by `moonLoad.js` in the browser and
+`moonNode.js` under Node), `src/physics/moons.data.js` (the fallback's
+elements and every moon's physical data, written by
+`src/physics/moons.fetch.mjs`), `src/physics/moons.test.mjs` (the checks),
+and the scene's `systemStates` in `src/scene/OrreryScene.ts`; for the
+kernel, `src/physics/bodies.js` and `src/physics/flyby.test.mjs`.
 
 ## Positions
 
-### Io, Europa, Ganymede and Callisto
+### 2000 to 2049: JPL's satellite ephemerides
+
+From 2000 to 2049 (the inner moons 2020 to 2035, [below](#the-inner-moons-span)) every moon comes from NAIF's satellite SPK kernels, the
+numerically integrated ephemerides JPL fits to the observations and the
+spacecraft data, and Horizons serves:
+
+| Kernel | System | Covers |
+| --- | --- | --- |
+| `mar099s` | Mars, Phobos, Deimos | 1995–2050 |
+| `jup365` | Jupiter and its eight inner and Galilean moons | 1600–2200 |
+| `sat441` | Saturn and its fourteen major and outer moons here | 1750–2250 |
+| `sat415` | Saturn's ring moons, Pan to Pallene (Methone is taken from `sat441`) | 1950–2050 |
+| `ura184` (part 3) | Uranus, its five major and ten irregular moons | 1600–2400 |
+| `ura184` (parts 1, 2) | Uranus's fourteen inner moons, Cordelia to Mab | 1900–2100 |
+| `nep098` (parts 1–3) | Neptune, Naiad to Proteus, Triton, Nereid | 1800–2200 |
+| `plu060` | Pluto, Charon and the four small moons | 1800–2200 |
+
+The kernels themselves are 11 GB, so `c/moon_cheb.c` fits them through
+CSPICE into compact Chebyshev series, one file per system per year,
+`public/ephemeris/moons/<system>-<year>.bin` (300 files, 74 MB for the
+fifty years), and for Saturn, Uranus and Neptune a second,
+`<system>-inner-<year>.bin`, with their inner moons. Each main file holds
+every other moon of the system and the planet's centre, each about the system barycentre (J2000 equatorial, km, against TDB
+seconds past J2000). For each body the tool picks the number of equal
+intervals a year and of coefficients per interval that store it in the
+fewest bytes with every position within 0.5 km of the SPK:
+
+- Each interval is fitted at the Chebyshev–Gauss nodes of a window 10 %
+  wider than itself, and the polynomial re-expanded on the interval. A
+  Chebyshev fit's derivative is worst at the ends of its window (by about
+  $n^2$ against $n$ inside), and the kernel's Hermite nodes use the
+  velocities, so this keeps them as good at the joins as inside: the
+  velocity steps where intervals meet fell from about 1 m/s to a few cm/s.
+- Each interval is then pinned to the SPK's positions at its two ends by a
+  straight line (no larger than the ends' own misses), so neighbouring
+  intervals, and years, meet without a step.
+- Coefficients are Float32 for bodies within 300,000 km of the barycentre
+  and Float64 beyond: Float32 rounds the leading coefficients to $6\times
+  10^{-8}$ of themselves, 0.1 km for a moon two million kilometres out,
+  which would undo the pinning. The far moons move slowly and need few
+  coefficients, so it costs little.
+- Every interval of the fifty years is checked against the SPK at six
+  points per coefficient, position and velocity, and a body that misses
+  anywhere is refitted with more coefficients (Margaret, whose eccentric
+  orbit swings in to 1.7 million km, needed 45 intervals a year of 18).
+
+The worst position error per body is 0.21 to 0.48 km. Position steps where
+intervals meet are under 0.05 km, from the Float32 rounding; velocities
+are within a few m/s of the SPK at worst (Phobos 6 m/s, at 2.1 km/s), and
+within 0.5 m/s for most.
+
+A moon about its planet's centre is the difference of two such series, so
+it is within 1 km of the SPK; the planet's centre about the barycentre is
+JPL's own, with every moon's pull in it. Velocities are the series'
+derivatives, so they match the positions.
+
+The fast inner moons cost the most, about 100 kB a year each: Phobos
+146 kB, Jupiter's four inner moons 440 kB between them, Saturn's nine ring
+moons 520 kB, Uranus's fourteen inner moons 1.26 MB, Neptune's seven inner
+moons 520 kB. The irregular moons, which take years to go round, need a few
+hundred bytes. A year of a system is 44 kB (Pluto) to 1.39 MB (Uranus,
+with its inner moons).
+
+### The inner moons' span
+
+The 29 inner moons (Saturn's nine ring moons, Uranus's fourteen and
+Neptune's six inner moons) are 2.3 MB a year between them, 115 MB for the
+fifty years. So the repo carries their files for 2020 to 2035 only (48
+files, 35 MB; 109 MB of tables in all), and their other years are built
+locally from the kernels:
+
+```bash
+npm run build:moon-tables
+```
+
+which rebuilds every table and puts the inner moons' years outside
+2020–2035 in `public/ephemeris/moons-extra/` (102 files, 75 MB), which git
+ignores. Where an inner moon's file is not there, that moon quietly uses
+the mean elements, as every moon does after 2049; a dev server or build
+made with the folder in place serves it. `moons.test.mjs` passes either
+way and checks the extra years when they are present.
+
+**Loading.** A file is fetched only when it is wanted (both of a year's
+files, where there are two): on the main thread,
+for the system the camera is focused on or within 30 million km of, and
+for the years its moons' orbit lines span (half the longest period either
+side: up to 3.8 years for Uranus's Ferdinand; the inner moons' files only
+for the year about the date, since they go round in a day); in the kernel's worker, the
+first time a craft comes near enough for the system to split. Until the
+year has arrived, and outside 2000–2049, the moons come from the fallback
+below, and the orbit lines are redrawn when it arrives. Under Node
+(`moonNode.js`, which `deNode.js` imports) each year is read synchronously
+the first time it is asked for, so tests see what the app sees.
+
+### The fallback: Io, Europa, Ganymede and Callisto
 
 astronomy-engine's `JupiterMoons`: Lieske's E5 theory of the Galilean
 satellites as truncated in L1.2, giving jovicentric J2000 equatorial states.
 
-### The others: JPL's mean elements
+### The fallback: JPL's mean elements for the others
 
 From JPL's [planetary satellite mean elements](https://ssd.jpl.nasa.gov/sats/elem/)
 (fetched 14 November 2026). Each row is a precessing ellipse fitted by JPL to
@@ -121,10 +223,39 @@ uses the barycentre's state and the system GM.
 ## How right they are
 
 `npm test` runs `moons.test.mjs` against Horizons vectors that were not used
-in the fit (`src/physics/fixtures/moons_horizons.json`): daily over November
-2026, and on 1 January of each year 2000 to 2050 (those dates are not on the
-weekly grid but lie inside the fitted span). Largest distance from Horizons,
-km:
+in any fit (`src/physics/fixtures/moons_horizons.json`): daily over November
+2026, and on 1 January of each year 2000 to 2050. The fixture is rounded to
+0.1 km.
+
+### From the tables
+
+Every one of the 75 moons Horizons serves is within 0.6 km of it, about its
+planet's centre (S/2025 U 1, found in 2025, is not in Horizons yet; its
+table is checked against `ura184` alone):
+
+| | Nov 2026, daily | 2000–2050, yearly |
+| --- | ---: | ---: |
+| worst | 0.58 km (Styx) | 0.09 km (Mimas) |
+| typical | 0.25–0.45 km | 0.07–0.08 km |
+
+The yearly samples fall on 1 January, where every interval is pinned to the
+SPK, so what is left there is the fixture's rounding; the daily ones fall
+anywhere in an interval. The planet's centre about its barycentre is within
+0.35 km of Horizons for every system (Pluto's offset is 2,130 km).
+
+Horizons serves the same solutions the tables are fitted to, with one
+exception found on the way: for Neptune it serves `nep098` (2026), and the
+older `nep097`'s Triton is 275–385 km from it, so the tables use `nep098`.
+
+On Juno's 2021 Ganymede flyby the kernel now follows JPL's reconstruction to
+20.8 km nine hours on with these moons, the same as with Horizons' own
+(20.9 km); with the fallback's Ganymede it was 323 km
+([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
+
+### From the fallback
+
+Before 2000, after 2049, and until a year has loaded. Largest distance from
+Horizons, km:
 
 | Moon | $a$ (km) | Nov 2026 | 2000–2050 | Source |
 | --- | ---: | ---: | ---: | --- |
@@ -148,15 +279,30 @@ km:
 | Oberon | 583,511 | 1,999 | 2,175 | elements |
 | Triton | 354,800 | 141 | 240 | elements |
 | Charon | 19,600 | 29 | 29 | elements |
+| Metis, Adrastea | 128,000 | 233 | 237 | elements |
+| Amalthea, Thebe | 181,400–221,900 | 277 | 1,529 | elements |
+| Methone, Helene, Polydeuces, Telesto, Calypso | 194,700–377,600 | 189,656 | 191,233 | elements |
+| Hyperion | 1,481,500 | 521,580 | 774,561 | elements |
+| Phoebe | 12,929,400 | 441,891 | 485,781 | elements |
+| Uranus's irregular moons | 4.3–20.4 million | up to 7.8 million | up to 16.4 million | elements |
+| Naiad | 48,300 | 6,981 | 7,038 | elements |
+| Nereid | 5,513,900 | 84,069 | 94,519 | elements |
+| Styx, Nix, Kerberos, Hydra | 43,200–65,200 | 4,362 | 4,445 | elements |
 
-So apart from Mimas every moon is within 3 % of its orbit's radius, most
-within 0.3 %, and the error does not grow across 2000 to 2050. Outside
-those years the fitted rates carry on, and the error grows.
+So apart from Mimas the twenty major moons are within 3 % of their orbits'
+radii, most within 0.3 %, and the error does not grow across 2000 to 2050.
+Outside those years the fitted rates carry on, and the error grows. The
+small moons' elements do worse: the co-orbital and resonant moons
+(Methone, Helene, Polydeuces, Telesto, Calypso) librate, Hyperion's orbit
+is chaotic in its resonance with Titan, and the irregular moons, Phoebe and
+Nereid are pulled about by the Sun far more than a precessing ellipse
+allows (Uranus's irregular moons' rows are referred to the ecliptic at
+2020, as JPL gives them). They are a placeholder only.
 
-The planet's centre about its barycentre agrees with Horizons (each
-planet's centre, 599 etc., about its barycentre, 5 etc.) to 0.05 km for
-Jupiter, 0.4 km for Saturn, 0.9 km for Uranus, 0.07 km for Neptune and 3 km
-for Pluto (Charon's 29 km times its 11 % share).
+The fallback's planet centre about its barycentre, from the moons' GMs,
+agrees with Horizons to 0.05 km for Jupiter, 0.3 km for Saturn, 0.9 km for
+Uranus, 0.07 km for Neptune and 3 km for Pluto (Charon's 29 km times its
+11 % share).
 
 ### Which point each position is
 
@@ -196,9 +342,26 @@ Jupiter's centre). `moons.test.mjs` checks the rest of the chain:
 
 Radius, GM and geometric albedo come from each moon's JPL Horizons object
 page (fetched 14 November 2026). Where Horizons gives a triaxial shape
-(Phobos, Deimos, Ariel, Miranda) the radius is that of the sphere of equal
-volume; where it gives a mass and no GM (Phobos, Deimos), $GM = G\,m$ with
-the CODATA 2018 $G$. Charon has no albedo there, so it is drawn at 0.3.
+(Phobos, Deimos, Ariel, Miranda, Telesto, Calypso, Methone, Polydeuces) the
+radius is that of the sphere of equal volume; where it gives a mass and no
+GM (Phobos, Deimos), $GM = G\,m$ with the CODATA 2018 $G$. Where it gives
+no albedo (Charon, Pluto's four small moons, Methone, Polydeuces, Uranus's
+irregular moons) the moon is drawn at 0.3.
+
+The small moons are less well known:
+
+- **No GM** for Methone, Polydeuces, Nereid and Uranus's ten irregular
+  moons (none has been measured). The data plate says so; none of them is
+  in the kernel, and with the tables the planet's offset from its
+  barycentre is JPL's own, so nothing needs one.
+- **No measured size** for eight of the irregular moons: Horizons gives
+  Caliban about 30 km and Sycorax about 60 km, Prospero only under 50 km,
+  and the rest nothing (they are seen only as points of light; sizes in the
+  literature are estimates from an assumed albedo). Those eight are drawn
+  at a nominal 10 km, and the data plate says so (`radiusNote`).
+
+JPL's [physical-parameters table](https://ssd.jpl.nasa.gov/sats/phys_par/)
+lists only the moons with a measured mass, so it adds nothing here.
 
 ## Drawing
 
@@ -222,21 +385,30 @@ the CODATA 2018 $G$. Charon has no albedo there, so it is drawn at 0.3.
   and a moon is eclipsed by its planet. One moon's shadow on another is not
   drawn.
 - **Orbit lines:** one period about the planet's centre, sampled straight
-  from the moon's model (0.6 ms a line from elements, 1.9 ms from
-  `JupiterMoons`), resampled like the planets' ([scene](scene.md#orbit-lines)).
+  from the moon's model (under 2 ms a line from the tables in Node, about
+  as long as from the elements), resampled like the planets'
+  ([scene](scene.md#orbit-lines)), and redrawn when a year of the tables
+  arrives.
 - **Rail:** a planet's moons are listed under it, two to a row, while it or
-  one of them is in view; otherwise its row shows how many it has (`+7`).
+  one of them is in view; otherwise its row shows how many it has (`+14`
+  for Saturn, `+15` for Uranus).
   Earth's Moon is always listed.
 
-Computing all six systems takes about 0.1 ms a frame.
+Computing all six systems, 76 moons, takes about 0.08 ms a frame from the
+tables (0.12 ms from the fallback), measured in Node.
 
 ## Not yet
 
-- **Better places for the moons.** A close flyby is now limited by where
-  `moons.js` puts the moon, not by the kernel: on Juno's Ganymede pass,
-  323 km off after nine hours with these moons against 4 km with JPL's.
-  JPL's satellite kernels (`jup365` and the rest), as Chebyshev tables like
-  the Earth's and Moon's, would bring that down; they need a download.
+- **Before 2000 and after 2049** the moons are the fallback's. The kernels
+  reach 1600 to 2400 (Mars's short file only 1995 to 2050), so the span
+  could grow at about 1.2 MB a year of tables; past 2050 the planets
+  themselves come from astronomy-engine (16,000 to 335,000 km out), so it
+  would buy less.
+- **The outer irregular moons**: Jupiter's 49 (`jup347`), Saturn's 39
+  (`sat456`) and Neptune's other 5 (`nep104`) are on disk; they are to come
+  as an optional layer of points and orbit lines rather than rail entries,
+  in their own pull request. Saturn's Daphnis, Neptune's and Uranus's
+  newest moons and the rest of Saturn's ring moons are in other kernels.
 - **The moons' gravity fields beyond degree 2.** Io, Europa, Ganymede,
   Callisto and Titan carry their $J_2$ and $C_{22}$
   ([kernel](../physics/nbody-kernel.md#the-moons-own-fields)); the others
@@ -245,7 +417,8 @@ Computing all six systems takes about 0.1 ms a frame.
   moons (no digital global mosaic; Voyager 2 saw only their southern
   hemispheres), and Iapetus's full albedo contrast, which the USGS mosaic
   flattens.
-- Mimas's libration, which a sinusoidal term in its mean longitude could hold.
+- Mimas's libration, which a sinusoidal term in its mean longitude could
+  hold, for the fallback.
 
 ## Updating the data
 
@@ -256,3 +429,12 @@ npm run fetch:moons
 It downloads the elements page and the Horizons headers and vectors into
 `~/.cache/digital-orrery/moons` (delete the folder to fetch afresh), refits,
 and rewrites `moons.data.js` and `fixtures/moons_horizons.json`.
+
+The tables come from the kernels with `c/moon_cheb.c`
+([c/README.md](../../c/README.md#the-moons-for-the-app)):
+
+```bash
+npm run build:moon-tables
+```
+
+([The inner moons' span](#the-inner-moons-span) says what it writes where.)

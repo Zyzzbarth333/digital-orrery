@@ -18,7 +18,8 @@
 import fs from 'node:fs';
 import { advance, createState, HermiteEphemeris } from './nbody.js';
 import { solarSystemBodies, MOON_SPACING } from './bodies.js';
-import { MOONS_OF, systemEqjAtTt } from './moons.js';
+import './moonNode.js';
+import { MAJOR_MOONS_OF as MOONS_OF, systemEqjAtTt } from './moons.js';
 import { helioStateEqjAtTt, ttSeconds, utcMsAtTt } from './ephemeris.js';
 
 let failed = 0;
@@ -49,7 +50,7 @@ header('CASE 1: interpolation of the split systems against their models');
       }
     }
   }
-  console.log(`  moon spacings (s): ${Object.entries(MOON_SPACING).map(([k, d]) => `${k} ${d}`).join(', ')}`);
+  console.log(`  moon spacings (s): ${Object.entries(MOON_SPACING).filter(([k]) => Object.values(MOONS_OF).flat().includes(k)).map(([k, d]) => `${k} ${d}`).join(', ')}`);
   // NODE_TOL is 100 m for a circular orbit; Phobos's eccentricity adds a little.
   check(worst < 0.15, `largest interpolation error ${(worst * 1000).toFixed(1)} m (${worstKey}), under 150 m`);
 }
@@ -172,11 +173,12 @@ const [none, ours, jpl, track] = Object.values(runs);
 if (process.env.FLYBY_OUT) fs.writeFileSync(process.env.FLYBY_OUT, JSON.stringify({ jd: flown.slice(1).map((r) => r[0]), none: none.err, ours: ours.err, jpl: jpl.err, track: track.err }));
 // Ganymede bends Juno by 0.28 km/s: 9,300 km after nine hours. JPL's moons
 // leave 21 km, of which the 11 km between the two Ganymedes accounts for
-// all but 4; moons.js's Ganymede, 300 km from JPL's, leaves 320 km.
+// all but 4. moons.js's Ganymede (the jup365 table) is within 0.3 km of
+// Horizons', so its run matches Horizons' own; the fallback's left 320 km.
 check(none.err.at(-1) > 5000, `without the moons Juno is ${none.err.at(-1).toFixed(0)} km off 9 h after the pass`);
 check(track.err.at(-1) < 8, `with JPL's moons and Ganymede as Juno's track has it, ${track.err.at(-1).toFixed(2)} km off (the kernel's force model)`);
 check(jpl.err.at(-1) < 30, `with Horizons' own moons, ${jpl.err.at(-1).toFixed(2)} km off`);
-check(ours.err.at(-1) < 500, `with moons.js's moons, ${ours.err.at(-1).toFixed(0)} km off (moons.js's Ganymede is the limit)`);
+check(ours.err.at(-1) < 25 && Math.abs(ours.err.at(-1) - jpl.err.at(-1)) < 2, `with moons.js's moons, ${ours.err.at(-1).toFixed(2)} km off, within 2 km of Horizons' own moons' run`);
 check(Math.abs(track.closest - hzCA) < 1, `closest approach ${track.closest.toFixed(2)} km from Ganymede's centre, Horizons ${hzCA.toFixed(2)} km`);
 check(ours.events.some((e) => e.type === 'primary' && e.to === 'ganymede') && ours.events.some((e) => e.type === 'primary' && e.from === 'ganymede' && e.to === 'jupiter'),
   `the primary goes to Ganymede and back to Jupiter (${ours.events.filter((e) => e.type === 'primary').map((e) => `${e.from}->${e.to}`).join(', ')})`);

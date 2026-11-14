@@ -50,22 +50,24 @@ margins ([ephemerides](physics/ephemerides-and-gm.md#at-the-tables-ends)).
 | the ramp's own acceleration | the Sun's pull there | 0.02 % (Earth) to 0.8 % (Pluto) |
 | the kernel's TT path across the end, 2 s | the body's motion | no jump (to 1 m) |
 
-## Major moons (`moons.test.mjs`)
+## Moons (`moons.test.mjs`)
 
-Planetocentric positions against JPL Horizons vectors not used in the fit;
-the full table, per moon, is in [Moons](frontend/moons.md#how-right-they-are).
+Planetocentric positions of the 75 moons Horizons serves (of 76) against JPL Horizons vectors not
+used in any fit; the full tables, per moon, are in
+[Moons](frontend/moons.md#how-right-they-are).
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| Io, Europa, Ganymede, Callisto (astronomy-engine `JupiterMoons`) | Horizons (JUP365), daily Nov 2026 and yearly 2000–2050 | worst 645 km (Callisto) |
-| Titan, Triton, Phobos (JPL mean elements, fitted corrections) | Horizons (SAT441, NEP098, MAR099), daily Nov 2026 | 1,346 km, 141 km, 595 km |
-| 15 of the 16 element moons, 2000–2050 | Horizons, yearly | within 3 % of the orbit's radius, most within 0.3 % |
-| Mimas | Horizons | 136,881 km: its 44° libration with Tethys is beyond a precessing ellipse |
-| planet centre about the system barycentre, from the moons' GMs | Horizons x99 about x, Nov 2026 | 0.05 km (Jupiter) to 3 km (Pluto, whose offset is 2,130 km) |
+| the satellite-ephemeris tables (2000–2049), all 75 | Horizons, daily Nov 2026 and yearly 2000–2050 | within 0.58 km (Styx), most within 0.4 km; 0.09 km on the yearly samples (the fixture's rounding) |
+| planet centre about the system barycentre, from the tables | Horizons x99 about x, Nov 2026 | within 0.35 km (Pluto's offset is 2,130 km) |
+| moons about the system barycentre and, relative to the planet, about the Sun | Horizons, 7 moons, Nov 2026 | within 1 km |
+| fallback: Io, Europa, Ganymede, Callisto (astronomy-engine `JupiterMoons`) | Horizons (JUP365), daily Nov 2026 and yearly 2000–2050 | worst 645 km (Callisto) |
+| fallback: the twenty major moons but Mimas, from JPL's mean elements and fitted corrections | Horizons, yearly | within 3 % of the orbit's radius, most within 0.3 % |
+| fallback: Mimas, the small co-orbital and resonant moons, Hyperion, the irregular moons | Horizons | up to the orbit's size: librations and solar perturbations a precessing ellipse cannot follow |
+| fallback: planet centre about the system barycentre, from the moons' GMs | Horizons x99 about x, Nov 2026 | 0.05 km (Jupiter) to 3 km (Pluto) |
 | the app's Mars to Pluto (DE442 table) | Horizons heliocentric x, Nov 2026 (Horizons serves DE440 here: its rows match DE440 via CSPICE to 0.08 km) | Mars 0.21 km, Jupiter 14.1 km, Saturn 0.28 km, Uranus 1,231 km, Neptune 352 km, Pluto 1.7 km: DE440 − DE442 itself |
 | astronomy-engine's Mars to Pluto, the same | Horizons heliocentric x | 1,809 km (Mars) to 335,209 km (Neptune) |
 | astronomy-engine's Jupiter to Pluto are system barycentres | Horizons heliocentric x and x99, Nov 2026, less a quadratic | 1.1–1.2 km rms against x; 26–2,116 km against x99 |
-| moons about the system barycentre, and about the Sun (absolute, and relative to the planet) | Horizons, 7 moons, Nov 2026 | same as about the planet's centre (Charon 26 km; 2,139 km without the offset); on astronomy-engine the absolute figure carried its planet's error |
 | body-frame pole (`bodyAxesEqj`, pck00011), Phobos, Io, Rhea, Ariel, Titania, Triton, Charon | WGCCRE 2015 poles, constant terms only (Triton's precessing series in full), 14 Nov 2026 | within 1.07° (Phobos, whose periodic terms the check leaves out), Triton 0.00°; right-handed |
 | moon surface maps, longitude and latitude (by eye, not in the test) | named features at their gazetteer positions, against their mirror images ([textures](frontend/textures.md#the-moons-maps)) | all 14 east-positive with the west edge at −180°, none flipped |
 
@@ -146,7 +148,7 @@ about the barycentre less Juno about Ganymede.
 | Moons in the kernel | 3 min after closest approach | 9 h after | Closest approach (Horizons: 3,677.39 km) |
 | --- | ---: | ---: | ---: |
 | none (system at its barycentre) | 169 km | 9,307 km | 3,707 km |
-| `moons.js` (Galilean moons from `JupiterMoons`) | 2.3 km | 323 km | 3,677.2 km |
+| `moons.js` (the jup365 tables) | 0.18 km | 20.8 km | 3,677.3 km |
 | Horizons' Galilean moons | 0.18 km | 20.9 km | 3,677.3 km |
 | Horizons', Ganymede as Juno's track has it | 0.07 km | 4.0 km | 3,677.40 km |
 
@@ -158,9 +160,10 @@ What this shows:
   0.12 m/s.
 - **The force model is not the limit; the moons' places are.** The 11 km
   between Horizons' two Ganymedes accounts for 17 of the 21 km in the third
-  row. `moons.js`'s Ganymede (astronomy-engine's `JupiterMoons`) is about
-  300 km from JPL's ([moons](frontend/moons.md#how-right-they-are)),
-  and that alone leaves 323 km.
+  row. `moons.js`'s Ganymede, from the `jup365` tables, is within 0.3 km of
+  the one Horizons serves, so the app's own run matches that row (20.8 km
+  against 20.9). With the fallback's Ganymede (astronomy-engine's
+  `JupiterMoons`, about 300 km from JPL's) it was 323 km.
 - **The moons' own fields count for little here.** Ganymede's $J_2$ and
   $C_{22}$ ([kernel](physics/nbody-kernel.md#the-moons-own-fields)) moved the
   last row from 4.14 to 3.96 km. At 1.4 Ganymede radii the field is
@@ -172,7 +175,7 @@ The same file checks:
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| each split system's planet centre and moons from the kernel's Hermite nodes, 20 days | `moons.js` and astronomy-engine directly | worst 101 m (Phobos); Jupiter's centre and moons 34 m |
+| each split system's planet centre and moons from the kernel's Hermite nodes, 20 days | `moons.js` and astronomy-engine directly | worst 104 m (Callisto) |
 | 200 days of cruise from Earth | the moons' ephemerides | never evaluated; no system split |
 | split and fold of Jupiter at 1.3, 1.2, 1.4 and 1.6 times its sphere of influence | the thresholds | folded, split, split, folded (in at 1.25, out at 1.5) |
 | Pluto at 6 AU, 4 AU, 10⁶ km, 8 AU | its 5 AU reach | away, folded, split with Charon, away |

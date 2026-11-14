@@ -81,6 +81,31 @@ position and acceleration error, checked between the fitting nodes against
 `spkezr_c`, and the jumps where intervals meet. `DAYS_<id>` and `N_<id>`
 (NAIF code, 301 for the Moon) override a series' interval and coefficients.
 
+## The moons for the app
+
+`moon_cheb.c` fits the moons' tables
+([docs/frontend/moons.md](../docs/frontend/moons.md#2000-to-2049-jpls-satellite-ephemerides))
+from NAIF's satellite SPKs (`mar099s`, `jup365`, `sat441`, `sat415`, `ura184`
+parts 1–3, `nep098` parts 1–3, `plu060`, 11 GB, in `python/data/kernels/spk/satellites/`, or the
+folder `$SAT_KERNELS` names):
+
+```bash
+cmake --build c/build
+c/build/moon_cheb survey 0.5 2000 2050
+c/build/moon_cheb public/ephemeris/moons 0.5 2000 2050 public/ephemeris/moons-extra 2020 2036
+```
+
+(`npm run build:moon-tables` builds the tool and runs the last line.) The
+arguments are the tolerance in km for each series (a moon and its
+planet's centre, each about the barycentre, so a moon about its planet is
+within twice that), the first year and the year after the last, and
+optionally a folder for the inner moons' files outside a core span (the
+first year of it and the year after its last): the repo keeps their files
+for 2020–2035 only, and `public/ephemeris/moons-extra` is git-ignored. `survey`
+only prints the size each body would take. The full run takes about
+eleven minutes and prints, for each body, its intervals a year, coefficients, worst
+error over every interval, and the jumps where intervals meet.
+
 ## The Earth's orientation for the app
 
 `earth_orientation.c` samples ITRF93 from NAIF's two Earth PCKs, each read

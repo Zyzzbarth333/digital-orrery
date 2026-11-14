@@ -11,6 +11,8 @@ import { parseDeTable, installDeTable } from './deTable.js';
 import { parseSbTable, installSbTable } from './sbTable.js';
 import { installSpaceWeather } from './spaceWeather.js';
 import { parseEop, installEop } from './eop.js';
+// The moons' satellite-ephemeris tables, read as they are needed.
+import './moonNode.js';
 
 const buf = readFileSync(new URL('../../public/ephemeris/de442-2000-2050.bin', import.meta.url));
 installDeTable(parseDeTable(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)));
