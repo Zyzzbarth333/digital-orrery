@@ -262,6 +262,34 @@ header('CASE 7: burns across clock jumps, fuel checks');
     n.nodes.length === 0 && n.fuel === 500 && n.burns.length === 0 && n.log.some((x) => x.text.startsWith('node refused')));
 }
 
+header("CASE 8: a real mission's scripted burns draw the craft's mass down");
+{
+  // 20 t in a 7,000 km orbit; two scripted burns (100 and 200 m/s at
+  // 1 m/s^2) drawing their propellant at Isp 315.1 s, as Orion's main
+  // engine does; the same craft without a scriptIsp.
+  const ve = 315.1 * 9.80665;
+  const mk = (scriptIsp) => makeCraft('scripted', { rk: 7000, dryMass: 19500, fuel: 500, area: 80, cr: 1.3, scriptIsp });
+  const script = [{ t0: T0 + 600, t1: T0 + 700, dir: [1, 0, 0], accel: 1 }, { t0: T0 + 1200, t1: T0 + 1400, dir: [1, 0, 0], accel: 1 }];
+  const a = mk(315.1), b = mk(null);
+  a.setScript(script); b.setScript(script);
+  const m1 = 20000 * Math.exp(-100 / ve), m2 = m1 * Math.exp(-200 / ve);
+  const massAt = (c, t) => 20000 - c.scriptSpentAt(t);
+  console.log(`  20,000 kg -> ${m1.toFixed(2)} kg after 100 m/s -> ${m2.toFixed(2)} kg after 200 m/s more (Isp 315.1 s)`);
+  check('before, between and after the burns, the rocket equation at the script\'s Isp', Math.abs(massAt(a, T0) - 20000) < 1e-9 && Math.abs(massAt(a, T0 + 900) - m1) < 1e-6 && Math.abs(massAt(a, T0 + 2000) - m2) < 1e-6);
+  const mid = massAt(a, T0 + 650);
+  check('during a burn, between its start and end masses', mid < 20000 && mid > m1);
+  const req = a.buildRequest.call(Object.assign(Object.create(Object.getPrototypeOf(a)), a, { clockT: T0 + 2000 }));
+  check('the kernel is sent each burn\'s starting mass and flow, and the mass at its own time', Math.abs(req.burns[0].mass0 - 20000) < 1e-9 && Math.abs(req.burns[0].massFlow - (20000 - m1) / 100) < 1e-9 && Math.abs(req.env.mass - 20000) < 1e-9);
+  fly(a, 100, T0 + 2000);
+  fly(b, 100, T0 + 2000);
+  check('the craft is lighter after the burns, the player\'s fuel untouched; without a scriptIsp nothing changes', Math.abs(a.mass - m2) < 1e-6 && a.fuel === 500 && b.mass === 20000 && !('mass0' in b.script[0]));
+  check('both fly the same burns (the acceleration is the script\'s either way)', norm(diff(a.kState.r, b.kState.r)) < 1e-3);
+  frame(a, T0 + 300, null, true);
+  check('setting the clock back restores the mass', Math.abs(a.mass - 20000) < 1e-9);
+  a.configure({ dryMass: 9000, fuel: 0, scriptIsp: null });
+  check('a capsule configured without a scriptIsp keeps its own mass', a.mass === 9000);
+}
+
 console.log('='.repeat(60));
 if (failures > 0) { console.log(`RESULT: ${failures} check(s) FAILED`); process.exit(1); }
 console.log('RESULT: all checks PASSED');

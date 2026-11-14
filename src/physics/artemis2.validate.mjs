@@ -38,6 +38,7 @@ import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
 import { Craft } from './craft.js';
+import { ORION_CRAFT } from './orion.js';
 import { KernelClient } from './kernelClient.js';
 import { RealMission } from './realMission.js';
 import { flyDesign, TARGETS, MASS0 } from './artemis2.design.mjs';
@@ -167,9 +168,10 @@ const fixes = [24, 12, 6, 3].map((h) => {
 // ---------------- 6. the app's own path ----------------
 console.log("\n6. the app's path: the mission file flown by the Craft model and the kernel host, one-minute frames");
 const file = new RealMission(JSON.parse(fs.readFileSync(new URL('../../public/missions/artemis2.json', import.meta.url))));
-// Orion as the app flies it (src/app/mission.ts's ORION): the full
-// environment, sunlight on 92 m^2 and the random vent model.
-const ORION = { dryMass: 25036, fuel: 500, area: 92, cr: 1.3, vent: {} };
+// Orion as the app flies it (ORION_CRAFT, orion.js): its mass falling burn
+// by burn, the full environment, sunlight on 78.4 m^2 and the random vent
+// model.
+const ORION = ORION_CRAFT;
 async function flyApp(fixHours, { aimed = false, env = false, viaClient = false } = {}) {
   // By default the environment off (no area, so no sunlight or drag; J2
   // alone for the Earth), as in the replay it is checked against.

@@ -10,7 +10,11 @@ thrust.
 - **The craft:** `Craft` carries those as `area` (default 5 m²), `cr`
   (default 1.3) and `cd` (default 2.2), and optionally its own Earth-field
   settings (`earth`).
-- **Real missions:** Orion flies with its own: 25,536 kg, 92 m², C_r 1.3.
+- **Real missions:** Orion flies with its own: 25,536 kg at the start,
+  78.4 m², C_r 1.3, its mass falling as the mission's burns draw
+  propellant at the main engine's Isp (`ORION_CRAFT`, `orion.js`). The
+  kernel reads the mass at each instant from the burns: a mission's
+  scripted burns carry their starting mass and flow.
 - **Always on:** the Earth's solid tides (with its field) and relativity;
   `relativity: false` or `earth: { tides: false }` turn them off.
 
@@ -301,7 +305,7 @@ instead of 1,464, and 59 ms instead of 35.
 | 1 m² per tonne at 1 AU, C_r = 1 | P/1000 | exact, away from the Sun, falling as 1/d² |
 | The Moon's shadow on the Earth, 21 August 2017 | NASA's eclipse tables (F. Espenak, GSFC): central line and limits at 17:20 UT, greatest eclipse at 18:25:31.8 UT | total on the central line and at greatest eclipse; both edges of the path within 10 km of NASA's limits |
 | Totality on the central line in Oregon | NASA: 2 min 02.6 s | 122.5 s with NASA's eclipse radii (Moon 0.272281 Earth radii, Sun 959.63″); 126.5 s with the app's mean radii, whose umbra is about 1.5 km wider |
-| Artemis I's 77 coast arcs | NASA's as-flown ephemeris | rms 22.5 m with gravity alone; 7.9 m with Orion's sunlight pressure (C_r A/m = 4.6×10⁻³ m²/kg); 5.6 m with the full environment |
+| Artemis I's 77 coast arcs | NASA's as-flown ephemeris | rms 22.5 m with gravity alone; 7.8 m with Orion's sunlight pressure (C_r A/m = 4.0×10⁻³ m²/kg at the start, its mass falling); 5.3 m with the full environment |
 | The Earth's field through the kernel: NESC case 3B, 8×8 GEM-T1, 8 hours | NASA's simulations | 4 mm from sim B |
 | Drag through the kernel: NESC case 6B, MET atmosphere, 8 hours | NASA's simulations | 7 mm from sim B |
 | U.S. Standard Atmosphere 1976 | its tables, 0 to 86 km | within 0.003 % |

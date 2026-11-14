@@ -29,6 +29,8 @@ import { createState } from './nbody.js';
 import { helioStateEqj } from './ephemeris.js';
 import { makeEnvironment } from './environment.js';
 import { tdbSeconds } from './timescale.js';
+import { massAfterBurns } from './artemis1.lib.mjs';
+import { ORION_CRAFT, ORION_ENGINE } from './orion.js';
 
 dns.setDefaultResultOrder('ipv4first');
 const fx = JSON.parse(fs.readFileSync(new URL('./fixtures/artemis1.json', import.meta.url)));
@@ -52,8 +54,14 @@ function fly(a, ms, env, extra = FINE) {
   advance(s, kt(ms), o);
   return geocentric(s, ms).r;
 }
-// Orion as a cannonball, Cr A/m = 4.6e-3 m^2/kg (the validation's fit).
-const ORION = { mass: 26000, area: 92, cr: 1.3 };
+// Orion as a cannonball with the app's Cr A/m at the start (ORION_CRAFT,
+// the validation's fit), its mass falling at each burn.
+const after = massAfterBurns(ORION_ENGINE.isp * 9.80665 / 1000).map((x) => ({ t: kt(x.ms), ratio: x.ratio }));
+const M0 = 26000;
+const ORION = {
+  mass: M0, area: ORION_CRAFT.area * M0 / (ORION_CRAFT.dryMass + ORION_CRAFT.fuel), cr: ORION_CRAFT.cr,
+  massAt: (t) => { let f = 1; for (const x of after) if (x.t <= t) f = x.ratio; return M0 * f; },
+};
 const TIERS = [
   ['Gravity: point masses, and J2 of the Earth, Moon and planets', null],
   ['+ sunlight pressure, with shadows', { ...ORION, earth: { degree: 0, tides: false }, moon: { degree: 0 }, relativity: false }],

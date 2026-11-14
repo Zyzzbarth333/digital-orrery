@@ -23,6 +23,16 @@ export const NASA_BURNS = [
   ['RTC-5', '2022-12-10T20:20:14Z', 5.00, 7.2, 'aux'], ['RTC-6', '2022-12-11T12:20:14Z', 0.98, 8.4, 'RCS'],
 ].map(([name, utc, ftps, s, engine]) => ({ name, ms: Date.parse(utc), ftps, dv: ftps * FT / 1000, s, engine }));
 
+// Orion's mass after each of NASA's burns, as a fraction of its mass at the
+// start of the data: the rocket equation at exhaust speed ve (km/s), each
+// burn's delta-v drawn by its end. The auxiliary and reaction-control burns
+// are 21.5 m/s of the 777 m/s in all, so the main engine's Isp serves for
+// every burn: theirs would move the mass by under 0.1 %.
+export function massAfterBurns(ve) {
+  let f = 1;
+  return NASA_BURNS.map((b) => ({ ms: b.ms + b.s * 1000, ratio: (f *= Math.exp(-b.dv / ve)) }));
+}
+
 // The rows of a Horizons vector table (CSV, JDUT first): [ISO UTC, x, y, z,
 // vx, vy, vz], km and km/s.
 export function parseHorizons(text) {

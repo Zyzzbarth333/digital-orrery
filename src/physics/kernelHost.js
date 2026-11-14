@@ -119,17 +119,19 @@ export function stepCraft(sys, req) {
   // flow): during a burn, m0 - mdot (t - t0); between burns, the next one's
   // starting mass, or the last one's final mass; with none, env.mass.
   // Scripted burns (a real mission's, given as acceleration on a nominal
-  // 1 kg) say nothing of the mass and are skipped.
+  // 1 kg) count only when they carry their own mass and flow (mass0,
+  // massFlow: a craft with a scriptIsp); otherwise they are skipped.
   const massAt = (t) => {
     let next = null, last = null;
     for (const b of burns) {
-      if (b.scripted) continue;
-      if (t >= b.t0 && t < b.t1) return b.m0 - b.mdot * (t - b.t0);
-      if (b.t0 >= t && (!next || b.t0 < next.t0)) next = b;
-      if (b.t1 <= t && (!last || b.t1 > last.t1)) last = b;
+      const m0 = b.scripted ? b.mass0 : b.m0, md = b.scripted ? b.massFlow : b.mdot;
+      if (m0 === undefined) continue;
+      if (t >= b.t0 && t < b.t1) return m0 - md * (t - b.t0);
+      if (b.t0 >= t && (!next || b.t0 < next.t0)) next = { t0: b.t0, m: m0 };
+      if (b.t1 <= t && (!last || b.t1 > last.t1)) last = { t1: b.t1, m: m0 - md * (b.t1 - b.t0) };
     }
-    if (next) return next.m0;
-    if (last) return last.m0 - last.mdot * (last.t1 - last.t0);
+    if (next) return next.m;
+    if (last) return last.m;
     return req.env.mass;
   };
   const env = req.env ? makeEnvironment(sys, { ...req.env, massAt }) : null;
