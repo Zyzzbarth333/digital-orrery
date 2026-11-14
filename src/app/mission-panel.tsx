@@ -131,7 +131,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     // craft's, scripted from its data.
     if (run?.burns !== 'all') {
       rows.push(['Propellant', `${fmt(c.fuel, 2)} kg`, <Tag src="model" derived detail={`one tank; dry mass ${c.dryMass} kg, ${c.thrust} N at Isp ${c.isp} s`} />]);
-      rows.push(['Δv left', `${fmt(dvLeft, 1)} m/s`, <Tag src="rocket eq." derived detail="ve ln(m / m_dry)" />]);
+      rows.push(['Δv left', `${fmt(dvLeft, 1)} m/s`, <Tag src="rocket eq." derived detail="ve ln(m / (m − fuel)): the fuel left, against the mass now" />]);
     }
     if (run) {
       const d = mission.distanceFromFlown(c);
