@@ -42,7 +42,7 @@ kernel, `src/physics/bodies.js` and `src/physics/flyby.test.mjs`.
 
 ### 2000 to 2049: JPL's satellite ephemerides
 
-From 2000 to 2049 every moon comes from NAIF's satellite SPK kernels, the
+From 2000 to 2049 (the inner moons 2020 to 2035, [below](#the-inner-moons-span)) every moon comes from NAIF's satellite SPK kernels, the
 numerically integrated ephemerides JPL fits to the observations and the
 spacecraft data, and Horizons serves:
 
@@ -59,9 +59,10 @@ spacecraft data, and Horizons serves:
 
 The kernels themselves are 11 GB, so `c/moon_cheb.c` fits them through
 CSPICE into compact Chebyshev series, one file per system per year,
-`public/ephemeris/moons/<system>-<year>.bin`, 300 files and 184 MB for the
-fifty years. Each file holds every moon of the system and the planet's
-centre, each about the system barycentre (J2000 equatorial, km, against TDB
+`public/ephemeris/moons/<system>-<year>.bin` (300 files, 74 MB for the
+fifty years), and for Saturn, Uranus and Neptune a second,
+`<system>-inner-<year>.bin`, with their inner moons. Each main file holds
+every other moon of the system and the planet's centre, each about the system barycentre (J2000 equatorial, km, against TDB
 seconds past J2000). For each body the tool picks the number of equal
 intervals a year and of coefficients per interval that store it in the
 fewest bytes with every position within 0.5 km of the SPK:
@@ -99,15 +100,34 @@ The fast inner moons cost the most, about 100 kB a year each: Phobos
 146 kB, Jupiter's four inner moons 440 kB between them, Saturn's nine ring
 moons 520 kB, Uranus's fourteen inner moons 1.26 MB, Neptune's seven inner
 moons 520 kB. The irregular moons, which take years to go round, need a few
-hundred bytes. A year of a system is 44 kB (Pluto) to 1.39 MB (Uranus).
-Before the inner moons were added the tables were 74 MB; the full fifty
-years for them too was the user's choice over a shorter span for them
-alone.
+hundred bytes. A year of a system is 44 kB (Pluto) to 1.39 MB (Uranus,
+with its inner moons).
 
-**Loading.** A file is fetched only when it is wanted: on the main thread,
+### The inner moons' span
+
+The 29 inner moons (Saturn's nine ring moons, Uranus's fourteen and
+Neptune's six inner moons) are 2.3 MB a year between them, 115 MB for the
+fifty years. So the repo carries their files for 2020 to 2035 only (48
+files, 35 MB; 109 MB of tables in all), and their other years are built
+locally from the kernels:
+
+```bash
+npm run build:moon-tables
+```
+
+which rebuilds every table and puts the inner moons' years outside
+2020–2035 in `public/ephemeris/moons-extra/` (102 files, 75 MB), which git
+ignores. Where an inner moon's file is not there, that moon quietly uses
+the mean elements, as every moon does after 2049; a dev server or build
+made with the folder in place serves it. `moons.test.mjs` passes either
+way and checks the extra years when they are present.
+
+**Loading.** A file is fetched only when it is wanted (both of a year's
+files, where there are two): on the main thread,
 for the system the camera is focused on or within 30 million km of, and
 for the years its moons' orbit lines span (half the longest period either
-side: up to 3.8 years for Uranus's Ferdinand); in the kernel's worker, the
+side: up to 3.8 years for Uranus's Ferdinand; the inner moons' files only
+for the year about the date, since they go round in a day); in the kernel's worker, the
 first time a craft comes near enough for the system to split. Until the
 year has arrived, and outside 2000–2049, the moons come from the fallback
 below, and the orbit lines are redrawn when it arrives. Under Node
@@ -414,5 +434,7 @@ The tables come from the kernels with `c/moon_cheb.c`
 ([c/README.md](../../c/README.md#the-moons-for-the-app)):
 
 ```bash
-c/build/moon_cheb public/ephemeris/moons 0.5 2000 2050
+npm run build:moon-tables
 ```
+
+([The inner moons' span](#the-inner-moons-span) says what it writes where.)

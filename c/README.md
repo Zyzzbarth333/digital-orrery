@@ -91,12 +91,16 @@ folder `$SAT_KERNELS` names):
 ```bash
 cmake --build c/build
 c/build/moon_cheb survey 0.5 2000 2050
-c/build/moon_cheb public/ephemeris/moons 0.5 2000 2050
+c/build/moon_cheb public/ephemeris/moons 0.5 2000 2050 public/ephemeris/moons-extra 2020 2036
 ```
 
-The arguments are the tolerance in km for each series (a moon and its
+(`npm run build:moon-tables` builds the tool and runs the last line.) The
+arguments are the tolerance in km for each series (a moon and its
 planet's centre, each about the barycentre, so a moon about its planet is
-within twice that), the first year and the year after the last. `survey`
+within twice that), the first year and the year after the last, and
+optionally a folder for the inner moons' files outside a core span (the
+first year of it and the year after its last): the repo keeps their files
+for 2020–2035 only, and `public/ephemeris/moons-extra` is git-ignored. `survey`
 only prints the size each body would take. The full run takes about
 eleven minutes and prints, for each body, its intervals a year, coefficients, worst
 error over every interval, and the jumps where intervals meet.

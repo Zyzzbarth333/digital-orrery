@@ -4,7 +4,7 @@
  * (docs/frontend/moons.md#positions): each moon and the planet's centre
  * relative to the system barycentre (Titan and 699 about 6), J2000
  * equatorial (ICRF axes), km, against TDB seconds past J2000. One file per
- * planet system per year.
+ * planet system per year, and the inner moons in <system>-inner-<year>.bin.
  *
  *   usage: moon_cheb survey <tolerance km> <first year> <last year (exclusive)>
  *          moon_cheb <out dir> <tolerance km> <first year> <last year (exclusive)>
@@ -105,6 +105,15 @@ static const Moon MOONS[] = {
 #define NSAMPLE 96
 #define F32_MAX_KM 3e5
 #define NM ((int)(sizeof MOONS / sizeof MOONS[0]))
+/* The inner moons (Saturn's ring moons, Uranus's and Neptune's inner moons)
+ * go in files of their own, <system>-inner-<year>.bin: they cost about
+ * 100 kB a year each, so the repo keeps only a core span of them and the
+ * other years are built locally (see main). */
+static int is_inner(const Moon *m) {
+  static const char *k[] = { "sat415.bsp", "ura184_part-1.bsp", "ura184_part-2.bsp", "nep098_part-2.bsp", "nep098_part-3.bsp" };
+  for (int i = 0; i < 5; i++) if (!strcmp(m->kernel, k[i])) return 1;
+  return 0;
+}
 static const char *SYSTEMS[] = { "mars", "jupiter", "saturn", "uranus", "neptune", "pluto" };
 
 static void die_if_failed(const char *what) {
@@ -306,11 +315,16 @@ static double year_et(int y) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 5) {
+  if (argc != 5 && argc != 8) {
     fprintf(stderr, "usage: %s survey <tol km> <first year> <last year (exclusive)>\n"
-                    "       %s <out dir> <tol km> <first year> <last year (exclusive)>\n", argv[0], argv[0]);
+                    "       %s <out dir> <tol km> <first year> <last year (exclusive)>"
+                    " [<extra dir> <inner core first year> <inner core last year (exclusive)>]\n", argv[0], argv[0]);
     return 1;
   }
+  /* With the last three: the inner moons' files outside the core years go
+   * to the extra dir (not committed: public/ephemeris/moons-extra). */
+  const char *extra = argc == 8 ? argv[5] : argv[1];
+  const int core0 = argc == 8 ? atoi(argv[6]) : -100000, core1 = argc == 8 ? atoi(argv[7]) : 100000;
   erract_c("SET", 0, "RETURN");
   errprt_c("SET", 0, "NONE");
   furnsh_all();
@@ -383,12 +397,14 @@ int main(int argc, char **argv) {
     }
   }
   for (int y = y0; y < y1; y++) {
-    for (int s = 0; s < 6; s++) {
+    for (int s = 0; s < 6; s++) for (int part = 0; part < 2; part++) {
       if (!wanted(SYSTEMS[s])) continue;
       int idx[NM], k = 0;
-      for (int i = 0; i < NM; i++) if (!strcmp(MOONS[i].system, SYSTEMS[s])) idx[k++] = i;
+      for (int i = 0; i < NM; i++) if (!strcmp(MOONS[i].system, SYSTEMS[s]) && is_inner(&MOONS[i]) == part) idx[k++] = i;
+      if (!k) continue;
       char path[4096];
-      snprintf(path, sizeof path, "%s/%s-%d.bin", argv[1], SYSTEMS[s], y);
+      if (part) snprintf(path, sizeof path, "%s/%s-inner-%d.bin", y >= core0 && y < core1 ? argv[1] : extra, SYSTEMS[s], y);
+      else snprintf(path, sizeof path, "%s/%s-%d.bin", argv[1], SYSTEMS[s], y);
       FILE *f = fopen(path, "wb");
       if (!f) { perror(path); return 1; }
       const double a = year_et(y), b = year_et(y + 1);

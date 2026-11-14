@@ -22,7 +22,7 @@ import * as Astronomy from 'astronomy-engine';
 import { moonStateEqj, planetCentreOffsetEqj, systemEqj, MOON_KEYS, MOONS_OF, MAJOR_MOONS_OF, moonSource } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
 import { bodyAxesEqj } from './orientation.js';
-import { setMoonTablesEnabled, MOON_TABLE_YEARS } from './moonTables.js';
+import { setMoonTablesEnabled, MOON_TABLE_YEARS, INNER_CORE_YEARS, parseMoonChunk } from './moonTables.js';
 import { utcMsAtTt, helioStateEqj } from './ephemeris.js';
 
 const hz = JSON.parse(fs.readFileSync(new URL('./fixtures/moons_horizons.json', import.meta.url)));
@@ -55,11 +55,29 @@ const IN_HZ = MOON_KEYS.filter((k) => MOON_DATA[k].horizons !== false);
 check(IN_HZ.every((k) => hz.month[k] && hz.years[k]), `${IN_HZ.length} of the ${MOON_KEYS.length} moons have Horizons vectors (not: ${MOON_KEYS.filter((k) => !IN_HZ.includes(k)).join(', ')})`);
 check(MOON_KEYS.every((k) => moonSource(k, new Date(Date.UTC(2026, 10, 14))) === 'table'), `all ${MOON_KEYS.length} moons come from the tables in 2026`);
 
+// The inner moons (those in the <system>-inner-<year>.bin files) are in the
+// repo for 2020-2035 only; their other years are checked too if they have
+// been built (npm run build:moon-tables, into public/ephemeris/moons-extra).
+const readChunk = (path) => { const b = fs.readFileSync(new URL(`../../public/${path}`, import.meta.url)); return parseMoonChunk(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)); };
+const INNER_IDS = new Set(['saturn', 'uranus', 'neptune'].flatMap((p) => [...readChunk(`ephemeris/moons/${p}-inner-2026.bin`).keys()]));
+const INNER = MOON_KEYS.filter((k) => INNER_IDS.has(MOON_DATA[k].naif));
+const EXTRA = fs.existsSync(new URL('../../public/ephemeris/moons-extra/uranus-inner-2000.bin', import.meta.url));
+check(INNER.length === 29, `${INNER.length} inner moons in their own files; their years outside 2020-2035 are ${EXTRA ? 'built and checked' : 'not built, so left to the mean elements'}`);
+{
+  const at = new Date(Date.UTC(2010, 5, 1));
+  const src = moonSource('puck', at), main = moonSource('miranda', at);
+  check(main === 'table' && src === (EXTRA ? 'table' : 'elements'), `in 2010 Miranda comes from the table, Puck from ${src} (${EXTRA ? 'its extra file' : 'no extra file: a quiet fallback'})`);
+}
+
 console.log('\nFrom the tables:');
 console.log('moon         a (km)    Nov 2026 max  2000-2050 max   (km; limit)');
-const inSpan = (rows) => rows.filter(([jd]) => { const y = dateOf(jd).getUTCFullYear(); return y >= MOON_TABLE_YEARS[0] && y <= MOON_TABLE_YEARS[1] + 1; });
+const inSpan = (key, rows) => rows.filter(([jd]) => {
+  const y = new Date((jd - 2440587.5) * 864e5).getUTCFullYear();     // the TDB year, as the files are cut
+  if (INNER.includes(key) && !EXTRA) return y >= INNER_CORE_YEARS[0] && y <= INNER_CORE_YEARS[1];
+  return y >= MOON_TABLE_YEARS[0] && y <= MOON_TABLE_YEARS[1] + 1;
+});
 for (const key of IN_HZ) {
-  const mo = Math.max(...err(key, hz.month[key])), yr = Math.max(...err(key, inSpan(hz.years[key])));
+  const mo = Math.max(...err(key, hz.month[key])), yr = Math.max(...err(key, inSpan(key, hz.years[key])));
   const lim = TABLE_LIMIT_KM;
   check(mo < lim && yr < lim, `${key.padEnd(10)} ${String(MOON_DATA[key].a).padStart(8)} ${mo.toFixed(3).padStart(12)} ${yr.toFixed(3).padStart(14)}   (${lim})`);
 }

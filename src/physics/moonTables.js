@@ -9,10 +9,17 @@
 // planet's centre is within 1 km. moons.js uses them where a year is
 // installed and the mean elements elsewhere.
 //
+// The inner moons (Saturn's ring moons, Uranus's and Neptune's inner moons,
+// about 100 kB a year each) are in files of their own,
+// <system>-inner-<year>.bin. The repo carries them for 2020 to 2035 only
+// (INNER_CORE_YEARS); `npm run build:moon-tables` builds the other years
+// from the kernels into public/ephemeris/moons-extra/, which git ignores.
+// Where an inner file is missing, those moons quietly use the mean elements.
+//
 // Files are installed lazily, a system and a year at a time:
-//   setMoonChunkLoader(load, { onMiss }): load(system, year) fetches a file
-//     and calls installMoonChunk (or returns the parsed file, to install it
-//     at once, as moonNode.js does). With onMiss, any position asked of a
+//   setMoonChunkLoader(load, { onMiss }): load(path) fetches a file (a path
+//     under public/, from moonChunkPath) and returns it parsed, or a
+//     promise of it, or null if there is none. With onMiss, any position asked of a
 //     year that is not installed asks for it (Node, and the kernel's worker,
 //     which only asks about a system when a craft is near it); without, only
 //     wantMoonTables does (the main thread, for the systems in view).
@@ -25,8 +32,19 @@
 // x, y and z coefficients (Float32 or Float64), each series padded to 8 bytes.
 
 export const MOON_TABLE_YEARS = [2000, 2049];
+export const INNER_CORE_YEARS = [2020, 2035];
+const INNER_SYSTEMS = new Set(['saturn', 'uranus', 'neptune']);
 
-const chunks = new Map();          // `${system}-${year}` -> parsed | 'loading' | 'failed'
+// Where a year's file is, under public/: part '' (every moon but the inner
+// ones, and the planet) or 'inner'.
+export function moonChunkPath(system, year, part) {
+  if (!part) return `ephemeris/moons/${system}-${year}.bin`;
+  const core = year >= INNER_CORE_YEARS[0] && year <= INNER_CORE_YEARS[1];
+  return `ephemeris/${core ? 'moons' : 'moons-extra'}/${system}-inner-${year}.bin`;
+}
+
+const chunks = new Map();          // path -> parsed | 'loading' | 'failed' | 'none'
+const merged = new Map();          // `${system}-${year}` -> the year's series, both parts
 let loader = null, onMiss = false, version = 0, enabled = true;
 
 // Off, every moon comes from the fallback (for checking it).
@@ -49,8 +67,9 @@ export function parseMoonChunk(buffer) {
   return series;
 }
 
-export function installMoonChunk(system, year, parsed) {
-  chunks.set(`${system}-${year}`, parsed);
+function install(path, parsed) {
+  chunks.set(path, parsed);
+  merged.clear();
   version++;
 }
 
@@ -71,25 +90,47 @@ function yearOf(tt) {
   return y;
 }
 
-function request(system, year) {
-  const key = `${system}-${year}`;
-  if (chunks.has(key) || !loader || year < MOON_TABLE_YEARS[0] || year > MOON_TABLE_YEARS[1]) return chunks.get(key);
-  chunks.set(key, 'loading');
+function requestPath(path) {
+  if (chunks.has(path) || !loader) return chunks.get(path);
+  chunks.set(path, 'loading');
   try {
-    const got = loader(system, year);
-    if (got instanceof Map) installMoonChunk(system, year, got);
+    const got = loader(path);
+    if (got instanceof Map) install(path, got);
     else if (got && typeof got.then === 'function') {
-      got.then((p) => { if (p instanceof Map) installMoonChunk(system, year, p); }, () => chunks.set(key, 'failed'));
-    }
+      got.then((p) => (p instanceof Map ? install(path, p) : chunks.set(path, 'none')), () => chunks.set(path, 'failed'));
+    } else chunks.set(path, 'none');
   } catch {
-    chunks.set(key, 'failed');
+    chunks.set(path, 'failed');
   }
-  return chunks.get(key);
+  return chunks.get(path);
 }
 
+function request(system, year, inner = true) {
+  if (year < MOON_TABLE_YEARS[0] || year > MOON_TABLE_YEARS[1]) return;
+  requestPath(moonChunkPath(system, year, ''));
+  if (inner && INNER_SYSTEMS.has(system)) requestPath(moonChunkPath(system, year, 'inner'));
+}
+
+// A year's series from both its files, once its main file is installed.
+function yearSeries(system, year) {
+  const key = `${system}-${year}`;
+  let m = merged.get(key);
+  if (m) return m;
+  const a = chunks.get(moonChunkPath(system, year, ''));
+  if (!(a instanceof Map)) return null;
+  const b = INNER_SYSTEMS.has(system) ? chunks.get(moonChunkPath(system, year, 'inner')) : null;
+  m = b instanceof Map ? new Map([...a, ...b]) : a;
+  merged.set(key, m);
+  return m;
+}
+
+// The inner moons go round in under 1.2 days, so their orbit lines need
+// only the year (or two) about tt itself, not the years the outer moons'
+// span: Uranus's would otherwise be 1.3 MB a year for eight years.
 export function wantMoonTables(system, tt, days = 0) {
   const a = yearOf(tt - days * 86400), b = yearOf(tt + days * 86400);
-  for (let y = Math.max(a, MOON_TABLE_YEARS[0]); y <= Math.min(b, MOON_TABLE_YEARS[1]); y++) request(system, y);
+  const ia = yearOf(tt - 2 * 86400), ib = yearOf(tt + 2 * 86400);
+  for (let y = Math.max(a, MOON_TABLE_YEARS[0]); y <= Math.min(b, MOON_TABLE_YEARS[1]); y++) request(system, y, y >= ia && y <= ib);
 }
 
 const T = new Float64Array(128), U = new Float64Array(128);   // moon_cheb.c NMAX is 120
@@ -119,8 +160,8 @@ export function moonChunkAt(system, tt) {
   if (!enabled || !(tt >= yearStart(MOON_TABLE_YEARS[0]) && tt <= yearStart(MOON_TABLE_YEARS[1] + 1))) return null;
   let y = yearOf(tt);
   if (y > MOON_TABLE_YEARS[1]) y = MOON_TABLE_YEARS[1];            // the span's last instant
-  const c = onMiss ? request(system, y) : chunks.get(`${system}-${y}`);
-  return c instanceof Map ? c : null;
+  if (onMiss) request(system, y);
+  return yearSeries(system, y);
 }
 
 // State of NAIF body id about its system barycentre from a chunk, into
