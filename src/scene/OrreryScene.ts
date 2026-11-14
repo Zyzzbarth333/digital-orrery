@@ -45,6 +45,13 @@ import { RenderScale } from './renderScale';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
 const ORBIT_SAMPLES = 360;
+// The stretch of an orbit around its body, drawn finely for the focused
+// body (and its planet, for a moon): 360
+// samples leave each chord a degree long, which bows up to 5,700 km off the
+// Earth's orbit (as wide as the Earth) and shows as a bent, offset line up
+// close. This window, 0.5 % of a period either side in 256 steps, keeps the
+// chords' bow near a kilometre at 1 au.
+const NEAR_HALF = 0.005, NEAR_SAMPLES = 256;
 const AU_KM = 149597870.7;
 const SUN_RADIUS_KM = 695700;
 // Exposure for sunlight at 1 AU (sets the overall look; scaled by d^2), and
@@ -162,6 +169,11 @@ function relativePosition(key: BodyKey, date: Date, frame: Frame): Vec3 {
   return sub(bodyState(key, date).r, bodyState(origin, date).r);
 }
 
+// The fine stretch about the focused body: its centre time and its centre's
+// position about the parent (km), which the line's vertices are relative
+// to, so float32 keeps them to metres.
+interface NearOrbit { key: BodyKey; line: THREE.Line; centreMs: number; centreKm: Vec3; epochMs: number }
+
 interface OrbitLine {
   line: THREE.Line;
   epochMs: number;      // centre of the sampled span
@@ -174,6 +186,7 @@ export class OrreryScene {
   private camera: THREE.PerspectiveCamera;
   private meshes = new Map<BodyKey, THREE.Mesh>();
   private orbits = new Map<BodyKey, OrbitLine>();
+  private nearOrbits = new Map<BodyKey, NearOrbit>();
   private labels = new Map<BodyKey, HTMLDivElement>();
   private baryLabels = new Map<BaryKey, HTMLDivElement>();
   private baryPos = new Map<BaryKey, THREE.Vector3>(BARYS.map((b) => [b.key, new THREE.Vector3()]));
@@ -538,6 +551,53 @@ export class OrreryScene {
     return line;
   }
 
+  // The fine stretches: the focused body's, and its planet's when it is a
+  // moon (the planet's orbit passes the camera too). Each is resampled when
+  // its body has moved a fifth of the way to its edge, or its coarse line
+  // is resampled (the trail's offsets count from that line's centre).
+  private updateNearOrbits(tMs: number): void {
+    const want = new Set<BodyKey>();
+    if (this.focusCraftId === null) {
+      const f = BODY_BY_KEY[this.focus];
+      if (f.parent) want.add(f.key);
+      if (f.parent && f.parent !== 'sun' && BODY_BY_KEY[f.parent].parent) want.add(f.parent);
+    }
+    for (const k of [...this.nearOrbits.keys()]) if (!want.has(k)) this.dropNearOrbit(k);
+    for (const key of want) {
+      const b = BODY_BY_KEY[key], o = this.orbits.get(key);
+      if (!b.periodDays || !o) continue;
+      const period = b.periodDays * 86400e3, half = NEAR_HALF * period, n = this.nearOrbits.get(key);
+      if (n && n.epochMs === o.epochMs && Math.abs(tMs - n.centreMs) < 0.2 * half) continue;
+      if (n) this.dropNearOrbit(key);
+      const centreKm = relativePosition(key, new Date(tMs));
+      const pts = new Float32Array((NEAR_SAMPLES + 1) * 3), us = new Float32Array(NEAR_SAMPLES + 1);
+      for (let i = 0; i <= NEAR_SAMPLES; i++) {
+        const t = tMs - half + (2 * half * i) / NEAR_SAMPLES;
+        toRender(sub(relativePosition(key, new Date(t)), centreKm), this.tmp);
+        pts.set([this.tmp.x, this.tmp.y, this.tmp.z], i * 3);
+        us[i] = (t - o.epochMs) / period;
+      }
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+      geom.setAttribute('u', new THREE.BufferAttribute(us, 1));
+      const line = new THREE.Line(geom, orbitTrailMaterial(b.colour));
+      line.frustumCulled = false;
+      this.scene.add(line);
+      this.nearOrbits.set(key, { key, line, centreMs: tMs, centreKm, epochMs: o.epochMs });
+      // The coarse line leaves this stretch to it.
+      (o.line.material as THREE.ShaderMaterial).uniforms.gap.value.set((tMs - o.epochMs) / period, NEAR_HALF);
+    }
+  }
+
+  private dropNearOrbit(key: BodyKey): void {
+    const n = this.nearOrbits.get(key);
+    if (!n) return;
+    this.scene.remove(n.line); n.line.geometry.dispose(); (n.line.material as THREE.Material).dispose();
+    const o = this.orbits.get(key);
+    if (o) (o.line.material as THREE.ShaderMaterial).uniforms.gap.value.set(0, -1);
+    this.nearOrbits.delete(key);
+  }
+
   private updateOrbits(tMs: number, now: number): void {
     const start = performance.now();
     for (const b of BODIES) {
@@ -552,7 +612,10 @@ export class OrreryScene {
       if (o && (Math.abs(tMs - o.epochMs) < 0.05 * period || now - o.sampledAt < 500)) continue;
       const line = this.sampleOrbit(b.key, tMs);
       if (!line) continue;
-      if (o) { this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose(); }
+      if (o) {
+        this.dropNearOrbit(b.key);
+        this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose();
+      }
       this.scene.add(line);
       this.orbits.set(b.key, { line, epochMs: tMs, sampledAt: now });
       if (performance.now() - start > 2) return;
@@ -603,6 +666,7 @@ export class OrreryScene {
     this.states.emb = baryState('emb', date);
     if (this.earthResolved) this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
     this.updateOrbits(tMs, now);
+    this.updateNearOrbits(tMs);
 
     if (this.sunViewPending && this.focus !== 'sun') {
       const b = this.states[this.focus].r;
@@ -639,6 +703,13 @@ export class OrreryScene {
         o.line.position.copy(origin === 'ssb' ? this.ssbLinePos : this.meshes.get(origin)!.position);
         (o.line.material as THREE.ShaderMaterial).uniforms.now.value = (tMs - o.epochMs) / (days * 86400e3);
       }
+    }
+    for (const n of this.nearOrbits.values()) {
+      const p = BODY_BY_KEY[n.key];
+      n.line.position.copy(this.meshes.get(p.parent!)!.position).add(toRender(n.centreKm, this.tmp));
+      const m = n.line.material as THREE.ShaderMaterial, c = this.orbits.get(n.key)!.line.material as THREE.ShaderMaterial;
+      m.uniforms.now.value = c.uniforms.now.value;
+      n.line.visible = this.orbits.get(n.key)!.line.visible;
     }
 
     this.craftLayer.place(crafts, cam, UNIT_KM);
@@ -751,6 +822,7 @@ export class OrreryScene {
     // background) are divided by the exposure the output pass applies.
     this.post.exposure = this.renderer.toneMappingExposure;
     for (const o of this.orbits.values()) (o.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
+    for (const n of this.nearOrbits.values()) (n.line.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     this.craftLayer.setLevel(inv);
     if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.level.value = inv;
     if (this.starPoints) (this.starPoints.material as THREE.ShaderMaterial).uniforms.level.value = inv;
