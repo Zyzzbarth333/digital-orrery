@@ -87,7 +87,10 @@ export class Craft {
   // vent: the venting model's options (vent.js; {} for Artemis II's
   // calibration), or null for none.
   // entry: a lifting capsule's entry (environment.js, entry.js), or null.
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null) }) {
+  // scriptIsp: the Isp (s) at which a real mission's scripted burns draw
+  // propellant from the dry mass (a spacecraft's own tanks, beyond the
+  // player's fuel), or null: they then leave the mass alone.
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null), scriptIsp = /** @type {number | null} */ (null) }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys;
@@ -109,6 +112,9 @@ export class Craft {
     this.prevClockT = t;
     this.burns = [];
     this.script = [];                // scripted burns (a real mission's, from its data)
+    this.scriptIsp = scriptIsp;      // s, or null
+    this.scriptMass0 = this.dryMass + this.fuel;   // kg, the mass when the script began
+    this.scriptOrder = [];           // the scripted burns in time order, with their masses
     this.holdAt = null;              // kernel seconds the kernel stops at until released (an aimed correction)
     this.nodes = [];                 // { id, t, dv: [radial, prograde, normal] km/s }
     this.executing = null;           // { node, burn }
@@ -123,7 +129,9 @@ export class Craft {
     this.clockJumped = false;
   }
 
-  get mass() { return this.dryMass + this.fuel; }
+  // The mass now: the dry mass, less what the mission's scripted burns have
+  // drawn from it by the clock, and the player's fuel.
+  get mass() { return this.dryMass + this.fuel - this.scriptSpentAt(this.clockT); }
   get ve() { return this.isp * G0; }       // m/s
 
   note(text, t = this.clockT) { this.log.push({ t, text }); }
@@ -202,12 +210,17 @@ export class Craft {
   // { t0, t1, dir, accel } with accel in m/s^2, constant over its span, and
   // dir [prograde, in-plane, normal] in the orbital frame about the burn's
   // own body (b.about) or else `about`.
-  // Unlike the engine's burns they draw no propellant from this craft's
-  // tank and survive clock jumps: they are tied to the mission's times.
+  // Unlike the engine's burns they draw nothing from the player's tank and
+  // survive clock jumps: they are tied to the mission's times. With a
+  // scriptIsp they draw their propellant from the dry mass instead (the
+  // mission's own tanks), by the rocket equation, so the craft gets
+  // lighter burn by burn (scriptMasses).
   setScript(burns, about = 'earth') {
     // F = accel on a nominal 1 kg: the data give acceleration, not thrust
-    // and mass, so these are flagged and the environment ignores the mass.
+    // and mass, so these are flagged and their thrust ignores the mass.
     this.script = burns.map((b) => ({ t0: b.t0, t1: b.t1, dir: b.dir, F: b.accel, m0: 1, mdot: 0, frame: 'vnb', about: b.about ?? about, scripted: true }));
+    this.scriptMass0 = this.dryMass + this.fuel;
+    this.scriptMasses();
     this.version++;
   }
 
@@ -216,6 +229,7 @@ export class Craft {
   // dropAimed).
   addScripted({ t0, t1, dir, accel }) {
     this.script.push({ t0, t1, dir: unit(dir), F: accel, m0: 1, mdot: 0, scripted: true, aimed: true });
+    this.scriptMasses();
     this.version++;
   }
   // Aimed pushes still to come after t are dropped (the clock was set back
@@ -223,7 +237,37 @@ export class Craft {
   dropAimed(t) {
     const n = this.script.length;
     this.script = this.script.filter((b) => !(b.aimed && b.t1 > t));
-    if (this.script.length !== n) this.version++;
+    if (this.script.length !== n) { this.scriptMasses(); this.version++; }
+  }
+
+  // Each scripted burn's mass at its start (mass0, kg) and its flow
+  // (massFlow, kg/s), in time order from scriptMass0: a constant
+  // acceleration a over the burn takes the mass from m to m exp(-a dt / ve),
+  // drawn here at a steady rate between the two. Without a scriptIsp, none.
+  scriptMasses() {
+    this.scriptOrder = [...this.script].sort((p, q) => p.t0 - q.t0);
+    const ve = this.scriptIsp ? this.scriptIsp * G0 : 0;
+    let m = this.scriptMass0;
+    for (const b of this.scriptOrder) {
+      if (!ve) { delete b.mass0; delete b.massFlow; continue; }
+      const dt = b.t1 - b.t0, m1 = m * Math.exp(-Math.abs(b.F) * dt / ve);
+      b.mass0 = m;
+      b.massFlow = dt > 0 ? (m - m1) / dt : 0;
+      m = m1;
+    }
+  }
+
+  // Propellant (kg) the scripted burns have drawn by kernel time t.
+  scriptSpentAt(t) {
+    if (!this.scriptIsp || !this.scriptOrder.length) return 0;
+    let m = this.scriptMass0;
+    for (const b of this.scriptOrder) {
+      if (b.mass0 === undefined) break;
+      if (t < b.t0) { m = b.mass0; break; }
+      if (t < b.t1) { m = b.mass0 - b.massFlow * (t - b.t0); break; }
+      m = b.mass0 - b.massFlow * (b.t1 - b.t0);
+    }
+    return this.scriptMass0 - m;
   }
 
   // A tracking fix: the craft's state replaced by a measured one at time t.
@@ -285,12 +329,14 @@ export class Craft {
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
     const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
-      .map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted }));
+      .map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted, mass0, massFlow }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted, ...(mass0 !== undefined ? { mass0, massFlow } : {}) }));
     return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns, env: this.envParams() };
   }
 
-  // What the kernel's environment model needs of this craft.
-  envParams() { return { mass: this.mass, area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}), ...(this.vent ? { vent: this.vent } : {}), ...(this.entry ? { entry: { ...this.entry, state: this.entryState } } : {}) }; }
+  // What the kernel's environment model needs of this craft (its mass as at
+  // the kernel's time: between scripted burns the kernel has no burn to
+  // read it from).
+  envParams() { return { mass: this.dryMass + this.fuel - this.scriptSpentAt(this.kState.t), area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}), ...(this.vent ? { vent: this.vent } : {}), ...(this.entry ? { entry: { ...this.entry, state: this.entryState } } : {}) }; }
 
   // The same environment, for drawing the craft while the kernel lags
   // (rebuilt when the mass changes). Without the entry's lift and guidance:
@@ -304,8 +350,11 @@ export class Craft {
   // A new configuration from a time on (a capsule leaving its service
   // module): mass, area, drag coefficient, entry. The kernel's next request
   // flies it.
-  configure({ dryMass = this.dryMass, fuel = this.fuel, area = this.area, cd = this.cd, cr = this.cr, entry = this.entry, vent = this.vent }) {
-    Object.assign(this, { dryMass, fuel, area, cd, cr, entry, vent });
+  // scriptIsp: null for a craft whose mass the scripted burns no longer
+  // touch (the capsule has its own mass).
+  configure({ dryMass = this.dryMass, fuel = this.fuel, area = this.area, cd = this.cd, cr = this.cr, entry = this.entry, vent = this.vent, scriptIsp = this.scriptIsp }) {
+    Object.assign(this, { dryMass, fuel, area, cd, cr, entry, vent, scriptIsp });
+    this.scriptMasses();
     this.entryState = null;
     this.version++;
   }

@@ -42,6 +42,25 @@ export const ORION_CAPSULE = {
   },
 };
 
+// The service module's main engine, the OMS-E: 26.7 kN at a nominal Isp of
+// 315.1 s (Belair et al., Artemis I engine performance, NTRS 20240003648).
+export const ORION_ENGINE = { thrustN: 26700, isp: 315.1 };
+
+// Orion as the app flies a real mission (src/app/mission.ts), and as the
+// validations fly the app's mission files:
+// - 25,536 kg at the start (Artemis II's mass at its injection burn, from
+//   NASA's plan and the engine, artemis2.design.mjs). 500 kg of it is the
+//   propellant the app leaves for a player's own burns; the rest of the
+//   mission's propellant is drawn by its burns, as flown, at the main
+//   engine's Isp (scriptIsp), so the spacecraft gets lighter burn by burn.
+// - Sunlight sees a cannonball of 78.4 m^2 at Cr 1.3: C_r A/m = 4.0e-3
+//   m^2/kg at the start, rising as the propellant goes, the fit to Artemis
+//   I's coast arcs with its mass falling (docs/validation/artemis1.md).
+// - It vents as the real Orion did (vent.js, calibrated on Artemis II's
+//   coast arcs): a push of a few um/s^2 that the tracking fixes correct,
+//   as JSC's did.
+export const ORION_CRAFT = { dryMass: 25036, fuel: 500, area: 78.4, cr: 1.3, vent: {}, scriptIsp: ORION_ENGINE.isp };
+
 // Each mission's entry: when the crew module leaves the service module (the
 // craft becomes the capsule then), the guidance's target, the chutes'
 // heights, and what was flown.

@@ -123,9 +123,9 @@ The app reads both with `src/physics/realMission.js`.
   another (the first outbound trim) is flown as it was, and the later one
   aims for both. **As flown, blind** replays every correction exactly as
   Orion flew it, whatever the craft's state; the lunar flyby magnifies the
-  difference, so without fixes that ends some 17,000 km off at entry.
-  Aimed, with no fixes, Artemis II stays within 72 km of the flown path
-  for the whole mission and reaches entry 0.3 km from it, for 4.2 m/s more
+  difference, so without fixes that ends some 16,000 km off at entry.
+  Aimed, with no fixes, Artemis II stays within 67 km of the flown path
+  for the whole mission and reaches entry 0.3 km from it, for 4.0 m/s more
   than the flown corrections (`artemis2.validate.mjs`, part 6). Artemis I,
   over 25 days with two powered flybys and the distant retrograde orbit,
   stays within 238 km and ends 0.9 km off, for 31.8 m/s more than its 18

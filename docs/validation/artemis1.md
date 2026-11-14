@@ -107,28 +107,40 @@ eighth of the kernel's default step:
 | Model | Worst at the end | RMS | Median |
 | --- | --- | --- | --- |
 | Gravity: point masses, and the J2 of the Earth, Moon and planets | 83.4 m | 22.5 m | 6.8 m |
-| + Orion's sunlight pressure, C_r A/m = 4.6×10⁻³ m²/kg, with shadows | 47.4 m | 7.9 m | 0.6 m |
-| + the Earth's field to degree 20 and the Moon's to 50 | 43.1 m | 5.5 m | 0.5 m |
-| + the Earth's solid tides | 43.1 m | 5.5 m | 0.5 m |
-| + relativity (the full model) | 43.1 m | 5.6 m | 0.5 m |
+| + Orion's sunlight pressure, C_r A/m = 4.0×10⁻³ m²/kg at the start, its mass falling, with shadows | 47.3 m | 7.8 m | 0.3 m |
+| + the Earth's field to degree 20 and the Moon's to 50 | 43.1 m | 5.3 m | 0.3 m |
+| + the Earth's solid tides | 43.1 m | 5.3 m | 0.3 m |
+| + relativity (the full model) | 43.1 m | 5.3 m | 0.3 m |
 
-What each force moves an arc's end by, at most: sunlight pressure 85.5 m,
-the two gravity fields 40.9 m, relativity 0.74 m, the tides 2 cm. At the
+What each force moves an arc's end by, at most: sunlight pressure 82.6 m,
+the two gravity fields 40.9 m, relativity 0.74 m, the tides 4 cm. At the
 kernel's default step `npm test` finds 83.3 m and 22.5 m with gravity
-alone, and 43.5 m and 5.6 m with the full model.
+alone, and 43.5 m and 5.35 m with the full model.
 
 - **Sunlight pressure is in NASA's model.** The gravity-only gap grows with
-  the square of the arc's length, as a small steady push would. Fitted
-  across all 77 arcs, a push away from the Sun of 2.1×10⁻⁸ m/s² takes most
-  of it out: about 4.6×10⁻⁶ N/m² on 60–80 m² of capsule and solar arrays,
-  for 15 to 26 tonnes. The kernel flies Orion as a cannonball with
-  C_r A/m = 4.6×10⁻³ m²/kg (92 m² at C_r 1.3 for 26 t), shadows included.
+  the square of the arc's length, as a small steady push would. A push
+  away from the Sun of about 2×10⁻⁸ m/s² takes most of it out: about
+  4.6×10⁻⁶ N/m² on 60–80 m² of capsule and solar arrays, for 20 to 26
+  tonnes.
+- **And so is Orion's falling mass.** Each burn draws propellant, and the
+  same sunlight pushes a lighter spacecraft harder. Fitted arc by arc
+  with the mass held, the push the arcs want steps up at each big burn:
+  the long arcs after the return flyby want 1.30 times the push of those
+  before the outbound one, as the mass fell 1.27 times (by the rocket
+  equation at the main engine's Isp, 315.1 s, through NASA's 777 m/s of
+  burns, to 0.778 of its start). With the mass falling, one setting fits
+  every arc better than any held mass does: rms 5.35 m against 5.59 m.
+  The kernel flies Orion as a cannonball with C_r A/m = 4.0×10⁻³ m²/kg
+  at the start (79.8 m² at C_r 1.3 for 26 t), rising to 5.1×10⁻³ as the
+  propellant goes, shadows included. The app's Orion uses the same
+  (`ORION_CRAFT`, `src/physics/orion.js`): its mission burns draw down
+  its mass as they fly.
 - **Tides and relativity are below what this data can show:** a few
   centimetres and under a metre, against NASA's own joins of tens of
   metres (below).
-- **What is left** most likely follows Orion's falling mass (fixed at 26 t
-  here, though propellant use took it lower), its attitude (a cannonball
-  has none), and the venting that NASA's predictions could not know.
+- **What is left** most likely follows Orion's attitude (a cannonball has
+  none: the arrays turn), and the venting that NASA's predictions could
+  not know.
 
 ## Cross-checks
 
@@ -140,14 +152,14 @@ alone, and 43.5 m and 5.6 m with the full model.
 2. **The integrator:** the full model flown by the kernel at its default
    step and at a half, a quarter and an eighth of it, against a plain
    fixed-step fourth-order Runge–Kutta written in the check (a different
-   method; at 10 s and 5 s it agrees with itself to 2 mm):
+   method; at 10 s and 5 s it agrees with itself to 1 mm):
 
    | The kernel's step | Worst against RK4 | RMS |
    | --- | --- | --- |
-   | default | 2.48 m | 0.49 m |
-   | ½ | 0.16 m | 0.03 m |
-   | ¼ | 0.07 m | 0.02 m |
-   | ⅛ | 0.07 m | 0.03 m |
+   | default | 2.47 m | 0.49 m |
+   | ½ | 0.17 m | 0.04 m |
+   | ¼ | 0.09 m | 0.02 m |
+   | ⅛ | 0.09 m | 0.03 m |
 
    So the integrator's own error is centimetres at a fine step, a
    hundredth of the model's miss. At the app's default step it adds up to

@@ -29,7 +29,7 @@ import { solarSystemBodies } from '../physics/bodies.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
 import { departureHyperbola } from '../physics/launch.js';
 import { RealMission } from '../physics/realMission.js';
-import { ORION_ENTRIES, orionFor } from '../physics/orion.js';
+import { ORION_CRAFT, ORION_ENTRIES, orionFor } from '../physics/orion.js';
 import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
 import type { CraftView } from '../scene/craftLayer';
 
@@ -65,14 +65,9 @@ export const REAL_MISSIONS = [
   { id: 'artemis2', label: 'Artemis II · April 2026' },
   { id: 'artemis2-plan', label: 'Artemis II · our own plan' },
 ];
-// Orion as sunlight sees it: 25,536 kg at the injection burn (from NASA's
-// plan and the engine, artemis2.design.mjs), and a sunlit area of 92 m^2
-// at Cr 1.3, the cannonball that fits Artemis I's coast arcs
-// (docs/validation/artemis1.md). 500 kg of it is the propellant the app
-// leaves for the corrections a player flies. It vents as the real Orion
-// did (vent.js, calibrated on Artemis II's coast arcs): a push of a few
-// um/s^2 that the tracking fixes correct, as JSC's did.
-const ORION = { dryMass: 25036, fuel: 500, area: 92, cr: 1.3, vent: {} };
+// Orion as the app flies a real mission: its mass falling burn by burn,
+// its sunlit area and its venting (ORION_CRAFT in src/physics/orion.js).
+const ORION = ORION_CRAFT;
 
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: number[]): V3 => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
@@ -326,7 +321,7 @@ export class Mission {
     const become = (capsule: boolean) => {
       if (capsule) {
         const C = orionFor(R.entryId as string);
-        c.configure({ dryMass: C.mass, fuel: 0, area: C.area, cd: C.cd, cr: 1.3, vent: null, entry: { aero: C.aero, chutes: C.chutes, target: EN.target } });
+        c.configure({ dryMass: C.mass, fuel: 0, area: C.area, cd: C.cd, cr: 1.3, vent: null, scriptIsp: null, entry: { aero: C.aero, chutes: C.chutes, target: EN.target } });
         c.note(`crew module separated from the service module: ${C.mass.toLocaleString()} kg, guided to ${EN.target.lat.toFixed(2)}, ${EN.target.lon.toFixed(2)}`, c.kState.t);
       } else c.configure({ ...ORION, entry: null });
       R.separated = capsule;

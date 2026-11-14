@@ -14,11 +14,12 @@
 // prediction.
 
 import fs from 'node:fs';
-import { NASA_BURNS, AAS } from './artemis1.lib.mjs';
+import { NASA_BURNS, AAS, massAfterBurns } from './artemis1.lib.mjs';
 import { helioOf, geocentric, sys, kt, MOON_RADIUS } from './artemis2.lib.mjs';
 import { advance } from './nbody.js';
 import { helioStateEqj } from './ephemeris.js';
 import { makeEnvironment } from './environment.js';
+import { ORION_CRAFT, ORION_ENGINE } from './orion.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
@@ -114,19 +115,55 @@ const starts = [row(fx.first), ...events.map((e) => e.b)], ends = [...events.map
 for (let i = 0; i < starts.length; i++) if (ends[i].ms - starts[i].ms >= 3600e3) arcs.push([starts[i], ends[i]]);
 // The full environment (environment.js): the Earth's and Moon's fields,
 // the Earth's tides, relativity, and sunlight pressure with the Earth's and
-// Moon's shadows, Orion as a cannonball with Cr A/m = 4.6e-3 m^2/kg (Cr 1.3, 92 m^2 for 26 t
-// of capsule, service module and arrays), fitted once across these arcs;
-// about 2.1e-8 m/s^2 at 1 AU.
-const srp = makeEnvironment(sys, { mass: 26000, area: 92, cr: 1.3 });
-const errs = arcs.map(([a, b]) => ({ hours: (b.ms - a.ms) / 3.6e6, plain: norm(sub(coast(a, b.ms).r, b.r)) * 1000, sun: norm(sub(coast(a, b.ms, srp).r, b.r)) * 1000 }));
-const stat = (f) => ({ worst: Math.max(...errs.map(f)), rms: Math.sqrt(errs.reduce((s, x) => s + f(x) ** 2, 0) / errs.length) });
-const P = stat((x) => x.plain), Q = stat((x) => x.sun);
-const long = errs.reduce((a, b) => (b.hours > a.hours ? b : a));
-console.log(`  ${arcs.length} arcs of ${Math.min(...errs.map((x) => x.hours)).toFixed(1)} to ${Math.max(...errs.map((x) => x.hours)).toFixed(1)} h (${errs.reduce((s, x) => s + x.hours, 0).toFixed(0)} h in all)`);
-console.log(`  gravity only:                      worst ${P.worst.toFixed(1)} m, rms ${P.rms.toFixed(1)} m; the longest (${long.hours.toFixed(1)} h) ${long.plain.toFixed(1)} m`);
-console.log(`  the full environment (sunlight pressure at Cr A/m 4.6e-3 m^2/kg, fields, tides, relativity): worst ${Q.worst.toFixed(1)} m, rms ${Q.rms.toFixed(1)} m; the longest ${long.sun.toFixed(1)} m`);
+// Moon's shadows on Orion as a cannonball. Orion's mass falls at each burn
+// (massAfterBurns: the rocket equation at the main engine's Isp), so the
+// push of the same sunlight grows by 28 % over the mission.
+const after = massAfterBurns(ORION_ENGINE.isp * 9.80665 / 1000).map((x) => ({ t: kt(x.ms), ratio: x.ratio }));
+const ratioAt = (t) => { let f = 1; for (const x of after) if (x.t <= t) f = x.ratio; return f; };
+// Sunlight at a reference Cr A/m of 4.6e-3 m^2/kg at the start (Cr 1.3,
+// 92 m^2 for 26 t), the mass falling or held; and the same without
+// sunlight, so the push each arc wants can be fitted.
+const M0 = 26000, REF = 1.3 * 92 / M0;
+const dark = makeEnvironment(sys, { mass: M0, area: 92, cr: 0 });
+const held = makeEnvironment(sys, { mass: M0, area: 92, cr: 1.3 });
+const falling = makeEnvironment(sys, { mass: M0, area: 92, cr: 1.3, massAt: (t) => M0 * ratioAt(t) });
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const errs = arcs.map(([a, b]) => {
+  const e0 = sub(coast(a, b.ms, dark).r, b.r);
+  return {
+    hours: (b.ms - a.ms) / 3.6e6, mid: (a.ms + b.ms) / 2, ratio: ratioAt(kt(b.ms)),
+    plain: norm(sub(coast(a, b.ms).r, b.r)) * 1000, e0,
+    // What sunlight at the reference strength moves the arc's end by: a
+    // small push, so the end moves in proportion to its strength.
+    held: sub(sub(coast(a, b.ms, held).r, b.r), e0), falling: sub(sub(coast(a, b.ms, falling).r, b.r), e0),
+  };
+});
+// The strength that best fits all the arcs at once, mass falling or held
+// (least squares), and the rms and worst there.
+const fit = (k) => { const k2 = errs.reduce((s, x) => s + dot3(x[k], x[k]), 0); return -errs.reduce((s, x) => s + dot3(x.e0, x[k]), 0) / k2; };
+const at = (k, scale) => errs.map((x) => norm([x.e0[0] + scale * x[k][0], x.e0[1] + scale * x[k][1], x.e0[2] + scale * x[k][2]]) * 1000);
+const stat = (v) => ({ worst: Math.max(...v), rms: Math.sqrt(v.reduce((s, x) => s + x * x, 0) / v.length) });
+const kHeld = fit('held'), kFall = fit('falling');
+const P = stat(errs.map((x) => x.plain)), H = stat(at('held', kHeld)), F = stat(at('falling', kFall));
+// The app's Orion (ORION_CRAFT): Cr A/m at its start, flown here from 26 t.
+const appScale = (ORION_CRAFT.cr * ORION_CRAFT.area / (ORION_CRAFT.dryMass + ORION_CRAFT.fuel)) / REF, A = stat(at('falling', appScale));
+console.log(`  ${arcs.length} arcs of ${Math.min(...errs.map((x) => x.hours)).toFixed(1)} to ${Math.max(...errs.map((x) => x.hours)).toFixed(1)} h (${errs.reduce((s, x) => s + x.hours, 0).toFixed(0)} h in all); Orion's mass falls to ${after.at(-1).ratio.toFixed(3)} of its start by the last burn`);
+console.log(`  gravity only:                                     worst ${P.worst.toFixed(1)} m, rms ${P.rms.toFixed(2)} m`);
+console.log(`  full environment, mass held, best fit (Cr A/m ${(kHeld * REF * 1000).toFixed(2)}e-3):     worst ${H.worst.toFixed(1)} m, rms ${H.rms.toFixed(2)} m`);
+console.log(`  full environment, mass falling, best fit (Cr A/m ${(kFall * REF * 1000).toFixed(2)}e-3 at the start): worst ${F.worst.toFixed(1)} m, rms ${F.rms.toFixed(2)} m`);
+console.log(`  the app's Orion (Cr A/m ${(appScale * REF * 1000).toFixed(2)}e-3 at the start, falling):     worst ${A.worst.toFixed(1)} m, rms ${A.rms.toFixed(2)} m`);
+// Arc by arc, the strength each wants with the mass held grows as the mass
+// falls: the long arcs (over 8 h) before the outbound flyby against those
+// after the return flyby.
+const want = errs.filter((x) => x.hours > 8).map((x) => ({ ...x, k: -dot3(x.e0, x.held) / dot3(x.held, x.held) }));
+const mean = (v) => v.reduce((s, x) => s + x, 0) / v.length;
+const early = want.filter((x) => x.mid < Date.parse('2022-11-21T12:44Z')), late = want.filter((x) => x.mid > Date.parse('2022-12-05T16:43Z'));
+const grew = mean(late.map((x) => x.k)) / mean(early.map((x) => x.k)), shrank = mean(early.map((x) => x.ratio)) / mean(late.map((x) => x.ratio));
+console.log(`  the push the long arcs want, mass held: ${grew.toFixed(3)} times as much after the return flyby (${late.length} arcs) as before the outbound one (${early.length}); the mass fell ${shrank.toFixed(3)} times`);
 check('every coast arc ends within 100 m of NASA\'s ephemeris (up to 25 h)', P.worst < 100);
-check('the full environment, sunlight pressure on Orion most of all, at least halves the rms: NASA\'s model includes it', Q.rms < P.rms / 2);
+check('the full environment, sunlight pressure on Orion most of all, at least halves the rms: NASA\'s model includes it', A.rms < P.rms / 2);
+check('Orion\'s mass falling at its burns fits the arcs better than a mass held, and the app\'s Orion is within 1 % of the best fit', F.rms < H.rms && A.rms < F.rms * 1.01);
+check('the push each arc wants grows as the mass falls: within 3 % of the mass ratio between the first and last coasts', Math.abs(grew / shrank - 1) < 0.03);
 
 header('CASE 4: the lunar flybys and the farthest point');
 // Outbound flyby: closest approach comes 9 minutes after the burn ends, so
@@ -165,8 +202,9 @@ header('CASE 4: the lunar flybys and the farthest point');
 
 header("CASE 5: the app's mission file (public/missions/artemis1.json), flown as the app flies it");
 {
-  // Orion as the app flies it (src/app/mission.ts's ORION): the full
-  // environment with the random vent model, through the Craft model and the
+  // Orion as the app flies it (ORION_CRAFT, orion.js): its mass falling
+  // burn by burn, the full environment with the random vent model, through
+  // the Craft model and the
   // kernel host in one-minute frames, from just after injection to just
   // before entry. Three ways: every burn replayed as flown; a tracking fix
   // every 12 h; and, as the app flies it by default, no fixes and every burn
@@ -176,7 +214,7 @@ header("CASE 5: the app's mission file (public/missions/artemis1.json), flown as
   const { KernelClient } = await import('./kernelClient.js');
   const { kernelMs } = await import('./kernelHost.js');
   const file = new RealMission(JSON.parse(fs.readFileSync(new URL('../../public/missions/artemis1.json', import.meta.url))));
-  const ORION = { dryMass: 25036, fuel: 500, area: 92, cr: 1.3, vent: {} };
+  const ORION = ORION_CRAFT;
   const flyApp = ({ aimed = false, fixHours = null } = {}) => {
     const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, ...ORION });
     c.setScript(file.script());

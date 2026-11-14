@@ -42,6 +42,7 @@ import fs from 'node:fs';
 import { createState, advance } from './nbody.js';
 import { vnbDirection } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
+import { ORION_ENGINE } from './orion.js';
 import { bodyAxesEqj } from './orientation.js';
 import { lambert, propagate } from './orbital.js';
 import {
@@ -54,7 +55,7 @@ export const TARGETS = {
   eiAltKm: 121.92, eiMs: Date.parse('2026-04-10T23:53:00Z'),
   planDvKms: 1274 * FT / 1000, planSeconds: 349, planIgnitionMs: Date.parse('2026-04-02T23:49:00Z'),
 };
-export const ENGINE = { thrustN: 26700, isp: 315.1 };
+export const ENGINE = ORION_ENGINE;
 const VE = ENGINE.isp * G0 / 1000, MDOT = ENGINE.thrustN / (ENGINE.isp * G0);
 export const MASS0 = MDOT * TARGETS.planSeconds / (1 - Math.exp(-TARGETS.planDvKms / VE));
 const R_MOON = 1737.4, MU_M = 4902.80, MU_E = 398600.4355, END = Date.parse('2026-04-11T03:00:00Z');

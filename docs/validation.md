@@ -108,7 +108,7 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | Our own plan: the injection burn designed from the pre-TLI orbit and NASA's published targets only | 1,270.7 ft/s over 348.2 s (NASA's plan: 1,274 ft/s, 5 min 49 s); within 182 km of the flown path for eight days; farthest from Earth equal to the flown to the kilometre |
 | The app's mission file, flown by the Craft model and kernel host | the replay's flyby to 0.4 km at every frame size; with a fix every 12 h, 1.2 km at entry |
 | The same with a tracking fix every 12 h | never more than 5 km off; 1.1 km at entry interface |
-| The app's flight as it flies by default: full environment and random vent, no fixes, the corrections aimed from the craft | never more than 72 km off; 0.3 km at entry; flyby 6,543.2 km; 4.2 m/s more than the flown corrections (blind: 17,174 km at entry) |
+| The app's flight as it flies by default: full environment and random vent, Orion's mass falling with its burns, no fixes, the corrections aimed from the craft | never more than 67 km off; 0.3 km at entry; flyby 6,543.2 km; 4.0 m/s more than the flown corrections (blind: 16,021 km at entry) |
 | Coast arcs, 0.2–2.1 days | 0.4–49 km at the end (JSC's 1σ: 0.2–1 km) |
 | The same arcs once the real flight's steady push is estimated from each arc's first half | 0.1–17 km |
 | First arc after translunar injection | 13 km (957 km with point masses only) |
@@ -166,8 +166,9 @@ navigation's as-flown ephemeris (through JPL Horizons). See
 | --- | --- |
 | NASA's 18 as-flown burns (AAS 23-363), found in the trajectory | every one; over 1 m/s within 0.1 % (RTC-5: 0.9 %); e.g. DRO insertion 110.633 m/s (NASA 110.639), return flyby 292.861 (292.904); under 1 m/s within 0.04 m/s |
 | Ignition of the six largest | within 2 s of NASA's times |
-| 77 coast arcs, 1.2–24.7 h (589 h) | gravity alone: all within 83 m at the end, rms 22.5 m; the full environment (sunlight pressure, the Earth's and Moon's fields, tides, relativity): within 44 m, rms 5.6 m |
-| The same three ways (`npm run crosscheck:artemis1`) | force by force; the kernel against an independent RK4 (7 cm at a fine step, 2.5 m at the app's default); fresh Horizons states asked in TDB match the fixture to 0.11 m, and the app's Moon matches Horizons' to 2.5 m |
+| 77 coast arcs, 1.2–24.7 h (589 h) | gravity alone: all within 83 m at the end, rms 22.5 m; the full environment (sunlight pressure on Orion as its mass falls burn by burn, the Earth's and Moon's fields, tides, relativity): within 44 m, rms 5.35 m (5.59 m with its mass held) |
+| Orion's falling mass in the arcs | the push the long arcs want grows 1.30 times from the first coasts to the last, as the mass fell 1.27 times |
+| The same three ways (`npm run crosscheck:artemis1`) | force by force; the kernel against an independent RK4 (9 cm at a fine step, 2.5 m at the app's default); fresh Horizons states asked in TDB match the fixture to 0.11 m, and the app's Moon matches Horizons' to 2.5 m |
 | Closest lunar approaches, outbound and return | 130.4 km and 129.6 km (NASA: 81 mi and 80.6 mi, 130.4 and 129.7 km) |
 | Farthest from Earth | 432,207 km above the surface at 21:06 UTC, 28 Nov (NASA: 268,563 mi, 432,210 km, 21:06:10) |
 | Joins between NASA's navigation solutions | 67; velocity steps median 0.074 m/s, position median 49 m |

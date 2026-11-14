@@ -86,7 +86,9 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     const altNote = P?.key === 'earth' ? ', above the equatorial radius (6,378.137 km, WGS-84), as in the ROCKET tab' : P ? ', above the mean radius' : '';
     const st = c.displayState();
     const rel = mission.relative(c);
-    const dvLeft = c.ve * Math.log(c.mass / c.dryMass);
+    // The player's fuel against the mass now (a real mission's own burns
+    // have drawn the dry mass down).
+    const dvLeft = c.ve * Math.log(c.mass / (c.mass - c.fuel));
     const rows: [string, React.ReactNode, React.ReactNode][] = [
       ['Motion', 'Integrated', <Tag src="kernel" detail="stepped under the gravity of the Sun, planets and Moon (n-body), not on a fixed track like the planets" />],
       ['About', P ? P.name : 'Sun', <Tag src="kernel" detail="the body whose sphere of influence holds the craft" />],
@@ -129,7 +131,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     // craft's, scripted from its data.
     if (run?.burns !== 'all') {
       rows.push(['Propellant', `${fmt(c.fuel, 2)} kg`, <Tag src="model" derived detail={`one tank; dry mass ${c.dryMass} kg, ${c.thrust} N at Isp ${c.isp} s`} />]);
-      rows.push(['Δv left', `${fmt(dvLeft, 1)} m/s`, <Tag src="rocket eq." derived detail="ve ln(m / m_dry)" />]);
+      rows.push(['Δv left', `${fmt(dvLeft, 1)} m/s`, <Tag src="rocket eq." derived detail="ve ln(m / (m − fuel)): the fuel left, against the mass now" />]);
     }
     if (run) {
       const d = mission.distanceFromFlown(c);
