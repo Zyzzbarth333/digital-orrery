@@ -111,7 +111,10 @@ export function planFlight(sol) {
     }
     // Leaving a stop where the craft was in orbit.
     if (k > 0 && P.kind !== 'flyby') {
-      if (leg.vinfDep && KERNEL.has(P.body)) events.push({ kind: 'depart', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep), rp: bodyInfo(P.body).radius + P.altKm });
+      // The way out is re-solved if the departure waits: Lambert about the
+      // leg's central body to where the target is at the arrival.
+      if (leg.vinfDep && KERNEL.has(P.body)) events.push({ kind: 'depart', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep), rp: bodyInfo(P.body).radius + P.altKm,
+        reaim: leg.geometry === 'between' && leg.endA === P.body ? { central: leg.central, to: leg.endB ?? Q.body, arrMs: leg.arrMs } : null });
       else if (leg.ringDep) events.push({ kind: 'depart-ring', ms: leg.depMs, body: P.body, dv: leg.depDv, dirEqj: ecl(unit(leg.ringDep)) });
       else if (leg.vinfDep) events.push({ kind: 'impulse-rel', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep) });
     }
@@ -189,6 +192,38 @@ function timeToPeriapsis(r, v, mu) {
   }
   const e = Math.hypot(A, Bs), E = Math.atan2(Bs, A);
   return -(E - e * Math.sin(E)) * Math.sqrt(a ** 3 / mu);
+}
+
+// The outgoing excess velocity (vector) of the two-body orbit through r, v
+// about mu, or null for an ellipse: v_inf along the asymptote at true anomaly
+// acos(-1/e), in the plane of r x v.
+function asymptote(r, v, mu) {
+  const rn = norm(r), v2 = dot(v, v), en = v2 / 2 - mu / rn;
+  if (!(en > 0)) return null;
+  const h = cross(r, v), ev = scale(sub(scale(r, v2 - mu / rn), scale(v, dot(r, v))), 1 / mu), e = norm(ev);
+  const P = scale(ev, 1 / e), Q = unit(cross(h, P)), th = Math.acos(-1 / e);
+  return scale(add(scale(P, Math.cos(th)), scale(Q, Math.sin(th))), Math.sqrt(2 * en));
+}
+// The velocity at r whose orbit leaves along the excess velocity `want`:
+// Newton from v0 on the three components, sensitivities by differences.
+function toAsymptote(r, v0, want, mu) {
+  let v = [...v0];
+  const f = (vv) => { const u = asymptote(r, vv, mu); return u ? sub(u, want) : null; };
+  for (let it = 0; it < 12; it++) {
+    const F = f(v);
+    if (!F) return null;
+    if (norm(F) < 1e-7) return v;
+    const hstep = 1e-6, J = [0, 1, 2].map((k) => { const w = [...v]; w[k] += hstep; const G = f(w); return G && G.map((g, i) => (g - F[i]) / hstep); });
+    if (J.some((c) => !c)) return null;
+    const A = [0, 1, 2].map((i) => [J[0][i], J[1][i], J[2][i]]);
+    const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    const D = det(A);
+    if (!(Math.abs(D) > 0)) return null;
+    const step = [0, 1, 2].map((k) => det(A.map((row, i) => row.map((val, c) => (c === k ? -F[i] : val)))) / D);
+    v = add(v, step);
+  }
+  const F = f(v);
+  return F && norm(F) < 1e-5 ? v : null;
 }
 
 const WITHOUT = new Map();
@@ -273,22 +308,76 @@ export function flyJourney(sys, plan, { samples = 400 } = {}) {
       }
       continue;
     }
-    if (e.kind === 'depart' || e.kind === 'depart-ring') {
-      // Wait for the craft to come round to the burn point.
+    if (e.kind === 'depart') {
+      // From whatever orbit the craft is in now, the burn onto the outgoing
+      // asymptote: at each of 72 points round the orbit, the two-body arc
+      // (Lambert about the body) to a point out along the excess velocity a
+      // sphere-crossing later; the cheapest is burned, as its full vector.
+      // A long stay turns the orbit's plane (a planet's J2 precesses its
+      // node, about 10 degrees a day at 400 km over Mars), so the plane may
+      // no longer hold the way out: as a mission would, the departure waits
+      // (up to `waitDays`, in half-day steps) for the plane to come round,
+      // when that saves more than 2 %. The aims that follow tidy the rest.
+      flyTo(t);
+      const tau = Math.max(3 * 3600, Math.min(5 * DAY, sphereOfInfluence(e.body) / norm(e.vinfEqj)));
+      // The excess velocity for leaving at time tt: as planned, or re-solved
+      // to the leg's arrival when the departure has waited.
+      const vinfAt = (tt) => {
+        if (!e.reaim || Math.abs(tt - t) < 3600) return e.vinfEqj;
+        const T = kernelSeconds(new Date(e.reaim.arrMs));
+        const C = e.reaim.central === 'sun' ? { r: [0, 0, 0], v: [0, 0, 0] } : bodyState(e.reaim.central, tt), CT = e.reaim.central === 'sun' ? [0, 0, 0] : posAt(sys, e.reaim.central, T);
+        const P0 = bodyState(e.body, tt), to = sub(posAt(sys, e.reaim.to, T), CT);
+        const muC = e.reaim.central === 'sun' ? sys.muSun : bodyInfo(e.reaim.central).mu;
+        const arc = lambert(sub(P0.r, C.r), to, T - tt, muC, true);
+        return arc ? sub(arc.v1, sub(P0.v, C.v)) : e.vinfEqj;
+      };
+      const cheapest = () => {
+        const want = vinfAt(s.t), far = scale(want, tau);
+        const { r, v, B } = rel(e.body, s.t);
+        const a = 1 / (2 / norm(r) - dot(v, v) / B.mu), T = 2 * Math.PI * Math.sqrt(Math.abs(a) ** 3 / B.mu);
+        let best = null;
+        for (let i = 0; i < 72; i++) {
+          const dt = (T * i) / 72, x = i ? propagate(r, v, dt, B.mu) : { r, v };
+          if (!x) continue;
+          for (const pro of [true, false]) {
+            // A first guess from the far point, then exact on the asymptote.
+            const arc = lambert(x.r, far, tau, B.mu, pro);
+            if (!arc) continue;
+            const v1 = toAsymptote(x.r, arc.v1, want, B.mu);
+            if (!v1) continue;
+            const d = sub(v1, x.v), m = norm(d);
+            if (Number.isFinite(m) && (!best || m < best.m)) best = { dt, d, m, T };
+          }
+        }
+        return best;
+      };
+      const t0 = s.t, saved = { ...s };
+      let best = cheapest(), bestAt = s.t;
+      for (let h = 0.5; h <= (e.waitDays ?? 30) && best; h += 0.5) {
+        flyTo(t0 + h * DAY);
+        const b = cheapest();
+        if (b && b.m < best.m * 0.98) { best = b; bestAt = s.t; }
+      }
+      // Back to the best moment (re-flown from the departure time).
+      if (s.t !== bestAt) { s = { ...saved }; flyTo(bestAt); }
+      if (!best) { out.log.push(`depart ${e.body}: no burn found`); continue; }
+      let tb = s.t + best.dt;
+      if (tb - durOf(best.m) / 2 < s.t) tb += best.T;
+      burn(tb, best.d, best.m);
+      out.log.push(`depart ${e.body}: ${(best.m * 1000).toFixed(0)} m/s, ${((tb - kernelSeconds(new Date(e.ms))) / 3600).toFixed(1)} h after the planned time`);
+      continue;
+    }
+    if (e.kind === 'depart-ring') {
+      // Leaving a planet for its moon: prograde where the planned arc starts.
       flyTo(t);
       const { r, v, B } = rel(e.body, s.t);
       const n = unit(cross(r, v)), w = Math.sqrt(B.mu / norm(r) ** 3);
-      let target;
-      if (e.kind === 'depart') {
-        const h = departureHyperbola({ planetR: [0, 0, 0], planetV: [0, 0, 0], vInf: sub(e.vinfEqj, scale(n, dot(e.vinfEqj, n))), mu: B.mu, rp: norm(r), pole: n });
-        target = unit(h.r);
-        e.dvUse = h.vp - norm(v);
-      } else { target = unit(sub(e.dirEqj, scale(n, dot(e.dirEqj, n)))); e.dvUse = e.dv; }
+      const target = unit(sub(e.dirEqj, scale(n, dot(e.dirEqj, n))));
       const ang = Math.atan2(dot(cross(unit(r), target), n), dot(unit(r), target));
       t = s.t + (((ang % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) / w;
-      if (t - durOf(e.dvUse) / 2 < s.t) t += 2 * Math.PI / w;
-      burn(t, [1, 0, 0], e.dvUse, 'vnb', e.body);
-      out.log.push(`depart ${e.body}: ${(e.dvUse * 1000).toFixed(0)} m/s prograde, ${((t - kernelSeconds(new Date(e.ms))) / 60).toFixed(0)} min after the planned time`);
+      if (t - durOf(e.dv) / 2 < s.t) t += 2 * Math.PI / w;
+      burn(t, [1, 0, 0], e.dv, 'vnb', e.body);
+      out.log.push(`depart ${e.body}: ${(e.dv * 1000).toFixed(0)} m/s prograde, ${((t - kernelSeconds(new Date(e.ms))) / 60).toFixed(0)} min after the planned time`);
       continue;
     }
     if (e.kind === 'tangent') {

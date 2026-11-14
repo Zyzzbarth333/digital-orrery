@@ -26,6 +26,7 @@ export interface JourneySolution { stops: Stop[]; legs: Leg[]; flybys: (Flyby | 
 const solveJourney = (j: Journey) => solveJs(j) as unknown as JourneySolution;
 const defaultArrival = (p: Stop, body: string, alt: number, kind: string) => defaultArrivalJs(p as never, body, alt, kind) as number;
 export type { Journey, Waypoint };
+export interface Vehicle { payload: number; booster: 'solid' | 'storable' | 'hydrolox'; upper: 'solid' | 'storable' | 'hydrolox'; isp1: number | null; isp2: number | null; eps1: number; eps2: number; n: number | null }
 
 export interface JourneyArcView { central: string; pts: V3[]; leg: number; t1: number; t2: number }
 export interface JourneyMarkView { central: string; at: V3; label: string; dv: number; kind: string; ms: number; id?: string; frame?: { T: V3; N: V3; R: V3 }; b?: [number, number] }
@@ -208,6 +209,11 @@ export class JourneyStore {
     try { history.replaceState(null, '', on ? '#plot' : location.pathname + location.search); } catch { /* not in a page */ }
     this.notify();
   }
+  // The rocket the STACK station sizes (staging.js), kept here so GO reads it.
+  vehicle: Vehicle = { payload: 1000, booster: 'storable', upper: 'hydrolox', isp1: null, isp2: null, eps1: 0.1, eps2: 0.1, n: null };
+  setVehicle(patch: Partial<Vehicle>): void { this.vehicle = { ...this.vehicle, ...patch }; this.notify(); }
+  // A ?plan= link: the porkchop to open and compute in the table.
+  autoPlan: string | null = null;
   // The ship's delta-v budget from the parking orbit on (km/s), for the lamps.
   budget = 8;
   setBudget(b: number): void { this.budget = b; this.notify(); }

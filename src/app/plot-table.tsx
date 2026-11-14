@@ -21,6 +21,9 @@ import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import { useJourney, type JourneyStore, type JourneyMarkView } from './journey';
 import { JourneyPanel } from './journey-panel';
+import { PorkchopPanel } from './planner-panel';
+import { StackStation } from './plot-stack';
+import { GoStation } from './plot-go';
 import { SourceTag } from './source-tag';
 import { stateOf, bodyInfo, applyOption } from '../physics/journey.js';
 import { assess } from '../physics/feasibility.js';
@@ -53,6 +56,8 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
     return out;
   }, [store.version, store.kernel, store.budget, profilesFresh, store.profiles]);
   const [cursor, setCursor] = useState(() => sol.startMs);
+  const [station, setStation] = useState<'plot' | 'stack' | 'go'>('plot');
+  const STATIONS: ['plot' | 'stack' | 'go', string, string][] = [['plot', 'Plot', 'The journey, its windows and burn nodes'], ['stack', 'Stack', 'The rocket it needs, and real launchers beside it'], ['go', 'Go', 'The go/no-go poll, and committing to the orrery']];
   useEffect(() => { if (!(cursor >= sol.startMs && cursor <= sol.endMs)) setCursor(sol.startMs); }, [sol.startMs, sol.endMs]);
 
   // Escape closes the table (back to the sky).
@@ -71,6 +76,9 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
       <header className="plot-head">
         <span className="pnl" aria-hidden="true">P1</span>
         <h2 className="plot-title">Plotting table</h2>
+        <div className="plot-stations" role="tablist" aria-label="Stations">
+          {STATIONS.map(([k, label, title]) => <button key={k} role="tab" aria-selected={station === k} aria-controls={`station-${k}`} className="key tab" title={title} onClick={() => setStation(k)}>{label}</button>)}
+        </div>
         <span className="plot-route">{j.waypoints.length ? `${store.title()} · ${store.dates()}` : 'Add a waypoint to begin'}</span>
         <span className="spacer" />
         <div className="plot-lamps" aria-live="polite">
@@ -78,12 +86,22 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
         </div>
         <button className="key" onClick={() => store.setPlotOpen(false)} title="Back to the sky (Esc)">Close</button>
       </header>
-      <div className="plot-body">
-        <aside className="plot-left"><JourneyPanel store={store} clock={clock} mission={mission} onFlown={(id) => { store.setPlotOpen(false); onFlown(id); }} inTable /></aside>
-        <Scope store={store} cursor={cursor} />
-        <aside className="plot-right"><Ledger store={store} lamps={lamps} /></aside>
-      </div>
-      <Timeline store={store} cursor={cursor} setCursor={setCursor} />
+      {station === 'plot' && <>
+        <div className="plot-body" id="station-plot" role="tabpanel">
+          <aside className="plot-left">
+            <JourneyPanel store={store} clock={clock} mission={mission} onFlown={(id) => { store.setPlotOpen(false); onFlown(id); }} inTable />
+            <details className="porkchop-details" open={!!store.autoPlan}>
+              <summary>One leg from Earth: the porkchop and NASA's list</summary>
+              <PorkchopPanel clock={clock} mission={mission} onFlown={(id) => { store.setPlotOpen(false); onFlown(id); }} autoPlan={store.autoPlan} />
+            </details>
+          </aside>
+          <Scope store={store} cursor={cursor} />
+          <aside className="plot-right"><Ledger store={store} lamps={lamps} /></aside>
+        </div>
+        <Timeline store={store} cursor={cursor} setCursor={setCursor} />
+      </>}
+      {station === 'stack' && <div className="plot-station" id="station-stack" role="tabpanel"><StackStation store={store} /></div>}
+      {station === 'go' && <div className="plot-station" id="station-go" role="tabpanel"><GoStation store={store} clock={clock} mission={mission} onFlown={onFlown} /></div>}
     </div>
   );
 }
