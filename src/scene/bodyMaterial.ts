@@ -189,6 +189,7 @@ export interface SurfaceMaps {
   day?: THREE.Texture;
   dayMeanLuminance?: number;   // mean linear luminance of the day map
   dayWhiteLuminance?: number;  // or: luminance of its brightest 0.5 %, calibrated to reflectance 0.9
+  tint?: boolean;              // a grey map, coloured by the body's catalogue colour
   normal?: THREE.Texture;
   night?: THREE.Texture;
   cloud?: THREE.Texture;
@@ -234,6 +235,7 @@ export function makeBodyMaterial(colour: number, geometricAlbedo: number, airles
   });
   m.userData.geometricAlbedo = geometricAlbedo;
   m.userData.airless = airless;
+  m.userData.colour = colour;
   setFlatColour(m, colour);
   return m;
 }
@@ -272,9 +274,16 @@ export function applySurfaceMaps(m: THREE.ShaderMaterial, maps: SurfaceMaps): vo
   const u = m.uniforms;
   if (maps.day) {
     u.dayMap.value = maps.day; u.useDay.value = 1;
-    (u.albedo.value as THREE.Color).setScalar(maps.dayWhiteLuminance
+    const scale = maps.dayWhiteLuminance
       ? BRIGHT_REFLECTANCE / maps.dayWhiteLuminance
-      : scaleFor(m, maps.dayMeanLuminance ?? 0.18));
+      : scaleFor(m, maps.dayMeanLuminance ?? 0.18);
+    const albedo = u.albedo.value as THREE.Color;
+    if (maps.tint) {
+      // The map's grey pattern in the body's mean colour, at unit luminance
+      // so the scale still sets the mean reflectance.
+      albedo.set(m.userData.colour as number);
+      albedo.multiplyScalar(scale / (0.2126 * albedo.r + 0.7152 * albedo.g + 0.0722 * albedo.b));
+    } else albedo.setScalar(scale);
   }
   if (maps.normal) { u.normalMap.value = maps.normal; u.useNormal.value = 1; }
   if (maps.night) { u.nightMap.value = maps.night; u.useNight.value = 1; }

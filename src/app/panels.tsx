@@ -288,12 +288,20 @@ function Credits() {
   useEffect(() => { void loadManifest().then(setM); }, []);
   const items: [string, string][] = [];
   if (m) {
-    for (const [k, e] of Object.entries(m.bodies)) if (e) items.push([BODY_BY_KEY[k as BodyKey].name, e.credit]);
+    // Bodies whose maps share a source (Saturn's moons) share one line.
+    const byCredit = new Map<string, string[]>();
+    for (const [k, e] of Object.entries(m.bodies)) {
+      if (!e) continue;
+      const names = byCredit.get(e.credit) ?? [];
+      names.push(BODY_BY_KEY[k as BodyKey].name);
+      byCredit.set(e.credit, names);
+    }
+    for (const [credit, names] of byCredit) items.push([names.join(', '), credit]);
     if (m.rings?.saturn) items.push(["Saturn's rings", m.rings.saturn.credit]);
     if (m.stars) items.push(['Sky', m.stars.credit]);
   }
   items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance']);
-  items.push(['Moons', 'JPL Solar System Dynamics, planetary satellite mean elements, and JPL Horizons; the Galilean moons from astronomy-engine']);
+  items.push(['Moon orbits', 'JPL Solar System Dynamics, planetary satellite mean elements, and JPL Horizons; the Galilean moons from astronomy-engine']);
   // CC BY 4.0 asks for a link to the licence and, where practical, to the
   // material; the maps' own credit lines name it.
   const ccLink = (

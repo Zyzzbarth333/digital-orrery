@@ -189,15 +189,23 @@ the CODATA 2018 $G$. Charon has no albedo there, so it is drawn at 0.3.
 
 ## Drawing
 
-- **Surfaces:** plain spheres in an approximate mean colour, lit like the
-  planets ([lighting](lighting.md)), with Lommel-Seeliger scattering for all
-  but Titan, whose haze is closer to Lambert. No maps yet: USGS
-  Astrogeology's global mosaics (Galilean moons, Saturn's and Uranus's major
-  moons, Triton, Charon) are NASA/USGS public domain and could follow.
+- **Surfaces:** USGS Astrogeology global mosaics on fourteen of them
+  (Phobos, Deimos, the Galilean moons, Saturn's moons but Titan, Triton and
+  Charon), grey maps drawn in the moon's mean colour; Titan and the Uranian
+  moons stay plain spheres in that colour
+  ([textures](textures.md#the-moons-maps)). All are lit like the planets
+  ([lighting](lighting.md)), with Lommel-Seeliger scattering for all but
+  Titan, whose haze is closer to Lambert.
 - **Turning:** every one of these moons rotates synchronously, so its
-  body-fixed frame puts 0° longitude toward the planet and its pole along
-  the orbit's pole (`moonAxesEqj`), which is the IAU's prime meridian for
-  them to within their small librations.
+  body-fixed frame (`moonAxesEqj`) puts 0° longitude toward the planet and
+  its pole along the IAU's north pole, with longitude east-positive about
+  it. The IAU's north pole for a planet's moon is on the north side of the
+  invariable plane: the orbit's pole for most, its opposite for Triton
+  (retrograde) and the Uranian moons (which orbit Uranus's tipped spin).
+  Charon, a dwarf planet's moon, takes the right-hand pole, its orbit's.
+  This is the IAU's prime meridian for them to within their small
+  librations; the test checks each pole against the IAU's (WGCCRE 2015),
+  Triton's precessing one included, to within 1.1°.
 - **Shadows:** a planet takes the four largest of its moons as shadow
   casters (`MAX_OCCLUDERS`), so the Galilean moons' shadows cross Jupiter,
   and a moon is eclipsed by its planet. One moon's shadow on another is not
@@ -218,7 +226,10 @@ Computing all six systems takes about 0.1 ms a frame.
   craft flying among the moons would need the moons as bodies of their own
   (and the planet at its centre with its own GM, as `PLANET_GM` in
   `catalogue.ts` already holds).
-- Surface maps for the moons (above).
+- Surface maps for Titan (visible haze rather than surface) and the Uranian
+  moons (no digital global mosaic; Voyager 2 saw only their southern
+  hemispheres), and Iapetus's full albedo contrast, which the USGS mosaic
+  flattens.
 - Mimas's libration, which a sinusoidal term in its mean longitude could hold.
 
 ## Updating the data

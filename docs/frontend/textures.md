@@ -27,6 +27,14 @@ attribution, with a link to the licence; the app's Credits list gives both.
 | Jupiter | Global map (3601×1801) | Cassini PIA07782 | NASA/JPL/Space Science Institute |
 | Venus | Cloud tops (4096×2048) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
 | Saturn, Uranus, Neptune | Colour (4096, 2048, 2048 wide) | Solar System Scope | Solar System Scope, CC BY 4.0, based on NASA imagery |
+| Phobos | Viking Orbiter mosaic, 40 px/deg, DLR control (2048×1024) | USGS Astrogeology GeoTIFF (Stooke) | NASA/JPL, USGS Astrogeology |
+| Deimos | Viking Orbiter map (2048×1024) | USGS map server (Philip Stooke, 2001; Thomas et al. shape model) | NASA/JPL, USGS Astrogeology |
+| Io | Galileo SSI and Voyager colour mosaic, 1 km/px (4096×2048) | USGS map server | NASA/JPL, USGS Astrogeology |
+| Europa, Ganymede, Callisto | Galileo SSI and Voyager mosaics, 500 m and 1 km/px (4096×2048 grey) | USGS map server | NASA/JPL, USGS Astrogeology |
+| Mimas, Dione, Rhea, Iapetus | Cassini ISS and Voyager mosaics, 154–803 m/px (2048×1024 grey) | USGS map server | NASA/JPL/Space Science Institute, USGS Astrogeology |
+| Enceladus, Tethys | Cassini ISS mosaics, 110 and 293 m/px (2048×1024 grey) | USGS map server | NASA/JPL/Space Science Institute, USGS Astrogeology |
+| Triton | Voyager 2 mosaic, 600 m/px (4096×2048, kept grey) | USGS map server (Paul Schenk, LPI) | NASA/JPL, USGS Astrogeology |
+| Charon | New Horizons LORRI/MVIC mosaic, 300 m/px (2048×1024 grey) | USGS map server | NASA/JHUAPL/SwRI, USGS Astrogeology |
 | Saturn's rings | Normal optical depth, 10 km bins | Cassini UVIS 126 Tau egress occultation (COUVIS_8001) | NASA PDS Ring-Moon Systems Node (Colwell et al.) |
 | Stars | The Hipparcos main catalogue: 83,392 stars to V 9 with V and B−V | ESA 1997 (SP-1200), via NASA HEASARC | ESA, *The Hipparcos and Tycho Catalogues* (1997) |
 | Milky Way | 4096×2048 linear map of the light between the stars (Hipparcos and Tycho stars removed) | Deep Star Maps 2020, Milky Way layer (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
@@ -35,12 +43,57 @@ The Venus surface is not shown: in visible light Venus is its cloud deck.
 No Sun map is used, since at its true brightness the disc saturates to
 white.
 
+### The moons' maps
+
+Fourteen of the twenty major moons have a USGS Astrogeology global mosaic,
+fetched by `python/textures/fetch_moons.py`. The USGS lists each as public
+domain, or with no access constraint (Europa, Charon); the credits name the
+missions and USGS. Most are single requests to the USGS planetary map server
+(WMS `GetMap`, `EPSG:4326`, `BBOX=-180,-90,180,90`), which reprojects each
+mosaic to the layout below whatever its own longitude convention. The
+server's only Phobos layer is a synthetic shaded relief, so Phobos uses the
+full 99 MB Viking GeoTIFF instead.
+
+- **Colour.** Io's map is the colour mosaic. The others are grey, and are
+  drawn in the moon's catalogue colour (`tint` in the manifest): the shader
+  scales that colour to unit luminance, so the map's mean still sets the
+  geometric albedo. Triton's mosaic is in colour, but synthesised from
+  orange, violet and ultraviolet filters (green and blue-white, not the
+  real pinkish white), so it is used grey too.
+- **Gaps.** Where no spacecraft imaged (Triton north of about 45° N,
+  Charon south of about 30° S, Galilean polar gaps), the mosaic is solid
+  black or white. Blocks of that value at least 1/256 of the width across
+  are filled with the imaged part's mean colour (linear light, weighted by
+  area) and their edge softened, so an unseen pole shows the moon's mean
+  colour.
+- **Photometry.** These mosaics are normalised for mapping, so albedo
+  contrasts are weaker than on the real moons. Iapetus shows it most: its
+  dark leading hemisphere (Cassini Regio) is about ten times darker than the
+  trailing side, but only about a quarter darker in the mosaic.
+- **Not mapped.** Titan, since in visible light it is its haze (its surface
+  maps are near-infrared), and the five Uranian moons. Voyager 2 saw only
+  their southern hemispheres, and USGS publishes no digital global mosaic
+  of them.
+
+Each map's orientation was checked against named features at their IAU
+positions: Io's Pele (105° E, 19° S) and Loki; Europa's Pwyll (89° E,
+25° S); Ganymede's Tros; Callisto's Asgard; Mimas's Herschel (112° W);
+Tethys's Odysseus (129° W, 33° N); Rhea's Inktomi; Dione's bright wispy
+fractures on its trailing (+90° E) side; Phobos's Stickney (49° W);
+Deimos's Voltaire and Swift (just west of 0°); Triton's cantaloupe terrain
+west of 0° and walled plains east of it; and Charon's dark north pole
+(Mordor Macula).
+
 ## One layout for every map
 
 Every map is equirectangular, with its west edge at −180° east longitude and
 its top row at +90° latitude. Sources in other layouts are rolled to it (the
 MOLA grid starts at 0° E). The USGS map server returns at most 4096 pixels a
 side, so its maps are fetched as west and east halves and joined.
+
+The moons' body frame (`moonAxesEqj`) puts 0° longitude toward the planet
+and Z along the IAU's north pole, so their maps, east-positive about that
+pole, need no flip: see [moons](moons.md#drawing).
 
 Conventions were checked against known features, not assumed: on the Moon
 the nearside maria are dark and the farside highlands bright where expected,
@@ -203,9 +256,11 @@ and loading them used to freeze the page for up to two seconds. Now:
 ```bash
 python3 python/textures/build_textures.py            # all bodies
 python3 python/textures/build_textures.py --only moon,rings
+python3 python/textures/fetch_moons.py               # the moons' sources (about 160 MB)
+python3 python/textures/build_textures.py --only io,europa,triton
 ```
 
 The sources live outside the repo in `~/.cache/digital-orrery/textures-src`
-(about 375 MB). Converted textures go to `public/textures/` with
+(about 535 MB with the moons'). Converted textures go to `public/textures/` with
 `manifest.json`; without the manifest every body keeps its flat albedo
 colour.
