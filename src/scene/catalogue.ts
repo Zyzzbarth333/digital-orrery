@@ -8,7 +8,7 @@
 // carry their radius, GM and geometric albedo from JPL Horizons.
 
 import { PLANETS } from '../utils/constants.js';
-import { bodyConstants, MU_SUN } from '../physics/bodies.js';
+import { bodyConstants, MU_SUN, PLANET_GM as KERNEL_PLANET_GM } from '../physics/bodies.js';
 import { MOON_DATA } from '../physics/moons.data.js';
 
 export type PlanetKey =
@@ -55,12 +55,12 @@ const COLOUR: Record<BodyKey, number> = {
 // Planet-only GMs from the NAIF satellite kernels' body tables (the
 // SATORBINT fits; the kernel's own planetary ephemeris in brackets).
 const PLANET_GM: Partial<Record<BodyKey, [number, string]>> = {
-  mars: [4.282837485735626e4, 'NAIF 499, mar099s (DE440)'],
-  jupiter: [1.266865319003704e8, 'NAIF 599, jup365 (DE440)'],
-  saturn: [3.793120623436167e7, 'NAIF 699, sat441 (DE440)'],
-  uranus: [5.793950610340896e6, 'NAIF 799, ura184 (DE442)'],
-  neptune: [6.835099968446816e6, 'NAIF 899, nep097 (DE441)'],
-  pluto: [8.693261226311508e2, 'NAIF 999, plu060 (DE440)'],
+  mars: [KERNEL_PLANET_GM.mars, 'NAIF 499, mar099s (DE440)'],
+  jupiter: [KERNEL_PLANET_GM.jupiter, 'NAIF 599, jup365 (DE440)'],
+  saturn: [KERNEL_PLANET_GM.saturn, 'NAIF 699, sat441 (DE440)'],
+  uranus: [KERNEL_PLANET_GM.uranus, 'NAIF 799, ura184 (DE442)'],
+  neptune: [KERNEL_PLANET_GM.neptune, 'NAIF 899, nep097 (DE441)'],
+  pluto: [KERNEL_PLANET_GM.pluto, 'NAIF 999, plu060 (DE440)'],
 };
 
 // Geometric albedo from the NASA NSSDCA planetary fact sheets (read
@@ -96,7 +96,7 @@ function planet(key: Exclude<PlanetKey, 'sun' | 'moon'>): BodyInfo {
   let gm: number | null = null;
   let gmNote = '';
   if (key === 'pluto') {
-    gm = 975.5;
+    gm = bodyConstants(key).mu;
     gmNote = 'Pluto system, Pluto and Charon (DE442)';
   } else {
     gm = bodyConstants(key).mu;

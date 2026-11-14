@@ -84,6 +84,70 @@ other planets (`public/trajbrowser/planets.json`).
 | Encke, suborbital path | Cowell | impact on Earth at the same time (310.8 s) |
 | `keplerStep` | `propagate` | 1.2×10⁻¹⁴ relative |
 
+## The moons' pull: Juno's Ganymede flyby (`flyby.test.mjs`)
+
+Near a planet with moons the kernel splits the system into the planet and
+its moons, each with its own GM ([kernel](physics/nbody-kernel.md#moons)).
+The check is a real pass: Juno flew 1,046 km over Ganymede on 7 June 2021
+(closest approach 16:57:20 TDB, 3,677.4 km from the centre, at 18.57 km/s),
+and Ganymede bent its path by about 0.28 km/s.
+
+- **Reference:** JPL Horizons vectors (`src/physics/flyby.fetch.mjs`,
+  `fixtures/flyby_juno_ganymede.json`): Juno (-61) about the Jupiter system
+  barycentre, from JPL's reconstructed trajectory
+  (`spk_rec_110805_*_260824`), every 10 minutes from 08:00 on 7 June to
+  02:00 on 8 June TDB. That is nine hours either side of the pass, and six
+  hours before the perijove that followed, where Jupiter's harmonics beyond
+  $J_2$ take over.
+- **Method:** the kernel starts from Juno's first vector, set on the
+  kernel's own Jupiter barycentre, and flies the 18 hours. At each later
+  vector its distance from Juno is measured about the same barycentre, so
+  astronomy-engine's 16,000 km error in Jupiter's place about the Sun drops
+  out.
+- **Runs:** the moons four ways: not at all (the system folded up at its
+  barycentre, as before), from `moons.js` (what the app uses), from
+  Horizons' own Galilean moons, and from Horizons with Ganymede put where
+  Juno's own track puts it.
+
+That last run is needed because Horizons is not consistent with itself
+here. Its Juno about Ganymede differs from its Juno about the barycentre
+less Ganymede about the barycentre by a smooth 11.3 km (0.12 m/s) through
+the whole window. Juno's trajectory was fitted with a different Ganymede
+from the one Horizons serves. The Ganymede that fits Juno's track is Juno
+about the barycentre less Juno about Ganymede.
+
+| Moons in the kernel | 3 min after closest approach | 9 h after | Closest approach (Horizons: 3,677.39 km) |
+| --- | ---: | ---: | ---: |
+| none (system at its barycentre) | 169 km | 9,307 km | 3,707 km |
+| `moons.js` (Galilean moons from `JupiterMoons`) | 2.3 km | 323 km | 3,677.2 km |
+| Horizons' Galilean moons | 0.18 km | 20.7 km | 3,677.3 km |
+| Horizons', Ganymede as Juno's track has it | 0.07 km | 4.1 km | 3,677.40 km |
+
+What this shows:
+
+- **The moons' pull is now there.** Without the moons the kernel misses by
+  9,300 km nine hours on. With them it follows Juno to 4.1 km, given
+  Ganymede's right place. That is 0.04 % of the bend: a residual drift of
+  0.12 m/s.
+- **The force model is not the limit; the moons' places are.** The 11 km
+  between Horizons' two Ganymedes accounts for 17 of the 21 km in the third
+  row. `moons.js`'s Ganymede (astronomy-engine's `JupiterMoons`) is about
+  300 km from JPL's ([moons](frontend/moons.md#how-right-they-are)),
+  and that alone leaves 323 km.
+- **Events behave.** The primary goes from Jupiter to Ganymede at its
+  24,500 km sphere of influence and back.
+
+The same file checks:
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| each split system's planet centre and moons from the kernel's Hermite nodes, 20 days | `moons.js` and astronomy-engine directly | worst 101 m (Phobos); Jupiter's centre and moons 34 m |
+| 200 days of cruise from Earth | the moons' ephemerides | never evaluated; no system split |
+| split and fold of Jupiter at 1.3, 1.2, 1.4 and 1.6 times its sphere of influence | the thresholds | folded, split, split, folded (in at 1.25, out at 1.5) |
+| Pluto at 6 AU, 4 AU, 10⁶ km, 8 AU | its 5 AU reach | away, folded, split with Charon, away |
+| two craft, one near Jupiter, one far | their own views | 13 bodies and 9 |
+| a fall onto Ganymede at 3 km/s | impact event | `impact` on `ganymede`, found 46 km in (one 14 s step) |
+
 ## Spacecraft in the app (`craftKernel.test.mjs`)
 
 | Behaviour | Result |

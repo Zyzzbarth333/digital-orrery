@@ -4,8 +4,9 @@
 `src/physics/kernelHost.js` and `kernel.worker.js` (running it in a Web
 Worker).
 
-A spacecraft is a test particle: it feels the Sun, the planets and the Moon,
-but does not pull on them. Their positions come from the ephemeris, so they
+A spacecraft is a test particle: it feels the Sun, the planets, the Moon
+and, near a planet that has them, that planet's major moons
+([below](#moons)), but does not pull on them. Their positions come from the ephemeris, so they
 move on their real paths throughout every step.
 
 ## Force model
@@ -76,8 +77,8 @@ zonal: false })` gives point masses only, for comparisons.
 The forces beyond these (the Earth's and Moon's higher harmonics, the
 Earth's tides, drag, sunlight pressure, venting and relativity) come from
 [the space environment](environment.md), through the `extraAccel` hook. Not
-yet modelled: the planets' harmonics beyond $J_2$, the moons of the outer
-planets as separate bodies, and the asteroids.
+yet modelled: the planets' harmonics beyond $J_2$, the moons' own
+oblateness, and the asteroids.
 
 ## Integrators
 
@@ -279,10 +280,12 @@ elements) would win that back, and is the next speed-up.
 Checked at the end of each step:
 
 - **Impact**: closer to a body's centre than its radius, or closer than
-  695,700 km to the Sun's. The advance stops there.
+  695,700 km to the Sun's. The advance stops there. The planets' moons are
+  bodies like any other here, with their radii from Horizons.
 - **Primary change**: the innermost sphere of influence holding the craft, by
   Laplace's radius $r_\text{SOI} = d\,(\mu/\mu_\text{primary})^{2/5}$ ($d$ the
-  body's distance from its primary; the Moon's is relative to Earth).
+  body's distance from its primary; the Moon's is relative to Earth, and
+  each planet's moon's relative to its planet: Ganymede's is 24,500 km).
   Reported; the advance continues.
 
 Known limit: the check is at step ends with no hysteresis, so a craft
@@ -308,6 +311,120 @@ The interpolation itself errs by about $(\Delta n)^4 a/384$ for an orbit of
 radius $a$ and mean motion $n$. Measured against direct astronomy-engine calls
 over 30 days, the worst error is 21 m (`nbody.test.mjs` case 7), set by how
 closely astronomy-engine's velocities match its own positions.
+
+Two sources' velocities do not match their positions well enough, so they
+are replaced by central differences of the positions:
+
+- **astronomy-engine's Pluto:** a cubic through its velocities is 0.4 km
+  out at 6-hour nodes and 3 km at two days. Differenced over a minute, it
+  is 29 m at two days. Wider nodes do worse, as $\Delta^2$, because its
+  positions are themselves piecewise.
+- **`JupiterMoons`:** its velocities differ from its positions' derivative
+  by up to 3 m/s (Callisto), which bends the cubic by 0.4 km. Differenced
+  over 10 s, the four moons hold to 34 m.
+
+The moons' nodes are in [Moons](#moons).
+
+## Moons
+
+From far away a planet and its moons pull as one mass at the system's
+barycentre, and that is how the kernel has them in cruise. The error is the
+moons' quadrupole, about $3\,\mu_m a^2/d^4$ for a moon of GM $\mu_m$ on an
+orbit of radius $a$, at distance $d$. At 1.25 times Jupiter's sphere of
+influence that is $10^{-14}$ km/s², from Callisto and Ganymede.
+
+Close in, the moons are bodies of their own. Within `EXPAND` = 1.25 times
+a system's sphere of influence, `bodies.js` **splits** it. Beyond
+`COLLAPSE` = 1.5 times, it folds it up again. Split, the system is:
+
+- **the planet at its own centre**, with its planet-only GM and its $J_2$.
+  The centre is the barycentre plus $-\sum_i \mu_i\mathbf r_i/\mu_\text{system}$
+  over the moons ([moons](../frontend/moons.md#planets-drawn-at-their-centres)).
+- **each moon at the planet's centre plus its planetocentric place** from
+  `moons.js`, with its own GM as a point mass (no moon has a $J_2$ here).
+
+| System | Planet GM (km³/s², NAIF) | Moons in the kernel (GM, km³/s²) |
+| --- | --- | --- |
+| Mars | 42,828.375 (499, mar099s) | Phobos 0.00072, Deimos 0.00012 |
+| Jupiter | 126,686,531.9 (599, jup365) | Io 5,959.9, Europa 3,202.7, Ganymede 9,887.8, Callisto 7,179.3 |
+| Saturn | 37,931,206.2 (699, sat441) | Mimas 2.5, Enceladus 7.2, Tethys 41.2, Dione 73.1, Rhea 153.9, Titan 8,978.1, Iapetus 120.5 |
+| Uranus | 5,793,950.6 (799, ura184) | Miranda 4.3, Ariel 83.4, Umbriel 85.4, Titania 222.8, Oberon 205.3 |
+| Neptune | 6,835,100.0 (899, nep097) | Triton 1,428.5 |
+| Pluto | 869.3 (999, plu060) | Charon 106.1 |
+
+The planet's GM plus its moons' matches the system's GM (DE442) to within a
+small part of the moons' share:
+
+- 0.01 % for Jupiter (Amalthea and the other small moons, 2.4 km³/s², are
+  left out) and 0.02 % for Saturn;
+- 0.1 % for Neptune and Pluto;
+- 0.7 % (4.5 km³/s², $8\times10^{-7}$ of the system) for Uranus.
+
+**Which systems are split** is state, kept in a *view* of the bodies:
+
+- `focus(r, t)` moves each system to the state the craft at `r` calls for.
+  The kernel calls it at the start of `advance()` and after every step, in
+  both integrators (`opts.focus`, by default `bodiesAt.focus`). The body list
+  may change between steps, never within one.
+- Inside a sphere of influence the craft may be in Encke's method about the
+  planet, whose reference conic needs the planet to stay one point. The split
+  starts outside the sphere, so it always holds there.
+- Each full check notes how far the craft is from the nearest threshold.
+  Until the craft (and the planets, at up to 30 km/s) could have covered
+  that, the check is skipped: in low Earth orbit, for weeks.
+- `sys.view()` gives each craft its own view (`craft.js` takes one), so a
+  craft near Jupiter keeps its moons while another is far away.
+  `sys.bodyAt(key, t)` finds any body by key whatever the view: a moon, or a
+  planet with moons at its centre. The app uses it for lookups by name.
+- `solarSystemBodies({ moons: false })` never splits, for comparisons.
+  `satellites` replaces `moons.js` as the source of the moons; the flyby
+  check uses it to fly with JPL's moons.
+
+**Pluto** is a system too (with Charon), and is in the list only within 5 AU
+of it. Beyond that its pull is under $2\times10^{-15}$ km/s², a kilometre in
+a year, and the inner solar system never comes within 28 AU of it.
+Everywhere else it would only add a tenth to every force sum.
+
+**Nodes.** A planet's centre is interpolated on 6-hour nodes, built on the
+barycentre's own cubic plus the moons' offset. Each moon about its planet
+is a cubic of its own, whose spacing divides 6 hours and keeps
+$(\Delta n)^4 a/384$ under 100 m. Io, Europa, Ganymede and Callisto share
+Io's spacing, because `JupiterMoons` gives all four at once. A moon's
+heliocentric ephemeris is the sum of the two cubics (its nodes are the
+moon's, which Encke's steps end on). Measured against the models directly
+over 20 days (`flyby.test.mjs` case 1):
+
+| Body | Node spacing | Worst error |
+| --- | ---: | ---: |
+| Mars's centre; Phobos, Deimos | 6 h; 18, 45 min | 0.2 m; 101 m, 36 m |
+| Jupiter's centre; Io, Europa, Ganymede, Callisto | 6 h; 36 min | 34 m (Io's 20 km swing of the centre); 69 m (Io), 34–38 m |
+| Saturn's centre; Mimas to Rhea; Titan; Iapetus | 6 h; 24–90 min; 3 h; 6 h | 1 m; 54–90 m; 24 m; 2 m |
+| Uranus's centre; Miranda to Oberon | 6 h; 40 min–3 h | 2 m; 19–80 m |
+| Neptune's centre; Triton | 6 h; 2 h | 1 m; 58 m |
+| Pluto's centre; Charon | 6 h; 3 h | 20 m (Charon's 2,100 km swing); 20 m |
+
+That is far inside how well `moons.js` knows the moons themselves: 130 to
+650 km for the Galilean moons, 1,600 km for Titan
+([moons](../frontend/moons.md#how-right-they-are)). Those errors, not the
+kernel, set how closely a flyby of a moon can be followed. On Juno's pass
+over Ganymede the kernel follows JPL's trajectory to 4 km after nine hours
+with JPL's moons (Ganymede where Juno's own track puts it; 21 km with the
+Ganymede Horizons serves), 323 km with `moons.js`'s, and 9,300 km with no
+moons
+([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
+
+**Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never
+evaluates a moon):
+
+- **Away from the systems:** unchanged. The same steps as before, and each
+  costs the same to within the bench's noise (±5 % on this machine).
+- **Among Jupiter's moons**, on a 1.5 million km orbit, the steps are the
+  same in number (61 a day). Each costs about 3 times as much: 13 bodies
+  instead of 9, and each moon's place is a sum of two cubics. The Galilean
+  moons' nodes add about 1.2 ms per simulated day (three `JupiterMoons`
+  calls a node, for the differenced velocity).
+- **Overall:** Cowell runs about 450 sim days a second there, against
+  3,400 with the system folded up. That is still a year in under a second.
 
 ## In the app: Web Worker, versions and drawing
 

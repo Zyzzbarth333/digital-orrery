@@ -15,8 +15,11 @@ and true positions about their planets:
 Each has a marker and label like the planets', an orbit line about its
 planet, and a place in the body rail under its planet. Choosing one flies the
 camera there (the same `focusOn` and [camera](camera.md) path as a planet).
-They are drawn for the scene only: the spacecraft kernel does not feel their
-gravity ([below](#not-yet)).
+Near its planet each also pulls on spacecraft with its own GM: the kernel
+splits the planet's system into the planet and its moons there
+([kernel](../physics/nbody-kernel.md#moons)), from the same positions.
+That is checked on Juno's 2021 flyby of Ganymede
+([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
 
 ![Jupiter and the Galilean moons on 14 November 2026, with their orbit lines; the rail lists the moons under Jupiter](moons-jupiter.jpg)
 
@@ -24,7 +27,8 @@ gravity ([below](#not-yet)).
 
 Code: `src/physics/moons.js` (positions), `src/physics/moons.data.js` (the
 data, written by `src/physics/moons.fetch.mjs`), `src/physics/moons.test.mjs`
-(the checks), and the scene's `systemStates` in `src/scene/OrreryScene.ts`.
+(the checks), and the scene's `systemStates` in `src/scene/OrreryScene.ts`;
+for the kernel, `src/physics/bodies.js` and `src/physics/flyby.test.mjs`.
 
 ## Positions
 
@@ -66,7 +70,10 @@ The planet's equator for Uranus is taken about the pole its moons orbit
 with the IAU pole every Uranian moon ran backwards.
 
 Velocities, which the data plate shows, are a central difference of the
-position over a minute.
+position over 10 seconds. The Galilean moons' are differenced too:
+`JupiterMoons`'s own velocities differ from its positions' rate by up to
+3 m/s, too much for the kernel's interpolation
+([kernel](../physics/nbody-kernel.md#body-positions-between-ephemeris-calls)).
 
 ### The fitted corrections
 
@@ -96,8 +103,8 @@ precessing ellipse can follow.
 ## Planets drawn at their centres
 
 astronomy-engine places Mars to Pluto at their system barycentres, which is
-what the kernel pulls toward. With moons drawn, the scene puts each planet
-at its own centre instead,
+what the kernel pulls toward far from them. With moons drawn, the scene puts
+each planet at its own centre instead (and so does the kernel near it),
 
 $$
 \mathbf r_\text{planet} = \mathbf r_\text{bary} - \sum_i \frac{GM_i}{GM_\text{system}}\,\mathbf r_i,
@@ -213,11 +220,13 @@ Computing all six systems takes about 0.1 ms a frame.
 
 ## Not yet
 
-- **Moon gravity in the kernel.** The kernel still pulls toward each system's
-  barycentre with the system's GM, which is right away from the system; a
-  craft flying among the moons would need the moons as bodies of their own
-  (and the planet at its centre with its own GM, as `PLANET_GM` in
-  `catalogue.ts` already holds).
+- **Better places for the moons.** A close flyby is now limited by where
+  `moons.js` puts the moon, not by the kernel: on Juno's Ganymede pass,
+  323 km off after nine hours with these moons against 4 km with JPL's.
+  JPL's satellite kernels (`jup365` and the rest), as Chebyshev tables like
+  the Earth's and Moon's, would bring that down; they need a download.
+- **The moons' own oblateness** and gravity fields (Titan's, Ganymede's
+  $J_2$), for orbits about a moon.
 - Surface maps for the moons (above).
 - Mimas's libration, which a sinusoidal term in its mean longitude could hold.
 
