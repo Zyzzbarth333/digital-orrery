@@ -39,24 +39,36 @@ export const MOON_IDS = [
   ['phobos', 401, 'mars', 499], ['deimos', 402, 'mars', 499],
   ['metis', 516, 'jupiter', 599], ['adrastea', 515, 'jupiter', 599], ['amalthea', 505, 'jupiter', 599], ['thebe', 514, 'jupiter', 599],
   ['io', 501, 'jupiter', 599], ['europa', 502, 'jupiter', 599], ['ganymede', 503, 'jupiter', 599], ['callisto', 504, 'jupiter', 599],
-  ['mimas', 601, 'saturn', 699], ['methone', 632, 'saturn', 699], ['enceladus', 602, 'saturn', 699], ['tethys', 603, 'saturn', 699],
+  ['pan', 618, 'saturn', 699], ['atlas', 615, 'saturn', 699], ['prometheus', 616, 'saturn', 699], ['pandora', 617, 'saturn', 699],
+  ['epimetheus', 611, 'saturn', 699], ['janus', 610, 'saturn', 699], ['aegaeon', 653, 'saturn', 699],
+  ['mimas', 601, 'saturn', 699], ['methone', 632, 'saturn', 699], ['anthe', 649, 'saturn', 699], ['pallene', 633, 'saturn', 699], ['enceladus', 602, 'saturn', 699], ['tethys', 603, 'saturn', 699],
   ['telesto', 613, 'saturn', 699], ['calypso', 614, 'saturn', 699], ['dione', 604, 'saturn', 699], ['helene', 612, 'saturn', 699],
   ['polydeuces', 634, 'saturn', 699], ['rhea', 605, 'saturn', 699], ['titan', 606, 'saturn', 699], ['hyperion', 607, 'saturn', 699],
   ['iapetus', 608, 'saturn', 699], ['phoebe', 609, 'saturn', 699],
+  ['cordelia', 706, 'uranus', 799], ['ophelia', 707, 'uranus', 799], ['s2025u1', 75052, 'uranus', 799], ['bianca', 708, 'uranus', 799],
+  ['cressida', 709, 'uranus', 799], ['desdemona', 710, 'uranus', 799], ['juliet', 711, 'uranus', 799], ['portia', 712, 'uranus', 799],
+  ['rosalind', 713, 'uranus', 799], ['cupid', 727, 'uranus', 799], ['belinda', 714, 'uranus', 799], ['perdita', 725, 'uranus', 799],
+  ['puck', 715, 'uranus', 799], ['mab', 726, 'uranus', 799],
   ['miranda', 705, 'uranus', 799], ['ariel', 701, 'uranus', 799], ['umbriel', 702, 'uranus', 799], ['titania', 703, 'uranus', 799],
   ['oberon', 704, 'uranus', 799], ['francisco', 722, 'uranus', 799], ['caliban', 716, 'uranus', 799], ['stephano', 720, 'uranus', 799],
   ['s2023u1', 75051, 'uranus', 799], ['trinculo', 721, 'uranus', 799], ['sycorax', 717, 'uranus', 799], ['margaret', 723, 'uranus', 799],
   ['prospero', 718, 'uranus', 799], ['setebos', 719, 'uranus', 799], ['ferdinand', 724, 'uranus', 799],
-  ['naiad', 803, 'neptune', 899], ['triton', 801, 'neptune', 899], ['nereid', 802, 'neptune', 899],
+  ['naiad', 803, 'neptune', 899], ['thalassa', 804, 'neptune', 899], ['despina', 805, 'neptune', 899], ['galatea', 806, 'neptune', 899],
+  ['larissa', 807, 'neptune', 899], ['hippocamp', 814, 'neptune', 899], ['proteus', 808, 'neptune', 899], ['triton', 801, 'neptune', 899], ['nereid', 802, 'neptune', 899],
   ['charon', 901, 'pluto', 999], ['styx', 905, 'pluto', 999], ['nix', 902, 'pluto', 999], ['kerberos', 904, 'pluto', 999],
   ['hydra', 903, 'pluto', 999],
 ];
 // The name in the elements table, and the one shown, where they differ.
-const ROW_NAME = { s2023u1: 'S2023_U1' };
-const SHOWN_NAME = { s2023u1: 'S/2023 U 1' };
+const ROW_NAME = { s2023u1: 'S2023_U1', s2025u1: 'S2025_U_1' };
+const SHOWN_NAME = { s2023u1: 'S/2023 U 1', s2025u1: 'S/2025 U 1' };
 // A moon with no measured size (Horizons gives none, or only a bound) is
 // drawn at this radius, and says so.
 const NOMINAL_RADIUS_KM = 10;
+// Moons Horizons does not serve (S/2025 U 1 is not among its major bodies;
+// its NAIF code 75052 names an asteroid there): no header, no vectors, and
+// so no fit: the table (ura184) is all there is of them, and the elements
+// as JPL gives them are the fallback.
+const NOT_IN_HORIZONS = new Set(['s2025u1']);
 const MONTH = ['2026-11-01', '2026-12-01'];
 const YEARS = Array.from({ length: 51 }, (_, k) => `${2000 + k}-01-01`);
 const G = 6.6743e-20;                 // km^3 / (kg s^2), CODATA 2018
@@ -111,8 +123,9 @@ function parseHeader(text) {
   const gmM = text.match(/GM\s*\(km\^3\/s\^2\)\s*=\s*([\d.]+)/);
   let gm = gmM ? Number(gmM[1]) : null;
   if (gm === null) {
-    const m = text.match(/Mass \(10\^(\d+) kg ?\)\s*=\s*([\d.]+)\s*\(10\^(-?\d+)\)/);
-    if (m) gm = G * Number(m[2]) * 10 ** (Number(m[1]) + Number(m[3]));
+    // "Mass (10^23 kg ) = 1.0659 (10^-7)" or "Mass (10^20 kg ) = 0.0198".
+    const m = text.match(/Mass \(10\^(\d+) kg ?\)\s*=\s*([\d.]+)(?:\s*\(10\^(-?\d+)\))?/);
+    if (m) gm = G * Number(m[2]) * 10 ** (Number(m[1]) + Number(m[3] ?? 0));
   }
   const alb = text.match(/Geometric Albedo\s*=\s*([\d.]+)/i);
   return { radiusKm: Number(radiusKm.toFixed(2)), radiusNote,
@@ -139,6 +152,12 @@ for (const [key, id, planet, centre] of MOON_IDS) {
   const name = SHOWN_NAME[key] ?? rowName;
   const at = c.findIndex((s, k) => s === rowName && c[k + 1] === String(id));
   if (at < 0) throw new Error(`no row for ${rowName}`);
+  if (NOT_IN_HORIZONS.has(key)) {
+    moons[key] = { name, planet, major: false, ...parseRow(c, at - 1), radiusKm: NOMINAL_RADIUS_KM,
+      radiusNote: `not measured; drawn at a nominal ${NOMINAL_RADIUS_KM} km`, gm: null, gmNote: 'not measured', geometricAlbedo: null,
+      horizons: false };
+    continue;
+  }
   const header = parseHeader(await horizons(`hdr_${id}.txt`, { COMMAND: `'${id}'`, OBJ_DATA: "'YES'", MAKE_EPHEM: "'NO'" }));
   moons[key] = { name, planet, major: MAJOR_MOONS.has(key), ...parseRow(c, at - 1), ...header };
   const q = { ...VEC, COMMAND: `'${id}'`, CENTER: `'500@${centre}'` };
@@ -283,7 +302,7 @@ function gaussNewton(m, rows) {
 }
 const wrap = (x) => Number((((x % 360) + 540) % 360 - 180).toFixed(4));
 for (const [key, m] of Object.entries(moons)) {
-  if (['io', 'europa', 'ganymede', 'callisto'].includes(key)) continue;
+  if (['io', 'europa', 'ganymede', 'callisto'].includes(key) || NOT_IN_HORIZONS.has(key)) continue;
   // Triton's orbit is circular, so it has no apsis: its row's 675.2 yr is
   // the node's period (299.4 yr, in the node column, leaves 50,000 km
   // against Horizons where 675.2 leaves 9,000 before the fit).

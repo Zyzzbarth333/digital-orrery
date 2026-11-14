@@ -236,7 +236,10 @@ int main(int argc, char **argv) {
                          "mimas", "enceladus", "tethys", "dione", "rhea", "titan", "iapetus",
                          "miranda", "ariel", "umbriel", "titania", "oberon", "triton", "charon",
                          "metis", "adrastea", "amalthea", "thebe", "telesto", "calypso", "helene",
-                         "phoebe", "naiad"};
+                         "phoebe", "naiad",
+                         "pan", "atlas", "prometheus", "pandora", "epimetheus", "janus", "cordelia",
+                         "ophelia", "bianca", "cressida", "desdemona", "juliet", "portia", "rosalind",
+                         "belinda", "puck", "thalassa", "despina", "galatea", "larissa", "proteus"};
   const char *oframes[] = {"IAU_SUN", "IAU_MERCURY", "IAU_VENUS", "ITRF93", "MOON_ME", "IAU_MARS",
                            "IAU_JUPITER", "IAU_SATURN", "IAU_URANUS", "IAU_NEPTUNE", "IAU_PLUTO",
                            "IAU_PHOBOS", "IAU_DEIMOS", "IAU_IO", "IAU_EUROPA", "IAU_GANYMEDE",
@@ -244,7 +247,12 @@ int main(int argc, char **argv) {
                            "IAU_RHEA", "IAU_TITAN", "IAU_IAPETUS", "IAU_MIRANDA", "IAU_ARIEL",
                            "IAU_UMBRIEL", "IAU_TITANIA", "IAU_OBERON", "IAU_TRITON", "IAU_CHARON",
                            "IAU_METIS", "IAU_ADRASTEA", "IAU_AMALTHEA", "IAU_THEBE", "IAU_TELESTO",
-                           "IAU_CALYPSO", "IAU_HELENE", "IAU_PHOEBE", "IAU_NAIAD"};
+                           "IAU_CALYPSO", "IAU_HELENE", "IAU_PHOEBE", "IAU_NAIAD",
+                           "IAU_PAN", "IAU_ATLAS", "IAU_PROMETHEUS", "IAU_PANDORA", "IAU_EPIMETHEUS",
+                           "IAU_JANUS", "IAU_CORDELIA", "IAU_OPHELIA", "IAU_BIANCA", "IAU_CRESSIDA",
+                           "IAU_DESDEMONA", "IAU_JULIET", "IAU_PORTIA", "IAU_ROSALIND", "IAU_BELINDA",
+                           "IAU_PUCK", "IAU_THALASSA", "IAU_DESPINA", "IAU_GALATEA", "IAU_LARISSA",
+                           "IAU_PROTEUS"};
   const int nO = (int)(sizeof okeys / sizeof okeys[0]);
   {
     const char *oepochs[] = {"2000 JAN 01 12:00:00 UTC", "2011 NOV 26 15:02:00 UTC",
@@ -269,7 +277,7 @@ int main(int argc, char **argv) {
   /* ---- body shapes: the triaxial ellipsoid's radii along body-fixed X, Y,
      Z, as SPICE reads them from the loaded PCKs (bodvrd_c RADII) ---- */
   /* and the moons with a shape but no rotation model */
-  const char *rextra[] = {"methone", "polydeuces", "hyperion", "nereid"};
+  const char *rextra[] = {"methone", "polydeuces", "hyperion", "nereid", "aegaeon", "anthe", "pallene"};
   const int nR = nO + (int)(sizeof rextra / sizeof rextra[0]);
   fprintf(f, "  \"radii\": {");
   for (int b = 0; b < nR; b++) {

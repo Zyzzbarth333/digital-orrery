@@ -1,7 +1,7 @@
 // src/physics/moonTables.js
 //
 // The moons from JPL's satellite ephemerides (mar099s, jup365, sat441,
-// ura184, nep098, plu060): Chebyshev series fitted by c/moon_cheb.c, one
+// sat415, ura184, nep098, plu060): Chebyshev series fitted by c/moon_cheb.c, one
 // file per planet system per year, public/ephemeris/moons/<system>-<year>.bin
 // for 2000 to 2049. Each file holds every moon of the system and the planet's
 // centre, each about the system barycentre (J2000 equatorial km, against TDB

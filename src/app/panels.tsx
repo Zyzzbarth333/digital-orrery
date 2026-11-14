@@ -13,7 +13,7 @@ import { loadManifest, type Manifest } from '../scene/surfaces';
 import { useClock, useClockValue, type SimClock } from './clock';
 import type { Mission } from './mission';
 import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf, type BaryKey, type BodyKey, type FocusKey, type MoonKey } from '../scene/catalogue';
-import { moonSource, MOON_KERNEL } from '../physics/moons.js';
+import { moonSource, moonKernel } from '../physics/moons.js';
 import { baryState, bodyState, type Frame } from '../scene/OrreryScene';
 import { baryGm } from '../physics/barycentres.js';
 import { MU_SUN } from '../physics/bodies.js';
@@ -392,7 +392,7 @@ function Credits() {
     if (m.stars) items.push(['Sky', m.stars.credit]);
   }
   items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance']);
-  items.push(['Moon orbits', "JPL's satellite ephemerides (mar099s, jup365, sat441, ura184, nep098, plu060) for 2000–2049; outside that, JPL Solar System Dynamics' planetary satellite mean elements fitted to JPL Horizons, and astronomy-engine for the Galilean moons"]);
+  items.push(['Moon orbits', "JPL's satellite ephemerides (mar099s, jup365, sat441, sat415, ura184, nep098, plu060) for 2000–2049; outside that, JPL Solar System Dynamics' planetary satellite mean elements fitted to JPL Horizons, and astronomy-engine for the Galilean moons"]);
   // CC BY 4.0 asks for a link to the licence and, where practical, to the
   // material; the maps' own credit lines name it.
   const ccLink = (
@@ -416,8 +416,7 @@ function Credits() {
 // for the year is loaded, else the fallback the catalogue names.
 function moonRow(key: MoonKey, date: Date, fallback: string): Row {
   const src = moonSource(key, date);
-  const planet = BODY_BY_KEY[key].parent! as keyof typeof MOON_KERNEL;
-  if (src === 'table') return { label: 'Motion', value: 'Ephemeris', alt: 'about its planet, on rails', src: 'JPL', info: 'moon-orbit', detail: `JPL ${MOON_KERNEL[planet]}, within 1 km` };
+  if (src === 'table') return { label: 'Motion', value: 'Ephemeris', alt: 'about its planet, on rails', src: 'JPL', info: 'moon-orbit', detail: `JPL ${moonKernel(key)}, within 1 km` };
   return { label: 'Motion', value: 'Mean orbit', alt: 'about its planet, on rails', src: src === 'theory' ? 'AE' : 'JPL', info: 'moon-orbit', detail: fallback };
 }
 

@@ -1,6 +1,6 @@
 # The planets' moons
 
-Forty-seven moons besides our own are drawn as real bodies, at their real
+Seventy-six moons besides our own are drawn as real bodies, at their real
 sizes and true positions about their planets: every moon in the JPL
 satellite ephemerides used here (below). The twenty major ones are
 in bold.
@@ -9,9 +9,9 @@ in bold.
 | --- | --- |
 | Mars | **Phobos**, **Deimos** |
 | Jupiter | Metis, Adrastea, Amalthea, Thebe, **Io**, **Europa**, **Ganymede**, **Callisto** |
-| Saturn | **Mimas**, Methone, **Enceladus**, **Tethys**, Telesto, Calypso, **Dione**, Helene, Polydeuces, **Rhea**, **Titan**, Hyperion, **Iapetus**, Phoebe |
-| Uranus | **Miranda**, **Ariel**, **Umbriel**, **Titania**, **Oberon**, and the irregular Francisco, Caliban, Stephano, S/2023 U 1, Trinculo, Sycorax, Margaret, Prospero, Setebos, Ferdinand |
-| Neptune | Naiad, **Triton**, Nereid |
+| Saturn | Pan, Atlas, Prometheus, Pandora, Epimetheus, Janus, Aegaeon, **Mimas**, Methone, Anthe, Pallene, **Enceladus**, **Tethys**, Telesto, Calypso, **Dione**, Helene, Polydeuces, **Rhea**, **Titan**, Hyperion, **Iapetus**, Phoebe |
+| Uranus | Cordelia, Ophelia, S/2025 U 1, Bianca, Cressida, Desdemona, Juliet, Portia, Rosalind, Cupid, Belinda, Perdita, Puck, Mab, **Miranda**, **Ariel**, **Umbriel**, **Titania**, **Oberon**, and the irregular Francisco, Caliban, Stephano, S/2023 U 1, Trinculo, Sycorax, Margaret, Prospero, Setebos, Ferdinand |
+| Neptune | Naiad, Thalassa, Despina, Galatea, Larissa, Hippocamp, Proteus, **Triton**, Nereid |
 | Pluto | **Charon**, Styx, Nix, Kerberos, Hydra |
 
 Each has a marker and label like the planets', an orbit line about its
@@ -22,8 +22,8 @@ the kernel splits the planet's system into the planet and those moons there
 ([kernel](../physics/nbody-kernel.md#moons)), from the same positions.
 That is checked on Juno's 2021 flyby of Ganymede
 ([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
-The small moons are drawn only; the largest of them, Hyperion and Phoebe,
-have GMs of 0.37 and 0.55 km³/s², under a quarter of Mimas's.
+The small moons are drawn only; the largest of them, Proteus, Phoebe,
+Hyperion and Janus, have GMs of 2.6, 0.55, 0.37 and 0.13 km³/s², about Mimas's at most.
 
 ![Jupiter and the Galilean moons on 14 November 2026, with their orbit lines; the rail lists the moons under Jupiter](moons-jupiter.jpg)
 
@@ -50,14 +50,16 @@ spacecraft data, and Horizons serves:
 | --- | --- | --- |
 | `mar099s` | Mars, Phobos, Deimos | 1995–2050 |
 | `jup365` | Jupiter and its eight inner and Galilean moons | 1600–2200 |
-| `sat441` | Saturn and its fourteen moons here | 1750–2250 |
+| `sat441` | Saturn and its fourteen major and outer moons here | 1750–2250 |
+| `sat415` | Saturn's ring moons, Pan to Pallene (Methone is taken from `sat441`) | 1950–2050 |
 | `ura184` (part 3) | Uranus, its five major and ten irregular moons | 1600–2400 |
-| `nep098` (part 1) | Neptune, Naiad, Triton, Nereid | 1800–2200 |
+| `ura184` (parts 1, 2) | Uranus's fourteen inner moons, Cordelia to Mab | 1900–2100 |
+| `nep098` (parts 1–3) | Neptune, Naiad to Proteus, Triton, Nereid | 1800–2200 |
 | `plu060` | Pluto, Charon and the four small moons | 1800–2200 |
 
-The kernels themselves are 3.3 GB, so `c/moon_cheb.c` fits them through
+The kernels themselves are 11 GB, so `c/moon_cheb.c` fits them through
 CSPICE into compact Chebyshev series, one file per system per year,
-`public/ephemeris/moons/<system>-<year>.bin`, 300 files and 74 MB for the
+`public/ephemeris/moons/<system>-<year>.bin`, 300 files and 184 MB for the
 fifty years. Each file holds every moon of the system and the planet's
 centre, each about the system barycentre (J2000 equatorial, km, against TDB
 seconds past J2000). For each body the tool picks the number of equal
@@ -93,10 +95,14 @@ it is within 1 km of the SPK; the planet's centre about the barycentre is
 JPL's own, with every moon's pull in it. Velocities are the series'
 derivatives, so they match the positions.
 
-The fast inner moons cost the most: Phobos 146 kB a year, Jupiter's four
-inner moons 440 kB a year between them, Naiad 110 kB, while the irregular
-moons, which take years to go round, need a few hundred bytes. A year of a
-system is 44 kB (Pluto) to 610 kB (Jupiter).
+The fast inner moons cost the most, about 100 kB a year each: Phobos
+146 kB, Jupiter's four inner moons 440 kB between them, Saturn's nine ring
+moons 520 kB, Uranus's fourteen inner moons 1.26 MB, Neptune's seven inner
+moons 520 kB. The irregular moons, which take years to go round, need a few
+hundred bytes. A year of a system is 44 kB (Pluto) to 1.39 MB (Uranus).
+Before the inner moons were added the tables were 74 MB; the full fifty
+years for them too was the user's choice over a shorter span for them
+alone.
 
 **Loading.** A file is fetched only when it is wanted: on the main thread,
 for the system the camera is focused on or within 30 million km of, and
@@ -203,8 +209,9 @@ in any fit (`src/physics/fixtures/moons_horizons.json`): daily over November
 
 ### From the tables
 
-Every one of the 47 moons is within 0.6 km of Horizons, about its planet's
-centre:
+Every one of the 75 moons Horizons serves is within 0.6 km of it, about its
+planet's centre (S/2025 U 1, found in 2025, is not in Horizons yet; its
+table is checked against `ura184` alone):
 
 | | Nov 2026, daily | 2000–2050, yearly |
 | --- | ---: | ---: |
@@ -367,7 +374,7 @@ lists only the moons with a measured mass, so it adds nothing here.
   for Saturn, `+15` for Uranus).
   Earth's Moon is always listed.
 
-Computing all six systems, 47 moons, takes about 0.08 ms a frame from the
+Computing all six systems, 76 moons, takes about 0.08 ms a frame from the
 tables (0.12 ms from the fallback), measured in Node.
 
 ## Not yet
@@ -377,11 +384,11 @@ tables (0.12 ms from the fallback), measured in Node.
   could grow at about 1.2 MB a year of tables; past 2050 the planets
   themselves come from astronomy-engine (16,000 to 335,000 km out), so it
   would buy less.
-- **Neptune's and Uranus's other moons**: Thalassa to Proteus and Hippocamp
-  are in `nep098`'s parts 2 and 3 (1.8 GB each), Uranus's ring moons
-  (Cordelia to Perdita, Mab, Cupid) in `ura184`'s other parts, Saturn's
-  ring moons and outer irregulars in other `sat` kernels, Jupiter's outer
-  irregular moons in `jup344` and the like; each needs a download.
+- **The outer irregular moons**: Jupiter's 49 (`jup347`), Saturn's 39
+  (`sat456`) and Neptune's other 5 (`nep104`) are on disk; they are to come
+  as an optional layer of points and orbit lines rather than rail entries,
+  in their own pull request. Saturn's Daphnis, Neptune's and Uranus's
+  newest moons and the rest of Saturn's ring moons are in other kernels.
 - **The moons' gravity fields beyond degree 2.** Io, Europa, Ganymede,
   Callisto and Titan carry their $J_2$ and $C_{22}$
   ([kernel](../physics/nbody-kernel.md#the-moons-own-fields)); the others

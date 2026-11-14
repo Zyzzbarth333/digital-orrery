@@ -68,9 +68,10 @@ function axesFrom(a0, d0, W) {
 // A pck00011 rotation model at d days TDB from J2000 -> [a0, d0, W] degrees.
 export function iauAngles(m, d) {
   const T = d / 36525;
-  let a0 = m.ra[0] + m.ra[1] * T + m.ra[2] * T * T;
-  let d0 = m.dec[0] + m.dec[1] * T + m.dec[2] * T * T;
-  let W = m.pm[0] + m.pm[1] * d + m.pm[2] * d * d;
+  // pck00011 leaves out terms it does not need (Prometheus has no T^2).
+  let a0 = m.ra[0] + m.ra[1] * T + (m.ra[2] ?? 0) * T * T;
+  let d0 = m.dec[0] + m.dec[1] * T + (m.dec[2] ?? 0) * T * T;
+  let W = m.pm[0] + m.pm[1] * d + (m.pm[2] ?? 0) * d * d;
   if (m.system) {
     const ang = NUT_PREC_ANGLES[m.system];
     const theta = (j) => { const c = ang[j]; let t = 0; for (let k = c.length - 1; k >= 0; k--) t = t * T + c[k]; return t * DEG; };

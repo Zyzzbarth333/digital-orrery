@@ -14,7 +14,7 @@
 //                                             millisecond rounding of a Date)
 //
 // From 2000 to 2049, JPL's satellite ephemerides (moonTables.js: Chebyshev
-// series of mar099s, jup365, sat441, ura184, nep098 and plu060, within
+// series of mar099s, jup365, sat441, sat415, ura184, nep098 and plu060, within
 // 1 km of them), wherever that system's year is installed: each moon and
 // the planet's centre about the system barycentre, so the planet's offset
 // is JPL's own. Elsewhere, and before a year has loaded:
@@ -234,8 +234,11 @@ export const planetCentreOffsetEqj = (planet, date) => systemEqj(planet, date).o
 // Each moon's body-fixed frame (its IAU rotation model) is in orientation.js.
 export const isMoonKey = (key) => key in MOON_DATA;
 
-// The satellite ephemeris each system's table is fitted to.
-export const MOON_KERNEL = { mars: 'mar099s', jupiter: 'jup365', saturn: 'sat441', uranus: 'ura184', neptune: 'nep098', pluto: 'plu060' };
+// The satellite ephemeris each moon's table is fitted to: its system's, but
+// sat415 for Saturn's ring moons.
+const SYSTEM_KERNEL = { mars: 'mar099s', jupiter: 'jup365', saturn: 'sat441', uranus: 'ura184', neptune: 'nep098', pluto: 'plu060' };
+const SAT415 = new Set([610, 611, 615, 616, 617, 618, 633, 649, 653]);
+export const moonKernel = (key) => (SAT415.has(MOON_DATA[key].naif) ? 'sat415' : SYSTEM_KERNEL[MOON_DATA[key].planet]);
 
 // Where a moon's place at a date comes from: 'table' (JPL's satellite
 // ephemeris), 'theory' (astronomy-engine's, for the Galilean moons) or

@@ -58,6 +58,15 @@ static const Moon MOONS[] = {
   { "saturn", 609, 6, "sat441.bsp" }, { "saturn", 612, 6, "sat441.bsp" },
   { "saturn", 613, 6, "sat441.bsp" }, { "saturn", 614, 6, "sat441.bsp" },
   { "saturn", 632, 6, "sat441.bsp" }, { "saturn", 634, 6, "sat441.bsp" },
+  { "saturn", 610, 6, "sat415.bsp" },
+  { "saturn", 611, 6, "sat415.bsp" },
+  { "saturn", 615, 6, "sat415.bsp" },
+  { "saturn", 616, 6, "sat415.bsp" },
+  { "saturn", 617, 6, "sat415.bsp" },
+  { "saturn", 618, 6, "sat415.bsp" },
+  { "saturn", 633, 6, "sat415.bsp" },
+  { "saturn", 649, 6, "sat415.bsp" },
+  { "saturn", 653, 6, "sat415.bsp" },
   { "uranus", 799, 7, "ura184_part-3.bsp" }, { "uranus", 701, 7, "ura184_part-3.bsp" }, { "uranus", 702, 7, "ura184_part-3.bsp" },
   { "uranus", 703, 7, "ura184_part-3.bsp" }, { "uranus", 704, 7, "ura184_part-3.bsp" },
   { "uranus", 705, 7, "ura184_part-3.bsp" }, { "uranus", 716, 7, "ura184_part-3.bsp" },
@@ -66,8 +75,28 @@ static const Moon MOONS[] = {
   { "uranus", 721, 7, "ura184_part-3.bsp" }, { "uranus", 722, 7, "ura184_part-3.bsp" },
   { "uranus", 723, 7, "ura184_part-3.bsp" }, { "uranus", 724, 7, "ura184_part-3.bsp" },
   { "uranus", 75051, 7, "ura184_part-3.bsp" },
+  { "uranus", 706, 7, "ura184_part-1.bsp" },
+  { "uranus", 707, 7, "ura184_part-1.bsp" },
+  { "uranus", 708, 7, "ura184_part-1.bsp" },
+  { "uranus", 709, 7, "ura184_part-1.bsp" },
+  { "uranus", 710, 7, "ura184_part-1.bsp" },
+  { "uranus", 711, 7, "ura184_part-1.bsp" },
+  { "uranus", 712, 7, "ura184_part-1.bsp" },
+  { "uranus", 713, 7, "ura184_part-2.bsp" },
+  { "uranus", 714, 7, "ura184_part-2.bsp" },
+  { "uranus", 715, 7, "ura184_part-2.bsp" },
+  { "uranus", 725, 7, "ura184_part-2.bsp" },
+  { "uranus", 726, 7, "ura184_part-2.bsp" },
+  { "uranus", 727, 7, "ura184_part-2.bsp" },
+  { "uranus", 75052, 7, "ura184_part-2.bsp" },
   { "neptune", 899, 8, "nep098_part-1.bsp" }, { "neptune", 803, 8, "nep098_part-1.bsp" },
   { "neptune", 801, 8, "nep098_part-1.bsp" }, { "neptune", 802, 8, "nep098_part-1.bsp" },
+  { "neptune", 804, 8, "nep098_part-2.bsp" },
+  { "neptune", 805, 8, "nep098_part-2.bsp" },
+  { "neptune", 806, 8, "nep098_part-2.bsp" },
+  { "neptune", 807, 8, "nep098_part-3.bsp" },
+  { "neptune", 808, 8, "nep098_part-3.bsp" },
+  { "neptune", 814, 8, "nep098_part-3.bsp" },
   { "pluto", 999, 9, "plu060.bsp" }, { "pluto", 901, 9, "plu060.bsp" }, { "pluto", 902, 9, "plu060.bsp" },
   { "pluto", 903, 9, "plu060.bsp" }, { "pluto", 904, 9, "plu060.bsp" },
   { "pluto", 905, 9, "plu060.bsp" },
@@ -239,20 +268,30 @@ static int wanted(const char *system) {
   return !w || strstr(w, system) != NULL;
 }
 
+/* Each system's planet kernel (the one its planet's row names) is loaded
+ * after its others, so SPICE, which takes the last-loaded segment, reads
+ * the planet and any moon that two kernels share from it: Methone is in
+ * both sat415 and sat441, 410 km apart, and sat441's is the one Horizons
+ * serves. The planet centres agree between kernels to 7 m. */
 static void furnsh_all(void) {
   const char *dir = getenv("SAT_KERNELS");
   char path[4096];
   const char *seen[NM];
   int ns = 0;
-  for (int i = 0; i < NM; i++) {
-    int dup = 0;
-    for (int j = 0; j < ns; j++) if (!strcmp(seen[j], MOONS[i].kernel)) dup = 1;
-    if (dup || !wanted(MOONS[i].system)) continue;
-    seen[ns++] = MOONS[i].kernel;
-    snprintf(path, sizeof path, "%s/%s", dir ? dir : ORRERY_PYTHON_DIR "/data/kernels/spk/satellites", MOONS[i].kernel);
-    furnsh_c(path);
-    die_if_failed(path);
-  }
+  for (int pass = 0; pass < 2; pass++)
+    for (int i = 0; i < NM; i++) {
+      int primary = 0;
+      for (int j = 0; j < NM; j++)
+        if (!strcmp(MOONS[j].kernel, MOONS[i].kernel) && MOONS[j].id % 100 == 99) primary = 1;
+      if (primary != pass || !wanted(MOONS[i].system)) continue;
+      int dup = 0;
+      for (int j = 0; j < ns; j++) if (!strcmp(seen[j], MOONS[i].kernel)) dup = 1;
+      if (dup) continue;
+      seen[ns++] = MOONS[i].kernel;
+      snprintf(path, sizeof path, "%s/%s", dir ? dir : ORRERY_PYTHON_DIR "/data/kernels/spk/satellites", MOONS[i].kernel);
+      furnsh_c(path);
+      die_if_failed(path);
+    }
 }
 
 static double year_et(int y) {

@@ -49,13 +49,16 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (
 const err = (key, rows) => rows.map(([jd, x, y, z]) => { const { r } = moonStateEqj(key, dateOf(jd)); return Math.hypot(r[0] - x, r[1] - y, r[2] - z); });
 
 // Every moon is in the fixture and the tables.
-check(MOON_KEYS.every((k) => hz.month[k] && hz.years[k]), `all ${MOON_KEYS.length} moons have Horizons vectors`);
+// S/2025 U 1 is not in Horizons: its table is checked against ura184 by
+// c/moon_cheb.c alone.
+const IN_HZ = MOON_KEYS.filter((k) => MOON_DATA[k].horizons !== false);
+check(IN_HZ.every((k) => hz.month[k] && hz.years[k]), `${IN_HZ.length} of the ${MOON_KEYS.length} moons have Horizons vectors (not: ${MOON_KEYS.filter((k) => !IN_HZ.includes(k)).join(', ')})`);
 check(MOON_KEYS.every((k) => moonSource(k, new Date(Date.UTC(2026, 10, 14))) === 'table'), `all ${MOON_KEYS.length} moons come from the tables in 2026`);
 
 console.log('\nFrom the tables:');
 console.log('moon         a (km)    Nov 2026 max  2000-2050 max   (km; limit)');
 const inSpan = (rows) => rows.filter(([jd]) => { const y = dateOf(jd).getUTCFullYear(); return y >= MOON_TABLE_YEARS[0] && y <= MOON_TABLE_YEARS[1] + 1; });
-for (const key of MOON_KEYS) {
+for (const key of IN_HZ) {
   const mo = Math.max(...err(key, hz.month[key])), yr = Math.max(...err(key, inSpan(hz.years[key])));
   const lim = TABLE_LIMIT_KM;
   check(mo < lim && yr < lim, `${key.padEnd(10)} ${String(MOON_DATA[key].a).padStart(8)} ${mo.toFixed(3).padStart(12)} ${yr.toFixed(3).padStart(14)}   (${lim})`);
@@ -74,7 +77,7 @@ for (const planet of Object.keys(MOONS_OF)) {
 setMoonTablesEnabled(false);
 console.log('\nFrom the fallback (mean elements; astronomy-engine for the Galilean moons):');
 console.log('moon         a (km)    Nov 2026 max  2000-2050 max   (km; limit)');
-for (const key of MOON_KEYS) {
+for (const key of IN_HZ) {
   const mo = Math.max(...err(key, hz.month[key])), yr = Math.max(...err(key, hz.years[key]));
   const m = MOON_DATA[key], [lm, ly] = LIMIT[key] ?? [m.fit.maxKm * 1.2 + 10, m.fit.maxKm * 1.2 + 10];
   check(mo < lm && yr < ly, `${key.padEnd(10)} ${String(m.a).padStart(8)} ${mo.toFixed(0).padStart(12)} ${yr.toFixed(0).padStart(14)}   (${lm.toFixed(0)}, ${ly.toFixed(0)})`);
@@ -164,11 +167,12 @@ for (const key of Object.keys(hz.moonsBary)) {
   check(eb < lm && erel < lm && eh < lh && eSelf < 0.2, `${key.padEnd(8)} about barycentre ${n}: ${eb.toFixed(3)} km (${eNo.toFixed(0)} without the planet's offset); relative to the planet, about the Sun: ${erel.toFixed(3)} km (limit ${lm}); about the Sun: ${eh.toFixed(1)} km, the planet's own error (limit ${lh}); Horizons frames agree to ${eSelf.toFixed(2)} km`);
 }
 
-// Data: every moon has a radius (measured, or a nominal one that says so),
+// Data: every moon has a radius (measured, down to Aegaeon's 0.33 km, or a
+// nominal one that says so),
 // a period, and a GM if it pulls on spacecraft.
 for (const key of MOON_KEYS) {
   const m = MOON_DATA[key];
-  const radius = m.radiusKm > 1 && (!/nominal/.test(m.radiusNote ?? '') || /not measured/.test(m.radiusNote));
+  const radius = m.radiusKm > 0.1 && (!/nominal/.test(m.radiusNote ?? '') || /not measured/.test(m.radiusNote));
   const gm = m.gm > 0 || (!m.major && m.gmNote === 'not measured');
   check(radius && gm && m.P > 0, `${key} radius ${m.radiusKm} km${m.radiusNote ? ` (${m.radiusNote})` : ''}, GM ${m.gm ?? m.gmNote}, P ${m.P} d`);
 }

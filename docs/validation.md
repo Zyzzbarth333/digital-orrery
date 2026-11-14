@@ -52,13 +52,13 @@ margins ([ephemerides](physics/ephemerides-and-gm.md#at-the-tables-ends)).
 
 ## Moons (`moons.test.mjs`)
 
-Planetocentric positions of all 47 moons against JPL Horizons vectors not
+Planetocentric positions of the 75 moons Horizons serves (of 76) against JPL Horizons vectors not
 used in any fit; the full tables, per moon, are in
 [Moons](frontend/moons.md#how-right-they-are).
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| the satellite-ephemeris tables (2000–2049), all 47 moons | Horizons, daily Nov 2026 and yearly 2000–2050 | within 0.58 km (Styx), most within 0.4 km; 0.09 km on the yearly samples (the fixture's rounding) |
+| the satellite-ephemeris tables (2000–2049), all 75 | Horizons, daily Nov 2026 and yearly 2000–2050 | within 0.58 km (Styx), most within 0.4 km; 0.09 km on the yearly samples (the fixture's rounding) |
 | planet centre about the system barycentre, from the tables | Horizons x99 about x, Nov 2026 | within 0.35 km (Pluto's offset is 2,130 km) |
 | moons about the system barycentre and, relative to the planet, about the Sun | Horizons, 7 moons, Nov 2026 | within 1 km |
 | fallback: Io, Europa, Ganymede, Callisto (astronomy-engine `JupiterMoons`) | Horizons (JUP365), daily Nov 2026 and yearly 2000–2050 | worst 645 km (Callisto) |

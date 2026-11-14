@@ -348,10 +348,11 @@ a system's sphere of influence, `bodies.js` **splits** it. Beyond
 - **each major moon at the planet's centre plus its planetocentric place**
   from `moons.js`, with its own GM. The five largest also carry their
   degree-2 fields ([below](#the-moons-own-fields)). The twenty major moons
-  are those in the table below; the small moons `moons.js` also draws
-  (Jupiter's inner four, Saturn's small moons, Hyperion and Phoebe,
-  Uranus's irregular moons, Naiad, Nereid, Pluto's four small moons) are
-  left out, the largest of them with under a quarter of Mimas's GM.
+  are those in the table below; the 56 small moons `moons.js` also draws
+  (Jupiter's inner four; Saturn's ring, co-orbital and small moons,
+  Hyperion and Phoebe; Uranus's inner and irregular moons; Neptune's inner
+  moons and Nereid; Pluto's four small moons) are left out, the largest of
+  them, Proteus, with about Mimas's GM.
 
 | System | Planet GM (km³/s², NAIF) | Moons in the kernel (GM, km³/s²) |
 | --- | --- | --- |

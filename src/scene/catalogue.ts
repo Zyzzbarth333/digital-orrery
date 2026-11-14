@@ -22,11 +22,14 @@ export type PlanetKey =
 export type MoonKey =
   | 'phobos' | 'deimos'
   | 'metis' | 'adrastea' | 'amalthea' | 'thebe' | 'io' | 'europa' | 'ganymede' | 'callisto'
-  | 'mimas' | 'methone' | 'enceladus' | 'tethys' | 'telesto' | 'calypso' | 'dione' | 'helene' | 'polydeuces'
+  | 'pan' | 'atlas' | 'prometheus' | 'pandora' | 'epimetheus' | 'janus' | 'aegaeon'
+  | 'mimas' | 'methone' | 'anthe' | 'pallene' | 'enceladus' | 'tethys' | 'telesto' | 'calypso' | 'dione' | 'helene' | 'polydeuces'
   | 'rhea' | 'titan' | 'hyperion' | 'iapetus' | 'phoebe'
+  | 'cordelia' | 'ophelia' | 's2025u1' | 'bianca' | 'cressida' | 'desdemona' | 'juliet' | 'portia' | 'rosalind'
+  | 'cupid' | 'belinda' | 'perdita' | 'puck' | 'mab'
   | 'miranda' | 'ariel' | 'umbriel' | 'titania' | 'oberon'
   | 'francisco' | 'caliban' | 'stephano' | 's2023u1' | 'trinculo' | 'sycorax' | 'margaret' | 'prospero' | 'setebos' | 'ferdinand'
-  | 'naiad' | 'triton' | 'nereid'
+  | 'naiad' | 'thalassa' | 'despina' | 'galatea' | 'larissa' | 'hippocamp' | 'proteus' | 'triton' | 'nereid'
   | 'charon' | 'styx' | 'nix' | 'kerberos' | 'hydra';
 export type BodyKey = PlanetKey | MoonKey;
 
@@ -69,6 +72,14 @@ const COLOUR: Record<BodyKey, number> = {
   francisco: 0x5f5a55, caliban: 0x6a5a50, stephano: 0x5f5a55, s2023u1: 0x5f5a55, trinculo: 0x5f5a55,
   sycorax: 0x6a5a50, margaret: 0x5f5a55, prospero: 0x5f5a55, setebos: 0x5f5a55, ferdinand: 0x5f5a55,
   naiad: 0x8a8680, nereid: 0x9a9690,
+  // Saturn's ring moons are icy and bright; Uranus's and Neptune's inner
+  // moons dark (albedo under 0.1).
+  pan: 0xd2cfc9, atlas: 0xd2cfc9, prometheus: 0xd6d3cd, pandora: 0xd6d3cd, epimetheus: 0xcfccc6, janus: 0xcfccc6,
+  aegaeon: 0xc9c6c0, anthe: 0xd6d3ce, pallene: 0xd6d3ce,
+  cordelia: 0x5f5c58, ophelia: 0x5f5c58, s2025u1: 0x5f5c58, bianca: 0x5f5c58, cressida: 0x5f5c58, desdemona: 0x5f5c58,
+  juliet: 0x5f5c58, portia: 0x5f5c58, rosalind: 0x5f5c58, cupid: 0x5f5c58, belinda: 0x5f5c58, perdita: 0x5f5c58,
+  puck: 0x66625d, mab: 0x6a6662,
+  thalassa: 0x6a6662, despina: 0x6a6662, galatea: 0x6a6662, larissa: 0x6a6662, hippocamp: 0x6a6662, proteus: 0x6e6a65,
   styx: 0xc8c6c2, nix: 0xc8c6c2, kerberos: 0xc8c6c2, hydra: 0xc8c6c2,
 };
 

@@ -138,7 +138,7 @@ export const TAG_INFO = {
     what: 'Where the moon is about its planet. From 2000 to 2049, JPL\'s satellite ephemerides, as Chebyshev series within 1 km of them, loaded a system and a year at a time. Outside that, or until the year has loaded: astronomy-engine\'s theory for Jupiter\'s four large moons, and for the others a precessing ellipse from JPL\'s mean elements with corrections fitted to JPL Horizons.',
     tex: ['M = M_0 + \\frac{360°\\,t}{P} + \\delta M + \\delta n\\,t', '\\omega = \\omega_0 + \\delta\\omega + \\frac{360°\\,t}{P_\\omega}', '\\Omega = \\Omega_0 + \\delta\\Omega \\mp \\frac{360°\\,t}{P_\\Omega}'],
     where: 'The ellipse (the fallback): t days from its epoch, in the moon\'s Laplace plane (Mars, Jupiter\'s inner moons, Saturn), its planet\'s equator, or the ecliptic (Uranus\'s irregular moons); the planet is drawn at its centre, offset from its system barycentre by its moons\' pull',
-    source: 'JPL satellite ephemerides mar099s, jup365, sat441, ura184, nep098, plu060 (NAIF); JPL SSD planetary satellite mean elements; JPL Horizons; Lieske\'s E5 theory via astronomy-engine · docs/frontend/moons.md',
+    source: 'JPL satellite ephemerides mar099s, jup365, sat441, sat415, ura184, nep098, plu060 (NAIF); JPL SSD planetary satellite mean elements; JPL Horizons; Lieske\'s E5 theory via astronomy-engine · docs/frontend/moons.md',
   },
   'moon-radius': {
     what: 'The radius of a sphere of the same volume as the moon.',
