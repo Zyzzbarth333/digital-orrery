@@ -8,6 +8,7 @@
 // does, and they are what you navigate by.
 
 import * as THREE from 'three';
+import { SKY_DETAIL_GLSL, SkyDetail, type SkyDetailEntry } from './skyDetail';
 
 const vertex = /* glsl */ `
 #include <common>
@@ -31,6 +32,7 @@ uniform float gain;
 uniform float level;         // 1 / exposure: a display level through the HDR output
 uniform float visibility;    // the eye's adaptation (OrreryScene.updateAdaptation)
 varying vec3 vDir;
+${SKY_DETAIL_GLSL}
 void main() {
   #include <logdepthbuf_fragment>
   vec3 d = normalize(toEqj * vDir);
@@ -41,14 +43,18 @@ void main() {
   vec2 uvB = vec2(fract(u + 0.5) - 0.5, uv.y);
   vec2 dxA = dFdx(uv), dyA = dFdy(uv), dxB = dFdx(uvB), dyB = dFdy(uvB);
   bool useB = abs(dxB.x) + abs(dyB.x) < abs(dxA.x) + abs(dyA.x);
-  vec3 c = textureGrad(starMap, uv, useB ? dxB : dxA, useB ? dyB : dyA).rgb;
+  vec2 gx = useB ? dxB : dxA, gy = useB ? dyB : dyA;
+  vec3 c = skyDetail(textureGrad(starMap, uv, gx, gy).rgb, uv, gx, gy);
   gl_FragColor = vec4(c * gain * level * visibility, 1.0);
   #include <colorspace_fragment>
 }
 `;
 
+// detail: the 16k tiles (skyDetail.ts) and the folder their paths are under.
 export function makeStars(map: THREE.Texture, toEqj: THREE.Matrix3, raAtLeftDeg: number,
-  raIncreasesRight: boolean, gain = 1): THREE.Mesh {
+  raIncreasesRight: boolean, gain = 1, detail?: { entry: SkyDetailEntry; base: string }): THREE.Mesh {
+  const raAtLeft = (raAtLeftDeg * Math.PI) / 180, raDirection = raIncreasesRight ? 1 : -1;
+  const sky = new SkyDetail(detail?.entry ?? { tiles: '', width: 2, tile: 1, gutter: 0 }, detail?.base ?? '', toEqj, raAtLeft, raDirection);
   const mat = new THREE.ShaderMaterial({
     vertexShader: vertex,
     fragmentShader: fragment,
@@ -59,17 +65,27 @@ export function makeStars(map: THREE.Texture, toEqj: THREE.Matrix3, raAtLeftDeg:
     uniforms: {
       starMap: { value: map },
       toEqj: { value: toEqj },
-      raAtLeft: { value: (raAtLeftDeg * Math.PI) / 180 },
-      raDirection: { value: raIncreasesRight ? 1 : -1 },
+      raAtLeft: { value: raAtLeft },
+      raDirection: { value: raDirection },
       gain: { value: gain },
       level: { value: 1 },
       visibility: { value: 1 },
+      ...sky.uniforms,
     },
   });
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 32), mat);
   mesh.renderOrder = -1000;
   mesh.frustumCulled = false;
+  if (detail) {
+    mesh.onBeforeRender = (renderer, _scene, camera) => sky.update(renderer, camera as THREE.PerspectiveCamera);
+    mesh.userData.skyDetail = sky;
+  }
   return mesh;
+}
+
+// After a lost context: the sky's detail tiles load again.
+export function resetStars(mesh: THREE.Mesh): void {
+  (mesh.userData.skyDetail as SkyDetail | undefined)?.reset();
 }
 
 // Stars as points (docs/frontend/lighting.md#stars): each a Gaussian of

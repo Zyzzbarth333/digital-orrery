@@ -52,8 +52,9 @@ they look the same at any distance from the Sun.
 
 ## The Sun
 
-The Sun's disc is drawn at its true mean surface brightness relative to a
-white surface lit face-on at 1 AU:
+The Sun's disc is a sphere of the Sun's true radius, so it is drawn at its
+true angular size from anywhere, and at its true mean surface brightness
+relative to a white surface lit face-on at 1 AU:
 
 $$
 \frac{L_\odot}{L_\text{white}} = \frac{E/\Omega_\odot}{E/\pi}
@@ -78,15 +79,34 @@ corona (about 10⁻⁶ of the disc) would be lost in the glare.
 
 Light scatters in any eye or lens. Two parts, both before the tone curve:
 
-- **The Sun's glare** (`sun.ts`, evaluated in the final pass) uses the CIE disability-glare function for
-  a young eye, L/E = 10/θ³ + 5/θ² + 0.05/θ with θ in degrees. Relative to a
-  white surface in the same sunlight (L = E/π) that is π times as much: an
-  eye looking near the Sun sees a white veil a few degrees across. It is
-  drawn at 3 % of that, closer to a good camera than an eye, with the fine
-  radial needles of the eye's ciliary corona within about 10°, drifting
-  slowly as a pupil does: the sky's one honest animation of light. The glare
-  is scaled by the fraction of the Sun's disc that no body hides (the disc
-  overlap below), so a planet in front of the Sun takes it away.
+- **The Sun's glare** (`sun.ts`, evaluated in the final pass) is a
+  camera's, not an eye's. Its point-spread function, relative to a white
+  surface under the same sunlight, is
+  $G(\theta) = A/\theta^2 + B/\theta$ with θ in degrees, A = 0.15 and
+  B = 0.005: the inverse-square fall-off of scatter from polished lens
+  surfaces (Harvey's model) and a faint wide tail. At the exposure for the
+  camera's own sunlight it is white out to about 0.4°, 10 % of white at
+  1.2° and 1 % at 4°, and it scatters about 0.1 % of the Sun's light. Close
+  to the Sun the disc is no point: the A term averaged over a disc of
+  angular radius r is $A \ln(\theta^2/(\theta^2 - r^2))/r^2$ at θ from its
+  centre, so the halo follows the limb. Faint radial needles (an eye's
+  ciliary corona, kept as the sky's one honest animation of light) drift
+  slowly within about 10°.
+
+  The glare's strength is the sunlight at the camera divided by the
+  exposure. Beyond 0.2 AU the exposure follows the distance, so the ratio
+  is fixed and the glare keeps one apparent size as you zoom: at 10 AU the
+  Sun is the same small white core and halo as at 1 AU, which is what an
+  auto-exposed camera records, and its true disc shows through from about
+  0.3 AU in. Inside 0.2 AU the exposure is held, so the glare grows with
+  the light, (0.2 AU/d)², as a fixed exposure's would. The glare is scaled
+  by the fraction of the Sun's disc that no body hides (the disc overlap
+  below), so a planet in front of the Sun takes it away.
+
+  It used to be the CIE's disability glare for a young eye at 3 %
+  ($\pi (10/\theta^3 + 5/\theta^2 + 0.05/\theta)$ of white): its
+  $\theta^{-3}$ core stayed white out to 1.3°, so from 0.3 AU outward the Sun
+  was the same 2.6°-wide white blob, its disc hidden inside.
 - **Bloom** (`post.ts`) scatters 2 % of all light: Jimenez's chain (a
   13-tap downsample through five levels starting at half resolution, or a
   quarter on 2× screens where that is still a CSS pixel, Karis's average on
@@ -105,9 +125,10 @@ surfaces would record no stars at all). It has two layers
 ([textures](textures.md#stars)):
 
 - **The light between the stars**: the Milky Way, the Magellanic Clouds
-  and every star too faint to pick out, a 4096 × 2048 map looked up by each
-  view direction's right ascension and declination, at half of its own
-  brightest light.
+  and every star too faint to pick out, an 8192 × 4096 map (refined to
+  16384 × 8192 on tall canvases; [textures](textures.md#loading-the-sky))
+  looked up by each view direction's right ascension and declination, at
+  half of its own brightest light.
 - **The stars**: the 83,392 Hipparcos stars to V 9, each a Gaussian of
   fixed width in device pixels (σ = 0.55 + 0.35 × the pixel ratio) centred
   on its true sub-pixel position, so its light is the same wherever it falls
