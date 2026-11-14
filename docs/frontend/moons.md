@@ -196,11 +196,14 @@ the CODATA 2018 $G$. Charon has no albedo there, so it is drawn at 0.3.
 
 ## Drawing
 
-- **Surfaces:** plain spheres in an approximate mean colour, lit like the
-  planets ([lighting](lighting.md)), with Lommel-Seeliger scattering for all
-  but Titan, whose haze is closer to Lambert. No maps yet: USGS
-  Astrogeology's global mosaics (Galilean moons, Saturn's and Uranus's major
-  moons, Triton, Charon) are NASA/USGS public domain and could follow.
+- **Surfaces:** USGS Astrogeology global mosaics on fourteen of them
+  (Phobos, Deimos, the Galilean moons, Saturn's moons but Titan, Triton and
+  Charon), grey maps drawn in the moon's mean colour; Titan and the Uranian
+  moons stay plain spheres in that colour
+  ([textures](textures.md#the-moons-maps)). All are lit like the planets
+  ([lighting](lighting.md)), with Lommel-Seeliger scattering for all but
+  Titan, whose haze is closer to Lambert.
+  ![The fourteen mapped moons, 3.2 radii out at 35° phase, 14 November 2026: Io, Europa, Ganymede, Callisto, Phobos, Deimos and Mimas; Enceladus, Tethys, Dione, Rhea, Iapetus, Triton and Charon](moons-maps.jpg)
 - **Turning:** each moon turns by its IAU rotation model from NAIF's
   pck00011, pole and prime meridian with their libration terms
   ([orientation](../physics/orientation.md#the-planets-moons)), the frame
@@ -232,7 +235,10 @@ Computing all six systems takes about 0.1 ms a frame.
   Callisto and Titan carry their $J_2$ and $C_{22}$
   ([kernel](../physics/nbody-kernel.md#the-moons-own-fields)); the others
   are point masses.
-- Surface maps for the moons (above).
+- Surface maps for Titan (visible haze rather than surface) and the Uranian
+  moons (no digital global mosaic; Voyager 2 saw only their southern
+  hemispheres), and Iapetus's full albedo contrast, which the USGS mosaic
+  flattens.
 - Mimas's libration, which a sinusoidal term in its mean longitude could hold.
 
 ## Updating the data

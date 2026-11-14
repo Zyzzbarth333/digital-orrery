@@ -21,6 +21,7 @@ import { helioStateEcl, fromDe442 } from '../physics/ephemeris.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
 import { SmallBodyPlate } from './small-body-plate';
 import type { Named } from '../scene/smallBodies';
+import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
 
 const AU_KM = 149597870.7;
@@ -104,7 +105,7 @@ function FlightField({ mission, consoleOpen, onToggleConsole, following, onFollo
     const n = mission.crafts.length + mission.ascents.length;
     if (!sel) return `none||${n}|`;
     const c = sel.craft;
-    const state = sel.climbing ? 'Climb' : c.crashed ? 'Lost' : c.error ? 'Fault' : c.thrusting() ? 'Burn' : 'Coast';
+    const state = craftStateWord(c, { climbing: sel.climbing, burning: !sel.climbing && !c.crashed && !c.error && c.thrusting() });
     return `${c.id}|${state}|${n}|${sel.name}`;
   });
   const [id, state, countStr, ...rest] = key.split('|');
@@ -351,12 +352,20 @@ function Credits() {
   useEffect(() => { void loadManifest().then(setM); }, []);
   const items: [string, string][] = [];
   if (m) {
-    for (const [k, e] of Object.entries(m.bodies)) if (e) items.push([BODY_BY_KEY[k as BodyKey].name, e.credit]);
+    // Bodies whose maps share a source (Saturn's moons) share one line.
+    const byCredit = new Map<string, string[]>();
+    for (const [k, e] of Object.entries(m.bodies)) {
+      if (!e) continue;
+      const names = byCredit.get(e.credit) ?? [];
+      names.push(BODY_BY_KEY[k as BodyKey].name);
+      byCredit.set(e.credit, names);
+    }
+    for (const [credit, names] of byCredit) items.push([names.join(', '), credit]);
     if (m.rings?.saturn) items.push(["Saturn's rings", m.rings.saturn.credit]);
     if (m.stars) items.push(['Sky', m.stars.credit]);
   }
   items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance']);
-  items.push(['Moons', 'JPL Solar System Dynamics, planetary satellite mean elements, and JPL Horizons; the Galilean moons from astronomy-engine']);
+  items.push(['Moon orbits', 'JPL Solar System Dynamics, planetary satellite mean elements, and JPL Horizons; the Galilean moons from astronomy-engine']);
   // CC BY 4.0 asks for a link to the licence and, where practical, to the
   // material; the maps' own credit lines name it.
   const ccLink = (
