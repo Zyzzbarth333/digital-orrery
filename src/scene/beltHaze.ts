@@ -8,6 +8,15 @@
 // it, so the cost does not grow with the number of bodies
 // (docs/frontend/small-bodies.md#the-faint-belt).
 //
+// The haze varies over tens of pixels (a cell is about a degree across
+// from the Earth), so the rays are marched into a target of two CSS pixels
+// a texel, a sixteenth of the pixels on a 2x screen, before the scene is
+// drawn (render()), and a full-screen pass adds it into the scene, upsampled,
+// where the box used to be drawn: after the stars, before the points and
+// the bodies, which cover it. The grid is half float, scaled per build
+// into half float's range, so it is filterable everywhere and half the
+// upload.
+//
 // Radiance: a cloud of emitters with emissivity j (light per volume) has
 // surface brightness I = (1 / 4 pi) times the integral of j along the line of
 // sight, whatever the distance. Each cell's emissivity is its summed
@@ -28,6 +37,8 @@ const HAZE_GAIN = 1.6;
 // Rebuild the grid when the clock has moved this far (days): the belt turns
 // about 0.25 deg a day at 2.7 au, under a cell (0.9 deg there) in four.
 const REBUILD_DAYS = 2;
+// Steps along each ray: the low-resolution target leaves room for more.
+const STEPS = 48;
 
 const VERTEX = /* glsl */ `
   varying vec3 vWorld;
@@ -49,6 +60,7 @@ const FRAGMENT = /* glsl */ `
   uniform float uLevel;       // 1 / the exposure
   uniform float uVis;         // the eye's adaptation
   uniform float uOn;
+  uniform float uGridScale;   // the grid's values are scaled by 1 / this (half float's range)
   varying vec3 vWorld;
   // render (x, y, z) -> ecliptic (x, -z, y), in au about the Sun.
   vec3 ecl(vec3 p) { vec3 q = (p - uSun) / uAu; return vec3(q.x, -q.z, q.y); }
@@ -61,7 +73,7 @@ const FRAGMENT = /* glsl */ `
     vec3 tmin = min(t0, t1), tmax = max(t0, t1);
     float ta = max(max(tmin.x, tmin.y), max(tmin.z, 0.0)), tb = min(min(tmax.x, tmax.y), tmax.z);
     if (tb <= ta) discard;
-    const int STEPS = 32;
+    const int STEPS = ${STEPS};
     float ds = (tb - ta) / float(STEPS);
     // Jittered start against banding.
     float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
@@ -71,17 +83,31 @@ const FRAGMENT = /* glsl */ `
       vec3 uvw = (p + uHalf) / (2.0 * uHalf);
       sum += texture(uGrid, uvw).r;
     }
-    float radiance = sum * ds / (uCellVolume * 12.566370614);
+    float radiance = sum * uGridScale * ds / (uCellVolume * 12.566370614);
     float v = uGain * sqrt(max(radiance, 0.0)) * uLevel * uVis;
     gl_FragColor = vec4(vec3(0.68, 0.64, 0.58) * v, 1.0);
+  }`;
+
+// The upsampled haze, added into the scene.
+const COMPOSITE_VERTEX = /* glsl */ `
+  void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const COMPOSITE_FRAGMENT = /* glsl */ `
+  uniform sampler2D uHaze;
+  uniform vec2 uSize;         // the target being drawn, px
+  void main() {
+    gl_FragColor = vec4(texture2D(uHaze, gl_FragCoord.xy / uSize).rgb, 1.0);
     #ifdef TONE_MAPPING
     gl_FragColor.rgb *= toneMappingExposure;
     #endif
   }`;
 
 export class BeltHaze {
-  private mesh: THREE.Mesh;
+  private mesh: THREE.Mesh;                 // the ray-marched box, in its own scene
   private material: THREE.ShaderMaterial;
+  private hazeScene = new THREE.Scene();
+  private target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false });
+  private composite: THREE.Mesh;            // adds the target into the scene
+  private size = new THREE.Vector2();
   private texture: THREE.Data3DTexture | null = null;
   private worker: Worker | null = null;
   private builtDays = NaN;
@@ -98,15 +124,44 @@ export class BeltHaze {
       uniforms: {
         uGrid: { value: null }, uSun: { value: new THREE.Vector3() }, uHalf: { value: new THREE.Vector3(halfXY, halfXY, halfZ) },
         uAu: { value: AU }, uCellVolume: { value: (2 * halfXY / nx) * (2 * halfXY / ny) * (2 * halfZ / nz) },
-        uGain: { value: HAZE_GAIN }, uLevel: { value: 1 }, uVis: { value: 1 }, uOn: { value: 1 },
+        uGain: { value: HAZE_GAIN }, uLevel: { value: 1 }, uVis: { value: 1 }, uOn: { value: 1 }, uGridScale: { value: 1 },
       },
     });
     // The box in render axes: ecliptic x, z, y spans.
     this.mesh = new THREE.Mesh(new THREE.BoxGeometry(2 * halfXY * AU, 2 * halfZ * AU, 2 * halfXY * AU), this.material);
     this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = -998.5;          // after the stars, before the points
-    this.mesh.visible = false;
-    scene.add(this.mesh);
+    this.hazeScene.add(this.mesh);
+    const tri = new THREE.BufferGeometry();
+    tri.setAttribute('position', new THREE.Float32BufferAttribute([-1, 3, 0, -1, -1, 0, 3, -1, 0], 3));
+    this.composite = new THREE.Mesh(tri, new THREE.ShaderMaterial({
+      vertexShader: COMPOSITE_VERTEX, fragmentShader: COMPOSITE_FRAGMENT,
+      depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uHaze: { value: this.target.texture }, uSize: { value: new THREE.Vector2(1, 1) } },
+    }));
+    this.composite.frustumCulled = false;
+    this.composite.renderOrder = -998.5;     // after the stars, before the points
+    this.composite.visible = false;
+    // The size of whatever the scene is drawn into (the HDR target).
+    this.composite.onBeforeRender = (renderer) => {
+      const t = renderer.getRenderTarget();
+      const u = (this.composite.material as THREE.ShaderMaterial).uniforms.uSize.value as THREE.Vector2;
+      if (t) u.set(t.width, t.height); else renderer.getDrawingBufferSize(u);
+    };
+    scene.add(this.composite);
+  }
+
+  // Before the scene is drawn: march the rays into the low-resolution
+  // target, two CSS pixels a texel.
+  render(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
+    if (!this.composite.visible) return;
+    renderer.getDrawingBufferSize(this.size);
+    const div = 2 * renderer.getPixelRatio();
+    const w = Math.max(1, Math.round(this.size.x / div)), h = Math.max(1, Math.round(this.size.y / div));
+    if (this.target.width !== w || this.target.height !== h) this.target.setSize(w, h);
+    const prev = renderer.getRenderTarget();
+    renderer.setRenderTarget(this.target);
+    renderer.render(this.hazeScene, camera);
+    renderer.setRenderTarget(prev);
   }
 
   // The faint bodies, packed as smallbodies-belt.bin (the worker keeps them).
@@ -117,11 +172,12 @@ export class BeltHaze {
       this.pending = false;
       this.builtDays = ev.data.days;
       const { nx, ny, nz } = GRID;
-      const data: Float32Array = ev.data.grid;
+      const data: Uint16Array = ev.data.grid;
+      this.material.uniforms.uGridScale.value = ev.data.scale;
       if (!this.texture) {
         this.texture = new THREE.Data3DTexture(data, nx, ny, nz);
         this.texture.format = THREE.RedFormat;
-        this.texture.type = THREE.FloatType;
+        this.texture.type = THREE.HalfFloatType;
         this.texture.minFilter = this.texture.magFilter = THREE.LinearFilter;
         this.texture.wrapS = this.texture.wrapT = this.texture.wrapR = THREE.ClampToEdgeWrapping;
         this.texture.unpackAlignment = 1;
@@ -131,12 +187,12 @@ export class BeltHaze {
       }
       this.texture.needsUpdate = true;
       this.ready = true;
-      this.mesh.visible = this.on;
+      this.composite.visible = this.on;
     };
     this.worker.postMessage({ type: 'bodies', buffer }, [buffer]);
   }
 
-  setOn(on: boolean): void { this.on = on; this.mesh.visible = on && this.ready; }
+  setOn(on: boolean): void { this.on = on; this.composite.visible = on && this.ready; }
 
   // Each frame: the time, the Sun's render position, the level and the
   // eye's adaptation; the camera's distance from the Sun meters it.
@@ -147,6 +203,7 @@ export class BeltHaze {
       this.worker.postMessage({ type: 'build', days });
     }
     this.mesh.position.copy(sunRender);
+    this.mesh.updateMatrixWorld();
     const u = this.material.uniforms;
     (u.uSun.value as THREE.Vector3).copy(sunRender);
     const dc = Math.max(0.2, camAuDist);
@@ -157,9 +214,12 @@ export class BeltHaze {
 
   dispose(): void {
     this.worker?.terminate();
-    this.scene.remove(this.mesh);
+    this.scene.remove(this.composite);
     this.mesh.geometry.dispose();
     this.material.dispose();
+    this.composite.geometry.dispose();
+    (this.composite.material as THREE.Material).dispose();
+    this.target.dispose();
     this.texture?.dispose();
   }
 }

@@ -19,7 +19,11 @@ import { MU_SUN } from '../physics/bodies.js';
 import { ROTATION } from '../physics/pck.data.js';
 import { helioStateEcl, fromDe442 } from '../physics/ephemeris.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
+import { SmallBodyPlate } from './small-body-plate';
+import type { Named } from '../scene/smallBodies';
+import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
+import type { GuideKey } from '../scene/guides';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -42,7 +46,7 @@ const sub3 = (a: number[], b: number[]) => [a[0] - b[0], a[1] - b[1], a[2] - b[2
 const SIG10 = new Intl.NumberFormat('en-AU', { maximumSignificantDigits: 10 });
 const GROUP = new Map<number, Intl.NumberFormat>();
 const sig10 = (n: number) => SIG10.format(n);
-const fmtGroup = (n: number, digits = 0) => {
+export const fmtGroup = (n: number, digits = 0) => {
   let f = GROUP.get(digits);
   if (!f) { f = new Intl.NumberFormat('en-AU', { minimumFractionDigits: digits, maximumFractionDigits: digits }); GROUP.set(digits, f); }
   return f.format(n);
@@ -102,7 +106,7 @@ function FlightField({ mission, consoleOpen, onToggleConsole, following, onFollo
     const n = mission.crafts.length + mission.ascents.length;
     if (!sel) return `none||${n}|`;
     const c = sel.craft;
-    const state = sel.climbing ? 'Climb' : c.crashed ? 'Lost' : c.error ? 'Fault' : c.thrusting() ? 'Burn' : 'Coast';
+    const state = craftStateWord(c, { climbing: sel.climbing, burning: !sel.climbing && !c.crashed && !c.error && c.thrusting() });
     return `${c.id}|${state}|${n}|${sel.name}`;
   });
   const [id, state, countStr, ...rest] = key.split('|');
@@ -190,6 +194,12 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
 }
 
 // The small-body populations the rail can show or hide (src/scene/smallBodies.ts).
+// The named small bodies' kinds, in the rail's list order.
+const SMALL_KINDS: [string, string][] = [
+  ['dwarf planet', 'Dwarf planets'], ['asteroid', 'Asteroids'], ['near-Earth asteroid', 'Near-Earth asteroids'],
+  ['Jupiter trojan', 'Jupiter trojans'], ['centaur', 'Centaurs'], ['trans-Neptunian object', 'Trans-Neptunian objects'], ['comet', 'Comets'],
+];
+
 const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; label: string; colour: string; title: string }[] = [
   { key: 'belt', label: 'Main belt', colour: '#a3a3a3', title: 'Main-belt asteroids brighter than H 15 (JPL SBDB)' },
   { key: 'neo', label: 'Near-Earth', colour: '#ff9e4d', title: 'Every near-Earth asteroid in JPL SBDB' },
@@ -198,11 +208,20 @@ const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; l
   { key: 'comets', label: 'Comets', colour: '#73dbf2', title: 'Periodic comets (orbits from their last apparition for most)' },
 ];
 
+// Drawing aids for gravity (src/scene/guides.ts), each off until switched on.
+const GUIDE_ROWS: { key: GuideKey; label: string; colour: string; title: string }[] = [
+  { key: 'axes', label: 'Spin axes', colour: '#c8c2b4', title: "Each body's spin axis through its poles (IAU rotation models), north marked N" },
+  { key: 'field', label: 'Gravity field', colour: '#2f8fb0', title: 'The real gravity field on the surface: EGM2008 for Earth, GRAIL for the Moon, J2 for the planets' },
+  { key: 'spheres', label: 'SOI and Hill', colour: '#ffb22e', title: "Each body's sphere of influence (solid) and Hill sphere (dashed) about its parent" },
+  { key: 'lagrange', label: 'Lagrange', colour: '#ecd9b0', title: 'L1 to L5 of Sun-Earth, Earth-Moon, Sun-Jupiter and the focused body with its parent' },
+  { key: 'pulls', label: 'Pulls', colour: '#ff7a3d', title: 'The four strongest gravitational pulls on the focused body, GM / d²' },
+];
+
 // The moons each planet has in the rail (Earth's Moon is always shown).
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey, boolean>; onGuides?: (key: GuideKey, on: boolean) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -305,6 +324,36 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
               </button>
             </li>
           </ul>
+          {/* The named ones, to fly to: the same as clicking a marker in the
+              sky, and the way there by keyboard. */}
+          {named.length > 0 && onSmall && (
+            <label className="sb-pick">
+              <span className="engraved">Fly to</span>
+              <select className="input select" value={small ?? ''} onChange={(e) => { if (e.target.value) onSmall(e.target.value); }}>
+                <option value="">a named one…</option>
+                {SMALL_KINDS.map(([kind, label]) => {
+                  const list = named.filter((b) => b.kind === kind);
+                  return list.length ? <optgroup key={kind} label={label}>{list.map((b) => <option key={b.pdes} value={b.pdes}>{b.name}</option>)}</optgroup> : null;
+                })}
+              </select>
+            </label>
+          )}
+        </>
+      )}
+      {guides && onGuides && (
+        <>
+          <h2 className="strip split"><span>Guides</span><span title="shown">On</span></h2>
+          <ul className="body-list small-bodies guides">
+            {GUIDE_ROWS.map((g) => (
+              <li key={g.key}>
+                <button className="body-row" role="switch" aria-checked={guides[g.key]} onClick={() => onGuides(g.key, !guides[g.key])} title={g.title}>
+                  <span className="lamp-sq" style={{ background: guides[g.key] ? g.colour : 'transparent', borderColor: g.colour }} />
+                  <span>{g.label}</span>
+                  <span className="dist">{guides[g.key] ? 'on' : 'off'}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </>
       )}
       <div className="rail-foot">
@@ -362,7 +411,7 @@ function Credits() {
   );
 }
 
-interface Row { label: string; value: string; unit?: string; alt?: string; src: string; derived?: boolean; info: TagInfoKey; detail?: string; hint?: string }
+export interface Row { label: string; value: string; unit?: string; alt?: string; src: string; derived?: boolean; info: TagInfoKey; detail?: string; hint?: string }
 
 // Plain-language meanings of the readout labels, shown on hover.
 export const HINTS: Record<string, string> = {
@@ -393,7 +442,7 @@ export const HINTS: Record<string, string> = {
 
 // Each row's source tag opens what the value is, its equation and its
 // source (source-tag.tsx).
-function Readout({ rows }: { rows: Row[] }) {
+export function Readout({ rows }: { rows: Row[] }) {
   return (
     <table className="readout">
       <tbody>
@@ -416,14 +465,15 @@ function Readout({ rows }: { rows: Row[] }) {
 // planner and the rocket moved to the flight console (console.tsx).
 // covered: the flight console lies over the plate (up to 1680 px wide), so
 // it leaves the tab order and stops re-rendering.
-export function Plate({ clock, focus, frame = 'sun', covered = false }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean }) {
+export function Plate({ clock, focus, frame = 'sun', covered = false, small = null }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean; small?: Named | null }) {
   const [collapsed, setCollapsed] = useState(true);
   return (
     <aside className="plate screw" aria-label="Target readouts" data-collapsed={collapsed} inert={covered || undefined}>
       <span className="pnl" aria-hidden="true">R1</span>
       <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show data' : 'Hide data'}</button>
       <div className="tab-panel">
-        {!covered && (isBary(focus) ? <BaryPlate clock={clock} bary={focus} frame={frame} /> : <DataPlate clock={clock} focus={focus} frame={frame} />)}
+        {!covered && (small ? <SmallBodyPlate clock={clock} body={small} />
+          : isBary(focus) ? <BaryPlate clock={clock} bary={focus} frame={frame} /> : <DataPlate clock={clock} focus={focus} frame={frame} />)}
       </div>
     </aside>
   );
@@ -444,16 +494,17 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
   const fromEarth = norm([st.r[0] - earth.r[0], st.r[1] - earth.r[1], st.r[2] - earth.r[2]]);
   const ownGm = b.planetGm ?? b.gm;
   const rows: Row[] = [];
-  // The Earth and the Moon come from DE442's table where it covers the date
-  // (2000-2050), every other body from astronomy-engine.
-  const eph = fromDe442(focus, date) ? 'DE442' : 'AE';
+  // Every planet, Pluto and the Moon come from DE442's table where it covers
+  // the date (2000-2050), else from astronomy-engine; a planet's moon rides on
+  // its planet's. For the Sun, the SSB (DE442's own inside the table).
   const pm = b.moon;
+  const eph = fromDe442(pm ? b.parent! : focus, date) ? 'DE442' : 'AE';
   // In the SSB frame, distance and speed are the barycentre's, and the Sun
   // moves.
   const ssb = frame === 'ssb' ? baryState('ssb', date) : null;
   rows.push(focus === 'sun'
     ? ssb
-      ? { label: 'Motion', value: 'About the SSB', alt: 'swung by the giant planets', src: 'AE', info: 'ssb-offset' }
+      ? { label: 'Motion', value: 'About the SSB', alt: 'swung by the giant planets', src: eph, info: 'ssb-offset' }
       : { label: 'Motion', value: 'Fixed', alt: 'the centre of the frame', src: 'frame', derived: true, info: 'frame' }
     : pm
       ? { label: 'Motion', value: 'Mean orbit', alt: 'about its planet, on rails', src: pm.elements.startsWith('JPL') ? 'JPL' : 'AE', info: 'moon-orbit', detail: pm.elements }
@@ -467,7 +518,7 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     rows.push({ label: 'Speed', value: norm(st.v).toFixed(3), unit: 'km/s', alt: 'heliocentric', src: eph, info: 'sun-speed' });
   }
   if (focus !== 'earth') {
-    rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: focus === 'moon' ? eph : 'AE', info: 'earth-distance' });
+    rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: eph, info: 'earth-distance' });
     const lt = fromEarth / C_KM_S;
     rows.push({
       label: 'Light time', value: lt < 60 ? lt.toFixed(3) : lt < 3600 ? (lt / 60).toFixed(2) : (lt / 3600).toFixed(3),
@@ -569,12 +620,12 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     rows.push({ label: 'At the equator', ...period(sunRotationDays(0)), alt: 'sidereal', src: 'HHF 1990', info: 'sun-differential' });
     rows.push({ label: 'Near the poles', ...period(sunRotationDays(90)), alt: 'sidereal, the fit carried to 90°', src: 'HHF 1990', info: 'sun-differential' });
     rows.push({ label: 'Axial tilt', value: obliquity('sun', date).toFixed(2), unit: '°', alt: 'its equator to the ecliptic', src: 'IAU', derived: true, info: 'sun-tilt' });
-    // The SSB from every planet (barycentres.js, within 150 km of Horizons),
-    // not astronomy-engine's four giants; in the SSB frame the rows above
-    // already give it.
+    // The SSB (barycentres.js): DE442's own inside its table, else from
+    // every planet, not astronomy-engine's four giants; in the SSB frame the
+    // rows above already give it.
     if (!ssb) {
       const d = norm(baryState('ssb', date).r);
-      rows.push({ label: 'From the SSB', value: fmtGroup(d), unit: 'km', alt: `${(d / b.radiusKm).toFixed(2)} solar radii, from its centre`, src: 'AE', derived: true, info: 'ssb-offset' });
+      rows.push({ label: 'From the SSB', value: fmtGroup(d), unit: 'km', alt: `${(d / b.radiusKm).toFixed(2)} solar radii, from its centre`, src: eph, derived: !fromDe442('ssb', date), info: 'ssb-offset' });
     }
     rows.push({ label: 'Galactic orbit', value: fmtGroup(galacticYears() / 1e6, 0), unit: 'million yr', alt: 'once round the Galaxy\'s centre', src: 'VLBA', derived: true, info: 'galactic-orbit' });
   }
@@ -603,21 +654,24 @@ export function BaryPlate({ clock, bary, frame = 'sun' }: { clock: SimClock; bar
   const st = baryState(bary, date);
   const earth = bodyState('earth', date);
   const rows: Row[] = [];
-  rows.push({ label: 'Motion', value: 'Barycentre', alt: `the centre of mass of ${b.members}`, src: bary === 'emb' ? 'DE442' : 'AE', info: 'bary-what' });
+  // DE442's table inside 2000-2050 (the SSB its own, each system's
+  // barycentre its planet), else astronomy-engine.
+  const eph = fromDe442(bary === 'ssb' ? 'ssb' : bary === 'emb' ? 'earth' : b.of, date) ? 'DE442' : 'AE';
+  rows.push({ label: 'Motion', value: 'Barycentre', alt: `the centre of mass of ${b.members}`, src: eph, info: 'bary-what' });
   const ssb = frame === 'ssb' && bary !== 'ssb' ? baryState('ssb', date) : null;
   const o = ssb ? ssb : { r: [0, 0, 0], v: [0, 0, 0] };
   const r = norm(sub3(st.r, o.r)), v = norm(sub3(st.v, o.v));
-  rows.push({ label: ssb ? 'From the SSB' : 'From the Sun', value: (r / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(r)} km`, src: 'AE', info: ssb ? 'ssb-distance' : 'sun-distance' });
-  rows.push({ label: 'Speed', value: v.toFixed(bary === 'ssb' ? 4 : 3), unit: 'km/s', alt: ssb ? 'barycentric' : 'heliocentric', src: 'AE', info: ssb ? 'ssb-speed' : 'sun-speed' });
+  rows.push({ label: ssb ? 'From the SSB' : 'From the Sun', value: (r / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(r)} km`, src: eph, info: ssb ? 'ssb-distance' : 'sun-distance' });
+  rows.push({ label: 'Speed', value: v.toFixed(bary === 'ssb' ? 4 : 3), unit: 'km/s', alt: ssb ? 'barycentric' : 'heliocentric', src: eph, info: ssb ? 'ssb-speed' : 'sun-speed' });
   const fromEarth = norm(sub3(st.r, earth.r));
-  rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'AE', info: 'earth-distance' });
+  rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: eph, info: 'earth-distance' });
   rows.push({ label: 'GM within', value: sig10(baryGm(bary)), unit: 'km³/s²', alt: b.members, src: 'DE442', info: 'bary-gm' });
   // How far the body it is listed with sits from it.
   const body = BODY_BY_KEY[b.of];
   const off = norm(sub3(bodyState(b.of, date).r, st.r));
   rows.push({
     label: `${body.name}'s centre`, value: fmtGroup(off, off < 100 ? 3 : 0), unit: 'km', alt: `${(off / body.radiusKm).toFixed(3)} ${body.name} radii from it${off > body.radiusKm ? ', outside the body' : ''}`,
-    src: bary === 'ssb' ? 'AE' : bary === 'emb' ? 'DE442' : 'JPL', derived: true, info: bary === 'ssb' ? 'ssb-offset' : 'bary-offset',
+    src: bary === 'ssb' ? eph : bary === 'emb' ? 'DE442' : 'JPL', derived: true, info: bary === 'ssb' ? 'ssb-offset' : 'bary-offset',
   });
   const kind = bary === 'ssb' ? 'Centre of mass of the solar system' : bary === 'emb' ? 'Centre of mass of Earth and the Moon' : `Centre of mass of the ${body.name} system`;
   return (

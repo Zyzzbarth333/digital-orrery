@@ -135,6 +135,49 @@ above); on a quiet machine Mars and the Moon showed none.
 | Adaptive render scale | `renderScale.ts` | holds the frame rate on weak GPUs at DPR 2 |
 | The renderer asks for the discrete GPU | `OrreryScene.ts` | `powerPreference: 'high-performance'` |
 
+### The belt's haze and the load
+
+Measured on 14 November 2026, before (main at fcbee79) and after
+(feat/perf-pass), production builds, interleaved, Sun view, everything on,
+the point budget held at full quality. `?debug` exposes the scene as
+`window.orrery`, so each layer can be switched off in turn.
+
+**The floor.** A bare page that only clears a canvas of the same size and
+reads one pixel costs 13.2 ms a frame on the Intel GPU and 5.3 ms on the
+NVIDIA in this headless setup: the browser's own compositing, the same
+for every configuration. Everything below is on top of it.
+
+**Per layer, Intel at 2× (1720 × 1672), before.** Switching each off in
+turn, against everything on either side of it: the haze 8 to 12 ms; the
+HDR pipeline (its target, bloom and final pass) about 3 to 5 ms; the belt
+points, the Milky Way and its 16k tiles, the glare and the point stars
+each within the run-to-run noise (about 2 ms). On the NVIDIA the whole
+scene costs about a millisecond over the floor.
+
+| Intel, 2× | Before | After |
+| --- | --- | --- |
+| Frame, everything on | 28–32 ms | 20–23 ms |
+| The haze's share | 7.5–12 ms | 1.5–2.3 ms |
+| Multi-second stalls with the haze on (some runs) | yes | none seen |
+
+**Load, page open to each part on screen** (median of three, Intel /
+NVIDIA, ms):
+
+| Part | Before | After |
+| --- | --- | --- |
+| First frame | 640 / 1370 | 700 / 1240 |
+| Belt points | 750 / 1520 | 760 / 1350 |
+| Sky (Milky Way) | 4370 / 3880 | 1110 / 1590 (2k preview); full 8k at 5550 / 3660 |
+| Haze | 3550 / 3590 | 2560 / 2560 (every eighth body); full grid 3740 / 3570 |
+
+The sky was the last part to appear: decoding the 8192 × 4096 WebP takes
+seconds. A 2048-wide copy (0.57 MB, the same mean light to 0.04 %) is shown
+first and the full map put in its place when it is up.
+
+**Not done.** A smaller belt file (23 MB at 16 bytes a body; 12 would do)
+and KTX2 textures, which need a transcoder dependency and the user's
+approval.
+
 ### The panels
 
 The panels read the clock through `useSyncExternalStore`, which re-renders
