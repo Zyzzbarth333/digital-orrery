@@ -145,13 +145,13 @@ about the barycentre less Juno about Ganymede.
 | --- | ---: | ---: | ---: |
 | none (system at its barycentre) | 169 km | 9,307 km | 3,707 km |
 | `moons.js` (Galilean moons from `JupiterMoons`) | 2.3 km | 323 km | 3,677.2 km |
-| Horizons' Galilean moons | 0.18 km | 20.7 km | 3,677.3 km |
-| Horizons', Ganymede as Juno's track has it | 0.07 km | 4.1 km | 3,677.40 km |
+| Horizons' Galilean moons | 0.18 km | 20.9 km | 3,677.3 km |
+| Horizons', Ganymede as Juno's track has it | 0.07 km | 4.0 km | 3,677.40 km |
 
 What this shows:
 
 - **The moons' pull is now there.** Without the moons the kernel misses by
-  9,300 km nine hours on. With them it follows Juno to 4.1 km, given
+  9,300 km nine hours on. With them it follows Juno to 4.0 km, given
   Ganymede's right place. That is 0.04 % of the bend: a residual drift of
   0.12 m/s.
 - **The force model is not the limit; the moons' places are.** The 11 km
@@ -159,6 +159,10 @@ What this shows:
   row. `moons.js`'s Ganymede (astronomy-engine's `JupiterMoons`) is about
   300 km from JPL's ([moons](frontend/moons.md#how-right-they-are)),
   and that alone leaves 323 km.
+- **The moons' own fields count for little here.** Ganymede's $J_2$ and
+  $C_{22}$ ([kernel](physics/nbody-kernel.md#the-moons-own-fields)) moved the
+  last row from 4.14 to 3.96 km. At 1.4 Ganymede radii the field is
+  $10^{-4}$ of Ganymede's pull.
 - **Events behave.** The primary goes from Jupiter to Ganymede at its
   24,500 km sphere of influence and back.
 
@@ -172,6 +176,7 @@ The same file checks:
 | Pluto at 6 AU, 4 AU, 10⁶ km, 8 AU | its 5 AU reach | away, folded, split with Charon, away |
 | two craft, one near Jupiter, one far | their own views | 13 bodies and 9 |
 | a fall onto Ganymede at 3 km/s | impact event | `impact` on `ganymede`, found 46 km in (one 14 s step) |
+| the moons' $J_2$ and $C_{22}$ acceleration, Ganymede's field about tilted axes | central differences of the potential | $7.6\times10^{-10}$ relative |
 
 ## Spacecraft in the app (`craftKernel.test.mjs`)
 

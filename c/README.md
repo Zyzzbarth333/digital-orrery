@@ -12,6 +12,9 @@ The fixture holds:
 - the heliocentric J2000 states of Earth at MSL's launch (2011-11-26 15:02 UTC) and of the Mars system
   barycentre at its arrival (2012-08-06 05:17 UTC), from `spkezr_c`;
 - the states of Mercury to Neptune at three epochs, for checking astronomy-engine;
+- the J2000 to body-fixed rotation (`pxform_c`) of the Sun, the planets, the Moon, Pluto and the
+  planets' 20 major moons (`IAU_PHOBOS` … `IAU_CHARON`) at four epochs, for `orientation.test.mjs`;
+- the triaxial radii (`bodvrd_c` `RADII`) of the same 31 bodies, for checking `src/physics/pck.data.js`;
 - the toolkit version, every kernel loaded, and the GM of each body the JS kernel uses, from `python/data/gm_de442.tpc` (system barycentres for Mercury to Neptune, the Earth and Moon themselves).
 
 ## Regenerate

@@ -3,17 +3,21 @@
 // Body-fixed axes against CSPICE pxform (J2000 -> ITRF93 / MOON_ME / IAU_*),
 // from src/physics/fixtures/spice_reference.json. Errors are the angle of the
 // worst axis in degrees, and the equivalent surface distance at the body's
-// mean radius.
+// mean radius. The planets' 20 major moons (IAU models from pck00011,
+// pck.data.js) and every body's triaxial radii (bodvrd_c RADII) as well.
 
 import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import fs from 'node:fs';
 import { bodyAxesEqj } from './orientation.js';
+import { MOON_DATA } from './moons.data.js';
+import { RADII } from './pck.data.js';
 
 const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/spice_reference.json', import.meta.url)));
 const RADIUS_KM = {
   sun: 695700, mercury: 2439.4, venus: 6051.8, earth: 6371.0084, moon: 1737.4, mars: 3389.5,
   jupiter: 69911, saturn: 58232, uranus: 25362, neptune: 24622, pluto: 1188.3,
 };
+for (const [k, m] of Object.entries(MOON_DATA)) RADIUS_KM[k] = m.radiusKm;
 // Tolerances in degrees, about three times what was measured (Nov 2026).
 // Earth (ITRF93 also has polar motion and UT1) and the Moon (MOON_ME) carry
 // real surface maps; Mars differs by the Konopliv 2026 model against the
@@ -22,6 +26,9 @@ const TOL_DEG = {
   sun: 0.005, mercury: 0.002, venus: 0.0005, earth: 0.005, moon: 0.012, mars: 0.08,
   jupiter: 0.2, saturn: 0.2, uranus: 0.12, neptune: 0.12, pluto: 0.015,
 };
+// The moons are SPICE's own model, so only TT for TDB (under 2 ms) and
+// rounding remain: 1.9e-5 deg at worst (Phobos), measured Nov 2026.
+for (const k of Object.keys(MOON_DATA)) TOL_DEG[k] = 1e-4;
 
 let failed = 0;
 const worst = {};
@@ -47,5 +54,15 @@ for (const [body, deg] of Object.entries(worst)) {
   if (!ok) failed++;
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${body.padEnd(8)} ${deg.toExponential(2)} deg  (${km.toFixed(km < 10 ? 3 : 1)} km at the surface; tolerance ${TOL_DEG[body]} deg)`);
 }
+// The ellipsoids pck.build.mjs extracted, against SPICE's own reading.
+let radiiWorst = 0;
+for (const [body, ref] of Object.entries(fixture.radii)) {
+  const r = RADII[body];
+  if (!r) { failed++; console.log(`  FAIL  no radii for ${body}`); continue; }
+  for (let i = 0; i < 3; i++) radiiWorst = Math.max(radiiWorst, Math.abs(r[i] - ref[i]));
+}
+const radiiOk = radiiWorst < 1e-9 && Object.keys(fixture.radii).length === Object.keys(RADII).length;
+if (!radiiOk) failed++;
+console.log(`  ${radiiOk ? 'PASS' : 'FAIL'}  radii of ${Object.keys(fixture.radii).length} bodies vs bodvrd_c: worst ${radiiWorst.toExponential(1)} km`);
 console.log(failed ? `RESULT: ${failed} FAILED` : 'RESULT: all checks PASSED');
 process.exit(failed ? 1 : 0);

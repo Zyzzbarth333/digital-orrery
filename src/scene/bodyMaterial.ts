@@ -8,8 +8,12 @@
 //   lights, drawn at a display brightness, not photometrically).
 // - Airless regolith (Mercury, the Moon, Pluto) scatters close to
 //   Lommel-Seeliger, mu0 / (mu0 + mu); the other bodies use Lambert, mu0.
-// - Eclipses: for each occluding sphere, the fraction of the Sun's disc still
-//   visible from the surface point (overlap of two discs).
+// - Shapes: each body is its IAU triaxial ellipsoid, the unit sphere scaled
+//   along its body-fixed axes. Normals take the inverse transpose of that
+//   scale, so the terminator and the relief follow the flattened surface.
+// - Eclipses: for each occluding ellipsoid, the fraction of the Sun's disc
+//   still visible from the surface point (overlap of two discs), worked in
+//   the occluder's own frame scaled to a unit sphere (ELLIPSOID_SHADOW).
 // - Surface maps (docs/frontend/textures.md) are looked up by body-fixed
 //   longitude and latitude, so they turn with the body's real rotation. All
 //   maps share one layout: equirectangular, u = 0 at -180 deg east longitude,
@@ -24,6 +28,37 @@ import { ATMO_FUNCS, ATMO_UNIFORMS, atmosphereUniforms, type AtmosphereParams } 
 
 export const MAX_OCCLUDERS = 4;
 
+// The shadow of an ellipsoid, as the fraction of the Sun's disc seen past
+// it. A maps render coordinates relative to its centre to its body frame
+// scaled to a unit sphere (rows X/a, Y/b, Z/c); whether a line from the
+// point to the Sun meets the ellipsoid is unchanged by that map, so the
+// occluder is exactly a unit sphere there. The Sun's disc is stretched by
+// under the flattening (10 % for Saturn) and is taken as a disc of its
+// radius times k = (abc)^(-1/3). Needs visibleFraction(a, b, c).
+export const ELLIPSOID_SHADOW = /* glsl */ `
+float ellipsoidShadow(vec3 x, vec3 sunPos, float sunRadius, vec3 centre, mat3 A, float k) {
+  vec3 p = A * (x - centre);
+  vec3 toSun = A * (sunPos - centre) - p;
+  float dSun = length(toSun);
+  vec3 s = toSun / dSun;
+  float dOcc = length(p);
+  if (dOcc >= dSun || dot(-p, s) <= 0.0) return 1.0;
+  vec3 u = -p / dOcc;
+  float a = asin(clamp(sunRadius * k / dSun, 0.0, 1.0));
+  float b = asin(clamp(1.0 / dOcc, 0.0, 1.0));
+  float c = atan(length(cross(u, s)), dot(u, s));
+  return visibleFraction(a, b, c);
+}
+`;
+
+// Uniforms for an ellipsoid shadow caster: the map A above and k.
+export function shadowAxes(toBody: THREE.Matrix3, radii: [number, number, number], out: THREE.Matrix3): number {
+  const e = toBody.elements;                  // column-major: e[col * 3 + row]
+  const o = out.elements;
+  for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) o[col * 3 + row] = e[col * 3 + row] / radii[row];
+  return Math.cbrt(1 / (radii[0] * radii[1] * radii[2]));
+}
+
 const vertex = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_vertex>
@@ -32,7 +67,8 @@ varying vec3 vNormal;
 void main() {
   vec4 world = modelMatrix * vec4(position, 1.0);
   vWorld = world.xyz;
-  vNormal = normalize(mat3(modelMatrix) * normal);
+  // Normals under a non-uniform scale: the inverse transpose.
+  vNormal = normalize(transpose(inverse(mat3(modelMatrix))) * normal);
   gl_Position = projectionMatrix * viewMatrix * world;
   #include <logdepthbuf_vertex>
 }
@@ -47,7 +83,8 @@ uniform float irradiance;     // sunlight relative to 1 AU, (1 AU / d)^2
 uniform float lommel;         // 1 = Lommel-Seeliger, 0 = Lambert
 uniform vec3 sunPos;          // render units, camera-relative
 uniform float sunRadius;      // render units
-uniform vec4 occluders[MAX_OCC]; // xyz centre, w radius (w = 0: unused)
+uniform vec4 occluders[MAX_OCC]; // xyz centre, w = k of ELLIPSOID_SHADOW (0: unused)
+uniform mat3 occAxes[MAX_OCC];   // A of ELLIPSOID_SHADOW
 
 uniform vec3 bodyCentre;      // render units, camera-relative
 uniform mat3 toBody;          // render -> body-fixed (rows: X, Y, Z axes)
@@ -75,6 +112,7 @@ float visibleFraction(float a, float b, float c) {
 }
 
 ${ATMO_FUNCS}
+${ELLIPSOID_SHADOW}
 
 // Sample an equirectangular map without a seam at +-180 deg: take the
 // texture-coordinate derivatives from whichever of u or u + 0.5 (wrapped) is
@@ -94,7 +132,8 @@ void main() {
   vec3 s = toSun / dSun;
   vec3 v = normalize(-vWorld);
 
-  // Body-fixed position -> longitude, latitude -> map coordinates.
+  // Body-fixed position -> planetocentric longitude, latitude -> map
+  // coordinates (the maps' convention, on an ellipsoid as on a sphere).
   vec3 p = normalize(toBody * (vWorld - bodyCentre));
   float lon = atan(p.y, p.x);
   float lat = asin(clamp(p.z, -1.0, 1.0));
@@ -113,14 +152,16 @@ void main() {
     refl = mix(refl, cloudRefl, c.a);
   }
 
-  // Shading normal: the map's east-north-up slope, rotated into the scene.
+  // Shading normal: the map's east-north-up slope about the ellipsoid's own
+  // normal (up), rotated into the scene.
   vec3 n = nGeo;
   if (useNormal > 0.5) {
     vec3 enu = sampleMap(normalMap, uv).xyz * 2.0 - 1.0;
     enu.xy *= (1.0 - cloudCover);                    // clouds hide the relief
-    vec3 east = normalize(vec3(-p.y, p.x, 0.0) + vec3(1e-6, 0.0, 0.0));
-    vec3 north = cross(p, east);
-    vec3 nb = normalize(enu.x * east + enu.y * north + enu.z * p);
+    vec3 up = toBody * nGeo;
+    vec3 east = normalize(vec3(-up.y, up.x, 0.0) + vec3(1e-6, 0.0, 0.0));
+    vec3 north = cross(up, east);
+    vec3 nb = normalize(enu.x * east + enu.y * north + enu.z * up);
     n = normalize(transpose(toBody) * nb);
   }
 
@@ -133,17 +174,10 @@ void main() {
 
   float shade = 1.0;
   if (mu0Geo > -0.02) {
-    float a = asin(clamp(sunRadius / dSun, 0.0, 1.0));
     for (int i = 0; i < MAX_OCC; i++) {
       vec4 o = occluders[i];
       if (o.w <= 0.0) continue;
-      vec3 toOcc = o.xyz - vWorld;
-      float dOcc = length(toOcc);
-      if (dOcc >= dSun || dot(toOcc, s) <= 0.0) continue;
-      vec3 u = toOcc / dOcc;
-      float b = asin(clamp(o.w / dOcc, 0.0, 1.0));
-      float c = atan(length(cross(u, s)), dot(u, s));
-      shade *= visibleFraction(a, b, c);
+      shade *= ellipsoidShadow(vWorld, sunPos, sunRadius, o.xyz, occAxes[i], o.w);
     }
   }
 
@@ -170,8 +204,8 @@ void main() {
   // own light come from the atmosphere shell drawn over the planet.
   vec3 sunT = vec3(1.0);
   if (useAtmo > 0.5 && mu0Geo > -0.1) {
-    vec3 pk = normalize(vWorld - bodyCentre) * (atmoRg + 0.01);
-    sunT = atmoSunTransmittance(pk, s);
+    vec3 pk = normalize(atmoShape * (vWorld - bodyCentre)) * (atmoRg + 0.01);
+    sunT = atmoSunTransmittance(pk, normalize(atmoShape * s));
   }
 
   vec3 colour = refl * irradiance * brdf * shade * sunT;
@@ -209,7 +243,8 @@ blank.needsUpdate = true;
 // its face-on brightness, so the mean surface reflectance is 1.5 p.
 export function makeBodyMaterial(colour: number, geometricAlbedo: number, airless: boolean): THREE.ShaderMaterial {
   const occ: THREE.Vector4[] = [];
-  for (let i = 0; i < MAX_OCCLUDERS; i++) occ.push(new THREE.Vector4(0, 0, 0, 0));
+  const occAxes: THREE.Matrix3[] = [];
+  for (let i = 0; i < MAX_OCCLUDERS; i++) { occ.push(new THREE.Vector4(0, 0, 0, 0)); occAxes.push(new THREE.Matrix3()); }
   const m = new THREE.ShaderMaterial({
     vertexShader: vertex,
     fragmentShader: fragment,
@@ -220,6 +255,7 @@ export function makeBodyMaterial(colour: number, geometricAlbedo: number, airles
       sunPos: { value: new THREE.Vector3() },
       sunRadius: { value: 1 },
       occluders: { value: occ },
+      occAxes: { value: occAxes },
       bodyCentre: { value: new THREE.Vector3() },
       toBody: { value: new THREE.Matrix3() },
       dayMap: { value: blank }, useDay: { value: 0 },
