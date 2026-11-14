@@ -341,6 +341,7 @@ function Credits() {
       used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</>
   );
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
+  items.push(['Equation font', 'DejaVu Math TeX Gyre, from the DejaVu fonts: Bitstream Vera licence, its DejaVu and math additions public domain']);
   return (
     <details className="credits">
       <summary>Credits</summary>

@@ -388,7 +388,16 @@ button.src-tag:hover { background: var(--panel-sunk); }
 .tag-pop-line + .tag-pop-line { margin-top: 4px; }
 .tag-pop math {
   margin: 0; color: var(--phosphor); font-size: 15px; text-shadow: var(--glow); text-align: left; math-style: normal;
-  font-family: 'DejaVu Math TeX Gyre', 'TeX Gyre DejaVu Math', 'STIX Two Math', 'Cambria Math', 'Latin Modern Math', math;
+  font-family: 'Orrery Math', 'STIX Two Math', 'Cambria Math', 'Latin Modern Math', math;
+}
+/* The equation face, bundled so every machine sets the maths alike: an
+   installed copy first, else the 186 KB WOFF2 (fonts/LICENSE-DejaVuMath.txt).
+   The browser fetches it only when an equation first shows. */
+@font-face {
+  font-family: 'Orrery Math';
+  src: local('DejaVu Math TeX Gyre'), local('DejaVuMathTeXGyre-Regular'),
+    url('./fonts/DejaVuMathTeXGyre.woff2') format('woff2');
+  font-display: swap;
 }
 .tag-pop-where, .tag-pop-note { color: var(--phosphor-dim); }
 .tag-pop-where { color: var(--label-dim); }
