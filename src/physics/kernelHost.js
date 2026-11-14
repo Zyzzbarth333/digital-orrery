@@ -77,12 +77,14 @@ export function stepCraft(sys, req) {
       (req.thrust && !finite(req.thrust))) {
     throw new Error('non-finite craft state, time or thrust');
   }
+  // A body by key, a moon or planet whether or not its system is split.
+  const bodyOf = (key, t) => (sys.bodyAt ? sys.bodyAt(key, t) : sys.bodiesAt(t).find((x) => x.key === key));
   const burns = (req.burns || []).filter((b) => b.t1 > req.t && b.t0 < req.tEnd);
   for (const b of burns) {
     if (![b.t0, b.t1, b.F, b.m0, b.mdot].every(Number.isFinite) || !finite(b.dir) || !(b.m0 - b.mdot * (b.t1 - b.t0) > 0)) {
       throw new Error('bad burn: needs finite times, direction, thrust and mass, and mass left at the end');
     }
-    if (b.frame === 'vnb' && !sys.bodiesAt(req.t).some((x) => x.key === b.about)) throw new Error(`bad burn: no body '${b.about}' to steer about`);
+    if (b.frame === 'vnb' && !bodyOf(b.about, req.t)) throw new Error(`bad burn: no body '${b.about}' to steer about`);
   }
   const state = createState(req.r, req.v, req.t);
   state.primary = req.primary ?? null;
@@ -102,7 +104,7 @@ export function stepCraft(sys, req) {
         let d = b.dir;
         if (b.frame === 'vnb') {
           if (r && v) {
-            const B = sys.bodiesAt(t).find((x) => x.key === b.about);
+            const B = bodyOf(b.about, t);
             B.eph.velocity(t, vb);
             b.last = vnbDirection(b.dir, [r[0] - B.r[0], r[1] - B.r[1], r[2] - B.r[2]], [v[0] - vb[0], v[1] - vb[1], v[2] - vb[2]]);
           }

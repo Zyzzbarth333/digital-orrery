@@ -15,6 +15,8 @@ parts fast.
 | Kernel, low Earth orbit, Cowell | about 50 sim days per second | 9,776 steps per sim day |
 | Kernel, low Earth orbit, with Encke | about 220 sim days per second | 1,134 steps per sim day with Earth's J2 (326 with point masses, about 600 sim days per second); 4x more accurate than Cowell |
 | Kernel, GEO | about 850 sim days per second | Cowell (perturbed beyond Encke's range) |
+| Kernel, among Jupiter's moons (1.5 million km orbit) | about 450 sim days per second | Cowell, 61 steps per sim day; 3,400 with the system folded at its barycentre. Each step about 3 times dearer (13 bodies, each moon a sum of two cubics), and the Galilean moons' nodes add 1.2 ms per sim day ([kernel](physics/nbody-kernel.md#moons)) |
+| Splitting systems near the craft (`focus`) | within the ±5 % noise away from them | the same steps as before; the check is skipped until the craft could reach a threshold |
 | Ephemeris for the kernel | under 1.6 ms per sim day | the Moon at hourly nodes, now from the DE442 table |
 
 Kernel speeds are steady forward running, as in the app: 90 days in 10-day

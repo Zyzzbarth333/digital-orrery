@@ -63,6 +63,12 @@ export const TAG_INFO = {
     where: 'd: the distance from the Earth; c is exact, by the SI definition of the metre',
     source: 'BIPM, the SI Brochure, 9th ed. (2019)',
   },
+  triaxial: {
+    what: 'The body\'s reference ellipsoid: its semi-axes along the prime meridian, 90° east of it, and the pole. Spinning giants bulge at the equator; small moons are stretched toward their planet. The scene draws this shape.',
+    tex: ['\\frac{x^2}{a^2} + \\frac{y^2}{b^2} + \\frac{z^2}{c^2} = 1', 'f = \\frac{a - c}{a}'],
+    where: 'x, y, z: body-fixed, x through 0° longitude, z through the north pole',
+    source: 'IAU WGCCRE, as NAIF\'s planetary constants kernel pck00011 gives it',
+  },
   'mean-radius': {
     what: 'The radius of a sphere of the same volume as the body.',
     tex: [],
@@ -78,6 +84,7 @@ export const TAG_INFO = {
   'gm-planet': {
     what: 'G times the mass of the planet alone, without its moons.',
     tex: [],
+    where: 'the spacecraft kernel pulls with it near the planet, where the moons pull with their own',
     source: 'NAIF satellite kernels, fitted with the moons\' orbits · docs/physics/ephemerides-and-gm.md',
   },
   // panels.tsx: ownGm / R^2 * 1000
@@ -141,6 +148,7 @@ export const TAG_INFO = {
   'moon-gm': {
     what: 'G times the moon\'s mass. Orbits depend on this product, which tracking measures far better than G or the mass alone.',
     tex: ['\\mu = GM'],
+    where: 'the spacecraft kernel pulls with it within 1.25 times its planet\'s sphere of influence',
     source: 'the moon\'s JPL Horizons object page (G times the mass where it gives no GM)',
   },
   'moon-albedo': {
@@ -149,9 +157,10 @@ export const TAG_INFO = {
     source: 'the moon\'s JPL Horizons object page',
   },
   'moon-rotation': {
-    what: 'Time for one turn against the stars. Tides have locked the moon: it turns once each orbit, keeping one face to its planet.',
-    tex: ['P_\\text{rot} = P_\\text{orbit}'],
-    source: 'JPL SSD planetary satellite mean elements (the period) · docs/frontend/moons.md',
+    what: 'Time for one turn against the stars. Tides have locked the moon: it turns once each orbit, keeping one face to its planet, rocking a little about it (its libration).',
+    tex: ['P_\\text{rot} = \\frac{360°}{|W_1|}', 'W = W_0 + W_1 d + \\sum_j w_j \\sin\\theta_j'],
+    where: 'W: the prime meridian\'s angle from the node of the moon\'s equator; d: days from J2000; θ_j: the system\'s nutation-precession angles',
+    source: 'IAU WGCCRE 2015 report, as NAIF\'s pck00011 gives it · docs/physics/orientation.md',
   },
   // panels.tsx: a = 1 / (2/rr - vv^2/mu), T = 2 pi sqrt(a^3/mu)
   'orbital-period': {

@@ -180,7 +180,9 @@ looks flat and has no darkened limb.
 ## Eclipses
 
 Every surface point checks the bodies that can shadow it (its parent other
-than the Sun, and its moons). Seen from the point, the Sun is a disc of
+than the Sun, and its moons). Each occluder is its triaxial ellipsoid,
+worked in its frame scaled to a unit sphere ([scene](scene.md#shapes)),
+where the following holds exactly. Seen from the point, the Sun is a disc of
 angular radius $a = \arcsin(R_\odot/d_\odot)$, the occluder a disc of
 $b = \arcsin(R/d)$, and their centres are $c$ apart, computed as
 $\operatorname{atan2}(|\hat u \times \hat s|,\ \hat u \cdot \hat s)$ to keep

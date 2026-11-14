@@ -30,8 +30,10 @@ uniform float now;        // the body's offset, same units as u
 uniform float outline;    // opacity of the whole orbit
 uniform float tail;       // fade length, as a fraction of the period
 uniform float level;      // 1 / exposure: drawn at a display level through the HDR output
+uniform vec2 gap;         // (centre, half-width) in u left to a finer line; half-width < 0: none
 varying float vU;
 void main() {
+  if (abs(vU - gap.x) < gap.y) discard;
   #include <logdepthbuf_fragment>
   float behind = now - vU;                         // > 0 behind the body
   float glow = behind >= 0.0 ? exp(-behind / tail) : 0.0;
@@ -57,6 +59,7 @@ export function orbitTrailMaterial(colour: number, outline = 0.3, tail = 0.08): 
       outline: { value: outline },
       tail: { value: tail },
       level: { value: 1 },
+      gap: { value: new THREE.Vector2(0, -1) },
     },
   });
 }
