@@ -24,11 +24,14 @@
 import * as THREE from 'three';
 import { helioStateEcl, eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
+import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
+import { baryStateEqj } from '../physics/barycentres.js';
+import { bodyConstants, MU_SUN } from '../physics/bodies.js';
 import type { SimClock } from '../app/clock';
-import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
+import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
-import { makeStarPoints, makeStars, setStarScale } from './stars';
+import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { JourneyLayer } from './journeyLayer';
@@ -36,7 +39,7 @@ import type { JourneyView } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
-import { loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
+import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
 import { HdrPipeline } from './post';
 import { makeSunMaterial, SunGlare, visibleFraction } from './sun';
@@ -61,8 +64,10 @@ const TONE: Record<string, [THREE.ToneMapping, number]> = {
 // drawn well below white beside the point stars.
 const MILKY_WAY_GAIN = 0.5;
 const [TONE_MAPPING, EXPOSURE_1AU] = TONE[new URLSearchParams(location.search).get('tone') ?? 'neutral'] ?? TONE.neutral;
-// Bodies whose surfaces are bare regolith (Lommel-Seeliger scattering).
-const AIRLESS: ReadonlySet<BodyKey> = new Set<BodyKey>(['mercury', 'moon', 'pluto']);
+// Bodies whose surfaces are bare regolith (Lommel-Seeliger scattering):
+// these, and every moon but Titan, which is wrapped in haze.
+const AIRLESS: ReadonlySet<BodyKey> = new Set<BodyKey>(['mercury', 'moon', 'pluto',
+  ...BODIES.filter((b) => isPlanetMoon(b.key) && b.key !== 'titan').map((b) => b.key)]);
 type Vec3 = [number, number, number];
 
 export interface BodyState { r: Vec3; v: Vec3 }
@@ -85,9 +90,78 @@ function renderToEqj(): THREE.Matrix3 {
     cols[0][2], cols[1][2], cols[2][2]);
 }
 
+// Planets whose moons are drawn (moons.js). astronomy-engine places each at
+// its system barycentre; the scene draws the planet at its own centre,
+// offset from that by its moons' pull (2,100 km for Pluto), and each moon
+// about that centre.
+const SYSTEMS: ReadonlySet<BodyKey> = new Set(Object.keys(MOONS_OF) as BodyKey[]);
+
+function addEcl(base: BodyState, rel: { r: number[]; v: number[] }): BodyState {
+  const r = eqjToEcl(rel.r), v = eqjToEcl(rel.v);
+  return { r: [base.r[0] + r[0], base.r[1] + r[1], base.r[2] + r[2]], v: [base.v[0] + v[0], base.v[1] + v[1], base.v[2] + v[2]] };
+}
+
+// A planet (at its centre), its moons and its system's barycentre,
+// heliocentric ecliptic J2000.
+export function systemStates(planet: BodyKey, date: Date): Partial<Record<FocusKey, BodyState>> {
+  const bary = helioStateEcl(planet, date) as BodyState;
+  const { moons, offset } = systemEqj(planet, date);
+  const centre = addEcl(bary, offset);
+  const out: Partial<Record<FocusKey, BodyState>> = { [planet]: centre, [`${planet}-bary`]: bary };
+  for (const [k, st] of Object.entries(moons) as [BodyKey, { r: number[]; v: number[] }][]) out[k] = addEcl(centre, st);
+  return out;
+}
+
 export function bodyState(key: BodyKey, date: Date): BodyState {
   if (key === 'sun') return { r: [0, 0, 0], v: [0, 0, 0] };
+  if (isPlanetMoon(key)) return systemStates(BODY_BY_KEY[key].parent!, date)[key]!;
+  if (SYSTEMS.has(key)) return systemStates(key, date)[key]!;
   return helioStateEcl(key, date) as BodyState;
+}
+
+// A barycentre, heliocentric ecliptic J2000 (barycentres.js).
+export function baryState(key: BaryKey, date: Date): BodyState {
+  if (key.endsWith('-bary')) return helioStateEcl(key.replace('-bary', ''), date) as BodyState;
+  const s = baryStateEqj(key, date);
+  return { r: eqjToEcl(s.r) as Vec3, v: eqjToEcl(s.v) as Vec3 };
+}
+
+// The frame orbits and distances are given in: the Sun's centre, or the
+// solar system barycentre (the Sun then has a path of its own about it).
+export type Frame = 'sun' | 'ssb';
+// The Sun's path about the SSB is drawn over two of Jupiter's years.
+const SUN_PATH_DAYS = 2 * 4332.59;
+// The SSB for orbit lines, from the four giants alone: within about 700 km
+// of the full SSB (the inner planets' pull), unseen at an orbit's scale,
+// and a quarter of the cost, 360 times over. The line's origin is this
+// same point, so the line still passes through its body.
+const GIANTS = ['jupiter', 'saturn', 'uranus', 'neptune'];
+const GIANT_GM = GIANTS.map((k) => bodyConstants(k).mu as number);
+const GIANT_TOTAL = MU_SUN + GIANT_GM.reduce((a, b) => a + b, 0);
+function ssbOfGiants(date: Date): Vec3 {
+  const r: Vec3 = [0, 0, 0];
+  GIANTS.forEach((k, i) => { const p = helioStateEcl(k, date).r; for (let j = 0; j < 3; j++) r[j] += (GIANT_GM[i] * p[j]) / GIANT_TOTAL; });
+  return r;
+}
+
+// Where a body's orbit line is centred, and over how many days it runs.
+function orbitOrigin(key: BodyKey, frame: Frame): BodyKey | 'ssb' | null {
+  const parent = BODY_BY_KEY[key].parent;
+  if (frame === 'ssb' && (parent === 'sun' || key === 'sun')) return 'ssb';
+  return parent;
+}
+function orbitDays(key: BodyKey, frame: Frame): number | null {
+  if (key === 'sun') return frame === 'ssb' ? SUN_PATH_DAYS : null;
+  return BODY_BY_KEY[key].periodDays;
+}
+
+// A body's position about its line's origin (km, ecliptic): a moon's
+// straight from its model, without the planet's heliocentric state.
+function relativePosition(key: BodyKey, date: Date, frame: Frame): Vec3 {
+  if (isPlanetMoon(key)) return eqjToEcl(moonPositionEqj(key, date)) as Vec3;
+  const origin = orbitOrigin(key, frame)!;
+  if (origin === 'ssb') return sub(key === 'sun' ? [0, 0, 0] : bodyState(key, date).r, ssbOfGiants(date));
+  return sub(bodyState(key, date).r, bodyState(origin, date).r);
 }
 
 interface OrbitLine {
@@ -103,6 +177,10 @@ export class OrreryScene {
   private meshes = new Map<BodyKey, THREE.Mesh>();
   private orbits = new Map<BodyKey, OrbitLine>();
   private labels = new Map<BodyKey, HTMLDivElement>();
+  private baryLabels = new Map<BaryKey, HTMLDivElement>();
+  private baryPos = new Map<BaryKey, THREE.Vector3>(BARYS.map((b) => [b.key, new THREE.Vector3()]));
+  private ssbLinePos = new THREE.Vector3();
+  refFrame: Frame = 'sun';
   private materials = new Map<BodyKey, THREE.ShaderMaterial>();
   private occluderKeys = new Map<BodyKey, BodyKey[]>();
   private manifest: Manifest | null = null;
@@ -121,7 +199,7 @@ export class OrreryScene {
   private adapt = 1;              // the eye's adaptation: 1 dark-adapted
   private buffer = new THREE.Vector2();
   private scale: RenderScale;
-  private states = {} as Record<BodyKey, BodyState>;
+  private states = {} as Record<FocusKey, BodyState>;
   private raf = 0;
   private lastFrame = 0;
   private tmp = new THREE.Vector3();
@@ -131,7 +209,7 @@ export class OrreryScene {
   // The camera orbits a pivot on the focused body or craft and flies
   // between them (cameraRig.ts). `focus` is the body the panels describe;
   // it changes at the click, while the camera is still on its way.
-  focus: BodyKey = 'sun';
+  focus: FocusKey = 'sun';
   private rig: CameraRig;
   // Zoom the user chose, carried to the next body: in body radii for
   // planets and moons, in km for the Sun's view and for craft.
@@ -143,7 +221,7 @@ export class OrreryScene {
   private sunViewPending = false;
   private sunViewPhase = 0.35;
 
-  onFocusChange: (key: BodyKey) => void = () => {};
+  onFocusChange: (key: FocusKey) => void = () => {};
   // Spacecraft: the mission steps on each frame (after the clock), the scene
   // draws what craftSource returns, and the camera can follow one craft.
   onFrame: (timeMs: number, jumps: number) => void = () => {};
@@ -166,8 +244,9 @@ export class OrreryScene {
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
 
-  private bodyAnchor(key: BodyKey): Anchor {
-    return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: BODY_BY_KEY[key].radiusKm * 1.2 };
+  private bodyAnchor(key: FocusKey): Anchor {
+    // A barycentre is a point: the camera may close to a kilometre.
+    return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: isBary(key) ? 1 : BODY_BY_KEY[key].radiusKm * 1.2 };
   }
 
   private craftAnchor(id: number): Anchor {
@@ -177,7 +256,8 @@ export class OrreryScene {
 
   // Where a flight to a body ends: the user's zoom in radii if they set
   // one (within reason), else the default framing; the Sun's overview.
-  private arrivalDist(key: BodyKey, reframe: boolean): number {
+  private arrivalDist(key: FocusKey, reframe: boolean): number {
+    if (isBary(key)) return BARY_BY_KEY[key].viewKm;     // framing the system about it
     if (key === 'sun') return !reframe && this.sunDist !== null ? this.sunDist : 1.6e9;
     const R = BODY_BY_KEY[key].radiusKm;
     if (!reframe && this.userRadii !== null) return R * Math.max(1.6, Math.min(80, this.userRadii));
@@ -222,8 +302,9 @@ export class OrreryScene {
         const m = makeBodyMaterial(b.colour, b.geometricAlbedo ?? 0.3, AIRLESS.has(b.key));
         this.materials.set(b.key, m);
         material = m;
-        // A body can be shadowed by its parent (not the Sun) and its moons.
-        const occ = BODIES.filter((o) => o.parent === b.key).map((o) => o.key);
+        // A body can be shadowed by its parent (not the Sun) and its moons,
+        // the largest first.
+        const occ = BODIES.filter((o) => o.parent === b.key).sort((x, y) => y.radiusKm - x.radiusKm).map((o) => o.key);
         if (b.parent && b.parent !== 'sun') occ.unshift(b.parent);
         this.occluderKeys.set(b.key, occ.slice(0, MAX_OCCLUDERS));
       }
@@ -233,6 +314,8 @@ export class OrreryScene {
       this.meshes.set(b.key, mesh);
       this.labels.set(b.key, this.makeLabel(b.key, b.name));
     }
+    // Barycentres: a marker and label, no body.
+    for (const b of BARYS) this.baryLabels.set(b.key, this.makeLabel(b.key, b.short, 'bary'));
 
     // Atmospheres: a scattering shell, and the same medium on the surface's
     // sunlight.
@@ -274,7 +357,8 @@ export class OrreryScene {
         // The light between the stars, then the stars as points over it.
         const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
         void this.surfaces.load(stars.map, true).then((tex) => {
-          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain);
+          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain,
+            stars.detail && { entry: stars.detail, base: TEXTURE_BASE });
           this.scene.add(this.stars);
         });
         if (stars.points) {
@@ -314,13 +398,15 @@ export class OrreryScene {
     for (const key of Object.keys(m.bodies) as BodyKey[]) this.unloadedSurfaces.add(key);
     if (m.stars && this.stars) {
       const mat = this.stars.material as THREE.ShaderMaterial;
+      resetStars(this.stars);
       void this.surfaces.load(m.stars.map, true).then((tex) => { mat.uniforms.starMap.value = tex; }).catch(() => {});
     }
   }
 
-  private makeLabel(key: BodyKey, name: string): HTMLDivElement {
+  private makeLabel(key: FocusKey, name: string, kind = ''): HTMLDivElement {
     const el = document.createElement('div');
-    el.className = 'body-marker';
+    el.className = `body-marker${kind ? ` ${kind}` : ''}`;
+    if (isBary(key)) el.title = BARY_BY_KEY[key].name;
     el.innerHTML = `<span class="dot"></span><span class="name">${name}</span>`;
     el.addEventListener('click', () => this.focusOn(key));
     this.overlay.appendChild(el);
@@ -339,12 +425,12 @@ export class OrreryScene {
   // Fly to a body. Choosing the body already in view reframes it at the
   // default distance; choosing the body a flight is already heading for
   // changes nothing.
-  focusOn(key: BodyKey): void {
+  focusOn(key: FocusKey): void {
     if (this.rig.flying && this.rig.destination.id === `body:${key}`) return;
     const reframe = key === this.focus && this.focusCraftId === null;
     this.focusCraftId = null;
     this.focus = key;
-    this.loadSurfaces(key);           // start now: the flight hides the upload
+    if (!isBary(key)) this.loadSurfaces(key);   // start now: the flight hides the upload
     this.rig.flyTo(this.bodyAnchor(key), this.arrivalDist(key, reframe));
     this.onFlight(this.rig.flying);
     this.onFocusChange(key);
@@ -394,14 +480,15 @@ export class OrreryScene {
   private onWheel = (e: WheelEvent): void => {
     e.preventDefault();
     const craft = this.focusCraftId !== null;
-    const minDist = craft ? 0.05 : BODY_BY_KEY[this.focus].radiusKm * 1.2;
+    const focus = this.focus;
+    const minDist = craft ? 0.05 : isBary(focus) ? 1 : BODY_BY_KEY[focus].radiusKm * 1.2;
     // Lines are 3 % of a page; pixels as they come.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
     this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
     const goal = this.rig.goalDistance;
     if (craft) this.craftDist = goal;
-    else if (this.focus === 'sun') this.sunDist = goal;
-    else this.userRadii = goal / BODY_BY_KEY[this.focus].radiusKm;
+    else if (focus === 'sun') this.sunDist = goal;
+    else if (!isBary(focus)) this.userRadii = goal / BODY_BY_KEY[focus].radiusKm;
   };
 
   private onKey = (e: KeyboardEvent): void => {
@@ -434,17 +521,18 @@ export class OrreryScene {
     this.camera.updateProjectionMatrix();
   }
 
-  // Sample a body's orbit about its parent from the ephemeris, centred on t.
+  // Sample a body's orbit about its origin (its parent, or the SSB) from
+  // the ephemeris, centred on t.
   private sampleOrbit(key: BodyKey, tMs: number): THREE.Line | null {
     const b = BODY_BY_KEY[key];
-    if (!b.parent || !b.periodDays) return null;
+    const days = orbitDays(key, this.refFrame);
+    if (!orbitOrigin(key, this.refFrame) || !days) return null;
     const pts = new Float32Array((ORBIT_SAMPLES + 1) * 3);
     const us = new Float32Array(ORBIT_SAMPLES + 1);
-    const span = b.periodDays * 86400e3;
+    const span = days * 86400e3;
     for (let i = 0; i <= ORBIT_SAMPLES; i++) {
       const d = new Date(tMs - span / 2 + (span * i) / ORBIT_SAMPLES);
-      const rel = sub(bodyState(key, d).r, bodyState(b.parent, d).r);
-      toRender(rel, this.tmp);
+      toRender(relativePosition(key, d, this.refFrame), this.tmp);
       pts.set([this.tmp.x, this.tmp.y, this.tmp.z], i * 3);
       us[i] = i / ORBIT_SAMPLES - 0.5;          // time offset from the centre, in periods
     }
@@ -458,21 +546,37 @@ export class OrreryScene {
   }
 
   private updateOrbits(tMs: number, now: number): void {
+    const start = performance.now();
     for (const b of BODIES) {
-      if (!b.parent || !b.periodDays) continue;
+      const days = orbitDays(b.key, this.refFrame);
+      if (!orbitOrigin(b.key, this.refFrame) || !days) continue;
       const o = this.orbits.get(b.key);
-      const period = b.periodDays * 86400e3;
+      const period = days * 86400e3;
       // Resample when the sim has moved 5 % of a period (the orbit precesses
       // and the drawn span should stay centred), at most twice a second per
-      // line and one line per frame (each costs about 3 ms), so time warp
-      // does not stall a frame.
+      // line and for at most 2 ms a frame (a planet's line costs about 3 ms,
+      // a moon's a tenth of that), so time warp does not stall a frame.
       if (o && (Math.abs(tMs - o.epochMs) < 0.05 * period || now - o.sampledAt < 500)) continue;
       const line = this.sampleOrbit(b.key, tMs);
       if (!line) continue;
       if (o) { this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose(); }
       this.scene.add(line);
       this.orbits.set(b.key, { line, epochMs: tMs, sampledAt: now });
-      return;
+      if (performance.now() - start > 2) return;
+    }
+  }
+
+  // Give orbits and distances about the Sun's centre or the SSB: the
+  // lines about the one change (the moons' stay about their planets).
+  setFrame(frame: Frame): void {
+    if (frame === this.refFrame) return;
+    this.refFrame = frame;
+    for (const b of BODIES) {
+      if (b.parent !== 'sun' && b.key !== 'sun') continue;
+      const o = this.orbits.get(b.key);
+      if (!o) continue;
+      this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose();
+      this.orbits.delete(b.key);
     }
   }
 
@@ -496,7 +600,14 @@ export class OrreryScene {
     const crafts = this.craftSource();
     this.lastCrafts = crafts;
 
-    for (const b of BODIES) this.states[b.key] = bodyState(b.key, date);
+    for (const b of BODIES) {
+      if (isPlanetMoon(b.key)) continue;                // with its planet
+      if (SYSTEMS.has(b.key)) Object.assign(this.states, systemStates(b.key, date));
+      else this.states[b.key] = bodyState(b.key, date);
+    }
+    // The other barycentres (the planet systems' came with them).
+    this.states.ssb = baryState('ssb', date);
+    this.states.emb = baryState('emb', date);
     if (this.earthResolved) this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
     this.updateOrbits(tMs, now);
 
@@ -524,13 +635,16 @@ export class OrreryScene {
     for (const b of BODIES) {
       toRender(sub(this.states[b.key].r, cam), this.meshes.get(b.key)!.position);
     }
+    for (const b of BARYS) toRender(sub(this.states[b.key].r, cam), this.baryPos.get(b.key)!);
+    if (this.refFrame === 'ssb') toRender(sub(ssbOfGiants(date), cam), this.ssbLinePos);
     const sunPos = this.meshes.get('sun')!.position;
     this.updateLighting(sunPos, cam, date);
     for (const b of BODIES) {
       const o = this.orbits.get(b.key);
-      if (o && b.parent) {
-        o.line.position.copy(this.meshes.get(b.parent)!.position);
-        (o.line.material as THREE.ShaderMaterial).uniforms.now.value = (tMs - o.epochMs) / (b.periodDays! * 86400e3);
+      const origin = orbitOrigin(b.key, this.refFrame), days = orbitDays(b.key, this.refFrame);
+      if (o && origin && days) {
+        o.line.position.copy(origin === 'ssb' ? this.ssbLinePos : this.meshes.get(origin)!.position);
+        (o.line.material as THREE.ShaderMaterial).uniforms.now.value = (tMs - o.epochMs) / (days * 86400e3);
       }
     }
 
@@ -698,7 +812,7 @@ export class OrreryScene {
       const rPx = (b.radiusKm / UNIT_KM / p.length()) * pxPerRad;
       if (rPx > 4) discs.push([((ndc.x + 1) / 2) * w, ((1 - ndc.y) / 2) * h, rPx, p.length()]);
     }
-    const named: { el: HTMLDivElement; x: number; y: number; key: BodyKey; r: number }[] = [];
+    const named: { el: HTMLDivElement; x: number; y: number; key: FocusKey; r: number }[] = [];
     for (const b of BODIES) {
       const el = this.labels.get(b.key)!;
       const p = this.meshes.get(b.key)!.position;
@@ -728,6 +842,22 @@ export class OrreryScene {
       if (radiusPx > 3) this.loadSurfaces(b.key);
       el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null);
     }
+    // Barycentres: hidden while they sit on their body's marker (unless
+    // focused). They are drawn over discs, the Sun's or a planet's, that
+    // they lie inside: the SSB is often within the Sun.
+    for (const b of BARYS) {
+      const el = this.baryLabels.get(b.key)!;
+      const ndc = this.tmp.copy(this.baryPos.get(b.key)!).project(this.camera);
+      if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
+      const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
+      const focused = b.key === this.focus && this.focusCraftId === null;
+      const ps = screen.get(b.of);
+      if (!focused && ps && Math.hypot(x - ps[0], y - ps[1]) < 14) { el.style.display = 'none'; continue; }
+      el.style.display = '';
+      el.style.transform = `translate(${x}px, ${y}px)`;
+      el.classList.toggle('focused', focused);
+      named.push({ el, x, y, key: b.key, r: 0 });
+    }
     // Names that would overprint one another: the focus keeps its name, then
     // the larger body; the smaller keeps only its marker (its name shows on
     // hover). Boxes are estimated from the name's length at 9 px Michroma.
@@ -750,6 +880,7 @@ export class OrreryScene {
     this.journeyLayer.dispose();
     this.smallBodies.dispose();
     for (const el of this.labels.values()) el.remove();
+    for (const el of this.baryLabels.values()) el.remove();
     this.post.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();

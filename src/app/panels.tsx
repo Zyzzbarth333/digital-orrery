@@ -8,15 +8,17 @@
 // times a second, and the header and rail redraw only when what they show
 // changes.
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { useClock, useClockValue, type SimClock } from './clock';
 import type { Mission } from './mission';
-import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
-import { bodyState } from '../scene/OrreryScene';
+import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf, type BaryKey, type BodyKey, type FocusKey } from '../scene/catalogue';
+import { baryState, bodyState, type Frame } from '../scene/OrreryScene';
+import { baryGm } from '../physics/barycentres.js';
 import { MU_SUN } from '../physics/bodies.js';
+import { helioStateEcl, fromDe442 } from '../physics/ephemeris.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
-import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears, sunFromBarycentreKm } from '../physics/bodyfacts.js';
+import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -33,6 +35,7 @@ export const RATES: { label: string; rate: number }[] = [
 ];
 
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
+const sub3 = (a: number[], b: number[]) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 // Formatters are built once: toLocaleString builds a new one on every call,
 // and the plate formats a dozen numbers ten times a second.
 const SIG10 = new Intl.NumberFormat('en-AU', { maximumSignificantDigits: 10 });
@@ -194,30 +197,90 @@ const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; l
   { key: 'comets', label: 'Comets', colour: '#73dbf2', title: 'Periodic comets (orbits from their last apparition for most)' },
 ];
 
-export function BodyRail({ clock, focus, onSelect, smallBodies, onSmallBodies }: { clock: SimClock; focus: BodyKey | null; onSelect: (k: BodyKey) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void }) {
+// The moons each planet has in the rail (Earth's Moon is always shown).
+const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
+for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
+
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
+  // Moons show none (they sit at their planet's). In the SSB frame the
+  // distances are from the solar system barycentre, the Sun's included.
   const dists = useClockValue(clock, (s) => {
     const date = new Date(s.timeMs);
-    return BODIES.map((b) => (b.key === 'sun' ? '' : (norm(bodyState(b.key, date).r) / AU_KM).toFixed(3))).join(',');
+    const o = frame === 'ssb' ? baryState('ssb', date).r : [0, 0, 0];
+    return BODIES.map((b) => ((b.key === 'sun' && frame === 'sun') || isPlanetMoon(b.key) ? ''
+      : (norm(sub3(bodyState(b.key, date).r, o)) / AU_KM).toFixed(3))).join(',');
   }).split(',');
+  // A planet's moons are listed under it, two to a row, while it, one of
+  // them or its barycentre is in view; the chosen row is scrolled into view.
+  const open = focus ? (focus === 'moon' ? 'earth' : systemOf(focus)) : null;
+  // A barycentre's row: under the Sun and Earth, or first in a planet's grid.
+  const baryRow = (k: BaryKey, chip: boolean) => (
+    <li key={k}>
+      <button className={`body-row ${chip ? 'moon-chip' : 'child'}`} aria-current={k === focus} onClick={() => onSelect(k)}
+        title={`${BARY_BY_KEY[k].name}: the centre of mass of ${BARY_BY_KEY[k].members}`}>
+        <span className="lamp-sq bary" />
+        <span>Barycentre</span>
+        {!chip && <span className="dist" />}
+      </button>
+    </li>
+  );
+  const baryOf = (k: BodyKey) => BARYS.find((b) => b.of === k)?.key;
+  const list = useRef<HTMLUListElement>(null);
+  // After layout, so a grid that has just opened is measured.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' }));
+    return () => cancelAnimationFrame(id);
+  }, [focus]);
+  const lamp = (c: number) => <span className="lamp-sq" style={{ background: `#${c.toString(16).padStart(6, '0')}` }} />;
   return (
     <nav className="rail screw" aria-labelledby="bodies-label">
       <span className="pnl" aria-hidden="true">L1</span>
       <p className="rail-mark" aria-hidden="true">digital-orrery</p>
-      <h2 className="strip split" id="bodies-label"><span>Bodies</span><span title="distance from the Sun">AU</span></h2>
-      <ul className="body-list">
+      <h2 className="strip split" id="bodies-label"><span>Bodies</span>
+        {onFrame
+          ? <button className="frame-key" aria-pressed={frame === 'ssb'} onClick={() => onFrame(frame === 'sun' ? 'ssb' : 'sun')}
+            title={frame === 'sun' ? 'Distances and orbits about the Sun\'s centre. Choose to give them about the solar system barycentre' : 'Distances and orbits about the solar system barycentre. Choose to give them about the Sun\'s centre'}>
+            AU · {frame === 'sun' ? 'Sun' : 'SSB'}</button>
+          : <span title="distance from the Sun">AU</span>}
+      </h2>
+      <ul className="body-list" ref={list}>
         {BODIES.map((b, i) => {
-          const r = b.key === 'sun' ? null : Number(dists[i]);
-          return (
+          if (isPlanetMoon(b.key)) return null;
+          const child = b.parent !== null && b.parent !== 'sun';
+          const r = (b.key === 'sun' && frame === 'sun') || child ? null : Number(dists[i]);
+          const moons = MOON_COUNT[b.key];
+          const shut = moons !== undefined && open !== b.key;
+          return [
             <li key={b.key}>
-              <button className={`body-row${b.parent === 'earth' ? ' child' : ''}`} aria-current={b.key === focus}
-                onClick={() => onSelect(b.key)} title={r === null ? b.name : `${b.name}: ${r.toFixed(3)} AU from the Sun`}>
-                <span className="lamp-sq" style={{ background: `#${b.colour.toString(16).padStart(6, '0')}` }} />
-                <span>{b.name}</span>
-                <span className="dist">{r === null || b.parent === 'earth' ? '' : r.toFixed(2)}</span>
+              <button className={`body-row${child ? ' child' : ''}`} aria-current={b.key === focus}
+                aria-expanded={moons !== undefined ? !shut : undefined}
+                onClick={() => onSelect(b.key)}
+                title={child ? `${b.name}, moon of ${BODY_BY_KEY[b.parent!].name}` : r === null ? b.name : `${b.name}: ${r.toFixed(3)} AU from the ${frame === 'sun' ? 'Sun' : 'solar system barycentre'}${shut ? `; choose to list its ${moons} moon${moons === 1 ? '' : 's'}` : ''}`}>
+                {lamp(b.colour)}
+                <span>{b.name}{shut && <span className="moon-count" aria-label={`, ${moons} moons`}>+{moons}</span>}</span>
+                <span className="dist">{r === null ? '' : r.toFixed(2)}</span>
               </button>
-            </li>
-          );
+            </li>,
+            // The Sun's and Earth's barycentres (after the Moon) as rows.
+            b.key === 'sun' && open === 'sun' && baryRow('ssb', false),
+            b.key === 'moon' && open === 'earth' && baryRow('emb', false),
+            moons !== undefined && !shut && (
+              <li key={`${b.key}-moons`}>
+                <ul className="moon-grid" aria-label={`Moons and barycentre of ${b.name}`}>
+                  {baryOf(b.key) && baryRow(baryOf(b.key)!, true)}
+                  {BODIES.filter((m) => m.parent === b.key).map((m) => (
+                    <li key={m.key}>
+                      <button className="body-row moon-chip" aria-current={m.key === focus} onClick={() => onSelect(m.key)} title={`${m.name}, moon of ${b.name}`}>
+                        {lamp(m.colour)}
+                        <span>{m.name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ),
+          ];
         })}
       </ul>
       {smallBodies && onSmallBodies && (
@@ -270,6 +333,7 @@ function Credits() {
     if (m.stars) items.push(['Sky', m.stars.credit]);
   }
   items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance']);
+  items.push(['Moons', 'JPL Solar System Dynamics, planetary satellite mean elements, and JPL Horizons; the Galilean moons from astronomy-engine']);
   // CC BY 4.0 asks for a link to the licence and, where practical, to the
   // material; the maps' own credit lines name it.
   const ccLink = (
@@ -277,6 +341,7 @@ function Credits() {
       used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</>
   );
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
+  items.push(['Equation font', 'DejaVu Math TeX Gyre, from the DejaVu fonts: Bitstream Vera licence, its DejaVu and math additions public domain']);
   return (
     <details className="credits">
       <summary>Credits</summary>
@@ -294,6 +359,8 @@ interface Row { label: string; value: string; unit?: string; alt?: string; src: 
 export const HINTS: Record<string, string> = {
   'Motion': 'How this body moves in the app: planets follow NASA ephemerides exactly ("on rails"); spacecraft are integrated under gravity step by step',
   'From the Sun': 'Distance from the centre of the Sun',
+  'From the SSB': 'Distance from the solar system barycentre, the centre of mass of everything in the solar system',
+  'GM within': 'G times the total mass of everything this barycentre is the centre of',
   'Speed': 'Speed relative to the Sun',
   'From Earth': 'Distance from the centre of Earth',
   'Light time': 'How long light (or a radio signal) takes to cross that distance',
@@ -340,14 +407,14 @@ function Readout({ rows }: { rows: Row[] }) {
 // planner and the rocket moved to the flight console (console.tsx).
 // covered: the flight console lies over the plate (up to 1680 px wide), so
 // it leaves the tab order and stops re-rendering.
-export function Plate({ clock, focus, covered = false }: { clock: SimClock; focus: BodyKey; covered?: boolean }) {
+export function Plate({ clock, focus, frame = 'sun', covered = false }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean }) {
   const [collapsed, setCollapsed] = useState(true);
   return (
     <aside className="plate screw" aria-label="Target readouts" data-collapsed={collapsed} inert={covered || undefined}>
       <span className="pnl" aria-hidden="true">R1</span>
       <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show data' : 'Hide data'}</button>
       <div className="tab-panel">
-        {!covered && <DataPlate clock={clock} focus={focus} />}
+        {!covered && (isBary(focus) ? <BaryPlate clock={clock} bary={focus} frame={frame} /> : <DataPlate clock={clock} focus={focus} frame={frame} />)}
       </div>
     </aside>
   );
@@ -358,7 +425,7 @@ function period(days: number): { value: string; unit: string } {
   return days < 2 ? { value: (days * 24).toFixed(3), unit: 'h' } : { value: fmtGroup(days, 2), unit: 'd' };
 }
 
-export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey }) {
+export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; focus: BodyKey; frame?: Frame }) {
   const s = useClock(clock);
   const b = BODY_BY_KEY[focus];
   const date = new Date(s.timeMs);
@@ -368,27 +435,43 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
   const fromEarth = norm([st.r[0] - earth.r[0], st.r[1] - earth.r[1], st.r[2] - earth.r[2]]);
   const ownGm = b.planetGm ?? b.gm;
   const rows: Row[] = [];
+  // The Earth and the Moon come from DE442's table where it covers the date
+  // (2000-2050), every other body from astronomy-engine.
+  const eph = fromDe442(focus, date) ? 'DE442' : 'AE';
+  const pm = b.moon;
+  // In the SSB frame, distance and speed are the barycentre's, and the Sun
+  // moves.
+  const ssb = frame === 'ssb' ? baryState('ssb', date) : null;
   rows.push(focus === 'sun'
-    ? { label: 'Motion', value: 'Fixed', alt: 'the centre of the frame', src: 'frame', derived: true, info: 'frame' }
-    : { label: 'Motion', value: 'Ephemeris', alt: 'on rails, not integrated', src: 'AE', info: 'ephemeris' });
-  if (focus !== 'sun') {
-    rows.push({ label: 'From the Sun', value: (rSun / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(rSun)} km`, src: 'AE', info: 'sun-distance' });
-    rows.push({ label: 'Speed', value: norm(st.v).toFixed(3), unit: 'km/s', alt: 'heliocentric', src: 'AE', info: 'sun-speed' });
+    ? ssb
+      ? { label: 'Motion', value: 'About the SSB', alt: 'swung by the giant planets', src: 'AE', info: 'ssb-offset' }
+      : { label: 'Motion', value: 'Fixed', alt: 'the centre of the frame', src: 'frame', derived: true, info: 'frame' }
+    : pm
+      ? { label: 'Motion', value: 'Mean orbit', alt: 'about its planet, on rails', src: pm.elements.startsWith('JPL') ? 'JPL' : 'AE', info: 'moon-orbit', detail: pm.elements }
+      : { label: 'Motion', value: 'Ephemeris', alt: 'on rails, not integrated', src: eph, info: 'ephemeris' });
+  if (ssb) {
+    const r = norm(sub3(st.r, ssb.r)), v = norm(sub3(st.v, ssb.v));
+    rows.push({ label: 'From the SSB', value: (r / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(r)} km`, src: eph, info: 'ssb-distance' });
+    rows.push({ label: 'Speed', value: v.toFixed(focus === 'sun' ? 4 : 3), unit: 'km/s', alt: 'barycentric', src: eph, info: 'ssb-speed' });
+  } else if (focus !== 'sun') {
+    rows.push({ label: 'From the Sun', value: (rSun / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(rSun)} km`, src: eph, info: 'sun-distance' });
+    rows.push({ label: 'Speed', value: norm(st.v).toFixed(3), unit: 'km/s', alt: 'heliocentric', src: eph, info: 'sun-speed' });
   }
   if (focus !== 'earth') {
-    rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'AE', info: 'earth-distance' });
+    rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: focus === 'moon' ? eph : 'AE', info: 'earth-distance' });
     const lt = fromEarth / C_KM_S;
     rows.push({
       label: 'Light time', value: lt < 60 ? lt.toFixed(3) : lt < 3600 ? (lt / 60).toFixed(2) : (lt / 3600).toFixed(3),
       unit: lt < 60 ? 's' : lt < 3600 ? 'min' : 'h', src: 'd/c', derived: true, info: 'light-time',
     });
   }
-  rows.push({ label: 'Mean radius', value: fmtGroup(b.radiusKm, b.radiusKm < 10000 ? 1 : 0), unit: 'km', src: 'IAU', info: 'mean-radius' });
+  rows.push(pm
+    ? { label: 'Mean radius', value: fmtGroup(b.radiusKm, b.radiusKm < 100 ? 2 : 1), unit: 'km', src: 'JPL', info: 'moon-radius', detail: `NAIF ${pm.naif}${pm.radiusNote ? `: the sphere of equal volume to ${pm.radiusNote.replace('volume-equivalent of ', '')} km` : ''}` }
+    : { label: 'Mean radius', value: fmtGroup(b.radiusKm, b.radiusKm < 10000 ? 1 : 0), unit: 'km', src: 'IAU', info: 'mean-radius' });
   if (b.gm) {
-    rows.push({
-      label: b.planetGm ? 'GM, system' : 'GM', value: sig10(b.gm), unit: 'km³/s²', src: 'DE442', info: 'gm',
-      detail: b.gmNote,
-    });
+    rows.push(pm
+      ? { label: 'GM', value: sig10(b.gm), unit: 'km³/s²', src: 'JPL', info: 'moon-gm', detail: b.gmNote }
+      : { label: b.planetGm ? 'GM, system' : 'GM', value: sig10(b.gm), unit: 'km³/s²', src: 'DE442', info: 'gm', detail: b.gmNote });
   }
   if (b.planetGm) {
     const [naif, kernel] = (b.planetGmNote ?? '').split(', ');
@@ -404,24 +487,35 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
     rows.push({ label: 'Escape speed', value: escapeSpeed(ownGm, b.radiusKm).toFixed(focus === 'sun' ? 1 : 3), unit: 'km/s', alt: 'from the surface', src: '√2GM/R', derived: true, info: 'escape-speed' });
   }
   if (b.geometricAlbedo) {
-    rows.push({ label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(3), src: 'NSSDCA', info: 'albedo' });
+    rows.push(pm
+      ? { label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(2), src: 'JPL', info: 'moon-albedo', detail: `NAIF ${pm.naif}` }
+      : { label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(3), src: 'NSSDCA', info: 'albedo' });
   }
   if (focus !== 'sun' && b.gm) {
     // The period of the osculating orbit at this instant, from the state:
     // a = 1 / (2/r - v^2/mu), with mu = the Sun's GM plus the body's (the
     // Moon's about Earth: Earth's plus the Moon's).
-    const about = focus === 'moon' ? bodyState('earth', date) : { r: [0, 0, 0], v: [0, 0, 0] };
-    const rr = norm([st.r[0] - about.r[0], st.r[1] - about.r[1], st.r[2] - about.r[2]]);
-    const vv = norm([st.v[0] - about.v[0], st.v[1] - about.v[1], st.v[2] - about.v[2]]);
-    const mu = (focus === 'moon' ? BODY_BY_KEY.earth.gm! : MU_SUN) + b.gm;
+    // A moon's about its planet's centre, with the planet's own GM; a
+    // planet's from its system barycentre (where the scene draws the planet
+    // at its centre, which its moons swing about), with the system's GM.
+    const host = b.parent !== 'sun' && b.parent ? BODY_BY_KEY[b.parent] : null;
+    const about = host ? bodyState(host.key, date) : { r: [0, 0, 0], v: [0, 0, 0] };
+    const o = !host && b.planetGm ? (helioStateEcl(focus, date) as { r: number[]; v: number[] }) : st;
+    const rr = norm([o.r[0] - about.r[0], o.r[1] - about.r[1], o.r[2] - about.r[2]]);
+    const vv = norm([o.v[0] - about.v[0], o.v[1] - about.v[1], o.v[2] - about.v[2]]);
+    const mu = (host ? (host.planetGm ?? host.gm!) : MU_SUN) + b.gm;
     const a = 1 / (2 / rr - (vv * vv) / mu);
     const T = 2 * Math.PI * Math.sqrt(a ** 3 / mu) / 86400;
-    rows.push({ label: 'Orbital period', value: fmtGroup(T, 3), unit: 'd', src: '2-body', derived: true, info: 'orbital-period', detail: `of the osculating orbit about ${focus === 'moon' ? 'Earth' : 'the Sun'} at this instant (a = ${fmtGroup(a, 0)} km); the real orbit is perturbed` });
+    rows.push({ label: 'Orbital period', value: fmtGroup(T, 3), unit: 'd', src: '2-body', derived: true, info: 'orbital-period', detail: `of the osculating orbit about ${host ? host.name : 'the Sun'} at this instant (a = ${fmtGroup(a, 0)} km); the real orbit is perturbed` });
   }
   // How it turns (the IAU rotation model, bodyfacts.js): the sidereal
   // period, the solar day where it differs by more than 0.1 %, and the tilt
   // of the spin axis to the orbit (over 90°: it turns backwards).
-  if (focus !== 'sun') {
+  if (pm) {
+    // The planets' moons all turn once each orbit (moons.js, moonAxesEqj):
+    // the period is the orbit's, the axis along the orbit's pole.
+    rows.push({ label: 'Rotation', ...period(b.periodDays!), alt: `synchronous: once each orbit of ${BODY_BY_KEY[b.parent!].name}`, src: 'JPL', info: 'moon-rotation' });
+  } else if (focus !== 'sun') {
     const about = focus === 'moon' ? earth : null;
     const rel = about ? { r: st.r.map((x, i) => x - about.r[i]), v: st.v.map((x, i) => x - about.v[i]) } : st;
     const tilt = obliquity(focus, date, rel);
@@ -451,11 +545,57 @@ export function DataPlate({ clock, focus }: { clock: SimClock; focus: BodyKey })
     rows.push({ label: 'At the equator', ...period(sunRotationDays(0)), alt: 'sidereal', src: 'HHF 1990', info: 'sun-differential' });
     rows.push({ label: 'Near the poles', ...period(sunRotationDays(90)), alt: 'sidereal, the fit carried to 90°', src: 'HHF 1990', info: 'sun-differential' });
     rows.push({ label: 'Axial tilt', value: obliquity('sun', date).toFixed(2), unit: '°', alt: 'its equator to the ecliptic', src: 'IAU', derived: true, info: 'sun-tilt' });
-    const ssb = sunFromBarycentreKm(date);
-    rows.push({ label: 'From the barycentre', value: fmtGroup(ssb), unit: 'km', alt: `${(ssb / b.radiusKm).toFixed(2)} solar radii, from its centre`, src: 'AE', derived: true, info: 'barycentre' });
+    // The SSB from every planet (barycentres.js, within 150 km of Horizons),
+    // not astronomy-engine's four giants; in the SSB frame the rows above
+    // already give it.
+    if (!ssb) {
+      const d = norm(baryState('ssb', date).r);
+      rows.push({ label: 'From the SSB', value: fmtGroup(d), unit: 'km', alt: `${(d / b.radiusKm).toFixed(2)} solar radii, from its centre`, src: 'AE', derived: true, info: 'ssb-offset' });
+    }
     rows.push({ label: 'Galactic orbit', value: fmtGroup(galacticYears() / 1e6, 0), unit: 'million yr', alt: 'once round the Galaxy\'s centre', src: 'VLBA', derived: true, info: 'galactic-orbit' });
   }
-  const kind = focus === 'sun' ? 'Star, at the centre of the frame' : focus === 'moon' ? 'Moon of Earth' : focus === 'pluto' ? 'Dwarf planet' : 'Planet';
+  const kind = focus === 'sun' ? (ssb ? 'Star, swinging about the barycentre' : 'Star, at the centre of the frame') : b.parent && b.parent !== 'sun' ? `Moon of ${BODY_BY_KEY[b.parent].name}` : focus === 'pluto' ? 'Dwarf planet' : 'Planet';
+  return (
+    <div className="tab-body">
+      <div className="plate-head">
+        <h2>{b.name}</h2>
+        <p className="engraved">{kind}</p>
+      </div>
+      <p className="strip" aria-hidden="true">Readout · source</p>
+      <Readout rows={rows} />
+      <div className="plate-notes">
+        <p>Each tag names its value&apos;s source; a dashed one is worked out here. Hover, focus or tap a tag for its equation.</p>
+      </div>
+    </div>
+  );
+}
+
+// The plate for a barycentre: where it is, what it is the centre of, and
+// how far its body's centre sits from it.
+export function BaryPlate({ clock, bary, frame = 'sun' }: { clock: SimClock; bary: BaryKey; frame?: Frame }) {
+  const s = useClock(clock);
+  const b = BARY_BY_KEY[bary];
+  const date = new Date(s.timeMs);
+  const st = baryState(bary, date);
+  const earth = bodyState('earth', date);
+  const rows: Row[] = [];
+  rows.push({ label: 'Motion', value: 'Barycentre', alt: `the centre of mass of ${b.members}`, src: bary === 'emb' ? 'DE442' : 'AE', info: 'bary-what' });
+  const ssb = frame === 'ssb' && bary !== 'ssb' ? baryState('ssb', date) : null;
+  const o = ssb ? ssb : { r: [0, 0, 0], v: [0, 0, 0] };
+  const r = norm(sub3(st.r, o.r)), v = norm(sub3(st.v, o.v));
+  rows.push({ label: ssb ? 'From the SSB' : 'From the Sun', value: (r / AU_KM).toFixed(6), unit: 'AU', alt: `${fmtGroup(r)} km`, src: 'AE', info: ssb ? 'ssb-distance' : 'sun-distance' });
+  rows.push({ label: 'Speed', value: v.toFixed(bary === 'ssb' ? 4 : 3), unit: 'km/s', alt: ssb ? 'barycentric' : 'heliocentric', src: 'AE', info: ssb ? 'ssb-speed' : 'sun-speed' });
+  const fromEarth = norm(sub3(st.r, earth.r));
+  rows.push({ label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'AE', info: 'earth-distance' });
+  rows.push({ label: 'GM within', value: sig10(baryGm(bary)), unit: 'km³/s²', alt: b.members, src: 'DE442', info: 'bary-gm' });
+  // How far the body it is listed with sits from it.
+  const body = BODY_BY_KEY[b.of];
+  const off = norm(sub3(bodyState(b.of, date).r, st.r));
+  rows.push({
+    label: `${body.name}'s centre`, value: fmtGroup(off, off < 100 ? 3 : 0), unit: 'km', alt: `${(off / body.radiusKm).toFixed(3)} ${body.name} radii from it${off > body.radiusKm ? ', outside the body' : ''}`,
+    src: bary === 'ssb' ? 'AE' : bary === 'emb' ? 'DE442' : 'JPL', derived: true, info: bary === 'ssb' ? 'ssb-offset' : 'bary-offset',
+  });
+  const kind = bary === 'ssb' ? 'Centre of mass of the solar system' : bary === 'emb' ? 'Centre of mass of Earth and the Moon' : `Centre of mass of the ${body.name} system`;
   return (
     <div className="tab-body">
       <div className="plate-head">

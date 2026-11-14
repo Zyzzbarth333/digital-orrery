@@ -77,13 +77,19 @@
     }
   },
   "stars": {
-    "map": "stars/milky-way.webp",
+    "map": "stars/milky-way-8k.webp",
     "raAtLeftDeg": 180.0,
     "raIncreasesRight": false,
     "gain": 1.0,
-    "credit": "Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020; Gaia DR2: ESA/Gaia/DPAC. Stars: the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC.",
+    "detail": {
+      "tiles": "stars/milky-way-16k/{row}-{col}.webp",
+      "width": 16384,
+      "tile": 1024,
+      "gutter": 2
+    },
     "points": "stars/hipparcos.bin",
+    "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000",
     "pointCount": 83392,
-    "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000"
+    "credit": "Milky Way: NASA/Goddard Space Flight Center Scientific Visualization Studio, Deep Star Maps 2020 (SVS 4851, Milky Way layer at 8k and 16k); Gaia DR2: ESA/Gaia/DPAC. Stars: the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC."
   }
 }

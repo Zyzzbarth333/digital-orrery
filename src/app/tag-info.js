@@ -92,6 +92,67 @@ export const TAG_INFO = {
     tex: [],
     source: 'NASA NSSDCA planetary fact sheets',
   },
+  // The barycentres (barycentres.js) and the SSB frame
+  'bary-what': {
+    what: 'A centre of mass: the point the bodies it holds all orbit together. The ephemeris gives each planet system as its barycentre; the solar system\'s is where the whole system balances.',
+    tex: ['\\mathbf r_\\text{B} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\sum_i \\mu_i}'],
+    where: '𝐫ᵢ: heliocentric positions, μᵢ: GMs (DE442). Mars to Pluto: astronomy-engine\'s planet positions, which are these barycentres; Earth and the Moon: DE442; the SSB: the Sun, every planet system, Earth, the Moon and Pluto, within 150 km of JPL Horizons',
+    source: 'DE442 GMs; astronomy-engine; JPL Horizons for the checks · docs/frontend/barycentres.md',
+  },
+  'bary-gm': {
+    what: 'G times the mass of everything this barycentre is the centre of.',
+    tex: ['\\mu = \\sum_i \\mu_i'],
+    source: 'JPL DE442 GMs (gm_de442.tpc) · docs/physics/ephemerides-and-gm.md',
+  },
+  'bary-offset': {
+    what: 'How far the body\'s centre is from the barycentre: its moons pull it round this point.',
+    tex: ['\\mathbf r_\\text{planet} - \\mathbf r_\\text{B} = -\\sum_i \\frac{\\mu_i}{\\mu_\\text{system}}\\,\\mathbf r_i'],
+    where: '𝐫ᵢ: each moon about the planet\'s centre; for Earth, the Moon from DE442',
+    source: 'moons.js and DE442 · docs/frontend/moons.md',
+  },
+  'ssb-offset': {
+    what: 'How far the Sun\'s centre is from the solar system barycentre. The Sun wanders round it, mostly with Jupiter and Saturn, often by more than its own radius.',
+    tex: ['\\mathbf r_\\text{SSB} = \\frac{\\sum_i \\mu_i\\,\\mathbf r_i}{\\mu_\\odot + \\sum_i \\mu_i}'],
+    where: '𝐫ᵢ: heliocentric positions of every planet system, Earth, the Moon and Pluto; within 150 km of JPL Horizons over 2000–2050',
+    source: 'DE442 GMs; astronomy-engine and DE442 positions · docs/frontend/barycentres.md',
+  },
+  'ssb-distance': {
+    what: 'Distance from the solar system barycentre, the centre of mass of the Sun and everything that orbits it.',
+    tex: ['d = |\\mathbf r - \\mathbf r_\\text{SSB}|'],
+    source: 'barycentres.js · docs/frontend/barycentres.md',
+  },
+  'ssb-speed': {
+    what: 'Speed relative to the solar system barycentre.',
+    tex: ['v = |\\mathbf v - \\mathbf v_\\text{SSB}|'],
+    source: 'barycentres.js · docs/frontend/barycentres.md',
+  },
+  // The planets' major moons (moons.js, moons.data.js)
+  'moon-orbit': {
+    what: 'Where the moon is about its planet: astronomy-engine\'s theory for Jupiter\'s four large moons; for the others, a precessing ellipse from JPL\'s mean elements, with corrections fitted to JPL Horizons.',
+    tex: ['M = M_0 + \\frac{360°\\,t}{P} + \\delta M + \\delta n\\,t', '\\omega = \\omega_0 + \\delta\\omega + \\frac{360°\\,t}{P_\\omega}', '\\Omega = \\Omega_0 + \\delta\\Omega \\mp \\frac{360°\\,t}{P_\\Omega}'],
+    where: 't: days from J2000; the ellipse lies in the moon\'s Laplace plane (Mars, Saturn) or its planet\'s equator; the planet is drawn at its centre, offset from its system barycentre by its moons\' pull',
+    source: 'JPL SSD planetary satellite mean elements; JPL Horizons; Lieske\'s E5 theory via astronomy-engine · docs/frontend/moons.md',
+  },
+  'moon-radius': {
+    what: 'The radius of a sphere of the same volume as the moon.',
+    tex: [],
+    source: 'the moon\'s JPL Horizons object page',
+  },
+  'moon-gm': {
+    what: 'G times the moon\'s mass. Orbits depend on this product, which tracking measures far better than G or the mass alone.',
+    tex: ['\\mu = GM'],
+    source: 'the moon\'s JPL Horizons object page (G times the mass where it gives no GM)',
+  },
+  'moon-albedo': {
+    what: 'How bright the full disc is, against a white disc of the same size.',
+    tex: [],
+    source: 'the moon\'s JPL Horizons object page',
+  },
+  'moon-rotation': {
+    what: 'Time for one turn against the stars. Tides have locked the moon: it turns once each orbit, keeping one face to its planet.',
+    tex: ['P_\\text{rot} = P_\\text{orbit}'],
+    source: 'JPL SSD planetary satellite mean elements (the period) · docs/frontend/moons.md',
+  },
   // panels.tsx: a = 1 / (2/rr - vv^2/mu), T = 2 pi sqrt(a^3/mu)
   'orbital-period': {
     what: 'Time for one orbit, from the osculating orbit at this instant: the conic the body would follow if only its primary pulled.',
