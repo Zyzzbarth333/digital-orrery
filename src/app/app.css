@@ -608,3 +608,51 @@ details.section[open] > summary::after { content: '−'; }
 /* The guides never scroll: five short rows, the body list gives way. */
 .body-list.guides { flex: none; overflow: visible; padding-bottom: var(--u); }
 .body-list.guides .body-row { height: 26px; }
+
+/* ---------------- the journey planner (journey-panel.tsx) ---------------- */
+.journey { display: flex; flex-direction: column; }
+.journey > .strip { margin: calc(2 * var(--u)) calc(-2.5 * var(--u)) var(--u); }
+.journey > .strip:first-child { margin-top: 0; }
+.waypoints { list-style: none; margin: var(--u) 0 0; padding: 0; display: flex; flex-direction: column; }
+.waypoint { border-top: var(--hair) solid var(--seam-strong); padding: var(--u) 0; }
+.waypoint:last-child { border-bottom: var(--hair) solid var(--seam-strong); }
+.waypoint.bad .wp-n { background: var(--warn); color: var(--key-ink); }
+.wp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.8fr) auto; gap: 6px; align-items: center; }
+.wp-n { width: 20px; height: 20px; display: grid; place-items: center; font: 10px var(--mono); background: var(--window); color: var(--phosphor); border-radius: 2px; }
+.wp-keys { display: flex; gap: 3px; }
+.wp-keys .key.small { padding: 0 6px; }
+.slide { display: grid; grid-template-columns: auto minmax(0, 1fr) 8.5em; gap: 6px; align-items: center; margin: 2px 0 4px; }
+.slide .engraved { font-size: 10px; }
+.slide input[type='range'] { width: 100%; accent-color: var(--key); }
+.readout.compact th, .readout.compact td { padding: 5px 0; }
+.readout.options th, .readout.options td { padding: 5px 4px 5px 0; }
+.readout.options thead th { font-size: 10px; }
+.readout.options th[scope='row'] { text-transform: none; letter-spacing: 0.04em; font: 11px var(--sans); color: var(--ink); width: auto; }
+.readout.options th .alt { display: block; color: var(--ink-muted); font-size: 10px; margin-top: 2px; }
+.readout.options tr.best th[scope='row'] { color: var(--engrave); }
+.readout.options td.value { padding-right: 6px; white-space: nowrap; }
+.readout .bad { color: var(--warn); }
+.add-row { margin-top: var(--u); }
+.add-row .input.select { flex: 1 1 7em; min-width: 0; }
+.burn-row th { font: 11px var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink-muted); }
+
+/* The stage stack: each stage a sheet-metal block, its dry mass the dark
+   band at its foot, the payload in a readout window on top. */
+.stage-stack { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: calc(1.5 * var(--u)); align-items: end; margin-top: var(--u); }
+.stack { margin: 0; display: flex; flex-direction: column; align-items: stretch; }
+.stack-payload { background: var(--window); color: var(--phosphor); font: 10px var(--sans); text-align: center; padding: 4px 2px; border-radius: 2px 2px 0 0; margin: 0 14px; }
+.stack-stage { position: relative; background: linear-gradient(90deg, var(--panel-low), var(--panel-raised) 45%, var(--panel-low)); border: var(--hair) solid var(--seam-strong); border-top-width: 0; display: flex; align-items: center; justify-content: center; }
+.stack-stage:first-of-type { border-top-width: var(--hair); }
+.stack-stage i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--seam-strong); min-height: 2px; }
+.stack-stage span { position: relative; font: 10px var(--display); letter-spacing: 0.14em; color: var(--engrave); }
+.stack figcaption { font-size: 10px; color: var(--ink-muted); margin-top: 4px; }
+
+/* Burn nodes in the sky: an open square reticle with a centre dot (not the
+   craft's diamond), the burn and its delta-v engraved in a window tag. */
+.burn-node { position: absolute; left: 0; top: 0; pointer-events: none; display: flex; align-items: center; gap: 6px; margin: -6px 0 0 -6px; white-space: nowrap; font: 10px var(--display); letter-spacing: 0.1em; text-transform: uppercase; }
+.burn-node .reticle { position: relative; width: 12px; height: 12px; box-sizing: border-box; border: 1.5px solid var(--phosphor); }
+.burn-node .reticle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; margin: -1px 0 0 -1px; background: var(--phosphor); }
+.burn-node .dv { color: var(--phosphor-dim); background: rgba(18, 17, 16, 0.72); padding: 1px 5px; border-radius: 2px; }
+.burn-node.capture .reticle, .burn-node.land .reticle { border-color: var(--key-lit); }
+.burn-node.capture .reticle::after, .burn-node.land .reticle::after { background: var(--key-lit); }
+.burn-node.flyby .reticle { border-style: dashed; }

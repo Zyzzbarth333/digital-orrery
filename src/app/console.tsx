@@ -12,13 +12,14 @@ import { PlannerPanel } from './planner-panel';
 import { RocketPanel } from './rocket-panel';
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
+import type { JourneyStore } from './journey';
 
 export type ConsoleTab = 'mission' | 'planner' | 'rocket';
 
 const TABS: [ConsoleTab, string][] = [['mission', 'Mission'], ['planner', 'Planner'], ['rocket', 'Rocket']];
 
-export function FlightConsole({ clock, mission, tab, setTab, onClose, onFocusCraft, autoPlan = null }: {
-  clock: SimClock; mission: Mission; tab: ConsoleTab; setTab: (t: ConsoleTab) => void; onClose: () => void;
+export function FlightConsole({ clock, mission, journey, tab, setTab, onClose, onFocusCraft, autoPlan = null }: {
+  clock: SimClock; mission: Mission; journey: JourneyStore; tab: ConsoleTab; setTab: (t: ConsoleTab) => void; onClose: () => void;
   onFocusCraft: (id: number) => void; autoPlan?: string | null;
 }) {
   const flown = (id: number) => { setTab('mission'); onFocusCraft(id); };
@@ -36,7 +37,7 @@ export function FlightConsole({ clock, mission, tab, setTab, onClose, onFocusCra
       </div>
       <div role="tabpanel" id={`cpanel-${tab}`} aria-labelledby={`ctab-${tab}`} className="tab-panel">
         {tab === 'mission' && <MissionPanel clock={clock} mission={mission} onFocusCraft={onFocusCraft} />}
-        {tab === 'planner' && <PlannerPanel clock={clock} mission={mission} autoPlan={autoPlan} onFlown={flown} />}
+        {tab === 'planner' && <PlannerPanel clock={clock} mission={mission} journey={journey} autoPlan={autoPlan} onFlown={flown} />}
         {tab === 'rocket' && <RocketPanel clock={clock} mission={mission} onFlown={flown} />}
       </div>
     </section>

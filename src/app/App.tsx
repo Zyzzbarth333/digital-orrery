@@ -6,6 +6,7 @@ import { SceneView } from '../scene/SceneView';
 import { BodyRail, Plate, RATES, TimeBand, craftById } from './panels';
 import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
+import { JourneyStore } from './journey';
 import type { Frame, OrreryScene } from '../scene/OrreryScene';
 import type { GuideKey } from '../scene/guides';
 import { BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
@@ -84,6 +85,7 @@ export function App() {
     return () => ro.disconnect();
   }, [consoleOpen]);
   const mission = useMemo(() => new Mission(), []);
+  const journey = useMemo(() => new JourneyStore(init.timeMs), [init]);
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
@@ -101,6 +103,7 @@ export function App() {
     scene.current = sc;
     sc.onFrame = (t, jumps) => mission.frame(t, jumps);
     sc.craftSource = () => mission.views();
+    sc.journeySource = () => journey.view();
     sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
     sc.onFlight = setFlying;
     sc.onSmallPick = (pdes) => { setFollowing(null); setSmall(pdes); };
@@ -179,7 +182,7 @@ export function App() {
       <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>
-          <FlightConsole clock={clock} mission={mission} tab={tab} setTab={setTab} onClose={closeConsole}
+          <FlightConsole clock={clock} mission={mission} journey={journey} tab={tab} setTab={setTab} onClose={closeConsole}
             onFocusCraft={followCraft} autoPlan={init.plan} />
         </div>
       )}

@@ -226,6 +226,19 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The app's Moon vs DE442 | under 1 m (DE442 table) |
 | Calibration: Earth's J3/J4, other planets' tides, empirical push models | none helps; the gravity model is complete for this mission ([calibration](validation/artemis2.md#calibration-what-does-not-help)) |
 
+## Journeys (`journey.test.mjs`)
+
+Curtis's chapter 6, 8 and 13 worked examples, the journey's chaining rules,
+and journeys flown by the kernel to their waypoints; the table is in
+[the journey page](physics/journey.md#validation-journeytestmjs).
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Hohmann, bi-elliptic, phasing, plane change | Curtis Ex 6.1, 6.3, 6.4, 6.5, 6.11, 6.12 | to the book's figures |
+| Windows, departure, capture, flyby, Lambert leg | Ex 8.1, 8.2, 8.4, 8.5, 8.6, 8.8, 8.9, 8.10 | to the book's figures (Ex 8.8 within 0.12 % on DE442) |
+| Restricted and optimal staging | Ex 13.4, 13.5 | to the book's figures |
+| Mariner 10, Earth to Mars, a lunar free return, a Moon round trip, flown | the plan | every periapsis within 17 km, home within 3 km |
+
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
 | Model | Reference | Result |
