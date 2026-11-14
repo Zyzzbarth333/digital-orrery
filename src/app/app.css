@@ -572,4 +572,7 @@ details.section[open] > summary::after { content: '−'; }
    marker than the planets'; the rail's toggles show their population colour. */
 .body-marker.small-body .dot { width: 5px; height: 5px; margin: 1px; border-color: rgba(236, 217, 176, 0.45); }
 .body-marker.small-body .name { opacity: 0.75; font-size: 8px; }
+.body-marker.small-body.focused .name { opacity: 1; font-size: 10px; }
+.sb-pick { display: grid; gap: 4px; padding: var(--u) calc(1.5 * var(--u)) 0; }
+.sb-pick .input { height: 28px; font-size: 12px; }
 .small-bodies .lamp-sq { border: 1px solid; }

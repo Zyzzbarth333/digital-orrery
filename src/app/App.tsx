@@ -8,6 +8,7 @@ import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
 import type { Frame, OrreryScene } from '../scene/OrreryScene';
 import { BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
+import type { Named } from '../scene/smallBodies';
 
 // Optional start state from the URL: ?focus=mars&t=2030-01-01T00:00Z&view=sun
 // (focus may be a barycentre: ssb, emb, jupiter-bary; &frame=ssb gives
@@ -85,16 +86,24 @@ export function App() {
   const scene = useRef<OrreryScene | null>(null);
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
+  // A named asteroid or comet the camera is on (its marker or the rail's
+  // list): the plate shows it until a body or a craft is chosen.
+  const [small, setSmall] = useState<string | null>(null);
+  const [named, setNamed] = useState<readonly Named[]>([]);
+  const smallBody = small ? named.find((b) => b.pdes === small) ?? null : null;
   const [smallOn, setSmallOn] = useState<Record<string, boolean>>({ belt: true, neo: true, trojans: true, outer: true, comets: true, colours: false });
   // The followed craft's name, kept current (a rocket's climb included).
   const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
-  const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); };
+  const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); setSmall(null); };
   const onReady = (sc: OrreryScene) => {
     scene.current = sc;
     sc.onFrame = (t, jumps) => mission.frame(t, jumps);
     sc.craftSource = () => mission.views();
     sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
     sc.onFlight = setFlying;
+    sc.onSmallPick = (pdes) => { setFollowing(null); setSmall(pdes); };
+    sc.smallBodies.onNamed = setNamed;
+    if (sc.smallBodies.namedBodies.length) setNamed(sc.smallBodies.namedBodies);
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
     const [kind, a, b] = (init.craft ?? '').split(',');
     // React's development double-mount builds the scene twice: a craft
@@ -138,28 +147,33 @@ export function App() {
       if (e.key === ' ') clock.setPlaying(!s.playing);
       else if (e.key === 'ArrowRight') clock.setRate(RATES[Math.min(RATES.length - 1, ri + 1)].rate);
       else if (e.key === 'ArrowLeft') clock.setRate(RATES[Math.max(0, ri - 1)].rate);
-      else if (e.key === 'ArrowDown') setFocus(BODIES[Math.min(BODIES.length - 1, bi + 1)].key);
-      else if (e.key === 'ArrowUp') setFocus(BODIES[Math.max(0, bi - 1)].key);
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const k = BODIES[e.key === 'ArrowDown' ? Math.min(BODIES.length - 1, bi + 1) : Math.max(0, bi - 1)].key;
+        // From a small body, the scene's focus may already be this one.
+        if (small !== null) { setSmall(null); scene.current?.focusOn(k); }
+        setFocus(k);
+      }
       else if (e.key === 'n' || e.key === 'N') clock.setTime(Date.now());
       else return;
       e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clock, focus, consoleOpen]);
+  }, [clock, focus, consoleOpen, small]);
 
   return (
     <div className="app">
-      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setFocus(k); }} onReady={onReady}
+      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
-        view={following === null ? { kind: 'focus', name: focusName(focus) } : { kind: 'follow', name: followName }}
+        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: smallBody?.name ?? focusName(focus) }}
         flying={flying} frame={frame} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
-      <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); }}
+      <BodyRail clock={clock} focus={following === null && small === null ? focus : null} onSelect={(k) => { setFollowing(null); setSmall(null); setFocus(k); scene.current?.focusOn(k); }}
+        named={named} small={small} onSmall={(pdes) => scene.current?.focusOnSmall(pdes)}
         frame={frame} onFrame={setFrame}
         smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }} />
-      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} />
+      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>
           <FlightConsole clock={clock} mission={mission} tab={tab} setTab={setTab} onClose={closeConsole}

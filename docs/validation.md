@@ -332,3 +332,12 @@ published equations and Fortran listings
 | --- | --- |
 | The TeX subset's MathML and plain text | fractions, roots, scripts, fences, function names, unary signs |
 | Every tag's equations (`tag-info.js`, 59 entries) | all parse; each has what it is and a source |
+
+## A small body's plate (`smallbodies.test.mjs`)
+
+| Fact | Reference | Result |
+| --- | --- | --- |
+| Ceres's period, perihelion and aphelion | NASA: 4.6 years, 2.55 to 2.99 au | 4.599 yr, 2.545 au, 2.986 au (osculating, 2026) |
+| Halley's period and perihelion | NASA: about 76 years, 0.59 au | 75.47 yr, 0.572 au (osculating, 2026) |
+| Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
+| Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |

@@ -18,6 +18,8 @@ import { baryGm } from '../physics/barycentres.js';
 import { MU_SUN } from '../physics/bodies.js';
 import { helioStateEcl, fromDe442 } from '../physics/ephemeris.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
+import { SmallBodyPlate } from './small-body-plate';
+import type { Named } from '../scene/smallBodies';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
 
 const AU_KM = 149597870.7;
@@ -41,7 +43,7 @@ const sub3 = (a: number[], b: number[]) => [a[0] - b[0], a[1] - b[1], a[2] - b[2
 const SIG10 = new Intl.NumberFormat('en-AU', { maximumSignificantDigits: 10 });
 const GROUP = new Map<number, Intl.NumberFormat>();
 const sig10 = (n: number) => SIG10.format(n);
-const fmtGroup = (n: number, digits = 0) => {
+export const fmtGroup = (n: number, digits = 0) => {
   let f = GROUP.get(digits);
   if (!f) { f = new Intl.NumberFormat('en-AU', { minimumFractionDigits: digits, maximumFractionDigits: digits }); GROUP.set(digits, f); }
   return f.format(n);
@@ -189,6 +191,12 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
 }
 
 // The small-body populations the rail can show or hide (src/scene/smallBodies.ts).
+// The named small bodies' kinds, in the rail's list order.
+const SMALL_KINDS: [string, string][] = [
+  ['dwarf planet', 'Dwarf planets'], ['asteroid', 'Asteroids'], ['near-Earth asteroid', 'Near-Earth asteroids'],
+  ['Jupiter trojan', 'Jupiter trojans'], ['centaur', 'Centaurs'], ['trans-Neptunian object', 'Trans-Neptunian objects'], ['comet', 'Comets'],
+];
+
 const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; label: string; colour: string; title: string }[] = [
   { key: 'belt', label: 'Main belt', colour: '#a3a3a3', title: 'Main-belt asteroids brighter than H 15 (JPL SBDB)' },
   { key: 'neo', label: 'Near-Earth', colour: '#ff9e4d', title: 'Every near-Earth asteroid in JPL SBDB' },
@@ -201,7 +209,7 @@ const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; l
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -304,6 +312,20 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
               </button>
             </li>
           </ul>
+          {/* The named ones, to fly to: the same as clicking a marker in the
+              sky, and the way there by keyboard. */}
+          {named.length > 0 && onSmall && (
+            <label className="sb-pick">
+              <span className="engraved">Fly to</span>
+              <select className="input select" value={small ?? ''} onChange={(e) => { if (e.target.value) onSmall(e.target.value); }}>
+                <option value="">a named one…</option>
+                {SMALL_KINDS.map(([kind, label]) => {
+                  const list = named.filter((b) => b.kind === kind);
+                  return list.length ? <optgroup key={kind} label={label}>{list.map((b) => <option key={b.pdes} value={b.pdes}>{b.name}</option>)}</optgroup> : null;
+                })}
+              </select>
+            </label>
+          )}
         </>
       )}
       <div className="rail-foot">
@@ -353,7 +375,7 @@ function Credits() {
   );
 }
 
-interface Row { label: string; value: string; unit?: string; alt?: string; src: string; derived?: boolean; info: TagInfoKey; detail?: string; hint?: string }
+export interface Row { label: string; value: string; unit?: string; alt?: string; src: string; derived?: boolean; info: TagInfoKey; detail?: string; hint?: string }
 
 // Plain-language meanings of the readout labels, shown on hover.
 export const HINTS: Record<string, string> = {
@@ -384,7 +406,7 @@ export const HINTS: Record<string, string> = {
 
 // Each row's source tag opens what the value is, its equation and its
 // source (source-tag.tsx).
-function Readout({ rows }: { rows: Row[] }) {
+export function Readout({ rows }: { rows: Row[] }) {
   return (
     <table className="readout">
       <tbody>
@@ -407,14 +429,15 @@ function Readout({ rows }: { rows: Row[] }) {
 // planner and the rocket moved to the flight console (console.tsx).
 // covered: the flight console lies over the plate (up to 1680 px wide), so
 // it leaves the tab order and stops re-rendering.
-export function Plate({ clock, focus, frame = 'sun', covered = false }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean }) {
+export function Plate({ clock, focus, frame = 'sun', covered = false, small = null }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean; small?: Named | null }) {
   const [collapsed, setCollapsed] = useState(true);
   return (
     <aside className="plate screw" aria-label="Target readouts" data-collapsed={collapsed} inert={covered || undefined}>
       <span className="pnl" aria-hidden="true">R1</span>
       <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show data' : 'Hide data'}</button>
       <div className="tab-panel">
-        {!covered && (isBary(focus) ? <BaryPlate clock={clock} bary={focus} frame={frame} /> : <DataPlate clock={clock} focus={focus} frame={frame} />)}
+        {!covered && (small ? <SmallBodyPlate clock={clock} body={small} />
+          : isBary(focus) ? <BaryPlate clock={clock} bary={focus} frame={frame} /> : <DataPlate clock={clock} focus={focus} frame={frame} />)}
       </div>
     </aside>
   );

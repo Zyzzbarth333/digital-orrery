@@ -147,6 +147,48 @@ is left out. On the Intel GPU the haze costs about 5 ms a frame, and its
 cost does not grow with the number of bodies. The main-belt switch shows
 or hides the haze with the points.
 
+## Flying to one
+
+A named body (the 36 with labels) can be chosen, by its marker in the sky
+or from the rail's **Fly to** list, which is also the way there by keyboard.
+The camera flies to it as it does to a planet (cameraRig.ts), and the data
+plate shows it (`src/app/small-body-plate.tsx`). Choosing a body in the
+rail, the arrow keys or following a craft leaves it.
+
+- **Where it is:** the anchor the camera follows is the body's position
+  from the same elements and Kepler solve its marker uses
+  (`positionAu`), at the clock's time each frame.
+- **What is drawn:** a sphere at its diameter, lit by the Sun as the
+  planets are (`bodyMaterial.ts`, Lommel-Seeliger for regolith), with an
+  albedo of 0.15, or 0.04 for a comet's dark nucleus.
+  - **The size:** SBDB's diameter where it has one. The trans-Neptunian
+    objects and the comets have none there. A TNO is sized from its H
+    for an albedo of 0.15, $D = 1329\ \text{km}\,p^{-1/2}\,10^{-H/5}$. A
+    comet's H is its coma's, so it is drawn as a 5 km nucleus. The plate
+    says "not in SBDB" and how the drawn size was chosen.
+- **Its point is hidden up close:** the shader works in float32 au, which
+  puts a point within about 15 km of where it should be. So while the
+  camera is within 0.05 au of the focused body, no point closer than twice
+  the camera's distance is drawn; its sphere is.
+- **The camera:** it arrives at eight radii, at least 50 km out, and can
+  close to 1.2 radii.
+- **The plate:** class (SBDB), distance from the Sun and the Earth, light
+  time, speed (vis-viva), diameter, H (a comet's M1), the elements a, e
+  and i, perihelion and aphelion, and the period by Kepler's third law
+  (`smallBodyFacts` in `smallBodies.js`), each with its source tag.
+
+`smallbodies.test.mjs` checks the plate's facts:
+- Ceres's period, 4.6 years, and its perihelion and aphelion, against
+  NASA's;
+- Halley's period and perihelion;
+- the vis-viva speed against the drawn motion, to 10⁻³ km/s;
+- the size formula against Ceres's measured 939.4 km (951 km from H 3.34
+  and albedo 0.090).
+
+The other 135,000 bodies carry no designations in the packed file, so
+they can't be chosen yet. Searching them by name would need SBDB's
+designations shipped alongside.
+
 ## How right they are
 
 Each body follows the osculating ellipse of its orbit solution; the planets'
@@ -173,6 +215,11 @@ populations lie, not where a given faint body is tonight.
 - JPL Horizons API, [ssd.jpl.nasa.gov/horizons](https://ssd.jpl.nasa.gov/horizons/).
 - J. M. A. Danby, *Fundamentals of Celestial Mechanics* (Willmann-Bell,
   1988): the starting value for Kepler's equation.
+- JPL SBDB orbit classes, [ssd-api.jpl.nasa.gov/doc/sbdb_filter.html](https://ssd-api.jpl.nasa.gov/doc/sbdb_filter.html).
+- JPL CNEOS, asteroid size estimator,
+  [cneos.jpl.nasa.gov/tools/ast_size_est.html](https://cneos.jpl.nasa.gov/tools/ast_size_est.html);
+  Fowler and Chillemi, in *The IRAS Minor Planet Survey* (Phillips
+  Laboratory, 1992, PL-TR-92-2049): the diameter from H and albedo.
 - E. Bowell et al., "Application of photometric models to asteroids", in
   *Asteroids II* (University of Arizona Press, 1989), pp. 524–556: the H-G
   magnitude system.
