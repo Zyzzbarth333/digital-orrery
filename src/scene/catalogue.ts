@@ -5,11 +5,13 @@
 // system GM for Mars to Neptune, whose positions are system barycentres.
 // Colours are approximate true mean colours, placeholders until real
 // textures arrive. The other planets' major moons (src/physics/moons.js)
-// carry their radius, GM and geometric albedo from JPL Horizons.
+// carry their radius, GM and geometric albedo from JPL Horizons. Every
+// body's shape is its IAU triaxial ellipsoid (pck00011, pck.data.js).
 
 import { PLANETS } from '../utils/constants.js';
-import { bodyConstants, MU_SUN } from '../physics/bodies.js';
+import { bodyConstants, MU_SUN, PLANET_GM as KERNEL_PLANET_GM } from '../physics/bodies.js';
 import { MOON_DATA } from '../physics/moons.data.js';
+import { RADII } from '../physics/pck.data.js';
 
 export type PlanetKey =
   | 'sun' | 'mercury' | 'venus' | 'earth' | 'moon' | 'mars'
@@ -26,7 +28,10 @@ export type BodyKey = PlanetKey | MoonKey;
 export interface BodyInfo {
   key: BodyKey;
   name: string;
-  radiusKm: number;
+  radiusKm: number;             // mean (the sphere of equal volume)
+  // The IAU triaxial ellipsoid, km along body-fixed X (0 deg longitude), Y
+  // and Z (north pole): NAIF's pck00011 BODYnnn_RADII.
+  radiiKm: [number, number, number];
   gm: number | null;            // km^3/s^2
   gmNote: string;
   // The planet's own GM where the system GM above includes moons, from the
@@ -55,12 +60,12 @@ const COLOUR: Record<BodyKey, number> = {
 // Planet-only GMs from the NAIF satellite kernels' body tables (the
 // SATORBINT fits; the kernel's own planetary ephemeris in brackets).
 const PLANET_GM: Partial<Record<BodyKey, [number, string]>> = {
-  mars: [4.282837485735626e4, 'NAIF 499, mar099s (DE440)'],
-  jupiter: [1.266865319003704e8, 'NAIF 599, jup365 (DE440)'],
-  saturn: [3.793120623436167e7, 'NAIF 699, sat441 (DE440)'],
-  uranus: [5.793950610340896e6, 'NAIF 799, ura184 (DE442)'],
-  neptune: [6.835099968446816e6, 'NAIF 899, nep097 (DE441)'],
-  pluto: [8.693261226311508e2, 'NAIF 999, plu060 (DE440)'],
+  mars: [KERNEL_PLANET_GM.mars, 'NAIF 499, mar099s (DE440)'],
+  jupiter: [KERNEL_PLANET_GM.jupiter, 'NAIF 599, jup365 (DE440)'],
+  saturn: [KERNEL_PLANET_GM.saturn, 'NAIF 699, sat441 (DE440)'],
+  uranus: [KERNEL_PLANET_GM.uranus, 'NAIF 799, ura184 (DE442)'],
+  neptune: [KERNEL_PLANET_GM.neptune, 'NAIF 899, nep097 (DE441)'],
+  pluto: [KERNEL_PLANET_GM.pluto, 'NAIF 999, plu060 (DE440)'],
 };
 
 // Geometric albedo from the NASA NSSDCA planetary fact sheets (read
@@ -77,7 +82,9 @@ type MoonRow = { name: string; planet: string; naif: number; ephemeris: string; 
 const MOON_ROWS = MOON_DATA as unknown as Record<MoonKey, MoonRow>;
 const GALILEAN = new Set<BodyKey>(['io', 'europa', 'ganymede', 'callisto']);
 
-function moon(key: MoonKey): BodyInfo {
+type BodyBase = Omit<BodyInfo, 'radiiKm'>;
+
+function moon(key: MoonKey): BodyBase {
   const m = MOON_ROWS[key];
   return {
     key, name: m.name, radiusKm: m.radiusKm, gm: m.gm, gmNote: `NAIF ${m.naif}, JPL Horizons${m.gmNote ? ` (${m.gmNote})` : ''}`,
@@ -89,14 +96,14 @@ function moon(key: MoonKey): BodyInfo {
     },
   };
 }
-const moonsOf = (planetKey: BodyKey): BodyInfo[] =>
+const moonsOf = (planetKey: BodyKey): BodyBase[] =>
   (Object.keys(MOON_ROWS) as MoonKey[]).filter((k) => MOON_ROWS[k].planet === planetKey).map(moon);
 
-function planet(key: Exclude<PlanetKey, 'sun' | 'moon'>): BodyInfo {
+function planet(key: Exclude<PlanetKey, 'sun' | 'moon'>): BodyBase {
   let gm: number | null = null;
   let gmNote = '';
   if (key === 'pluto') {
-    gm = 975.5;
+    gm = bodyConstants(key).mu;
     gmNote = 'Pluto system, Pluto and Charon (DE442)';
   } else {
     gm = bodyConstants(key).mu;
@@ -113,7 +120,7 @@ function planet(key: Exclude<PlanetKey, 'sun' | 'moon'>): BodyInfo {
   };
 }
 
-export const BODIES: BodyInfo[] = [
+const LIST: BodyBase[] = [
   { key: 'sun', name: 'Sun', radiusKm: 695700, gm: MU_SUN, gmNote: 'DE442', geometricAlbedo: null, periodDays: null, parent: null, colour: COLOUR.sun },
   planet('mercury'),
   planet('venus'),
@@ -128,6 +135,10 @@ export const BODIES: BodyInfo[] = [
   planet('neptune'), ...moonsOf('neptune'),
   planet('pluto'), ...moonsOf('pluto'),
 ];
+const RADII_KM = RADII as Record<BodyKey, [number, number, number]>;
+export const BODIES: BodyInfo[] = LIST.map((b) => ({ ...b, radiiKm: RADII_KM[b.key] }));
+// The largest semi-axis: nothing of the body lies farther from its centre.
+export const maxRadiusKm = (key: BodyKey): number => Math.max(...RADII_KM[key]);
 
 export const BODY_BY_KEY = Object.fromEntries(BODIES.map((b) => [b.key, b])) as Record<BodyKey, BodyInfo>;
 
