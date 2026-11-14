@@ -1,0 +1,15 @@
+{
+ "source": "RocketPy 1.13.0 (MIT), point-mass 3-DOF flights of the vehicles in rocket_xcheck.json",
+ "vehicles": {
+  "model": {
+   "apogee": 51.20281583408614,
+   "timeToApogee": 3.4814752398364477,
+   "maxSpeed": 29.379166813277877
+  },
+  "twostage": {
+   "apogee": 678.8946315992127,
+   "timeToApogee": 11.043887853953093,
+   "maxSpeed": 158.99153523490307
+  }
+ }
+}

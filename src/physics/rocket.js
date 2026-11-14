@@ -114,29 +114,73 @@ export const realAtmosphere = ({ ms, lat, lon }) => (h) => {
 //                               pitchover): the upper stage keeps what
 //                               propellant is left (returned as remaining)
 //   dt (s), sample (s)          step, and the interval of the time history
+//   cdAt(mach, t, burning)      drag coefficient instead of cd: as a
+//                               function of Mach (and time, and whether an
+//                               engine burns: base drag differs then)
+//   area (m^2)                  reference area for drag, in place of the
+//                               diameter's
+//   sound(h) -> m/s             speed of sound for cdAt's Mach number
+//                               (default the 1976 standard's)
+//   vertical                    no pitchover: straight up, as a sounding or
+//                               model rocket flies
+//   wind (m/s)                  a steady wind blowing back along the plane
+//   weathercock                 at pitchAlt (the top of a launch rod) no
+//                               kick: from there it flies along its velocity
+//                               through the air, turning into the wind
+//   turnLag (s)                 after pitchAlt the thrust follows the
+//                               velocity through the air with this lag
+//                               (default 0: at once)
+//   stopAtApogee                end at the top of the climb
+// A stage may give thrustCurve: [[t (s from ignition), F (N)], ...] in place
+// of a constant thrust; its propellant then burns in proportion to the
+// impulse delivered (as motor makers' curves assume), and it burns out at
+// the curve's end. The rocket sits on the pad until the thrust outweighs it.
 // Returns { history: [{ t, h, v, gamma, x, q, m, stage }], burnout (the end
 // state: t, h, v (inertial), gamma, x, r, theta, vr, vt), losses: { gravity,
 // drag } (m/s), maxQ: { q, t, h, v }, events: [...] }.
 export function ascent(opts) {
-  const { stages, payload, pitchAlt = 130, gamma0 = 89.85, cd = 0.5, diameter = 5, rotation = 0, coast = 0, dt = 0.05, sample = 1, toOrbit = false } = opts;
+  const { stages, payload, gamma0 = 89.85, cd = 0.5, diameter = 5, rotation = 0, coast = 0, dt = 0.05, sample = 1, toOrbit = false, cdAt = null, stopAtApogee = false, wind = 0, weathercock = false, turnLag = 0 } = opts;
+  const pitchAlt = opts.vertical ? Infinity : (opts.pitchAlt ?? 130);
   const atm = opts.atmosphere ?? exponentialAtmosphere();
   const g0 = opts.g0 ?? G0, R = opts.R ?? EARTH.R;
   const grav = opts.mu ? (r) => opts.mu / (r * r) : (r) => g0 / ((r / R) ** 2);
-  const area = Math.PI * diameter * diameter / 4;
+  const area = opts.area ?? Math.PI * diameter * diameter / 4;
+  // Thrust curves: the time, force and impulse delivered at each point.
+  const curves = stages.map((S) => {
+    if (!S.thrustCurve) return null;
+    const ts = S.thrustCurve.map((p) => p[0]), fs = S.thrustCurve.map((p) => p[1]), imp = [0];
+    for (let i = 1; i < ts.length; i++) imp.push(imp[i - 1] + 0.5 * (fs[i] + fs[i - 1]) * (ts[i] - ts[i - 1]));
+    return { ts, fs, imp, total: imp.at(-1), end: ts.at(-1) };   // total may be 0: then it burns nothing
+  });
+  const at = (c, tau) => {
+    if (!(tau >= c.ts[0]) || tau >= c.end) return { F: 0, I: tau >= c.end ? c.total : 0 };
+    let i = 1;
+    while (c.ts[i] < tau) i++;
+    const u = (tau - c.ts[i - 1]) / (c.ts[i] - c.ts[i - 1]), F = c.fs[i - 1] + u * (c.fs[i] - c.fs[i - 1]);
+    return { F, I: c.imp[i - 1] + 0.5 * (c.fs[i - 1] + F) * (tau - c.ts[i - 1]) };
+  };
+  // The speed of sound (m/s) at a height (m), for cdAt's Mach number: the
+  // 1976 standard's unless given.
+  const sound = opts.sound ?? ((h) => Math.sqrt(1.4 * 287.053 * standardAtmosphere(Math.min(86, Math.max(0, h / 1000))).T));
   const ispG0 = opts.ispG0 ?? g0;           // g0 that turns Isp into exhaust speed
   // State: x (horizontal, along the plane at the pad), y (up from the
   // Earth's centre), vx, vy: inertial, in the launch plane.
   let x = 0, y = R, vx = rotation, vy = 0, t = 0;
   const masses = []; { let m = payload; for (let i = stages.length - 1; i >= 0; i--) { m += stages[i].dry + stages[i].prop; masses[i] = m; } }
-  let stage = 0, m = masses[0], burnt = 0, pitched = false, lossG = 0, lossD = 0;
+  let stage = 0, m = masses[0], burnt = 0, pitched = false, lossG = 0, lossD = 0, tIgn = 0, lifted = false;
+  // With a turnLag (s), the thrust's direction follows the velocity through
+  // the air with that first-order lag, as a stable rocket's axis does,
+  // rather than at once.
+  let axX = 0, axY = 1;
   const history = [], events = [];
   let maxQ = { q: 0, t: 0, h: 0, v: 0 };
   let cutoff = null;
   const sky = (px, py) => { const r = Math.hypot(px, py); return { r, ux: px / r, uy: py / r }; };
   // Air velocity at (px, py): the surface's rotation along the plane,
-  // growing with radius as rigid rotation does.
-  const air = (px, py) => { const { r, ux, uy } = sky(px, py); const s = rotation * r / R; return [s * uy, -s * ux]; };
-  const deriv = (px, py, pvx, pvy, mm, st, steer) => {
+  // growing with radius as rigid rotation does, and the wind, blowing back
+  // along the plane (a rocket that turns into it flies downrange).
+  const air = (px, py) => { const { r, ux, uy } = sky(px, py); const s = rotation * r / R - wind; return [s * uy, -s * ux]; };
+  const deriv = (px, py, pvx, pvy, mm, st, steer, tt = t) => {
     const { r, ux, uy } = sky(px, py);
     const h = r - R, a = atm(h), [ax, ay] = air(px, py);
     const rx = pvx - ax, ry = pvy - ay, vrel = Math.hypot(rx, ry);
@@ -145,17 +189,22 @@ export function ascent(opts) {
     const S = stages[st];
     if (S && st === stage) {
       // Isp, and so thrust at a fixed flow, falls with the outside
-      // pressure: Isp_vac + (Isp_sl - Isp_vac) p/p0.
-      const isp = S.isp + ((S.ispSl ?? S.isp) - S.isp) * a.p;
-      const mdot = S.thrust / (S.isp * ispG0);
-      T = mdot * isp * ispG0;
+      // pressure: Isp_vac + (Isp_sl - Isp_vac) p/p0. A thrust curve is the
+      // thrust as measured.
+      if (curves[st]) T = at(curves[st], tt - tIgn).F;
+      else {
+        const isp = S.isp + ((S.ispSl ?? S.isp) - S.isp) * a.p;
+        const mdot = S.thrust / (S.isp * ispG0);
+        T = mdot * isp * ispG0;
+      }
       // Direction: vertical before pitchover (or at rest), else along the
       // air-relative velocity.
       let dx = ux, dy = uy;
-      if (steer && vrel > 1e-6) { dx = rx / vrel; dy = ry / vrel; }
+      if (steer && turnLag > 0) { dx = axX; dy = axY; } else if (steer && vrel > 1e-6) { dx = rx / vrel; dy = ry / vrel; }
       fx += T / mm * dx; fy += T / mm * dy;
     }
-    const D = 0.5 * a.rho * vrel * vrel * cd * area;
+    const cdNow = cdAt ? cdAt(vrel / sound(h), tt, T > 0) : cd;
+    const D = 0.5 * a.rho * vrel * vrel * cdNow * area;
     if (vrel > 0 && mm > 0) { fx -= D / mm * rx / vrel; fy -= D / mm * ry / vrel; }
     return { fx, fy, D, g, ux, uy, h, q: 0.5 * a.rho * vrel * vrel, vrel };
   };
@@ -166,10 +215,13 @@ export function ascent(opts) {
   };
   let nextSample = 0, end = Infinity;
   for (let k = 0; k < 2e7; k++) {
-    const S = stages[stage];
-    const mdot = S ? S.thrust / (S.isp * ispG0) : 0;
+    const S = stages[stage], C = S ? curves[stage] : null;
+    const mdot = S && !C ? S.thrust / (S.isp * ispG0) : 0;
+    // Propellant burnt by time tau from ignition (a curve: in proportion to
+    // the impulse delivered).
+    const used = (tau) => (C ? (C.total > 0 ? S.prop * at(C, tau).I / C.total : 0) : burnt + mdot * (tau - (t - tIgn)));
     let h_ = dt;
-    if (S) h_ = Math.min(h_, (S.prop - burnt) / mdot);
+    if (S) h_ = Math.min(h_, C ? Math.max(1e-6, C.end - (t - tIgn)) : (S.prop - burnt) / mdot);
     if (!S && Number.isFinite(end)) h_ = Math.min(h_, end - t);
     // Land the pitchover on its height exactly: the result is very
     // sensitive to it (a fixed 0.01 s step overshoots 130 m by up to 0.4 m
@@ -180,44 +232,72 @@ export function ascent(opts) {
     }
     const steer = pitched;
     const st = S ? stage : -1;
-    const f = (px, py, pvx, pvy, mm) => deriv(px, py, pvx, pvy, mm, st, steer);
-    const d1 = f(x, y, vx, vy, m);
+    const f = (px, py, pvx, pvy, mm, tt) => deriv(px, py, pvx, pvy, mm, st, steer, tt);
+    const d1 = f(x, y, vx, vy, m, t);
     if (t >= nextSample) { record(d1); nextSample += sample; }
     if (d1.q > maxQ.q) maxQ = { q: d1.q, t, h: d1.h, v: d1.vrel };
-    const m2 = m - mdot * h_ / 2, m3 = m - mdot * h_;
-    const d2 = f(x + vx * h_ / 2, y + vy * h_ / 2, vx + d1.fx * h_ / 2, vy + d1.fy * h_ / 2, m2);
-    const d3 = f(x + (vx + d1.fx * h_ / 2) * h_ / 2, y + (vy + d1.fy * h_ / 2) * h_ / 2, vx + d2.fx * h_ / 2, vy + d2.fy * h_ / 2, m2);
-    const d4 = f(x + (vx + d2.fx * h_ / 2) * h_, y + (vy + d2.fy * h_ / 2) * h_, vx + d3.fx * h_, vy + d3.fy * h_, m3);
+    const mStart = S ? m + used(t - tIgn) : m;           // the stage's mass at ignition, plus what is above
+    const m2 = S ? mStart - used(t - tIgn + h_ / 2) : m, m3 = S ? mStart - used(t - tIgn + h_) : m;
+    const d2 = f(x + vx * h_ / 2, y + vy * h_ / 2, vx + d1.fx * h_ / 2, vy + d1.fy * h_ / 2, m2, t + h_ / 2);
+    const d3 = f(x + (vx + d1.fx * h_ / 2) * h_ / 2, y + (vy + d1.fy * h_ / 2) * h_ / 2, vx + d2.fx * h_ / 2, vy + d2.fy * h_ / 2, m2, t + h_ / 2);
+    const d4 = f(x + (vx + d2.fx * h_ / 2) * h_, y + (vy + d2.fy * h_ / 2) * h_, vx + d3.fx * h_, vy + d3.fy * h_, m3, t + h_);
     // Losses (Curtis 13.27): gravity along the path, and drag.
     const sinG = (vx * d1.ux + vy * d1.uy) / Math.max(1e-9, Math.hypot(vx, vy));
     if (S) { lossG += h_ * (d1.g * sinG); lossD += h_ * d1.D / m; }
-    // RK4 for (position, velocity): x + h v + h^2 (a1 + a2 + a3) / 6.
-    x += h_ * (vx + (h_ / 6) * (d1.fx + d2.fx + d3.fx));
-    y += h_ * (vy + (h_ / 6) * (d1.fy + d2.fy + d3.fy));
-    vx += (h_ / 6) * (d1.fx + 2 * d2.fx + 2 * d3.fx + d4.fx);
-    vy += (h_ / 6) * (d1.fy + 2 * d2.fy + 2 * d3.fy + d4.fy);
+    // It sits on the pad until the thrust outweighs it (a motor's thrust
+    // builds from nothing over the first moments), as OpenRocket and
+    // RocketPy hold it.
+    if (!lifted) lifted = d1.fx * d1.ux + d1.fy * d1.uy > 0;
+    if (lifted) {
+      // RK4 for (position, velocity): x + h v + h^2 (a1 + a2 + a3) / 6.
+      x += h_ * (vx + (h_ / 6) * (d1.fx + d2.fx + d3.fx));
+      y += h_ * (vy + (h_ / 6) * (d1.fy + d2.fy + d3.fy));
+      vx += (h_ / 6) * (d1.fx + 2 * d2.fx + 2 * d3.fx + d4.fx);
+      vy += (h_ / 6) * (d1.fy + 2 * d2.fy + 2 * d3.fy + d4.fy);
+    }
     m = m3; t += h_;
+    if (pitched && turnLag > 0) {
+      // The axis turns toward the velocity through the air.
+      const [ax, ay] = air(x, y), rx = vx - ax, ry = vy - ay, s = Math.hypot(rx, ry);
+      if (s > 1e-6) {
+        const k = 1 - Math.exp(-h_ / turnLag);
+        axX += (rx / s - axX) * k; axY += (ry / s - axY) * k;
+        const n = Math.hypot(axX, axY); axX /= n; axY /= n;
+      }
+    }
     if (S) {
-      burnt += mdot * h_;
-      if (S.prop - burnt <= 1e-9) {
+      burnt = C ? used(t - tIgn) : burnt + mdot * h_;
+      if (C ? t - tIgn >= C.end - 1e-9 : S.prop - burnt <= 1e-9) {
         events.push({ type: 'burnout', stage, t, h: Math.hypot(x, y) - R });
-        stage++; burnt = 0;
+        stage++; burnt = 0; tIgn = t;
         if (stage < stages.length) { m = masses[stage]; events.push({ type: 'separation', stage: stage - 1, t }); }
         else { m = payload; end = t + coast; if (!(coast > 0)) break; }
       }
     }
     const r = Math.hypot(x, y);
     if (!pitched && r - R >= pitchAlt) {
-      // Pitchover: the air-relative velocity turned to gamma0 from the local
-      // horizontal, its speed kept.
-      const ux = x / r, uy = y / r, [ax, ay] = air(x, y);
-      const rx = vx - ax, ry = vy - ay, s = Math.hypot(rx, ry), g = gamma0 * Math.PI / 180;
-      vx = ax + s * (Math.cos(g) * uy + Math.sin(g) * ux);
-      vy = ay + s * (-Math.cos(g) * ux + Math.sin(g) * uy);
+      if (weathercock) {
+        // Off the launch rod: from here it flies along its velocity through
+        // the air, turning into any wind as a stable rocket does (at once:
+        // a point mass has no attitude to lag).
+        events.push({ type: 'rod', t, h: r - R });
+      } else {
+        // Pitchover: the air-relative velocity turned to gamma0 from the
+        // local horizontal, its speed kept.
+        const ux = x / r, uy = y / r, [ax, ay] = air(x, y);
+        const rx = vx - ax, ry = vy - ay, s = Math.hypot(rx, ry), g = gamma0 * Math.PI / 180;
+        vx = ax + s * (Math.cos(g) * uy + Math.sin(g) * ux);
+        vy = ay + s * (-Math.cos(g) * ux + Math.sin(g) * uy);
+        events.push({ type: 'pitchover', t, h: r - R });
+      }
       pitched = true;
-      events.push({ type: 'pitchover', t, h: r - R });
+      // The axis starts along the rod: up, or tilted by the kick.
+      { const rr = Math.hypot(x, y), ux = x / rr, uy = y / rr, [ax, ay] = air(x, y), rx = vx - ax, ry = vy - ay, s = Math.hypot(rx, ry);
+        if (weathercock || !(s > 1e-6)) { axX = ux; axY = uy; } else { axX = rx / s; axY = ry / s; } }
     }
     if (r < R - 1 && t > 1) { events.push({ type: 'impact', t }); break; }
+    // The top of the climb.
+    if (stopAtApogee && lifted && r - R > 0.01 && (vx * x + vy * y) / r <= 0) { events.push({ type: 'apogee', t, h: r - R }); break; }
     // Engine cutoff in orbit: speed at the circular speed for this height.
     if (toOrbit && pitched && stage < stages.length && Math.hypot(vx, vy) >= Math.sqrt((opts.mu ?? g0 * R * R) / r)) {
       events.push({ type: 'cutoff', stage, t, h: r - R, left: stages[stage].prop - burnt });

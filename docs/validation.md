@@ -115,13 +115,15 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 | The app's Moon vs DE442 | under 1 m (DE442 table) |
 | Calibration: Earth's J3/J4, other planets' tides, empirical push models | none helps; the gravity model is complete for this mission ([calibration](validation/artemis2.md#calibration-what-does-not-help)) |
 
-## Rockets (`rocket.test.mjs`)
+## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
 | Model | Reference | Result |
 | --- | --- | --- |
 | Optimal staging, three stages, 5,000 kg to 10 km/s | Curtis Example 13.7 | η and mass ratios to the book's four figures; stage masses and total within 0.1 % |
 | Gravity-turn ascent with drag | Curtis Example 13.3 | burnout speed, altitude and downrange within 0.1 %, flight-path angle within 0.02°; losses within 5 m/s |
 | Launch into a 51.6° orbit from Florida, cutoff at orbital speed | | inclination within 0.01°; level to 0.01°; circular to 10⁻³ |
+| OpenRocket design files read and flown (`ork.test.mjs`): our own two-stage flight saved and read back; OpenRocket's examples' seven saved simulations | the flight that was saved; OpenRocket's own apogee | apogee within 0.1 % (0.3 % at OpenRocket's four saved figures); within 0.72 % of OpenRocket in a 2 m/s wind ([details](physics/rocket.md#openrocket-designs-in-the-rocket-tab)) |
+| A model rocket and a two-stage high-power rocket, OpenRocket's example designs, flown straight up (`rocket.xcheck.test.mjs`) | OpenRocket 24.12 and RocketPy 1.13 (3-DOF) on the same thrust curves, masses and drag | apogee, time to apogee and top speed within 0.03 % of both; the height within 0.10 m of OpenRocket's all the way up ([details](physics/rocket.md#checked-against-openrocket-and-rocketpy-rocketxchecktestmjs)) |
 
 ## The space environment (`environment.test.mjs`)
 
