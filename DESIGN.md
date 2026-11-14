@@ -38,10 +38,10 @@ colors:
 typography:
   wordmark:
     fontFamily: "Michroma, B612, sans-serif"
-    fontSize: "15px"
+    fontSize: "12px"
     fontWeight: 400
     lineHeight: 1.4
-    letterSpacing: "0.14em"
+    letterSpacing: "0.1em"
   heading:
     fontFamily: "Michroma, B612, sans-serif"
     fontSize: "26px"
@@ -56,13 +56,19 @@ typography:
     letterSpacing: "0.14em"
   engraved-small:
     fontFamily: "Michroma, B612, sans-serif"
-    fontSize: "9px"
+    fontSize: "10px"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "0.14em"
   clock:
     fontFamily: "B612, system-ui, sans-serif"
     fontSize: "17px"
+    fontWeight: 400
+    lineHeight: 1.45
+    letterSpacing: "0.02em"
+  clock-compact:
+    fontFamily: "B612, system-ui, sans-serif"
+    fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.45
     letterSpacing: "0.02em"
@@ -86,13 +92,13 @@ typography:
     letterSpacing: "0.06em"
   code:
     fontFamily: "B612 Mono, ui-monospace, monospace"
-    fontSize: "9px"
+    fontSize: "10px"
     fontWeight: 400
     lineHeight: 1.6
     letterSpacing: "0em"
   panel-code:
     fontFamily: "B612 Mono, ui-monospace, monospace"
-    fontSize: "8px"
+    fontSize: "9px"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "0.08em"
@@ -153,10 +159,13 @@ components:
 Space Shuttle cockpit panels and Apollo instruments. The console is three
 beige sheet-metal panels with screw-head corners, framing the sky in a dark
 bezel:
-- a header band with the clock and rate in recessed black readout windows,
-  a RUN key, a NOW key and indicator lamps;
-- a body rail;
-- a data plate.
+- a header band of instruments: the clock and rate in recessed black
+  readout windows, the RUN, HOLD and NOW keys, the FLIGHT field (the
+  selected craft and the CONSOLE key) and indicator lamps;
+- a body rail, headed by the wordmark;
+- a data plate for the body in view;
+- and, when opened, a flight console (MISSION, PLANNER, ROCKET), the app's
+  own panel rather than any body's.
 
 Labels are engraved in orange-red wide capitals. Each panel carries a small
 designation code, as Shuttle panels do (PNL F1, L1, R1), and section titles
@@ -229,31 +238,44 @@ All three are SIL OFL and self-hosted.
 | Role | Face and size |
 | --- | --- |
 | Plate heading | 26 px Michroma |
-| Clock | 17 px B612 |
-| Wordmark | 15 px Michroma |
+| Clock | 17 px B612 (15 px on phones) |
 | Body and values | 13 px B612 |
+| Wordmark (rail) | 12 px Michroma |
 | Rail | 12 px B612, uppercase |
-| Engraved labels | 10 px or 9 px Michroma, tracked 0.14em |
-| Tags | 9 px B612 Mono |
-| Panel codes | 8 px B612 Mono |
+| Engraved labels | 11 px or 10 px Michroma, tracked 0.14em |
+| Tags | 10 px B612 Mono |
+| Panel codes | 9 px B612 Mono |
+
+Nothing is set below 10 px except the panel codes (decoration, 9 px):
+Michroma's wide capitals smear at 9 px on a 1× screen. Sizes are whole
+pixels, and labels in the sky sit on whole device pixels, so glyphs are
+never resampled.
 
 ## Layout
 
 - Desktop grid: a 64 px header band across the top; a 200 px rail, the sky
   in the middle cell (centred on the focused body) and a 380 px plate.
+- The flight console docks over the plate up to 1680 px wide, so the sky
+  keeps its width; wider, it hangs over the sky's right edge (392 px) and
+  the 3D view moves its centre left so the body in view stays clear.
 - The sky's bezel is a 7 px frame drawn over the canvas edge, with a 1 px lip
-  and an inner shadow.
+  and an inner shadow. The view plate sits inside it, lower left.
 - 8 px spacing unit.
-- Under 1100 px the lamps fold away.
-- Under 720 px the band wraps, the rail becomes a horizontal strip under the
-  sky, the plate folds behind "Show data", and the screws and codes go.
+- Under 1300 px the header wraps onto two rows.
+- Under 1100 px the rail and plate narrow and the panel codes go.
+- Under 720 px the rail becomes a horizontal strip under the sky, the plate
+  folds behind "Show data", the console takes the plate's place, the
+  header's engraved labels hide (the controls keep their names), and the
+  screws go.
 
 ## Elevation & Depth
 
 This is physical, not material-design. Keys stand proud on a 2 px edge and
 press down 1 px. Readout windows are recessed, with an inner shadow and a
 1 px sheen on the lower lip. The sky sits behind the bezel. Panels
-themselves are flat sheets separated by seams.
+themselves are flat sheets separated by seams, one device pixel wide on 2×
+screens. The flight console is the one panel that lies over another, so it
+casts a shadow onto the sky.
 
 ## Shapes
 
@@ -261,6 +283,7 @@ themselves are flat sheets separated by seams.
 - 2 px for readout windows, 3 px for keys.
 - Round screw heads.
 - Square lamps and swatches.
+- Slotted screw heads.
 
 ## Components
 
@@ -273,6 +296,23 @@ when the clock is live. The primary key of a flow (Launch, Fly this) is
 orange; the ACK key flashes only while a warning is unacknowledged, and not
 at all with reduced motion.
 
+### The FLIGHT field and the flight console
+
+The header's FLIGHT field holds a readout window naming the selected craft
+(a diamond, its name, and COAST, BURN in key orange, or LOST in warning
+red; "+2" when more craft wait in the console) and the CONSOLE key, which
+latches pressed while the console is open. Pressing the window follows the
+craft. The console is a sheet-metal panel (PNL C1) with MISSION, PLANNER and
+ROCKET tabs and a CLOSE key; M toggles it and Escape closes it. Choosing a
+body never closes it.
+
+### The view plate
+
+A small window in the sky's lower left names what the camera is on, with
+two cues for the mode: FOCUS and a ring for a body, FOLLOW and a diamond for
+a craft, as their markers are drawn in the sky. During a flight the glyph
+lights and the plate reads EN ROUTE · Esc stop.
+
 ### Annunciator
 
 The header's lamps follow the flight-deck convention: green advisory (LIVE,
@@ -280,6 +320,11 @@ KERNEL), amber caution (LAG) and red warning (WARN). Every lamp is labelled,
 so colour is never the only cue. A new warning lights WARN and flashes ACK;
 acknowledging stops the flash, but the lamp stays lit while the condition
 lasts, as on the Shuttle's caution and warning panel.
+
+### Readout windows
+
+Amber numerals carry a tight phosphor glow (a 1 px halo and a faint 10 px
+one), enough to read as lit glass without blurring the digits.
 
 ### Chips
 
@@ -293,8 +338,8 @@ select dressed as a window, with a drawn caret.
 
 ### Tabs
 
-The plate's TARGET, MISSION and PLANNER tabs are keys that stay pressed: the
-selected one is window black with amber engraving.
+The flight console's MISSION, PLANNER and ROCKET tabs are keys that stay
+pressed: the selected one is window black with amber engraving.
 
 ### Number inputs
 

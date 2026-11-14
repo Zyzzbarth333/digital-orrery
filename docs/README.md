@@ -23,7 +23,8 @@ they come from, and how each part is checked.
 | Page | Covers |
 | --- | --- |
 | [The 3D scene](frontend/scene.md) | True scale, the render frame, the floating origin, camera, orbit lines, time |
-| [Lighting](frontend/lighting.md) | Inverse-square sunlight and exposure, albedo and scattering laws, eclipses, ring photometry |
+| [Camera](frontend/camera.md) | The orbit camera, flights on van Wijk and Nuij's zoom-and-pan path, interrupting and redirecting them, zoom kept between bodies |
+| [Lighting](frontend/lighting.md) | Inverse-square sunlight and exposure, HDR and tone mapping, the Sun's disc and glare, bloom, point stars and adaptation, albedo and scattering laws, eclipses, ring photometry |
 | [Missions](frontend/mission.md) | The craft model, launches, manoeuvre nodes, the readout and its tags, the porkchop planner |
 | [Atmospheres](frontend/atmospheres.md) | Rayleigh, Mie and ozone single scattering along the view ray, sunlight reddening on the ground, checks |
 | [Surface maps, rings, stars and daily Earth](frontend/textures.md) | Every source and its credit, map layout, relief from elevation, night lights, GIBS daily imagery, the Cassini ring profile, the star map |
@@ -31,6 +32,7 @@ they come from, and how each part is checked.
 ## Usability
 
 [UX review](ux/review.md): personas, scenarios and a heuristic evaluation of the console, with what was fixed.
+[UX research](ux/research.md) and the [overhaul plan](ux/overhaul-plan.md): what space-sim and planetarium UIs, panel design, camera navigation, sky rendering and WebGL performance research say, and the November 2026 overhaul built on it.
 
 ## Checks and performance
 

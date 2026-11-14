@@ -67,14 +67,15 @@ npm run build
 ## Controls
 
 - Drag: rotate the view about the focused body
-- Scroll: zoom in and out
-- Click a label or a name in the list: focus that body
+- Scroll: zoom in and out (the zoom is kept when you move to another body)
+- Click a label or a name in the list: fly there (drag, scroll or Esc stops the flight; click the body in view again to reframe it)
 - Header: the RUN key runs or holds time; choose a rate (real time to one year per second), or jump back to now with NOW
-- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now
+- Header: FLIGHT shows the selected craft (press it to follow the craft); CONSOLE opens the flight console
+- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now, M flight console, Esc stop a flight or close the console
 
 The data plate gives each value with its source (the provenance column): a solid tag for data, a dashed one for values worked out in the app; hover a tag for detail.
 
-The right-hand plate has three tabs: TARGET (the focused body's data), MISSION (launch, readout, nodes, engine, log) and PLANNER (the porkchop grid and "Fly this"). See [docs/frontend/mission.md](docs/frontend/mission.md).
+The right-hand plate shows the focused body's data. Missions, the planner and the rocket are the app's, not a body's, so they live in the flight console, opened from the header whatever is in view: MISSION (launch, readout, nodes, engine, log), PLANNER (the porkchop grid and "Fly this") and ROCKET. See [docs/frontend/mission.md](docs/frontend/mission.md).
 
 A link can set the starting view: `?focus=moon&t=2026-03-03T11:33:40Z&view=sun` (`view=sun` puts the camera on the sunlit side).
 
