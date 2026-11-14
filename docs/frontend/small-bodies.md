@@ -33,22 +33,67 @@ and famous comets.
 - **Building** (`npm run build:smallbodies`,
   `src/physics/smallbodies.build.mjs`): every orbit is carried to the
   shared epoch by two-body motion and packed into 16 bytes:
-  a (float32), e (uint16), i, node, peri, M (uint16, 0.0055° steps), H and
-  class. `public/data/smallbodies.bin` is 2.17 MB; `smallbodies.json`
-  holds the counts and the named bodies at full precision.
+  - a (float32), e (uint16);
+  - i, node, peri, M (uint16, in 0.0055° steps);
+  - H (a comet's M1, from −2 to 34.4 in 0.14 mag steps);
+  - the class and, for a comet, its K1 (the nearest of 5, 7.5, 10, 12.5,
+    15, 20, 25 and 35; 10 where SBDB has none).
+
+  A body with no magnitude gets H 18, which is faint. That is 17 asteroids
+  and 130 comets, most of the comets fragments (58) or last seen before
+  1950 (48).
+  `public/data/smallbodies.bin` is 2.17 MB; `smallbodies.json` holds the
+  counts and the named bodies at full precision.
 
 ## Drawing
 
-`src/scene/smallBodies.ts` is one point cloud, placed at the Sun's render
-position. Each frame only the time changes; the vertex shader solves
-Kepler's equation for every body from its elements (Danby's starting guess,
-12 Newton steps), so the cost on the CPU does not grow with their number.
-The points are faint (they add up), larger and brighter for a lower H, and
-outside the exposure and tone mapping, like the orbit lines.
+`src/scene/smallBodies.ts` is one point cloud. Each frame only the time
+and the camera's position change: the vertex shader solves Kepler's
+equation for every body from its elements (Danby's starting guess, 12
+Newton steps) and subtracts the camera, so the cost on the CPU does not
+grow with their number.
 
-The named bodies get markers like the planets', placed from the same
-elements on the CPU: always for the dwarf planets and the four largest
-asteroids, otherwise once the camera is within 1.5 au.
+Each body is a point of light, drawn as the stars are: a Gaussian of fixed
+width in device pixels on its true position, so it neither shimmers nor
+vanishes as the view turns. Its brightness follows its magnitude as seen
+from the camera:
+- **An asteroid:** H + 5 log₁₀(r Δ) − 2.5 log₁₀ Φ(α), the H-G system with
+  G = 0.15 (Bowell et al. 1989).
+- **A comet:** M1 + 5 log₁₀ Δ + K1 log₁₀ r, with its own K1.
+
+Here r and Δ are its distances from the Sun and from the camera (au), and
+α is the Sun-body-camera angle. True magnitudes would leave nearly every
+body invisible, so the drawing departs from them in two stated ways:
+- **Metered for sunlight at the camera,** as the scene's exposure is: the
+  magnitude less 5 log₁₀ of the camera's distance from the Sun (at least
+  0.2 au). From far out the belt keeps its brightness, as the planets'
+  sunlit discs do.
+- **Half the range:** a body of metered magnitude 19.6 (the main belt's
+  median seen from the Earth) peaks at a display value of 0.08. Each
+  magnitude changes that by a factor of 10^0.2, up to 3, where the
+  brightest bloom a little.
+
+So a near-Earth asteroid passing the camera brightens as it would, and the
+populations read alike from the Earth or from the Kuiper belt. Where the
+scene models the eye's adaptation, the points fade beside bright light, as
+the stars do. A point below 1/512 of white is not drawn at all. The points
+are drawn just after the stars, without depth, so the planets drawn later
+cover them.
+
+The scene passes the layer its camera position and 1 / the exposure:
+- **Drawn straight to the screen** (no HDR target), the shader multiplies
+  the exposure back and writes the display value, so the points add up as
+  display values. Tone-mapping each point before they add up would turn a
+  dense belt white.
+- **Drawn into an HDR target,** the output pass exposes, tone-maps and
+  encodes their sum once.
+
+The same call is right in both cases.
+
+The named bodies get markers in the HTML overlay, placed from the same
+elements on the CPU as the points are drawn, and rounded to whole device
+pixels. The dwarf planets and the four largest asteroids are always
+marked; the others once the camera is within 1.5 au.
 
 ## How right they are
 
@@ -75,3 +120,6 @@ populations lie, not where a given faint body is tonight.
 - JPL Horizons API, [ssd.jpl.nasa.gov/horizons](https://ssd.jpl.nasa.gov/horizons/).
 - J. M. A. Danby, *Fundamentals of Celestial Mechanics* (Willmann-Bell,
   1988): the starting value for Kepler's equation.
+- E. Bowell et al., "Application of photometric models to asteroids", in
+  *Asteroids II* (University of Arizona Press, 1989), pp. 524–556: the H-G
+  magnitude system.

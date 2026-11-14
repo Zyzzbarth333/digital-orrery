@@ -101,7 +101,7 @@ export function TimeBand({ clock, mission }: { clock: SimClock; mission: Mission
 
 // The small-body populations the rail can show or hide (src/scene/smallBodies.ts).
 const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; label: string; colour: string; title: string }[] = [
-  { key: 'belt', label: 'Main belt', colour: '#9ea3ad', title: 'Main-belt asteroids brighter than H 15 (JPL SBDB)' },
+  { key: 'belt', label: 'Main belt', colour: '#a3a3a3', title: 'Main-belt asteroids brighter than H 15 (JPL SBDB)' },
   { key: 'neo', label: 'Near-Earth', colour: '#ff9e4d', title: 'Every near-Earth asteroid in JPL SBDB' },
   { key: 'trojans', label: 'Trojans', colour: '#8fcc85', title: "Jupiter's trojans, ahead of and behind it in its orbit" },
   { key: 'outer', label: 'Kuiper belt', colour: '#b399f2', title: 'Centaurs and trans-Neptunian objects, Eris, Haumea and Makemake among them' },

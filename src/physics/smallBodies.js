@@ -20,6 +20,10 @@ const TAU = 2 * Math.PI;
 export const SB_CLASSES = ['MBA', 'IMB', 'OMB', 'MCA', 'IEO', 'ATE', 'APO', 'AMO', 'TJN', 'CEN', 'TNO', 'AST',
   'JFc', 'JFC', 'HTC', 'ETc', 'CTc', 'COM', 'PAR', 'HYP'];
 
+// A comet's K1, the slope of its total magnitude with log10 r (M1 + 5 log10
+// Delta + K1 log10 r), packed as the nearest of these.
+export const SB_K1 = [5, 7.5, 10, 12.5, 15, 20, 25, 35];
+
 // The populations they are drawn and toggled as.
 export const SB_GROUPS = {
   belt: ['MBA', 'IMB', 'OMB', 'MCA', 'AST'],
@@ -52,12 +56,12 @@ export const NOTABLE = {
 };
 
 // The packed file (16 bytes a body, see smallbodies.build.mjs) as typed
-// arrays: a (au), e, i, node, peri, M (rad, at SB_EPOCH_JD), H, cls (index
-// into SB_CLASSES).
+// arrays: a (au), e, i, node, peri, M (rad, at SB_EPOCH_JD), H (a comet's
+// M1), cls (index into SB_CLASSES), k1 (a comet's K1; 0 for an asteroid).
 export function decodeSmallBodies(buffer) {
   const dv = new DataView(buffer), n = buffer.byteLength / 16;
   const out = { count: n, a: new Float32Array(n), e: new Float32Array(n), i: new Float32Array(n), node: new Float32Array(n),
-    peri: new Float32Array(n), M: new Float32Array(n), H: new Float32Array(n), cls: new Uint8Array(n) };
+    peri: new Float32Array(n), M: new Float32Array(n), H: new Float32Array(n), cls: new Uint8Array(n), k1: new Float32Array(n) };
   const ang = TAU / 65535;
   for (let j = 0; j < n; j++) {
     const o = j * 16;
@@ -67,8 +71,10 @@ export function decodeSmallBodies(buffer) {
     out.node[j] = dv.getUint16(o + 8, true) * ang;
     out.peri[j] = dv.getUint16(o + 10, true) * ang;
     out.M[j] = dv.getUint16(o + 12, true) * ang;
-    out.H[j] = dv.getUint8(o + 14) / 8 - 5;
-    out.cls[j] = dv.getUint8(o + 15);
+    out.H[j] = dv.getUint8(o + 14) / 7 - 2;
+    const c = dv.getUint8(o + 15);
+    out.cls[j] = c & 31;
+    out.k1[j] = SB_CLASSES[c & 31] && SB_GROUPS.comets.includes(SB_CLASSES[c & 31]) ? SB_K1[c >> 5] : 0;
   }
   return out;
 }

@@ -13,14 +13,17 @@
 // from it by the planets' pull, most for the near-Earth asteroids), and
 // packed in 16 bytes (smallBodies.js decodes it):
 //   a (au, float32), e (uint16, x 65535), i, node, peri, M (uint16, x 65535
-//   / 2 pi: 0.0055 deg), H (uint8, (H + 5) x 8, 0.125 mag), class (uint8).
+//   / 2 pi: 0.0055 deg), H (uint8, (H + 2) x 7: H -2 to 34.4 in 0.14 mag
+//   steps; a comet's M1), and a byte of class (bits 0-4, SB_CLASSES) and,
+//   for a comet, its K1 (bits 5-7, the nearest of SB_K1). A body with no
+//   magnitude gets H 18, faint.
 // The named ones (dwarf planets, mission targets, famous comets; NOTABLE in
 // smallBodies.js, by designation) go to the JSON at full precision, for
 // labels.
 
 import fs from 'node:fs';
 import { GROUPS, CACHE } from './smallbodies.fetch.mjs';
-import { SB_CLASSES, SB_EPOCH_JD, NOTABLE } from './smallBodies.js';
+import { SB_CLASSES, SB_EPOCH_JD, SB_K1, NOTABLE } from './smallBodies.js';
 
 const K = 0.01720209895;                     // Gaussian gravitational constant, rad/day (au, solar masses)
 const D2R = Math.PI / 180, TAU = 2 * Math.PI;
@@ -48,13 +51,17 @@ for (const { group, d, ix } of rows) {
   const spkid = String(d[ix.spkid]), pdes = String(d[ix.pdes]), cls = d[ix.class];
   if (pdes === '134340') { skipped++; continue; }            // Pluto: a planet in the app
   const e = num('e'), i = num('i') * D2R, node = num('om') * D2R, peri = num('w') * D2R, epoch = num('epoch');
-  let a, M0, H;
+  let a, M0, H, k1 = 0;
   if (group === 'comets') {
     const q = num('q'), tp = num('tp');
     if (!(e < 0.995) || !(q > 0)) { skipped++; continue; }
     a = q / (1 - e);
     M0 = K / Math.pow(a, 1.5) * (epoch - tp);               // mean anomaly at the epoch from perihelion time
     H = num('M1');
+    // Its K1 (total magnitude's slope with log r), as the nearest of SB_K1;
+    // 10 when SBDB has none.
+    const K1 = Number.isFinite(num('K1')) ? num('K1') : 10;
+    k1 = SB_K1.reduce((best, v, j) => (Math.abs(v - K1) < Math.abs(SB_K1[best] - K1) ? j : best), 0);
   } else {
     a = num('a'); M0 = num('ma') * D2R; H = num('H');
   }
@@ -66,7 +73,7 @@ for (const { group, d, ix } of rows) {
   if (fresh) { a = fresh.a; M = wrap(fresh.M); }
   const code = SB_CLASSES.indexOf(cls) >= 0 ? SB_CLASSES.indexOf(cls) : SB_CLASSES.indexOf(group === 'comets' ? 'COM' : 'AST');
   const el = fresh ? { a, e: fresh.e, i: fresh.i, node: fresh.node, peri: fresh.peri, M } : { a, e, i, node, peri, M };
-  kept.push({ ...el, H: Number.isFinite(H) ? H : 18, code });
+  kept.push({ ...el, H: Number.isFinite(H) ? H : 18, code, k1 });
   const label = NOTABLE[pdes];
   if (label) named.push({ pdes, spkid, name: label.name ?? (d[ix.name] || d[ix.pdes]), kind: label.kind, cls, ...el, H: Number.isFinite(H) ? H : null, diameter: num('diameter') || null, epochJd: SB_EPOCH_JD, elements: fresh ? 'JPL Horizons at the epoch' : 'SBDB' });
 }
@@ -80,8 +87,8 @@ kept.forEach((k, j) => {
   buf.writeUInt16LE(u16(wrap(k.node) / TAU * 65535), o + 8);
   buf.writeUInt16LE(u16(wrap(k.peri) / TAU * 65535), o + 10);
   buf.writeUInt16LE(u16(k.M / TAU * 65535), o + 12);
-  buf.writeUInt8(Math.max(0, Math.min(255, Math.round((k.H + 5) * 8))), o + 14);
-  buf.writeUInt8(k.code, o + 15);
+  buf.writeUInt8(Math.max(0, Math.min(255, Math.round((k.H + 2) * 7))), o + 14);
+  buf.writeUInt8(k.code | (k.k1 << 5), o + 15);
 });
 fs.mkdirSync(new URL('../../public/data/', import.meta.url), { recursive: true });
 fs.writeFileSync(new URL('../../public/data/smallbodies.bin', import.meta.url), buf);

@@ -355,7 +355,7 @@ export class OrreryScene {
     const sunPos = this.meshes.get('sun')!.position;
     this.sunGlow.position.copy(sunPos);
     this.updateLighting(sunPos, cam, date);
-    this.smallBodies.update(tMs, cam, 1);
+    this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure);
     for (const b of BODIES) {
       const o = this.orbits.get(b.key);
       if (o && b.parent) {
