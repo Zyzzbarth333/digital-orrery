@@ -80,6 +80,24 @@ equations (13.6)–(13.8) and their curvature terms exactly. The sequence:
 - **Losses:** gravity $\int g\sin\gamma\,dt$ and drag $\int D/m\,dt$
   (Curtis 13.27).
 
+**For model, high-power and sounding rockets** (used by the
+[cross-check](#checked-against-openrocket-and-rocketpy-rocketxchecktestmjs)):
+- **Thrust curves** (`thrustCurve` on a stage): thrust against time from
+  ignition, as motor makers publish it, linear between points. The
+  propellant burns in proportion to the impulse delivered, and the stage
+  burns out at the curve's end. A stage's curve may start with a wait
+  before its motor lights.
+- **Drag against Mach** (`cdAt(mach, t, burning)`), with the speed of sound
+  from the 1976 standard. Base drag is lower with an engine lit, so it is
+  told whether one is.
+- **Straight up** (`vertical`, no pitchover) and **stop at apogee**
+  (`stopAtApogee`).
+- **Held on the pad** until the thrust outweighs the rocket: a motor's
+  thrust builds from nothing over the first moments.
+
+The ROCKET tab's vehicles do not use these yet: their stages still burn at
+a constant thrust.
+
 `ascentToState` turns the end state into a geocentric J2000 state:
 - **Placing the plane:** the plane is fixed in inertial space through the
   pad at liftoff, placed by the app's Earth orientation
@@ -140,3 +158,61 @@ date and the pad.
 | Hohmann burn to geostationary height; escape | vis-viva | exact |
 | A level-ending gravity turn, and cutoff in orbit | | flight-path angle 0 to 0.01°; with cutoff, eccentricity 6×10⁻⁵ with propellant kept |
 | The end state in 3D | the inclination aimed for | within 0.01° of 51.6° |
+
+## Checked against OpenRocket and RocketPy (`rocket.xcheck.test.mjs`)
+
+Two of OpenRocket's own example designs, flown calm and straight up from
+sea level on the equator (gravity 9.780 m/s²) in the ISA atmosphere, by
+three simulators:
+- **OpenRocket 24.12** (GPL-3.0, used as an outside oracle).
+  `npm run oracle:openrocket` (`rocket.openrocket.mjs`) flies them through
+  `tools/openrocket/ORRun.java`, a small runner compiled against a local
+  OpenRocket jar. It fixes OpenRocket's random seed, because OpenRocket
+  nudges its rockets with small random pitch and yaw moments, and uses a
+  5 ms step. It keeps the motors' thrust curves and ignition times, the
+  masses as OpenRocket flew them, the drag coefficient against time and
+  against Mach (burning and coasting), and the results
+  (`fixtures/rocket_xcheck.json`). No OpenRocket code is in the repo.
+- **RocketPy 1.13** (MIT), in its point-mass "3 DOF" mode, given the same
+  thrust curves, masses and Mach tables (`tools/rocketpy/fly.py`, in its
+  own Python environment, `tools/rocketpy/requirements.txt`). Its 3-DOF
+  flight does not run with a time limit, so the second stage starts from
+  the first stage's state at burnout, interpolated.
+- **Ours:** `ascent` with the thrust curves, `vertical`, `stopAtApogee`,
+  the reference area and `cdAt`, with the drag coefficient taken two ways:
+  OpenRocket's own against time (replayed), and the Mach tables RocketPy
+  gets.
+
+| Vehicle | Simulator | Apogee | Time to apogee | Top speed |
+| --- | --- | --- | --- | --- |
+| One stage, A8 motor, 64.5 g | OpenRocket | 51.19 m | 3.481 s | 29.38 m/s |
+| | ours, OpenRocket's drag | 51.19 m | 3.481 s | 29.38 m/s |
+| | RocketPy | 51.20 m | 3.481 s | 29.38 m/s |
+| | ours, drag against Mach | 51.19 m | 3.482 s | 29.38 m/s |
+| Two stages, H148R each, 2.574 kg | OpenRocket | 679.02 m | 11.045 s | 159.02 m/s |
+| | ours, OpenRocket's drag | 679.12 m | 11.046 s | 159.04 m/s |
+| | RocketPy | 678.89 m | 11.044 s | 158.99 m/s |
+| | ours, drag against Mach | 679.03 m | 11.046 s | 159.01 m/s |
+
+The test holds each pair within 0.1 %, and our height every half second
+within 0.1 % of OpenRocket's apogee (it is within 0.10 m on the two-stage).
+
+What it took to agree:
+- **The motors' own curves.** Thrust sampled from OpenRocket's output, at
+  its steps up to 0.09 s apart, lost the shape of each burn's start, which
+  cost 0.4 % of the two-stage's apogee.
+- **The time to apogee between samples.** OpenRocket reports the time of
+  its highest sample, and its default steps near the top are 0.2 s long.
+  The fixture finds where the climb rate crosses zero.
+- **Held on the pad,** as OpenRocket and RocketPy hold a rocket until its
+  thrust outweighs it.
+- **OpenRocket's own masses.** Its flight of the two-stage loses 295.6 g
+  while the booster burns, though the booster's H148R holds 147.8 g of
+  propellant, then 147.8 g more while the sustainer burns: 148 g more in
+  all than the two motors hold. The cross-check flies the masses as
+  OpenRocket flew them, since it compares the flight, not the bookkeeping.
+
+**Not run: RASAero II.** It is a Windows program, and this machine has no
+Wine. It would add a third estimate of drag against Mach rather than
+another flight.
+
