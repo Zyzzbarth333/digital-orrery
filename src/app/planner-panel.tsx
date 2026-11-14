@@ -11,6 +11,7 @@ import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import type { GridRequest } from './porkchop.worker';
 import { TrajBrowserPanel } from './trajbrowser-panel';
+import { SourceTag } from './source-tag';
 import { transfer } from '../physics/trajsearch.js';
 import { helioStateEcl, eclToEqj } from '../physics/ephemeris.js';
 import { GRAVITATIONAL_PARAMETERS as GM, PLANETS } from '../utils/constants.js';
@@ -184,11 +185,11 @@ export function PlannerPanel({ clock, mission, onFlown, autoPlan = null }: { clo
       {cell && Number.isFinite(cell.c3) && (
         <>
           <table className="readout"><tbody>
-            <tr><th scope="row">Depart</th><td className="value">{iso(cell.depMs)}</td><td className="src"><span className="src-tag derived" title="the grid cell you picked">grid</span></td></tr>
-            <tr><th scope="row">Arrive</th><td className="value">{iso(cell.arrMs)} · {cell.tof} d</td><td className="src"><span className="src-tag" title="zero-revolution prograde Lambert arc (src/physics/orbital.js)">Lambert</span></td></tr>
-            <tr><th scope="row" title="launch energy: the departure excess speed squared">C3</th><td className="value">{fmt(cell.c3, 2)} km²/s²</td><td className="src"><span className="src-tag" title="departure v-infinity squared">Lambert</span></td></tr>
-            <tr><th scope="row" title="hyperbolic excess speed (v-infinity) on arrival">Arrival v-inf</th><td className="value">{fmt(cell.vinfArr, 3)} km/s</td><td className="src"><span className="src-tag" title="excess speed at the destination">Lambert</span></td></tr>
-            <tr><th scope="row" title="departure burn plus capture burn">Δv total</th><td className="value">{fmt(cell.dv, 3)} km/s<span className="alt">200 km parking orbit → 400 km circular capture</span></td><td className="src"><span className="src-tag derived" title="from a 200 km parking orbit, into a 400 km capture orbit">2-body</span></td></tr>
+            <tr><th scope="row">Depart</th><td className="value">{iso(cell.depMs)}</td><td className="src"><SourceTag src="grid" derived info="grid" /></td></tr>
+            <tr><th scope="row">Arrive</th><td className="value">{iso(cell.arrMs)} · {cell.tof} d</td><td className="src"><SourceTag src="Lambert" info="lambert" detail="the zero-revolution prograde arc" /></td></tr>
+            <tr><th scope="row" title="launch energy: the departure excess speed squared">C3</th><td className="value">{fmt(cell.c3, 2)} km²/s²</td><td className="src"><SourceTag src="Lambert" info="c3" /></td></tr>
+            <tr><th scope="row" title="hyperbolic excess speed (v-infinity) on arrival">Arrival v-inf</th><td className="value">{fmt(cell.vinfArr, 3)} km/s</td><td className="src"><SourceTag src="Lambert" info="vinf-arrival" /></td></tr>
+            <tr><th scope="row" title="departure burn plus capture burn">Δv total</th><td className="value">{fmt(cell.dv, 3)} km/s<span className="alt">200 km parking orbit → 400 km circular capture</span></td><td className="src"><SourceTag src="2-body" derived info="dv-total" /></td></tr>
           </tbody></table>
           <div className="keys-row">
             <button className="key primary" onClick={fly} disabled={!Number.isFinite(cell.c3)}>Fly this</button>
