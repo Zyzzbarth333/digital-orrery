@@ -28,6 +28,7 @@ import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '../physics/kernelHost.
 import { solarSystemBodies } from '../physics/bodies.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
 import { departureHyperbola } from '../physics/launch.js';
+import { craftWarns } from './craft-state.js';
 import { RealMission } from '../physics/realMission.js';
 import { ORION_CRAFT, ORION_ENTRIES, orionFor } from '../physics/orion.js';
 import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
@@ -418,15 +419,15 @@ export class Mission {
   private warned = new Set<number>();
   alarm = false;
   // A splashdown is how a flight ends, not a warning.
-  get warning(): boolean { return this.crafts.some((c) => (c.crashed && !c.splashed) || !!c.error); }
+  get warning(): boolean { return this.crafts.some(craftWarns); }
   get warningText(): string {
-    const c = this.crafts.find((x) => (x.crashed && !x.splashed) || x.error);
+    const c = this.crafts.find(craftWarns);
     return c ? (c.crashed ? `${c.name}: impact on ${c.impactBody}` : `${c.name}: ${c.error}`) : '';
   }
   acknowledge(): void { this.alarm = false; this.emit(true); }
   private checkAlarm(): void {
     for (const c of this.crafts) {
-      if (((c.crashed && !c.splashed) || c.error) && !this.warned.has(c.id)) { this.warned.add(c.id); this.alarm = true; }
+      if (craftWarns(c) && !this.warned.has(c.id)) { this.warned.add(c.id); this.alarm = true; }
     }
   }
 

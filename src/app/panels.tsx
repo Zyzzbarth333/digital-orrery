@@ -18,6 +18,7 @@ import { baryGm } from '../physics/barycentres.js';
 import { MU_SUN } from '../physics/bodies.js';
 import { helioStateEcl, fromDe442 } from '../physics/ephemeris.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
+import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
 
 const AU_KM = 149597870.7;
@@ -101,7 +102,7 @@ function FlightField({ mission, consoleOpen, onToggleConsole, following, onFollo
     const n = mission.crafts.length + mission.ascents.length;
     if (!sel) return `none||${n}|`;
     const c = sel.craft;
-    const state = sel.climbing ? 'Climb' : c.crashed ? 'Lost' : c.error ? 'Fault' : c.thrusting() ? 'Burn' : 'Coast';
+    const state = craftStateWord(c, { climbing: sel.climbing, burning: !sel.climbing && !c.crashed && !c.error && c.thrusting() });
     return `${c.id}|${state}|${n}|${sel.name}`;
   });
   const [id, state, countStr, ...rest] = key.split('|');
