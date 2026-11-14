@@ -33,6 +33,7 @@ import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { SmallBodyLayer } from './smallBodies';
+import { GuideLayer } from './guides';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
@@ -192,6 +193,7 @@ export class OrreryScene {
   private craftLayer!: CraftLayer;
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
+  guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
 
   private bodyAnchor(key: BodyKey): Anchor {
     return { id: `body:${key}`, pos: () => this.states[key]?.r ?? (key === 'sun' ? [0, 0, 0] : null), minDist: BODY_BY_KEY[key].radiusKm * 1.2 };
@@ -318,6 +320,8 @@ export class OrreryScene {
 
     this.craftLayer = new CraftLayer(this.scene, this.overlay, (id) => this.onCraftPick(id));
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    this.guides = new GuideLayer(this.scene, this.overlay, toRender,
+      (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     // The GPU can drop the WebGL context (sleep, driver reset, memory
     // pressure): say so rather than show a black view, and carry on when the
@@ -575,6 +579,9 @@ export class OrreryScene {
     this.updateGlare(sunPos, cam, now);
     this.updateAdaptation(dtReal, sunPos);
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
+      focus: this.focusCraftId === null ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
+      level: 1 / this.renderer.toneMappingExposure, date });
 
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
@@ -777,6 +784,7 @@ export class OrreryScene {
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
     this.smallBodies.dispose();
+    this.guides.dispose();
     for (const el of this.labels.values()) el.remove();
     this.post.dispose();
     this.renderer.dispose();

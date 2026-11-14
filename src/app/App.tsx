@@ -7,6 +7,7 @@ import { BodyRail, Plate, RATES, TimeBand, craftById } from './panels';
 import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
 import type { OrreryScene } from '../scene/OrreryScene';
+import type { GuideKey } from '../scene/guides';
 import { BODIES, BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 
 // Optional start state from the URL: ?focus=mars&t=2030-01-01T00:00Z&view=sun
@@ -82,6 +83,7 @@ export function App() {
   const launched = useRef(false);
   const [following, setFollowing] = useState<number | null>(null);
   const [smallOn, setSmallOn] = useState<Record<string, boolean>>({ belt: true, neo: true, trojans: true, outer: true, comets: true, colours: false });
+  const [guidesOn, setGuidesOn] = useState<Record<GuideKey, boolean>>({ axes: false, field: false, spheres: false, lagrange: false, pulls: false });
   // The followed craft's name, kept current (a rocket's climb included).
   const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
   const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); };
@@ -152,7 +154,8 @@ export function App() {
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
       <BodyRail clock={clock} focus={following === null ? focus : null} onSelect={(k) => { setFollowing(null); setFocus(k); scene.current?.focusOn(k); }}
-        smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }} />
+        smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }}
+        guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); scene.current?.guides.set(k, on); }} />
       <Plate clock={clock} focus={focus} covered={consoleOpen && !wide} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>

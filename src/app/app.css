@@ -549,4 +549,35 @@ details.section[open] > summary::after { content: '−'; }
    marker than the planets'; the rail's toggles show their population colour. */
 .body-marker.small-body .dot { width: 5px; height: 5px; margin: 1px; border-color: rgba(236, 217, 176, 0.45); }
 .body-marker.small-body .name { opacity: 0.75; font-size: 8px; }
+
+/* ---------------- gravity guides (src/scene/guides.ts) ---------------- */
+.guide-tag {
+  position: absolute; left: 0; top: 0; pointer-events: auto; white-space: nowrap;
+  font: 8px var(--display); letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--phosphor-dim); background: rgba(18, 17, 16, 0.72); padding: 1px 4px; border-radius: 2px;
+  translate: -50% -50%;
+}
+.guide-tag.axis-n { color: #c8c2b4; padding: 0 3px; translate: -50% -110%; }
+.guide-tag.soi, .guide-tag.hill, .guide-tag.pull { text-transform: none; letter-spacing: 0.06em; font-size: 9px; }
+.guide-tag.soi { color: var(--phosphor); translate: -50% -100%; }
+.guide-tag.hill { color: #9fc9b8; translate: -50% -100%; }
+.guide-tag.lpoint { background: none; padding: 0; translate: -4px -4px; display: flex; gap: 5px; align-items: center; color: var(--phosphor-dim); }
+.guide-tag.lpoint::before {
+  content: ''; width: 6px; height: 6px; transform: rotate(45deg); border: 1px solid var(--phosphor-dim); flex: none;
+}
+.guide-tag.pull { color: #ff9a66; translate: -50% -50%; }
+.field-legend {
+  position: absolute; left: calc(2 * var(--u)); bottom: calc(7 * var(--u)); width: 292px; pointer-events: auto;
+  background: rgba(18, 17, 16, 0.86); border: 1px solid var(--seam-strong); border-radius: 2px;
+  padding: 8px 10px; color: var(--phosphor-dim); font: 10px var(--sans);
+}
+.field-legend p { margin: 0; }
+.field-legend .field-title { font: 9px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--phosphor); margin-bottom: 6px; }
+.field-legend .field-bar { height: 8px; background: linear-gradient(to right, #2f8fb0, #1d1b16 50%, #ffb22e); border: 1px solid var(--seam-strong); }
+.field-legend .field-ticks { display: flex; justify-content: space-between; font: 9px var(--mono); margin: 2px 0 4px; }
+.field-legend .field-unit { font: 9px var(--mono); }
+.field-legend .field-source { color: var(--label-dim); font-size: 9px; margin-top: 3px; }
 .small-bodies .lamp-sq { border: 1px solid; }
+/* The guides never scroll: five short rows, the body list gives way. */
+.body-list.guides { flex: none; overflow: visible; padding-bottom: var(--u); }
+.body-list.guides .body-row { height: 26px; }
