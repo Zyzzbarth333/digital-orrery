@@ -46,6 +46,9 @@ export const EARTH_ATMOSPHERE: AtmosphereParams = {
   source: 'Bruneton (2017) reference model; ozone peak from Hillaire (2020)',
 };
 
+// Size of the transmittance table (columns: view angle, rows: altitude).
+const LUT_W = 256, LUT_H = 64;
+
 // Shared GLSL: the medium's density and the transmittance from a point
 // along a direction to the top of the atmosphere (or 0 if the ray meets the
 // ground). Needs the uniforms declared in ATMO_UNIFORMS.
@@ -61,6 +64,7 @@ uniform float atmoG;
 uniform vec3 atmoBetaO;
 uniform float atmoOzC;
 uniform float atmoOzW;
+uniform sampler2D atmoTransLut;
 `;
 
 export const ATMO_FUNCS = /* glsl */ `
@@ -87,22 +91,79 @@ vec3 atmoExtinction(float h) {
 }
 
 // Transmittance from p (km, planet-centred) toward unit direction s to the
-// top of the atmosphere; zero if the ray meets the ground.
+// top of the atmosphere; zero if the ray meets the ground. Looked up in a
+// table made once on the CPU (transmittanceLut), in Bruneton's (2017)
+// parametrisation: x_r = rho / H, x_mu = (d - d_min) / (d_max - d_min).
+// The ray march it replaces cost 8 samples (24 exp) at every step of every
+// view ray, most of the Earth view's frame time on an integrated GPU.
 vec3 atmoSunTransmittance(vec3 p, vec3 s) {
   vec2 g = atmoSphere(p, s, atmoRg);
   if (g.x > 0.0) return vec3(0.0);
-  vec2 top = atmoSphere(p, s, atmoRt);
-  float L = max(top.y, 0.0);
-  const int M = 8;
-  float ds = L / float(M);
-  vec3 tau = vec3(0.0);
-  for (int i = 0; i < M; i++) {
-    vec3 q = p + s * ((float(i) + 0.5) * ds);
-    tau += atmoExtinction(length(q) - atmoRg) * ds;
-  }
-  return exp(-tau);
+  float r = clamp(length(p), atmoRg, atmoRt);
+  float mu = clamp(dot(p, s) / length(p), -1.0, 1.0);
+  float H = sqrt(atmoRt * atmoRt - atmoRg * atmoRg);
+  float rho = sqrt(max(r * r - atmoRg * atmoRg, 0.0));
+  float d = max(-r * mu + sqrt(max(r * r * (mu * mu - 1.0) + atmoRt * atmoRt, 0.0)), 0.0);
+  float dMin = atmoRt - r, dMax = rho + H;
+  float xMu = (d - dMin) / max(dMax - dMin, 1e-6);
+  float xR = rho / H;
+  vec2 uv = vec2(0.5 / ${LUT_W}.0 + xMu * ${LUT_W - 1}.0 / ${LUT_W}.0, 0.5 / ${LUT_H}.0 + xR * ${LUT_H - 1}.0 / ${LUT_H}.0);
+  return texture2D(atmoTransLut, uv).rgb;
 }
 `;
+
+// The transmittance table: rows are x_r (ground to top), columns x_mu
+// (straight up to the horizon), each texel exp(-optical depth) along the ray
+// to the top, integrated with 48 midpoint steps.
+const lutCache = new Map<string, THREE.DataTexture>();
+let blankLut: THREE.DataTexture | null = null;
+
+export function transmittanceLut(a: AtmosphereParams, groundKm: number): THREE.DataTexture {
+  if (a.rayleigh.every((v) => v === 0) && a.mieExtinct.every((v) => v === 0)) {
+    if (!blankLut) {
+      blankLut = new THREE.DataTexture(new Uint16Array([0x3c00, 0x3c00, 0x3c00, 0x3c00]), 1, 1, THREE.RGBAFormat, THREE.HalfFloatType);
+      blankLut.needsUpdate = true;
+    }
+    return blankLut;
+  }
+  const key = `${a.source}|${groundKm}|${a.topKm}`;
+  const hit = lutCache.get(key);
+  if (hit) return hit;
+  const Rg = groundKm, Rt = groundKm + a.topKm;
+  const H = Math.sqrt(Rt * Rt - Rg * Rg);
+  const data = new Uint16Array(LUT_W * LUT_H * 4);
+  const STEPS = 48;
+  for (let j = 0; j < LUT_H; j++) {
+    const rho = (H * j) / (LUT_H - 1);
+    const r = Math.sqrt(rho * rho + Rg * Rg);
+    for (let i = 0; i < LUT_W; i++) {
+      const dMin = Rt - r, dMax = rho + H;
+      const d = dMin + ((dMax - dMin) * i) / (LUT_W - 1);
+      const mu = d === 0 ? 1 : Math.max(-1, Math.min(1, (H * H - rho * rho - d * d) / (2 * r * d)));
+      const ds = d / STEPS;
+      let tr = 0, tm = 0, to = 0;
+      for (let k = 0; k < STEPS; k++) {
+        const t = (k + 0.5) * ds;
+        const h = Math.sqrt(r * r + t * t + 2 * r * mu * t) - Rg;
+        tr += Math.exp(-h / a.rayleighHKm);
+        tm += Math.exp(-h / a.mieHKm);
+        to += Math.max(0, 1 - Math.abs(h - a.ozoneCentreKm) / a.ozoneHalfWidthKm);
+      }
+      const o = 4 * (j * LUT_W + i);
+      for (let c = 0; c < 3; c++) {
+        const tau = (a.rayleigh[c] * tr + a.mieExtinct[c] * tm + a.ozone[c] * to) * ds;
+        data[o + c] = THREE.DataUtils.toHalfFloat(Math.exp(-tau));
+      }
+      data[o + 3] = 0x3c00;
+    }
+  }
+  const tex = new THREE.DataTexture(data, LUT_W, LUT_H, THREE.RGBAFormat, THREE.HalfFloatType);
+  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  lutCache.set(key, tex);
+  return tex;
+}
 
 const vertex = /* glsl */ `
 #include <common>
@@ -181,6 +242,7 @@ export function atmosphereUniforms(a: AtmosphereParams, groundKm: number): Recor
     atmoBetaO: { value: new THREE.Vector3(...a.ozone) },
     atmoOzC: { value: a.ozoneCentreKm },
     atmoOzW: { value: a.ozoneHalfWidthKm },
+    atmoTransLut: { value: transmittanceLut(a, groundKm) },
   };
 }
 

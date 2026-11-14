@@ -5,7 +5,8 @@
 // orbit, drawn additively so it glows. Each vertex carries u, its time
 // offset from the line's centre as a fraction of the period; `now` is the
 // body's own offset, so the trail follows the body between resamples.
-// A drawing aid, kept out of the exposure and tone mapping.
+// A drawing aid at a display level: divided by the exposure (level) that
+// the HDR output applies.
 
 import * as THREE from 'three';
 
@@ -28,6 +29,7 @@ uniform vec3 colour;
 uniform float now;        // the body's offset, same units as u
 uniform float outline;    // opacity of the whole orbit
 uniform float tail;       // fade length, as a fraction of the period
+uniform float level;      // 1 / exposure: drawn at a display level through the HDR output
 varying float vU;
 void main() {
   #include <logdepthbuf_fragment>
@@ -37,7 +39,7 @@ void main() {
   // Lift the body's (often dark) mean colour so every line reads, and let
   // the head of the trail run hotter still.
   vec3 c = mix(colour, vec3(1.0), 0.35 + 0.35 * glow);
-  gl_FragColor = vec4(c * a, a);
+  gl_FragColor = vec4(c * a * level, a);
 }
 `;
 
@@ -54,6 +56,7 @@ export function orbitTrailMaterial(colour: number, outline = 0.3, tail = 0.08): 
       now: { value: 0 },
       outline: { value: outline },
       tail: { value: tail },
+      level: { value: 1 },
     },
   });
 }

@@ -69,6 +69,7 @@ const VERTEX = /* glsl */ `
   uniform float uLevel;        // 1 / the exposure
   uniform float uVis;          // the eye's adaptation
   uniform float uSize;         // sprite size, device px
+  uniform float uPeakScale;    // keeps a point's light when its width is floored
   uniform vec3 uColour[5];
   uniform float uOn[5];
   varying vec3 vColour;
@@ -111,7 +112,7 @@ const VERTEX = /* glsl */ `
     // Too faint to show: not drawn at all.
     if (peak * 512.0 < 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vColour = vec3(0.0); return; }
     vec3 col = g == 0 ? uColour[0] : g == 1 ? uColour[1] : g == 2 ? uColour[2] : g == 3 ? uColour[3] : uColour[4];
-    vColour = col * (peak * uLevel);
+    vColour = col * (peak * uLevel * uPeakScale);
   }`;
 
 const FRAGMENT = /* glsl */ `
@@ -140,7 +141,6 @@ export class SmallBodyLayer {
   count = 0;
   private camAu: [number, number, number] = [0, 0, 0];
   private jd = SB_EPOCH_JD;
-  private dpr = 0;
   private tmp = new THREE.Vector3();
 
   // Adds itself to the scene once the data has loaded.
@@ -152,7 +152,7 @@ export class SmallBodyLayer {
       transparent: false, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
       uniforms: {
         uDays: { value: 0 }, uCam: { value: new THREE.Vector3() }, uScale: { value: AU_KM / UNIT_KM }, uLevel: { value: 1 }, uVis: { value: 1 },
-        uSigma: { value: 1 }, uSize: { value: 7 },
+        uSigma: { value: 1 }, uSize: { value: 7 }, uPeakScale: { value: 1 },
         uColour: { value: SMALL_BODY_GROUPS.map((g) => new THREE.Vector3(...COLOUR[g])) }, uOn: { value: SMALL_BODY_GROUPS.map(() => 1) },
       },
     });
@@ -200,6 +200,17 @@ export class SmallBodyLayer {
     }
   }
 
+  // The points' width as the stars' (stars.ts setStarScale): the same
+  // width in CSS pixels whatever the render scale, never under 0.8 render
+  // pixels, with the peak scaled to keep the light a point gives.
+  setScale(deviceRatio: number, renderRatio: number): void {
+    const u = this.material.uniforms;
+    const want = (0.55 + 0.35 * deviceRatio) * (renderRatio / deviceRatio), sigma = Math.max(0.8, want);
+    u.uSigma.value = sigma;
+    u.uSize.value = Math.ceil(7 * sigma) + 1;
+    u.uPeakScale.value = (want / sigma) ** 2;
+  }
+
   setGroup(group: SmallBodyGroup, on: boolean): void {
     this.on[group] = on;
     (this.material.uniforms.uOn.value as number[])[SMALL_BODY_GROUPS.indexOf(group)] = on ? 1 : 0;
@@ -222,16 +233,8 @@ export class SmallBodyLayer {
 
   // The named bodies' markers at their projected positions, rounded to
   // whole device pixels; hidden when their population is, behind the
-  // camera, or within a few pixels of another label. Also keeps the points'
-  // width in device pixels as the pixel ratio changes.
-  private label(renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
-    const dpr = renderer.getPixelRatio();
-    if (dpr !== this.dpr) {
-      this.dpr = dpr;
-      const sigma = 0.55 + 0.35 * dpr;
-      this.material.uniforms.uSigma.value = sigma;
-      this.material.uniforms.uSize.value = Math.ceil(6 * sigma) + 1;
-    }
+  // camera, or within a few pixels of another label.
+  private label(_renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
     // The overlay's size and the screen's pixel ratio, as craftLayer.ts
     // places its markers.
     const w = this.overlay.clientWidth, h = this.overlay.clientHeight, px = window.devicePixelRatio || 1;

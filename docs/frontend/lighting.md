@@ -23,16 +23,117 @@ squared distance from the camera to the Sun (no closer than 0.2 AU), so a
 planet looks properly exposed when you are near it, and the planets keep
 their true relative brightness when you look at several from one place.
 
-The Sun's disc is drawn at its true surface brightness relative to a white
-surface lit face-on at 1 AU:
+## Exposure and tone mapping
+
+The scene renders linear light into a half-float target, multisampled 4×
+where a CSS pixel is under 1.5 device pixels (`post.ts`). Bloom runs on that
+light, and one final pass to the screen mixes in the bloom, adds the Sun's
+glare, multiplies by the exposure, applies the tone curve and encodes sRGB.
+No material tone-maps on its own any more. Everything after the scene is
+that one full-screen pass: with three.js's own HDR output the bloom's mix,
+the glare and the tone curve took three, about 19 ms of a 43 ms frame on the
+Intel iGPU at 2680 × 2032 ([performance](../performance.md#rendering)).
+
+The curve is Khronos PBR Neutral as three.js r187 implements it: every
+channel first loses a small offset, 0.04, or for the darkest channel x
+under 0.08 the amount x − 6.25x² (so a near-black x shows as 6.25x²);
+below the knee at about 0.76 nothing else changes, so lit planets keep
+their albedo colours, and highlights roll off to white without the hue
+shifts of ACES. The quadratic toe darkens faint display-level light (the
+Milky Way, stars fainter than about V 6) well below its linear value; their
+gains were set by eye under this curve. Its exposure at 1 AU is 1.2,
+which matches the previous ACES look on a lit planet (a scene value of 0.5
+shows as 0.56 in both). `?tone=agx` or `?tone=aces` switch curves for
+comparison.
+
+Drawings that are not light (orbit and craft lines, the star background,
+city lights) are written at a display level divided by the exposure, so
+they look the same at any distance from the Sun.
+
+## The Sun
+
+The Sun's disc is drawn at its true mean surface brightness relative to a
+white surface lit face-on at 1 AU:
 
 $$
 \frac{L_\odot}{L_\text{white}} = \frac{E/\Omega_\odot}{E/\pi}
 = \left(\frac{1\ \text{AU}}{R_\odot}\right)^2 \approx 46\,000,
 $$
 
-which saturates to white through the ACES tone curve at any sensible
-exposure, as a real photograph of it does.
+which saturates to white at any sensible exposure, as a real photograph of
+it does. Its colour is the Sun's chromaticity, CIE xy (0.3233, 0.3326)
+(about 5,772 K), which is linear sRGB (1.097, 0.977, 0.943) at luminance 1.
+It is limb-darkened with the quadratic law at 550 nm,
+I(μ)/I(1) = 0.3 + 0.93μ − 0.23μ², whose disc average is 0.805, so the
+centre is drawn 1/0.805 brighter and the total light is unchanged. Blue
+darkens more toward the limb than red; the colour of the limb is an
+approximation (the channel exponents 0.8, 1, 1.25 are not fitted to Neckel
+and Labs).
+
+Granulation and the corona are not drawn: at an exposure for sunlit
+surfaces the disc is pure white, so granulation cannot show, and the
+corona (about 10⁻⁶ of the disc) would be lost in the glare.
+
+## Glare and bloom
+
+Light scatters in any eye or lens. Two parts, both before the tone curve:
+
+- **The Sun's glare** (`sun.ts`, evaluated in the final pass) uses the CIE disability-glare function for
+  a young eye, L/E = 10/θ³ + 5/θ² + 0.05/θ with θ in degrees. Relative to a
+  white surface in the same sunlight (L = E/π) that is π times as much: an
+  eye looking near the Sun sees a white veil a few degrees across. It is
+  drawn at 3 % of that, closer to a good camera than an eye, with the fine
+  radial needles of the eye's ciliary corona within about 10°, drifting
+  slowly as a pupil does: the sky's one honest animation of light. The glare
+  is scaled by the fraction of the Sun's disc that no body hides (the disc
+  overlap below), so a planet in front of the Sun takes it away.
+- **Bloom** (`post.ts`) scatters 2 % of all light: Jimenez's chain (a
+  13-tap downsample through five levels starting at half resolution, or a
+  quarter on 2× screens where that is still a CSS pixel, Karis's average on
+  the first so no lone pixel flickers, a tent upsample adding each level
+  into the one above) with no threshold, mixed rather than added, so the
+  image keeps its energy. What enters it is capped at 20 times display
+  white: a lit limb or a bright star blooms, but the Sun's disc, whose
+  scatter is the glare above, does not (and half floats overflow past
+  65,504).
+
+## Stars
+
+The sky is drawn as an eye adapted to the dark would see it, at a display
+level that does not follow the exposure (a camera exposed for sunlit
+surfaces would record no stars at all). It has two layers
+([textures](textures.md#stars)):
+
+- **The light between the stars**: the Milky Way, the Magellanic Clouds
+  and every star too faint to pick out, a 4096 × 2048 map looked up by each
+  view direction's right ascension and declination, at half of its own
+  brightest light.
+- **The stars**: the 83,392 Hipparcos stars to V 9, each a Gaussian of
+  fixed width in device pixels (σ = 0.55 + 0.35 × the pixel ratio) centred
+  on its true sub-pixel position, so its light is the same wherever it falls
+  and it neither shimmers nor vanishes as the view turns. Its peak is
+  30 × 10^(−0.4 V) of display white in the colour of its B−V, before the
+  tone curve: magnitude 0 at 30 times white (it saturates and blooms a
+  little), magnitude 3 at about 1.9 times, magnitude 5 at a third,
+  magnitude 7 at 5 % (just visible on a dark screen after the curve's toe).
+  Each sprite is only as wide as the star's light above 1/512 of white, so
+  the many faint stars cost few fragments; that cut falls at V 10.5 when
+  dark-adapted, so every catalogue star (to V 9) is drawn until adaptation
+  dims the sky below about a quarter. The width is held on screen when the
+  adaptive render scale changes the canvas's pixels; below 0.8 of a canvas
+  pixel it stays at 0.8 and the peak drops to keep the star's light. Stars do not twinkle
+  in vacuum, so they don't here.
+
+**Adaptation**, the sky's honest motion: faint stars and the Milky Way fade
+when bright light is in view and come back in the dark. The light counted is
+the Sun within 35° of the view's centre (weighted by how much of its disc
+is visible, and tempered to a third: physically its disc in frame would
+leave only the brightest stars, which is too bare for the overview) plus
+twice each body's share of the view times its lit fraction; the
+sky is scaled by 1 / (1 + 4 × that light), approached in 0.3 s toward light
+and 2 s back toward the dark, roughly as eyes adapt. Flying past a sunlit
+planet or turning toward the Sun therefore changes the sky as it would for
+a person there.
 
 ## Surface reflectance
 
