@@ -268,14 +268,14 @@ export class OrreryScene {
     return { id: `small:${pdes}`, pos: () => this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs), minDist: this.smallBodies.radiusKm(pdes) * 1.2 };
   }
 
-  // Fly to a named small body: framed at eight radii, at least 50 km out.
+  // Fly to a named small body: framed at eight radii, at least 1 km out.
   focusOnSmall(pdes: string): void {
     if (!this.smallBodies.body(pdes)) return;
     if (this.rig.flying && this.rig.destination.id === `small:${pdes}`) return;
     this.focusCraftId = null;
     this.focusSmall = pdes;
     this.smallBodies.setFocus(pdes);
-    this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallBodies.radiusKm(pdes) * 8, 50));
+    this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallBodies.radiusKm(pdes) * 8, 1));
     this.onFlight(this.rig.flying);
     this.onSmallPick(pdes);
   }

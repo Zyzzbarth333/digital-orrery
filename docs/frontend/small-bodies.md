@@ -170,8 +170,9 @@ rail, the arrow keys or following a craft leaves it.
   puts a point within about 15 km of where it should be. So while the
   camera is within 0.05 au of the focused body, no point closer than twice
   the camera's distance is drawn; its sphere is.
-- **The camera:** it arrives at eight radii, at least 50 km out, and can
-  close to 1.2 radii.
+- **The camera:** it arrives at eight radii (at least 1 km out: Bennu
+  from 1.9 km), and can close to 1.2 radii. The marker's dot gives way to
+  the sphere once that is more than 4 pixels across.
 - **The plate:** class (SBDB), distance from the Sun and the Earth, light
   time, speed (vis-viva), diameter, H (a comet's M1), the elements a, e
   and i, perihelion and aphelion, and the period by Kepler's third law

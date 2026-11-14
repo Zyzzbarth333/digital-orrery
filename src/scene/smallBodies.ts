@@ -417,6 +417,12 @@ export class SmallBodyLayer {
       const x = Math.round(((ndc.x + 1) / 2) * w * px) / px, y = Math.round(((1 - ndc.y) / 2) * h * px) / px;
       if (!focused && placed.some(([px, py]) => Math.abs(px - x) < 40 && Math.abs(py - y) < 12)) { el.style.display = 'none'; continue; }
       placed.push([x, y]);
+      // The focused body's dot gives way to its sphere once that shows (as
+      // a planet's does): more than 4 px across.
+      if (focused) {
+        const pxPerRad = h / (2 * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360));
+        el.classList.toggle('resolved', (sizeOf(b).diameterKm / 2 / AU_KM / Math.hypot(rx, ry, rz)) * pxPerRad > 2);
+      } else el.classList.remove('resolved');
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
     }
