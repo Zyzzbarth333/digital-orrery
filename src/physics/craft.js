@@ -86,7 +86,8 @@ export class Craft {
   // { degree: 0 } for J2 alone), and cd the drag coefficient.
   // vent: the venting model's options (vent.js; {} for Artemis II's
   // calibration), or null for none.
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null) }) {
+  // entry: a lifting capsule's entry (environment.js, entry.js), or null.
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null) }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys;
@@ -98,6 +99,8 @@ export class Craft {
     this.cr = cr;
     this.cd = cd;
     this.earth = earth;
+    this.entry = entry;
+    this.entryState = null;          // the entry guidance's, from the kernel
     this.vent = vent;
     const bodies = sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
@@ -114,6 +117,7 @@ export class Craft {
     this.crashed = false;
     this.impactBody = null;
     this.impactSite = null;          // { key, t, local: body-fixed km }
+    this.splashed = false;           // came down under its chutes, not crashed
     this.error = null;
     this.log = [];                   // { t, text } for the app to show
     this.clockJumped = false;
@@ -286,14 +290,24 @@ export class Craft {
   }
 
   // What the kernel's environment model needs of this craft.
-  envParams() { return { mass: this.mass, area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}), ...(this.vent ? { vent: this.vent } : {}) }; }
+  envParams() { return { mass: this.mass, area: this.area, cr: this.cr, cd: this.cd, ...(this.earth ? { earth: this.earth } : {}), ...(this.vent ? { vent: this.vent } : {}), ...(this.entry ? { entry: { ...this.entry, state: this.entryState } } : {}) }; }
 
   // The same environment, for drawing the craft while the kernel lags
-  // (rebuilt when the mass changes).
+  // (rebuilt when the mass changes). Without the entry's lift and guidance:
+  // a frame's carry is no place for the guidance's predictions.
   environment() {
     const key = `${this.mass}|${this.area}|${this.cr}|${this.cd}`;
-    if (this._envKey !== key) { this._env = makeEnvironment(this.sys, this.envParams()); this._envKey = key; }
+    if (this._envKey !== key) { const { entry, ...p } = this.envParams(); this._env = makeEnvironment(this.sys, p); this._envKey = key; }
     return this._env;
+  }
+
+  // A new configuration from a time on (a capsule leaving its service
+  // module): mass, area, drag coefficient, entry. The kernel's next request
+  // flies it.
+  configure({ dryMass = this.dryMass, fuel = this.fuel, area = this.area, cd = this.cd, cr = this.cr, entry = this.entry, vent = this.vent }) {
+    Object.assign(this, { dryMass, fuel, area, cd, cr, entry, vent });
+    this.entryState = null;
+    this.version++;
   }
 
   // A request whose result will never come: nothing to undo (burns are tied
@@ -306,10 +320,17 @@ export class Craft {
     if (res.version !== this.version) return;
     const prev = this.kState.primary;
     this.kState = { r: res.r, v: res.v, t: res.t, primary: res.primary, accel: res.accel, withThrust: true };
+    if (res.envState?.entry) this.entryState = res.envState.entry;
     const impact = res.events.find((e) => e.type === 'impact');
     this.lagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
     for (const e of res.events) {
-      if (e.type === 'impact') { this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.impactSite = this.siteOn(e.body, res.r, res.t); this.note(`impact on ${e.body}`, e.t); }
+      if (e.type === 'impact') {
+        this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.impactSite = this.siteOn(e.body, res.r, res.t);
+        // A capsule down on the Earth under its chutes, slower than 25 m/s
+        // over the ground, has splashed down; anything else has crashed.
+        this.splashed = !!this.entry && e.body === 'earth' && this.groundSpeed(res.r, res.v, res.t) < 0.025;
+        this.note(this.splashed ? `splashdown at ${(this.groundSpeed(res.r, res.v, res.t) * 1000).toFixed(1)} m/s` : `impact on ${e.body}`, e.t);
+      }
     }
     if (res.primary !== prev) this.note(`now in the sphere of influence of ${res.primary}`, res.t);
   }
@@ -333,6 +354,15 @@ export class Craft {
     const key = `${this.clockT}|${this.kState.t}|${this.version}|${this.script.length}|${this.burns.length}`, sh = this._shown;
     if (!sh || sh.key !== key || sh.from !== this.kState || sh.r0 !== this.kState.r) this._shown = { key, from: this.kState, r0: this.kState.r, s: this.carryForward(Math.min(dtx, MAX_CARRY_S)) };
     return { r: [...this._shown.s.r], v: [...this._shown.s.v] };
+  }
+
+  // Speed over the Earth's turning surface (km/s) at heliocentric r, v.
+  groundSpeed(r, v, t) {
+    const E = this.sys.bodiesAt(t).find((b) => b.key === 'earth');
+    if (!E?.eph) return Infinity;
+    const d = sub(r, E.eph.position(t)), w = E.pole ?? [0, 0, 1], om = 7.2921158553e-5, ve = E.eph.velocity(t);
+    const spin = [om * (w[1] * d[2] - w[2] * d[1]), om * (w[2] * d[0] - w[0] * d[2]), om * (w[0] * d[1] - w[1] * d[0])];
+    return norm([v[0] - ve[0] - spin[0], v[1] - ve[1] - spin[1], v[2] - ve[2] - spin[2]]);
   }
 
   // The impact point in the body's own frame (orientation.js), so it can be

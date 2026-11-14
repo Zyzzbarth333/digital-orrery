@@ -48,6 +48,7 @@ import { GRAIL, PA_TO_ME } from './grail.js';
 import { bodyAxesEqj } from './orientation.js';
 import { makeVent } from './vent.js';
 import { density } from './atmosphere.js';
+import { makeEntryGuidance, liftDirection, chuteArea, chuteHeights, heightAbove, aeroAt, machAt } from './entry.js';
 
 export const AU = 149597870.7;                 // km
 export const EARTH_ROTATION = 7.2921158553e-5;  // rad/s, sidereal (IERS)
@@ -177,9 +178,16 @@ export function schwarzschild(mu, x, y, z, vx, vy, vz, out) {
 // epochMs (kernel time zero, default the kernel's),
 // cd (drag coefficient, default 2.2; 0 for no drag), drag: { sw (the Sun's
 // activity, default the date's), flattening (for geodetic height, default
-// WGS-84's), met (MET options) } }
+// WGS-84's), met (MET options) },
+// entry: a lifting capsule (entry.js): { ld (lift-to-drag ratio), or aero
+// (Mach tables { mach, cd, ld }, overriding cd and ld), target
+// ({ lat, lon } deg, for the guidance's bank angle), bank (rad: held, not
+// guided, for checks), chutes ({ drogue,
+// main }: { height km, cda m^2 }), cycle, hold, deadband, state (the
+// guidance's, carried between requests) } }
 export function makeEnvironment(sys, craft = {}) {
   const terms = [], caps = [], edges = [];
+  let entryState = null, upperAirFn = null;
   const epochMs = craft.epochMs ?? Date.UTC(2000, 0, 1, 12);
   // Kernel time is TT seconds from epochMs (kernelHost.kernelSeconds).
   const tt0 = ttSeconds(epochMs), msAt = (t) => utcMsAtTt(tt0 + t);
@@ -346,7 +354,39 @@ export function makeEnvironment(sys, craft = {}) {
     // is that times 1e3.
     const k0 = 0.5 * cd * craft.area * 1e3;
     const vE = [0, 0, 0];
-    terms.push((t, r, v, out) => {
+    // The guidance's upper air (entry.js): this model's density above 86 km
+    // where the capsule is, every ten minutes and five degrees, interpolated
+    // log-linearly, so its predictions see the air the kernel flies through
+    // (MET's air at 100-120 km doubles between night and day; taken at noon
+    // on the equator, a 28-minute skip landed 12 km off).
+    const upperDays = new Map();
+    const upperAir = (t, latDeg = 0, lonDeg = 0) => {
+      const slot = Math.floor(msAt(t) / 600e3), la = Math.round(latDeg / 5) * 5, lo = Math.round(lonDeg / 5) * 5, key = `${slot}|${la}|${lo}`;
+      let f = upperDays.get(key);
+      if (!f) {
+        const ms = slot * 600e3 + 300e3, nodes = [];
+        for (let h = 86; h <= 400; h += h < 150 ? 4 : 25) nodes.push([h, Math.log(density({ ms, lat: la, lon: lo, alt: h, sw: D.sw ?? null }))]);
+        f = (h) => {
+          let i = 1;
+          while (i < nodes.length - 1 && nodes[i][0] < h) i++;
+          const [h0, l0] = nodes[i - 1], [h1, l1] = nodes[i];
+          return Math.exp(l0 + (l1 - l0) * (h - h0) / (h1 - h0));
+        };
+        if (upperDays.size > 64) upperDays.clear();
+        upperDays.set(key, f);
+      }
+      return f;
+    };
+    upperAirFn = upperAir;
+    // A lifting capsule: its lift, banked by the guidance, and its chutes.
+    const EN = craft.entry ?? null;
+    // bank (rad): held at that instead of guided (for checks).
+    // aero: Mach tables of Cd and L/D (entry.js aeroAt) in place of cd and ld.
+    const lifts = EN && (EN.ld > 0 || EN.aero);
+    const guide = lifts && Number.isFinite(EN.bank) ? { bank: () => EN.bank, state: () => null }
+      : lifts && EN.target ? makeEntryGuidance({ ...EN, cdaPerMass: cd * craft.area / craft.mass, areaPerMass: craft.area / craft.mass, mass: craft.mass, upper: upperAir }, EN.state ?? {}) : null;
+    if (guide && EN.target && !Number.isFinite(EN.bank)) entryState = () => guide.state();
+    terms.push((t, r, v, out, mid = t) => {
       const rE = earthState(t, vE);
       const x = r[0] - rE[0], y = r[1] - rE[1], z = r[2] - rE[2];
       const rr = Math.sqrt(x * x + y * y + z * z);
@@ -364,8 +404,20 @@ export function makeEnvironment(sys, craft = {}) {
       const w = M[2], om = EARTH_ROTATION;
       const vx = v[0] - vE[0] - om * (w[1] * z - w[2] * y), vy = v[1] - vE[1] - om * (w[2] * x - w[0] * z), vz = v[2] - vE[2] - om * (w[0] * y - w[1] * x);
       const vr = Math.sqrt(vx * vx + vy * vy + vz * vz);
-      const k = -k0 * rho * vr / massAt(t);
+      const m = massAt(t);
+      // A capsule with Mach tables: its drag coefficient and L/D here.
+      const c = EN?.aero ? aeroAt(EN.aero, machAt(vr, h)) : null;
+      const k = -(c ? 0.5 * c.cd * craft.area * 1e3 : k0) * rho * vr / m;
       out[0] += k * vx; out[1] += k * vy; out[2] += k * vz;
+      if (!EN) return;
+      const kc = -0.5 * chuteArea(EN.chutes, h) * 1e3 * rho * vr / m;
+      if (kc) { out[0] += kc * vx; out[1] += kc * vy; out[2] += kc * vz; }
+      if (!guide || !(vr > 0)) return;
+      // Lift: L/D times the capsule's drag, across the air-relative velocity.
+      const rel = [x, y, z], vAir = [vx, vy, vz];
+      const L = liftDirection(rel, vAir, guide.bank(mid, rel, [v[0] - vE[0], v[1] - vE[1], v[2] - vE[2]], M));
+      const lift = -k * vr * (c ? c.ld : EN.ld);
+      out[0] += lift * L[0]; out[1] += lift * L[1]; out[2] += lift * L[2];
     });
     // Low in the atmosphere drag is stiff: its time constant |v| / |a| is
     // seconds at sea level, and a longer explicit step makes the speed swing
@@ -379,13 +431,32 @@ export function makeEnvironment(sys, craft = {}) {
       const x = r[0] - rE[0], y = r[1] - rE[1], z = r[2] - rE[2], rr = Math.sqrt(x * x + y * y + z * z);
       const alt = rr - 6371;
       if (alt > 1000 || !v) return Infinity;
-      const vx = v[0] - vE[0], vy = v[1] - vE[1], vz = v[2] - vE[2], speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+      const vx = v[0] - vE[0], vy = v[1] - vE[1], vz = v[2] - vE[2];
       let cap = Infinity;
       const descent = -(vx * x + vy * y + vz * z) / rr;
+      // The drag's time constant is the air speed's over its deceleration:
+      // relative to the turning air, not to the Earth's centre (a capsule
+      // falling under its chutes moves at the ground's 0.4 km/s).
+      const pole = fixed(t)[2], om = EARTH_ROTATION;
+      const ax = vx - om * (pole[1] * z - pole[2] * y), ay = vy - om * (pole[2] * x - pole[0] * z), az = vz - om * (pole[0] * y - pole[1] * x);
+      const speed = Math.sqrt(ax * ax + ay * ay + az * az);
       if (alt < 200 && descent > 0) cap = 0.25 * 7 / descent;
       const ms = msAt(t), rho = alt <= 86 ? density({ ms, lat: 0, lon: 0, alt: Math.max(0, alt) }) : density({ ms, lat: 0, lon: 0, alt, sw: D.sw ?? null });
-      const decel = k0 * rho * speed * speed / massAt(t);   // km/s^2
+      // The chutes open by height above the ellipsoid (the mean radius is up
+      // to 7 km off it): left out here, the steps under the mains were
+      // twenty times their drag's time constant, and the descent blew up.
+      // Taken as they will be a ramp's height lower, so a step that starts
+      // as a chute begins to open is already short.
+      const CH = craft.entry?.chutes;
+      const chutes = CH ? chuteArea(CH, heightAbove([x, y, z], pole) - (CH.ramp ?? 0.3)) : 0;
+      const decel = (k0 + 0.5 * chutes * 1e3) * rho * speed * speed / massAt(t);   // km/s^2
       if (decel > 0) cap = Math.min(cap, 0.2 * speed / decel);
+      // No step falls far past a chute's opening height: past it the drag
+      // grows a hundredfold in seconds.
+      if (CH && descent > 0) {
+        const hh = heightAbove([x, y, z], pole);
+        for (const hd of chuteHeights(CH)) if (hh > hd) cap = Math.min(cap, (hh - hd) / descent + 0.05);
+      }
       return Math.max(0.01, cap);
     });
   }
@@ -440,5 +511,8 @@ export function makeEnvironment(sys, craft = {}) {
   // Times between a and b (kernel seconds) a step must end on: where a
   // force switches (thruster puffs).
   env.breakpoints = (a, b) => edges.flatMap((f) => f(a, b)).sort((x, y) => x - y);
+  // What a term keeps between kernel requests (the entry guidance's bank).
+  env.state = () => (entryState ? { entry: entryState() } : null);
+  env.upperAir = upperAirFn;
   return env;
 }
