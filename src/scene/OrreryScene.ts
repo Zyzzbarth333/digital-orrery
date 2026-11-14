@@ -24,17 +24,18 @@
 import * as THREE from 'three';
 import { helioStateEcl, eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
 import { bodyAxesEqj } from '../physics/orientation.js';
+import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
 import type { SimClock } from '../app/clock';
-import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
+import { BODIES, BODY_BY_KEY, isPlanetMoon, type BodyKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
-import { makeStarPoints, makeStars, setStarScale } from './stars';
+import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { SmallBodyLayer } from './smallBodies';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
-import { loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
+import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
 import { HdrPipeline } from './post';
 import { makeSunMaterial, SunGlare, visibleFraction } from './sun';
@@ -59,8 +60,10 @@ const TONE: Record<string, [THREE.ToneMapping, number]> = {
 // drawn well below white beside the point stars.
 const MILKY_WAY_GAIN = 0.5;
 const [TONE_MAPPING, EXPOSURE_1AU] = TONE[new URLSearchParams(location.search).get('tone') ?? 'neutral'] ?? TONE.neutral;
-// Bodies whose surfaces are bare regolith (Lommel-Seeliger scattering).
-const AIRLESS: ReadonlySet<BodyKey> = new Set<BodyKey>(['mercury', 'moon', 'pluto']);
+// Bodies whose surfaces are bare regolith (Lommel-Seeliger scattering):
+// these, and every moon but Titan, which is wrapped in haze.
+const AIRLESS: ReadonlySet<BodyKey> = new Set<BodyKey>(['mercury', 'moon', 'pluto',
+  ...BODIES.filter((b) => isPlanetMoon(b.key) && b.key !== 'titan').map((b) => b.key)]);
 type Vec3 = [number, number, number];
 
 export interface BodyState { r: Vec3; v: Vec3 }
@@ -83,9 +86,39 @@ function renderToEqj(): THREE.Matrix3 {
     cols[0][2], cols[1][2], cols[2][2]);
 }
 
+// Planets whose moons are drawn (moons.js). astronomy-engine places each at
+// its system barycentre; the scene draws the planet at its own centre,
+// offset from that by its moons' pull (2,100 km for Pluto), and each moon
+// about that centre.
+const SYSTEMS: ReadonlySet<BodyKey> = new Set(Object.keys(MOONS_OF) as BodyKey[]);
+
+function addEcl(base: BodyState, rel: { r: number[]; v: number[] }): BodyState {
+  const r = eqjToEcl(rel.r), v = eqjToEcl(rel.v);
+  return { r: [base.r[0] + r[0], base.r[1] + r[1], base.r[2] + r[2]], v: [base.v[0] + v[0], base.v[1] + v[1], base.v[2] + v[2]] };
+}
+
+// A planet (at its centre) and its moons, heliocentric ecliptic J2000.
+export function systemStates(planet: BodyKey, date: Date): Partial<Record<BodyKey, BodyState>> {
+  const bary = helioStateEcl(planet, date) as BodyState;
+  const { moons, offset } = systemEqj(planet, date);
+  const centre = addEcl(bary, offset);
+  const out: Partial<Record<BodyKey, BodyState>> = { [planet]: centre };
+  for (const [k, st] of Object.entries(moons) as [BodyKey, { r: number[]; v: number[] }][]) out[k] = addEcl(centre, st);
+  return out;
+}
+
 export function bodyState(key: BodyKey, date: Date): BodyState {
   if (key === 'sun') return { r: [0, 0, 0], v: [0, 0, 0] };
+  if (isPlanetMoon(key)) return systemStates(BODY_BY_KEY[key].parent!, date)[key]!;
+  if (SYSTEMS.has(key)) return systemStates(key, date)[key]!;
   return helioStateEcl(key, date) as BodyState;
+}
+
+// A body's position about its parent (km, ecliptic), for its orbit line: a
+// moon's straight from its model, without the planet's heliocentric state.
+function relativePosition(key: BodyKey, date: Date): Vec3 {
+  if (isPlanetMoon(key)) return eqjToEcl(moonPositionEqj(key, date)) as Vec3;
+  return sub(bodyState(key, date).r, bodyState(BODY_BY_KEY[key].parent!, date).r);
 }
 
 interface OrbitLine {
@@ -216,8 +249,9 @@ export class OrreryScene {
         const m = makeBodyMaterial(b.colour, b.geometricAlbedo ?? 0.3, AIRLESS.has(b.key));
         this.materials.set(b.key, m);
         material = m;
-        // A body can be shadowed by its parent (not the Sun) and its moons.
-        const occ = BODIES.filter((o) => o.parent === b.key).map((o) => o.key);
+        // A body can be shadowed by its parent (not the Sun) and its moons,
+        // the largest first.
+        const occ = BODIES.filter((o) => o.parent === b.key).sort((x, y) => y.radiusKm - x.radiusKm).map((o) => o.key);
         if (b.parent && b.parent !== 'sun') occ.unshift(b.parent);
         this.occluderKeys.set(b.key, occ.slice(0, MAX_OCCLUDERS));
       }
@@ -268,7 +302,8 @@ export class OrreryScene {
         // The light between the stars, then the stars as points over it.
         const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
         void this.surfaces.load(stars.map, true).then((tex) => {
-          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain);
+          this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain,
+            stars.detail && { entry: stars.detail, base: TEXTURE_BASE });
           this.scene.add(this.stars);
         });
         if (stars.points) {
@@ -307,6 +342,7 @@ export class OrreryScene {
     for (const key of Object.keys(m.bodies) as BodyKey[]) this.unloadedSurfaces.add(key);
     if (m.stars && this.stars) {
       const mat = this.stars.material as THREE.ShaderMaterial;
+      resetStars(this.stars);
       void this.surfaces.load(m.stars.map, true).then((tex) => { mat.uniforms.starMap.value = tex; }).catch(() => {});
     }
   }
@@ -436,8 +472,7 @@ export class OrreryScene {
     const span = b.periodDays * 86400e3;
     for (let i = 0; i <= ORBIT_SAMPLES; i++) {
       const d = new Date(tMs - span / 2 + (span * i) / ORBIT_SAMPLES);
-      const rel = sub(bodyState(key, d).r, bodyState(b.parent, d).r);
-      toRender(rel, this.tmp);
+      toRender(relativePosition(key, d), this.tmp);
       pts.set([this.tmp.x, this.tmp.y, this.tmp.z], i * 3);
       us[i] = i / ORBIT_SAMPLES - 0.5;          // time offset from the centre, in periods
     }
@@ -451,21 +486,22 @@ export class OrreryScene {
   }
 
   private updateOrbits(tMs: number, now: number): void {
+    const start = performance.now();
     for (const b of BODIES) {
       if (!b.parent || !b.periodDays) continue;
       const o = this.orbits.get(b.key);
       const period = b.periodDays * 86400e3;
       // Resample when the sim has moved 5 % of a period (the orbit precesses
       // and the drawn span should stay centred), at most twice a second per
-      // line and one line per frame (each costs about 3 ms), so time warp
-      // does not stall a frame.
+      // line and for at most 2 ms a frame (a planet's line costs about 3 ms,
+      // a moon's a tenth of that), so time warp does not stall a frame.
       if (o && (Math.abs(tMs - o.epochMs) < 0.05 * period || now - o.sampledAt < 500)) continue;
       const line = this.sampleOrbit(b.key, tMs);
       if (!line) continue;
       if (o) { this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose(); }
       this.scene.add(line);
       this.orbits.set(b.key, { line, epochMs: tMs, sampledAt: now });
-      return;
+      if (performance.now() - start > 2) return;
     }
   }
 
@@ -489,7 +525,11 @@ export class OrreryScene {
     const crafts = this.craftSource();
     this.lastCrafts = crafts;
 
-    for (const b of BODIES) this.states[b.key] = bodyState(b.key, date);
+    for (const b of BODIES) {
+      if (isPlanetMoon(b.key)) continue;                // with its planet
+      if (SYSTEMS.has(b.key)) Object.assign(this.states, systemStates(b.key, date));
+      else this.states[b.key] = bodyState(b.key, date);
+    }
     if (this.earthResolved) this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
     this.updateOrbits(tMs, now);
 

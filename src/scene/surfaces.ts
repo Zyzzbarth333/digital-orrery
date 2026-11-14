@@ -15,6 +15,7 @@ import * as THREE from 'three';
 import type { BodyKey } from './catalogue';
 import { applySurfaceMaps } from './bodyMaterial';
 import type { DecodeReply, DecodeRequest } from './decode.worker';
+import type { SkyDetailEntry } from './skyDetail';
 
 export interface SurfaceEntry {
   day?: string;                 // path under textures/
@@ -28,10 +29,10 @@ export interface SurfaceEntry {
 export interface Manifest {
   bodies: Partial<Record<BodyKey, SurfaceEntry>>;
   rings?: { saturn?: { tau: string; innerKm: number; outerKm: number; credit: string } };
-  stars?: { map: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; points?: string; pointCount?: number; credit: string };
+  stars?: { map: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; detail?: SkyDetailEntry; points?: string; pointCount?: number; credit: string };
 }
 
-const BASE = `${import.meta.env.BASE_URL}textures/`;
+export const BASE = `${import.meta.env.BASE_URL}textures/`;
 
 export async function loadManifest(): Promise<Manifest | null> {
   try {

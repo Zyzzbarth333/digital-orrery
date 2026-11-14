@@ -35,6 +35,21 @@ tests (it shares no code with the models).
 | porkchop cell on MSL dates | DE442 Lambert | C3 agrees to 10⁻⁴ |
 | 2011 Mars window | physical | all 11,011 cells solved; minimum C3 9.00 km²/s² inside the grid |
 
+## Major moons (`moons.test.mjs`)
+
+Planetocentric positions against JPL Horizons vectors not used in the fit;
+the full table, per moon, is in [Moons](frontend/moons.md#how-right-they-are).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| Io, Europa, Ganymede, Callisto (astronomy-engine `JupiterMoons`) | Horizons (JUP365), daily Nov 2026 and yearly 2000–2050 | worst 645 km (Callisto) |
+| Titan, Triton, Phobos (JPL mean elements, fitted corrections) | Horizons (SAT441, NEP098, MAR099), daily Nov 2026 | 1,346 km, 141 km, 595 km |
+| 15 of the 16 element moons, 2000–2050 | Horizons, yearly | within 3 % of the orbit's radius, most within 0.3 % |
+| Mimas | Horizons | 136,881 km: its 44° libration with Tethys is beyond a precessing ellipse |
+| planet centre about the system barycentre, from the moons' GMs | Horizons x99 about x, Nov 2026 | 0.05 km (Jupiter) to 3 km (Pluto, whose offset is 2,130 km) |
+| astronomy-engine's Jupiter to Pluto are system barycentres | Horizons heliocentric x and x99, Nov 2026, less a quadratic | 1.1–1.2 km rms against x; 26–2,116 km against x99 |
+| moons about the system barycentre and, relative to the planet, about the Sun | Horizons, 7 moons, Nov 2026 | same as about the planet's centre (Charon 26 km; 2,139 km without the offset) |
+
 ## Trajectory search (`trajsearch.test.mjs`)
 
 Against NASA Ames's Trajectory Browser, its 2026–2040 optima for the seven
