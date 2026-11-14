@@ -506,6 +506,7 @@ details.section[open] > summary::after { content: '−'; }
 .craft-window .craft-state { font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--phosphor-dim); text-shadow: none; }
 .craft-window .craft-state.s-burn { color: var(--key-lit); }
 .craft-window .craft-state.s-lost, .craft-window .craft-state.s-fault { color: var(--warn-ink); }
+.craft-window .craft-state.s-down { color: var(--advisory-ink); }   /* came down as planned: an advisory, not a warning */
 .craft-window .craft-count { font: 11px var(--sans); color: var(--label-dim); text-shadow: none; }
 .craft-window.followed .glyph { background: currentColor; }
 .craft-window.empty { color: var(--label-dim); text-shadow: none; cursor: default; }
