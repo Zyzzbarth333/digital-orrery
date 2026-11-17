@@ -39,6 +39,7 @@ they come from, and how each part is checked.
 ## Usability
 
 [UX review](ux/review.md): personas, scenarios and a heuristic evaluation of the console, with what was fixed.
+[Think-aloud test kit](ux/think-aloud/README.md): scenarios, script, consent and recording sheet for testing with people.
 [UX research](ux/research.md) and the [overhaul plan](ux/overhaul-plan.md): what space-sim and planetarium UIs, panel design, camera navigation, sky rendering and WebGL performance research say, and the November 2026 overhaul built on it.
 
 ## Checks and performance

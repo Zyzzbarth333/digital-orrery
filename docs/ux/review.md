@@ -166,7 +166,9 @@ fixed. The ones a user would meet:
 
 - A think-aloud usability test with scenarios 1–8 and three or four
   people, at least one on a phone. That is the real check; this review only
-  predicts.
+  predicts. The kit is ready in [think-aloud/](think-aloud/README.md):
+  updated scenarios, a facilitator script, a consent note, a recording sheet
+  with SEQ and SUS, and a protocol for Firefox on the laptop.
 - Arrow-key switching between the console's tabs (finding 11).
 - The think-aloud test should include the overhaul's tasks: interrupt a
   flight, open a mission while Jupiter is in focus, follow a craft and
