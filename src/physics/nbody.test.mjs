@@ -207,6 +207,63 @@ header('CASE 6: events');
   check('constant thrust gives r0 + v0 t + a t^2/2 (<1e-6 km)', norm(sub(st5.r, want)) < 1e-6);
 }
 
+header('CASE 6b: impacts are found where the step crosses the surface');
+{
+  // A body held still (a Sun of 1e-3 km^3/s^2, so the body is the
+  // craft's primary and the Sun's pull is 1e-20 km/s^2), and a craft let go at apoapsis 5,000 km out
+  // on an ellipse whose periapsis (1,000 km) is inside it: Moon-sized,
+  // R = 1,737.4 km. Two-body, the fall meets r = R at eccentric anomaly
+  // E = 2 pi - acos((1 - R/a)/e), at t = (E - e sin E - pi) / n from
+  // apoapsis (Kepler's equation; Curtis 4th ed. sec. 3.4), at the speed
+  // sqrt(mu (2/R - 1/a)) (vis-viva). Each integrator's impact, found on its
+  // step's continuous extension (impact.js), must lie on the surface and at
+  // that time. Before, the end of the step below it was reported: up to
+  // 1 % of the dynamical time late (14 s and 46 km at Ganymede).
+  const { HermiteEphemeris } = await import('./nbody.js');
+  const mu = 4902.8, R = 1737.4, c = [AU, 0, 0];
+  const eph = new HermiteEphemeris(() => ({ r: [...c], v: [0, 0, 0] }), 3600);
+  const moon = { key: 'm', mu, radius: R, r: [...c], eph };
+  const bodiesAt = () => [moon];
+  const ra = 5000, rp = 1000, a = (ra + rp) / 2, e = (ra - rp) / (ra + rp), n = Math.sqrt(mu / a ** 3);
+  const E = 2 * Math.PI - Math.acos((1 - R / a) / e);
+  const tHit = (E - e * Math.sin(E) - Math.PI) / n, vHit = Math.sqrt(mu * (2 / R - 1 / a));
+  const vA = Math.sqrt(mu * (2 / ra - 1 / a));
+  const fall = (o) => {
+    const st = createState([c[0] + ra * 0.6, ra * 0.8, 0], [-vA * 0.8, vA * 0.6, 0], 0);
+    const res = advance(st, 6 * 3600, { bodiesAt, muSun: 1e-3, ...o });
+    return { st, hit: res.events.find((x) => x.type === 'impact'), steps: res.steps, primary: st.primary };
+  };
+  console.log(`  two-body: crosses r = R ${tHit.toFixed(4)} s after apoapsis at ${(vHit * 1000).toFixed(2)} m/s`);
+  for (const [name, o, timeTol] of [['dp45 (Cowell)', { encke: false }, 1e-3], ["Encke's (dp45)", {}, 1e-3],
+    ['yoshida4 (Cowell)', { method: 'yoshida4', encke: false }, 1e-3], ['leapfrog', { method: 'leapfrog' }, null]]) {
+    const { st, hit } = fall(o);
+    const h = norm(sub(st.r, c)) - R;
+    const dt = hit ? hit.t - tHit : NaN;
+    console.log(`  ${name.padEnd(18)} impact at ${hit ? hit.t.toFixed(4) : '-'} s (${(dt * 1000).toFixed(3)} ms off), ${(h * 1000).toFixed(4)} m from the surface, ${hit ? (hit.speed * 1000).toFixed(2) : '-'} m/s`);
+    // The leapfrog's own path drifts from the conic (second order): its
+    // crossing is checked against the surface only.
+    check(`${name}: the impact lies on the surface (within 1 m) and st.t is its time`, !!hit && hit.body === 'm' && Math.abs(h) < 1e-3 && st.t === hit.t);
+    if (timeTol) check(`${name}: at the two-body crossing time to within 1 ms, its speed to 1 mm/s`, Math.abs(dt) < timeTol && Math.abs(hit.speed - vHit) < 1e-6);
+  }
+
+  // The Earth's WGS-84 ellipsoid about a tilted pole: the crossing of the
+  // exact conic (universal variables, orbital.js) found by bisection.
+  const pole = (() => { const p = [0.3, -0.2, 0.93]; const k = norm(p); return p.map((x) => x / k); })();
+  const muE = 398600.4418, S = { a: 6378.137, c: 6356.752314245 };
+  const earth = { key: 'e', mu: muE, radius: 6371.0, surface: S, pole, r: [...c], eph };
+  const level = (d) => { const z = d[0] * pole[0] + d[1] * pole[1] + d[2] * pole[2], d2 = d[0] ** 2 + d[1] ** 2 + d[2] ** 2; return Math.sqrt((d2 - z * z) / S.a ** 2 + z * z / S.c ** 2) - 1; };
+  const d0 = [9000, 3000, 7000], u0 = [-1.5, 2.0, -4.0];
+  let lo = 0, hi = 3 * 3600;
+  for (let t = 60; t < hi; t += 60) if (level(propagate(d0, u0, t, muE).r) < 0) { hi = t; lo = t - 60; break; }
+  for (let i = 0; i < 80; i++) { const m = 0.5 * (lo + hi); if (level(propagate(d0, u0, m, muE).r) > 0) lo = m; else hi = m; }
+  const st = createState([c[0] + d0[0], d0[1], d0[2]], [...u0], 0);
+  const res = advance(st, 3 * 3600, { bodiesAt: () => [earth], muSun: 1e-3 });
+  const hit = res.events.find((x) => x.type === 'impact');
+  const lv = level(sub(st.r, c));
+  console.log(`  ellipsoid: conic crosses at ${lo.toFixed(4)} s; impact at ${hit ? hit.t.toFixed(4) : '-'} s, ${(lv * S.a * 1000).toFixed(4)} m (level x a) from the surface`);
+  check('ellipsoid: the impact is on WGS-84 (within 1 m) at the conic\'s crossing to within 1 ms', !!hit && Math.abs(lv * S.a) < 1e-3 && Math.abs(hit.t - lo) < 1e-3);
+}
+
 // ---- cases that need the real ephemeris (astronomy-engine) ----
 const { solarSystemBodies } = await import('./bodies.js');
 const { helioStateEqj, ttSeconds } = await import('./ephemeris.js');
