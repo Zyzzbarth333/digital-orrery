@@ -6,11 +6,15 @@ once it has releases. Until then, everything sits under Unreleased.
 
 ## Unreleased
 
+- CI, a contributing guide, a security policy, this changelog and a citation (#68).
+
 ### Planning and flying
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
-  (#51), with STACK and GO stations (#54).
+  (#51), with STACK and GO stations (#54). Resonant returns to the same
+  planet, as Galileo's Earth flybys (#59). Journeys land, stay and lift
+  off, and leave a moon for another planet (#65).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
@@ -34,6 +38,9 @@ once it has releases. Until then, everything sits under Unreleased.
   Lagrange points and the strongest pulls (#43).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
+- Stars twinkle when seen through the Earth's lower atmosphere (#61). The
+  Sun's corona shows when a body covers its disc (#63). The glare and the
+  sky's dimming are checked from other planets and in transits (#67).
 
 ### The console
 - Source tags open each value's equation and source, set in a bundled

@@ -41,7 +41,7 @@ What is high-fidelity today:
 
 What is still approximate:
 
-- **Journeys are planned by patched conics.** Each leg uses the verified Lambert solver, and flybys a B-plane aim. The kernel then flies the plan and reports how close it comes to each waypoint. Landings and moon-to-planet legs are planned but not yet flown.
+- **Journeys are planned by patched conics.** Each leg uses the verified Lambert solver, and flybys a B-plane aim. The kernel then flies the plan, landings, stays and liftoffs included, and reports how close it comes to each waypoint. A journey's craft flies in the planner's model: point masses and zonal terms, without drag, the full gravity fields or sunlight pressure.
 - **The ascent has no closed-loop guidance.** The ROCKET tab's gravity turn ends its orbits higher than real launches, which are steered ([docs/physics/rocket.md](docs/physics/rocket.md#real-launchers)).
 
 In short, the constants, ephemerides, n-body integration and the Kepler/Lambert core are checked against references. The planning layers on top of them are where the remaining approximations live, and each says so in its docs.
