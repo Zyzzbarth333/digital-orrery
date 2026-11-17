@@ -53,19 +53,23 @@ $$
 Velocities use the same axis map without the scaling. Nothing in
 `src/physics/` uses scene coordinates; see [the 3D scene](../frontend/scene.md).
 
-## Centre: the Sun now, the solar-system barycentre next
+## Centre: the Sun for the app, the barycentre for the kernel
 
-The kernel is **heliocentric**: positions are relative to the Sun's centre.
-The Sun is itself pulled by the planets, so a heliocentric frame accelerates,
-and the equations of motion carry an *indirect term* for that
-([n-body kernel](nbody-kernel.md#force-model)). With it, heliocentric and
-barycentric integration describe the same motion.
+The app works **heliocentric**: every position it holds, draws or sends to
+the kernel is relative to the Sun's centre.
 
-The DE ephemerides, GMAT and Orekit all integrate about the **solar-system
-barycentre** (SSB), where no indirect term is needed. The Sun wanders more
-than one solar radius from the SSB, mostly because of Jupiter and Saturn.
-Moving the kernel to the SSB, with the Sun as a moving body read from DE442,
-is planned for the exact-ephemeris phase.
+The kernel integrates about the **solar system barycentre** (SSB), as the
+DE ephemerides, GMAT and Orekit do. There the frame is inertial and no
+indirect term is needed. The Sun is a moving body there, placed by DE442's
+own Sun about the SSB; it wanders more than a solar radius from the SSB,
+mostly with Jupiter and Saturn. `advance()` moves the state to the SSB at
+the start and back at the end, so its interface stays heliocentric
+([n-body kernel](nbody-kernel.md#about-the-solar-system-barycentre)).
+
+Before 17 November 2026 the kernel integrated about the Sun, with an
+indirect term for the Sun's acceleration toward the bodies. The two
+describe the same motion; they differ only in where the Sun's acceleration
+comes from: the kernel's own sum, or DE442.
 
 ## Time
 

@@ -12,6 +12,59 @@ move on their real paths throughout every step.
 
 ## Force model
 
+### About the solar system barycentre
+
+The kernel integrates about the **solar system barycentre** (SSB), as the
+DE ephemerides, GMAT and Orekit do. That frame is inertial, so the equation
+of motion is just the bodies' pulls, the Sun among them:
+
+$$
+\ddot{\mathbf r} = \sum_j \mu_j\,\frac{\mathbf r_j - \mathbf r}{|\mathbf r_j - \mathbf r|^3}
++ \sum_j \mathbf a_{J_2,j} + \mathbf a_\text{thrust},
+\qquad j \in \{\odot, \text{planets}, \ldots\}.
+$$
+
+- **The Sun's place:** the Sun is a moving body here. DE442's Sun about the
+  SSB (`deTable.js`) gives it, interpolated from daily nodes (within 3 cm of
+  DE442). Outside 2000–2050 it is the sum of the planets' GMs,
+  $-\sum_i \mu_i \mathbf r_i / (\mu_\odot + \sum_i \mu_i)$, blended into
+  DE442 at the table's ends like the planets (`bodies.js` `sunEph`).
+- **How:** Cowell's integrator carries the state about the SSB. It takes
+  every force, event and sphere-of-influence test at the craft's
+  heliocentric place $\mathbf r - \mathbf r_\odot(t)$, with the Sun's pull
+  at the origin and no indirect term: the same equation, with the bodies
+  left as they are. Encke's legs work about their primary, and its tidal
+  form is the same in either frame, so they run on heliocentric
+  coordinates. The older form (`tidal: false`) takes the Sun's acceleration
+  from DE442 in place of the indirect terms.
+- **The Sun within a step:** a second-order Taylor series about the last
+  instant its cubic was evaluated, within an hour of it (1e-7 km off).
+  That makes the change free: within the bench's noise in Cowell, none in
+  Encke.
+- **The interface stays heliocentric.** `advance()` adds the Sun's place and
+  velocity about the SSB to the state at the start and takes them off at the
+  end. It hands the hooks (`extraAccel`, `stepCap`, `focus`) heliocentric
+  positions and velocities, so the environment, burns and the app never see
+  the SSB.
+- **What changed:** before, the kernel worked about the Sun's centre, with
+  the indirect term below standing in for the Sun's own motion. That motion
+  was the kernel's model: the pull of the bodies in its list. It is now
+  DE442's Sun, which counts every body JPL integrates. The two differ by
+  about $10^{-15}$ km/s². Every validation still passes, and the flown
+  missions moved by a few hundred metres at most: Artemis I's blind replay
+  0.1 km of 712,146 km, Artemis II's entries 0.1–0.2 km
+  ([validation](../validation.md#the-kernel-about-the-solar-system-barycentre)).
+- **Checks** (`nbody.test.mjs` case 14): the same flights about the Sun
+  (`{ frame: 'sun' }`) and about the SSB take the same steps and agree to
+  within the integrators' own error: under a millimetre in low Earth orbit
+  in a day (Encke's tidal form is the same in either frame), 4.3 m at GEO in
+  10 days (Cowell), and 149 m after 300 days of cruise.
+
+`{ frame: 'sun' }`, and any body list without `sunEph` (the unit tests'
+hand-made ones), keep the heliocentric kernel below.
+
+### About the Sun (the older form, still used for hand-made bodies)
+
 Heliocentric (positions relative to the Sun's centre, J2000 equatorial):
 
 $$
@@ -486,10 +539,16 @@ is skipped until the craft could have reached an edge.
 
 | Case | Result |
 | --- | --- |
-| 300 days of cruise from the Earth, 3 km/s faster | the asteroids, all in everywhere, move the craft 0.161 km; the 1 AU reach leaves out all of it |
-| a year on a circular orbit through the belt (2.6 AU) | 0.304 km; the reach leaves out 0.297 km |
+| 300 days of cruise from the Earth, 3 km/s faster | the asteroids, all in everywhere, move the craft 0.330 km; the 1 AU reach leaves out all of it |
+| a year on a circular orbit through the belt (2.6 AU) | 0.352 km; the reach leaves out 0.355 km |
 | a Dawn-like orbit about Vesta (950 km, 12.3 h, August 2011), two days | Vesta is the primary and Encke holds 950.0 km; without the asteroids the craft drifts 23,300 km away |
 | a Psyche-like approach (August 2029): 15,000 km out at 50 m/s, aimed 1,000 km off | pericentre 561.5 km (hourly samples) against the hyperbola's 560.3 km; without the asteroids it passes at 1,003 km |
+
+These are their direct pulls. Their pull on the Sun is in DE442's Sun
+about the SSB, which the kernel integrates about, with or without them in
+the list. About the Sun (before 17 November 2026) leaving them out also
+left out the Sun's pull toward them, and the two figures were 0.161 and
+0.304 km.
 
 So in cruise the asteroids are well under a kilometre. At an asteroid they are the whole of the
 dynamics: each has a sphere of influence (Vesta's 39,000 km, Psyche's

@@ -518,6 +518,54 @@ header('KERNEL TIME: uniform through leap seconds');
 }
 
 console.log('='.repeat(60));
+header('CASE 14: the kernel integrates about the solar system barycentre');
+{
+  // advance() moves the state to the SSB, where the Sun is a moving body
+  // placed by DE442 and there is no indirect term, and back. The same
+  // flights about the Sun ({ frame: 'sun' }, the old heliocentric kernel
+  // with its indirect term) agree to within the integrators' own error.
+  const { solarSystemBodies } = await import('./bodies.js');
+  const { deSunFromSsb } = await import('./deTable.js');
+  const { tdbFromTt } = await import('./timescale.js');
+  const { ttSeconds } = await import('./ephemeris.js');
+  const epochMs = Date.UTC(2026, 10, 12), tt0 = ttSeconds(epochMs);
+  const sys = solarSystemBodies({ epochMs });
+  // The Sun's cubic against DE442's Sun about the SSB, over a year.
+  let worstSun = 0;
+  for (let i = 0; i < 400; i++) {
+    const t = (i + 0.37) * 0.9 * DAY;
+    const de = deSunFromSsb(tdbFromTt(tt0 + t)).r, p = sys.sunEph.position(t);
+    worstSun = Math.max(worstSun, norm(sub(p, de)));
+  }
+  console.log(`  the Sun about the SSB from daily nodes against DE442: worst ${(worstSun * 1e6).toFixed(1)} mm (it is ${(norm(sys.sunEph.position(0)) / 1e3).toFixed(0)},000 km out)`);
+  check('the Sun\'s place about the SSB within 1 m of DE442', worstSun < 1e-3);
+  const E = sys.bodyAt('earth', 0), rE = [...E.r], vE = E.eph.velocity(0), MU = E.mu;
+  const circ = (R, inc) => [[rE[0] + R, rE[1], rE[2]], [vE[0], vE[1] + Math.sqrt(MU / R) * Math.cos(inc), vE[2] + Math.sqrt(MU / R) * Math.sin(inc)]];
+  const flights = [
+    ['low Earth orbit, 1 day (Encke)', ...circ(6778, 0.4), DAY, 0.001],
+    ['GEO, 10 days (Cowell)', ...circ(42164, 0), 10 * DAY, 0.05],
+    ['cruise from Earth, 300 days', [rE[0] + 3e6, rE[1], rE[2]], [vE[0], vE[1] + 3, vE[2]], 300 * DAY, 1],
+  ];
+  for (const [name, r, v, T, tol] of flights) {
+    const run = (frame) => { const st = createState(r, v, 0); const res = advance(st, T, { bodiesAt: sys.view().bodiesAt, muSun: sys.muSun, maxSteps: 1e9, ...frame }); return { st, res }; };
+    const b = run({}), h = run({ frame: 'sun' });
+    const d = norm(sub(b.st.r, h.st.r));
+    check(`${name}: about the SSB and about the Sun ${(d * 1000).toFixed(2)} m apart, the same ${b.res.steps} steps (under ${tol * 1000} m)`, d < tol && b.res.steps === h.res.steps);
+  }
+  // The hooks see heliocentric states, and the state comes back heliocentric.
+  const r0 = [rE[0] + 42164, rE[1], rE[2]], v0 = [vE[0], vE[1] + 3.0747, vE[2]];
+  let seen = null;
+  const st = createState(r0, v0, 0);
+  advance(st, 60, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel: (t, r, out) => { if (t === 0 && !seen) seen = [...r]; out[0] = out[1] = out[2] = 0; return out; } });
+  check(`extraAccel is handed the heliocentric position (${seen ? norm(sub(seen, r0)).toExponential(1) : '-'} km from the start state)`, seen && norm(sub(seen, r0)) < 1e-6);
+  check(`the state comes back heliocentric (${(norm(sub(st.r, E.eph.position(60))) - 42164).toFixed(3)} km from GEO radius after a minute)`, Math.abs(norm(sub(st.r, sys.bodyAt('earth', 60).r)) - 42164) < 1);
+  // A fall into the Sun is an impact on it, about the SSB too.
+  const fall = createState([0.05 * AU, 0, 0], [0, 0, 0], 0);
+  const resF = advance(fall, 60 * DAY, { bodiesAt: sys.view().bodiesAt, muSun: sys.muSun });
+  const hit = resF.events.find((e) => e.type === 'impact');
+  check(`a fall from 0.05 au ends in an impact on the Sun (${hit?.body}, after ${hit ? (hit.t / DAY).toFixed(2) : '-'} d)`, hit?.body === 'sun');
+}
+
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);
   process.exit(1);

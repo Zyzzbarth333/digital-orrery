@@ -35,7 +35,7 @@
 // any body, moon or planet centre, whatever the focus.
 
 import { HermiteEphemeris } from './nbody.js';
-import { helioStateEqjAtTt, ttSeconds, utcMsAtTt } from './ephemeris.js';
+import { helioStateEqjAtTt, ttSeconds, utcMsAtTt, deSsbAtTt, blendSsb } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
 import { ZONAL_CUTOFF } from './zonal.js';
 import { MOON_DATA } from './moons.data.js';
@@ -81,6 +81,32 @@ export const PLANET_GM = {
   pluto: 8.693261226311508e2,       // NAIF 999, plu060 (DE440)
 };
 const MOON_RADIUS = 1737.4;      // km (IAU mean)
+
+// The Sun about the solar system barycentre, for the kernel, which
+// integrates about the SSB (nbody.js advance()): DE442's own (its Sun
+// series counts every body JPL integrates), blended at the table's ends into
+// the sum of the planets' GMs, -sum(GM_i r_i) / (GM_sun + sum GM_i), as
+// barycentres.js does for the scene. The Sun wanders up to about 1.5
+// million km from the SSB, mostly with Jupiter and Saturn; a cubic through
+// daily nodes holds it to 3 cm of DE442 (nbody.test.mjs case 14).
+const SSB_MEMBERS = ['mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto'];
+const SUN_SPACING = 86400;
+function sunAboutSsbAtTt(tt) {
+  const de = deSsbAtTt(tt);
+  let s = de && de.w === 1 ? de.s : null;
+  if (!s) {
+    const r = [0, 0, 0], v = [0, 0, 0];
+    let total = GM.sun;
+    for (const k of SSB_MEMBERS) {
+      const b = helioStateEqjAtTt(k, tt), gm = GM[k];
+      total += gm;
+      for (let j = 0; j < 3; j++) { r[j] += gm * b.r[j]; v[j] += gm * b.v[j]; }
+    }
+    const sum = { r: r.map((x) => x / total), v: v.map((x) => x / total) };
+    s = de ? blendSsb(de, sum) : sum;
+  }
+  return { r: [-s.r[0], -s.r[1], -s.r[2]], v: [-s.v[0], -s.v[1], -s.v[2]] };
+}
 
 // Node spacing per body: tight enough that interpolation error stays well
 // under a kilometre (the Moon and Earth's monthly wobble set the inner ones).
@@ -255,6 +281,9 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
   const tt0 = ttSeconds(epochMs);
   const msAt = (t) => utcMsAtTt(tt0 + t), secondsAt = (ms) => ttSeconds(ms) - tt0;
   const sat = satellites ?? { moon: moonStateEqjAtTt, offset: planetOffsetEqjAtTt };
+  // The Sun about the SSB at kernel time, for advance() (every view's
+  // bodiesAt carries it as bodiesAt.sunEph).
+  const sunEph = new HermiteEphemeris((t) => sunAboutSsbAtTt(tt0 + t), SUN_SPACING);
   const withJ2 = (b) => {
     const z = zonal && ZONAL[b.key];
     if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN });
@@ -422,6 +451,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
       fr[0] = r[0]; fr[1] = r[1]; fr[2] = r[2]; ft = t; margin = m;
     };
     bodiesAt.focus = focus;
+    bodiesAt.sunEph = sunEph;
     const split = () => groups.filter((_, i) => ((state >> (2 * i)) & 3) === SPLIT).map((G) => G.key);
     const near = () => rocks.filter((_, i) => mask & (1 << i)).map((b) => b.key);
     return { bodiesAt, focus, split, near };
@@ -437,7 +467,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
     return b;
   };
 
-  const common = { muSun, bodyAt, keys, asteroids: rocks.map((b) => b.key), systems: groups.filter((G) => G.centre).map((G) => G.key), epochMs, msAt, secondsAt };
+  const common = { muSun, sunEph, bodyAt, keys, asteroids: rocks.map((b) => b.key), systems: groups.filter((G) => G.centre).map((G) => G.key), epochMs, msAt, secondsAt };
   return {
     ...common, bodiesAt: main.bodiesAt, focus: main.focus, split: main.split, near: main.near,
     view: () => { const v = view(); return { ...common, bodiesAt: v.bodiesAt, focus: v.focus, split: v.split, near: v.near }; },
