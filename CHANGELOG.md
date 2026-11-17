@@ -6,7 +6,9 @@ once it has releases. Until then, everything sits under Unreleased.
 
 ## Unreleased
 
+### The project
 - CI, a contributing guide, a security policy, this changelog and a citation (#68).
+- A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
 - Plan a journey of any number of legs, compare each leg's transfers, fly
@@ -23,6 +25,8 @@ once it has releases. Until then, everything sits under Unreleased.
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
+- The kernel integrates about the solar system barycentre, with the Sun
+  on DE442's path, as DE, GMAT and Orekit do (#64).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
