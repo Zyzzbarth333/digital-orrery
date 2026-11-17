@@ -254,3 +254,32 @@ export function poweredFlyby({ vinfIn, vinfOut, mu, rpMin, pole = [0, 0, 1] }) {
   const b = bPlane(vinfIn, vinfOut, rp, mu, pole);
   return { delta, rp, periapsisDv, steerDv, dv: periapsisDv + steerDv, tooTight: missing > 1e-9, gain: norm(sub(vinfOut, vinfIn)), bT: b.bT, bR: b.bR, aim: aimingRadius(rp, vi, mu) };
 }
+
+// ---------------- resonant returns ----------------
+
+// A return to the same body after a flyby, on a resonant orbit (as
+// Galileo's two years from Earth to Earth, 1990-92): a heliocentric orbit
+// whose period is N/M of the body's brings the craft back to the body
+// after N of the body's periods (M of its own). With the excess speed vinf
+// fixed by the flyby, the craft's speed at the body's distance r is fixed
+// by that period (vis-viva), and so is the angle theta between the excess
+// velocity and the body's velocity v_B (the law of cosines):
+//   a = (mu (N T_B / (2 pi M))^2)^(1/3),   v^2 = mu (2/r - 1/a),
+//   cos theta = (v^2 - v_B^2 - vinf^2) / (2 v_B vinf).
+// The excess velocity lies on a cone of half-angle theta about v_B; its
+// clock angle phi about v_B is free (Strange & Longuski 2002). feasible:
+// |cos theta| <= 1.
+export function resonantCone({ r, vB, mu, vinf, N, M, TB }) {
+  const T = (N * TB) / M, a = Math.cbrt(mu * (T / (2 * Math.PI)) ** 2);
+  const v2 = mu * (2 / r - 1 / a), vb = norm(vB);
+  const cos = (v2 - vb * vb - vinf * vinf) / (2 * vb * vinf);
+  return { feasible: v2 > 0 && Math.abs(cos) <= 1, theta: Math.acos(clamp(cos, -1, 1)), tof: N * TB, a, vsc: Math.sqrt(Math.max(0, v2)), cos };
+}
+// The excess velocity on that cone at clock angle phi: measured from the
+// direction away from the central body (the part of rB across vB), round
+// the body's velocity toward the orbit normal.
+export function resonantVinf({ rB, vB, vinf, theta, phi }) {
+  const u1 = unit(vB), out = sub(rB, scale(u1, dot(rB, u1))), u2 = unit(out), u3 = cross(u1, u2);
+  const s = Math.sin(theta);
+  return [0, 1, 2].map((i) => vinf * (Math.cos(theta) * u1[i] + s * (Math.cos(phi) * u2[i] + Math.sin(phi) * u3[i])));
+}

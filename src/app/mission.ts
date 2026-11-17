@@ -238,10 +238,12 @@ export class Mission {
   }
 
   // A journey from the planner, as the kernel flew it there (journey.worker.ts):
-  // its start state and the burns it made, scheduled on a new craft.
-  flyJourney(start: { r: number[]; v: number[]; ms: number }, burns: object[], name: string): Craft {
-    const c = new Craft({ name, r: start.r as V3, v: start.v as V3, t: kernelSeconds(new Date(start.ms)), sys: this.sys });
+  // its start state and the burns it made, scheduled on a new craft, with
+  // its landings (the stays on the ground, Craft.addLandings).
+  flyJourney(start: { r: number[]; v: number[]; ms: number }, burns: object[], name: string, landings: object[] = []): Craft {
+    const c = new Craft({ name, r: start.r as V3, v: start.v as V3, t: kernelSeconds(new Date(start.ms)), sys: this.sys, bare: true });
     c.addPlanned(burns);
+    if (landings.length) c.addLandings(landings);
     c.note(`${burns.length} planned burns scheduled`, c.kState.t);
     this.crafts.push(c);
     this.select(c.id);

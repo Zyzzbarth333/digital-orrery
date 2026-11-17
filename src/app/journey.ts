@@ -18,6 +18,7 @@ export interface Stop { body: string; kind: string; altKm: number; arrMs: number
 export interface Leg {
   index: number; geometry: string; central: string; from: string; to: string; depMs: number; arrMs: number; tofDays: number;
   depDv: number; arrDv: number; midDv: number; ok: boolean; error?: string; revs?: number; vinfDep: number[] | null; vinfArr: number[] | null;
+  resonance?: { N: number; M: number; theta: number; phi: number; vinf: number; missKm: number };
   shaped?: boolean; missKm?: number; reaches?: boolean; nodes?: { id: number; ms: number; dv: number }[];
 }
 export interface Flyby { byHand?: boolean; body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
