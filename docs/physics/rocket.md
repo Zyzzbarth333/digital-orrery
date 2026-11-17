@@ -2,7 +2,7 @@
 
 `src/physics/rocket.js` holds the launch-vehicle physics. The ROCKET tab
 (`src/app/rocket-panel.tsx`) puts it to work. Both follow Curtis,
-*Orbital Mechanics for Engineering Students* (4th ed.), chapter 13.
+*Orbital Mechanics for Engineering Students* (4th ed.), chapter 13 [1].
 
 ## A stack of stages
 
@@ -19,7 +19,7 @@ The spent stage drops away before the next lights.
 
 ## The lightest stack for a job
 
-`optimalStaging` is Curtis's section 13.6. Given each stage's exhaust speed
+`optimalStaging` is Curtis's section 13.6 [1, §13.6]. Given each stage's exhaust speed
 $c_i = I_{sp,i} g_0$ and structural ratio
 $\varepsilon_i = m_{E,i}/(m_{E,i} + m_{p,i})$, the stack of least mass that
 gives a payload the burnout speed $v_{bo}$ has a Lagrange multiplier
@@ -56,7 +56,7 @@ directly.
 
 ## The ascent
 
-`ascent` is the gravity turn of Curtis section 13.2, integrated by RK4 as
+`ascent` is the gravity turn of Curtis section 13.2 [1, §13.2], integrated by RK4 as
 motion in the launch plane about the Earth's centre, which holds
 equations (13.6)–(13.8) and their curvature terms exactly. The sequence:
 1. **Vertical climb** to the pitchover height. The step is shortened to
@@ -78,7 +78,7 @@ equations (13.6)–(13.8) and their curvature terms exactly. The sequence:
 - **A kick that ends level** (`levelAscent`): the kick $\gamma_0$ is found
   by bisection so the flight-path angle at cutoff is zero.
 - **Losses:** gravity $\int g\sin\gamma\,dt$ and drag $\int D/m\,dt$
-  (Curtis 13.27).
+  (Curtis 13.27 [1, eq. 13.27]).
 
 **For model, high-power and sounding rockets** (used by the
 [cross-check](#checked-against-openrocket-and-rocketpy-rocketxchecktestmjs)):
@@ -116,6 +116,8 @@ the climb: geocentric J2000 states from the pad (moving with the Earth's
 surface along the plane) to the cutoff state, which is `ascentToState`'s.
 
 ## In the app
+
+![The ROCKET tab with Saturn V: FLY THE ASCENT draws its climb, LAUNCH FROM THE PAD starts the clock at 10 s a second, and the camera follows the craft away from Florida with its path behind it](../clips/rocket-launch.webp)
 
 The ROCKET tab:
 - **Vehicle:** each stage's numbers, and the stack's delta-v, burn times
@@ -217,9 +219,9 @@ The ROCKET tab starts from four real launchers (`src/physics/launchers.js`).
 
 | Check | Reference | Result |
 | --- | --- | --- |
-| Single stage, burn time and delta-v | Curtis Example 13.2 | 238.8 s; $c\ln n$ exactly |
-| Optimal three-stage vehicle, 5,000 kg to 10 km/s | Curtis Example 13.7 | η 0.4668 s/km, mass ratios 4.541, 2.507, 1.361, 191,221 kg (book 191,200, to four figures); a minimum by the book's second-order test; any shift of delta-v between stages is heavier |
-| Gravity-turn ascent | Curtis Example 13.3 | burnout 5.737 km/s, 9.166° (book 9.154°), 110.39 km (110.32), 318.33 km downrange (318.36); drag loss 0.297 km/s (0.298), gravity loss 1.413 (1.410); maximum dynamic pressure 0.156 atm |
+| Single stage, burn time and delta-v | Curtis Example 13.2 [1, Ex. 13.2] | 238.8 s; $c\ln n$ exactly |
+| Optimal three-stage vehicle, 5,000 kg to 10 km/s | Curtis Example 13.7 [1, Ex. 13.7] | η 0.4668 s/km, mass ratios 4.541, 2.507, 1.361, 191,221 kg (book 191,200, to four figures); a minimum by the book's second-order test; any shift of delta-v between stages is heavier |
+| Gravity-turn ascent | Curtis Example 13.3 [1, Ex. 13.3] | burnout 5.737 km/s, 9.166° (book 9.154°), 110.39 km (110.32), 318.33 km downrange (318.36); drag loss 0.297 km/s (0.298), gravity loss 1.413 (1.410); maximum dynamic pressure 0.156 atm |
 | Hohmann burn to geostationary height; escape | vis-viva | exact |
 | A level-ending gravity turn, and cutoff in orbit | | flight-path angle 0 to 0.01°; with cutoff, eccentricity 6×10⁻⁵ with propellant kept |
 | The end state in 3D | the inclination aimed for | within 0.01° of 51.6° |
@@ -352,3 +354,6 @@ OpenRocket jar, and skips them otherwise.
 - A design flies to apogee in the ROCKET tab only. It isn't launched into
   the scene.
 
+## References
+
+[1] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. Chapter 13; Sections 13.2 and 13.6; Examples 13.2, 13.3 and 13.7.

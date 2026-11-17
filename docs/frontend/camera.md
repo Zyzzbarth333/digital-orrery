@@ -54,6 +54,8 @@ only turned to follow the point below.
 Choosing a body (the rail, a marker in the sky, the arrow keys) or a craft
 flies the camera there instead of cutting.
 
+![A flight from the inner solar system to the Earth: the view pulls back a little, crosses to the Earth's marker and closes in, slowing as it arrives](../clips/overview-to-earth.webp)
+
 **The path** is van Wijk and Nuij's optimal zoom-and-pan path (2003). In
 the space of (u, w), where u is how far the pivot has moved along the line
 between the two targets and w is the width of the view (2 tan 22.5° times

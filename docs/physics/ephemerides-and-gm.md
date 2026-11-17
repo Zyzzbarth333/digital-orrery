@@ -148,7 +148,7 @@ $$
 
 ## What DE442 contains, and what the satellite kernels add
 
-DE442 (JPL, February 2025) integrates the Sun, planets, Moon and 343 asteroids
+DE442 (JPL, February 2025) [1], [2] integrates the Sun, planets, Moon and 343 asteroids
 together and fits them to observations. It updates DE440 with Uranus
 occultation data, more Mars orbiter ranging and four more years of Juno
 ranging. Its file gives:
@@ -157,7 +157,7 @@ ranging. Its file gives:
 - Mars to Pluto only as **system barycentres** (the planet and its moons
   together).
 
-Planet centres and moons come from NAIF's satellite kernels, each giving
+Planet centres and moons come from NAIF's satellite kernels [3], each giving
 bodies relative to their system barycentre. SPICE chains them:
 
 $$
@@ -165,7 +165,7 @@ $$
 $$
 
 The meta-kernel loads `mar099s`, `jup365`, `sat441`, `ura184_part-3`,
-`nep097`, `plu060` and JPL's `sb441-n16` (the 16 perturber asteroids). Load
+`nep097`, `plu060` and JPL's `sb441-n16` [4] (the 16 perturber asteroids). Load
 order matters: SPICE uses the last-loaded kernel that covers a body, and every
 satellite kernel carries its own older copy of the barycentres, so
 **`de442.bsp` is loaded last**. Checked with CSPICE: with everything loaded,
@@ -217,7 +217,7 @@ escape from the planet itself.)
 ### Where the DE442 GMs come from
 
 NAIF publishes `gm_de440.tpc` but no `gm_de442.tpc`. DE442's technical
-comments (`spk/planets/de442_tech-comments.txt`) list each GM in AU³/day².
+comments [2] (`spk/planets/de442_tech-comments.txt`) list each GM in AU³/day².
 `python/data/gm_de442.tpc` converts them:
 
 $$
@@ -241,10 +241,12 @@ centre go together, as the system GM and the barycentre do. The positions
 are `moons.js`'s, not the satellite kernels': see
 [the kernel](nbody-kernel.md#moons).
 
-## Sources
+## References
 
-- R. S. Park et al., "The JPL Planetary and Lunar Ephemerides DE440 and
-  DE441", *Astronomical Journal* 161:105 (2021); DE442 technical comments
-  (NAIF, 2025).
-- NAIF generic kernels: `spk/planets`, `spk/satellites` and their
-  `aa_summaries.txt`; JPL Solar System Dynamics, `sb441-n16`.
+[1] R. S. Park, W. M. Folkner, J. G. Williams, and D. H. Boggs, "The JPL planetary and lunar ephemerides DE440 and DE441," *Astron. J.*, vol. 161, no. 3, Art. no. 105, 2021, doi: 10.3847/1538-3881/abd414.
+
+[2] NAIF, "DE442 technical comments," 2025. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de442_tech-comments.txt
+
+[3] NAIF, "Generic kernels: `spk/planets`, `spk/satellites` and their `aa_summaries.txt`." [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
+
+[4] JPL Solar System Dynamics, "SB441 small-body ephemerides (`sb441-n16`)." [Online]. Available: https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/

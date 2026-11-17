@@ -4,7 +4,7 @@ How the simulator works, with the maths, the constants the code uses, where
 they come from, and how each part is checked.
 
 - **New here?** [How it fits together](architecture.md) maps the code with a diagram, and the [glossary](glossary.md) explains the terms.
-- **Pictures:** the [README](../README.md) has screenshots of each part of the app.
+- **Pictures:** the [README](../README.md) has screenshots of each part of the app, and short clips of it running. The clips live in `docs/clips/` as animated WebP; `npm run build && npm run docs:clips` films them again from the app when its interface changes (it needs ffmpeg and Playwright's Chromium).
 
 ## Physics
 
@@ -63,5 +63,8 @@ the browser, with every kept claim checked against its source.
 
 - Every new model ships with its page, in the same pull request: equations,
   sources, constants and validation.
+- Each page ends with a numbered "References" section in IEEE style, in
+  order of first citation, and the text cites them with markers such as [1]
+  or [1, Alg. 3.3].
 - Equations here are written out in this project's own notation; textbooks
   are cited by section and example, not quoted.
