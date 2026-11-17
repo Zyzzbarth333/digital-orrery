@@ -295,9 +295,42 @@ rail, the arrow keys or following a craft leaves it.
 - the size formula against Ceres's measured 939.4 km (951 km from H 3.34
   and albedo 0.090).
 
-The other 135,000 bodies carry no designations in the packed file, so
-they can't be chosen yet. Searching them by name would need SBDB's
-designations shipped alongside.
+### Any of them, by search
+
+The rail's search box finds any of the 135,353 drawn bodies by number
+("433", "(433)", "433 Eros"), name ("eros") or designation ("1997 AU24",
+"1P", "2026 P4" for C/2026 P4). The chosen one is flown to and given a
+plate as a named one is, and joins the Fly to list.
+
+- **The index:** `public/data/smallbodies-index.txt`, one line per body of
+  `smallbodies.bin` in the same order, so line j names point j. Written by
+  `smallbodies.build.mjs` from the cached SBDB pages, in the same loop as
+  the packed file.
+  - **A line:** `designation[TAB name[TAB diameter km]]`, empty fields at
+    the end dropped.
+  - **Numbered asteroids:** one more than the previous numbered line leaves
+    its designation empty; up to 999 more is written `+k`.
+  - **Comets** carry their prefix: C/2026 P4. A numbered comet, 1P, has
+    it already.
+- **Its size:** 1.22 MB (0.44 MB gzip-compressed). 19,118 names, 51,958
+  diameters. It is fetched only when the search box first takes focus.
+- **Searching** runs over every line, 2 ms. A match ranks as:
+  1. a number or designation, exactly;
+  2. a name, exactly;
+  3. the start of a name, then of a designation;
+  4. a name containing the query (three letters or more).
+- **A found body** (`SmallBodyLayer.adopt`) takes its packed elements, the
+  drawn point's own: angles to 0.0055°, about 40,000 km at Ceres's
+  distance. It takes its diameter from the index, or else the size from
+  H. A body SB441's table covers (Juno, say) moves on that table and its
+  point is refreshed as the named ones' are.
+
+`smallbodies.test.mjs` checks:
+- the index has one line per point;
+- every named body's line is its own point (designation, a, e and class);
+- encoding round-trips;
+- the searches above find what they should, both Halleys among them (the
+  comet and asteroid 2688), and "1997 au24" isn't read as asteroid 1997.
 
 ## How right they are
 
