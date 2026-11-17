@@ -172,11 +172,12 @@ const [none, ours, jpl, track] = Object.values(runs);
 // FLYBY_OUT=file.json writes the three runs' errors, for plotting.
 if (process.env.FLYBY_OUT) fs.writeFileSync(process.env.FLYBY_OUT, JSON.stringify({ jd: flown.slice(1).map((r) => r[0]), none: none.err, ours: ours.err, jpl: jpl.err, track: track.err }));
 // Ganymede bends Juno by 0.28 km/s: 9,300 km after nine hours. JPL's moons
-// leave 21 km, of which the 11 km between the two Ganymedes accounts for
-// all but 4. moons.js's Ganymede (the jup365 table) is within 0.3 km of
-// Horizons', so its run matches Horizons' own; the fallback's left 320 km.
+// leave 23 km, all but 0.1 km of it the 11 km between the two Ganymedes
+// (the fixed-step Cowell integrator added 4 km of its own). moons.js's
+// Ganymede (the jup365 table) is within 0.3 km of Horizons', so its run
+// matches Horizons' own; the fallback's left 320 km.
 check(none.err.at(-1) > 5000, `without the moons Juno is ${none.err.at(-1).toFixed(0)} km off 9 h after the pass`);
-check(track.err.at(-1) < 8, `with JPL's moons and Ganymede as Juno's track has it, ${track.err.at(-1).toFixed(2)} km off (the kernel's force model)`);
+check(track.err.at(-1) < 0.5, `with JPL's moons and Ganymede as Juno's track has it, ${track.err.at(-1).toFixed(2)} km off (the kernel's force model)`);
 check(jpl.err.at(-1) < 30, `with Horizons' own moons, ${jpl.err.at(-1).toFixed(2)} km off`);
 check(ours.err.at(-1) < 25 && Math.abs(ours.err.at(-1) - jpl.err.at(-1)) < 2, `with moons.js's moons, ${ours.err.at(-1).toFixed(2)} km off, within 2 km of Horizons' own moons' run`);
 check(Math.abs(track.closest - hzCA) < 1, `closest approach ${track.closest.toFixed(2)} km from Ganymede's centre, Horizons ${hzCA.toFixed(2)} km`);

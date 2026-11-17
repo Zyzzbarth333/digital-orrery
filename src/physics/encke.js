@@ -66,6 +66,8 @@ const A = [
   [35 / 384, 0, 500 / 1113, 125 / 192, -2187 / 6784, 11 / 84],
 ];
 const E = [71 / 57600, 0, -71 / 16695, 71 / 1920, -17253 / 339200, 22 / 525, -1 / 40];
+// The tableau, for the error-controlled Cowell integrator (nbody.js).
+export const DP45 = { C, A, E };
 
 export const ENCKE_IN = 1e-5;
 export const ENCKE_OUT = 3e-5;
@@ -198,11 +200,68 @@ export function advanceEncke(state, tEnd, opts) {
 
   const extra = [0, 0, 0], pert = [0, 0, 0], cpos = [0, 0, 0];
   let mid = state.t, lastThrust = 0;
+
+  // The other bodies within a step. They act on the craft only through
+  // their tides across rho, so each step evaluates them once at its far end
+  // (position and velocity; the near end is the last step's far end) and
+  // places them at the stages by the cubic through the two ends. Against
+  // their own cubics that is (h n)^4 a / 384 for a step h: 1e-12 km for the
+  // Moon in low Earth orbit, 1e-4 km over a two-hour step near apogee, where
+  // the tide it changes is 1e-15 km/s^2. The primary is placed exactly at
+  // every stage, from its own ephemeris. Before, every stage placed every
+  // body: six cubics each where now there are two.
+  let sList = null, sCopies = null, sP = -1, sT0 = NaN, sH = NaN, sEnds = null;
+  const stepBodies = (list, t0, H) => {
+    if (list !== sList) {
+      sList = list;
+      sCopies = list.map((b) => ({ key: b.key, mu: b.mu, radius: b.radius, parent: b.parent, r: [0, 0, 0],
+        j2: b.j2, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
+      sP = list.findIndex((b) => b.key === key);
+      sEnds = new Float64Array(list.length * 12);    // r0 v0 r1 v1 for each body
+      sT0 = NaN;
+    }
+    const n = list.length;
+    if (t0 !== sT0) {
+      for (let j = 0; j < n; j++) {
+        const b = list[j], o = 12 * j;
+        sEnds[o] = b.r[0]; sEnds[o + 1] = b.r[1]; sEnds[o + 2] = b.r[2];
+        if (b.eph) { b.eph.velocity(t0, vTmp); sEnds[o + 3] = vTmp[0]; sEnds[o + 4] = vTmp[1]; sEnds[o + 5] = vTmp[2]; } else { sEnds[o + 3] = sEnds[o + 4] = sEnds[o + 5] = 0; }
+        const c = sCopies[j];
+        c.pole = b.pole; c.axisX = b.axisX; c.axisY = b.axisY;
+      }
+      sT0 = t0; sH = NaN;
+    }
+    if (H !== sH) {
+      for (let j = 0; j < n; j++) {
+        const b = list[j], o = 12 * j;
+        if (j === sP || !b.eph) { for (let i = 0; i < 6; i++) sEnds[o + 6 + i] = sEnds[o + i] + (i < 3 ? H * sEnds[o + 3 + i] : 0); continue; }
+        b.eph.position(t0 + H, rTmp); b.eph.velocity(t0 + H, vTmp);
+        sEnds[o + 6] = rTmp[0]; sEnds[o + 7] = rTmp[1]; sEnds[o + 8] = rTmp[2];
+        sEnds[o + 9] = vTmp[0]; sEnds[o + 10] = vTmp[1]; sEnds[o + 11] = vTmp[2];
+      }
+      sH = H;
+    }
+  };
+  const rTmp = [0, 0, 0], vTmp = [0, 0, 0];
+  // The bodies at a stage time t of the step from sT0 over sH.
+  const stageBodies = (t) => {
+    const s1 = (t - sT0) / sH, s2 = s1 * s1, s3 = s2 * s1;
+    const h00 = 2 * s3 - 3 * s2 + 1, h10 = (s3 - 2 * s2 + s1) * sH, h01 = -2 * s3 + 3 * s2, h11 = (s3 - s2) * sH;
+    for (let j = 0; j < sCopies.length; j++) {
+      const q = sCopies[j].r;
+      if (j === sP) { q[0] = rP[0]; q[1] = rP[1]; q[2] = rP[2]; continue; }
+      const o = 12 * j;
+      q[0] = h00 * sEnds[o] + h10 * sEnds[o + 3] + h01 * sEnds[o + 6] + h11 * sEnds[o + 9];
+      q[1] = h00 * sEnds[o + 1] + h10 * sEnds[o + 4] + h01 * sEnds[o + 7] + h11 * sEnds[o + 10];
+      q[2] = h00 * sEnds[o + 2] + h10 * sEnds[o + 5] + h01 * sEnds[o + 8] + h11 * sEnds[o + 11];
+    }
+    return sCopies;
+  };
   // d/dt of [delta, delta'] at time t, with the conic at rr.
   const cvel = [0, 0, 0], vPt = [0, 0, 0];
   const f = (t, yy, rr, out, rv) => {
-    const bodies = bodiesAt(t);
     P.eph.position(t, rP);
+    const bodies = stageBodies(t);
     if (!tidal) P.eph.acceleration(t, aP);
     const dx = yy[0], dy = yy[1], dz = yy[2];
     const rx = rr[0] + dx, ry = rr[1] + dy, rz = rr[2] + dz;
@@ -305,6 +364,7 @@ export function advanceEncke(state, tEnd, opts) {
     const t = state.t;
     const H = dir * hs;
     mid = t + 0.5 * H;
+    stepBodies(bodies, t, H);
     SR[0][0] = cR[0]; SR[0][1] = cR[1]; SR[0][2] = cR[2];
     SV[0][0] = cV[0]; SV[0][1] = cV[1]; SV[0][2] = cV[2];
     // Stage times sit a hair inside the step at both ends: on a node the
@@ -375,7 +435,8 @@ export function advanceEncke(state, tEnd, opts) {
     if (++soiAge > 256) refreshSoi();
     let near = rhoN > 0.98 * soiP;
     for (let k = 0; k < kids.length && !near; k++) {
-      const b = now.find((x) => x.key === kids[k].key);
+      const b = now.indexOf(kids[k]) >= 0 ? kids[k] : null;
+      if (!b) continue;
       const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
       near = dx * dx + dy * dy + dz * dz < (1.02 * soiKids[k]) ** 2;
     }

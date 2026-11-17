@@ -186,10 +186,10 @@ header("THE APP'S KERNEL: cases 2 and 4 in nbody.js");
 {
   const s0 = initialState(CASES['02']), toKm = (a) => a.map((x) => x / 1e3);
   const st = createState(toKm(s0.r), toKm(s0.v), 0);
-  advance(st, 28800, { bodiesAt: () => [], muSun: MU / 1e9, sunRadius: 6000, hMax: 60, eta: 0.002 });
+  advance(st, 28800, { bodiesAt: () => [], muSun: MU / 1e9, sunRadius: 6000, hMax: 60, cowellTolKm: 1e-8, cowellRelTol: 0 });
   const B = fx.cases['02'].tools.B.at(-1);
   const d2 = dist(st.r.map((x) => x * 1e3), B.r);
-  console.log(`  case 2, kernel (Cowell, Yoshida 4th order) after 8 h: ${d2.toFixed(3)} m from sim B`);
+  console.log(`  case 2, kernel (Cowell, Dormand-Prince at 1e-8 km a step) after 8 h: ${d2.toFixed(3)} m from sim B`);
   check('case 2 by the kernel within 5 cm of sim B', d2 < 0.05);
 
   const sys = solarSystemBodies({ epochMs: EPOCH_MS, zonal: false });
@@ -214,7 +214,7 @@ header("THE APP'S KERNEL: cases 2 and 4 in nbody.js");
   // coefficients, J2 included, and NASA's Earth-rotation offsets.
   const env = makeEnvironment({ bodiesAt: () => [] }, { epochMs: EPOCH_MS, earth: { degree: 8, field: gemT1Coefficients(8), withJ2: true, leapSeconds: 32, dut1: -0.469 } });
   const s3 = createState(toKm(s0.r), toKm(s0.v), 0);
-  advance(s3, 28800, { bodiesAt: () => [], muSun: MU / 1e9, sunRadius: 6000, hMax: 60, eta: 0.002, extraAccel: (t, r, out, mid, v) => { out[0] = out[1] = out[2] = 0; return env(t, r, v, out); } });
+  advance(s3, 28800, { bodiesAt: () => [], muSun: MU / 1e9, sunRadius: 6000, hMax: 60, cowellTolKm: 1e-8, cowellRelTol: 0, extraAccel: (t, r, out, mid, v) => { out[0] = out[1] = out[2] = 0; return env(t, r, v, out); } });
   const d3 = dist(s3.r.map((x) => x * 1e3), fx.cases['03B'].tools.B.at(-1).r);
   console.log(`  case 3B, kernel with the environment's 8x8 field after 8 h: ${d3.toFixed(3)} m from sim B`);
   check('case 3B by the kernel (environment field) within 5 cm of sim B', d3 < 0.05);
@@ -227,7 +227,7 @@ header("THE APP'S KERNEL: cases 2 and 4 in nbody.js");
   const env6 = makeEnvironment({ bodiesAt: () => [] }, { epochMs: EPOCH_MS, mass: sph.mass, area: sph.area, cd: sph.cd, cr: 0, earth: { degree: 0, leapSeconds: 32, dut1: -0.469 }, drag: { sw: { f107: 128.8, f107bar: 128.8, ap: 15.7 }, flattening: FLATTENING, met: { wholeMinutes: true } } });
   const e0 = initialState(CASES['06B']);
   const s6 = createState(toKm(e0.r), toKm(e0.v), 0);
-  advance(s6, 28800, { bodiesAt: () => [], muSun: MU / 1e9, sunRadius: 6000, hMax: 60, eta: 0.002, extraAccel: (t, r, out, mid, v) => { out[0] = out[1] = out[2] = 0; return env6(t, r, v, out); } });
+  advance(s6, 28800, { bodiesAt: () => [], muSun: MU / 1e9, sunRadius: 6000, hMax: 60, cowellTolKm: 1e-8, cowellRelTol: 0, extraAccel: (t, r, out, mid, v) => { out[0] = out[1] = out[2] = 0; return env6(t, r, v, out); } });
   const d6 = dist(s6.r.map((x) => x * 1e3), fx.cases['06B'].tools.B.at(-1).r);
   console.log(`  case 6B, kernel with the environment's drag (MET) after 8 h: ${d6.toFixed(3)} m from sim B`);
   check('case 6B by the kernel (environment drag) within 5 cm of sim B', d6 < 0.05);

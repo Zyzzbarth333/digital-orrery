@@ -40,9 +40,16 @@
 // the caller continues from state.t next time. A stretched step near a planet
 // can pass straight through it.
 
-import { advanceEncke, perturbationRatio, ENCKE_IN } from './encke.js';
+import { advanceEncke, perturbationRatio, ENCKE_IN, DP45 } from './encke.js';
 import { addJ2, below } from './zonal.js';
 
+// The Cowell integrator unless asked for another: error-controlled
+// Dormand-Prince 5(4) (advanceCowellRK). 'yoshida4' (and 'leapfrog') remain,
+// and fixed steps always use them.
+const DEFAULT_METHOD = 'dp45';
+const ORIGIN = [0, 0, 0];
+const H_MIN = 1e-3;     // s: dp45's smallest step (see advanceCowellRK)
+const COWELL_REL_TOL = 1e-11;   // dp45's tolerance per km from the primary (see advanceCowellRK)
 const W_CBRT2 = Math.cbrt(2.0);
 const YOSHIDA_W1 = 1.0 / (2.0 - W_CBRT2);
 const YOSHIDA_W0 = -W_CBRT2 / (2.0 - W_CBRT2);
@@ -117,21 +124,43 @@ export function createState(r, v, t = 0) {
 // bodies: [{ key, mu, r, parent? }]; a body with `parent` (the Moon) gets its
 // SOI relative to that parent instead of the Sun.
 export function primaryOf(r, bodies, muSun) {
+  const info = soiInfo(bodies, muSun);
   let best = 'sun', bestSoi = Infinity;
-  for (const b of bodies) {
-    const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
-    const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    let soi;
-    const P = b.parent ? bodies.find((x) => x.key === b.parent) : null;
-    if (P) {
-      const px = b.r[0] - P.r[0], py = b.r[1] - P.r[1], pz = b.r[2] - P.r[2];
-      soi = soiRadius(Math.sqrt(px * px + py * py + pz * pz), b.mu, P.mu);
-    } else {
-      soi = soiRadius(Math.hypot(b.r[0], b.r[1], b.r[2]), b.mu, muSun);
-    }
-    if (d < soi && soi < bestSoi) { best = b.key; bestSoi = soi; }
+  for (let j = 0; j < bodies.length; j++) {
+    const b = bodies[j], p = b.r;
+    const dx = r[0] - p[0], dy = r[1] - p[1], dz = r[2] - p[2];
+    const d2 = dx * dx + dy * dy + dz * dz;
+    const P = info.parent[j];
+    const px = P ? p[0] - P.r[0] : p[0], py = P ? p[1] - P.r[1] : p[1], pz = P ? p[2] - P.r[2] : p[2];
+    const soi = Math.sqrt(px * px + py * py + pz * pz) * info.k[j];
+    if (d2 < soi * soi && soi < bestSoi) { best = b.key; bestSoi = soi; }
   }
   return best;
+}
+
+// Per body list (bodies.js keeps one array for each set of bodies), each
+// body's parent in the list and its (mu / mu_primary)^0.4, computed once:
+// Math.pow for every body at every step was a fifth of a Cowell step.
+const SOI_INFO = new WeakMap();
+function sameBodies(a, b) {
+  if (a.length !== b.length) return false;
+  for (let j = 0; j < a.length; j++) if (a[j] !== b[j]) return false;
+  return true;
+}
+// The body with this key in a list, or null (a loop: find() with a closure
+// allocated at every step showed up in the garbage collector's time).
+export function bodyByKey(list, key) {
+  for (let j = 0; j < list.length; j++) if (list[j].key === key) return list[j];
+  return null;
+}
+function soiInfo(bodies, muSun) {
+  let info = SOI_INFO.get(bodies);
+  if (!info || info.muSun !== muSun || !sameBodies(info.of, bodies)) {
+    const parent = bodies.map((b) => (b.parent ? bodies.find((x) => x.key === b.parent) ?? null : null));
+    info = { muSun, of: [...bodies], parent, k: bodies.map((b, j) => Math.pow(b.mu / (parent[j] ? parent[j].mu : muSun), 0.4)) };
+    SOI_INFO.set(bodies, info);
+  }
+  return info;
 }
 
 // Advance `state` in place to time tEnd (which may be earlier than state.t).
@@ -139,9 +168,13 @@ export function primaryOf(r, bodies, muSun) {
 // opts:
 //   bodiesAt(t) -> [{ key, mu, r, radius, parent? }]   body positions at t
 //   muSun                                                km^3/s^2
-//   method      'yoshida4' (default) or 'leapfrog'
-//   eta         step as a fraction of the local dynamical time (default 0.01;
-//               4th order: halving it cuts the error about 16x)
+//   method      'dp45' (default: error-controlled Dormand-Prince 5(4)),
+//               'yoshida4' or 'leapfrog' (fixed fraction of the dynamical time)
+//   cowellTolKm dp45's per-step position tolerance (default 1e-6 km), plus
+//   cowellRelTol of the distance from the primary (default 1e-11)
+//   eta         Yoshida's and leapfrog's step as a fraction of the local
+//               dynamical time (default 0.01; 4th order: halving it cuts the
+//               error about 16x); dp45 starts from it
 //   hMax        largest step in s (default 1 day)
 //   fixedStep   use this |h| for every step instead of the eta rule
 //   maxSteps    step budget for this call (default 200,000). When it runs out
@@ -181,8 +214,8 @@ export function advance(state, tEnd, opts) {
     const sunEph = opts.sunEph ?? opts.bodiesAt.sunEph;
     if (sunEph) return advanceAboutSsb(state, tEnd, opts, sunEph);
   }
-  const { bodiesAt, muSun, method = 'yoshida4', fixedStep = null, maxSteps = 200000 } = opts;
-  const useEncke = opts.encke !== false && !fixedStep && method === 'yoshida4';
+  const { bodiesAt, muSun, method = DEFAULT_METHOD, fixedStep = null, maxSteps = 200000 } = opts;
+  const useEncke = opts.encke !== false && !fixedStep && (method === 'yoshida4' || method === 'dp45');
   const focus = opts.focus ?? bodiesAt.focus;
   const ssb = opts.ssb ?? null;
   const helio = (sign) => { if (ssb) shiftBySun(state, ssb, sign); };
@@ -212,6 +245,173 @@ export function advance(state, tEnd, opts) {
   }
 }
 
+// The error-controlled Cowell integrator (method 'dp45'): Dormand-Prince
+// 5(4) on [r, v], each step's local error held under cowellTolKm in position and
+// tolKm / tau in velocity (tau the shortest local dynamical time), steps
+// ending on breakpoints as in advanceCowell. Forces, events and hooks as
+// there; velocity-dependent forces see each stage's own velocity.
+function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
+  const {
+    bodiesAt, muSun, eta = 0.01, hMax = 86400.0, maxSteps = 200000, extraAccel = null, sunRadius = 695700.0,
+    breakpoints = null, cowellTolKm = 1e-6, cowellRelTol = COWELL_REL_TOL,
+  } = opts;
+  const { C, A, E } = DP45;
+  const focus = opts.focus ?? bodiesAt.focus;
+  const ssb = opts.ssb ?? null, indirect = !ssb;
+  const sR = [0, 0, 0], sV = [0, 0, 0], hA = [0, 0, 0], hB = [0, 0, 0], hV = [0, 0, 0];
+  const helio = (t, x, out) => {
+    if (!ssb) return x;
+    ssb.position(t, sR);
+    out[0] = x[0] - sR[0]; out[1] = x[1] - sR[1]; out[2] = x[2] - sR[2];
+    return out;
+  };
+  const helioV = (t, x) => {
+    if (!ssb) return x;
+    ssb.velocity(t, sV);
+    hV[0] = x[0] - sV[0]; hV[1] = x[1] - sV[1]; hV[2] = x[2] - sV[2];
+    return hV;
+  };
+  const extra = [0, 0, 0], ra = [0, 0, 0], va = [0, 0, 0], aOut = [0, 0, 0], pV = [0, 0, 0];
+  let mid = state.t;
+  // d/dt [r, v] at time t.
+  const f = (t, yy, out) => {
+    ra[0] = yy[0]; ra[1] = yy[1]; ra[2] = yy[2];
+    const x = helio(t, ra, hA);
+    accelHeliocentric(x, bodiesAt(t), muSun, aOut, indirect);
+    if (extraAccel) {
+      va[0] = yy[3]; va[1] = yy[4]; va[2] = yy[5];
+      extraAccel(t, x, extra, mid, helioV(t, va));
+      aOut[0] += extra[0]; aOut[1] += extra[1]; aOut[2] += extra[2];
+    }
+    out[0] = yy[3]; out[1] = yy[4]; out[2] = yy[5];
+    out[3] = aOut[0]; out[4] = aOut[1]; out[5] = aOut[2];
+    return out;
+  };
+  const primaryDistance = (t, r) => {
+    const x = helio(t, r, hB);
+    const P = state.primary !== 'sun' ? bodyByKey(bodiesAt(t), state.primary) : null;
+    const p = P ? P.r : ORIGIN;
+    return Math.sqrt((x[0] - p[0]) ** 2 + (x[1] - p[1]) ** 2 + (x[2] - p[2]) ** 2);
+  };
+  const tauAt = (t, r) => {
+    const x = helio(t, r, hB);
+    let tau = Math.sqrt(Math.pow(x[0] * x[0] + x[1] * x[1] + x[2] * x[2], 1.5) / muSun);
+    for (const b of bodiesAt(t)) {
+      const dx = x[0] - b.r[0], dy = x[1] - b.r[1], dz = x[2] - b.r[2];
+      const d2 = dx * dx + dy * dy + dz * dz;
+      tau = Math.min(tau, Math.sqrt(d2 * Math.sqrt(d2) / b.mu));
+    }
+    return tau;
+  };
+
+  const events = [];
+  const dir = tEnd >= state.t ? 1 : -1;
+  const r = state.r, v = state.v;
+  const y = [r[0], r[1], r[2], v[0], v[1], v[2]];
+  if (state.primary === null) state.primary = primaryOf(helio(state.t, r, hB), bodiesAt(state.t), muSun);
+  const K = Array.from({ length: 7 }, () => [0, 0, 0, 0, 0, 0]), yt = [0, 0, 0, 0, 0, 0];
+  let tau = tauAt(state.t, r);
+  let h = Math.min(eta * tau, hMax);
+  let steps = 0, bp = 0, fsal = false;
+  const bps = (breakpoints && dir > 0) ? breakpoints : null;
+
+  while (dir * (tEnd - state.t) > 0) {
+    if (steps >= maxSteps) return { steps, events, complete: false };
+    let cap = hMax;
+    if (opts.stepCap) cap = Math.min(cap, opts.stepCap(state.t, helio(state.t, r, hB), helioV(state.t, v)));
+    // On a conic that dips inside the primary, keep the old fixed-fraction
+    // step, so an impact is found as soon after it as before.
+    const P = state.primary !== 'sun' ? bodyByKey(bodiesAt(state.t), state.primary) : null;
+    if (P && P.radius > 0 && P.eph) {
+      const x = helio(state.t, r, hB), vx = helioV(state.t, v);
+      P.eph.velocity(state.t, pV);
+      const dx = x[0] - P.r[0], dy = x[1] - P.r[1], dz = x[2] - P.r[2];
+      const ux = vx[0] - pV[0], uy = vx[1] - pV[1], uz = vx[2] - pV[2];
+      const hx = dy * uz - dz * uy, hy = dz * ux - dx * uz, hz = dx * uy - dy * ux;
+      const h2 = hx * hx + hy * hy + hz * hz, rn = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const energy = 0.5 * (ux * ux + uy * uy + uz * uz) - P.mu / rn;
+      const ecc = Math.sqrt(Math.max(0, 1 + 2 * energy * h2 / (P.mu * P.mu)));
+      const inbound = dx * ux + dy * uy + dz * uz < 0;
+      if ((h2 / P.mu) / (1 + ecc) < P.radius && (inbound || rn < 1.1 * P.radius)) cap = Math.min(cap, eta * tau);
+    }
+    let remaining = dir * (tEnd - state.t);
+    if (bps) {
+      while (bp < bps.length && bps[bp] <= state.t) bp++;
+      if (bp < bps.length && bps[bp] < tEnd) remaining = bps[bp] - state.t;
+    }
+    let hs = Math.min(h, cap);
+    const last = hs >= remaining;
+    if (last) hs = remaining;
+    const t = state.t, H = dir * hs;
+    mid = t + 0.5 * H;
+    if (!fsal) f(t, y, K[0]);
+    for (let s = 1; s < 7; s++) {
+      for (let i = 0; i < 6; i++) {
+        let a = y[i];
+        for (let j = 0; j < s; j++) a += H * A[s][j] * K[j][i];
+        yt[i] = a;
+      }
+      f(t + C[s] * H, yt, K[s]);
+    }
+    // The position tolerance: cowellTolKm, plus cowellRelTol of the craft's
+    // distance from its primary (the Sun's in cruise), so a wide orbit is
+    // held to the same fraction of its size as a low one.
+    const tolKm = cowellTolKm + cowellRelTol * primaryDistance(state.t, r);
+    // The velocity tolerance is tolKm over a time: the local dynamical time
+    // (at most hMax, so finite with no gravity at all), or the step itself
+    // if that is shorter, so a velocity error is weighed by how far it moves
+    // the craft. Without that floor, rounding in a force set the step: a
+    // capsule's height is a difference of heliocentric places (3 cm of
+    // rounding at 1 au), and under a chute that opens over 300 m of height
+    // its drag carries 1e-4 of noise, which held the steps to 6 µs.
+    const sT = Math.min(tau, hMax, hs);
+    let err = 0;
+    for (let i = 0; i < 6; i++) {
+      let e = 0;
+      for (let j = 0; j < 7; j++) e += E[j] * K[j][i];
+      err = Math.max(err, Math.abs(e * H) / (i < 3 ? tolKm : tolKm / sT));
+    }
+    const grow = err === 0 ? 5 : Math.min(5, Math.max(0.2, 0.9 * Math.pow(err, -0.2)));
+    // A force that jumps with the state (a parachute opening at a height)
+    // has no step small enough for the error test: below H_MIN the step is
+    // taken anyway, as a fixed-step method would take it.
+    if (err > 1 && hs > H_MIN) { h = Math.max(hs * grow, H_MIN); fsal = true; continue; }
+    for (let i = 0; i < 6; i++) { y[i] = yt[i]; K[0][i] = K[6][i]; }
+    fsal = true;
+    state.t = last ? t + dir * remaining : t + H;
+    if (!last) h = hs * grow;
+    // A step ending on a breakpoint changes which burn is on: K[0] is stale.
+    if (bps && last && state.t !== tEnd) fsal = false;
+    r[0] = y[0]; r[1] = y[1]; r[2] = y[2]; v[0] = y[3]; v[1] = y[4]; v[2] = y[5];
+    steps++;
+
+    const x = helio(state.t, r, hB);
+    if (x[0] * x[0] + x[1] * x[1] + x[2] * x[2] < sunRadius * sunRadius) {
+      events.push({ type: 'impact', body: 'sun', t: state.t });
+      return { steps, events, complete: false };
+    }
+    if (focus) focus(x, state.t);
+    const now = bodiesAt(state.t);
+    for (const b of now) {
+      if (below(x, b)) {
+        events.push({ type: 'impact', body: b.key, t: state.t });
+        return { steps, events, complete: false };
+      }
+    }
+    const prevPrimary = state.primary;
+    const p = primaryOf(x, now, muSun);
+    if (p !== state.primary) {
+      events.push({ type: 'primary', from: state.primary, to: p, t: state.t });
+      state.primary = p;
+    }
+    tau = tauAt(state.t, r);
+    if (stopOnEntry && state.primary !== 'sun' && (p !== prevPrimary || steps % 16 === 0) && enckeSuitsAt(state, opts, dir, ssb)) {
+      return { steps, events, complete: dir * (tEnd - state.t) <= 0, left: true };
+    }
+  }
+  return { steps, events, complete: true };
+}
+
 // enckeSuits for a state about the SSB when ssb is given.
 function enckeSuitsAt(state, opts, dir, ssb) {
   if (!ssb) return enckeSuits(state, opts, dir);
@@ -225,7 +425,7 @@ function enckeSuitsAt(state, opts, dir, ssb) {
 function enckeSuits(state, opts, dir) {
   if (state.primary === 'sun' || state.primary === null) return false;
   const bodies = opts.bodiesAt(state.t);
-  const P = bodies.find((b) => b.key === state.primary);
+  const P = bodyByKey(bodies, state.primary);
   if (!P || !P.eph || !P.eph.acceleration) return false;
   let thrust = null;
   if (opts.extraAccel) { thrust = [0, 0, 0]; opts.extraAccel(state.t, state.r, thrust, state.t + 1e-9 * dir, state.v); }
@@ -240,6 +440,7 @@ function enckeSuits(state, opts, dir) {
 // body's sphere of influence on a nearly Keplerian path), so advance() can
 // switch to it.
 function advanceCowell(state, tEnd, opts, stopOnEntry) {
+  if ((opts.method ?? DEFAULT_METHOD) === 'dp45' && !opts.fixedStep) return advanceCowellRK(state, tEnd, opts, stopOnEntry);
   const {
     bodiesAt, muSun, method = 'yoshida4', eta = 0.01, hMax = 86400.0,
     fixedStep = null, maxSteps = 200000, extraAccel = null, sunRadius = 695700.0,

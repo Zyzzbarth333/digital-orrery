@@ -94,7 +94,7 @@ other planets (`public/trajbrowser/planets.json`).
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| Sun-only motion, three orbits | `propagate` | under 10⁻⁵ at the default step; 4× finer η cuts error 216-300× |
+| Sun-only motion, three orbits | `propagate` | the default (Dormand-Prince, error-controlled) within 7×10⁻⁹ relative, in fewer steps than Yoshida, which is 100–2,800× further off; Yoshida's 4× finer η cuts its error 216-300× |
 | leapfrog, Yoshida order | fixed-step halving | orders 2.00, 4.00 |
 | time reversal | start state | 2×10⁻¹³ of \|r\| |
 | leapfrog energy, 100 orbits | bounded | max 2.54×10⁻⁴ early and late |
@@ -104,12 +104,12 @@ other planets (`public/trajbrowser/planets.json`).
 | Hermite interpolation, 30 days | direct ephemeris calls (DE442 table) | worst 20 m (Mercury, the cubic's own error at 6-hour nodes) |
 | 400 km orbit, real Sun/Moon/planets, point masses, 1 day | two-body about Earth | within 0.2 km |
 | Earth's J2: node of a 400 km, 51.6° orbit, 3 days | $-\tfrac32 nJ_2(R/p)^2\cos i$ | −5.0305°/day against −5.0060°/day (0.49 %, the mean-versus-osculating offset); Encke and Cowell agree to 10⁻⁴°/day |
-| finite burn, no gravity | rocket equation | Δv 2.8×10⁻⁹ km/s; position 2.4×10⁻³ km after 10 days |
+| finite burn, no gravity | rocket equation | Δv 5×10⁻¹⁴ km/s; position 3.5×10⁻⁸ km after 10 days (Yoshida: 2.8×10⁻⁹, 2.4×10⁻³) |
 | kernel GMs | SPICE `gm_de442.tpc` | 5.9×10⁻¹⁶ |
 | Worker message handling | direct advance | identical |
-| Encke, low Earth orbit with J2, 1 day | Cowell at 1/20 the step | 0.97 m (default Cowell: 5.1 m), 1,134 steps (Cowell: 9,795); the reference follows the ephemeris's acceleration noise and its own rounding at 1 au, Encke's tidal form does not |
+| Encke, low Earth orbit with J2, 1 day | Cowell (Dormand-Prince) at 10⁻¹⁰ km a step | 0.18 m (default Cowell: 3.0 m), 1,134 steps (Cowell: 2,324; Yoshida's took 9,795 for 6.7 m) |
 | Encke, forward then back a day | start state | 0.86 m |
-| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.19 km (default Cowell: 1.91 km), 792 steps (1,283); 0.088 km in Encke's ephemeris form, which shares the reference's frame |
+| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | the same reference | 0.092 km in 475 steps; default Cowell 0.03 km in 577 (Yoshida's: 1.91 km in 1,283). Encke's tidal form leaves out the ephemeris's acceleration noise, which every Cowell run follows |
 | about the SSB against about the Sun (case 14) | the same flights, `{ frame: 'sun' }` | the same steps; under 1 mm in low Earth orbit in a day (Encke), 4.3 m at GEO in 10 days (Cowell), 149 m after 300 days of cruise; the Sun's daily nodes within 3 cm of DE442; hooks handed heliocentric states; a fall into the Sun is an impact on it |
 | Encke, suborbital path | Cowell | impact on Earth at the same time (310.8 s) |
 | `keplerStep` | `propagate` | 1.2×10⁻¹⁴ relative |
@@ -149,25 +149,27 @@ about the barycentre less Juno about Ganymede.
 | Moons in the kernel | 3 min after closest approach | 9 h after | Closest approach (Horizons: 3,677.39 km) |
 | --- | ---: | ---: | ---: |
 | none (system at its barycentre) | 169 km | 9,307 km | 3,707 km |
-| `moons.js` (the jup365 tables) | 0.18 km | 20.8 km | 3,677.3 km |
-| Horizons' Galilean moons | 0.18 km | 20.9 km | 3,677.3 km |
-| Horizons', Ganymede as Juno's track has it | 0.07 km | 4.0 km | 3,677.40 km |
+| `moons.js` (the jup365 tables) | 0.24 km | 22.7 km | 3,677.3 km |
+| Horizons' Galilean moons | 0.24 km | 22.9 km | 3,677.3 km |
+| Horizons', Ganymede as Juno's track has it | 0.01 km | 0.09 km | 3,677.37 km |
 
 What this shows:
 
 - **The moons' pull is now there.** Without the moons the kernel misses by
-  9,300 km nine hours on. With them it follows Juno to 4.0 km, given
-  Ganymede's right place. That is 0.04 % of the bend: a residual drift of
-  0.12 m/s.
+  9,300 km nine hours on. With them it follows Juno to 90 m, given
+  Ganymede's right place: a residual drift of 3 mm/s on a bend of
+  0.28 km/s. With the old fixed-step Cowell integrator the same run was
+  4.0 km off: nearly all of that was the integrator's
+  ([kernel](physics/nbody-kernel.md#integrators)).
 - **The force model is not the limit; the moons' places are.** The 11 km
-  between Horizons' two Ganymedes accounts for 17 of the 21 km in the third
-  row. `moons.js`'s Ganymede, from the `jup365` tables, is within 0.3 km of
-  the one Horizons serves, so the app's own run matches that row (20.8 km
-  against 20.9). With the fallback's Ganymede (astronomy-engine's
+  between Horizons' two Ganymedes accounts for all but 0.1 km of the
+  22.9 km in the third row. `moons.js`'s Ganymede, from the `jup365` tables, is within 0.3 km of
+  the one Horizons serves, so the app's own run matches that row (22.7 km
+  against 22.9). With the fallback's Ganymede (astronomy-engine's
   `JupiterMoons`, about 300 km from JPL's) it was 323 km.
 - **The moons' own fields count for little here.** Ganymede's $J_2$ and
   $C_{22}$ ([kernel](physics/nbody-kernel.md#the-moons-own-fields)) moved the
-  last row from 4.14 to 3.96 km. At 1.4 Ganymede radii the field is
+  last row by 0.18 km (measured with the fixed-step integrator). At 1.4 Ganymede radii the field is
   $10^{-4}$ of Ganymede's pull.
 - **Events behave.** The primary goes from Jupiter to Ganymede at its
   24,500 km sphere of influence and back.
@@ -232,6 +234,31 @@ passed both times, and these are every number that moved:
 Every other line of the suite's output is unchanged to its printed digits,
 including the moons, the NESC cases, Juno at Ganymede, the Artemis I
 force-by-force residuals and the Apollo subsatellites.
+
+### The kernel's error-controlled integrator and cheaper steps
+
+On 18 November 2026 Cowell's integrator became Dormand-Prince 5(4) with
+error control, in place of Yoshida's fixed fraction of the dynamical time,
+and Encke's steps began placing the other bodies once a step
+([kernel](physics/nbody-kernel.md#integrators)). The whole of `npm test` ran
+on main (6cb00fa) and after. Everything passed both times. The numbers that
+moved, besides the kernel's own checks above:
+
+| Check | Before | After | Why |
+| --- | ---: | ---: | --- |
+| Juno at Ganymede, JPL's moons, Ganymede as Juno's track has it, 9 h on | 3.96 km | 0.09 km | the old integrator's own error |
+| Juno at Ganymede with Horizons' moons (and `moons.js`'s) | 20.9 (20.8) km | 22.9 (22.7) km | the 11 km between the two Ganymedes, no longer partly offset by the integrator's error |
+| entry prediction against the kernel's flight, bank 75° | 15.3 km apart | 3.6 km | the same |
+| Artemis I's entry from the last flown state | 9.1 km from NASA's splashdown | 6.9 km | — |
+| Artemis I, every burn as flown, blind | 712,146 km at the end | 712,154 km | — |
+| Artemis I residuals with the full environment | 5.35 m rms | 5.28 m rms | — |
+| Artemis II, no fixes (full environment), entry | 3,714.0 (16,021.4) km | 3,713.4 (16,020.3) km | — |
+| Artemis II's injection burn flown in one fixed direction (a contrast case) | 0.83 km, 6.9 m/s off | 2.46 km, 2.1 m/s | the burn now integrated to the tolerance |
+| Galileo's VEEGA flown, corrections over six years | 1,151 m/s | 1,140 m/s | the aims re-solved |
+| NESC cases 2, 3B and 6B through the kernel | 4, 4, 7 mm (Yoshida, η 0.002) | 3, 3, 10 mm (Dormand-Prince, 10⁻⁸ km) | — |
+
+Everything else, the moons, the asteroids and the other NESC cases among
+them, is unchanged to its printed digits or within a step's rounding.
 
 ## Spacecraft in the app (`craftKernel.test.mjs`)
 
