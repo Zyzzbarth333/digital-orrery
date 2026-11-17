@@ -4,9 +4,9 @@
 // moons' pull in the kernel (flyby.test.mjs,
 // docs/validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs):
 //
-//   ganymede  Juno (-61) at Ganymede, 7 June 2021, 3,677 km from its centre
-//   io        Juno at Io, 30 December 2023 (PJ57), 3,331 km (1,509 km up)
-//   titan     Cassini (-82) at Titan, 31 July 2008 (T45), 4,190 km (1,615 km up)
+//   ganymede  Juno (-61) at Ganymede, 7 June 2021, 3,677 km from its centre (1,046 km up)
+//   io        Juno at Io, 30 December 2023 (PJ57), 3,317 km (1,496 km up)
+//   titan     Cassini (-82) at Titan, 31 July 2008 (T45), 4,189 km (1,613 km up)
 //
 // Each writes fixtures/flyby_<craft>_<moon>.json:
 //   craft      the craft about its planet's system barycentre (5, 6)
@@ -25,9 +25,9 @@
 // 07:46 on 8 June), where Jupiter's higher harmonics, which the kernel
 // leaves out, take over. Io: six hours before closest approach (08:37 TDB)
 // to one after, ending three hours before PJ57 (12:40 TDB). Titan: nine
-// hours either side of closest approach (02:14 TDB), far from Saturn
-// (periapsis was three days before, at 6.3 Saturn radii... 2.7: see the
-// fixture's own rows).
+// hours either side of closest approach (02:14 TDB), 19 to 20 Saturn radii
+// out. Each wide span runs six hours past the last row: the kernel's
+// planet-centre nodes are six hours apart.
 //
 // Raw downloads are kept under ~/.cache/digital-orrery/flyby (not
 // committed); delete that folder to fetch afresh.

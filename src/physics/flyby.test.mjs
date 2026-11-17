@@ -8,10 +8,12 @@
 //   3. Juno's flyby of Ganymede on 7 June 2021 against JPL's reconstructed
 //      trajectory (fixtures/flyby_juno_ganymede.json, flyby.fetch.mjs):
 //      with the moons the kernel follows Juno through the pass, without
-//      them it misses by thousands of kilometres;
+//      them it misses by thousands of kilometres; 3b and 3c, Juno at Io
+//      (PJ57, 30 December 2023) and Cassini at Titan (T45, 31 July 2008),
+//      which measure those moons' J2 and C22;
 //   4. impacts on a moon, found where the step crossed its surface;
 //   5. the large moons' degree-2 fields (J2 and C22).
-// docs/validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs and docs/physics/nbody-kernel.md#moons.
+// docs/validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs and docs/physics/nbody-kernel.md#moons.
 //
 //   node src/physics/flyby.test.mjs
 
@@ -205,12 +207,9 @@ function flybyRuns(file, planet, { degree2 = false, variants = {} } = {}) {
 // the craft: the gradient of V4 = -mu J4 R^4 P4(s) / r^5, s = z / r, z
 // along the pole, P4(s) = (35 s^4 - 30 s^2 + 3) / 8:
 //   a = -mu J4 R^4 [ p P4'(s) / r^6 - d (s P4'(s) + 5 P4(s)) / r^7 ].
-// Jupiter's from Juno's gravity science (Iess et al. 2018): J4 = -586.6085e-6
-// at R = 71,492 km.
-// The moon's Hermite nodes every 10 minutes (the tables' own spacing)
-// instead of at the spacing that holds it to NODE_TOL (bodies.js).
-const fineNodes = { setup: (k) => { const was = MOON_SPACING[k]; MOON_SPACING[k] = 600; return () => { MOON_SPACING[k] = was; }; } };
-const J4_OF = { jupiter: { j4: -586.6085e-6, R: 71492 } };
+// Jupiter's from Juno's gravity science (Iess et al. 2018, as Serra et al.
+// 2019 tabulate it): J4 = -586.609e-6 at R = 71,492 km.
+const J4_OF = { jupiter: { j4: -586.609e-6, R: 71492 } };
 const j4Accel = (planet) => (sys) => {
   const { j4, R } = J4_OF[planet], P = sys.bodyAt(planet, 0), c = [0, 0, 0];
   return (t, r, out) => {
@@ -223,6 +222,10 @@ const j4Accel = (planet) => (sys) => {
     return out;
   };
 };
+
+// The moon's Hermite nodes every 10 minutes (the tables' own spacing)
+// instead of at the spacing that holds it to NODE_TOL (bodies.js).
+const fineNodes = { setup: (k) => { const was = MOON_SPACING[k]; MOON_SPACING[k] = 600; return () => { MOON_SPACING[k] = was; }; } };
 
 header("CASE 3: Juno's flyby of Ganymede, 7 June 2021, against JPL's reconstruction");
 const { runs: [none, ours, jpl, track], hzCA, epochMs } = flybyRuns('flyby_juno_ganymede.json', 'jupiter', { variants: { "the same, with Jupiter's J4": { extraOf: j4Accel('jupiter') } } });
