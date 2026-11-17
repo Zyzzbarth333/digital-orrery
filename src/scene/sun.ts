@@ -182,15 +182,5 @@ export class SunGlare {
   }
 }
 
-// Fraction of a disc of angular radius a still visible past a disc of
-// angular radius b whose centre is c away (all radians): the overlap of two
-// discs, as in the eclipse shader (bodyMaterial.ts).
-export function visibleFraction(a: number, b: number, c: number): number {
-  if (c >= a + b) return 1;
-  if (c <= Math.abs(a - b)) return b >= a ? 0 : 1 - (b * b) / (a * a);
-  const a2 = a * a, b2 = b * b, c2 = c * c;
-  const lens = a2 * Math.acos(Math.max(-1, Math.min(1, (c2 + a2 - b2) / (2 * c * a))))
-    + b2 * Math.acos(Math.max(-1, Math.min(1, (c2 + b2 - a2) / (2 * c * b))))
-    - 0.5 * Math.sqrt(Math.max((-c + a + b) * (c + a - b) * (c - a + b) * (c + a + b), 0));
-  return Math.max(0, Math.min(1, 1 - lens / (Math.PI * a2)));
-}
+// The fraction of the Sun's disc a body leaves in view (src/physics/discs.js).
+export { visibleFraction } from '../physics/discs.js';
