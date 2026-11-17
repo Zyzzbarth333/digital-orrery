@@ -576,6 +576,17 @@ details.section[open] > summary::after { content: '−'; }
 .body-marker.small-body.focused .name { opacity: 1; font-size: 10px; }
 .sb-pick { display: grid; gap: 4px; padding: var(--u) calc(1.5 * var(--u)) 0; }
 .sb-pick .input { height: 28px; font-size: 12px; }
+.sb-search { position: relative; display: grid; gap: 4px; padding: var(--u) calc(1.5 * var(--u)) 0; }
+.sb-search .input { height: 28px; font-size: 12px; }
+.sb-hits {
+  position: absolute; left: calc(1.5 * var(--u)); right: calc(1.5 * var(--u)); top: 100%; z-index: 20; margin: 2px 0 0; padding: 2px 0;
+  list-style: none; background: var(--window); border: 1px solid var(--seam-strong); border-radius: 2px; box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+.sb-hits li { display: grid; padding: 4px 8px; cursor: pointer; }
+.sb-hits li[aria-selected='true'] { background: var(--lamp-dark); }
+.sb-hit-name { font: 12px var(--sans); color: var(--phosphor); }
+.sb-hit-kind { font: 10px var(--sans); color: var(--label-dim); }
+.sb-search-status { font-size: 11px; color: var(--ink-muted); min-height: 1em; }
 
 /* ---------------- gravity guides (src/scene/guides.ts) ---------------- */
 .guide-tag {

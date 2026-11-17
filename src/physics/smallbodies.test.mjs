@@ -8,7 +8,7 @@
 //   node src/physics/smallbodies.test.mjs
 
 import fs from 'node:fs';
-import { decodeSmallBodies, keplerAu, positionAu, SB_EPOCH_JD, SB_CLASSES, SB_CLASS_NAMES, smallBodyFacts, diameterFromH } from './smallBodies.js';
+import { parseIndex, encodeIndex, searchIndex, decodeOne, kindOfClass, decodeSmallBodies, keplerAu, positionAu, SB_EPOCH_JD, SB_CLASSES, SB_CLASS_NAMES, smallBodyFacts, diameterFromH } from './smallBodies.js';
 import { GRID, loadBelt, buildBelt } from './beltGrid.js';
 
 let failures = 0;
@@ -148,6 +148,45 @@ header('THE DATA PLATE\'S FACTS (smallBodyFacts, diameterFromH)');
   check('1329 km at H = 0 and albedo 1', Math.abs(diameterFromH(0, 1) - 1329) < 1e-9);
   check(`Ceres's diameter from H ${C.H} and albedo 0.090: ${dc.toFixed(0)} km (SBDB ${C.diameter} km)`, Math.abs(dc - C.diameter) / C.diameter < 0.03);
   check('every named body has a class the plate can name', meta.named.every((b) => SB_CLASS_NAMES[b.cls]));
+}
+
+header('THE DESIGNATION INDEX (smallbodies-index.txt, the search)');
+{
+  const text = fs.readFileSync(new URL('../../public/data/smallbodies-index.txt', import.meta.url), 'utf8');
+  const ix = parseIndex(text);
+  console.log(`  ${ix.count} lines, ${(text.length / 1e6).toFixed(2)} MB; ${ix.name.filter(Boolean).length} named, ${[...ix.diameter].filter((x) => x > 0).length} with a diameter`);
+  check('one line for every body in smallbodies.bin', ix.count === d.count);
+  check('the index stays small (under 1.5 MB before compression)', text.length < 1.5e6);
+  // Encoding round-trips: runs (+1), gaps (+k), long gaps, provisional and comet designations.
+  const sample = [{ des: '1', name: 'Ceres', diameter: 939.4 }, { des: '2', name: '', diameter: NaN }, { des: '9', name: '', diameter: 3.25 },
+    { des: '5000', name: 'IAU', diameter: NaN }, { des: '2010 AB12', name: '', diameter: NaN }, { des: '1P', name: 'Halley', diameter: NaN },
+    { des: 'C/2026 P4', name: 'PANSTARRS', diameter: NaN }, { des: '5001', name: '', diameter: NaN }];
+  const back = parseIndex(encodeIndex(sample));
+  check('encoding round-trips designations, names and diameters', sample.every((r, j) => back.des[j] === r.des && back.name[j] === r.name
+    && (r.diameter > 0 ? Math.abs(back.diameter[j] - r.diameter) < 1e-3 * r.diameter : Number.isNaN(back.diameter[j]))));
+  // Line j is point j: every named body's line holds its designation, and
+  // the packed body there has its elements.
+  const buf = bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength);
+  const aligned = meta.named.every((b) => {
+    const j = ix.des.indexOf(b.pdes);
+    if (j < 0) return false;
+    const p = decodeOne(buf, j);
+    return p.a === Math.fround(b.a) && Math.abs(p.e - b.e) < 1e-4 && p.cls === b.cls;
+  });
+  check('every named body\'s line is its own point (designation, a, e and class agree)', aligned);
+  const first = (q) => ix.des[searchIndex(ix, q)[0]];
+  check('"433", "(433)" and "433 Eros" find Eros', first('433') === '433' && first('(433)') === '433' && first('433 Eros') === '433');
+  check('"eros" finds 433 Eros first, by name', first('eros') === '433');
+  // Two bodies are named Halley: the comet and asteroid 2688.
+  const halley = searchIndex(ix, 'halley').map((j) => ix.des[j]);
+  check(`"halley" finds the comet and asteroid 2688 (${halley.slice(0, 2).join(', ')}), and "1p" finds the comet`, halley.includes('1P') && halley.includes('2688') && first('1p') === '1P');
+  const comet = ix.des.findIndex((s) => s.startsWith('C/'));
+  check(`"${ix.des[comet].slice(2)}" finds ${ix.des[comet]} without its prefix`, comet >= 0 && first(ix.des[comet].slice(2)) === ix.des[comet]);
+  const prov = ix.des.findIndex((s) => /^\d{4} [A-Z]{2}\d+$/.test(s));
+  check(`a provisional designation, "${ix.des[prov].toLowerCase()}", is found as typed in lower case`, first(ix.des[prov].toLowerCase()) === ix.des[prov]);
+  const t0 = performance.now(); searchIndex(ix, 'ar'); const ms = performance.now() - t0;
+  check(`a search over every body takes ${ms.toFixed(1)} ms (under 50)`, ms < 50);
+  check('every class has a kind for the plate', SB_CLASSES.every((c) => typeof kindOfClass(c) === 'string'));
 }
 
 console.log('='.repeat(60));
