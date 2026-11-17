@@ -5,7 +5,10 @@
 
 A true-scale solar system and mission simulator that runs in the browser. The physics is plain JavaScript, checked against NASA's SPICE toolkit, JPL's DE442 and satellite ephemerides, and flown missions. The front end is TypeScript, React and three.js.
 
-![The inner solar system on 18 November 2026: the planets' orbits, the main belt drawn from 1.6 million real orbits, and the console's data plate for the Sun](docs/images/overview.jpg)
+<picture>
+  <source srcset="docs/clips/overview-to-earth.webp" type="image/webp">
+  <img src="docs/clips/overview-to-earth.gif" width="800" alt="The camera flies from the inner solar system, with the planets' orbits and the main belt drawn from real orbits, down to the Earth under that day's clouds, and the console's data plate changes from the Sun to the Earth">
+</picture>
 
 | | |
 | --- | --- |
@@ -15,6 +18,17 @@ A true-scale solar system and mission simulator that runs in the browser. The ph
 | **The plotting table**: a journey to Mars, its launch windows and its delta-v | **Guides**: spheres of influence and Lagrange points, with Jupiter's trojans at L4 and L5 |
 | ![The ROCKET tab with Saturn V's published figures greyed](docs/images/rocket.jpg) | ![Jupiter and its inner moons' orbits](docs/images/jupiter.jpg) |
 | **The ROCKET tab**: Saturn V from Apollo 11's actual weights | **Jupiter** and its moons, from JPL's satellite ephemerides |
+
+In motion (each clip is from the app as it runs, rebuilt by `npm run docs:clips`):
+
+| | |
+| --- | --- |
+| ![Time warp at 30 days a second: Mercury, Venus, Earth and Mars go round the Sun while the clock races through five months](docs/clips/time-warp.webp) | ![Artemis II at a day a second about the Earth: the craft leaves after translunar injection, loops round the Moon and comes back, its flown path drawn beside NASA's](docs/clips/artemis2.webp) |
+| **Time warp**: a month a second ([scene](docs/frontend/scene.md#time)) | **Artemis II** flown against its real trajectory ([missions](docs/frontend/mission.md#real-missions)) |
+| ![The plotting table: a burn node clicked onto the transfer arc to Mars, its radial tab pulled until the MISS lamp lights, then AIM NODE brings the arc back to Mars](docs/clips/plotting-table.webp) | ![The ROCKET tab flies Saturn V's ascent, then launches it from the pad and follows it climbing away from Florida](docs/clips/rocket-launch.webp) |
+| **The plotting table**: a burn node pulled and re-aimed ([journeys](docs/physics/journey.md#the-plotting-table)) | **A launch** from LC-39B ([rockets](docs/physics/rocket.md#in-the-app)) |
+| ![The Earth's EGM2008 gravity field and spin axis as the camera turns, then the Earth's sphere of influence and the Earth-Moon Lagrange points as it pulls back](docs/clips/guides.webp) | ![Jupiter's inner and Galilean moons going round at a day a second, then the camera flies to Io](docs/clips/jupiter-moons.webp) |
+| **Guides**: the gravity field, then SOI and Lagrange points ([gravity guides](docs/physics/gravity-guides.md)) | **Jupiter's moons** and a flight to Io ([moons](docs/frontend/moons.md)) |
 
 New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fits together](docs/architecture.md) maps the code.
 
@@ -156,47 +170,47 @@ Every data source, with what the app uses it for. Each map's details are in [doc
 
 | Source | Used for | Terms |
 | --- | --- | --- |
-| NASA Earth Observatory: Blue Marble, Black Marble | the Earth's surface and night lights | NASA |
-| NASA GIBS (ESDIS) | the Earth's clouds on the sim date | NASA |
-| NOAA NCEI: ETOPO 2022 | the Earth's relief | NOAA |
-| NASA Scientific Visualization Studio: CGI Moon Kit; Deep Star Maps 2020 (Gaia DR2: ESA/Gaia/DPAC) | the Moon's surface and relief; the Milky Way | NASA; ESA credit |
-| ESA Hipparcos Catalogue (ESA SP-1200), via NASA HEASARC | the stars | ESA credit |
-| NASA/JPL and USGS Astrogeology: Viking, Galileo, Voyager and Cassini mosaics (Cassini's with the Space Science Institute; Deimos by Philip Stooke) | Mars and fourteen moons' surfaces | NASA, USGS |
-| NASA/GSFC MOLA Science Team | Mars's relief | NASA |
-| NASA/JHUAPL/Carnegie Institution of Washington: MESSENGER | Mercury's surface | NASA |
-| NASA/JHUAPL/SwRI: New Horizons | Pluto's and Charon's surfaces | NASA |
-| NASA/JPL/Space Science Institute: Cassini | Jupiter's map | NASA |
-| NASA PDS Ring-Moon Systems Node: Cassini UVIS occultations | Saturn's ring profile | NASA |
+| NASA Earth Observatory: [Blue Marble](https://visibleearth.nasa.gov/collection/1484/blue-marble), [Black Marble](https://earthobservatory.nasa.gov/features/NightLights) | the Earth's surface and night lights | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
+| [NASA GIBS](https://nasa-gibs.github.io/gibs-api-docs/) (ESDIS) | the Earth's clouds on the sim date | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
+| NOAA NCEI: [ETOPO 2022](https://www.ncei.noaa.gov/products/etopo-global-relief-model), [doi:10.25921/fd45-gt74](https://doi.org/10.25921/fd45-gt74) | the Earth's relief | NOAA, public domain |
+| NASA Scientific Visualization Studio: [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/); [Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851/) ([Gaia DR2](https://www.cosmos.esa.int/web/gaia/dr2): ESA/Gaia/DPAC) | the Moon's surface and relief; the Milky Way | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/); ESA credit |
+| [ESA Hipparcos Catalogue](https://www.cosmos.esa.int/web/hipparcos/catalogues) (ESA SP-1200), via [NASA HEASARC](https://heasarc.gsfc.nasa.gov/W3Browse/all/hipparcos.html) | the stars | ESA credit |
+| NASA/JPL and [USGS Astrogeology](https://astrogeology.usgs.gov/search): Viking, Galileo, Voyager and Cassini mosaics (Cassini's with the Space Science Institute; Deimos by Philip Stooke); each map's page is linked in [textures.md](docs/frontend/textures.md) | Mars and fourteen moons' surfaces | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/), [USGS](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits) |
+| NASA/GSFC MOLA Science Team: [MEGDR](https://pds-geosciences.wustl.edu/missions/mgs/megdr.html), via the PDS Geosciences Node | Mars's relief | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
+| NASA/JHUAPL/Carnegie Institution of Washington: [MESSENGER MDIS mosaic](https://astrogeology.usgs.gov/search/map/mercury_messenger_mdis_basemap_enhanced_color_global_mosaic_665m) | Mercury's surface | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
+| NASA/JHUAPL/SwRI: [New Horizons mosaics](https://astrogeology.usgs.gov/search/map/pluto_new_horizons_lorri_mvic_global_mosaic_300m) | Pluto's and Charon's surfaces | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
+| NASA/JPL/Space Science Institute: Cassini, [PIA07782](https://photojournal.jpl.nasa.gov/catalog/PIA07782) | Jupiter's map | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
+| [NASA PDS Ring-Moon Systems Node](https://pds-rings.seti.org/): Cassini UVIS occultations | Saturn's ring profile | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
 | [Solar System Scope](https://www.solarsystemscope.com/textures/) | Venus's clouds; Saturn, Uranus and Neptune maps | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 
 **Ephemerides, gravity and reference data**
 
 | Source | Used for |
 | --- | --- |
-| NASA JPL and NAIF SPICE: DE442, the satellite kernels, `pck00011`, `sb441-n16`, Earth orientation kernels | the planets', moons', Sun's and asteroids' positions; body shapes and rotation; the Earth's UT1 and polar motion |
-| JPL Solar System Dynamics: satellite mean elements; JPL Horizons; the Small-Body Database | moons outside their tables' years, radii, GMs and albedos; the 135,353 asteroids and comets |
+| [NASA JPL](https://ssd.jpl.nasa.gov/planets/eph_export.html) and [NAIF SPICE](https://naif.jpl.nasa.gov/naif/data_generic.html): DE442, the satellite kernels, `pck00011`, [`sb441-n16`](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/), Earth orientation kernels | the planets', moons', Sun's and asteroids' positions; body shapes and rotation; the Earth's UT1 and polar motion |
+| JPL Solar System Dynamics: [satellite mean elements](https://ssd.jpl.nasa.gov/sats/elem/); [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/); the [Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_query.html) | moons outside their tables' years, radii, GMs and albedos; the 135,353 asteroids and comets |
 | [astronomy-engine](https://github.com/cosinekitty/astronomy) (MIT) | positions outside 2000–2050, and the Galilean moons' fallback |
-| EGM2008 (NGA), via GFZ ICGEM; GRAIL GL0660B (NASA/JPL), via the PDS Geosciences Node | the Earth's and the Moon's gravity fields |
-| CelesTrak (NOAA SWPC, GFZ) | space weather for the upper atmosphere's density |
+| EGM2008 (NGA), via [GFZ ICGEM](https://icgem.gfz-potsdam.de/); GRAIL GL0660B (NASA/JPL), via the [PDS Geosciences Node](https://pds-geosciences.wustl.edu/missions/grail/default.htm) | the Earth's and the Moon's gravity fields |
+| [CelesTrak](https://celestrak.org/SpaceData/) (NOAA SWPC, GFZ) | space weather for the upper atmosphere's density |
 
 **Missions and validation**
 
 | Source | Used for |
 | --- | --- |
-| NASA JSC/FOD/NAV, via NAIF | Artemis II's reconstructed trajectory |
-| NASA/JSC navigation, via JPL Horizons | Artemis I's as-flown trajectory |
-| NASA Engineering and Safety Center (NASA/TM-2015-218675) | the 6-DOF check cases |
-| NASA Ames Research Center, Trajectory Browser | transfer optima to compare against |
-| NASA SP-2000-4029, *Apollo by the Numbers*; SpaceX's *Falcon User's Guide*; Rocket Lab's *Electron Payload User's Guide*; Crew Dragon Demo-1 webcast telemetry ([shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data), public domain) | the ROCKET tab's real launchers and their flights |
+| NASA JSC/FOD/NAV, via [NAIF](https://naif.jpl.nasa.gov/pub/naif/ARTEMIS/kernels/spk/) | Artemis II's reconstructed trajectory |
+| NASA/JSC navigation, via [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) | Artemis I's as-flown trajectory |
+| NASA Engineering and Safety Center, [NASA/TM-2015-218675](https://ntrs.nasa.gov/citations/20150001263) ([check-case data](https://nescacademy.nasa.gov/flightsim/2015)) | the 6-DOF check cases |
+| NASA Ames Research Center, [Trajectory Browser](https://trajbrowser.arc.nasa.gov/) | transfer optima to compare against |
+| NASA SP-2000-4029, [*Apollo by the Numbers*](https://history.nasa.gov/SP-4029.pdf); SpaceX's [*Falcon User's Guide*](https://www.spacex.com/assets/media/falcon-users-guide-2025-05-09.pdf); Rocket Lab's [*Electron Payload User's Guide*](https://rocketlabusa.com/assets/Electron-Payload-User-Guide-7.0-v6.pdf); Crew Dragon Demo-1 webcast telemetry ([shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data), public domain) | the ROCKET tab's real launchers and their flights |
 
 **Fonts and software**
 
 | | Licence |
 | --- | --- |
-| B612 and B612 Mono (Airbus), Michroma (Vernon Adams), via Fontsource | SIL Open Font License 1.1 |
-| DejaVu Math TeX Gyre, the equation font ([licence](src/app/fonts/LICENSE-DejaVuMath.txt)) | Bitstream Vera; DejaVu and math additions public domain |
+| [B612 and B612 Mono](https://github.com/polarsys/b612) (Airbus), [Michroma](https://fonts.google.com/specimen/Michroma) (Vernon Adams), via [Fontsource](https://fontsource.org/) | [SIL Open Font License 1.1](https://openfontlicense.org/) |
+| [DejaVu Math TeX Gyre](https://ctan.org/pkg/tex-gyre-math-dejavu), the equation font ([licence](src/app/fonts/LICENSE-DejaVuMath.txt)) | Bitstream Vera; [DejaVu](https://dejavu-fonts.github.io/) and math additions public domain |
 | [three.js](https://threejs.org/), [React](https://react.dev/), [astronomy-engine](https://github.com/cosinekitty/astronomy) | MIT |
-| [Lucide](https://lucide.dev/) icons | ISC |
+| [Lucide](https://lucide.dev/) icons | [ISC](https://lucide.dev/license) |
 
 ## Contributing
 

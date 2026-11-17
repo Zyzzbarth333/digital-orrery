@@ -27,7 +27,8 @@
     "fetch:environment": "node src/physics/environment.fetch.mjs",
     "oracle:openrocket": "node src/physics/rocket.openrocket.mjs",
     "fetch:satellites": "node src/physics/satellites.fetch.mjs",
-    "fetch:satellites-horizons": "node src/physics/satellites.horizons.mjs"
+    "fetch:satellites-horizons": "node src/physics/satellites.horizons.mjs",
+    "docs:clips": "node --experimental-websocket scripts/docs-clips.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
