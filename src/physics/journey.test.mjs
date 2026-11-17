@@ -17,6 +17,7 @@ import * as X from './transfers.js';
 import { restrictedStaging, restrictedPayloadRatio, sizeLauncher, launchBudget, launcherFor, STAGE_TECH } from './staging.js';
 import { LAUNCHERS } from './launchers.js';
 import * as J from './journey.js';
+import { propagate } from './orbital.js';
 import { planFlight, flyJourney } from './journeyFlight.js';
 import * as F from './feasibility.js';
 import { solarSystemBodies } from './bodies.js';
@@ -315,6 +316,48 @@ header('CASE 7: can it be flown, and when: window profiles and the lamps');
   console.log(`  at the window: total ${s2.totalDv.toFixed(2)} km/s; ${l2.map((x) => `${x.key}=${x.level}`).join(', ')}`);
   check('leaving at the window: window and delta-v lamps green, the year at Mars shown as a wait', l2.find((x) => x.key === 'window')?.level === 'go' && l2.find((x) => x.key === 'dv')?.level === 'go' && l2.find((x) => x.key === 'wait')?.level === 'caution');
   check('a leg after a flyby has no profile (its departure is fixed)', F.legProfile(MARINER10, 1) === null);
+}
+
+header('CASE 8: resonant returns to the same body (Galileo, 1989-95)');
+{
+  // The cone: 2:1 at 8.9 km/s about a circular 1 AU orbit.
+  const muS = 1.32712440041e11, r = 1.496e8, vb = Math.sqrt(muS / r), TB = 2 * Math.PI * Math.sqrt(r ** 3 / muS);
+  const c = X.resonantCone({ r, vB: [0, vb, 0], mu: muS, vinf: 8.9, N: 2, M: 1, TB });
+  console.log(`  2:1 cone at 8.9 km/s: a ${(c.a / r).toFixed(4)} AU (2^(2/3) = 1.5874), half-angle ${(c.theta / deg).toFixed(2)} deg, back in ${(c.tof / DAY).toFixed(1)} d`);
+  check('the 2:1 orbit\'s size is 2^(2/3) of the body\'s, its return two of the body\'s years', Math.abs(c.a / r - 2 ** (2 / 3)) < 1e-9 && Math.abs(c.tof - 2 * TB) < 1e-6);
+  let onCone = true, back = true;
+  for (const phi of [0, 1, 2.5, 4, 5.5]) {
+    const v = X.resonantVinf({ rB: [r, 0, 0], vB: [0, vb, 0], vinf: 8.9, theta: c.theta, phi });
+    onCone &&= Math.abs(norm(v) - 8.9) < 1e-9 && Math.abs(Math.acos(v[1] / 8.9) - c.theta) < 1e-9;
+    const end = propagate([r, 0, 0], [v[0], vb + v[1], v[2]], c.tof, muS);
+    back &&= norm([end.r[0] - r, end.r[1], end.r[2]]) < 1e-3;
+  }
+  check('every clock angle\'s excess velocity lies on the cone, and comes back to the same point in two years (two-body)', onCone && back);
+
+  // Galileo's route, on NASA's dates (PDS mission catalogue; NASA Galileo
+  // page): launch 18 Oct 1989; Venus 10 Feb 1990 at 16,123 km; Earth 8 Dec
+  // 1990 at 960 km and 8 Dec 1992 at 303 km; Jupiter 7 Dec 1995.
+  const G = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('1989-10-18T16:53:00Z') }, waypoints: [
+    { id: 1, body: 'venus', kind: 'flyby', altKm: 16123, dateMs: D('1990-02-10T05:58:48Z') },
+    { id: 2, body: 'earth', kind: 'flyby', altKm: 960, dateMs: D('1990-12-08T20:34:34Z') },
+    { id: 3, body: 'earth', kind: 'flyby', altKm: 303, dateMs: D('1992-12-08T12:00:00Z') },
+    { id: 4, body: 'jupiter', kind: 'orbit', altKm: 200000, dateMs: D('1995-12-07T12:00:00Z') }] };
+  const g = J.solveJourney(G), R = g.legs[2];
+  console.log(`  Galileo: Earth to Earth resonant ${R.resonance.N}:${R.resonance.M}, ${new Date(R.depMs).toISOString().slice(0, 16)} to ${new Date(R.arrMs).toISOString().slice(0, 16)} (${R.tofDays.toFixed(1)} d), v_inf ${norm(R.vinfDep).toFixed(3)} out, ${norm(R.vinfArr).toFixed(3)} back; flybys ${g.flybys.map((f) => f && `${J.bodyInfo(f.body).name} ${(f.dv * 1000).toFixed(0)}`).filter(Boolean).join(', ')} m/s`);
+  check('the resonance chosen is 2:1, as Galileo flew, and the return falls within a day of 8 Dec 1992', R.resonance.N === 2 && R.resonance.M === 1 && Math.abs(R.arrMs - D('1992-12-08T12:00:00Z')) < DAY_MS);
+  check('it leaves and returns with the same excess speed (1 %), the craft back within 20,000 km of the Earth (two-body)', rel(norm(R.vinfArr), norm(R.vinfDep)) < 0.01 && R.resonance.missKm < 20000);
+  check('both Earth flybys nearly free, under 150 m/s each (Lambert between the dates needs kilometres a second)', g.flybys[1].dv < 0.15 && g.flybys[2].dv < 0.15);
+  const old = J.solveLeg(g.stops[2], { ...g.stops[3], kind: 'orbit' }, R.depMs, R.arrMs, { maxRevs: 2 });
+  console.log(`  (Lambert between the same two dates: v_inf ${norm(old.vinfDep).toFixed(2)} km/s, in the ecliptic, against the 8.9 the flyby brings)`);
+  const opts = J.legOptions(G, 2).options.filter((o) => o.type === 'resonance');
+  check('the leg\'s options list the resonances, the cheapest being 2:1', opts.length > 3 && opts.reduce((a, b) => (b.dv < a.dv ? b : a)).resonance.join(':') === '2:1');
+  // Flown by the kernel: every waypoint reached.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const f = flyJourney(sys, planFlight(g));
+  for (const a of f.arrivals) console.log(`  Galileo flown: ${J.bodyInfo(a.body).name} closest ${a.closest.toFixed(0)} km, planned ${a.plannedRp.toFixed(0)}: ${a.missKm.toFixed(1)} km off`);
+  console.log(`  corrections ${(f.correctionsDv * 1000).toFixed(0)} m/s over six years`);
+  check('Galileo flown: Venus and both Earth flybys within 20 km of plan, Jupiter within 2 %, no impact', !f.impact && f.arrivals.length === 4 && f.arrivals.slice(0, 3).every((a) => a.missKm < 20) && f.arrivals[3].missKm < 0.02 * f.arrivals[3].plannedRp);
+  check('and its corrections under a tenth of the plan\'s delta-v', f.correctionsDv < 0.1 * g.totalDv);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');

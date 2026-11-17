@@ -157,7 +157,12 @@ export function planFlight(sol) {
     const nodes = (leg.nodes ?? []).filter((n) => n.dv > 0);
     for (const n of nodes) events.push({ kind: 'impulse', ms: n.ms, dvEqj: ecl(n.dvVec), node: true });
     const afterNodes = nodes.length ? nodes[nodes.length - 1].ms + 0.02 * dur : -Infinity;
-    const first = Math.max(afterNodes, leg.mid ? leg.mid.ms : leg.depMs + Math.min(clearP, 0.3 * dur));
+    // A return to the body just left (a resonant orbit): the aims fly
+    // without the target's gravity, which is also the body the craft is
+    // still climbing away from, so the first waits until it is well clear,
+    // a quarter of the way round.
+    const back = (leg.endB ?? Q.body) === (leg.endA ?? P.body);
+    const first = Math.max(afterNodes, leg.mid ? leg.mid.ms : leg.depMs + (back ? 0.25 * dur : Math.min(clearP, 0.3 * dur)));
     events.push({ kind: 'aim', ms: first, ...target });
     const second = Math.max(first + 0.25 * (leg.arrMs - first), leg.arrMs - 3 * tIn);
     if (second < leg.arrMs - 0.6 * tIn && leg.arrMs - first > 2 * DAY * 1000) events.push({ kind: 'aim', ms: second, ...target });
