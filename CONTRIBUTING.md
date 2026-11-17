@@ -38,13 +38,28 @@ A change can't break any of these.
 - **Sources are cited, not copied.** Write equations in this project's
   notation and cite textbooks by section and example. Don't commit a
   textbook or paper's PDF, its figures or long quotations.
+- **Citations are IEEE style.** In the text, a source is a number in
+  brackets, `[1]`, with the place in it where that helps: `[1, Alg. 3.3]`,
+  `[2, Ex. 4.7]`, `[3, eq. (12)]`. Each docs page ends with a
+  `## References` list, numbered in the order the sources are first cited:
+  - paper: `[1] A. B. Author and C. Author, "Title," *J. Abbrev.*, vol. 5,
+    no. 2, pp. 10–20, 2021, doi: 10.xxxx/xxxx.`
+  - book: `[2] H. D. Curtis, *Orbital Mechanics for Engineering Students*,
+    4th ed. Oxford, U.K.: Butterworth-Heinemann, 2020.`
+  - report: `[3] Org., "Title," Rep. NASA/TM-2015-218675, 2015.`
+  - data, software or web page: `[4] NASA NAIF, "Generic kernels," 2024.
+    [Online]. Available: https://naif.jpl.nasa.gov/naif/data.html`
+
+  Give a DOI or a link wherever one exists, and only fields you have
+  checked. The [IEEE reference guide](https://journals.ieeeauthorcenter.ieee.org/wp-content/uploads/sites/7/IEEE_Reference_Guide.pdf)
+  has the rest.
 - **Copyleft stays outside.** GPL and AGPL tools (OpenRocket, for one) are
   used only as separate-process oracles. Their source and their example
   files are never committed or imported. The project is MIT.
-- **Data has a source and a licence.** A new map, catalogue or kernel is
-  credited in the [README](README.md#credits) and
-  [docs/frontend/textures.md](docs/frontend/textures.md), with its
-  licence.
+- **Data has a source and a licence.** A new map, catalogue, kernel,
+  library or font is credited in the [README](README.md#credits), with a
+  link to where it comes from and its licence, and in the page that uses
+  it (maps in [docs/frontend/textures.md](docs/frontend/textures.md)).
   - Large raw downloads stay out of git, under `python/data/` (ignored) or
     `~/.cache/digital-orrery/`.
   - What the app ships is built from them by an `npm run fetch:…` or
