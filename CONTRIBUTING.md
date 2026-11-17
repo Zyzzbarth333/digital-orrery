@@ -32,6 +32,9 @@ A change can't break any of these.
   validation go in `docs/`, in the same pull request, and its checks go in
   [docs/validation.md](docs/validation.md) (see the
   [docs conventions](docs/README.md#conventions)).
+- **The front pages stay current.** A change users will notice updates
+  the README's description and [CHANGELOG.md](CHANGELOG.md) in the same
+  pull request, not later.
 - **Sources are cited, not copied.** Write equations in this project's
   notation and cite textbooks by section and example. Don't commit a
   textbook or paper's PDF, its figures or long quotations.
