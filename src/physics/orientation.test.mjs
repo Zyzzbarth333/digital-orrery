@@ -12,6 +12,7 @@ import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import fs from 'node:fs';
 import { bodyAxesEqj } from './orientation.js';
 import { MOON_DATA } from './moons.data.js';
+import { MOON_KEYS } from './moons.js';
 import { RADII } from './pck.data.js';
 import { earthFixedAt } from './environment.js';
 import { utcMsAtTt, ttSeconds } from './ephemeris.js';
@@ -119,6 +120,26 @@ check(tail.min >= TAIL_M[0] && tail.max <= TAIL_M[1] && tail.max - tail.min <= T
     worstM = Math.max(worstM, worstAxis(axes, M.flat()) * R_EQ);
   }
   check(worstM <= 0.15, `the craft's Earth (environment.js, hourly with the spin between) against the scene's over 3 days: ${(worstM * 100).toFixed(1)} cm; tolerance 15 cm`);
+}
+
+// Every moon gets body axes: a right-handed orthonormal triad, whether from
+// the IAU model or, for a moon without one, locked to its orbit (orbitAxes).
+// The scene calls this for each body every frame, so a throw stops its
+// lighting.
+{
+  const dates = [new Date(Date.UTC(2001, 0, 1)), new Date(Date.UTC(2026, 10, 18)), new Date(Date.UTC(2049, 5, 1))];
+  const bad = [];
+  for (const key of MOON_KEYS) for (const d of dates) {
+    try {
+      const [X, Y, Z] = bodyAxesEqj(key, d);
+      const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+      const c = [X[1] * Y[2] - X[2] * Y[1], X[2] * Y[0] - X[0] * Y[2], X[0] * Y[1] - X[1] * Y[0]];
+      const err = Math.max(Math.abs(dot(X, X) - 1), Math.abs(dot(Y, Y) - 1), Math.abs(dot(Z, Z) - 1), Math.abs(dot(X, Y)), Math.abs(dot(c, Z) - 1));
+      if (!(err < 1e-9)) bad.push(`${key} ${d.toISOString().slice(0, 10)} (${err})`);
+    } catch (e) { bad.push(`${key} ${d.toISOString().slice(0, 10)}: ${e.message}`); }
+  }
+  console.log(`Moon axes: ${MOON_KEYS.length} moons at ${dates.length} dates`);
+  check(bad.length === 0, `every moon's axes are orthonormal and right-handed${bad.length ? `; failed: ${bad.slice(0, 4).join('; ')}` : ''}`);
 }
 
 console.log(failed ? `RESULT: ${failed} FAILED` : 'RESULT: all checks PASSED');
