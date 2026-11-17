@@ -63,5 +63,8 @@ the browser, with every kept claim checked against its source.
 
 - Every new model ships with its page, in the same pull request: equations,
   sources, constants and validation.
+- Each page ends with a numbered "References" section in IEEE style, in
+  order of first citation, and the text cites them with markers such as [1]
+  or [1, Alg. 3.3].
 - Equations here are written out in this project's own notation; textbooks
   are cited by section and example, not quoted.

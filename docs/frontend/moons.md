@@ -42,9 +42,9 @@ kernel, `src/physics/bodies.js` and `src/physics/flyby.test.mjs`.
 
 ### 2000 to 2049: JPL's satellite ephemerides
 
-From 2000 to 2049 (the inner moons 2020 to 2035, [below](#the-inner-moons-span)) every moon comes from NAIF's satellite SPK kernels, the
+From 2000 to 2049 (the inner moons 2020 to 2035, [below](#the-inner-moons-span)) every moon comes from NAIF's satellite SPK kernels [1], the
 numerically integrated ephemerides JPL fits to the observations and the
-spacecraft data, and Horizons serves:
+spacecraft data, and Horizons [2] serves:
 
 | Kernel | System | Covers |
 | --- | --- | --- |
@@ -141,7 +141,7 @@ satellites as truncated in L1.2, giving jovicentric J2000 equatorial states.
 
 ### The fallback: JPL's mean elements for the others
 
-From JPL's [planetary satellite mean elements](https://ssd.jpl.nasa.gov/sats/elem/)
+From JPL's [planetary satellite mean elements](https://ssd.jpl.nasa.gov/sats/elem/) [3]
 (fetched 14 November 2026). Each row is a precessing ellipse fitted by JPL to
 the moon's numerically integrated orbit: $a$, $e$, $i$, the argument of
 periapsis $\omega$, the mean anomaly $M$ and the node $\Omega$ at the epoch
@@ -360,7 +360,7 @@ The small moons are less well known:
   literature are estimates from an assumed albedo). Those eight are drawn
   at a nominal 10 km, and the data plate says so (`radiusNote`).
 
-JPL's [physical-parameters table](https://ssd.jpl.nasa.gov/sats/phys_par/)
+JPL's [physical-parameters table](https://ssd.jpl.nasa.gov/sats/phys_par/) [4]
 lists only the moons with a measured mass, so it adds nothing here.
 
 ## Drawing
@@ -373,8 +373,8 @@ lists only the moons with a measured mass, so it adds nothing here.
   ([lighting](lighting.md)), with Lommel-Seeliger scattering for all but
   Titan, whose haze is closer to Lambert.
   ![The fourteen mapped moons, 3.2 radii out at 35° phase, 14 November 2026: Io, Europa, Ganymede, Callisto, Phobos, Deimos and Mimas; Enceladus, Tethys, Dione, Rhea, Iapetus, Triton and Charon](moons-maps.jpg)
-- **Turning:** each moon turns by its IAU rotation model from NAIF's
-  pck00011, pole and prime meridian with their libration terms
+- **Turning:** each moon turns by its IAU rotation model [5] from NAIF's
+  pck00011 [6], pole and prime meridian with their libration terms
   ([orientation](../physics/orientation.md#the-planets-moons)), the frame
   the USGS maps are made in. All of them turn once each orbit; the
   Uranian moons and Triton turn backwards about the IAU north pole.
@@ -438,3 +438,17 @@ npm run build:moon-tables
 ```
 
 ([The inner moons' span](#the-inner-moons-span) says what it writes where.)
+
+## References
+
+[1] NAIF, "Generic kernels: satellite SPK ephemerides." [Online]. Available: https://naif.jpl.nasa.gov/naif/data_generic.html
+
+[2] JPL Solar System Dynamics, "Horizons system." [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[3] JPL Solar System Dynamics, "Planetary satellite mean elements." [Online]. Available: https://ssd.jpl.nasa.gov/sats/elem/
+
+[4] JPL Solar System Dynamics, "Planetary satellite physical parameters." [Online]. Available: https://ssd.jpl.nasa.gov/sats/phys_par/
+
+[5] B. A. Archinal et al., "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015," *Celest. Mech. Dyn. Astron.*, vol. 130, art. no. 22, 2018, doi: 10.1007/s10569-017-9805-5.
+
+[6] NAIF, "pck00011.tpc, generic text PCK." [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/

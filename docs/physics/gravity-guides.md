@@ -17,7 +17,7 @@ so they read the same at any distance from the Sun.
 A faint grey line through each body's poles, 1.5 radii from its centre each
 way, the north half brighter and tagged **N** once the disc is more than 12
 pixels across. The axis is the body-fixed Z of [body orientation](orientation.md):
-the IAU pole for the Sun and planets (Archinal et al.), Earth's of date from
+the IAU pole for the Sun and planets (Archinal et al. [1]), Earth's of date from
 precession and nutation, and the synchronous moons' own. "North" is the
 IAU's, so Venus, whose prime meridian angle decreases, turns backwards
 about it.
@@ -31,8 +31,8 @@ range and the source:
 
 | Body | Field | Shown |
 | --- | --- | --- |
-| Earth | EGM2008 to degree and order 70 (Pavlis et al. 2012) | Less the WGS 84 ellipsoid's normal field (its even zonals to degree 10, NIMA TR8350.2), so what remains is the geology: −106 to +135 mGal at this degree |
-| Moon | GRAIL GL0660B to degree and order 100 (Konopliv et al. 2013) | About a sphere: the mascons of the nearside maria stand out (Serenitatis +274 mGal, Imbrium +240) |
+| Earth | EGM2008 to degree and order 70 (Pavlis et al. 2012 [2]) | Less the WGS 84 ellipsoid's normal field (its even zonals to degree 10, NIMA TR8350.2 [3]), so what remains is the geology: −106 to +135 mGal at this degree |
+| Moon | GRAIL GL0660B to degree and order 100 (Konopliv et al. 2013 [4]) | About a sphere: the mascons of the nearside maria stand out (Serenitatis +274 mGal, Imbrium +240) |
 | Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune | J2 only (sources in `bodies.js`) | The oblateness alone, said so in the legend: the app holds no fuller field for them |
 
 On a sphere of the reference radius $R$, in the spherical approximation,
@@ -45,7 +45,7 @@ $$
 
 with $\Delta\bar C_{n0}$ the coefficient less the normal field's (Earth
 only) and $\bar P_{nm}$ the fully normalised Legendre functions by the
-standard forward recursions (Holmes and Featherstone 2002). The sum is split
+standard forward recursions (Holmes and Featherstone 2002 [5]). The sum is split
 per latitude row, $A_m = \sum_n (n - 1) \bar P_{nm} \bar C_{nm}$, so a row
 costs $N^2 + N \times$ columns instead of $N^2 \times$ columns. The Moon's
 720 × 361 map still takes about a quarter of a second, so the maps are
@@ -75,12 +75,12 @@ orbit (semi-major axis $a$, eccentricity $e$, from its state relative to the
 parent this frame) and the two GMs ($m$, $M$):
 
 - **Sphere of influence** (Laplace; Curtis, *Orbital Mechanics for
-  Engineering Students*, "Sphere of influence"), a solid amber ring:
+  Engineering Students*, "Sphere of influence" [6]), a solid amber ring:
   $r_\text{SOI} = a\,(m/M)^{2/5}$. Inside it the body's pull, taken as a
   perturbation of the parent's, matters more than the parent's taken as a
   perturbation of the body's: where patched conics switch from one to the
   other.
-- **Hill sphere** (Hamilton and Burns 1992), a dashed pale-green ring:
+- **Hill sphere** (Hamilton and Burns 1992 [7]), a dashed pale-green ring:
   $r_H = a(1 - e)\,(m/3M)^{1/3}$, at pericentre. Where the body can hold a
   satellite against the parent's tide; to first order the distance to its
   L1 and L2.
@@ -112,7 +112,7 @@ x - \frac{(1 - \mu)(x + \mu)}{|x + \mu|^3} - \frac{\mu (x - 1 + \mu)}{|x - 1 + \
 $$
 
 solved by Newton's method from $1 - \mu \mp (\mu/3)^{1/3}$ (L1, L2) and
-$-1 - 5\mu/12$ (L3) (Szebehely 1967); L4 and L5 make equilateral triangles
+$-1 - 5\mu/12$ (L3) (Szebehely 1967 [8]); L4 and L5 make equilateral triangles
 with the pair, L4 leading. They are placed at the pair's present separation
 and in its present orbital plane (from the secondary's position and
 velocity relative to the primary), so they move with the bodies, and they
@@ -122,7 +122,7 @@ pixels of its secondary on screen is not drawn (Sun–Earth L1 and L2 are
 1.5 million km from Earth, a pixel at the overview).
 
 Checks: Earth–Moon with $\mu$ = 0.012150585609624 gives L1, L2, L3 at
-0.836915, 1.155682 and −1.005063 (Koon, Lo, Marsden and Ross 2011, to the
+0.836915, 1.155682 and −1.005063 (Koon, Lo, Marsden and Ross 2011 [9], to the
 six places they give): 326,381 km and 448,915 km from Earth at 384,400 km;
 Sun–Earth L1 and L2 about 1.5 million km sunward and anti-sunward. With the
 small bodies on, Jupiter's trojans sit around its L4 and L5.
@@ -139,3 +139,23 @@ Moon's path about the Sun is everywhere concave toward the Sun. These are
 the whole pulls, not the tides: what moves a body relative to its parent is
 the difference of a pull across the pair, which the kernel integrates
 ([n-body kernel](nbody-kernel.md)).
+
+## References
+
+[1] B. A. Archinal *et al.*, "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015," *Celest. Mech. Dyn. Astron.*, vol. 130, no. 3, Art. no. 22, 2018, doi: 10.1007/s10569-017-9805-5.
+
+[2] N. K. Pavlis, S. A. Holmes, S. C. Kenyon, and J. K. Factor, "The development and evaluation of the Earth Gravitational Model 2008 (EGM2008)," *J. Geophys. Res. Solid Earth*, vol. 117, no. B4, Art. no. B04406, 2012, doi: 10.1029/2011JB008916.
+
+[3] National Imagery and Mapping Agency, "Department of Defense World Geodetic System 1984: Its definition and relationships with local geodetic systems," Tech. Rep. TR8350.2.
+
+[4] A. S. Konopliv *et al.*, "The JPL lunar gravity field to spherical harmonic degree 660 from the GRAIL Primary Mission," *J. Geophys. Res. Planets*, vol. 118, no. 7, pp. 1415–1434, 2013, doi: 10.1002/jgre.20097.
+
+[5] S. A. Holmes and W. E. Featherstone, "A unified approach to the Clenshaw summation and the recursive computation of very high degree and order normalised associated Legendre functions," *J. Geodesy*, vol. 76, no. 5, pp. 279–299, 2002, doi: 10.1007/s00190-002-0216-2.
+
+[6] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. Section "Sphere of influence" (Sec. 8.4).
+
+[7] D. P. Hamilton and J. A. Burns, "Orbital stability zones about asteroids," *Icarus*, vol. 96, no. 1, pp. 43–64, 1992, doi: 10.1016/0019-1035(92)90005-R.
+
+[8] V. Szebehely, *Theory of Orbits: The Restricted Problem of Three Bodies*. New York, NY, USA: Academic Press, 1967.
+
+[9] W. S. Koon, M. W. Lo, J. E. Marsden, and S. D. Ross, *Dynamical Systems, the Three-Body Problem and Space Mission Design*, 2011.

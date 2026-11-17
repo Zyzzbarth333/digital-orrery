@@ -5,11 +5,11 @@ texture, and how it is put on the body. Code: `python/textures/` (the
 conversion), `src/scene/surfaces.ts`, `bodyMaterial.ts`, `rings.ts`,
 `stars.ts` and `clouds.ts`.
 
-## Sources and credits
+## Credits
 
 All NASA, USGS and NOAA products are US-government public domain; the
 credit lines are the ones each source asks for. Solar System Scope maps
-([solarsystemscope.com/textures](https://www.solarsystemscope.com/textures/))
+([solarsystemscope.com/textures](https://www.solarsystemscope.com/textures/) [1])
 are [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and need their
 attribution, with a link to the licence; the app's Credits list gives both.
 
@@ -48,7 +48,7 @@ white.
 Fourteen of the twenty major moons have a USGS Astrogeology global mosaic,
 fetched by `python/textures/fetch_moons.py`. The USGS lists each as public
 domain, or with no access constraint (Europa, Charon); the credits name the
-missions and USGS. Most are single requests to the USGS planetary map server
+missions and USGS. Most are single requests to the USGS planetary map server [2]
 (WMS `GetMap`, `EPSG:4326`, `BBOX=-180,-90,180,90`), which reprojects each
 mosaic to the layout below whatever its own longitude convention. The
 server's only Phobos layer is a synthetic shaded relief, so Phobos uses the
@@ -82,35 +82,35 @@ The Astropedia pages give each product's resolution, longitude convention
 and access constraint:
 
 - USGS Astrogeology planetary map server (WMS):
-  [planetarymaps.usgs.gov/cgi-bin/mapserv](https://planetarymaps.usgs.gov/cgi-bin/mapserv)
+  [planetarymaps.usgs.gov/cgi-bin/mapserv](https://planetarymaps.usgs.gov/cgi-bin/mapserv) [2]
 - Phobos: [Phobos Viking Global Mosaic 5m](https://astrogeology.usgs.gov/search/map/phobos_viking_global_mosaic_5m)
-  (Stooke; file [Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif](https://planetarymaps.usgs.gov/mosaic/Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif))
-- Deimos: map server layer `VIKING` (no Astropedia page found). The
+  (Stooke; file [Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif](https://planetarymaps.usgs.gov/mosaic/Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif)) [3]
+- Deimos: map server layer `VIKING` [2] (no Astropedia page found). The
   layer's abstract credits Philip Stooke, with Chris Jongkind and Megan
   Arntz, and control from Peter Thomas's Cornell shape model, released
   26 October 2001. It states no licence.
-- Io: [Io Galileo SSI / Voyager Color Merged Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/io_galileo_ssi_voyager_color_merged_global_mosaic_1km)
-- Europa: [Europa Voyager - Galileo SSI Global Mosaic 500m](https://astrogeology.usgs.gov/search/map/Europa/Voyager-Galileo/Europa_Voyager_GalileoSSI_global_mosaic_500m)
-- Ganymede: [Ganymede Voyager - Galileo SSI Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_global_mosaic_1km)
-- Callisto: [Callisto Galileo/Voyager Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km)
-- Mimas: map server layer `CASSINI_VOYAGER`. Its abstract gives Cassini
+- Io: [Io Galileo SSI / Voyager Color Merged Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/io_galileo_ssi_voyager_color_merged_global_mosaic_1km) [4]
+- Europa: [Europa Voyager - Galileo SSI Global Mosaic 500m](https://astrogeology.usgs.gov/search/map/Europa/Voyager-Galileo/Europa_Voyager_GalileoSSI_global_mosaic_500m) [5]
+- Ganymede: [Ganymede Voyager - Galileo SSI Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_global_mosaic_1km) [6]
+- Callisto: [Callisto Galileo/Voyager Global Mosaic 1km](https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km) [7]
+- Mimas: map server layer `CASSINI_VOYAGER` [2]. Its abstract gives Cassini
   with Voyager fill, 216 m/px, May 2010, an update of PDS PIA11118, credit
   NASA/JPL/Space Science Institute.
-- Enceladus: [Enceladus Cassini Global Mosaic 110m](https://astrogeology.usgs.gov/search/map/enceladus_cassini_global_mosaic_110m)
-- Tethys: [Tethys Cassini Global Mosaic 293m](https://astrogeology.usgs.gov/search/map/tethys_cassini_global_mosaic_293m)
-- Dione: [Dione Cassini - Voyager Global Mosaic 154m](https://astrogeology.usgs.gov/search/map/dione_cassini_voyager_global_mosaic_154m)
-- Rhea: [Rhea Cassini - Voyager Global Mosaic 417m](https://astrogeology.usgs.gov/search/map/rhea_cassini_voyager_global_mosaic_417m)
-- Iapetus: [Iapetus Cassini - Voyager Global Mosaic 803m](https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m)
-- Triton: [Triton Voyager 2 Global Color Mosaic 600m](https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m)
-- Charon: [Charon New Horizons LORRI MVIC Global Mosaic 300m](https://astrogeology.usgs.gov/search/map/charon_new_horizons_lorri_mvic_global_mosaic_300m)
-- The Uranian moons: USGS's [Foundational Data Products for Uranus and its satellites](https://fdp.astrogeology.usgs.gov/fdp/uranus/)
+- Enceladus: [Enceladus Cassini Global Mosaic 110m](https://astrogeology.usgs.gov/search/map/enceladus_cassini_global_mosaic_110m) [8]
+- Tethys: [Tethys Cassini Global Mosaic 293m](https://astrogeology.usgs.gov/search/map/tethys_cassini_global_mosaic_293m) [9]
+- Dione: [Dione Cassini - Voyager Global Mosaic 154m](https://astrogeology.usgs.gov/search/map/dione_cassini_voyager_global_mosaic_154m) [10]
+- Rhea: [Rhea Cassini - Voyager Global Mosaic 417m](https://astrogeology.usgs.gov/search/map/rhea_cassini_voyager_global_mosaic_417m) [11]
+- Iapetus: [Iapetus Cassini - Voyager Global Mosaic 803m](https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m) [12]
+- Triton: [Triton Voyager 2 Global Color Mosaic 600m](https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m) [13]
+- Charon: [Charon New Horizons LORRI MVIC Global Mosaic 300m](https://astrogeology.usgs.gov/search/map/charon_new_horizons_lorri_mvic_global_mosaic_300m) [14]
+- The Uranian moons: USGS's [Foundational Data Products for Uranus and its satellites](https://fdp.astrogeology.usgs.gov/fdp/uranus/) [15]
   lists airbrush and photomosaic maps of their southern hemispheres
   (USGS I-1920 and others), but no digital global mosaic.
 - Feature positions for the orientation checks: the IAU/USGS
-  [Gazetteer of Planetary Nomenclature](https://planetarynames.wr.usgs.gov/).
+  [Gazetteer of Planetary Nomenclature](https://planetarynames.wr.usgs.gov/) [16].
 - The moons' north poles: the IAU WGCCRE 2015 report, Archinal et al.,
   *Celest. Mech. Dyn. Astron.* 130, 22 (2018),
-  [doi:10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5).
+  [doi:10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5) [17].
 
 Each map's orientation was checked by finding named features at their
 gazetteer positions, and not at their mirror images (planetographic; west
@@ -121,14 +121,14 @@ longitude for the synchronous moons, east for Triton and Charon):
 | Io | [Pele](https://planetarynames.wr.usgs.gov/Feature/4638) | 18.71° S, 255.28° W | red ring at 103° E, 16° S |
 | Europa | [Pwyll](https://planetarynames.wr.usgs.gov/Feature/4878) | 25.20° S, 271.40° W | rayed crater at 85° E, 25° S |
 | Ganymede | [Tros](https://planetarynames.wr.usgs.gov/Feature/6091) | 11.14° N, 27.26° W | rayed crater at 29° W, 13° N |
-| Callisto | Asgard ([PIA01634](https://photojournal.jpl.nasa.gov/catalog/PIA01634)) | about 30° N, 142° W | bright basin near 135° W |
+| Callisto | Asgard ([PIA01634](https://photojournal.jpl.nasa.gov/catalog/PIA01634) [18]) | about 30° N, 142° W | bright basin near 135° W |
 | Mimas | [Herschel](https://planetarynames.wr.usgs.gov/Feature/2478) | 1.38° S, 111.76° W | crater at 112° W, 5° S |
 | Tethys | [Odysseus](https://planetarynames.wr.usgs.gov/Feature/4406) | 32.82° N, 128.89° W | basin at 133° W, 29° N |
 | Rhea | [Inktomi](https://planetarynames.wr.usgs.gov/Feature/14671) | 14.10° S, 112.10° W | bright rays at 108–120° W |
 | Phobos | [Stickney](https://planetarynames.wr.usgs.gov/Feature/5707) | 1° N, 49° W | depression near 45° W, 3° S |
 | Deimos | [Voltaire](https://planetarynames.wr.usgs.gov/Feature/6431) | 22° N, 3.5° W | bright crater there, nothing at 3.5° E |
 | Triton | [Ruach Planitia](https://planetarynames.wr.usgs.gov/Feature/5208), [Tuonela Planitia](https://planetarynames.wr.usgs.gov/Feature/6134), [Leviathan Patera](https://planetarynames.wr.usgs.gov/Feature/3368) | 28° N 24° E, 34° N 14.5° E, 17° N 28.5° E | smooth walled plains and the pit there; cantaloupe terrain at the mirrored spots |
-| Charon | Kubrick Mons, Dorothy ([Fourmilab's copy of the gazetteer table](https://fourmilab.ch/earthview/features/CHARON_nomenclature.html)) | 3.6° N 30.8° E, 58.5° N 40.6° E | the moated peak and the crater rim there |
+| Charon | Kubrick Mons, Dorothy ([Fourmilab's copy of the gazetteer table](https://fourmilab.ch/earthview/features/CHARON_nomenclature.html) [19]) | 3.6° N 30.8° E, 58.5° N 40.6° E | the moated peak and the crater rim there |
 
 Dione has no single feature here: its bright wispy fractures lie on the
 trailing (+90° E) side, as they should. Iapetus's leading (90° W) half is the darker one even in its flattened
@@ -246,8 +246,8 @@ reference):
 
 | Layer | Source | Download | Shipped |
 | --- | --- | --- | --- |
-| The light between the stars | NASA SVS Deep Star Maps 2020 ([SVS 4851](https://svs.gsfc.nasa.gov/4851/)), Milky Way layer `milkyway_2020_8k.exr` and `milkyway_2020_16k.exr` (the full star map with the Hipparcos and Tycho stars taken out); `_4k.exr` for the white | 137.3 MB, 434.0 MB (4k: 36.4 MB) | `stars/milky-way-8k.webp`, 8192 × 4096 8-bit sRGB, 14.9 MB; `stars/milky-way-16k/`, 128 tiles of 1024 × 1024 (1028 with their edges), 58 MB in all |
-| The stars | The Hipparcos main catalogue (ESA 1997), 118,218 stars, from NASA HEASARC (`heasarc_hipparcos.tdat.gz`) | 14.8 MB | `stars/hipparcos.bin`, the 83,392 stars to V 9.0, 0.83 MB |
+| The light between the stars | NASA SVS Deep Star Maps 2020 ([SVS 4851](https://svs.gsfc.nasa.gov/4851/) [20]), Milky Way layer `milkyway_2020_8k.exr` and `milkyway_2020_16k.exr` (the full star map with the Hipparcos and Tycho stars taken out); `_4k.exr` for the white | 137.3 MB, 434.0 MB (4k: 36.4 MB) | `stars/milky-way-8k.webp`, 8192 × 4096 8-bit sRGB, 14.9 MB; `stars/milky-way-16k/`, 128 tiles of 1024 × 1024 (1028 with their edges), 58 MB in all |
+| The stars | The Hipparcos main catalogue (ESA 1997) [21], 118,218 stars, from NASA HEASARC (`heasarc_hipparcos.tdat.gz`) | 14.8 MB | `stars/hipparcos.bin`, the 83,392 stars to V 9.0, 0.83 MB |
 
 **The Milky Way map** is plate carrée in ICRF (J2000 equatorial), centred on
 RA 0h with RA increasing to the left, in linear half-float light. Its
@@ -268,10 +268,10 @@ catalogue's positions are ICRS at epoch J1991.25; proper motion since then
 (under 1′ for all but a handful) is not applied.
 
 **Colour** comes from B−V in the app (`stars.ts`, `bvToRgb`): a temperature
-from Ballesteros's (2012) formula,
+from Ballesteros's (2012) formula [22],
 T = 4600 (1/(0.92 (B−V) + 1.7) + 1/(0.92 (B−V) + 0.62)) K, a Planck spectrum
 at that temperature integrated over 380–780 nm with the CIE 1931
-colour-matching functions (Wyman, Sloan and Shirley's 2013 multi-lobe fit),
+colour-matching functions (Wyman, Sloan and Shirley's 2013 multi-lobe fit [23]),
 and the XYZ-to-linear-sRGB matrix, at luminance 1. As a check, B−V 0.65
 gives 5,778 K and (1.11, 0.98, 0.91), against (1.10, 0.98, 0.94) from the
 Sun's measured chromaticity ([lighting](lighting.md#the-sun)).
@@ -352,3 +352,51 @@ The sources live outside the repo in `~/.cache/digital-orrery/textures-src`
 (about 535 MB with the moons'). Converted textures go to `public/textures/` with
 `manifest.json`; without the manifest every body keeps its flat albedo
 colour.
+
+## References
+
+[1] Solar System Scope, "Solar System Scope textures." [Online]. Available: https://www.solarsystemscope.com/textures/
+
+[2] USGS Astrogeology Science Center, "Planetary map server (WMS)." [Online]. Available: https://planetarymaps.usgs.gov/cgi-bin/mapserv
+
+[3] P. Stooke, "Phobos Viking global mosaic 5m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/phobos_viking_global_mosaic_5m
+
+[4] USGS Astrogeology Science Center, "Io Galileo SSI / Voyager color merged global mosaic 1km," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/io_galileo_ssi_voyager_color_merged_global_mosaic_1km
+
+[5] USGS Astrogeology Science Center, "Europa Voyager - Galileo SSI global mosaic 500m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/Europa/Voyager-Galileo/Europa_Voyager_GalileoSSI_global_mosaic_500m
+
+[6] USGS Astrogeology Science Center, "Ganymede Voyager - Galileo SSI global mosaic 1km," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_global_mosaic_1km
+
+[7] USGS Astrogeology Science Center, "Callisto Galileo/Voyager global mosaic 1km," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km
+
+[8] USGS Astrogeology Science Center, "Enceladus Cassini global mosaic 110m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/enceladus_cassini_global_mosaic_110m
+
+[9] USGS Astrogeology Science Center, "Tethys Cassini global mosaic 293m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/tethys_cassini_global_mosaic_293m
+
+[10] USGS Astrogeology Science Center, "Dione Cassini - Voyager global mosaic 154m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/dione_cassini_voyager_global_mosaic_154m
+
+[11] USGS Astrogeology Science Center, "Rhea Cassini - Voyager global mosaic 417m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/rhea_cassini_voyager_global_mosaic_417m
+
+[12] USGS Astrogeology Science Center, "Iapetus Cassini - Voyager global mosaic 803m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m
+
+[13] USGS Astrogeology Science Center, "Triton Voyager 2 global color mosaic 600m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m
+
+[14] USGS Astrogeology Science Center, "Charon New Horizons LORRI MVIC global mosaic 300m," USGS Astropedia. [Online]. Available: https://astrogeology.usgs.gov/search/map/charon_new_horizons_lorri_mvic_global_mosaic_300m
+
+[15] USGS Astrogeology Science Center, "Foundational data products for Uranus and its satellites." [Online]. Available: https://fdp.astrogeology.usgs.gov/fdp/uranus/
+
+[16] IAU Working Group for Planetary System Nomenclature and USGS, "Gazetteer of Planetary Nomenclature." [Online]. Available: https://planetarynames.wr.usgs.gov/
+
+[17] B. A. Archinal et al., "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015," *Celest. Mech. Dyn. Astron.*, vol. 130, art. no. 22, 2018, doi: 10.1007/s10569-017-9805-5.
+
+[18] NASA/JPL, "PIA01634," NASA Photojournal. [Online]. Available: https://photojournal.jpl.nasa.gov/catalog/PIA01634
+
+[19] Fourmilab, "Charon nomenclature" (copy of the gazetteer table). [Online]. Available: https://fourmilab.ch/earthview/features/CHARON_nomenclature.html
+
+[20] NASA Scientific Visualization Studio, "Deep Star Maps 2020," SVS 4851. [Online]. Available: https://svs.gsfc.nasa.gov/4851/
+
+[21] ESA, *The Hipparcos and Tycho Catalogues*, ESA Rep. SP-1200, 1997, via NASA HEASARC.
+
+[22] F. Ballesteros, "New insights into black bodies," *EPL*, vol. 97, no. 3, Art. no. 34008, 2012, doi: 10.1209/0295-5075/97/34008.
+
+[23] C. Wyman, P.-P. Sloan, and P. Shirley, "Simple analytic approximations to the CIE XYZ color matching functions," *J. Comput. Graph. Tech.*, vol. 2, no. 2, 2013. [Online]. Available: https://jcgt.org/published/0002/02/01/
