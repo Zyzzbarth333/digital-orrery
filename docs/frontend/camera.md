@@ -15,6 +15,40 @@ reads as one motion rather than steps. The pivot is the target's live
 position (a body from the ephemeris, a craft from the kernel) plus a
 settling offset, described below.
 
+### Close to the ground
+
+Following a craft a kilometre or two up, turning the camera could swing
+it below the ground. Inside a body its surface isn't drawn, because its
+inside faces are culled, so the stars showed through. Each frame, a
+camera inside any body's ellipsoid is moved straight out from the body's
+centre to 5 m above the surface, still looking at its pivot
+(`src/physics/surfaceClamp.js`; `surfaceClamp.test.mjs` checks this on the
+WGS-84 Earth, at the pole as at the equator and with the body turned).
+
+Above the ground, the bodies' 96 × 48 spheres were too coarse up close.
+Each flat face sags below the true surface, up to 6.8 km on the Earth.
+From a few kilometres up, the horizon showed gaps of sky between facets.
+So within half a radius of a body's surface, a finely divided patch is
+drawn over the sphere (`src/scene/surfacePatch.ts`):
+- **Shape:** a polar grid centred under the camera, reaching 1.3 times
+  the horizon's angle.
+- **Spacing:** 96 rings, the first at 5 % of the height from the point
+  below and the rest opening out geometrically, and 256 sectors.
+- **Material:** the body's own, with the same ellipsoid, maps and
+  lighting.
+
+A chord's sag stays under 0.4 % of the camera's height:
+
+| Height | Patch reaches | Worst sag |
+| --- | --- | --- |
+| 2 m | 0.06° | 1 cm |
+| 1.6 km | 1.7° | 4 m |
+| 100 km | 13° | 140 m |
+| 3,000 km | 61° | 1.4 km |
+
+The patch is rebuilt when the height changes by a tenth. Otherwise it is
+only turned to follow the point below.
+
 ## Flights
 
 Choosing a body (the rail, a marker in the sky, the arrow keys) or a craft
