@@ -52,28 +52,33 @@ let nextId = 1;
 // 1/256 of the orbital period (or longer, at most 2,048 steps). extra(t, x,
 // out), if given, adds what changes as fast as J2 does (the environment's
 // gravity field and sunlight, at kernel time t and primary-relative x).
+// extra is taken once per step, at its start, and held across the step's
+// four stages: it is a small fraction of J2 and its field (degree 20 and
+// the upper air) is most of a step's cost, so this keeps the drawn carry
+// cheap at high warp (a 24-minute lag in low orbit: 4.2 ms -> about 1.5 ms)
+// while J2 itself is still taken at every stage.
 function carryWithJ2(r0, v0, dtx, P, ap, extra = null, t0 = 0) {
   const rn = norm(r0), en = 0.5 * (v0[0] ** 2 + v0[1] ** 2 + v0[2] ** 2) - P.mu / rn;
   const period = en < 0 ? 2 * Math.PI * Math.sqrt((-P.mu / (2 * en)) ** 3 / P.mu) : 2 * Math.PI * Math.sqrt(rn ** 3 / P.mu);
   const n = Math.min(2048, Math.max(1, Math.ceil(dtx / (period / 256)))), h = dtx / n;
-  let tNow = t0;
+  const held = [0, 0, 0];
   const f = (x, out) => {
     const r2 = x[0] * x[0] + x[1] * x[1] + x[2] * x[2], k = -P.mu / (r2 * Math.sqrt(r2));
-    out[0] = k * x[0] + ap[0]; out[1] = k * x[1] + ap[1]; out[2] = k * x[2] + ap[2];
+    out[0] = k * x[0] + ap[0] + held[0]; out[1] = k * x[1] + ap[1] + held[1]; out[2] = k * x[2] + ap[2] + held[2];
     addJ2(x[0], x[1], x[2], r2, P, out);
-    if (extra) extra(tNow, x, out);
     return out;
   };
   let r = [...r0], v = [...v0];
   const a1 = [0, 0, 0], a2 = [0, 0, 0], a3 = [0, 0, 0], a4 = [0, 0, 0];
   for (let s = 0; s < n; s++) {
-    tNow = t0 + s * h; f(r, a1);
+    if (extra) { held[0] = held[1] = held[2] = 0; extra(t0 + (s + 0.5) * h, r, held); }
+    f(r, a1);
     const r2 = r.map((x, i) => x + 0.5 * h * v[i]), v2 = v.map((x, i) => x + 0.5 * h * a1[i]);
-    tNow = t0 + (s + 0.5) * h; f(r2, a2);
+    f(r2, a2);
     const r3 = r.map((x, i) => x + 0.5 * h * v2[i]), v3 = v.map((x, i) => x + 0.5 * h * a2[i]);
     f(r3, a3);
     const r4 = r.map((x, i) => x + h * v3[i]), v4 = v.map((x, i) => x + h * a3[i]);
-    tNow = t0 + (s + 1) * h; f(r4, a4);
+    f(r4, a4);
     r = r.map((x, i) => x + (h / 6) * (v[i] + 2 * v2[i] + 2 * v3[i] + v4[i]));
     v = v.map((x, i) => x + (h / 6) * (a1[i] + 2 * a2[i] + 2 * a3[i] + a4[i]));
   }

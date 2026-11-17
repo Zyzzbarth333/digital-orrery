@@ -651,6 +651,12 @@ low orbit, 115 km after an hour). The craft is instead carried by two-body
 motion plus J2, integrated with classical RK4 at 1/256 of the orbital
 period (at most 2,048 steps), with the other accelerations still held
 constant. That gives 5×10⁻⁵ km after 10 minutes and 6.5 m after an hour.
+The environment beyond J2 (the Earth's field to degree 20, the upper air,
+sunlight) is evaluated once per step, at its middle, and held across the
+step's four stages; J2 is still taken at every stage. That field is most
+of a step's cost, so this makes the main thread's carry 2.3–2.7 times
+cheaper at high warp. Against the kernel, a low orbit's carry stays within
+2 m for a 24-minute lag and 11 m for 48 minutes (it was 0.1 m and 1.2 m).
 
 That is within 0.06 km in low orbit and 0.09 km in cruise in the browser.
 

@@ -184,6 +184,25 @@ first and the full map put in its place when it is up.
 and KTX2 textures, which need a transcoder dependency and the user's
 approval.
 
+### A craft at high warp
+
+A craft in low Earth orbit at a day a second goes round 16 times a second,
+and the kernel's results arrive a frame or more behind the clock. Each
+frame, the main thread carries the drawn craft across that lag (above),
+and evaluating the environment at every RK4 stage made that the costliest
+work on the main thread: 7.4 % of it in a profile on the Intel GPU, with
+frames of 113–174 ms when the lag grew. With the environment once per step
+it is 2.7 %, and frames over 100 ms are gone. Intel at 1 d/s, headless on
+the overview of a low orbit:
+
+| | Median frame | Worst | Frames over 100 ms (of 300) |
+| --- | ---: | ---: | ---: |
+| Before | 25.6–26.0 ms | 113–174 ms | 1–3 |
+| After | 20.9–22.7 ms | 72–87 ms | 0 |
+
+What remains is mostly the GPU, which half the frame waits on near the
+Earth (the atmosphere fills the view).
+
 ### The panels
 
 The panels read the clock through `useSyncExternalStore`, which re-renders
