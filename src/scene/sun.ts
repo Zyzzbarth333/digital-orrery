@@ -75,6 +75,56 @@ export function makeSunMaterial(): THREE.ShaderMaterial {
   });
 }
 
+// The corona: a billboard around the Sun, in the plane through its centre
+// facing the camera, with Baumbach's mean brightness (src/physics/corona.js)
+// in the Sun's colour (the K corona is scattered sunlight), relative to the
+// disc's centre. It is always drawn, as the corona is always there: at
+// 4e-6 of the disc at the limb it is lost in the glare until a body covers
+// the disc, and the glare goes with the disc (SunGlare). It is real light,
+// drawn in the scene with depth, so the body in front hides it, and the
+// disc hides the part behind it.
+const CORONA_EXTENT = 6;                         // solar radii drawn
+const coronaVertex = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_vertex>
+uniform float rSun;       // render units
+varying vec2 vRho;        // offset from the centre, solar radii
+void main() {
+  vRho = position.xy * ${CORONA_EXTENT.toFixed(1)};
+  vec4 c = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+  gl_Position = projectionMatrix * (c + vec4(vRho * rSun, 0.0, 0.0));
+  #include <logdepthbuf_vertex>
+}
+`;
+const coronaFragment = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
+uniform vec3 centre;      // the disc's centre radiance, linear RGB
+varying vec2 vRho;
+void main() {
+  #include <logdepthbuf_fragment>
+  float r = length(vRho);
+  if (r < 1.0 || r > ${CORONA_EXTENT.toFixed(1)}) discard;
+  float b = 1e-6 * (0.0532 * pow(r, -2.5) + 1.425 * pow(r, -7.0) + 2.565 * pow(r, -17.0));
+  // Fade the last radius out so the quad's edge does not show.
+  b *= smoothstep(${CORONA_EXTENT.toFixed(1)}, ${(CORONA_EXTENT - 1).toFixed(1)}, r);
+  gl_FragColor = vec4(centre * b, 1.0);
+}
+`;
+
+// rSun: the Sun's radius in render units. Add it to the Sun's mesh.
+export function makeCorona(rSun: number): THREE.Mesh {
+  const k = SUN_DISC_RADIANCE / LIMB_MEAN;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+    vertexShader: coronaVertex, fragmentShader: coronaFragment,
+    transparent: true, depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending, toneMapped: false,
+    uniforms: { rSun: { value: rSun }, centre: { value: new THREE.Vector3(SUN_RGB[0] * k, SUN_RGB[1] * k, SUN_RGB[2] * k) } },
+  }));
+  m.frustumCulled = false;
+  m.renderOrder = 1;
+  return m;
+}
+
 // The glare as a function of the pixel, called in the HDR pipeline's final
 // pass (post.ts): no pass of its own, so it costs arithmetic, not memory
 // traffic. Returns scene-referred light (before exposure), none inside the

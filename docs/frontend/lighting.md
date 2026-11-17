@@ -71,9 +71,45 @@ darkens more toward the limb than red; the colour of the limb is an
 approximation (the channel exponents 0.8, 1, 1.25 are not fitted to Neckel
 and Labs).
 
-Granulation and the corona are not drawn: at an exposure for sunlit
-surfaces the disc is pure white, so granulation cannot show, and the
-corona (about 10⁻⁶ of the disc) would be lost in the glare.
+Granulation is not drawn: at an exposure for sunlit surfaces the disc is
+pure white, so it cannot show.
+
+### The corona
+
+The white-light corona is always drawn, as it is always there
+(`makeCorona`, `sun.ts`): a billboard around the Sun, in the plane through
+its centre facing the camera, out to six solar radii, with Baumbach's mean
+brightness of ten eclipses (`src/physics/corona.js`),
+
+$$
+\frac{I(\rho)}{I_\text{centre}} = 10^{-6}\left(0.0532\,\rho^{-2.5}
++ 1.425\,\rho^{-7} + 2.565\,\rho^{-17}\right),
+$$
+
+ρ in solar radii from the Sun's centre and $I_\text{centre}$ the brightness
+at the centre of the disc, in the Sun's colour (the K corona is scattered
+sunlight). At the limb that is 4.04 × 10⁻⁶ of the disc's centre, about a
+quarter of white at the scene's exposure, and it falls to under a
+hundredth of that by two radii. Beside the uncovered Sun it is lost in the
+glare, as it is to any camera; when a body covers the disc the glare goes
+with it ([glare](#glare-and-bloom)), and the corona shows. It is real light
+drawn in the scene with depth, so the body in front hides the part behind
+it. It is Baumbach's smoothed average: no streamers, plumes or change over
+the solar cycle.
+
+Checked at a total eclipse staged behind the Moon (the camera on the
+Sun–Moon line 355,000 km out, the Moon 4.6 px in radius): with the corona
+on, nothing changes inside the Moon's disc, and the ring outside it gains
+37, 16, 5, 2.6 and 1.3 (of 255) at 5 to 9 px from the centre. Near the Sun,
+where the billboard covers most of the screen, it costs about 0.5 ms a
+frame on the Intel GPU.
+
+**Source.** S. Baumbach, "Strahlung, Ergiebigkeit und Elektronendichte der
+Sonnenkorona", *Astronomische Nachrichten* 263, 121–134 (1937),
+[doi:10.1002/asna.19372630602](https://doi.org/10.1002/asna.19372630602); the formula as given in
+R. Nelson's lecture notes, [chapter 5](https://science.gsfc.nasa.gov/671/staff/bios/cs/Nelson_Reginald/Chapter5.pdf)
+(NASA GSFC), and used by Turyshev and Toth (2022,
+[arXiv:2204.04866](https://arxiv.org/abs/2204.04866)).
 
 ## Glare and bloom
 
