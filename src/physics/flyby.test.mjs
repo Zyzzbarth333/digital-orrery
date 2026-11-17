@@ -8,10 +8,12 @@
 //   3. Juno's flyby of Ganymede on 7 June 2021 against JPL's reconstructed
 //      trajectory (fixtures/flyby_juno_ganymede.json, flyby.fetch.mjs):
 //      with the moons the kernel follows Juno through the pass, without
-//      them it misses by thousands of kilometres;
-//   4. impacts on a moon and the change of primary to it and back;
+//      them it misses by thousands of kilometres; 3b and 3c, Juno at Io
+//      (PJ57, 30 December 2023) and Cassini at Titan (T45, 31 July 2008),
+//      which measure those moons' J2 and C22;
+//   4. impacts on a moon, found where the step crossed its surface;
 //   5. the large moons' degree-2 fields (J2 and C22).
-// docs/validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs and docs/physics/nbody-kernel.md#moons.
+// docs/validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs and docs/physics/nbody-kernel.md#moons.
 //
 //   node src/physics/flyby.test.mjs
 
@@ -20,6 +22,7 @@ import { advance, createState, HermiteEphemeris } from './nbody.js';
 import { solarSystemBodies, MOON_SPACING } from './bodies.js';
 import './moonNode.js';
 import { MAJOR_MOONS_OF as MOONS_OF, systemEqjAtTt } from './moons.js';
+import { MOON_DATA } from './moons.data.js';
 import { helioStateEqjAtTt, ttSeconds, utcMsAtTt } from './ephemeris.js';
 
 let failed = 0;
@@ -92,8 +95,10 @@ header('CASE 2: a system splits only near it');
     `views: one craft near Jupiter (${v1.bodiesAt(0).length} bodies), one far (${v2.bodiesAt(0).length})`);
 }
 
-header("CASE 3: Juno's flyby of Ganymede, 7 June 2021, against JPL's reconstruction");
-const fx = JSON.parse(fs.readFileSync(new URL('./fixtures/flyby_juno_ganymede.json', import.meta.url), 'utf8'));
+// Cases 3, 3b and 3c: a craft's flyby of a moon against JPL's
+// reconstruction (fixtures/flyby_<craft>_<moon>.json, flyby.fetch.mjs). The
+// craft is started on its Horizons state at the first row of the span and
+// flown to each later row; its distance from Horizons' is the error.
 const J2000_JD = 2451545.0;
 const ttOf = (jd) => (jd - J2000_JD) * 86400;       // TDB as TT: under 2 ms apart
 // A Horizons table as a Hermite cubic through its rows (positions and
@@ -103,74 +108,127 @@ function table(rows) {
   const H = new HermiteEphemeris((t) => { const k = Math.round(t / D), r = rows[k]; return { r: r.slice(1, 4), v: r.slice(4, 7) }; }, D);
   return (tt) => ({ r: H.position(tt - t0), v: H.velocity(tt - t0) });
 }
-const horizonsMoons = (moons) => {
-  const m = Object.fromEntries(Object.entries(moons).map(([k, rows]) => [k, table(rows)]));
-  const c = table(fx.centre);
-  return { moon: (k, tt) => m[k](tt), offset: (_, tt) => c(tt) };
-};
-// Horizons' Juno about Ganymede is not its Juno about the barycentre less
-// Ganymede about it: the two differ by a smooth 11.3 km (0.12 m/s), the
-// difference between Horizons' Ganymede and the one Juno's reconstructed
-// trajectory was fitted with. That Ganymede is Juno about the barycentre
-// less Juno about Ganymede, less the centre.
-const juno = new Map(fx.juno.map((r) => [r[0].toFixed(6), r]));
-const centreAt = new Map(fx.centre.map((r) => [r[0].toFixed(6), r]));
-const implied = fx.junoGanymede.filter((r) => juno.has(r[0].toFixed(6))).map((r) => {
-  const j = juno.get(r[0].toFixed(6)), c = centreAt.get(r[0].toFixed(6));
-  return [r[0], ...[1, 2, 3, 4, 5, 6].map((i) => j[i] - r[i] - c[i])];
-});
-const fromHorizons = horizonsMoons(fx.moons);
-const flown = fx.juno.filter((r) => r[0] >= fx.span[0] - 1e-7 && r[0] <= fx.span[1] + 1e-7);
-const tStart = ttOf(flown[0][0]);
-// The kernel's epoch an hour before Juno's first row, so its first nodes
-// (multiples of their spacing from the epoch) lie inside the tables.
-const epochMs = utcMsAtTt(tStart - 3600);
-// Where Ganymede really is (JPL's), for the distance from it in every run.
-const real = solarSystemBodies({ epochMs, satellites: horizonsMoons({ ...fx.moons, ganymede: implied }) });
-function fly(opts) {
-  const sys = solarSystemBodies({ epochMs, ...opts });
+function flybyRuns(file, planet, { degree2 = false, variants = {} } = {}) {
+  const fx = JSON.parse(fs.readFileSync(new URL(`./fixtures/${file}`, import.meta.url), 'utf8'));
+  const key = fx.moon;
+  const horizonsMoons = (moons) => {
+    const m = Object.fromEntries(Object.entries(moons).map(([k, rows]) => [k, table(rows)]));
+    const c = table(fx.centre);
+    return { moon: (k, tt) => m[k](tt), offset: (_, tt) => c(tt) };
+  };
+  // Horizons' craft about the moon is not its craft about the barycentre
+  // less the moon about it: the two differ by the difference between
+  // Horizons' moon and the one the craft's reconstructed trajectory was
+  // fitted with. That moon is the craft about the barycentre less the
+  // craft about the moon, less the centre.
+  const craft = new Map(fx.craft.map((r) => [r[0].toFixed(6), r]));
+  const centreAt = new Map(fx.centre.map((r) => [r[0].toFixed(6), r]));
+  const implied = fx.craftMoon.filter((r) => craft.has(r[0].toFixed(6))).map((r) => {
+    const j = craft.get(r[0].toFixed(6)), c = centreAt.get(r[0].toFixed(6));
+    return [r[0], ...[1, 2, 3, 4, 5, 6].map((i) => j[i] - r[i] - c[i])];
+  });
+  const flown = fx.craft.filter((r) => r[0] >= fx.span[0] - 1e-7 && r[0] <= fx.span[1] + 1e-7);
+  // The kernel's epoch an hour before the first row, so its first nodes
+  // (multiples of their spacing from the epoch) lie inside the tables.
+  const epochMs = utcMsAtTt(ttOf(flown[0][0]) - 3600);
+  // Where the moon really is (as the craft's track has it), for the
+  // distance from it in every run.
+  const real = solarSystemBodies({ epochMs, satellites: horizonsMoons({ ...fx.moons, [key]: implied }) });
   const tt0 = ttSeconds(epochMs);
-  const bary = (t) => helioStateEqjAtTt('jupiter', tt0 + t);
-  const j0 = flown[0], t0 = ttOf(j0[0]) - tt0, b0 = bary(t0);
-  const st = createState(b0.r.map((x, i) => x + j0[1 + i]), b0.v.map((x, i) => x + j0[4 + i]), t0);
-  const out = { err: [], events: [], closest: Infinity, closestT: 0 };
-  for (const row of flown.slice(1)) {
-    const t = ttOf(row[0]) - tt0;
-    // Through closest approach in 10 s pieces, for the distance from Ganymede.
-    if (row[0] > fx.close[0][0] && row[0] - 10 / 1440 < fx.close.at(-1)[0]) {
-      while (st.t < t - 1e-6) {
-        const res = advance(st, Math.min(t, st.t + 10), { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7 });
+  const bary = (t) => helioStateEqjAtTt(planet, tt0 + t);
+  // tweak(sys, key) changes a body before the run; extraOf(sys) gives an
+  // extra acceleration (a force the kernel leaves out).
+  // setup() runs before the bodies are built and returns its undo.
+  const fly = (opts, tweak = null, extraOf = null, setup = null, adv = {}) => {
+    const undo = setup ? setup(key) : null;
+    const sys = solarSystemBodies({ epochMs, ...opts });
+    if (undo) undo();
+    if (tweak) tweak(sys, key);
+    const extraAccel = extraOf ? extraOf(sys) : null;
+    const j0 = flown[0], t0 = ttOf(j0[0]) - tt0, b0 = bary(t0);
+    const st = createState(b0.r.map((x, i) => x + j0[1 + i]), b0.v.map((x, i) => x + j0[4 + i]), t0);
+    const out = { err: [], events: [], closest: Infinity };
+    for (const row of flown.slice(1)) {
+      const t = ttOf(row[0]) - tt0;
+      // Through closest approach in 10 s pieces, for the distance from the moon.
+      if (row[0] > fx.close[0][0] && row[0] - 10 / 1440 < fx.close.at(-1)[0]) {
+        while (st.t < t - 1e-6) {
+          const res = advance(st, Math.min(t, st.t + 10), { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7, extraAccel, ...adv });
+          out.events.push(...res.events);
+          out.closest = Math.min(out.closest, dist(st.r, real.bodyAt(key, st.t).r));
+        }
+      } else {
+        const res = advance(st, t, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7, extraAccel, ...adv });
         out.events.push(...res.events);
-        const d = dist(st.r, real.bodyAt('ganymede', st.t).r);
-        if (d < out.closest) { out.closest = d; out.closestT = st.t; }
       }
-    } else {
-      const res = advance(st, t, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7 });
-      out.events.push(...res.events);
+      const b = bary(t).r;
+      out.err.push(Math.hypot(...[0, 1, 2].map((i) => st.r[i] - b[i] - row[1 + i])));
     }
-    const b = bary(t).r;
-    out.err.push(Math.hypot(...[0, 1, 2].map((i) => st.r[i] - b[i] - row[1 + i])));
+    return out;
+  };
+  const hzClose = fx.close.reduce((a, b) => (Math.hypot(b[1], b[2], b[3]) < Math.hypot(a[1], a[2], a[3]) ? b : a));
+  const hzCA = Math.hypot(hzClose[1], hzClose[2], hzClose[3]);
+  const runs = {
+    'no moons (system at its barycentre)': fly({ moons: false }),
+    'moons from moons.js': fly({}),
+    "JPL's moons (Horizons')": fly({ satellites: horizonsMoons(fx.moons) }),
+    [`JPL's moons, ${key} as the track has it`]: fly({ satellites: horizonsMoons({ ...fx.moons, [key]: implied }) }),
+  };
+  const trackSats = () => horizonsMoons({ ...fx.moons, [key]: implied });
+  if (degree2) runs[`the same, without ${key}'s J2 and C22`] = fly({ satellites: trackSats() }, (sys, k) => { const m = sys.bodyAt(k, 0); m.j2 = 0; m.c22 = 0; });
+  for (const [name, v] of Object.entries(variants)) runs[name] = fly({ satellites: trackSats() }, v.tweak, v.extraOf, v.setup, v.advance);
+  const after = flown.slice(1).findIndex((r) => r[0] > hzClose[0]);
+  const R = MOON_DATA[key].radiusKm, hours = (fx.span[1] - hzClose[0]) * 24;
+  // The two moons: Horizons' against the one the track implies, at closest approach.
+  const iCA = implied.reduce((a, b) => (Math.abs(b[0] - hzClose[0]) < Math.abs(a[0] - hzClose[0]) ? b : a));
+  const hz = fx.moons[key].find((r) => r[0] === iCA[0]);
+  const moonGap = Math.hypot(hz[1] - iCA[1], hz[2] - iCA[2], hz[3] - iCA[3]);
+  // The kernel's own moon (its Hermite nodes through the track's table)
+  // against the table, about the barycentre, over the hour about closest
+  // approach.
+  let nodeGap = 0, centreGap = 0;
+  for (const r of implied.filter((q) => Math.abs(q[0] - hzClose[0]) < 1 / 48)) {
+    const t = ttOf(r[0]) - tt0, c = centreAt.get(r[0].toFixed(6)), b = bary(t).r, m = real.bodyAt(key, t).r, p = real.bodyAt(planet, t).r;
+    nodeGap = Math.max(nodeGap, Math.hypot(...[0, 1, 2].map((i) => m[i] - b[i] - c[1 + i] - r[1 + i])));
+    centreGap = Math.max(centreGap, Math.hypot(...[0, 1, 2].map((i) => p[i] - b[i] - c[1 + i])));
   }
-  out.closestJd = (out.closestT + tt0) / 86400 + J2000_JD;
-  return out;
+  console.log(`  the kernel's ${key} (its Hermite nodes) within ${(nodeGap * 1000).toFixed(1)} m of the track's, ${planet}'s centre within ${(centreGap * 1000).toFixed(1)} m, over the hour about closest approach`);
+  console.log(`  Horizons: closest approach ${hzCA.toFixed(1)} km from ${key}'s centre (${(hzCA - R).toFixed(0)} km up), ${Math.hypot(hzClose[4], hzClose[5], hzClose[6]).toFixed(2)} km/s; Horizons' ${key} and the track's ${moonGap.toFixed(2)} km apart`);
+  console.log(`  ${fx.craftName} from Horizons, km: run${' '.repeat(Math.max(1, 22 - fx.craftName.length))}3 min after CA ${hours.toFixed(1).padStart(5)} h after CA   closest to ${key}`);
+  for (const [name, r] of Object.entries(runs)) {
+    console.log(`  ${name.padEnd(46)} ${r.err[after].toFixed(3).padStart(10)} ${r.err.at(-1).toFixed(3).padStart(14)} ${r.closest.toFixed(2).padStart(14)}`);
+  }
+  // FLYBY_OUT=dir writes each case's errors, for plotting.
+  if (process.env.FLYBY_OUT) fs.writeFileSync(`${process.env.FLYBY_OUT}/${key}.json`, JSON.stringify({ jd: flown.slice(1).map((r) => r[0]), ...Object.fromEntries(Object.entries(runs).map(([k, r]) => [k, r.err])) }));
+  return { runs: Object.values(runs), hzCA, epochMs, hours };
 }
-const hzClose = fx.close.reduce((a, b) => (Math.hypot(b[1], b[2], b[3]) < Math.hypot(a[1], a[2], a[3]) ? b : a));
-const hzCA = Math.hypot(hzClose[1], hzClose[2], hzClose[3]);
-const runs = {
-  'no moons (system at its barycentre)': fly({ moons: false }),
-  'moons from moons.js': fly({}),
-  "JPL's moons (Horizons')": fly({ satellites: fromHorizons }),
-  "JPL's moons, Ganymede as Juno's track has it": fly({ satellites: horizonsMoons({ ...fx.moons, ganymede: implied }) }),
+
+// A planet's J4, which the kernel leaves out, as an extra acceleration on
+// the craft: the gradient of V4 = -mu J4 R^4 P4(s) / r^5, s = z / r, z
+// along the pole, P4(s) = (35 s^4 - 30 s^2 + 3) / 8:
+//   a = -mu J4 R^4 [ p P4'(s) / r^6 - d (s P4'(s) + 5 P4(s)) / r^7 ].
+// Jupiter's from Juno's gravity science (Iess et al. 2018, as Serra et al.
+// 2019 tabulate it): J4 = -586.609e-6 at R = 71,492 km.
+const J4_OF = { jupiter: { j4: -586.609e-6, R: 71492 } };
+const j4Accel = (planet) => (sys) => {
+  const { j4, R } = J4_OF[planet], P = sys.bodyAt(planet, 0), c = [0, 0, 0];
+  return (t, r, out) => {
+    P.eph.position(t, c);
+    const d = [r[0] - c[0], r[1] - c[1], r[2] - c[2]], rn = Math.hypot(...d), p = P.pole;
+    const s = (d[0] * p[0] + d[1] * p[1] + d[2] * p[2]) / rn;
+    const P4 = (35 * s ** 4 - 30 * s * s + 3) / 8, dP4 = (140 * s ** 3 - 60 * s) / 8;
+    const k = -P.mu * j4 * R ** 4, a = k * dP4 / rn ** 6, b = -k * (s * dP4 + 5 * P4) / rn ** 7;
+    for (let i = 0; i < 3; i++) out[i] = a * p[i] + b * d[i];
+    return out;
+  };
 };
-const after = flown.slice(1).findIndex((r) => r[0] > hzClose[0]);
-console.log(`  Horizons: closest approach ${hzCA.toFixed(1)} km from Ganymede's centre (${(hzCA - 2631.2).toFixed(0)} km up), ${Math.hypot(hzClose[4], hzClose[5], hzClose[6]).toFixed(2)} km/s`);
-console.log('  Juno from Horizons, km: run                     3 min after CA   9 h after CA   closest to Ganymede');
-for (const [name, r] of Object.entries(runs)) {
-  console.log(`  ${name.padEnd(46)} ${r.err[after].toFixed(2).padStart(10)} ${r.err.at(-1).toFixed(2).padStart(14)} ${r.closest.toFixed(1).padStart(14)}`);
-}
-const [none, ours, jpl, track] = Object.values(runs);
-// FLYBY_OUT=file.json writes the three runs' errors, for plotting.
-if (process.env.FLYBY_OUT) fs.writeFileSync(process.env.FLYBY_OUT, JSON.stringify({ jd: flown.slice(1).map((r) => r[0]), none: none.err, ours: ours.err, jpl: jpl.err, track: track.err }));
+
+// The moon's Hermite nodes every 10 minutes (the tables' own spacing)
+// instead of at the spacing that holds it to NODE_TOL (bodies.js).
+const fineNodes = { setup: (k) => { const was = MOON_SPACING[k]; MOON_SPACING[k] = 600; return () => { MOON_SPACING[k] = was; }; } };
+
+header("CASE 3: Juno's flyby of Ganymede, 7 June 2021, against JPL's reconstruction");
+const { runs: [none, ours, jpl, track], hzCA, epochMs } = flybyRuns('flyby_juno_ganymede.json', 'jupiter', { variants: { "the same, with Jupiter's J4": { extraOf: j4Accel('jupiter') } } });
 // Ganymede bends Juno by 0.28 km/s: 9,300 km after nine hours. JPL's moons
 // leave 23 km, all but 0.1 km of it the 11 km between the two Ganymedes
 // (the fixed-step Cowell integrator added 4 km of its own). moons.js's
@@ -184,6 +242,52 @@ check(Math.abs(track.closest - hzCA) < 1, `closest approach ${track.closest.toFi
 check(ours.events.some((e) => e.type === 'primary' && e.to === 'ganymede') && ours.events.some((e) => e.type === 'primary' && e.from === 'ganymede' && e.to === 'jupiter'),
   `the primary goes to Ganymede and back to Jupiter (${ours.events.filter((e) => e.type === 'primary').map((e) => `${e.from}->${e.to}`).join(', ')})`);
 
+header("CASE 3b: Juno's flyby of Io, 30 December 2023 (PJ57), against JPL's reconstruction");
+{
+  // Six hours in to closest approach, 1,496 km up at 30 km/s, then an hour
+  // out, ending three hours before the perijove (where Jupiter's higher
+  // harmonics take over). Io bends Juno by 0.12 km/s: 440 km an hour on.
+  // As at Ganymede, Horizons' Io is 9.8 km from the one Juno's track has.
+  // With it, 0.05 km is left an hour on; Io's J2 and C22 take it from
+  // 0.20 km, so the pass measures them. Of what is left, a fifth is
+  // Jupiter's J4 (0.040 km with it, which the kernel leaves out); neither
+  // the kernel's nodes for Io nor tighter tolerances move it.
+  const { runs: [none, ours, jpl, track, flat, j4, nodes, tight], hzCA } = flybyRuns('flyby_juno_io.json', 'jupiter', {
+    degree2: true,
+    variants: { "the same, with Jupiter's J4": { extraOf: j4Accel('jupiter') }, 'the same, its nodes every 10 min': fineNodes,
+      'the same, tolerances 1e-10 and 1e-9 km': { advance: { tolKm: 1e-10, cowellTolKm: 1e-9 } } },
+  });
+  check(none.err.at(-1) > 300, `without the moons Juno is ${none.err.at(-1).toFixed(0)} km off an hour after the pass`);
+  check(track.err.at(-1) < 0.1, `with JPL's moons and Io as Juno's track has it, ${track.err.at(-1).toFixed(3)} km off`);
+  check(flat.err.at(-1) > 3 * track.err.at(-1), `without Io's J2 and C22, ${flat.err.at(-1).toFixed(3)} km off: the pass measures them`);
+  check(j4.err.at(-1) < track.err.at(-1) && Math.abs(nodes.err.at(-1) - track.err.at(-1)) < 0.005 && Math.abs(tight.err.at(-1) - track.err.at(-1)) < 0.005,
+    `of what is left, Jupiter's J4 is a fifth (${j4.err.at(-1).toFixed(3)} km with it); Io's nodes (${nodes.err.at(-1).toFixed(3)}) and the tolerances (${tight.err.at(-1).toFixed(3)}) change nothing`);
+  check(jpl.err.at(-1) < 2 && Math.abs(ours.err.at(-1) - jpl.err.at(-1)) < 0.1, `with Horizons' own moons ${jpl.err.at(-1).toFixed(3)} km off, with moons.js's ${ours.err.at(-1).toFixed(3)} km`);
+  check(Math.abs(track.closest - hzCA) < 0.1, `closest approach ${track.closest.toFixed(2)} km from Io's centre, Horizons ${hzCA.toFixed(2)} km`);
+  check(ours.events.some((e) => e.type === 'primary' && e.to === 'io'), `the primary goes to Io (${ours.events.filter((e) => e.type === 'primary').map((e) => `${e.from}->${e.to}`).join(', ')})`);
+}
+
+header("CASE 3c: Cassini's flyby of Titan, 31 July 2008 (T45), against JPL's reconstruction");
+{
+  // Nine hours either side of closest approach, 1,613 km up at 6.2 km/s,
+  // 19 to 20 Saturn radii out. Titan bends Cassini by 22,000 km over the
+  // nine hours. Horizons' Titan is within 0.04 km of the one Cassini's
+  // track has. With it, 0.09 km is left, and nearly all of it is the
+  // kernel's own Titan: its Hermite nodes, three hours apart (held to
+  // 100 m, bodies.js NODE_TOL), put it 27 m from the table at closest
+  // approach, and with nodes every 10 minutes 0.007 km is left. Titan's J2
+  // and C22 take the error from 0.43 km.
+  const { runs: [none, ours, jpl, track, flat, nodes], hzCA } = flybyRuns('flyby_cassini_titan.json', 'saturn', {
+    degree2: true, variants: { 'the same, its nodes every 10 min': fineNodes },
+  });
+  check(none.err.at(-1) > 10000, `without the moons Cassini is ${none.err.at(-1).toFixed(0)} km off 9 h after the pass`);
+  check(track.err.at(-1) < 0.15, `with JPL's moons and Titan as Cassini's track has it, ${track.err.at(-1).toFixed(3)} km off`);
+  check(nodes.err.at(-1) < 0.02, `the same with Titan's nodes every 10 minutes, ${nodes.err.at(-1).toFixed(3)} km: the rest was the kernel's interpolation of Titan`);
+  check(flat.err.at(-1) > 3 * track.err.at(-1), `without Titan's J2 and C22, ${flat.err.at(-1).toFixed(3)} km off`);
+  check(jpl.err.at(-1) < 0.5 && ours.err.at(-1) < 1.5, `with Horizons' own moons ${jpl.err.at(-1).toFixed(3)} km off, with moons.js's ${ours.err.at(-1).toFixed(3)} km`);
+  check(Math.abs(track.closest - hzCA) < 0.1, `closest approach ${track.closest.toFixed(2)} km from Titan's centre, Horizons ${hzCA.toFixed(2)} km`);
+}
+
 header('CASE 4: an impact on a moon');
 {
   const sys = solarSystemBodies({ epochMs });
@@ -193,10 +297,14 @@ header('CASE 4: an impact on a moon');
   const res = advance(st, 3 * 3600, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7 });
   const hit = res.events.find((e) => e.type === 'impact');
   const G1 = sys.bodyAt('ganymede', st.t);
-  // Impacts are found at the end of a step, which here is 1 % of Ganymede's
-  // dynamical time at its surface (14 s, 50 km at the speed of the fall).
+  // The impact is found where the step crossed the surface, on its dense
+  // output (impact.js). Found at the end of the step, as before, it was up
+  // to 1 % of Ganymede's dynamical time at its surface late (14 s): 46 km
+  // below it at the speed of the fall.
   const depth = G1.radius - dist(st.r, G1.r);
-  check(hit?.body === 'ganymede' && depth > 0 && depth < 60, `impact on ${hit?.body} after ${hit ? (hit.t / 60).toFixed(1) : '-'} min, found ${depth.toFixed(1)} km below the surface (within one step)`);
+  const speed = dist(st.v, G1.eph.velocity(st.t));
+  check(hit?.body === 'ganymede' && Math.abs(depth) < 1e-3 && st.t === hit.t && Math.abs(hit.speed - speed) < 1e-9,
+    `impact on ${hit?.body} after ${hit ? (hit.t / 60).toFixed(3) : '-'} min, ${(depth * 1000).toFixed(4)} m below the surface (within 1 m), at ${hit ? (hit.speed * 1000).toFixed(1) : '-'} m/s`);
 }
 
 header("CASE 5: a moon's degree-2 field (J2 and C22) is the gradient of its potential");
