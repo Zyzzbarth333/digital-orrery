@@ -36,7 +36,7 @@ import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, systemOf, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, shadowAxes } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
-import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
+import { makeStarPoints, makeStars, resetStars, setStarScale, setStarTwinkle } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { JourneyLayer } from './journeyLayer';
@@ -827,6 +827,19 @@ export class OrreryScene {
     this.camera.updateMatrixWorld();
     this.updateGlare(sunPos, cam, now);
     this.updateAdaptation(dtReal, sunPos);
+    // Stars twinkle only seen through the Earth's lower atmosphere.
+    if (this.starPoints) {
+      // Height above the Earth's ellipsoid under the camera (its radius at
+      // the camera's geocentric latitude): the turbulence fades over 10 km,
+      // so the mean radius (7 km under the equator) would not do.
+      const e = this.states.earth.r, rel: Vec3 = [cam[0] - e[0], cam[1] - e[1], cam[2] - e[2]];
+      const d = Math.hypot(rel[0], rel[1], rel[2]), up = toRender(rel, this.tmp2).normalize();
+      const te = (this.materials.get('earth')!.uniforms.toBody.value as THREE.Matrix3).elements;
+      const sinLat = te[2] * up.x + te[5] * up.y + te[8] * up.z, [a, , c] = BODY_BY_KEY.earth.radiiKm;
+      const hKm = d - (a * c) / Math.hypot(c * Math.sqrt(1 - sinLat * sinLat), a * sinLat);
+      setStarTwinkle(this.starPoints, hKm < 30 ? hKm : null, hKm < 30 ? up : null,
+        now / 1000, matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
     this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.

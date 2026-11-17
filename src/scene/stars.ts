@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { SKY_DETAIL_GLSL, SkyDetail, type SkyDetailEntry } from './skyDetail';
+import { twinkleAt } from '../physics/scintillation.js';
 
 const vertex = /* glsl */ `
 #include <common>
@@ -96,9 +97,33 @@ export function resetStars(mesh: THREE.Mesh): void {
 // so the brightest saturate and bloom a little, as in a photograph. Each
 // sprite is only as wide as its star's glow above 1/512 of white, so the
 // tens of thousands of faint stars cost few fragments.
+// Twinkling (docs/frontend/lighting.md#twinkling, src/physics/scintillation.js):
+// only while the camera looks up through the Earth's lower atmosphere.
+// Each star's light is multiplied by a log-normal factor with mean 1,
+// exp(s n - s^2 / 2), n a smooth random signal of unit variance with its
+// own phase per star, changing over the eye's 0.1 s; s^2 = ln(1 + v), v
+// the scintillation index the eye sees at the star's zenith angle. Low in
+// the sky the blue and red light take paths far enough apart that their
+// twinkling no longer matches: the channels share n by sqrt(1 - d^2) and
+// add their own by d.
 const pointVertex = /* glsl */ `
 attribute float mag;
 attribute vec3 tint;
+uniform float twOn;         // 1 while the camera is in the lower atmosphere
+uniform vec3 twUp;          // the local zenith, render axes
+uniform float twR0;         // Rytov variance at the zenith, at the camera's height
+uniform float twTau;        // the eye's share of the variance at the zenith
+uniform float twDisp;       // colour paths' separation over a Fresnel zone, at the zenith
+uniform float twTime;       // s
+float twHash(float n) { return fract(sin(n) * 43758.5453123); }
+// About unit variance: three uniforms summed (variance 1/4), interpolated
+// in time with a smoothstep (which keeps about 0.7 of it).
+float twNoise(float seed, float t) {
+  float i = floor(t), f = t - i, s = f * f * (3.0 - 2.0 * f);
+  float a = twHash(seed + i * 17.13) + twHash(seed + i * 31.7 + 5.1) + twHash(seed + i * 47.3 + 9.7) - 1.5;
+  float b = twHash(seed + (i + 1.0) * 17.13) + twHash(seed + (i + 1.0) * 31.7 + 5.1) + twHash(seed + (i + 1.0) * 47.3 + 9.7) - 1.5;
+  return mix(a, b, s) * 2.39;
+}
 uniform float peak0;        // peak display value of a magnitude-0 star
 uniform float peakScale;    // < 1 when sigma is held at its floor (setStarScale)
 uniform float level;        // 1 / exposure
@@ -109,10 +134,28 @@ varying vec3 vColour;
 varying float vSize;
 void main() {
   float peak = peak0 * peakScale * pow(10.0, -0.4 * mag) * visibility;
-  if (peak * 512.0 < 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }   // too faint to show
+  vec3 tw = vec3(1.0);
+  if (twOn > 0.5) {
+    float cz = dot(normalize(position), twUp);
+    if (cz > 0.0) {
+      // Airmass: the plane-parallel sec z, capped near the horizon's 38.
+      float sec = min(1.0 / max(cz, 1e-3), 38.0), tz = sqrt(max(sec * sec - 1.0, 0.0));
+      float sR2 = twR0 * pow(sec, 11.0 / 6.0), sR = pow(sR2, 1.2);
+      float sI2 = exp(0.49 * sR2 / pow(1.0 + 1.11 * sR, 7.0 / 6.0) + 0.51 * sR2 / pow(1.0 + 0.69 * sR, 5.0 / 6.0)) - 1.0;
+      float v = sI2 * min(1.0, twTau * sqrt(sec));
+      float s = sqrt(log(1.0 + v));
+      float d = clamp(twDisp * sqrt(sec) * tz, 0.0, 1.0), c = sqrt(1.0 - d * d);
+      float seed = float(gl_VertexID) * 0.6180339887, t = twTime / 0.1;
+      float n = twNoise(seed, t);
+      vec3 nc = c * n + d * vec3(twNoise(seed + 101.0, t), twNoise(seed + 211.0, t), twNoise(seed + 307.0, t));
+      tw = exp(s * nc - 0.5 * s * s);
+    }
+  }
+  float brightest = peak * max(tw.r, max(tw.g, tw.b));
+  if (brightest * 512.0 < 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }   // too faint to show
   gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);
-  vColour = tint * (peak * level);
-  float r = sigma * sqrt(2.0 * log(peak * 512.0));
+  vColour = tint * tw * (peak * level);
+  float r = sigma * sqrt(2.0 * log(brightest * 512.0));
   vSize = min(size, 2.0 * ceil(r) + 1.0);
   gl_PointSize = vSize;
 }
@@ -195,6 +238,12 @@ export function makeStarPoints(data: Int16Array, eqjToRender: THREE.Matrix3, dpr
       visibility: { value: 1 },
       sigma: { value: 1 },
       size: { value: 8 },
+      twOn: { value: 0 },
+      twUp: { value: new THREE.Vector3(0, 1, 0) },
+      twR0: { value: 0 },
+      twTau: { value: 0 },
+      twDisp: { value: 0 },
+      twTime: { value: 0 },
     },
   });
   const pts = new THREE.Points(geom, mat);
@@ -217,4 +266,23 @@ export function setStarScale(points: THREE.Points, deviceRatio: number, renderRa
   u.sigma.value = sigma;
   u.size.value = Math.ceil(7 * sigma) + 1;
   u.peakScale.value = (want / sigma) ** 2;
+}
+
+// Twinkling for a camera heightKm above the Earth's surface, with the
+// local zenith in render axes (null: not near the Earth). Off above 30 km
+// and when the viewer asks for reduced motion. The profile's numbers are
+// worked out again only when the height changes by 50 m.
+let twCache: { h: number; t: ReturnType<typeof twinkleAt> } | null = null;
+export function setStarTwinkle(points: THREE.Points, heightKm: number | null, up: THREE.Vector3 | null, timeS: number, reducedMotion: boolean): void {
+  const u = (points.material as THREE.ShaderMaterial).uniforms;
+  const on = heightKm !== null && up !== null && heightKm < 30 && !reducedMotion;
+  u.twOn.value = on ? 1 : 0;
+  if (!on) return;
+  const h = Math.max(0, heightKm * 1000);
+  if (!twCache || Math.abs(twCache.h - h) > 50) twCache = { h, t: twinkleAt(h) };
+  u.twR0.value = twCache.t.R0;
+  u.twTau.value = twCache.t.tau;
+  u.twDisp.value = twCache.t.disp;
+  (u.twUp.value as THREE.Vector3).copy(up);
+  u.twTime.value = timeS % 300;         // keeps the hash's arguments small
 }
