@@ -71,9 +71,9 @@ will struggle; this finds out.
 4. **Do a dry run** of all eight tasks yourself with the scenario sheet,
    timing each, so you know what success looks like and that every start
    link works on this build. Keep the browser console open (F12) during it:
-   it should show no errors. A build that throws (main at 157108b throws
-   `unit is not defined` on every frame, from `src/physics/orientation.js`)
-   is not ready to test with people.
+   it should show no errors. A build that throws is not ready to test with
+   people: main at 157108b, for example, threw `unit is not defined` on
+   every frame, fixed in #60; main at 1c7c75c runs clean.
 
 **Each session**
 

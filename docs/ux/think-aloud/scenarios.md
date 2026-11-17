@@ -14,7 +14,8 @@ gravity guides), and keep the personas: Mia (a student, no jargon), Dev
 
 Start links assume the build is served at `http://localhost:4173/` (see the
 [README](README.md#running-it-in-firefox-on-the-laptop)). Labels in the notes
-are the app's own, as written in the source on main at 157108b.
+are the app's own, as written in the source on main at 1c7c75c, and were
+checked on a build of it.
 
 ---
 
@@ -72,13 +73,16 @@ asteroids so that only the planets are showing.*
 
 - **Start:** `http://localhost:4173/`
 - **Path:** the rail's "Small bodies" section → "Fly to" ("a named one…")
-  → Ceres → the plate's "Orbital period"; then the "Main belt" (and other)
+  → Ceres, or type "Ceres" in the "Search all 135,353" box under it and
+  pick it → the plate's "Orbital period"; then the "Main belt" (and other)
   switches off.
 - **Success:** says Ceres's period (about 4.6 years) and turns off at least
   the main belt.
 - **Limit:** 4 min.
 - **Watch for:** whether they find the small-body list at all (it is below
-  the planets in the rail); whether they understand the switches' "on/off";
+  the planets in the rail); whether they use the list or the search box,
+  and whether the search's example text ("433, Eros, 1997 AU24, 1P") helps
+  or puzzles; whether they understand the switches' "on/off";
   whether they try clicking asteroids in the sky.
 
 ## 5. Fly Artemis II
