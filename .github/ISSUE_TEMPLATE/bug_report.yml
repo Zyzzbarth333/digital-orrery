@@ -1,0 +1,32 @@
+name: Bug report
+description: Something drawn, computed or shown wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: The link that sets up the view helps most, e.g. `?focus=moon&t=2026-03-03T11:33:40Z` or `?craft=orbit,400,51.6`.
+      placeholder: |
+        1. Open …
+        2. Choose …
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and GPU
+      placeholder: Firefox 134, Intel Iris Xe
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors
+      description: Anything red in the browser's console.
+      render: text

@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: If you use digital-orrery in your work, please cite it as below.
+title: digital-orrery
+abstract: >-
+  A true-scale solar-system and mission simulator in the browser, whose
+  ephemerides, n-body kernel and orbital-mechanics core are checked against
+  NASA's SPICE toolkit, JPL's DE442 and satellite ephemerides, and flown
+  missions.
+type: software
+authors:
+  - given-names: Isaac Johan
+    family-names: Ziebarth
+repository-code: https://github.com/Zyzzbarth333/digital-orrery
+license: MIT
+version: 0.2.0
+keywords:
+  - astrodynamics
+  - orbital mechanics
+  - n-body
+  - SPICE
+  - three.js

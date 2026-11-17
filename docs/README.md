@@ -19,6 +19,7 @@ they come from, and how each part is checked.
 | [The space environment](physics/environment.md) | Forces beyond gravity's point masses and J2 on the app's craft: sunlight pressure with the Earth's and Moon's shadows, and the steps across a shadow's edge |
 | [Rockets: stages, staging and the ascent](physics/rocket.md) | The ROCKET tab: stage performance, optimal staging (Curtis 13.6), delta-v budgets worked back from a job, a gravity-turn ascent from a pad into orbit; thrust curves and drag against Mach, checked against OpenRocket and RocketPy; OpenRocket design files flown in the app |
 | [Journeys: legs, transfers, flybys and the rocket](physics/journey.md) | A journey of any number of legs by patched conics, each leg's transfers compared (Hohmann, bi-elliptic, plane change, Lambert, the porkchop optimum, phasing, gravity assists and the B-plane), flown by the kernel to each waypoint, and the stack of stages it needs |
+| [Atmospheric entry](physics/entry.md) | Orion's lifting entry, its guidance to the splashdown point, and the parachutes |
 
 ## Front end
 
@@ -43,8 +44,16 @@ they come from, and how each part is checked.
 ## Checks and performance
 
 [Validation](validation.md): every check, its reference and the measured
-result. [Performance](performance.md): what each part costs and the plan
+result. The flown missions in detail: [Artemis I](validation/artemis1.md)
+and [Artemis II](validation/artemis2.md). [Performance](performance.md): what each part costs and the plan
 for the slow parts.
+
+## Background
+
+[Simulation techniques and tools review](physics/simulation-review.md):
+desk research on Julia and SciML, rocketry tools, astrodynamics simulators
+and numerical techniques, atmospheric entry and real-time simulation in
+the browser, with every kept claim checked against its source.
 
 ## Conventions
 

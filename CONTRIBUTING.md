@@ -1,0 +1,89 @@
+# Contributing
+
+Thanks for looking. digital-orrery is a true-scale solar-system and
+mission simulator whose physics is checked against NASA, JPL and textbook
+references. These notes keep it that way.
+
+## Setup
+
+Follow the [quick start](README.md#quick-start): Node.js 20.19+ or 22.12+,
+then `npm install` and `npm run dev`. The checks:
+
+```bash
+npm test            # every physics and app check (about two minutes)
+npm run typecheck   # the TypeScript
+npm run build       # the production build
+```
+
+CI runs all three on every pull request.
+
+## Ground rules
+
+A change can't break any of these.
+
+- **Every physics claim is checked.** A new model or a changed constant
+  comes with a test in `npm test` against a cited reference:
+  - a textbook worked example, cited by its number;
+  - NASA, JPL or NAIF data, held as a fixture in `src/physics/fixtures/`;
+  - or an independent oracle.
+  
+  Each check prints its tolerance and the value it got.
+- **Every model has its page.** The equations, sources, constants and
+  validation go in `docs/`, in the same pull request, and its checks go in
+  [docs/validation.md](docs/validation.md) (see the
+  [docs conventions](docs/README.md#conventions)).
+- **Sources are cited, not copied.** Write equations in this project's
+  notation and cite textbooks by section and example. Don't commit a
+  textbook or paper's PDF, its figures or long quotations.
+- **Copyleft stays outside.** GPL and AGPL tools (OpenRocket, for one) are
+  used only as separate-process oracles. Their source and their example
+  files are never committed or imported. The project is MIT.
+- **Data has a source and a licence.** A new map, catalogue or kernel is
+  credited in the [README](README.md#credits) and
+  [docs/frontend/textures.md](docs/frontend/textures.md), with its
+  licence.
+  - Large raw downloads stay out of git, under `python/data/` (ignored) or
+    `~/.cache/digital-orrery/`.
+  - What the app ships is built from them by an `npm run fetch:…` or
+    `build:…` script, so it can be rebuilt.
+- **No private material.** No personal details, local paths, credentials,
+  or files from other teams or people.
+- **Rendering changes are measured.** Time a frame on an integrated GPU
+  as well as a discrete one, before and after, and give the numbers in
+  the pull request ([docs/performance.md](docs/performance.md) has the
+  method).
+- **The interface follows [DESIGN.md](DESIGN.md).** The console is 70s
+  flight hardware, in its own look: don't borrow another app's or game's
+  interface.
+
+## Data and oracles
+
+Most checks run from fixtures in the repository. A few rebuild data or
+run outside tools, and need a network or an installed tool:
+
+| Script | What it does |
+| --- | --- |
+| `npm run fetch:smallbodies`, `build:smallbodies` | JPL SBDB asteroids and comets, packed for the app |
+| `npm run fetch:moons`, `build:moon-tables` | the moons' elements; their Chebyshev tables from NAIF's satellite kernels (needs CMake and CSPICE) |
+| `npm run fetch:artemis1`, `crosscheck:artemis1` | Artemis I from JPL Horizons, and its force-by-force check |
+| `npm run oracle:openrocket` | the ROCKET tab's ascent against OpenRocket (needs Java and OpenRocket) |
+| `npm run bench` | the kernel's speed |
+
+A check that needs local data it can't find skips itself and says so.
+`npm test` never needs a network.
+
+## Commits and pull requests
+
+- Branch from `main` as `feat/…`, `fix/…`, `perf/…`, `docs/…`, `test/…`
+  or `chore/…`, and open a pull request.
+- Commit messages follow
+  [Conventional Commits](https://www.conventionalcommits.org/), with the
+  area as the scope. The header says what is now true, and the body
+  explains why in prose. For example:
+  `fix(orientation): moons without an IAU model get their axes again`.
+- Note what users will notice in [CHANGELOG.md](CHANGELOG.md) under
+  Unreleased.
+- Pull requests merge with a merge commit, once the checks pass. When two
+  pull requests touch the same module, merge `main` into the second and
+  run `npm test` again before merging it. Two branches that each pass can
+  still break `main` together.

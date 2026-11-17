@@ -1,8 +1,25 @@
 # digital-orrery
 
-A web-based, real-time 3D solar-system simulator with interactive interplanetary mission planning. The physics is plain JavaScript checked against NASA's SPICE toolkit and the DE442 ephemeris; the front end is TypeScript, React and three.js. It draws the Sun, planets and Moon at true scale and at their real positions for any date, propagates spacecraft under n-body gravity with finite burns in a Web Worker, and plans transfers with a Lambert solver and porkchop grids.
+[![CI](https://github.com/Zyzzbarth333/digital-orrery/actions/workflows/ci.yml/badge.svg)](https://github.com/Zyzzbarth333/digital-orrery/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
-The front end is being rebuilt from scratch. It now draws the solar system with real surface maps and relief, Saturn's rings from Cassini measurements, the real star field, and Earth's clouds as satellites saw them on the sim date, under a physically based atmosphere. Spacecraft fly under the n-body kernel: launch into Earth orbit or onto a departure hyperbola, plan manoeuvre nodes, and fly transfers picked from a porkchop grid. The physics modules and their tests are unchanged.
+A true-scale solar system and mission simulator that runs in the browser. The physics is plain JavaScript, checked against NASA's SPICE toolkit, JPL's DE442 and satellite ephemerides, and flown missions. The front end is TypeScript, React and three.js.
+
+## What it does
+
+- **The sky:**
+  - the Sun, planets, 76 moons and 135,353 asteroids and comets, at their real positions for any date, at true scale;
+  - real surface maps and relief, Saturn's rings from Cassini measurements, Earth's clouds as satellites saw them that day under a physically based atmosphere;
+  - the real star field and Milky Way.
+- **Bodies to visit:** fly the camera to any planet, moon, barycentre or small body, with a data plate whose values open their equation and source.
+- **Guides:** spin axes, Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls.
+- **Missions:**
+  - spacecraft fly under an n-body kernel in a Web Worker, with finite burns, the Earth's and Moon's gravity fields, drag and sunlight pressure;
+  - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown.
+- **Planning:**
+  - a journey of any number of legs, each leg's transfers compared, shaped by hand on a plotting table;
+  - flown by the kernel, with the rocket it needs.
+- **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, or open an OpenRocket design, and fly it from a real pad into orbit.
 
 The name nods to the orrery, a mechanical model of the solar system, and in particular to the Digital Orrery, the special-purpose computer built in the 1980s to integrate the long-term dynamics of the outer planets.
 
@@ -24,10 +41,10 @@ What is high-fidelity today:
 
 What is still approximate:
 
-- The planner's launch-window (porkchop) grid now runs on the verified Lambert solver with DE442 ephemerides, but its Hohmann, "direct" and gravity-assist estimates are still simplified scalings.
-- Gravity assists are modelled coarsely and should not be treated as mission-grade.
+- **Journeys are planned by patched conics.** Each leg uses the verified Lambert solver, and flybys a B-plane aim. The kernel then flies the plan and reports how close it comes to each waypoint. Landings and moon-to-planet legs are planned but not yet flown.
+- **The ascent has no closed-loop guidance.** The ROCKET tab's gravity turn ends its orbits higher than real launches, which are steered ([docs/physics/rocket.md](docs/physics/rocket.md#real-launchers)).
 
-In short, the constants, ephemerides, n-body integration and the Kepler/Lambert core are solid; the planning UI on top of them is where the remaining approximations live.
+In short, the constants, ephemerides, n-body integration and the Kepler/Lambert core are checked against references. The planning layers on top of them are where the remaining approximations live, and each says so in its docs.
 
 ## Documentation
 
@@ -41,7 +58,7 @@ The following changes would push fidelity further, roughly in order of impact:
 - [ ] Add patched-conic sphere-of-influence transitions so trajectories hand off correctly between central bodies.
 - [x] Replace the fixed-step integrator with a higher-order integrator whose step follows the local dynamical time.
 - [ ] Add error-controlled adaptive stepping (an embedded Runge-Kutta-Nystrom pair or DOP853) and a two-body fast path for weakly perturbed orbits at high warp.
-- [ ] Validate propagated trajectories against SPICE ephemerides using the reference under `python/`.
+- [x] Validate propagated trajectories against flown missions: Artemis I and II against NASA's reconstructed trajectories ([validation](docs/validation.md)).
 
 ## Quick start
 
@@ -76,7 +93,7 @@ npm run build
 
 The data plate gives each value with its source (the provenance column): a solid tag for data, a dashed one for values worked out in the app; hover a tag for detail.
 
-The right-hand plate shows the focused body's data. Missions, the planner and the rocket are the app's, not a body's, so they live in the flight console, opened from the header whatever is in view: MISSION (launch, readout, nodes, engine, log), PLANNER (the porkchop grid and "Fly this") and ROCKET. See [docs/frontend/mission.md](docs/frontend/mission.md).
+The right-hand plate shows the focused body's data. Missions, the planner and the rocket are the app's, not a body's, so they live in the flight console, opened from the header whatever is in view: MISSION (launch, readout, nodes, engine, log), PLANNER (a journey's summary, and the full-screen plotting table for planning it) and ROCKET. See [docs/frontend/mission.md](docs/frontend/mission.md).
 
 A link can set the starting view: `?focus=moon&t=2026-03-03T11:33:40Z&view=sun` (`view=sun` puts the camera on the sunlit side).
 
@@ -85,35 +102,51 @@ A link can set the starting view: `?focus=moon&t=2026-03-03T11:33:40Z&view=sun` 
 ```
 digital-orrery/
 ├── src/
-│   ├── app/                 # React: entry point, sim clock, panels, styles
-│   ├── scene/               # three.js scene: body catalogue, renderer, React host
-│   ├── physics/             # two-body, Lambert, porkchop, n-body kernel, Worker, ephemeris, GM
-│   │   └── fixtures/        # CSPICE reference states (generated by c/)
+│   ├── app/                 # React: the console, panels, planner, rocket, clock, styles
+│   ├── scene/               # three.js: bodies, sky, orbits, small bodies, guides, camera
+│   ├── physics/             # orbital core, n-body kernel and Worker, ephemerides, moons,
+│   │   │                    #   orientation, environment, rocket, journeys, and their tests
+│   │   └── fixtures/        # reference data the tests check against (CSPICE, Horizons, NASA)
 │   └── utils/constants.js
-├── c/                       # CSPICE program that writes the reference fixture
-├── python/                  # SPICE metakernel, GM kernel, offline checks
-├── docs/                    # the physics and the scene, with the maths, and validation
-├── index.html
-├── tsconfig.json
-└── vite.config.js
+├── public/                  # surface maps, star map, ephemeris and small-body tables
+├── c/                       # CSPICE programs that write fixtures and the moon tables
+├── python/                  # SPICE metakernel, kernels (downloaded, not in git), offline checks
+├── tools/                   # outside oracles (OpenRocket, RocketPy)
+├── docs/                    # the physics and the front end, with the maths, and validation
+└── .github/                 # CI, issue and pull request templates
 ```
 
 ## Testing
 
-- **Physics core.** Run the Kepler and Lambert verification outside the browser:
+```bash
+npm test            # every physics and app check, from fixtures, no network
+npm run typecheck   # the TypeScript
+npm run build       # the production build
+```
 
-  ```bash
-  node src/physics/orbital.test.mjs
-  ```
+`npm test` runs each module's checks against its references:
+- the orbital core against Curtis's worked examples and NAIF CSPICE;
+- the ephemerides against DE442 and JPL Horizons;
+- the n-body kernel's convergence, energy and events;
+- NASA's 6-DOF check cases;
+- the ROCKET tab against OpenRocket and RocketPy;
+- Artemis I and II against their flown trajectories;
+- the moons, asteroids, orientation and more.
 
-  This checks two-body propagation and the elements conversion against Curtis's worked examples and NAIF CSPICE (`src/physics/fixtures/spice_reference.json`, generated by `c/`), and the Lambert solver against the real MSL geometry from DE442 and an independent integrator. After `npm install`, `npm test` also runs `src/physics/porkchop.test.mjs` (the app's ephemeris and astronomy-engine against DE442, and the porkchop grid on the 2011 Mars window) and `src/physics/nbody.test.mjs` (the spacecraft kernel: convergence order, time reversal, energy, the indirect term, events, low Earth orbit with the real Sun, Moon and planets, escape from Earth, and the Worker's message handling).
-
-- **Front end.** `npm run typecheck` checks the TypeScript; `npm run build` builds it.
+[docs/validation.md](docs/validation.md) lists every check with its reference and result. CI runs all three commands on every pull request.
 
 ## Credits
 
 Surface maps, data and imagery: NASA Earth Observatory (Blue Marble, Black Marble); NOAA NCEI (ETOPO 2022); NASA Global Imagery Browse Services (GIBS), part of NASA ESDIS (daily Earth imagery); NASA's Scientific Visualization Studio (CGI Moon Kit; Deep Star Maps 2020, the Milky Way layer; Gaia DR2: ESA/Gaia/DPAC); the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC (the stars); NASA/JPL, USGS Astrogeology (Viking Mars mosaic; the moons' Viking, Galileo, Voyager and Cassini mosaics, Cassini's with the Space Science Institute, Deimos's by Philip Stooke); NASA/GSFC MOLA Science Team; NASA/JHUAPL/Carnegie Institution of Washington (MESSENGER); NASA/JHUAPL/SwRI (New Horizons, Pluto and Charon); NASA/JPL/Space Science Institute (Cassini Jupiter map); NASA PDS Ring-Moon Systems Node (Cassini UVIS ring occultation); [Solar System Scope](https://www.solarsystemscope.com/textures/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (Venus clouds, Saturn, Uranus and Neptune maps). Ephemerides and frames: NASA JPL / NAIF SPICE (DE442 and the satellite kernels) and astronomy-engine (MIT). Moons: JPL Solar System Dynamics planetary satellite mean elements and JPL Horizons (orbits, radii, GMs, albedos); astronomy-engine for the Galilean moons. Transfer optima for comparison: NASA Ames Research Center, Trajectory Browser (Mission Design Division). Artemis II's reconstructed trajectory: NASA JSC/FOD/NAV, via NAIF. Artemis I's as-flown trajectory: NASA/JSC navigation, via JPL Horizons. 6-DOF check cases: NASA Engineering and Safety Center (NASA/TM-2015-218675). Earth gravity: EGM2008 (NGA), via GFZ ICGEM. Lunar gravity: GRAIL GL0660B (NASA/JPL), via the PDS Geosciences Node. Space weather: CelesTrak (NOAA SWPC, GFZ). Fonts: B612 and B612 Mono (Airbus) and Michroma (Vernon Adams), SIL Open Font License 1.1, via Fontsource. Equation font: DejaVu Math TeX Gyre (DejaVu fonts), Bitstream Vera licence, its DejaVu and math additions public domain ([src/app/fonts](src/app/fonts/LICENSE-DejaVuMath.txt)). Details in [docs/frontend/textures.md](docs/frontend/textures.md).
 
+## Contributing
+
+[CONTRIBUTING.md](CONTRIBUTING.md) has the setup, the ground rules (every physics claim checked against a cited reference, and data credited with its licence) and how changes are merged. [CHANGELOG.md](CHANGELOG.md) lists what has changed. Report security problems privately, as [SECURITY.md](SECURITY.md) says.
+
+## Citing
+
+If you use it in your work, please cite it: [CITATION.cff](CITATION.cff) has the details, and GitHub's "Cite this repository" gives them as text.
+
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The data and maps keep their own licences, listed under Credits.
