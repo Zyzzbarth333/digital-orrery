@@ -45,8 +45,9 @@ Each leg is solved about the body its two ends share:
 - **An orbit change:** the same body at both ends, with no flyby. This is a
   Hohmann transfer (or bi-elliptic, or phasing) between the two orbits, and
   it sets its own arrival. Later waypoints keep their spacing from it.
-- **A return to the same body:** if either end is a flyby, the leg goes once
-  round the Sun and back (Galileo's two years from Earth to Earth).
+- **A return to the same body:** if either end is a flyby, the leg goes
+  round the Sun and back on a resonant orbit (Galileo's two years from
+  Earth to Earth; below).
 
 ### One leg, by patched conics
 
@@ -79,6 +80,46 @@ The burns:
 - **A planet's own moon:** the free end is a point on the parking orbit at
   the planet, in the moon's orbit plane. It is placed where the leg costs
   least, by 36 trial angles and then a golden-section search.
+
+### Resonant returns
+
+Lambert's problem can't do a return to the same body after whole years. Its
+two ends are nearly one point, so the plane it finds is the ecliptic,
+whatever the flyby needs. Lambert between Galileo's two Earth flybys
+gives 5.0 km/s, in the ecliptic, against the 8.9 km/s the flyby brings in.
+
+The leg is instead a resonant orbit (`transfers.js resonantCone`,
+`resonantVinf`; Strange and Longuski 2002). Its period is N/M of the
+body's, so the craft comes back to the body after N of the body's orbits
+(M of its own):
+- **The cone:** with the excess speed $v_\infty$ fixed by the flyby, the
+  period fixes the craft's speed at the body's distance by vis-viva, and so
+  the angle $\theta$ between the excess velocity and the body's velocity
+  $v_B$:
+  $$a = \left(\mu\left(\frac{N T_B}{2\pi M}\right)^2\right)^{1/3},\quad v^2 = \mu\left(\frac{2}{r} - \frac{1}{a}\right),\quad \cos\theta = \frac{v^2 - v_B^2 - v_\infty^2}{2 v_B v_\infty}.$$
+  The excess velocity lies on a cone of half-angle $\theta$ about $v_B$.
+- **The clock angle:** its angle round the cone is free. It is chosen, by
+  72 trials and then golden section, so the flybys either side cost least
+  (powered flybys from the inbound leg, and to the next leg).
+- **The return:** the leg ends when the body comes back nearest where it
+  was, within 20 days of N of its periods, rather than at its osculating
+  period on the day. The Moon swings the Earth enough for that to be a day
+  wrong in two years. The craft's period is set from it, and later
+  waypoints keep their spacing.
+- **The ratio:** the waypoint's own (`resonance: [N, M]`), else the one
+  whose flight time is nearest its date. The leg's options list every
+  ratio the excess speed allows (N and M up to 6), each costed with the
+  flybys either side.
+
+On Galileo's dates the planner picks 2:1, as flown. It returns on 8 Dec
+1992 with the same excess speed it left with, and the two Earth flybys
+need 0 and 70 m/s. Lambert between the same dates needed kilometres a
+second.
+
+In the kernel, the first aimed correction of a return to the body just
+left waits until a quarter of the way round. The aims fly without the
+target's gravity, and that target is also the body the craft is still
+climbing away from.
 
 ### Chaining legs, and the gravity assist
 
@@ -465,6 +506,9 @@ orbits, waits 454 days.
 | A 200 m/s node halfway to Mars, then aimed | Lambert from the node | misses by 3.28 million km; aimed, on target to 1 m |
 | Mariner 10's Venus aim set by hand to the plan's B point | the planned flyby | the same periapsis, unpowered; Mercury missed by 194,000 km without its 29 m/s |
 | An aimed node on the way to Mars, flown | the plan | Mars 1.4 km off the planned periapsis |
+| The 2:1 resonance cone at 8.9 km/s about a circular 1 AU orbit | geometry | a = 2^(2/3) AU, 61.98°, back in two years; every clock angle on the cone and back to the start (two-body) |
+| Galileo's Earth to Earth (8 Dec 1990 to 8 Dec 1992) | NASA's dates: PDS mission catalogue | 2:1 chosen, back within a day of 8 Dec 1992, 8.871 out and 8.864 km/s back; Earth flybys 0 and 70 m/s |
+| Galileo's whole route flown by the kernel | the plan | Venus 2.0, Earth 0.9 and 13.5 km off; Jupiter 3,900 km off a 270,000 km periapsis (1.4 %); corrections 1.1 km/s over six years |
 | The return window from Mars (arrive 7 Sep 2027) | Curtis Ex 8.2 (454 d on circular orbits) | 9 Sep 2028, 368 d later, 2.00 km/s; each profile point is the leg solved there |
 | The lamps: leaving Mars after 30 days, at 8 and 5 km/s; leaving at the window | the rules above | window and delta-v lamps lit, then no window; at the window, green with a 368-day wait |
 | Saturn V, Apollo 11's 45.7 t to 185 km and on to the Moon (TLI 3.13 km/s) | the flight | needs 12.03, gives 12.87 km/s: it can, with 0.84 to spare |
@@ -476,11 +520,26 @@ orbits, waits 454 days.
 - **Patched conics:** the planets' centres are the ends of each leg, and
   the Sun alone pulls along it. The kernel's corrections close the gap,
   and the flown journey's corrections are part of its delta-v as flown.
-- **A return to the same body after whole years:** the two ends are nearly
-  the same point, so Lambert's plane is the ecliptic and the arc can be far
-  from the cheapest resonant orbit. Burn nodes are the way to shape it.
+- **Resonant returns:** circular-orbit physics on the real ephemeris. The
+  flown return comes within about 9,000 km of the planet in two years, and
+  the kernel's aims take up the rest.
 - **Landings:** the entry through an atmosphere and the losses of an ascent
   or a descent are not costed.
 - **The ideal options:** Hohmann, bi-elliptic and plane change use mean
   circular orbits. "As scheduled" and the porkchop optimum use the real
   ones.
+
+## References
+
+- H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed.,
+  Butterworth-Heinemann, 2020: chapters 6, 8 and 13, by section, equation
+  and example as cited above.
+- N. J. Strange and J. M. Longuski, "Graphical Method for Gravity-Assist
+  Trajectory Design", *Journal of Spacecraft and Rockets* 39(1), 9–16,
+  2002. [doi:10.2514/2.3800](https://doi.org/10.2514/2.3800). The
+  resonant orbit and its cone of excess velocities.
+- NASA Planetary Data System, Galileo mission catalogue: the Venus and
+  Earth flyby times and altitudes.
+  [pds.nasa.gov/data/go-l-nims-3-tube-v1.0/go_1103/catalog/mission.cat](https://pds.nasa.gov/data/go-l-nims-3-tube-v1.0/go_1103/catalog/mission.cat)
+- NASA, Galileo in depth: launch on 18 Oct 1989, the flybys and arrival at
+  Jupiter on 7 Dec 1995. [solarsystem.nasa.gov/missions/galileo/in-depth](https://solarsystem.nasa.gov/missions/galileo/in-depth)
