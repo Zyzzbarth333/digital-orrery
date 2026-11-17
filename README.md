@@ -5,7 +5,10 @@
 
 A true-scale solar system and mission simulator that runs in the browser. The physics is plain JavaScript, checked against NASA's SPICE toolkit, JPL's DE442 and satellite ephemerides, and flown missions. The front end is TypeScript, React and three.js.
 
-![The inner solar system on 18 November 2026: the planets' orbits, the main belt drawn from 1.6 million real orbits, and the console's data plate for the Sun](docs/images/overview.jpg)
+<picture>
+  <source srcset="docs/clips/overview-to-earth.webp" type="image/webp">
+  <img src="docs/clips/overview-to-earth.gif" width="800" alt="The camera flies from the inner solar system, with the planets' orbits and the main belt drawn from real orbits, down to the Earth under that day's clouds, and the console's data plate changes from the Sun to the Earth">
+</picture>
 
 | | |
 | --- | --- |
@@ -15,6 +18,17 @@ A true-scale solar system and mission simulator that runs in the browser. The ph
 | **The plotting table**: a journey to Mars, its launch windows and its delta-v | **Guides**: spheres of influence and Lagrange points, with Jupiter's trojans at L4 and L5 |
 | ![The ROCKET tab with Saturn V's published figures greyed](docs/images/rocket.jpg) | ![Jupiter and its inner moons' orbits](docs/images/jupiter.jpg) |
 | **The ROCKET tab**: Saturn V from Apollo 11's actual weights | **Jupiter** and its moons, from JPL's satellite ephemerides |
+
+In motion (each clip is from the app as it runs, rebuilt by `npm run docs:clips`):
+
+| | |
+| --- | --- |
+| ![Time warp at 30 days a second: Mercury, Venus, Earth and Mars go round the Sun while the clock races through five months](docs/clips/time-warp.webp) | ![Artemis II at a day a second about the Earth: the craft leaves after translunar injection, loops round the Moon and comes back, its flown path drawn beside NASA's](docs/clips/artemis2.webp) |
+| **Time warp**: a month a second ([scene](docs/frontend/scene.md#time)) | **Artemis II** flown against its real trajectory ([missions](docs/frontend/mission.md#real-missions)) |
+| ![The plotting table: a burn node clicked onto the transfer arc to Mars, its radial tab pulled until the MISS lamp lights, then AIM NODE brings the arc back to Mars](docs/clips/plotting-table.webp) | ![The ROCKET tab flies Saturn V's ascent, then launches it from the pad and follows it climbing away from Florida](docs/clips/rocket-launch.webp) |
+| **The plotting table**: a burn node pulled and re-aimed ([journeys](docs/physics/journey.md#the-plotting-table)) | **A launch** from LC-39B ([rockets](docs/physics/rocket.md#in-the-app)) |
+| ![The Earth's EGM2008 gravity field and spin axis as the camera turns, then the Earth's sphere of influence and the Earth-Moon Lagrange points as it pulls back](docs/clips/guides.webp) | ![Jupiter's inner and Galilean moons going round at a day a second, then the camera flies to Io](docs/clips/jupiter-moons.webp) |
+| **Guides**: the gravity field, then SOI and Lagrange points ([gravity guides](docs/physics/gravity-guides.md)) | **Jupiter's moons** and a flight to Io ([moons](docs/frontend/moons.md)) |
 
 New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fits together](docs/architecture.md) maps the code.
 

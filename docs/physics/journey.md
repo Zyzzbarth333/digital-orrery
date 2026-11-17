@@ -462,6 +462,8 @@ plotting table") or the `#plot` link; Escape closes it. While it is open
 the sky stops drawing (`OrreryScene.setPaused`), and the clock and the
 mission run on.
 
+![The plotting table with a journey to Mars: a click on the transfer arc adds a burn node, its radial tab is pulled until the arc misses Mars and the MISS lamp lights, and AIM NODE brings it back](../clips/plotting-table.webp)
+
 Its PLOT station has five parts:
 - **The editor:** the journey's editor from the PLANNER tab, on the left.
 - **The scope:** the journey from above the ecliptic, about the Sun (or

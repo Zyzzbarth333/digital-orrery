@@ -117,6 +117,8 @@ surface along the plane) to the cutoff state, which is `ascentToState`'s.
 
 ## In the app
 
+![The ROCKET tab with Saturn V: FLY THE ASCENT draws its climb, LAUNCH FROM THE PAD starts the clock at 10 s a second, and the camera follows the craft away from Florida with its path behind it](../clips/rocket-launch.webp)
+
 The ROCKET tab:
 - **Vehicle:** each stage's numbers, and the stack's delta-v, burn times
   and thrust-to-weight. Starting points: four real launchers

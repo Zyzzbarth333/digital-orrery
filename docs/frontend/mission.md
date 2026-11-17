@@ -82,6 +82,8 @@ real pad ([rocket](../physics/rocket.md#in-the-app)).
 
 The app reads both with `src/physics/realMission.js`.
 
+![Artemis II about the Earth, from translunar injection at an hour a second and then a day a second: the craft climbs out, loops round the Moon and falls back, its flown path drawn beside the real one, while the readout gives its distance from the flown path](../clips/artemis2.webp)
+
 - **Fly it:** sets the clock to the mission's start (BACK undoes it). For
   Artemis II that's 2 April 2026, 23:39:59 UTC, ten minutes before
   translunar injection. The craft starts from its flown state.
