@@ -274,7 +274,7 @@ export const TAG_INFO = {
     what: 'The osculating orbital elements at 2026-01-01 TT: the ellipse the body was on then.',
     tex: [],
     where: 'a: semi-major axis; e: eccentricity; i: inclination to the ecliptic',
-    source: 'JPL Horizons, osculating elements at the epoch (SBDB\'s for the unnamed bodies)',
+    source: 'JPL Horizons, osculating elements at the epoch, for the 36 named bodies; JPL\'s Small-Body Database for the rest, packed to 0.0055° in angle (the drawn point\'s own)',
   },
   'sb-apsides': {
     what: 'The nearest and farthest the body comes to the Sun on that ellipse.',

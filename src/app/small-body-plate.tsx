@@ -31,7 +31,7 @@ export function SmallBodyPlate({ clock, body: b }: { clock: SimClock; body: Name
   const pos = f.exact ? { src: 'SB441', info: 'sb-position-exact' as const } : { src: 'Kepler', info: 'sb-position' as const };
   const els = f.exact
     ? { src: 'SB441', info: 'sb-elements-exact' as const, detail: 'osculating now, from JPL\'s SB441' }
-    : { src: 'Horizons', info: 'sb-elements' as const, detail: b.elements };
+    : { src: b.elements.startsWith('JPL Horizons') ? 'Horizons' : 'SBDB', info: 'sb-elements' as const, detail: b.elements };
   const rows: Row[] = [
     { label: 'Class', value: SB_CLASS_NAMES[b.cls as keyof typeof SB_CLASS_NAMES] ?? b.cls, alt: `SBDB ${b.cls}`, src: 'SBDB', info: 'sb-class' },
     f.exact
