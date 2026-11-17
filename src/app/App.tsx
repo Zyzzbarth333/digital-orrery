@@ -12,6 +12,7 @@ import type { Frame, OrreryScene } from '../scene/OrreryScene';
 import type { GuideKey } from '../scene/guides';
 import { BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
 import type { Named } from '../scene/smallBodies';
+import { irregularMoon } from '../scene/irregularMoons';
 
 // Optional start state from the URL: ?focus=mars&t=2030-01-01T00:00Z&view=sun
 // (focus may be a barycentre: ssb, emb, jupiter-bary; &frame=ssb gives
@@ -98,6 +99,9 @@ export function App() {
   const [small, setSmall] = useState<string | null>(null);
   const [named, setNamed] = useState<readonly Named[]>([]);
   const smallBody = small ? named.find((b) => b.pdes === small) ?? null : null;
+  // An irregular moon is a small focus too, as 'irr:<key>' (OrreryScene.focusOnSmall).
+  const irregularMoonOn = small?.startsWith('irr:') ? irregularMoon(small.slice(4)) ?? null : null;
+  const [irregularOn, setIrregularOn] = useState(false);
   // Search any of the 135,353 (the rail's search box): a found point joins
   // the named ones and is flown to as they are.
   const smallSearch = useMemo(() => ({
@@ -184,7 +188,7 @@ export function App() {
     <div className="app">
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
-        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: smallBody?.name ?? focusName(focus) }}
+        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: irregularMoonOn?.name ?? smallBody?.name ?? focusName(focus) }}
         flying={flying} frame={frame} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
@@ -192,8 +196,9 @@ export function App() {
         named={named} small={small} onSmall={(pdes) => scene.current?.focusOnSmall(pdes)} smallSearch={smallSearch}
         frame={frame} onFrame={setFrame}
         smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }}
-        guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); scene.current?.guides.set(k, on); }} />
-      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} />
+        guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); scene.current?.guides.set(k, on); }}
+        irregular={{ on: irregularOn, onToggle: (on) => { setIrregularOn(on); scene.current?.irregulars.setOn(on); }, current: irregularMoonOn?.key ?? null, onFly: (key) => scene.current?.focusOnSmall(`irr:${key}`) }} />
+      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={irregularMoonOn} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>
           <FlightConsole clock={clock} mission={mission} journey={journey} tab={tab} setTab={setTab} onClose={closeConsole}

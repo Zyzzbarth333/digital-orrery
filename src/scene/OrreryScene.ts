@@ -44,6 +44,7 @@ import { clampAboveSurface } from '../physics/surfaceClamp.js';
 import { JourneyLayer } from './journeyLayer';
 import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
+import { IrregularMoonLayer, type IrregularPlanet } from './irregularMoons';
 import { GuideLayer } from './guides';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
@@ -262,7 +263,8 @@ export class OrreryScene {
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
   // A named asteroid or comet the camera is on (smallBodies.ts), like a
-  // followed craft: `focus` keeps the last body.
+  // followed craft: `focus` keeps the last body. An irregular moon
+  // (irregularMoons.ts) is one too, as 'irr:<key>'.
   focusSmall: string | null = null;
   onSmallPick: (pdes: string) => void = () => {};
   private craftLayer!: CraftLayer;
@@ -284,6 +286,8 @@ export class OrreryScene {
   private journeyCentral = (key: string): Vec3 | null => (key === 'sun' ? [0, 0, 0] : this.states[key as BodyKey]?.r ?? null);
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
+  // The irregular moons of Jupiter, Saturn and Neptune (irregularMoons.ts).
+  irregulars!: IrregularMoonLayer;
   guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
 
   private bodyAnchor(key: FocusKey): Anchor {
@@ -292,17 +296,24 @@ export class OrreryScene {
   }
 
   private smallAnchor(pdes: string): Anchor {
-    return { id: `small:${pdes}`, pos: () => this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs), minDist: this.smallBodies.radiusKm(pdes) * 1.2 };
+    const irr = pdes.startsWith('irr:') ? pdes.slice(4) : null;
+    return { id: `small:${pdes}`, pos: () => (irr ? this.irregulars.positionKm(irr) : this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs)), minDist: this.smallRadius(pdes) * 1.2 };
+  }
+  private smallRadius(pdes: string): number {
+    return pdes.startsWith('irr:') ? this.irregulars.radiusKm(pdes.slice(4)) : this.smallBodies.radiusKm(pdes);
   }
 
-  // Fly to a named small body: framed at eight radii, at least 1 km out.
+  // Fly to a named small body or an irregular moon: framed at eight radii,
+  // at least 1 km out.
   focusOnSmall(pdes: string): void {
-    if (!this.smallBodies.body(pdes)) return;
+    const irr = pdes.startsWith('irr:') ? pdes.slice(4) : null;
+    if (irr ? !this.irregulars.has(irr) : !this.smallBodies.body(pdes)) return;
     if (this.rig.flying && this.rig.destination.id === `small:${pdes}`) return;
     this.focusCraftId = null;
     this.focusSmall = pdes;
-    this.smallBodies.setFocus(pdes);
-    this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallBodies.radiusKm(pdes) * 8, 1));
+    this.smallBodies.setFocus(irr ? null : pdes);
+    this.irregulars.setFocus(irr);
+    this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallRadius(pdes) * 8, 1));
     this.onFlight(this.rig.flying);
     this.onSmallPick(pdes);
   }
@@ -310,6 +321,7 @@ export class OrreryScene {
     if (this.focusSmall === null) return;
     this.focusSmall = null;
     this.smallBodies.setFocus(null);
+    this.irregulars.setFocus(null);
   }
 
   private craftAnchor(id: number): Anchor {
@@ -456,6 +468,9 @@ export class OrreryScene {
       (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
+    this.irregulars = new IrregularMoonLayer(this.scene, this.overlay);
+    this.irregulars.setScale(this.renderer.getPixelRatio());
+    this.irregulars.onPick = (key) => this.focusOnSmall(`irr:${key}`);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
     // pressure): say so rather than show a black view, and carry on when the
     // browser restores it.
@@ -573,7 +588,7 @@ export class OrreryScene {
     const craft = this.focusCraftId !== null;
     const focus = this.focus;
     const small = this.focusSmall;
-    const minDist = craft ? 0.05 : small ? this.smallBodies.radiusKm(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
+    const minDist = craft ? 0.05 : small ? this.smallRadius(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
     // Lines are 3 % of a page; pixels as they come.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
     this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
@@ -866,6 +881,8 @@ export class OrreryScene {
         now / 1000, matchMedia('(prefers-reduced-motion: reduce)').matches);
     }
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.irregulars.update(tMs, cam, (p: IrregularPlanet) => this.states[p].r, 1 / this.renderer.toneMappingExposure,
+      this.focusCraftId === null ? systemOf(this.focus) : null);
     this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
       focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
@@ -1127,6 +1144,7 @@ export class OrreryScene {
     this.surfacePatch.dispose();
     this.journeyLayer.dispose();
     this.smallBodies.dispose();
+    this.irregulars.dispose();
     this.guides.dispose();
     for (const el of this.labels.values()) el.remove();
     for (const el of this.baryLabels.values()) el.remove();
