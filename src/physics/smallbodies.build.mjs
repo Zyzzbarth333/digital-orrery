@@ -19,11 +19,13 @@
 //   magnitude gets H 18, faint.
 // The named ones (dwarf planets, mission targets, famous comets; NOTABLE in
 // smallBodies.js, by designation) go to the JSON at full precision, for
-// labels.
+// labels. Every kept body's designation, name and diameter go to
+// smallbodies-index.txt, line for line with the .bin, for the search.
 
 import fs from 'node:fs';
 import { GROUPS, CACHE } from './smallbodies.fetch.mjs';
-import { SB_CLASSES, SB_EPOCH_JD, SB_K1, NOTABLE } from './smallBodies.js';
+import zlib from 'node:zlib';
+import { SB_CLASSES, SB_EPOCH_JD, SB_K1, NOTABLE, encodeIndex } from './smallBodies.js';
 
 const K = 0.01720209895;                     // Gaussian gravitational constant, rad/day (au, solar masses)
 const D2R = Math.PI / 180, TAU = 2 * Math.PI;
@@ -48,7 +50,7 @@ function* rowsOf() {
 // kept: the brighter bodies and every other population (smallbodies.bin,
 // loaded first); faint: main-belt asteroids fainter than H 15
 // (smallbodies-belt.bin, loaded after).
-const kept = [], faint = [], named = [];
+const kept = [], faint = [], named = [], index = [];
 let skipped = 0;
 let read = 0;
 for (const { group, d, ix } of rowsOf()) {
@@ -80,6 +82,10 @@ for (const { group, d, ix } of rowsOf()) {
   const code = SB_CLASSES.indexOf(cls) >= 0 ? SB_CLASSES.indexOf(cls) : SB_CLASSES.indexOf(group === 'comets' ? 'COM' : 'AST');
   const el = fresh ? { a, e: fresh.e, i: fresh.i, node: fresh.node, peri: fresh.peri, M } : { a, e, i, node, peri, M };
   (dim ? faint : kept).push({ ...el, H: Number.isFinite(H) ? H : 18, code, k1 });
+  // The designation index, line for line with smallbodies.bin: a comet's
+  // with its prefix (C/2026 P4; a numbered one, 1P, has it already).
+  const prefix = group === 'comets' && d[ix.prefix] && !/^\d+[A-Z]/.test(pdes) ? `${d[ix.prefix]}/` : '';
+  if (!dim) index.push({ des: prefix + pdes, name: d[ix.name] || '', diameter: num('diameter') });
   const label = NOTABLE[pdes];
   if (label) named.push({ pdes, spkid, name: label.name ?? (d[ix.name] || d[ix.pdes]), kind: label.kind, cls, ...el, H: Number.isFinite(H) ? H : null, diameter: num('diameter') || null, epochJd: SB_EPOCH_JD, elements: fresh ? 'JPL Horizons at the epoch' : 'SBDB' });
 }
@@ -105,6 +111,8 @@ console.log(`${read} rows read`);
 fs.mkdirSync(new URL('../../public/data/', import.meta.url), { recursive: true });
 fs.writeFileSync(new URL('../../public/data/smallbodies.bin', import.meta.url), buf);
 fs.writeFileSync(new URL('../../public/data/smallbodies-belt.bin', import.meta.url), beltBuf);
+const indexText = encodeIndex(index);
+fs.writeFileSync(new URL('../../public/data/smallbodies-index.txt', import.meta.url), indexText);
 const counts = {};
 for (const k of kept) counts[SB_CLASSES[k.code]] = (counts[SB_CLASSES[k.code]] ?? 0) + 1;
 const missing = Object.keys(NOTABLE).filter((s) => !named.some((n) => n.pdes === s));
@@ -115,3 +123,4 @@ fs.writeFileSync(new URL('../../public/data/smallbodies.json', import.meta.url),
 console.log(`kept ${kept.length} (skipped ${skipped}): ${JSON.stringify(counts)}`);
 console.log(`named ${named.length}${missing.length ? `; not found: ${missing.map((s) => NOTABLE[s].name).join(', ')}` : ''}`);
 console.log(`smallbodies.bin ${(buf.length / 1e6).toFixed(2)} MB; smallbodies-belt.bin ${faint.length} bodies, ${(beltBuf.length / 1e6).toFixed(2)} MB`);
+console.log(`smallbodies-index.txt ${index.length} lines, ${(indexText.length / 1e6).toFixed(2)} MB (gzip ${(zlib.gzipSync(indexText, { level: 9 }).length / 1e6).toFixed(2)} MB)`);

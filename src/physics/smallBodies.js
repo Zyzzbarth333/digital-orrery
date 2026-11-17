@@ -199,3 +199,96 @@ export function smallBodyFacts(b, jd) {
 // A comet's H is its coma's, not its nucleus's, so this does not apply to
 // comets.
 export const diameterFromH = (H, p) => (1329 / Math.sqrt(p)) * 10 ** (-H / 5);
+
+// ---------------------------------------------------------------------------
+// The designation index (public/data/smallbodies-index.txt, written by
+// smallbodies.build.mjs): one line per body of smallbodies.bin, in the same
+// order, so line j names point j. Fetched only when a search is opened.
+//   <designation>[TAB<name>[TAB<diameter km>]]
+// A numbered asteroid one more than the previous numbered line leaves its
+// designation empty, and one up to 999 more is written +k (most of the
+// main belt runs in order, with gaps); empty fields at the end are dropped,
+// so the file is mostly short lines.
+
+const isNumber = (s) => /^[1-9]\d*$/.test(s);
+
+/** rows: [{ des, name, diameter }] in packed order -> the index's text. */
+export function encodeIndex(rows) {
+  let last = 0;
+  return rows.map(({ des, name, diameter }) => {
+    let field = des;
+    if (isNumber(des)) {
+      const k = Number(des) - last;
+      if (k === 1) field = ''; else if (k > 1 && k < 1000) field = `+${k}`;
+      last = Number(des);
+    }
+    const d = diameter > 0 ? String(Number(diameter.toPrecision(4))) : '';
+    return d ? `${field}\t${name ?? ''}\t${d}` : name ? `${field}\t${name}` : field;
+  }).join('\n');
+}
+
+/** The index's text -> { count, des, name, diameter (NaN unknown), and lower-case copies for search }. */
+export function parseIndex(text) {
+  const lines = text.split('\n'), n = lines.length;
+  const des = new Array(n), name = new Array(n), diameter = new Float32Array(n);
+  let last = 0;
+  for (let j = 0; j < n; j++) {
+    const [f, nm = '', d = ''] = lines[j].split('\t');
+    let s = f;
+    if (s === '') s = String(last + 1);
+    else if (s[0] === '+') s = String(last + Number(s.slice(1)));
+    if (isNumber(s)) last = Number(s);
+    des[j] = s; name[j] = nm; diameter[j] = d ? Number(d) : NaN;
+  }
+  return { count: n, des, name, diameter, desLower: des.map((s) => s.toLowerCase()), nameLower: name.map((s) => s.toLowerCase()) };
+}
+
+/**
+ * Bodies matching a query, best first: by number ("433", "(433)"), by
+ * designation ("2010 AB12", "1P"), or by name ("eros"), whole or the start
+ * of it, then anywhere in a name. "433 Eros" is read as its number.
+ * @returns {number[]} indices into the index (and smallbodies.bin)
+ */
+export function searchIndex(index, query, limit = 8) {
+  const q = query.trim().toLowerCase().replace(/\s+/g, ' ').replace(/^\((\d+)\)/, '$1');
+  if (!q) return [];
+  // A number, alone or before a name ("433 eros"); not the year of a
+  // provisional designation ("1997 au24", "2026 p4").
+  const num = /^\d{4} [a-z]{1,2}\d*$/.test(q) ? undefined : /^(\d+)(?: .*)?$/.exec(q)?.[1];
+  const scored = [];
+  const { desLower, nameLower, count } = index;
+  for (let j = 0; j < count; j++) {
+    const d = desLower[j], nm = nameLower[j];
+    let s = -1;
+    if (num !== undefined && d === num) s = 0;
+    else if (d === q || d.slice(d.indexOf('/') + 1) === q) s = 0;    // "2026 p4" finds C/2026 P4
+    else if (nm && nm === q) s = 1;
+    else if (nm && nm.startsWith(q)) s = 2;
+    else if (d.startsWith(q) && !/^\d+$/.test(q)) s = 3;
+    else if (nm && q.length >= 3 && nm.includes(q)) s = 4;
+    if (s >= 0) scored.push(s * 1e7 + j);
+  }
+  scored.sort((x, y) => x - y);
+  return scored.slice(0, limit).map((v) => v % 1e7);
+}
+
+// What a body is, by its SBDB class, in the words the named list uses.
+export function kindOfClass(cls) {
+  if (SB_GROUPS.comets.includes(cls)) return 'comet';
+  if (SB_GROUPS.neo.includes(cls)) return 'near-Earth asteroid';
+  if (cls === 'TJN') return 'Jupiter trojan';
+  if (cls === 'CEN') return 'centaur';
+  if (cls === 'TNO') return 'trans-Neptunian object';
+  return 'asteroid';
+}
+
+/** One body of the packed file (as decodeSmallBodies, for index j). */
+export function decodeOne(buffer, j) {
+  const dv = new DataView(buffer), o = j * 16, ang = TAU / 65535;
+  const c = dv.getUint8(o + 15);
+  return {
+    a: dv.getFloat32(o, true), e: dv.getUint16(o + 4, true) / 65535,
+    i: dv.getUint16(o + 6, true) * ang, node: dv.getUint16(o + 8, true) * ang, peri: dv.getUint16(o + 10, true) * ang,
+    M: dv.getUint16(o + 12, true) * ang, H: dv.getUint8(o + 14) / 7 - 2, cls: SB_CLASSES[c & 31],
+  };
+}

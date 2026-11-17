@@ -33,7 +33,7 @@
 // ecliptic (x, z, -y).
 
 import * as THREE from 'three';
-import { exactOrbit, positionAu, diameterFromH, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '../physics/smallBodies.js';
+import { exactOrbit, positionAu, diameterFromH, parseIndex, searchIndex, decodeOne, kindOfClass, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '../physics/smallBodies.js';
 import { ttMinusUtc } from '../physics/timescale.js';
 import { BeltHaze } from './beltHaze';
 import { makeBodyMaterial } from './bodyMaterial';
@@ -62,6 +62,19 @@ const M_REF = 19.6, PEAK_REF = 0.08, RANGE = 0.5, PEAK_MAX = 3;
 // rest only once the camera is within LABEL_NEAR_AU of them.
 const ALWAYS = new Set(['1', '2', '4', '10', '136199', '136108', '136472']);
 const LABEL_NEAR_AU = 1.5;
+
+// A search result: the point's index, its designation, how it is named
+// and what it is.
+export interface SearchHit { j: number; des: string; label: string; kind: string }
+
+// How a body found by search is named: "433 Eros", "1P/Halley",
+// "PANSTARRS (C/2026 P4)", or its designation alone.
+export function displayName(des: string, name: string): string {
+  if (!name) return des;
+  if (/^\d+$/.test(des)) return `${des} ${name}`;
+  if (/^\d+[A-Z]$/.test(des)) return `${des}/${name}`;
+  return `${name} (${des})`;
+}
 
 export interface Named { pdes: string; name: string; kind: string; cls: string; a: number; e: number; i: number; node: number; peri: number; M: number; H: number | null; diameter: number | null; elements: string }
 
@@ -203,7 +216,7 @@ export class SmallBodyLayer {
   private disposed = false;
 
   // Adds itself to the scene once the data has loaded.
-  constructor(private scene: THREE.Scene, private overlay: HTMLElement, baseUrl = '') {
+  constructor(private scene: THREE.Scene, private overlay: HTMLElement, private baseUrl = '') {
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERTEX, fragmentShader: FRAGMENT,
       // Opaque pass, just after the stars: bodies drawn later cover them
@@ -232,16 +245,7 @@ export class SmallBodyLayer {
       this.show(bin);
       this.named = meta.named;
       this.findExact();
-      for (const b of this.named) {
-        const el = document.createElement('div');
-        el.className = 'body-marker small-body';
-        el.title = `${b.name}: ${b.kind}`;
-        el.innerHTML = `<span class="dot"></span><span class="name">${b.name}</span>`;
-        el.style.display = 'none';
-        el.addEventListener('click', () => this.onPick(b.pdes));
-        this.overlay.appendChild(el);
-        this.markers.set(b.pdes, el);
-      }
+      for (const b of this.named) this.makeMarker(b);
       this.onNamed(this.named);
       // Then the faint main belt, about 1.45 million more: too faint to see
       // one by one, so they are drawn as a haze from their real orbits.
@@ -251,6 +255,65 @@ export class SmallBodyLayer {
     } catch (err) {
       console.warn(`small bodies not loaded: ${err}`);
     }
+  }
+
+  private makeMarker(b: Named): void {
+    const el = document.createElement('div');
+    el.className = 'body-marker small-body';
+    el.title = `${b.name}: ${b.kind}`;
+    const dot = document.createElement('span'), name = document.createElement('span');
+    dot.className = 'dot'; name.className = 'name'; name.textContent = b.name;
+    el.append(dot, name);
+    el.style.display = 'none';
+    el.addEventListener('click', () => this.onPick(b.pdes));
+    this.overlay.appendChild(el);
+    this.markers.set(b.pdes, el);
+  }
+
+  // ----- Any body, by search (smallbodies-index.txt) -----
+  // The index is fetched the first time a search opens: 1.2 MB of text
+  // (0.44 MB compressed), one line per point.
+  private packed: ArrayBuffer | null = null;
+  private index: ReturnType<typeof parseIndex> | null = null;
+  private indexLoad: Promise<ReturnType<typeof parseIndex> | null> | null = null;
+  loadIndex(): Promise<ReturnType<typeof parseIndex> | null> {
+    this.indexLoad ??= fetch(`${this.baseUrl}data/smallbodies-index.txt`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+      .then((t) => { const ix = parseIndex(t); this.index = ix.count === this.count ? ix : null; return this.index; })
+      .catch((err) => { console.warn(`small-body index not loaded: ${err}`); this.indexLoad = null; return null; });
+    return this.indexLoad;
+  }
+
+  // Up to `limit` bodies matching a query (number, name or designation).
+  async search(query: string, limit = 8): Promise<SearchHit[]> {
+    const ix = await this.loadIndex();
+    if (!ix || !this.packed) return [];
+    return searchIndex(ix, query, limit).map((j: number) => {
+      const cls = decodeOne(this.packed!, j).cls as string;
+      return { j, des: ix.des[j], label: displayName(ix.des[j], ix.name[j]), kind: kindOfClass(cls) };
+    });
+  }
+
+  // Make point j a body that can be flown to and has a plate, as the named
+  // ones are: its packed elements (the drawn point's own), and the index's
+  // designation, name and diameter. Returns the key to fly to.
+  adopt(j: number): string | null {
+    const ix = this.index, buf = this.packed;
+    if (!ix || !buf || !(j >= 0 && j < this.count)) return null;
+    const des = ix.des[j];
+    if (this.body(des)) return des;
+    const p = decodeOne(buf, j);
+    const b: Named = {
+      pdes: des, name: displayName(des, ix.name[j]), kind: kindOfClass(p.cls), cls: p.cls,
+      a: p.a, e: p.e, i: p.i, node: p.node, peri: p.peri, M: p.M, H: p.H,
+      diameter: ix.diameter[j] > 0 ? ix.diameter[j] : null,
+      elements: 'SBDB at 2026-01-01, as packed (angles to 0.0055°)',
+    };
+    this.named = [...this.named, b];
+    this.makeMarker(b);
+    if (exactOrbit(des, SB_EPOCH_JD)) { this.exact.push({ j, pdes: des }); this.exactJd = NaN; }
+    this.onNamed(this.named);
+    return des;
   }
 
   // The named bodies SB441's table covers, found among the points by their
@@ -295,6 +358,7 @@ export class SmallBodyLayer {
   // The packed bodies (16 bytes each, smallbodies.build.mjs) as the points'
   // attributes, straight from their bytes.
   private show(buffer: ArrayBuffer): void {
+    this.packed = buffer;
     const n = buffer.byteLength / 16, dv = new DataView(buffer), u8 = new Uint8Array(buffer), u16 = new Uint16Array(buffer);
     const aA = new Float32Array(n), aOrb = new Uint16Array(n * 4), aM = new Uint16Array(n), aHC = new Uint8Array(n * 2);
     for (let j = 0; j < n; j++) {
