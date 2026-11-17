@@ -3,6 +3,9 @@
 How the simulator works, with the maths, the constants the code uses, where
 they come from, and how each part is checked.
 
+- **New here?** [How it fits together](architecture.md) maps the code with a diagram, and the [glossary](glossary.md) explains the terms.
+- **Pictures:** the [README](../README.md) has screenshots of each part of the app.
+
 ## Physics
 
 | Page | Covers |
