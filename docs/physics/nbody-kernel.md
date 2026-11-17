@@ -6,7 +6,7 @@ Worker).
 
 A spacecraft is a test particle: it feels the Sun, the planets, the Moon,
 near a planet that has them that planet's major moons ([below](#moons)),
-and near one of them the sixteen most massive asteroids
+and near one of them the sixteen most massive asteroids [1]
 ([below](#asteroids)), but does not pull on them. Their positions come from the ephemeris, so they
 move on their real paths throughout every step.
 
@@ -194,7 +194,7 @@ each step costs six force evaluations to Yoshida's three, and in steady
 running it is faster everywhere but among a giant planet's moons
 ([performance](../performance.md#measured)).
 
-`method: 'yoshida4'` (or `'leapfrog'`) gives the symplectic integrators
+`method: 'yoshida4'` (or `'leapfrog'`) gives the symplectic integrators [2]
 below, and fixed steps always use them.
 
 ### Kick-drift-kick leapfrog (velocity Verlet)
@@ -223,7 +223,7 @@ w_0 = -\frac{2^{1/3}}{2 - 2^{1/3}} = -1.7024143839193153
 $$
 
 ($2w_1 + w_0 = 1$) cancel the third-order error terms, leaving a fourth-order
-method that is still time-reversible (Yoshida 1990). The middle step runs
+method that is still time-reversible (Yoshida 1990 [3]). The middle step runs
 backwards in time, so stage times reach about $t - 0.35h$ and $t + 1.35h$;
 everything evaluated there (ephemeris, thrust with falling mass) is smooth,
 so this is harmless.
@@ -407,7 +407,7 @@ Checked at the end of each step:
   695,700 km to the Sun's. The advance stops there. The planets' moons are
   bodies like any other here, with their radii from Horizons.
 - **Primary change**: the innermost sphere of influence holding the craft, by
-  Laplace's radius $r_\text{SOI} = d\,(\mu/\mu_\text{primary})^{2/5}$ ($d$ the
+  Laplace's radius [4] $r_\text{SOI} = d\,(\mu/\mu_\text{primary})^{2/5}$ ($d$ the
   body's distance from its primary; the Moon's is relative to Earth, and
   each planet's moon's relative to its planet: Ganymede's is 24,500 km).
   Reported; the advance continues.
@@ -577,11 +577,11 @@ Eunomia, Psyche, Euphrosyne, 52 Europa, Cybele, Sylvia, Thisbe, Camilla,
 Davida and Interamnia.
 
 - **GM:** the DE441 masses of the SB441-N16 perturber file, as NAIF's
-  `gm_de440.tpc` gives them (`BODY2000001_GM` etc.). Its sources list the
+  `gm_de440.tpc` gives them [5] (`BODY2000001_GM` etc.). Its sources list the
   "SB441-N16 small-body integration perturber file (DE441 masses)". Ceres
   62.63 km³/s², Vesta 17.29, Pallas 13.67, Hygiea 5.63, Psyche 1.59; the
   smallest, Cybele, 0.94.
-- **Positions:** SB441's own, from the Chebyshev table `sbTable.js`
+- **Positions:** SB441's own [6], from the Chebyshev table `sbTable.js`
   ([small bodies](../frontend/small-bodies.md#exact-positions-for-the-largest)),
   within 1 km of SB441 from 2000 to 2050 and two-body from the table's
   ends outside it. In the kernel each is a Hermite cubic through nodes a
@@ -707,17 +707,17 @@ relative).
 
 | Moon | $J_2$ ($10^{-6}$) | $C_{22}$ ($10^{-6}$) | $R$ (km) | Source |
 | --- | ---: | ---: | ---: | --- |
-| Io | 1,834.6 ± 1.5 | 549.6 ± 0.3 | 1,821.6 | Park et al. 2025 (Juno and Galileo) |
-| Europa | 437.6 ± 77.5 | 138.62 ± 2.44 | 1,560.8 | Gomez Casajus et al. 2021 (Galileo reanalysed), as the JUICE review tabulates it |
-| Ganymede | 133.0 ± 6.8 | 39.56 ± 1.73 | 2,631.2 | Gomez Casajus et al. 2022 (Juno and Galileo); normalised 5.948167 and 6.128513 ×10⁻⁵ in its dataset |
-| Callisto | 32.7 ± 0.8 | 10.2 ± 0.3 | 2,410.3 | Anderson et al. 2001, as the JUICE review tabulates it |
-| Titan | 31.808 ± 0.404 | 9.983 ± 0.039 | 2,575 | Iess et al. 2010, Table 1, solution SOL1 |
+| Io | 1,834.6 ± 1.5 | 549.6 ± 0.3 | 1,821.6 | Park et al. 2025 [7] (Juno and Galileo) |
+| Europa | 437.6 ± 77.5 | 138.62 ± 2.44 | 1,560.8 | Gomez Casajus et al. 2021 [8] (Galileo reanalysed), as the JUICE review [9] tabulates it |
+| Ganymede | 133.0 ± 6.8 | 39.56 ± 1.73 | 2,631.2 | Gomez Casajus et al. 2022 [10] (Juno and Galileo); normalised 5.948167 and 6.128513 ×10⁻⁵ in its dataset |
+| Callisto | 32.7 ± 0.8 | 10.2 ± 0.3 | 2,410.3 | Anderson et al. 2001 [11], as the JUICE review [9] tabulates it |
+| Titan | 31.808 ± 0.404 | 9.983 ± 0.039 | 2,575 | Iess et al. 2010 [12], Table 1, solution SOL1 |
 
 - **Reference radii:** for Io, Europa and Callisto the radius is the mean
   radius the review lists beside the values. The papers themselves were not
   opened to confirm it; a radius a few kilometres off changes the term by
   well under 1 %.
-- **Titan:** the 2012 tidal solution (SOL1b, $J_2 = 34.227$, $C_{22} =
+- **Titan:** the 2012 tidal solution [13] (SOL1b, $J_2 = 34.227$, $C_{22} =
   10.263$) fits a Love number as well. The static 2010 solution is used,
   since the tide is not modelled.
 - **Not modelled:** the moons' fields beyond degree 2, and their tides.
@@ -725,38 +725,30 @@ relative).
   moves the kernel's Juno by 0.2 km after nine hours. For a craft orbiting a
   moon it is what turns the orbit.
 
-## Sources
+## References
 
-- R. S. Park et al., "Io's tidal response precludes a shallow magma ocean",
-  *Nature* 638 (2025) 69-73, doi:10.1038/s41586-024-08442-5.
-- L. Gomez Casajus et al., "Updated Europa gravity field and interior
-  structure from a reanalysis of Galileo tracking data", *Icarus* 358 (2021)
-  114187, doi:10.1016/j.icarus.2020.114187.
-- L. Gomez Casajus et al., "Gravity field of Ganymede after the Juno extended
-  mission", *Geophysical Research Letters* 49 (2022) e2022GL099475,
-  doi:10.1029/2022GL099475; dataset doi:10.5281/zenodo.6949645.
-- J. D. Anderson et al., "Shape, mean radius, gravity field, and interior
-  structure of Callisto", *Icarus* 153 (2001) 157-161,
-  doi:10.1006/icar.2001.6664.
-- L. Iess et al., "Gravity field, shape, and moment of inertia of Titan",
-  *Science* 327 (2010) 1367-1369, doi:10.1126/science.1182583.
-- L. Iess et al., "The tides of Titan", *Science* 337 (2012) 457-459,
-  doi:10.1126/science.1219631.
-- The JUICE geophysics review in *Space Science Reviews* (2026),
-  doi:10.1007/s11214-026-01293-8, for its table of the Galilean moons'
-  fields.
+[1] JPL Solar System Dynamics, "Horizons" announcement of 2021 April 12: the switch to DE440/441 and the sixteen most massive small-body perturbers. [Online]. Available: https://ssd.jpl.nasa.gov/announcements/an20210412a.html
 
-- H. Yoshida, "Construction of higher order symplectic integrators",
-  *Physics Letters A* 150 (1990) 262-268.
-- E. Hairer, C. Lubich, G. Wanner, *Geometric Numerical Integration*, 2nd ed.
-  (Springer, 2006): leapfrog, composition methods, energy behaviour.
-- Laplace's sphere of influence: Curtis, 4th ed., Section 8.4.
-- The asteroids' GMs: NAIF `gm_de440.tpc` (from `gm_Horizons.pck`, J.
-  Giorgini, SSD/JPL, 2022), source 3, "SB441-N16 small-body integration
-  perturber file (DE441 masses)".
-- Their positions: JPL's SB441 ephemerides,
-  [ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/),
-  documented in JPL IOM 392R-21-005 (D. Farnocchia, 2021).
-- JPL SSD, "Horizons" announcement of 2021 April 12: the switch to DE440/441
-  and the sixteen most massive small-body perturbers,
-  [ssd.jpl.nasa.gov/announcements/an20210412a.html](https://ssd.jpl.nasa.gov/announcements/an20210412a.html).
+[2] E. Hairer, C. Lubich, and G. Wanner, *Geometric Numerical Integration*, 2nd ed. Berlin, Germany: Springer, 2006. Leapfrog, composition methods and energy behaviour.
+
+[3] H. Yoshida, "Construction of higher order symplectic integrators," *Phys. Lett. A*, vol. 150, nos. 5–7, pp. 262–268, 1990, doi: 10.1016/0375-9601(90)90092-3.
+
+[4] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. Section 8.4, Laplace's sphere of influence.
+
+[5] NAIF, `gm_de440.tpc`, generic PCK, from `gm_Horizons.pck` (J. Giorgini, SSD/JPL, 2022); source 3, "SB441-N16 small-body integration perturber file (DE441 masses)." [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/
+
+[6] JPL, "SB441 small-body ephemerides," documented in JPL IOM 392R-21-005 (D. Farnocchia, 2021). [Online]. Available: https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/
+
+[7] R. S. Park *et al.*, "Io's tidal response precludes a shallow magma ocean," *Nature*, vol. 638, pp. 69–73, 2025, doi: 10.1038/s41586-024-08442-5.
+
+[8] L. Gomez Casajus *et al.*, "Updated Europa gravity field and interior structure from a reanalysis of Galileo tracking data," *Icarus*, vol. 358, Art. no. 114187, 2021, doi: 10.1016/j.icarus.2020.114187.
+
+[9] F. Nimmo *et al.*, "Internal structure and dynamics of the Galilean satellites," *Space Sci. Rev.*, 2026, doi: 10.1007/s11214-026-01293-8. The JUICE geophysics review; its table of the Galilean moons' fields.
+
+[10] L. Gomez Casajus *et al.*, "Gravity field of Ganymede after the Juno extended mission," *Geophys. Res. Lett.*, vol. 49, Art. no. e2022GL099475, 2022, doi: 10.1029/2022GL099475. Dataset: doi: 10.5281/zenodo.6949645.
+
+[11] J. D. Anderson *et al.*, "Shape, mean radius, gravity field, and interior structure of Callisto," *Icarus*, vol. 153, pp. 157–161, 2001, doi: 10.1006/icar.2001.6664.
+
+[12] L. Iess *et al.*, "Gravity field, shape, and moment of inertia of Titan," *Science*, vol. 327, pp. 1367–1369, 2010, doi: 10.1126/science.1182583.
+
+[13] L. Iess *et al.*, "The tides of Titan," *Science*, vol. 337, pp. 457–459, 2012, doi: 10.1126/science.1219631.

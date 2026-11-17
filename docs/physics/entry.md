@@ -15,12 +15,12 @@ the whole spacecraft). From `orion.js`:
 
 | | Value | Source |
 | --- | --- | --- |
-| Mass | 9,239 kg | the LM606 design reference (Rea & Putnam 2007); the flown masses are not published |
+| Mass | 9,239 kg | the LM606 design reference (Rea & Putnam 2007 [1]); the flown masses are not published |
 | Area | 19.87 m² | the 5.03 m (16.5 ft) heat shield |
-| L/D | 0.26 at Mach 30 to 0.28 at Mach 10, 0.37 at Mach 1.6-2, 0.10 at Mach 0.4 | hypersonic trim about 0.28 (Bibb et al. 2011); EFT-1's 0.25-0.29, peaking near 0.35-0.4 around Mach 1.5-2 (Mazaheri et al. 2026); the subsonic value is assumed |
-| Cd | 1.3 to Mach 1.6, falling to 0.9 at Mach 0.4 | Mazaheri et al. 2026 below Mach 1.6; the hypersonic 1.3 is assumed |
-| Drogues | 2 × 23.2 m² drag area | Ray 2017 (about 250 ft² each, fully open) |
-| Mains | 3 × 1,013 m² | back-calculated from Ray 2017's reefing ratios (about 10,900 ft² each); settles at 7 m/s at sea level (NASA: about 17 mph) |
+| L/D | 0.26 at Mach 30 to 0.28 at Mach 10, 0.37 at Mach 1.6-2, 0.10 at Mach 0.4 | hypersonic trim about 0.28 (Bibb et al. 2011 [2]); EFT-1's 0.25-0.29, peaking near 0.35-0.4 around Mach 1.5-2 (Mazaheri et al. 2026 [3]); the subsonic value is assumed |
+| Cd | 1.3 to Mach 1.6, falling to 0.9 at Mach 0.4 | Mazaheri et al. 2026 [3] below Mach 1.6; the hypersonic 1.3 is assumed |
+| Drogues | 2 × 23.2 m² drag area | Ray 2017 [4] (about 250 ft² each, fully open) |
+| Mains | 3 × 1,013 m² | back-calculated from Ray 2017's [4] reefing ratios (about 10,900 ft² each); settles at 7 m/s at sea level (NASA: about 17 mph) |
 
 The Mach number comes from the standard atmosphere's temperature
 (`machAt`), and the tables are interpolated linearly (`aeroAt`). The
@@ -46,7 +46,7 @@ short; and no step falls far past an opening height.
 ## The guidance
 
 A numerical predictor-corrector, of the kind of Orion's skip entry guidance
-and FNPEG (Lu 2014). Every 2 s (`cycle`) it flies the capsule ahead with a
+and FNPEG (Lu 2014 [5]). Every 2 s (`cycle`) it flies the capsule ahead with a
 fast 3-DOF model (`predict`): point-mass and J2 gravity, the standard
 atmosphere and, above 86 km, the kernel's own MET densities looked up where
 the predicted capsule is (a long skip spends twenty minutes in that air
@@ -89,13 +89,13 @@ the mission's target (`entry.test.mjs`):
 
 | | Ours | Flown |
 | --- | --- | --- |
-| **Artemis I** (target: the splashdown in AAS 24-174, 27.35 N, 118.10 W) | | |
+| **Artemis I** (target: the splashdown in AAS 24-174 [6], 27.35 N, 118.10 W) | | |
 | First dip | 58.5 km | just below 61 km |
 | Skip top | 97.6 km | 87.6 km |
 | Drogues | 17:35:20 | 17:36:06 |
 | Mains | 17:36:35 | 17:37:26 |
 | Splashdown | 17:42:44 at 7.0 m/s, 9.1 km from NASA's point | 17:39:41, 2.1 nmi from NASA's target |
-| **Artemis II** (target approximate: no published coordinates) | | |
+| **Artemis II** [7] (target approximate: no published coordinates) | | |
 | Entry | dips to 55.9 km, lofts to 72 km | no climb back out |
 | Drogues | 00:03:15 | about 00:03 |
 | Mains | 00:04:30 | about 00:04 |
@@ -111,7 +111,7 @@ What is still off:
   predictor-corrector); this flies a constant bank size from entry
   interface. A bank linear in energy (FNPEG) and the PredGuid phases are the
   next steps ([the review](simulation-review.md#3-entry-modelling-plan)).
-- **Under the mains.** NASA's Artemis I blog gives the mains at 9,500 ft at
+- **Under the mains.** NASA's Artemis I blog [8] gives the mains at 9,500 ft at
   17:37:26 and splashdown at 17:39:41: 135 s for 2.9 km, an average of
   21 m/s, where the mains settle at 7.6 m/s. The published heights are kept
   (Artemis II's are its day-of figures, 22,000 and 6,000 ft), so splashdown
@@ -120,16 +120,22 @@ What is still off:
   are not published; the table's values are marked as assumptions.
 - **Winds** are left out; the review lists the sources for them.
 
-## Sources
+## References
 
-- Rea, McNamara & Kane, *Orion Artemis I Entry Performance*, AAS 24-174
-  (NTRS 20240001314, 20240000024): the flown skip, the target and splashdown.
-- Rea & Putnam 2007 (NTRS 20070023643): entry design, the LM606 mass.
-- Bibb, Walker, Brauckmann & Robinson, AIAA 2011-3506 (NTRS 20110013644):
-  Orion's hypersonic aerodatabase.
-- Mazaheri, Bibb & Lessard, IPPW 2026 (NTRS 20260004998): EFT-1 and Artemis
-  aerodynamics.
-- Ray 2017 (NTRS 20170004357): CPAS drag areas and reefing.
-- Lu, *Entry guidance: a unified method*, JGCD 37(3), 2014: FNPEG.
-- NASA Artemis I and II mission blogs, the Artemis II press kit.
-- The full list, checked claim by claim: [simulation review](simulation-review.md#7-sources).
+[1] J. R. Rea and Z. R. Putnam, "A comparison of two skip entry guidance algorithms," in *Proc. AIAA Guidance, Navigation, and Control Conf.*, Aug. 2007. NTRS 20070023643. Used for the entry design and the LM606 mass.
+
+[2] K. L. Bibb, E. L. Walker, R. Brauckmann, and P. E. Robinson, "Development of the Orion Crew Module static aerodynamic database: Hypersonic, Part 1," AIAA Paper 2011-3506, in *Proc. 29th AIAA Applied Aerodynamics Conf.*, Jun. 2011. NTRS 20110013644. Used for Orion's hypersonic aerodatabase.
+
+[3] A. Mazaheri, K. L. Bibb, and V. R. Lessard, "From Exploration Flight Test-1 to Artemis II: A NASA Langley's Orion aerosciences overview," in *Proc. 23rd Int. Planetary Probe Workshop (IPPW)*, Jun. 2026. NTRS 20260004998. Used for EFT-1 and Artemis aerodynamics.
+
+[4] E. S. Ray, "Test vehicle forebody wake effects on CPAS parachutes," in *Proc. AIAA Aerodynamic Decelerator Systems Technology Conf.*, Jun. 2017. NTRS 20170004357. Used for the CPAS drag areas and reefing.
+
+[5] P. Lu, "Entry guidance: A unified method," *J. Guid. Control Dyn.*, vol. 37, no. 3, pp. 713–728, 2014, doi: 10.2514/1.62605. Used for FNPEG.
+
+[6] J. Rea, L. McNamara, and M. Kane, "Orion Artemis I entry performance," in *Proc. 46th Annu. AAS Guidance, Navigation and Control Conf.*, Feb. 2024, Paper AAS 24-174. NTRS 20240001314 (slides) and 20240000024 (paper). Used for the flown skip, the target and splashdown.
+
+[7] NASA, "Artemis II press kit." [Online]. Available: https://www.nasa.gov/artemis-ii-press-kit
+
+[8] NASA, "Artemis I flight day 26: Orion splashes down, concluding historic Artemis I mission," Artemis I mission blog, Dec. 11, 2022. [Online]. Available: https://www.nasa.gov/blogs/missions/2022/12/11/artemis-i-flight-day-26-orion-splashes-down-concluding-historic-artemis-i-mission/
+
+The full list of sources, checked claim by claim: [simulation review](simulation-review.md#7-references).

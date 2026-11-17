@@ -9,7 +9,7 @@ rail's **Small bodies** switches show or hide each population. Thirty-six of
 them are named: the dwarf planets, the largest asteroids, spacecraft targets
 and famous comets.
 
-| Population | SBDB classes | Count | Colour |
+| Population | SBDB classes [1] | Count | Colour |
 | --- | --- | --- | --- |
 | Main belt (brighter than H 15) | MBA, IMB, OMB, MCA | 65,032 | grey |
 | Main belt, fainter (the haze) | MBA, IMB, OMB, MCA | 1,446,321 | grey |
@@ -26,14 +26,14 @@ population as its swatch instead.
 ## The data
 
 - **Fetching** (`npm run fetch:smallbodies`, `src/physics/smallbodies.fetch.mjs`):
-  the SBDB query API at full precision, cached in
+  the SBDB query API [2] at full precision, cached in
   `~/.cache/digital-orrery/sbdb-full` (47 MB), pages of 20,000, two seconds
   apart. The API's default output is rounded for display (Ceres's a to
   2.766 au, angles to 0.01°), tens of thousands of kilometres off, so full
   precision is asked for.
 - **The named ones** (`src/physics/smallbodies.horizons.mjs`): their
   osculating elements at the shared epoch, 2026-01-01 00:00 TT, from JPL
-  Horizons. SBDB's solution for some of them is years old (Bennu's from
+  Horizons [3]. SBDB's solution for some of them is years old (Bennu's from
   2011, Halley's from 1967), and two-body motion from then is millions of
   kilometres off by 2026.
 - **Building** (`npm run build:smallbodies`,
@@ -57,7 +57,7 @@ population as its swatch instead.
 
 `src/scene/smallBodies.ts` is one point cloud. Each frame only the time
 and the camera's position change: the vertex shader solves Kepler's
-equation for every body from its elements (Danby's starting guess, 12
+equation for every body from its elements (Danby's starting guess [4], 12
 Newton steps) and subtracts the camera, so the cost on the CPU does not
 grow with their number.
 
@@ -66,7 +66,7 @@ width in device pixels on its true position, so it neither shimmers nor
 vanishes as the view turns. Its brightness follows its magnitude as seen
 from the camera:
 - **An asteroid:** H + 5 log₁₀(r Δ) − 2.5 log₁₀ Φ(α), the H-G system with
-  G = 0.15 (Bowell et al. 1989).
+  G = 0.15 (Bowell et al. 1989 [5]).
 - **A comet:** M1 + 5 log₁₀ Δ + K1 log₁₀ r, with its own K1.
 
 Here r and Δ are its distances from the Sun and from the camera (au), and
@@ -171,7 +171,7 @@ named bodies JPL's SB441 files cover, take their positions from those files
 instead (`src/physics/sbTable.js`).
 
 - **The source:** JPL's SB441 small-body ephemerides (Farnocchia 2021, JPL
-  IOM 392R-21-005), integrated with the DE441 planets and the largest
+  IOM 392R-21-005 [6]), integrated with the DE441 planets [7] and the largest
   asteroids' pull. `sb441-n16.bsp` holds the 16 most massive, the
   perturbers JPL's small-body integrations (Horizons among them) use with
   DE441; `sb441-n373s.bsp` holds 373, those 16 among
@@ -268,7 +268,7 @@ rail, the arrow keys or following a craft leaves it.
   albedo of 0.15, or 0.04 for a comet's dark nucleus.
   - **The size:** SBDB's diameter where it has one. The trans-Neptunian
     objects and the comets have none there. A TNO is sized from its H
-    for an albedo of 0.15, $D = 1329\ \text{km}\,p^{-1/2}\,10^{-H/5}$. A
+    for an albedo of 0.15, $D = 1329\ \text{km}\,p^{-1/2}\,10^{-H/5}$ [8], [9]. A
     comet's H is its coma's, so it is drawn as a 5 km nucleus. The plate
     says "not in SBDB" and how the drawn size was chosen.
 - **Its point is hidden up close:** the shader works in float32 au, which
@@ -352,24 +352,22 @@ bodies have older ones; those are drawn where two-body motion from then
 puts them, which for some is far from where they are. They show where the
 populations lie, not where a given faint body is tonight.
 
-## Sources
+## References
 
-- JPL Small-Body Database query API,
-  [ssd-api.jpl.nasa.gov/doc/sbdb_query.html](https://ssd-api.jpl.nasa.gov/doc/sbdb_query.html).
-- JPL Horizons API, [ssd.jpl.nasa.gov/horizons](https://ssd.jpl.nasa.gov/horizons/).
-- JPL SB441 small-body ephemerides (`sb441-n16.bsp`, `sb441-n373s.bsp`),
-  [ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/);
-  their documentation is JPL IOM 392R-21-005 (D. Farnocchia, 2021), as the
-  files' comments cite it.
-- R. S. Park, W. M. Folkner, J. G. Williams, D. H. Boggs, "The JPL
-  Planetary and Lunar Ephemerides DE440 and DE441", *AJ* 161, 105 (2021).
-- J. M. A. Danby, *Fundamentals of Celestial Mechanics* (Willmann-Bell,
-  1988): the starting value for Kepler's equation.
-- JPL SBDB orbit classes, [ssd-api.jpl.nasa.gov/doc/sbdb_filter.html](https://ssd-api.jpl.nasa.gov/doc/sbdb_filter.html).
-- JPL CNEOS, asteroid size estimator,
-  [cneos.jpl.nasa.gov/tools/ast_size_est.html](https://cneos.jpl.nasa.gov/tools/ast_size_est.html);
-  Fowler and Chillemi, in *The IRAS Minor Planet Survey* (Phillips
-  Laboratory, 1992, PL-TR-92-2049): the diameter from H and albedo.
-- E. Bowell et al., "Application of photometric models to asteroids", in
-  *Asteroids II* (University of Arizona Press, 1989), pp. 524–556: the H-G
-  magnitude system.
+[1] JPL Solar System Dynamics, "SBDB orbit classes (filter documentation)." [Online]. Available: https://ssd-api.jpl.nasa.gov/doc/sbdb_filter.html
+
+[2] JPL Solar System Dynamics, "Small-Body Database query API." [Online]. Available: https://ssd-api.jpl.nasa.gov/doc/sbdb_query.html
+
+[3] JPL Solar System Dynamics, "Horizons API." [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[4] J. M. A. Danby, *Fundamentals of Celestial Mechanics*. Richmond, VA, USA: Willmann-Bell, 1988. The starting value for Kepler's equation.
+
+[5] E. Bowell et al., "Application of photometric models to asteroids," in *Asteroids II*. Tucson, AZ, USA: Univ. of Arizona Press, 1989, pp. 524–556. The H-G magnitude system.
+
+[6] JPL Solar System Dynamics, "SB441 small-body ephemerides (`sb441-n16.bsp`, `sb441-n373s.bsp`)." [Online]. Available: https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/ Documented in D. Farnocchia, JPL IOM 392R-21-005, 2021, as the files' comments cite it.
+
+[7] R. S. Park, W. M. Folkner, J. G. Williams, and D. H. Boggs, "The JPL planetary and lunar ephemerides DE440 and DE441," *Astron. J.*, vol. 161, no. 3, Art. no. 105, 2021, doi: 10.3847/1538-3881/abd414.
+
+[8] JPL CNEOS, "Asteroid size estimator." [Online]. Available: https://cneos.jpl.nasa.gov/tools/ast_size_est.html
+
+[9] Fowler and Chillemi, in *The IRAS Minor Planet Survey*, Phillips Laboratory, Rep. PL-TR-92-2049, 1992. The diameter from H and albedo.

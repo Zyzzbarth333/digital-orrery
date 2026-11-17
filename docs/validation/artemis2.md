@@ -17,7 +17,7 @@ numbers below are from November 2026.
 
 - **Trajectory:** NAIF's
   [`art002_rec_260402_260410_jsc_bet_revf.bsp`](https://naif.jpl.nasa.gov/pub/naif/ARTEMIS/kernels/spk/)
-  (5.7 MB) and its gap-fill file (50 kB). It holds Orion (NAIF ID −24)
+  (5.7 MB) [1] and its gap-fill file (50 kB). It holds Orion (NAIF ID −24)
   relative to Earth in J2000, from Orion's separation from the upper
   stage at 01:58 UTC on 2 April to entry interface at 23:53 UTC on
   10 April.
@@ -79,7 +79,7 @@ gives:
 - a mass ratio over the burn of 0.882.
 
 NASA gives the OMS-E main engine as 26.7 kN at a nominal Isp of 315.1 s
-([Artemis I engine performance](https://ntrs.nasa.gov/api/citations/20240003648/downloads/382_BELAIR_ARTEMIS_I_ENGINE_PERFORMANCE_FINAL.pdf)).
+([Artemis I engine performance](https://ntrs.nasa.gov/api/citations/20240003648/downloads/382_BELAIR_ARTEMIS_I_ENGINE_PERFORMANCE_FINAL.pdf)) [2].
 - **The fit is sensitive to sampling:** 308 s from 10-second data, 327 s
   from 2-second data. So treat 315 s as consistent with NASA, not as a
   measurement of it.
@@ -88,15 +88,15 @@ NASA gives the OMS-E main engine as 26.7 kN at a nominal Isp of 315.1 s
   published figure.
 
 NASA's figures come from its mission blog:
-- [the injection burn's plan](https://www.nasa.gov/blogs/missions/2026/04/02/artemis-ii-flight-update-perigee-raise-burn-complete/);
-- [the outbound correction](https://www.nasa.gov/blogs/missions/2026/04/05/artemis-ii-flight-day-5-correction-burn-complete/);
-- [return correction 1](https://www.nasa.gov/blogs/missions/2026/04/07/artemis-ii-flight-day-7-first-return-correction-burn-complete/);
-- [return correction 2](https://www.nasa.gov/blogs/missions/2026/04/10/artemis-ii-flight-day-9-second-return-correction-burn-complete/).
+- [the injection burn's plan](https://www.nasa.gov/blogs/missions/2026/04/02/artemis-ii-flight-update-perigee-raise-burn-complete/) [3];
+- [the outbound correction](https://www.nasa.gov/blogs/missions/2026/04/05/artemis-ii-flight-day-5-correction-burn-complete/) [4];
+- [return correction 1](https://www.nasa.gov/blogs/missions/2026/04/07/artemis-ii-flight-day-7-first-return-correction-burn-complete/) [5];
+- [return correction 2](https://www.nasa.gov/blogs/missions/2026/04/10/artemis-ii-flight-day-9-second-return-correction-burn-complete/) [6].
 
 The injection burn's 5 min 50 s is
-[Space.com's](https://www.space.com/space-exploration/artemis/artemis-2-astronauts-head-for-moon-translunar-injection-burn).
+[Space.com's](https://www.space.com/space-exploration/artemis/artemis-2-astronauts-head-for-moon-translunar-injection-burn) [7].
 Return correction 3's figures are from
-[SpaceTech Chronicles](https://spacetechchronicles.com/artemis-ii-live-tracker/)
+[SpaceTech Chronicles](https://spacetechchronicles.com/artemis-ii-live-tracker/) [8]
 only.
 
 ## The checks
@@ -275,12 +275,12 @@ arrive at the same flight? `src/physics/artemis2.design.mjs` (run with
   - **The flyby:** 4,067 miles (6,545.2 km) above the Moon at 7:00:46 pm
     EDT on 6 April (23:00:46 UTC), during the loss of signal behind the
     Moon
-    ([NASA](https://www.nasa.gov/blogs/missions/2026/04/06/artemis-ii-flight-day-6-crew-wraps-historic-lunar-flyby/),
-    [CBS](https://www.cbsnews.com/live-updates/artemis-moon-lunar-flyby/)).
+    ([NASA](https://www.nasa.gov/blogs/missions/2026/04/06/artemis-ii-flight-day-6-crew-wraps-historic-lunar-flyby/) [9],
+    [CBS](https://www.cbsnews.com/live-updates/artemis-moon-lunar-flyby/) [10]).
   - **Entry interface:** 400,000 ft at 7:53 pm EDT on 10 April (23:53 UTC)
-    ([NASA](https://www.nasa.gov/blogs/missions/2026/04/09/artemis-ii-flight-day-9-crew-prepares-to-come-home/)).
+    ([NASA](https://www.nasa.gov/blogs/missions/2026/04/09/artemis-ii-flight-day-9-crew-prepares-to-come-home/) [11]).
   - **The engine:** 26.7 kN at an Isp of 315.1 s
-    ([NASA](https://ntrs.nasa.gov/api/citations/20240003648/downloads/382_BELAIR_ARTEMIS_I_ENGINE_PERFORMANCE_FINAL.pdf)).
+    ([NASA](https://ntrs.nasa.gov/api/citations/20240003648/downloads/382_BELAIR_ARTEMIS_I_ENGINE_PERFORMANCE_FINAL.pdf)) [2].
     NASA's planned 1,274 ft/s in 5 min 49 s then fixes Orion's mass at
     ignition: 25,536 kg.
 
@@ -331,21 +331,21 @@ The remaining differences have clear sources:
 
 **What else NASA published.** A research pass read NASA's three trajectory
 sources and checked every figure against the source:
-- AAS 23-062,
+- AAS 23-062 [12],
   [*Optimized trajectory correction burn placement*](https://ntrs.nasa.gov/api/citations/20230000223/downloads/Artemis2OptTrajDesignFinal.pdf);
-- AAS 25-100,
+- AAS 25-100 [13],
   [*Performance impacts to the Artemis II trajectory*](https://ntrs.nasa.gov/api/citations/20250000050/downloads/Artemis2TrajOpt.pdf);
-- the [press kit](https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf).
+- the [press kit](https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf) [14].
 
 It found:
 - **The corrections are nominally zero** in the free-return design: one
   injection burn, with corrections only for dispersions, budgeted under
-  10 m/s (3σ) (AAS 25-100). That is how this plan is built.
+  10 m/s (3σ) (AAS 25-100 [13]). That is how this plan is built.
 - **The entry interface is constrained to tight 3σ dispersions:** 0.12° in
-  flight-path angle, 5.3 m/s in speed and 25.6 km downrange (AAS 25-100).
+  flight-path angle, 5.3 m/s in speed and 25.6 km downrange (AAS 25-100 [13]).
   The nominal angle is not stated anywhere.
 - **The high Earth orbit is about 115 × 44,525 statute miles**
-  (185 × 71,656 km) (press kit). The flown pre-TLI orbit used here is
+  (185 × 71,656 km) (press kit [14]). The flown pre-TLI orbit used here is
   194 × 70,456 km. Its orientation isn't published, so the start still has
   to come from the data.
 - **Not published:** the injection burn's Δv as flown, its steering,
@@ -522,3 +522,33 @@ node src/physics/artemis2.design.mjs     # our own plan, and its mission file
 - Noisy tracking fixes, drawn from JSC's covariance, instead of perfect
   ones.
 - More missions: Artemis I, and Apollo from NAIF's reconstructions.
+
+## References
+
+[1] NASA/JSC and NAIF, "art002_rec_260402_260410_jsc_bet_revf.bsp," Artemis II best estimated trajectory (BET revF) SPK, 2026. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/ARTEMIS/kernels/spk/
+
+[2] Belair et al., "Artemis I Engine Performance," NTRS 20240003648, 2024. [Online]. Available: https://ntrs.nasa.gov/api/citations/20240003648/downloads/382_BELAIR_ARTEMIS_I_ENGINE_PERFORMANCE_FINAL.pdf
+
+[3] NASA, "Artemis II flight update: perigee raise burn complete," NASA Artemis blog, Apr. 2, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/02/artemis-ii-flight-update-perigee-raise-burn-complete/
+
+[4] NASA, "Artemis II flight day 5: correction burn complete," NASA Artemis blog, Apr. 5, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/05/artemis-ii-flight-day-5-correction-burn-complete/
+
+[5] NASA, "Artemis II flight day 7: first return correction burn complete," NASA Artemis blog, Apr. 7, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/07/artemis-ii-flight-day-7-first-return-correction-burn-complete/
+
+[6] NASA, "Artemis II flight day 9: second return correction burn complete," NASA Artemis blog, Apr. 10, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/10/artemis-ii-flight-day-9-second-return-correction-burn-complete/
+
+[7] Space.com, "Artemis 2 astronauts head for the Moon: translunar injection burn." [Online]. Available: https://www.space.com/space-exploration/artemis/artemis-2-astronauts-head-for-moon-translunar-injection-burn
+
+[8] SpaceTech Chronicles, "Artemis II live tracker." [Online]. Available: https://spacetechchronicles.com/artemis-ii-live-tracker/
+
+[9] NASA, "Artemis II flight day 6: crew wraps historic lunar flyby," NASA Artemis blog, Apr. 6, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/06/artemis-ii-flight-day-6-crew-wraps-historic-lunar-flyby/
+
+[10] CBS News, "Artemis II lunar flyby," live updates. [Online]. Available: https://www.cbsnews.com/live-updates/artemis-moon-lunar-flyby/
+
+[11] NASA, "Artemis II flight day 9: crew prepares to come home," NASA Artemis blog, Apr. 9, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/09/artemis-ii-flight-day-9-crew-prepares-to-come-home/
+
+[12] "Optimized trajectory correction burn placement," AAS 23-062, NTRS 20230000223. [Online]. Available: https://ntrs.nasa.gov/api/citations/20230000223/downloads/Artemis2OptTrajDesignFinal.pdf
+
+[13] "Performance impacts to the Artemis II trajectory," AAS 25-100, NTRS 20250000050. [Online]. Available: https://ntrs.nasa.gov/api/citations/20250000050/downloads/Artemis2TrajOpt.pdf
+
+[14] NASA, "Artemis II press kit," 2026. [Online]. Available: https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf

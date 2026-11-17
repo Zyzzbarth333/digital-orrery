@@ -17,7 +17,7 @@ The code:
   the journey in the scene.
 
 The reference throughout is Curtis, *Orbital Mechanics for Engineering
-Students*, 4th edition (Butterworth-Heinemann, 2020). It is cited by
+Students*, 4th edition (Butterworth-Heinemann, 2020) [1]. It is cited by
 section, equation and example; staging is chapter 13 there (chapter 11 in
 the first two editions).
 
@@ -89,7 +89,7 @@ whatever the flyby needs. Lambert between Galileo's two Earth flybys
 gives 5.0 km/s, in the ecliptic, against the 8.9 km/s the flyby brings in.
 
 The leg is instead a resonant orbit (`transfers.js resonantCone`,
-`resonantVinf`; Strange and Longuski 2002). Its period is N/M of the
+`resonantVinf`; Strange and Longuski 2002 [2]). Its period is N/M of the
 body's, so the craft comes back to the body after N of the body's orbits
 (M of its own):
 - **The cone:** with the excess speed $v_\infty$ fixed by the flyby, the
@@ -111,7 +111,7 @@ body's, so the craft comes back to the body after N of the body's orbits
   ratio the excess speed allows (N and M up to 6), each costed with the
   flybys either side.
 
-On Galileo's dates the planner picks 2:1, as flown. It returns on 8 Dec
+On Galileo's dates the planner picks 2:1, as flown [3]. It returns on 8 Dec
 1992 with the same excess speed it left with, and the two Earth flybys
 need 0 and 70 m/s. Lambert between the same dates needed kilometres a
 second.
@@ -591,7 +591,7 @@ orbits, waits 454 days.
 | Mariner 10's Venus aim set by hand to the plan's B point | the planned flyby | the same periapsis, unpowered; Mercury missed by 194,000 km without its 29 m/s |
 | An aimed node on the way to Mars, flown | the plan | Mars 1.4 km off the planned periapsis |
 | The 2:1 resonance cone at 8.9 km/s about a circular 1 AU orbit | geometry | a = 2^(2/3) AU, 61.98°, back in two years; every clock angle on the cone and back to the start (two-body) |
-| Galileo's Earth to Earth (8 Dec 1990 to 8 Dec 1992) | NASA's dates: PDS mission catalogue | 2:1 chosen, back within a day of 8 Dec 1992, 8.871 out and 8.864 km/s back; Earth flybys 0 and 70 m/s |
+| Galileo's Earth to Earth (8 Dec 1990 to 8 Dec 1992) | NASA's dates: PDS mission catalogue [4] | 2:1 chosen, back within a day of 8 Dec 1992, 8.871 out and 8.864 km/s back; Earth flybys 0 and 70 m/s |
 | Galileo's whole route flown by the kernel | the plan | Venus 2.0, Earth 0.9 and 13.5 km off; Jupiter 3,900 km off a 270,000 km periapsis (1.4 %); corrections 1.1 km/s over six years |
 | The return window from Mars (arrive 7 Sep 2027) | Curtis Ex 8.2 (454 d on circular orbits) | 9 Sep 2028, 368 d later, 2.00 km/s; each profile point is the leg solved there |
 | The lamps: leaving Mars after 30 days, at 8 and 5 km/s; leaving at the window | the rules above | window and delta-v lamps lit, then no window; at the window, green with a 368-day wait |
@@ -627,15 +627,10 @@ orbits, waits 454 days.
 
 ## References
 
-- H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed.,
-  Butterworth-Heinemann, 2020: chapters 6, 8 and 13, by section, equation
-  and example as cited above.
-- N. J. Strange and J. M. Longuski, "Graphical Method for Gravity-Assist
-  Trajectory Design", *Journal of Spacecraft and Rockets* 39(1), 9–16,
-  2002. [doi:10.2514/2.3800](https://doi.org/10.2514/2.3800). The
-  resonant orbit and its cone of excess velocities.
-- NASA Planetary Data System, Galileo mission catalogue: the Venus and
-  Earth flyby times and altitudes.
-  [pds.nasa.gov/data/go-l-nims-3-tube-v1.0/go_1103/catalog/mission.cat](https://pds.nasa.gov/data/go-l-nims-3-tube-v1.0/go_1103/catalog/mission.cat)
-- NASA, Galileo in depth: launch on 18 Oct 1989, the flybys and arrival at
-  Jupiter on 7 Dec 1995. [solarsystem.nasa.gov/missions/galileo/in-depth](https://solarsystem.nasa.gov/missions/galileo/in-depth)
+[1] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. Chapters 6, 8 and 13, by section, equation and example as cited above.
+
+[2] N. J. Strange and J. M. Longuski, "Graphical method for gravity-assist trajectory design," *J. Spacecr. Rockets*, vol. 39, no. 1, pp. 9–16, 2002, doi: 10.2514/2.3800. The resonant orbit and its cone of excess velocities.
+
+[3] NASA, "Galileo in depth." [Online]. Available: https://solarsystem.nasa.gov/missions/galileo/in-depth. Launch on 18 Oct 1989, the flybys and arrival at Jupiter on 7 Dec 1995.
+
+[4] NASA Planetary Data System, "Galileo mission catalogue." [Online]. Available: https://pds.nasa.gov/data/go-l-nims-3-tube-v1.0/go_1103/catalog/mission.cat. The Venus and Earth flyby times and altitudes.
