@@ -420,6 +420,23 @@ header('CASE 9: landings, flown: down to the Moon, a stay, up and home; and a mo
   console.log(`  flown live: ${c.log.filter((l) => /landed|lift off|impact/.test(l.text)).map((l) => l.text).join('; ')}`);
   check('flown live by the Craft: down on the Moon and held, up into orbit after the stay, down at Earth, never crashed', seen.ground && seen.up && c.landed?.key === 'earth' && !c.crashed);
 
+  // A planned landing is a landing only if the craft meets the ground
+  // slowly: one falling onto the Moon at 1 km/s within the hour of a
+  // planned touchdown crashes, and one still in orbit when the time comes
+  // misses it and flies on.
+  const T9 = kernelSeconds(new Date('2026-12-05T00:00:00Z')), M9 = sys.bodiesAt(T9).find((b) => b.key === 'moon'), vM9 = [0, 0, 0];
+  M9.eph.velocity(T9, vM9);
+  const up9 = [0.6, 0.8, 0], site9 = up9.map((x) => x * RM);
+  const crafty = (r, v) => { const k = new Craft({ name: 'test', r, v, t: T9, sys, bare: true }); k.addLandings([{ body: 'moon', t: T9 + 60, local: site9, until: null, how: 'descent' }]); return k; };
+  const runFrames = (k) => { for (let t = T9 + 60; t <= T9 + 1800; t += 60) { k.advanceClock(t); const q = k.buildRequest(); if (q) k.applyResult(host.handle({ type: 'step', crafts: [q] }).crafts[0]); } };
+  const fast = crafty(M9.r.map((x, i) => x + up9[i] * (RM + 50)), vM9.map((x, i) => x - up9[i] * 1.0));
+  runFrames(fast);
+  console.log(`  falling on the Moon at 1 km/s: ${fast.log.filter((l) => /landing|landed|impact|came down/.test(l.text)).map((l) => l.text).join('; ')}`);
+  check('a craft meeting the ground at 1 km/s near a planned touchdown is a crash, not a landing', fast.crashed && !fast.landed && !fast.splashed);
+  const vc9 = Math.sqrt(muM / (RM + 100)), orbiter = crafty(M9.r.map((x, i) => x + up9[i] * (RM + 100)), vM9.map((x, i) => x + [-0.8, 0.6, 0][i] * vc9));
+  runFrames(orbiter);
+  check('one still in orbit when its landing comes misses it and flies on, neither landed nor crashed', !orbiter.landed && !orbiter.crashed && orbiter.log.some((l) => /missed/.test(l.text)));
+
   // A moon left for another planet: Earth orbit, a week in lunar orbit,
   // then Mars, its excess speed about the Earth turned into the Moon's.
   const mm = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [

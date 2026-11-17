@@ -26,6 +26,7 @@
 import { makeEnvironment } from './environment.js';
 import { addJ2 } from './zonal.js';
 import { propagate, rvToElements } from './orbital.js';
+import { TOUCHDOWN_SPEED } from './landing.js';
 import { accelHeliocentric, primaryOf } from './nbody.js';
 import { eqjToEcl } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
@@ -139,6 +140,7 @@ export class Craft {
     this.error = null;
     this.log = [];                   // { t, text } for the app to show
     this.clockJumped = false;
+    if (bare) this.note('flown in the planner\'s model: point masses and zonal terms, no drag, full gravity fields or sunlight', t);
   }
 
   // The mass now: the dry mass, less what the mission's scripted burns have
@@ -262,10 +264,48 @@ export class Craft {
   // entry or set-down is not flown below its perigee, so the craft is put
   // on the site at that time. The craft then waits there until the liftoff.
   addLandings(list) {
-    this.landings = list.map((L) => ({ key: L.body, t: L.t, local: [...L.local], until: L.until ?? null, how: L.how, done: false }));
+    this.landings = list.map((L) => ({ key: L.body, t: L.t, local: [...L.local], until: L.until ?? null, how: L.how, entryKm: L.entryKm, done: false }));
     this.version++;
   }
   nextLanding(after) { return this.landings.find((L) => !L.done && L.t + (L.how === 'descent' ? 600 : 0) > after - 1e-6) ?? null; }
+  // Where a step that ended below a surface of radius R crossed it: back
+  // along the two-body path about the body, in twentieth-of-a-second steps
+  // (fourth-order Runge-Kutta; a craft settling at a few m/s is on a nearly
+  // radial path, where the universal-variable propagator is ill-conditioned),
+  // up to ten minutes back, the last step's crossing found by its fraction.
+  // The kernel checks for the ground at the end of each step, which near
+  // the ground in free fall can be a hundred metres down.
+  groundCrossing(key, r, v, t, R) {
+    const B = this.body(key, t);
+    if (!B?.eph) return { r, v, t };
+    const p0 = B.eph.position(t), v0 = B.eph.velocity(t);
+    let d = sub(r, p0), w = sub(v, v0), tt = 0;
+    if (norm(d) >= R) return { r, v, t };
+    const f = (x) => { const n = norm(x); return [x[0] * -B.mu / n ** 3, x[1] * -B.mu / n ** 3, x[2] * -B.mu / n ** 3]; };
+    const add3 = (a, b, k) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+    const h = -0.05;
+    while (tt > -600) {
+      const k1v = f(d), k1r = w;
+      const k2v = f(add3(d, k1r, h / 2)), k2r = add3(w, k1v, h / 2);
+      const k3v = f(add3(d, k2r, h / 2)), k3r = add3(w, k2v, h / 2);
+      const k4v = f(add3(d, k3r, h)), k4r = add3(w, k3v, h);
+      const dn = [0, 1, 2].map((i) => d[i] + h / 6 * (k1r[i] + 2 * k2r[i] + 2 * k3r[i] + k4r[i]));
+      const wn = [0, 1, 2].map((i) => w[i] + h / 6 * (k1v[i] + 2 * k2v[i] + 2 * k3v[i] + k4v[i]));
+      if (norm(dn) >= R) {
+        const a = (R - norm(d)) / (norm(dn) - norm(d));
+        d = add3(d, sub(dn, d), a); w = add3(w, sub(wn, w), a); tt += a * h;
+        const at = t + tt, p = B.eph.position(at), pv = B.eph.velocity(at);
+        return { r: [p[0] + d[0], p[1] + d[1], p[2] + d[2]], v: [pv[0] + w[0], pv[1] + w[1], pv[2] + w[2]], t: at };
+      }
+      d = dn; w = wn; tt += h;
+    }
+    return { r, v, t };
+  }
+  // Speed over a body's turning surface (km/s) at heliocentric r, v.
+  groundSpeedOn(key, r, v, t) {
+    const site = this.siteOn(key, r, t), g = site && this.siteState(site, t);
+    return g ? norm(sub(v, g.v)) : Infinity;
+  }
   setDown(L, local, t) {
     L.done = true;
     this.landed = { key: L.key, local, t, until: L.until };
@@ -434,19 +474,34 @@ export class Craft {
     if (res.envState?.entry) this.entryState = res.envState.entry;
     const impact = res.events.find((e) => e.type === 'impact');
     this.lagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
-    // A planned landing: an impact on its body within the hour of its time
-    // is the touchdown (the site where the craft came down, at the planned
-    // site's height); reaching its time without one, the planned site.
+    // A planned landing. An impact on its body within the hour of its time
+    // is the touchdown if it is slower than TOUCHDOWN_SPEED over the ground
+    // (taken where the craft crossed the ground, not at the end of the
+    // kernel's step below it); faster, it falls through to the crash below.
+    // Reaching the landing's time without an impact, the craft is put on
+    // the planned site only if it is where the plan has it: a descent
+    // within 100 m of the ground and as slow, an entry no higher than its
+    // planned perigee and 50 km; otherwise the landing is missed and the
+    // craft flies on.
     const L = this.nextLanding(this.kState.t - 3600);
     if (L) {
-      const hit = impact && impact.body === L.key && Math.abs(impact.t - L.t) < 3600;
-      if (hit) {
-        const site = this.siteOn(L.key, res.r, res.t);
-        const local = site ? scale(site.local, norm(L.local) / norm(site.local)) : L.local;
-        this.setDown(L, local, impact.t);
-        return;
+      if (impact && impact.body === L.key && Math.abs(impact.t - L.t) < 3600) {
+        const x = this.groundCrossing(L.key, res.r, res.v, res.t, norm(L.local));
+        const speed = this.groundSpeedOn(L.key, x.r, x.v, x.t);
+        if (speed < TOUCHDOWN_SPEED) {
+          const site = this.siteOn(L.key, x.r, x.t);
+          this.setDown(L, site ? scale(site.local, norm(L.local) / norm(site.local)) : L.local, x.t);
+          return;
+        }
+        L.done = true;
+        this.note(`came down on ${L.key} at ${(speed * 1000).toFixed(0)} m/s: not a landing`, x.t);
+      } else if (!impact && res.t >= L.t + (L.how === 'descent' ? 600 : 0) - 1e-6) {
+        const B = this.body(L.key, res.t), h = B?.eph ? norm(sub(res.r, B.eph.position(res.t))) - norm(L.local) : Infinity;
+        const near = L.how === 'descent' ? h < 0.1 && this.groundSpeedOn(L.key, res.r, res.v, res.t) < TOUCHDOWN_SPEED : L.how === 'entry' ? h <= (L.entryKm ?? 0) + 50 : true;
+        if (near) { this.setDown(L, L.local, res.t); return; }
+        L.done = true;
+        this.note(`landing on ${L.key} missed: ${Number.isFinite(h) ? `${h.toFixed(1)} km up` : 'body not found'}`, res.t);
       }
-      if (!impact && res.t >= L.t + (L.how === 'descent' ? 600 : 0) - 1e-6) { this.setDown(L, L.local, res.t); return; }
     }
     for (const e of res.events) {
       if (e.type === 'impact') {

@@ -218,7 +218,9 @@ the kernel's point masses and zonal terms alone, as the headless flight
 did, not with the extra fields of `environment.js` (the Moon's mascons,
 the Earth's field beyond J2, sunlight): the burns were worked out in that
 model, and a descent flown open loop in another one comes down tens of
-kilometres away, or into the ground. Each step, in time order:
+kilometres away, or into the ground. The craft's readout says so (Model:
+Planner's) and its log too, since such a craft ignores drag: left in a low
+Earth orbit, it never decays. Each step, in time order:
 
 1. **The start:** at the periapsis of the departure hyperbola in the
    parking orbit (as the planner's launches already do,
@@ -269,7 +271,8 @@ kilometres away, or into the ground. Each step, in time order:
    - **Through an atmosphere:** the drag-free path is flown to its
      perigee, at the waypoint's height (120 km at Earth), and the craft is
      set down on the ground beneath it. The entry itself (heat shield,
-     parachutes) is not flown, as the plan does not cost it.
+     parachutes) is not flown, as the plan does not cost it. A path that
+     meets the ground before its perigee is a crash.
    - **On an airless body**, from the low orbit the capture left:
      - **The descent orbit:** retrograde, onto the ellipse down to 15 km,
        the first burn of a Hohmann transfer (17 m/s from 100 km over the
@@ -288,11 +291,26 @@ kilometres away, or into the ground. Each step, in time order:
        length is found by bisection.
      - **Touchdown:** the kernel's impact, at the point where the step
        crossed the ground (two-body from the step's start, bisection on the
-       time). Faster than 10 m/s over the ground is a crash.
+       time). Faster than 10 m/s over the ground is a crash
+       (`landing.js TOUCHDOWN_SPEED`; the flown descents touch down under
+       3).
    - **On a body without the kernel's gravity** (a small body, a moon other
      than ours): set down from the rendezvous.
    - **The stay:** the craft is held at the body-fixed site, turning with
      the body (`orientation.js` axes), and its path follows the site.
+   - **In the app** (`Craft.addLandings`): the craft flies the planned
+     burns, and an impact on the landing's body within an hour of the
+     planned touchdown is the landing only if it is slower than 10 m/s over
+     the ground, where the craft crossed it (stepped back from the end of
+     the kernel's step, which can be 100 m down). Faster, it is a crash.
+     For an entry, or a descent that never quite touches, the craft is put
+     on the planned site at its time only if it is where the plan has it:
+     a descent within 100 m of the ground and as slow, an entry no higher
+     than its planned perigee and 50 km. Otherwise the landing is missed
+     and the craft flies on. A landed craft is not stepped; it is drawn at
+     the site until its liftoff. Like every craft, it keeps its state
+     across a clock jump: set the clock back before the touchdown, and it
+     stays on the ground until its liftoff time.
 8. **Lifting off:** three hours before the departure, from the site's
    state (the body's spin included):
    - **The plane:** the one holding the site and the next departure's
@@ -585,6 +603,7 @@ orbits, waits 454 days.
 | Braking from 15 km over the Moon; the ascent to 100 km (two-body) | stops where asked; more than the speed taken off or given | 1.5 km up, 1,762 m/s for 1,692; 1,763 m/s for 1,634 |
 | Earth orbit, down to the Moon for 3 days, up, home through the air, flown | the plan | down at 2.8 m/s, 1,854 m/s for the descent; up for 1,764; home 1.9 km from the aimed point, the entry perigee 118 km for 120 |
 | The same, flown live by the app's Craft | the headless flight | down on the Moon, held, up, down at Earth, never crashed |
+| A Craft meeting the Moon at 1 km/s near a planned touchdown; one still in orbit at it | the 10 m/s limit | a crash, not a landing; the landing missed, flying on |
 | Earth orbit, a week in lunar orbit, then Mars, flown | the plan | leaves the Moon for 2,243 m/s (plan 1,652: the Moon's phase); Mars 1.4 km off; corrections 149 m/s |
 
 ## Limits

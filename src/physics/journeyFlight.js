@@ -35,7 +35,7 @@ import { propagate, lambert } from './orbital.js';
 import { solarSystemBodies, KERNEL_BODIES } from './bodies.js';
 import { aimingRadius } from './transfers.js';
 import { bodyAxesEqj } from './orientation.js';
-import { deorbitDv, designBraking, designTerminal, designAscent, DESCENT_PERIAPSIS_KM } from './landing.js';
+import { deorbitDv, designBraking, designTerminal, designAscent, DESCENT_PERIAPSIS_KM, TOUCHDOWN_SPEED } from './landing.js';
 
 const DAY = 86400;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -501,8 +501,9 @@ export function flyJourney(sys, plan, { samples = 400 } = {}) {
       if (e.mode === 'setdown') { flyTo(t); setDown(e.body, e.waypoint, 'setdown'); out.log.push(`set down on ${e.body}`); continue; }
       landingOn = e.body; touch = null;
       if (e.mode === 'entry') {
-        // Through the air: the drag-free path flown to its perigee (or into
-        // the ground, if it gets there first), set down beneath it.
+        // Through the air: the drag-free path flown to its perigee, set down
+        // beneath it. A path that meets the ground first is a crash: the
+        // perigee was meant to be the entry height, well up.
         flyTo(t);
         for (let i = 0; i < 4 && !touch && !out.impact; i++) {
           const { r, v, B } = rel(e.body, s.t), tp = timeToPeriapsis(r, v, B.mu);
@@ -510,6 +511,14 @@ export function flyJourney(sys, plan, { samples = 400 } = {}) {
           flyTo(s.t + tp);
         }
         if (out.impact) break;
+        if (touch) {
+          const B = bodyState(e.body, s.t), [X, Y, W] = axesOf(e.body, s.t), d = sub(s.r, B.r);
+          const speed = norm(sub(s.v, siteAt({ key: e.body, local: [dot(X, d), dot(Y, d), dot(W, d)] }, s.t).v));
+          out.impact = { body: e.body, t: s.t, speed };
+          out.log.push(`entry at ${e.body}: the drag-free path met the ground at ${(speed * 1000).toFixed(0)} m/s before its perigee`);
+          landingOn = null; touch = null;
+          break;
+        }
         const hp = norm(rel(e.body, s.t).r) - bodyInfo(e.body).radius;
         setDown(e.body, e.waypoint, 'entry', { entryKm: hp });
         landingOn = null; touch = null;
@@ -564,7 +573,7 @@ export function flyJourney(sys, plan, { samples = 400 } = {}) {
       if (!touch && up > 0.1) { out.log.push(`descent to ${e.body}: still ${(up * 1000).toFixed(0)} m up`); landingOn = null; continue; }
       const speed = setDown(e.body, e.waypoint, 'descent', { dv });
       landingOn = null; touch = null;
-      if (speed > 0.01) { out.impact = { body: e.body, t: s.t, speed }; held = null; out.log.push(`descent to ${e.body}: hit the ground at ${(speed * 1000).toFixed(1)} m/s`); break; }
+      if (speed > TOUCHDOWN_SPEED) { out.impact = { body: e.body, t: s.t, speed }; held = null; out.log.push(`descent to ${e.body}: hit the ground at ${(speed * 1000).toFixed(1)} m/s`); break; }
       out.log.push(`landed on ${e.body}: ${(speed * 1000).toFixed(1)} m/s at touchdown, ${(dv * 1000).toFixed(0)} m/s for the descent (descent orbit ${(d1 * 1000).toFixed(0)}, braking ${(br.dv * 1000).toFixed(0)} at ${(br.accel * 1000).toFixed(2)} m/s^2, across ${(match * 1000).toFixed(1)}, last ${((term?.dv ?? 0) * 1000).toFixed(0)})`);
       continue;
     }

@@ -33,6 +33,11 @@ const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a) => scale(a, 1 / norm(a));
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
+// The fastest a landing may meet the ground (km/s), over the turning
+// surface: 10 m/s. Faster is a crash, in the kernel's flight and in the
+// app's Craft alike. The flown descents touch down under 3.
+export const TOUCHDOWN_SPEED = 0.01;
+
 // The descent orbit's periapsis height (km): a choice, low enough that the
 // braking burn starts near the ground (little height left to lose under
 // gravity), high enough to clear the terrain.
