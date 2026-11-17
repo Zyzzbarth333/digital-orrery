@@ -399,6 +399,17 @@ published equations and Fortran listings
 | The TeX subset's MathML and plain text | fractions, roots, scripts, fences, function names, unary signs |
 | Every tag's equations (`tag-info.js`, 59 entries) | all parse; each has what it is and a source |
 
+## Twinkling (`scintillation.test.mjs`)
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Hufnagel–Valley 5/7: r₀ and θ₀ straight up at 0.5 µm | 5 cm and 7 µrad by its definition | 4.96 cm, 6.90 µrad |
+| Weak turbulence | σ_I² = σ_R² | to 1 % at σ_R² = 10⁻³ |
+| Airmass | σ_R² ∝ sec^(11/6) z | exact; σ_I² rises 0.20 → 0.88 from 0° to 70° |
+| Strong turbulence | σ_I² saturates at 1 | 1.24, 1.14, 1.03 at σ_R² = 10, 100, 10⁴ |
+| Height | the turbulence is low | σ_R² at 10, 20, 30 km: 0.11, 1×10⁻³, 0 of the ground's |
+| Air's refractivity | Edlén (1966), standard air: 2.7782×10⁻⁴ at 550 nm | 2.7782×10⁻⁴; blue 1.51 % above red |
+
 ## A small body's plate (`smallbodies.test.mjs`)
 
 | Fact | Reference | Result |
