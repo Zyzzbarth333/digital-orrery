@@ -36,7 +36,7 @@ export function SatelliteRail({ api }: { api: SatelliteApi }) {
         <li>
           <button className="body-row" role="switch" aria-checked={api.on} onClick={() => api.setOn(!api.on)}
             title="Every active satellite CelesTrak lists, moved by SGP4; the named ones with their orbits. Dimmer in the Earth's shadow">
-            <span className="lamp-sq" style={{ background: api.on ? 'var(--phosphor-dim)' : 'transparent', borderColor: 'var(--seam-strong)' }} />
+            <span className="lamp-sq" style={{ background: api.on ? 'var(--phosphor)' : 'transparent', borderColor: 'var(--phosphor)' }} />
             <span>All active</span>
             <span className="dist">{api.on ? 'on' : 'off'}</span>
           </button>

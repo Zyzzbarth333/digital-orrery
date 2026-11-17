@@ -30,6 +30,12 @@ axes fixed to distant quasars, aligned with the Earth's equator and
 equinox of 1 January 2000, 12:00 TT. "EQJ" is the same frame by its
 astronomy-engine name. [Frames, units and time](physics/frames-and-time.md)
 
+**TEME.** True equator, mean equinox: the frame SGP4 works in. Its z axis
+is the Earth's pole of date, and its x axis the mean equinox moved along the
+equator of date by the equation of the equinoxes. The app turns it into
+J2000 with the IAU 1976 precession and 1980 nutation.
+[Earth satellites](frontend/satellites.md#from-teme-to-j2000)
+
 **Ecliptic.** The plane of the Earth's orbit. The scene draws in ecliptic
 axes, so the planets lie roughly flat.
 
@@ -76,6 +82,14 @@ asteroids and Artemis I fixtures are checked against it.
 
 **SBDB.** JPL's Small-Body Database, the source of the app's 135,353
 asteroids and comets. [Asteroids and comets](frontend/small-bodies.md)
+
+**TLE, GP elements, OMM.** The orbits the US Space Force publishes for every
+object it tracks: "general perturbations" (GP) mean elements, fitted for
+SGP4. The two-line element set (TLE) is their old fixed-column form; the
+Orbit Mean-Elements Message (OMM) carries the same keywords as XML, JSON or
+CSV, and allows catalogue numbers past 99,999. CelesTrak serves them. The
+app's Earth satellites come from them.
+[Earth satellites](frontend/satellites.md#the-data)
 
 **GM.** A body's mass times the gravitational constant, in km³/s². GM is
 known far more precisely than either factor alone, so the physics uses it
@@ -133,6 +147,16 @@ Sun's tide. Its radius is $r \approx a\,(m/3M)^{1/3}$.
 station with two larger ones, turning with them. L4 and L5 lie 60° ahead
 of and behind the smaller body. Jupiter's trojans gather there.
 [Gravity guides](physics/gravity-guides.md)
+
+**SGP4, SDP4.** The analytical theory the US Space Force fits its element
+sets with (Simplified General Perturbations 4): the Earth's J2 and J4,
+drag through a term B\*, and, for periods over 225 minutes (SDP4), the
+Moon's and the Sun's pull and the 12- and 24-hour resonances. An element
+set gives the right positions only through it, to about a kilometre at its
+epoch. [Earth satellites](frontend/satellites.md#moving-them-sgp4)
+
+**Epoch.** The instant a set of orbital elements describes. A satellite's
+element set grows less accurate the further the clock is from its epoch.
 
 ## Transfers and journeys
 

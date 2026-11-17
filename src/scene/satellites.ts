@@ -136,6 +136,11 @@ const FRAGMENT = /* glsl */ `
   }`;
 
 interface Orbit { line: THREE.Line; tc: number; period: number }
+const WHITE = new THREE.Color(1, 1, 1);
+// The constellations, whose members are many and alike.
+const isCrowd = (g: SatGroup) => g === 'gps' || g === 'galileo' || g === 'weather';
+// A constellation's outline, as a display level.
+const CROWD_OPACITY = 0.08;
 
 export class SatelliteLayer {
   private on = false;
@@ -149,6 +154,8 @@ export class SatelliteLayer {
   private named: NamedSat[] = [];
   private markers = new Map<number, HTMLDivElement>();
   private orbits = new Map<number, Orbit>();
+  private orbitAt = new Map<number, { tc: number; period: number }>();   // every named one's last sampling
+  private crowdLines: THREE.LineSegments | null = null;
   private material: THREE.ShaderMaterial;
   private points: THREE.Points | null = null;
   private buffer: THREE.InterleavedBuffer | null = null;
@@ -196,6 +203,7 @@ export class SatelliteLayer {
     if (on) this.loading ??= this.load();
     if (this.points) this.points.visible = on;
     for (const o of this.orbits.values()) o.line.visible = on;
+    if (this.crowdLines) this.crowdLines.visible = on;
     if (!on) for (const el of this.markers.values()) el.style.display = 'none';
   }
 
@@ -229,6 +237,7 @@ export class SatelliteLayer {
     this.makePoints();
     this.t0 = NaN;
     for (const o of this.orbits.values()) o.tc = NaN;
+    this.orbitAt.clear();
     this.worker ??= this.startWorker();
     this.busy = true;
     this.worker.postMessage({ type: 'gp', csv });
@@ -292,18 +301,32 @@ export class SatelliteLayer {
   private lastOrbits = 0;
   private askOrbits(): void {
     if (!this.worker || this.orbitBusy || !this.on || !this.named.length) return;
-    const due = this.named.some((n) => { const o = this.orbits.get(n.id); return !o || !(Math.abs(this.timeMs - o.tc) < 0.3 * o.period); });
+    const due = this.named.some((n) => { const o = this.orbitAt.get(n.id); return !o || !(Math.abs(this.timeMs - o.tc) < 0.3 * o.period); });
     if (!due || performance.now() - this.lastOrbits < 4 * REFRESH_MIN_MS) return;
     this.lastOrbits = performance.now();
     this.orbitBusy = true;
     this.worker.postMessage({ type: 'orbits', t: this.timeMs + this.rate * this.lag, ids: this.named.map((n) => n.id), samples: ORBIT_SAMPLES });
   }
 
+  // The orbits, sampled by SGP4 in the worker. A station's, Hubble's or a
+  // found satellite's is a line of its own with the planets' orbit shader
+  // (a faint outline and a glowing trail behind it); the constellations'
+  // 82 share one faint line set in their groups' colours, drawn at once
+  // (85 lines cost 3.6 ms a frame on an integrated GPU, mostly in draw
+  // calls).
   private takeOrbits(t: number, ids: number[], buf: Float32Array, periods: Float64Array): void {
     const v = new THREE.Vector3();
+    const toRender = (j: number, k: number, out: Float32Array, o: number) => {
+      const b = (j * ORBIT_SAMPLES + k) * 3;
+      v.set(buf[b], buf[b + 1], buf[b + 2]).applyMatrix3(this.toRenderM).multiplyScalar(1 / UNIT_KM);
+      out[o] = v.x; out[o + 1] = v.y; out[o + 2] = v.z;
+    };
+    const crowd: number[] = [];
     ids.forEach((id, j) => {
       const n = this.named.find((x) => x.id === id);
       if (!n || !(periods[j] > 0)) return;
+      this.orbitAt.set(id, { tc: t, period: periods[j] });
+      if (isCrowd(n.group)) { crowd.push(j); return; }
       let o = this.orbits.get(id);
       if (!o) {
         const g = new THREE.BufferGeometry();
@@ -311,10 +334,7 @@ export class SatelliteLayer {
         for (let k = 0; k < ORBIT_SAMPLES; k++) u[k] = k / (ORBIT_SAMPLES - 1) - 0.5;
         g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ORBIT_SAMPLES * 3), 3));
         g.setAttribute('u', new THREE.BufferAttribute(u, 1));
-        // The stations' and other single satellites' orbits plainer than a
-        // constellation's, whose dozens of lines would fill the view.
-        const crowd = n.group === 'gps' || n.group === 'galileo' || n.group === 'weather';
-        const line = new THREE.Line(g, orbitTrailMaterial(new THREE.Color(COLOUR_OF[n.group]).getHex(), crowd ? 0.08 : 0.22, 0.12));
+        const line = new THREE.Line(g, orbitTrailMaterial(new THREE.Color(COLOUR_OF[n.group]).getHex(), 0.22, 0.12));
         line.frustumCulled = false;
         line.visible = this.on;
         this.scene.add(line);
@@ -322,11 +342,7 @@ export class SatelliteLayer {
         this.orbits.set(id, o);
       }
       const pos = o.line.geometry.getAttribute('position') as THREE.BufferAttribute, arr = pos.array as Float32Array;
-      for (let k = 0; k < ORBIT_SAMPLES; k++) {
-        const b = (j * ORBIT_SAMPLES + k) * 3;
-        v.set(buf[b], buf[b + 1], buf[b + 2]).applyMatrix3(this.toRenderM).multiplyScalar(1 / UNIT_KM);
-        arr[k * 3] = v.x; arr[k * 3 + 1] = v.y; arr[k * 3 + 2] = v.z;
-      }
+      for (let k = 0; k < ORBIT_SAMPLES; k++) toRender(j, k, arr, k * 3);
       pos.needsUpdate = true;
       o.tc = t; o.period = periods[j];
     });
@@ -335,6 +351,27 @@ export class SatelliteLayer {
       this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose();
       this.orbits.delete(id);
     }
+    // The constellations: segments k -> k + 1 of each orbit.
+    const segs = ORBIT_SAMPLES - 1, pos = new Float32Array(crowd.length * segs * 6), col = new Float32Array(crowd.length * segs * 6);
+    const c = new THREE.Color();
+    crowd.forEach((j, q) => {
+      c.set(COLOUR_OF[this.named.find((x) => x.id === ids[j])!.group]).lerp(WHITE, 0.35);
+      for (let k = 0; k < segs; k++) {
+        const o = (q * segs + k) * 6;
+        toRender(j, k, pos, o); toRender(j, k + 1, pos, o + 3);
+        col[o] = col[o + 3] = c.r; col[o + 1] = col[o + 4] = c.g; col[o + 2] = col[o + 5] = c.b;
+      }
+    });
+    if (!this.crowdLines) {
+      const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending });
+      this.crowdLines = new THREE.LineSegments(new THREE.BufferGeometry(), m);
+      this.crowdLines.frustumCulled = false;
+      this.crowdLines.visible = this.on;
+      this.scene.add(this.crowdLines);
+    }
+    const g = this.crowdLines.geometry;
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   }
 
   private makeMarker(n: NamedSat): void {
@@ -392,6 +429,12 @@ export class SatelliteLayer {
       const m = o.line.material as THREE.ShaderMaterial;
       m.uniforms.now.value = (timeMs - o.tc) / o.period;
       m.uniforms.level.value = level * (id === this.focusId ? 1.6 : 1);
+    }
+    if (this.crowdLines) {
+      this.crowdLines.position.copy(er);
+      this.crowdLines.visible = this.fade > 0;
+      const m = this.crowdLines.material as THREE.LineBasicMaterial;
+      m.color.setScalar(CROWD_OPACITY * level);
     }
     // The focused one's own point would sit a little off its marker so near
     // the camera (float32): hidden within twice its distance.
@@ -491,7 +534,6 @@ export class SatelliteLayer {
     const w = this.overlay.clientWidth, h = this.overlay.clientHeight, px = window.devicePixelRatio || 1;
     const placed: [number, number][] = [];
     const cam = this.cam, e = this.earth;
-    const dEarth = Math.hypot(e[0] - cam[0], e[1] - cam[1], e[2] - cam[2]);
     const M = temeToEqj(this.timeMs);
     // The focused one first, so it keeps its label.
     const order = [...this.named].sort((a, b) => (b.id === this.focusId ? 1 : 0) - (a.id === this.focusId ? 1 : 0));
@@ -504,7 +546,10 @@ export class SatelliteLayer {
       const rEcl = eqjToEcl(s.r) as V3;
       const rel: V3 = [e[0] + rEcl[0] - cam[0], e[1] + rEcl[1] - cam[1], e[2] + rEcl[2] - cam[2]];
       const d = Math.hypot(rel[0], rel[1], rel[2]);
-      const near = n.group === 'station' || n.group === 'science' || n.group === 'found' ? d < 6e4 : dEarth < 2e5;
+      // A constellation's members only close by (dozens of markers moved
+      // every frame cost an integrated GPU 4 ms): their points and orbits
+      // show them, and the rail's list flies to them.
+      const near = isCrowd(n.group) ? d < 2e4 : d < 6e4;
       if (!focused && (!near || this.fade <= 0)) { el.style.display = 'none'; continue; }
       if (behindEarth(rel, [e[0] - cam[0], e[1] - cam[1], e[2] - cam[2]], d)) { el.style.display = 'none'; continue; }
       const ndc = this.tmp.set(rel[0] / UNIT_KM, rel[2] / UNIT_KM, -rel[1] / UNIT_KM).project(camera);
@@ -512,8 +557,7 @@ export class SatelliteLayer {
       const x = Math.round(((ndc.x + 1) / 2) * w * px) / px, y = Math.round(((1 - ndc.y) / 2) * h * px) / px;
       // A constellation's members show their names on hover only: dozens
       // round the Earth would bury it.
-      const crowd = n.group === 'gps' || n.group === 'galileo' || n.group === 'weather';
-      const quiet = !focused && (crowd || placed.some(([qx, qy]) => Math.abs(qx - x) < 60 && Math.abs(qy - y) < 12));
+      const quiet = !focused && (isCrowd(n.group) || placed.some(([qx, qy]) => Math.abs(qx - x) < 60 && Math.abs(qy - y) < 12));
       el.classList.toggle('quiet', quiet);
       if (!quiet) placed.push([x, y]);
       el.classList.toggle('shadow', inShadow(s.r, this.sunEqj));
@@ -528,6 +572,7 @@ export class SatelliteLayer {
     if (this.points) { this.scene.remove(this.points); this.points.geometry.dispose(); }
     this.material.dispose();
     for (const o of this.orbits.values()) { this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose(); }
+    if (this.crowdLines) { this.scene.remove(this.crowdLines); this.crowdLines.geometry.dispose(); (this.crowdLines.material as THREE.Material).dispose(); }
     for (const el of this.markers.values()) el.remove();
   }
 }

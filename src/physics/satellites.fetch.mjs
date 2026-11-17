@@ -93,6 +93,7 @@ const meta = {
   epochs: { first: new Date(epochs[0]).toISOString(), median: new Date(epochs[epochs.length >> 1]).toISOString(), last: new Date(epochs.at(-1)).toISOString() },
   named,
 };
-await writeFile(join(ROOT, 'public', 'data', 'satellites.csv'), active.text);
+// CelesTrak ends its lines with CRLF; the repository keeps LF.
+await writeFile(join(ROOT, 'public', 'data', 'satellites.csv'), active.text.replace(/\r\n/g, '\n'));
 await writeFile(join(ROOT, 'public', 'data', 'satellites.json'), `${JSON.stringify(meta, null, 1)}\n`);
 console.log(`${rows.length} satellites, ${named.length} named (${['station', 'science', 'gps', 'galileo', 'weather'].map((g) => `${named.filter((n) => n.group === g).length} ${g}`).join(', ')}); median epoch ${meta.epochs.median}`);

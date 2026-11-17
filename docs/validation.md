@@ -491,3 +491,18 @@ published equations and Fortran listings
 | Halley's period and perihelion | NASA: about 76 years, 0.59 au | 75.47 yr, 0.572 au (osculating, 2026) |
 | Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
 | Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |
+
+## Earth satellites (`satellites.test.mjs`)
+
+SGP4 and SDP4 (satellite.js, opsmode a), the TEME to J2000 turn, and the
+shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| SGP4, near-Earth, 158 states | Vallado et al., AIAA 2006-6753, verification set (`SGP4-VER.TLE`, MATLAB output) | within 0.14 mm and 0.81 µm/s |
+| SDP4, deep space, 508 states (resonances, Lyddane choices, near-parabolic) | the same | within 35 mm and 15.5 µm/s (the OMM reader's epoch to the millisecond) |
+| the error case 33334 | the same | refused (error 3) |
+| TEME to J2000, "of date" | Vallado et al., App. C, eq. (C-3), satellite 00005 | position within 0.82 m (the turn moves it 1,154 m), velocity within 0.50 mm/s, matrix as eq. (C-2) to 10⁻⁷ |
+| the ISS, ±6 h of its epoch | JPL Horizons (−125544), geocentric ICRF | within 106 m and 0.12 m/s (TEME as J2000 would be 25.8 km off) |
+| the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
+| the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
