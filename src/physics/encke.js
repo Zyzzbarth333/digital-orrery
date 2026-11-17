@@ -72,20 +72,26 @@ export const ENCKE_OUT = 3e-5;
 const RECTIFY = 1e-4;
 // Math.hypot is several times slower than this in V8, and runs per stage.
 const len3 = (x, y, z) => Math.sqrt(x * x + y * y + z * z);
+const ZERO = [0, 0, 0];
 const SAFETY = 0.9;
 
 // The older perturbation ({ tidal: false }): the craft's heliocentric
 // acceleration without P's direct pull, minus P's ephemeris acceleration aP,
 //   -muSun c/|c|^3 - mu_P rP/|rP|^3
 //   + sum_{j != P} mu_j [ (r_j - c)/|r_j - c|^3 - r_j/|r_j|^3 ] + J2 - aP,
-// at heliocentric craft position c, primary P at rP, into out.
-function perturbation(c, rP, aP, key, mu, bodies, muSun, out) {
+// at heliocentric craft position c, primary P at rP, into out. When the
+// kernel integrates about the SSB (sunAcc, the Sun's acceleration about it
+// from DE442), the Sun's own acceleration is DE442's instead of the sum of
+// indirect terms: those drop out and -sunAcc takes their place.
+function perturbation(c, rP, aP, key, mu, bodies, muSun, out, sunAcc = null) {
   const c2 = c[0] * c[0] + c[1] * c[1] + c[2] * c[2];
   const p2 = rP[0] * rP[0] + rP[1] * rP[1] + rP[2] * rP[2];
-  const kc = muSun / (c2 * Math.sqrt(c2)), kp = mu / (p2 * Math.sqrt(p2));
-  let ax = -kc * c[0] - kp * rP[0] - aP[0];
-  let ay = -kc * c[1] - kp * rP[1] - aP[1];
-  let az = -kc * c[2] - kp * rP[2] - aP[2];
+  const ind = sunAcc ? 0 : 1;
+  const kc = muSun / (c2 * Math.sqrt(c2)), kp = ind * mu / (p2 * Math.sqrt(p2));
+  const s = sunAcc ?? ZERO;
+  let ax = -kc * c[0] - kp * rP[0] - aP[0] - s[0];
+  let ay = -kc * c[1] - kp * rP[1] - aP[1] - s[1];
+  let az = -kc * c[2] - kp * rP[2] - aP[2] - s[2];
   out[0] = ax; out[1] = ay; out[2] = az;
   for (let j = 0; j < bodies.length; j++) {
     const b = bodies[j];
@@ -95,7 +101,7 @@ function perturbation(c, rP, aP, key, mu, bodies, muSun, out) {
     if (b.j2 && e2 < b.j2Cut2) addJ2(-ex, -ey, -ez, e2, b, out);
     if (b.key === key) continue;
     const q2 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
-    const ke = b.mu / (e2 * Math.sqrt(e2)), kj = b.mu / (q2 * Math.sqrt(q2));
+    const ke = b.mu / (e2 * Math.sqrt(e2)), kj = ind * b.mu / (q2 * Math.sqrt(q2));
     out[0] += ke * ex - kj * p[0]; out[1] += ke * ey - kj * p[1]; out[2] += ke * ez - kj * p[2];
   }
   return out;
@@ -107,7 +113,8 @@ function perturbation(c, rP, aP, key, mu, bodies, muSun, out) {
 //   a_pert = muSun (rP/|rP|^3 - c/|c|^3)
 //            + sum_{j != P} mu_j [ (r_j - c)/|r_j - c|^3 - (r_j - rP)/|r_j - rP|^3 ]
 //            + sum_j a_J2,j(c)
-// (the indirect terms r_j/|r_j|^3 cancel). The ephemeris then only places
+// (the indirect terms r_j/|r_j|^3 cancel, so it is the same whether the
+// kernel integrates about the Sun or about the SSB). The ephemeris then only places
 // the primary and the other bodies; its acceleration, which carries the
 // fitting noise of its Chebyshev records (3e-9 m/s^2 for DE442's Earth),
 // never enters the motion about the primary.
@@ -173,6 +180,10 @@ export function advanceEncke(state, tEnd, opts) {
     breakpoints = null, extraAccel = null, sunRadius = 695700, primaryOf, tidal = true,
   } = opts;
   const focus = opts.focus ?? bodiesAt.focus;
+  // About the SSB (advance()), Encke still works in heliocentric
+  // coordinates: its tidal form is the same in either frame, and its older
+  // form takes the Sun's acceleration from DE442 (opts.ssb).
+  const ssb = opts.ssb ?? null, sunAcc = ssb ? [0, 0, 0] : null;
   const key = state.primary;
   const bodies0 = () => bodiesAt(state.t);
   const P = bodies0().find((b) => b.key === key);
@@ -202,7 +213,7 @@ export function advanceEncke(state, tEnd, opts) {
     const k = mu / (rr2 * Math.sqrt(rr2));
     cpos[0] = rP[0] + rx; cpos[1] = rP[1] + ry; cpos[2] = rP[2] + rz;
     if (tidal) perturbationTidal(cpos, rP, key, bodies, muSun, pert);
-    else perturbation(cpos, rP, aP, key, mu, bodies, muSun, pert);
+    else perturbation(cpos, rP, aP, key, mu, bodies, muSun, pert, sunAcc && ssb.acceleration(t, sunAcc));
     if (extraAccel) {
       // The craft's heliocentric velocity, for burns steered relative to it:
       // the primary's, the reference conic's and the deviation's.

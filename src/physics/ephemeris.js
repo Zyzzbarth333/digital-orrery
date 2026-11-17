@@ -167,6 +167,13 @@ export function deSsbEqj(date) {
   return sun && { s: { r: [-sun.r[0], -sun.r[1], -sun.r[2]], v: [-sun.v[0], -sun.v[1], -sun.v[2]] }, ...wt };
 }
 
+/** The same at TT seconds past J2000 (the kernel's time, bodies.js). */
+export function deSsbAtTt(tt) {
+  if (tt < LEAP_TABLE_START_TT) return null;
+  const et = tdbFromTt(tt), wt = deWeight('ssb', et), sun = wt && deSunFromSsb(et);
+  return sun && { s: { r: [-sun.r[0], -sun.r[1], -sun.r[2]], v: [-sun.v[0], -sun.v[1], -sun.v[2]] }, ...wt };
+}
+
 /** DE442's SSB blended into another estimate of it, as the bodies are into
  *  astronomy-engine (for barycentres.js). */
 export function blendSsb(de, other) {

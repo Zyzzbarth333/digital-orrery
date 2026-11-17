@@ -51,8 +51,10 @@ const YOSHIDA_W0 = -W_CBRT2 / (2.0 - W_CBRT2);
 
 // Heliocentric acceleration of a test particle at r (km) given the bodies'
 // positions. bodies: [{ mu, r, j2?, rJ2?, pole?, j2Cut2? }]. Writes into and
-// returns `out`.
-export function accelHeliocentric(r, bodies, muSun, out = [0, 0, 0]) {
+// returns `out`. indirect = false leaves out the indirect terms: the
+// acceleration about the solar system barycentre (advance() then adds the
+// Sun's own motion from DE442), with r and the bodies still heliocentric.
+export function accelHeliocentric(r, bodies, muSun, out = [0, 0, 0], indirect = true) {
   const r2 = r[0] * r[0] + r[1] * r[1] + r[2] * r[2];
   const rn = Math.sqrt(r2);
   const k = -muSun / (r2 * rn);
@@ -63,7 +65,7 @@ export function accelHeliocentric(r, bodies, muSun, out = [0, 0, 0]) {
     const d2 = dx * dx + dy * dy + dz * dz;
     const kd = b.mu / (d2 * Math.sqrt(d2));
     const p2 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
-    const kp = b.mu / (p2 * Math.sqrt(p2));
+    const kp = indirect ? b.mu / (p2 * Math.sqrt(p2)) : 0;
     out[0] += kd * dx - kp * p[0];
     out[1] += kd * dy - kp * p[1];
     out[2] += kd * dz - kp * p[2];
@@ -175,25 +177,46 @@ export function primaryOf(r, bodies, muSun) {
 // out (state.t is then short of tEnd) or an impact stopped the advance.
 // events holds { type: 'impact', body, t } and { type: 'primary', from, to, t }.
 export function advance(state, tEnd, opts) {
+  if (!opts.ssb && opts.frame !== 'sun') {
+    const sunEph = opts.sunEph ?? opts.bodiesAt.sunEph;
+    if (sunEph) return advanceAboutSsb(state, tEnd, opts, sunEph);
+  }
   const { bodiesAt, muSun, method = 'yoshida4', fixedStep = null, maxSteps = 200000 } = opts;
   const useEncke = opts.encke !== false && !fixedStep && method === 'yoshida4';
   const focus = opts.focus ?? bodiesAt.focus;
+  const ssb = opts.ssb ?? null;
+  const helio = (sign) => { if (ssb) shiftBySun(state, ssb, sign); };
+  helio(-1);
   if (focus) focus(state.r, state.t);
+  if (state.primary === null && useEncke) state.primary = primaryOf(state.r, bodiesAt(state.t), muSun);
+  helio(1);
   if (!useEncke) return advanceCowell(state, tEnd, opts, false);
-  if (state.primary === null) state.primary = primaryOf(state.r, bodiesAt(state.t), muSun);
   const dir = tEnd >= state.t ? 1 : -1;
   let steps = 0;
   const events = [];
   for (;;) {
     const sub = { ...opts, maxSteps: maxSteps - steps, primaryOf };
-    const res = enckeSuits(state, opts, dir)
-      ? advanceEncke(state, tEnd, sub)
-      : advanceCowell(state, tEnd, sub, true);
+    // About the SSB, Encke's legs run on heliocentric coordinates (its
+    // tidal form is the same in either frame), Cowell's on the SSB's.
+    helio(-1);
+    const encke = enckeSuits(state, opts, dir);
+    let res;
+    if (encke) { try { res = advanceEncke(state, tEnd, sub); } finally { helio(1); } } else {
+      helio(1);
+      res = advanceCowell(state, tEnd, sub, true);
+    }
     steps += res.steps;
     events.push(...res.events);
     if (!res.left) return { steps, events, complete: res.complete };
     if (dir * (tEnd - state.t) <= 0) return { steps, events, complete: true };
   }
+}
+
+// enckeSuits for a state about the SSB when ssb is given.
+function enckeSuitsAt(state, opts, dir, ssb) {
+  if (!ssb) return enckeSuits(state, opts, dir);
+  shiftBySun(state, ssb, -1);
+  try { return enckeSuits(state, opts, dir); } finally { shiftBySun(state, ssb, 1); }
 }
 
 // Whether Encke's method suits the craft now: inside a body's sphere of
@@ -209,7 +232,10 @@ function enckeSuits(state, opts, dir) {
   return perturbationRatio(state.r, state.t, P, bodies, opts.muSun, thrust) < ENCKE_IN;
 }
 
-// The heliocentric (Cowell) integrator. With stopOnEntry, it returns
+// The Cowell integrator. About the SSB (opts.ssb, the Sun's place there),
+// r and v are about the SSB and every force, event and hook is taken at the
+// heliocentric r - r_sun(t), with the Sun's pull at the origin and no
+// indirect term. With stopOnEntry, it returns
 // { left: true } as soon as Encke's method suits the craft (it has entered a
 // body's sphere of influence on a nearly Keplerian path), so advance() can
 // switch to it.
@@ -222,6 +248,22 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   const integrate = METHODS[method];
   if (!integrate) throw new Error(`nbody: unknown method '${method}'`);
   const focus = opts.focus ?? bodiesAt.focus;
+  // Heliocentric position (and velocity) for the forces and hooks: r itself
+  // about the Sun, r - r_sun(t) about the SSB.
+  const ssb = opts.ssb ?? null, indirect = !ssb;
+  const sR = [0, 0, 0], sV = [0, 0, 0], hA = [0, 0, 0], hB = [0, 0, 0], hV = [0, 0, 0];
+  const helio = (t, x, out) => {
+    if (!ssb) return x;
+    ssb.position(t, sR);
+    out[0] = x[0] - sR[0]; out[1] = x[1] - sR[1]; out[2] = x[2] - sR[2];
+    return out;
+  };
+  const helioV = (t, x) => {
+    if (!ssb) return x;
+    ssb.velocity(t, sV);
+    hV[0] = x[0] - sV[0]; hV[1] = x[1] - sV[1]; hV[2] = x[2] - sV[2];
+    return hV;
+  };
 
   const extra = [0, 0, 0], vEnd = [0, 0, 0];
   let mid = state.t;
@@ -232,11 +274,12 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   // half-kicked velocity the method drops to first order (drag on a low
   // orbit: 0.26 m after 8 hours, 0.06 m at a quarter of the step).
   const acc = (t, r, out, hh = 0) => {
-    accelHeliocentric(r, bodiesAt(t), muSun, out);
+    const x = helio(t, r, hA);
+    accelHeliocentric(x, bodiesAt(t), muSun, out, indirect);
     if (extraAccel) {
       const sv = state.v;
       vEnd[0] = sv[0] + hh * (out[0] + extra[0]); vEnd[1] = sv[1] + hh * (out[1] + extra[1]); vEnd[2] = sv[2] + hh * (out[2] + extra[2]);
-      extraAccel(t, r, extra, mid, vEnd);
+      extraAccel(t, x, extra, mid, helioV(t, vEnd));
       out[0] += extra[0]; out[1] += extra[1]; out[2] += extra[2];
     }
     return out;
@@ -246,7 +289,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   const dir = tEnd >= state.t ? 1 : -1;
   const r = state.r, v = state.v;
   const a = acc(state.t, r, [0, 0, 0]);
-  if (state.primary === null) state.primary = primaryOf(r, bodiesAt(state.t), muSun);
+  if (state.primary === null) state.primary = primaryOf(helio(state.t, r, hB), bodiesAt(state.t), muSun);
   let steps = 0;
   let bp = 0;   // next breakpoint index (forward only)
   const bps = (breakpoints && dir > 0) ? breakpoints : null;
@@ -258,14 +301,15 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
       h = fixedStep;
     } else {
       // Shortest local dynamical time over the Sun and every body.
-      let tau = Math.sqrt(Math.pow(r[0] * r[0] + r[1] * r[1] + r[2] * r[2], 1.5) / muSun);
+      const x = helio(state.t, r, hB);
+      let tau = Math.sqrt(Math.pow(x[0] * x[0] + x[1] * x[1] + x[2] * x[2], 1.5) / muSun);
       for (const b of bodies) {
-        const dx = r[0] - b.r[0], dy = r[1] - b.r[1], dz = r[2] - b.r[2];
+        const dx = x[0] - b.r[0], dy = x[1] - b.r[1], dz = x[2] - b.r[2];
         const d2 = dx * dx + dy * dy + dz * dz;
         tau = Math.min(tau, Math.sqrt(d2 * Math.sqrt(d2) / b.mu));
       }
       h = Math.min(eta * tau, hMax);
-      if (opts.stepCap) h = Math.min(h, opts.stepCap(state.t, r, v));
+      if (opts.stepCap) h = Math.min(h, opts.stepCap(state.t, x, helioV(state.t, v)));
     }
     let remaining = dir * (tEnd - state.t);
     if (bps) {
@@ -288,31 +332,88 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
     steps++;
 
     // Events, checked at the end of each step.
-    if (r[0] * r[0] + r[1] * r[1] + r[2] * r[2] < sunRadius * sunRadius) {
+    const x = helio(state.t, r, hB);
+    if (x[0] * x[0] + x[1] * x[1] + x[2] * x[2] < sunRadius * sunRadius) {
       events.push({ type: 'impact', body: 'sun', t: state.t });
       return { steps, events, complete: false };
     }
-    if (focus) focus(r, state.t);
+    if (focus) focus(x, state.t);
     const now = bodiesAt(state.t);
     for (const b of now) {
-      if (below(r, b)) {
+      if (below(x, b)) {
         events.push({ type: 'impact', body: b.key, t: state.t });
         return { steps, events, complete: false };
       }
     }
     const prevPrimary = state.primary;
-    const p = primaryOf(r, now, muSun);
+    const p = primaryOf(x, now, muSun);
     if (p !== state.primary) {
       events.push({ type: 'primary', from: state.primary, to: p, t: state.t });
       state.primary = p;
     }
     // Whether Encke now suits: checked every 16 steps (the ratio changes
     // slowly, and the check costs about as much as a step).
-    if (stopOnEntry && state.primary !== 'sun' && (p !== prevPrimary || steps % 16 === 0) && enckeSuits(state, opts, dir)) {
+    if (stopOnEntry && state.primary !== 'sun' && (p !== prevPrimary || steps % 16 === 0) && enckeSuitsAt(state, opts, dir, ssb)) {
       return { steps, events, complete: dir * (tEnd - state.t) <= 0, left: true };
     }
   }
   return { steps, events, complete: true };
+}
+
+// ---------------- about the solar system barycentre ----------------
+
+// The Sun's place and velocity about the SSB, for the many instants a step
+// asks about. Within SUN_TAYLOR seconds of the last instant evaluated the
+// Sun follows its second-order Taylor series from there: its jerk is about
+// 1e-17 km/s^3, so an hour out the series is 1e-7 km from the cubic, and a
+// step's forces need no fresh cubic.
+const SUN_TAYLOR = 3600;
+class SunMemo {
+  constructor(eph) { this.eph = eph; this.t0 = NaN; this.r = [0, 0, 0]; this.v = [0, 0, 0]; this.a = [0, 0, 0]; }
+  at(t) {
+    if (!(Math.abs(t - this.t0) <= SUN_TAYLOR)) {
+      this.eph.position(t, this.r); this.eph.velocity(t, this.v); this.eph.acceleration(t, this.a); this.t0 = t;
+    }
+    return t - this.t0;
+  }
+  position(t, out = [0, 0, 0]) {
+    const d = this.at(t), h = 0.5 * d * d, r = this.r, v = this.v, a = this.a;
+    out[0] = r[0] + v[0] * d + a[0] * h; out[1] = r[1] + v[1] * d + a[1] * h; out[2] = r[2] + v[2] * d + a[2] * h;
+    return out;
+  }
+  velocity(t, out = [0, 0, 0]) {
+    const d = this.at(t), v = this.v, a = this.a;
+    out[0] = v[0] + a[0] * d; out[1] = v[1] + a[1] * d; out[2] = v[2] + a[2] * d;
+    return out;
+  }
+  acceleration(t, out = [0, 0, 0]) { this.at(t); out[0] = this.a[0]; out[1] = this.a[1]; out[2] = this.a[2]; return out; }
+}
+
+// Moves a state by the Sun's place and velocity about the SSB at its time:
+// sign +1 from heliocentric to the SSB, -1 back.
+const SHIFT_R = [0, 0, 0], SHIFT_V = [0, 0, 0];
+function shiftBySun(state, ssb, sign) {
+  ssb.position(state.t, SHIFT_R); ssb.velocity(state.t, SHIFT_V);
+  for (let i = 0; i < 3; i++) { state.r[i] += sign * SHIFT_R[i]; state.v[i] += sign * SHIFT_V[i]; }
+}
+
+// The kernel integrates about the solar system barycentre (SSB), as the DE
+// ephemerides, GMAT and Orekit do: an inertial frame, with no indirect term,
+// where the Sun is a moving body placed by DE442 (bodies.js sunEph). The
+// Cowell integrator carries the state about the SSB and takes every force
+// at the craft's heliocentric place r - r_sun(t); Encke's legs work about
+// their primary, the same in either frame. Callers stay heliocentric: the
+// state is moved to the SSB here and back at the end, and the hooks
+// (extraAccel, stepCap, focus) are handed heliocentric positions and
+// velocities.
+function advanceAboutSsb(state, tEnd, opts, sunEph) {
+  const ssb = new SunMemo(sunEph);
+  shiftBySun(state, ssb, 1);
+  try {
+    return advance(state, tEnd, { ...opts, ssb });
+  } finally {
+    shiftBySun(state, ssb, -1);
+  }
 }
 
 // Specific orbital energy about the Sun alone (for conservation checks).

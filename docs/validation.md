@@ -107,9 +107,10 @@ other planets (`public/trajbrowser/planets.json`).
 | finite burn, no gravity | rocket equation | Δv 2.8×10⁻⁹ km/s; position 2.4×10⁻³ km after 10 days |
 | kernel GMs | SPICE `gm_de442.tpc` | 5.9×10⁻¹⁶ |
 | Worker message handling | direct advance | identical |
-| Encke, low Earth orbit with J2, 1 day | Cowell at 1/20 the step | 0.77 m (default Cowell: 5.4 m), 1,134 steps (Cowell: 9,795); the reference follows the ephemeris's acceleration noise, Encke's tidal form does not |
+| Encke, low Earth orbit with J2, 1 day | Cowell at 1/20 the step | 0.97 m (default Cowell: 5.1 m), 1,134 steps (Cowell: 9,795); the reference follows the ephemeris's acceleration noise and its own rounding at 1 au, Encke's tidal form does not |
 | Encke, forward then back a day | start state | 0.86 m |
-| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.18 km (default Cowell: 1.91 km), 792 steps (1,283); 0.088 km in Encke's ephemeris form, which shares the reference's frame |
+| Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | Cowell at 1/20 the step | 0.19 km (default Cowell: 1.91 km), 792 steps (1,283); 0.088 km in Encke's ephemeris form, which shares the reference's frame |
+| about the SSB against about the Sun (case 14) | the same flights, `{ frame: 'sun' }` | the same steps; under 1 mm in low Earth orbit in a day (Encke), 4.3 m at GEO in 10 days (Cowell), 149 m after 300 days of cruise; the Sun's daily nodes within 3 cm of DE442; hooks handed heliocentric states; a fall into the Sun is an impact on it |
 | Encke, suborbital path | Cowell | impact on Earth at the same time (310.8 s) |
 | `keplerStep` | `propagate` | 1.2×10⁻¹⁴ relative |
 
@@ -205,6 +206,32 @@ kernel ([small bodies](frontend/small-bodies.md#exact-positions-for-the-largest)
 
 Horizons and SB441 differ by what the orbits have learned since 2021, so
 the Horizons rows bound the source, not the fit.
+
+### The kernel about the solar system barycentre
+
+On 17 November 2026 the kernel moved from integrating about the Sun, with
+an indirect term for the Sun's acceleration, to integrating about the SSB
+with DE442's Sun as a moving body
+([kernel](physics/nbody-kernel.md#about-the-solar-system-barycentre)). The
+whole of `npm test` ran before (main at 0ccd10e) and after. Everything
+passed both times, and these are every number that moved:
+
+| Check | About the Sun | About the SSB | Why |
+| --- | ---: | ---: | --- |
+| LEO 1 day, against a Cowell reference at 1/20 the step | Encke 0.58 m, Cowell 6.9 m | 0.66 m, 6.7 m | the reference's own rounding: Cowell carries absolute coordinates at 1 au, $3\times10^{-8}$ km an ulp, over 196,000 steps |
+| HEO 10 days, hybrid against the reference | 0.184 km | 0.187 km | the same |
+| craft drawn while the kernel lags, low orbit 1 h | 5.6e-4 km | 4.5e-4 km | the same reference noise |
+| the app's aims flown through the kernel client a frame later | 1.66 m apart at entry | 1.44 m | — |
+| Artemis I, every burn as flown, blind | 712,146.2 km at the end | 712,146.1 km | — |
+| Artemis II from before TLI, entry | 3,716.8 km off | 3,716.9 km | — |
+| Artemis II, no fixes (and with the full environment), entry | 3,713.9 (16,021.2) km | 3,714.0 (16,021.4) km | — |
+| journey planner, Mars and back | 181 m/s of corrections, 22.4 km off | 191 m/s, 22.6 km | the aimed corrections are re-solved from a slightly different path |
+| asteroids' pull in 300 days of cruise | 0.161 km | 0.330 km | now their direct pull alone: their pull on the Sun is in DE442's Sun in both runs |
+| asteroids' pull in a year through the belt | 0.304 km | 0.352 km | the same |
+
+Every other line of the suite's output is unchanged to its printed digits,
+including the moons, the NESC cases, Juno at Ganymede, the Artemis I
+force-by-force residuals and the Apollo subsatellites.
 
 ## Spacecraft in the app (`craftKernel.test.mjs`)
 
