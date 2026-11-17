@@ -69,7 +69,7 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
     window.addEventListener('keydown', key, true);
     return () => window.removeEventListener('keydown', key, true);
   }, [store]);
-  useEffect(() => { if (j.waypoints.length && sol.ok && store.profilesFor !== store.version && store.kernel.state !== 'flying') { const t = setTimeout(() => store.check(), 400); return () => clearTimeout(t); } }, [store.version]);
+  useEffect(() => { if (j.waypoints.length && sol.ok && (store.profilesFor !== store.version || store.kernel.forVersion !== store.version)) { const t = setTimeout(() => store.check(), 400); return () => clearTimeout(t); } }, [store.version]);
 
   return (
     <div className="plot-table" role="dialog" aria-modal="true" aria-label="Plotting table">

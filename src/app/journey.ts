@@ -176,9 +176,13 @@ export class JourneyStore {
     this.check();
   }
 
-  // The kernel flies the journey (once an edit is let go).
+  // The kernel flies the journey (once an edit is let go). A flight still
+  // under way for an older version is stopped: in the full model one can
+  // take a minute, and its answer would be thrown away.
   check(): void {
     if (!this.solution.ok || !this.journey.waypoints.length) return;
+    if (this.kernel.state === 'flying' && this.kernel.forVersion !== this.version) { this.worker?.terminate(); this.worker = null; }
+    if (this.profilesFor !== this.version && this.profilesAsked !== undefined && this.profilesAsked !== this.version) { this.profileWorker?.terminate(); this.profileWorker = null; }
     const onProfiles = (e: MessageEvent<FlightReply | ProfilesReply>): boolean => {
       if (!('type' in e.data) || e.data.type !== 'profiles') return false;
       if (e.data.forVersion === this.version) { this.profiles = e.data.profiles; this.profilesFor = e.data.forVersion; this.notify(); }
@@ -204,6 +208,7 @@ export class JourneyStore {
     this.worker.postMessage({ journey: this.journey, named: this.named, forVersion: this.version } satisfies FlightRequest);
     // And each leg's window profile, for the plotting table's strips and lamps.
     this.profileWorker.postMessage({ type: 'profiles', journey: this.journey, named: this.named, forVersion: this.version } satisfies FlightRequest);
+    this.profilesAsked = this.version;
     this.notify();
   }
   private kernelFor = -1;
@@ -211,6 +216,7 @@ export class JourneyStore {
   // worker, for the version it was asked for.
   profiles: (LegProfile | null)[] = [];
   profilesFor = -1;
+  private profilesAsked: number | undefined = undefined;
   // The plotting table (plot-table.tsx): open or not, kept here so the
   // PLANNER tab can open it and App can show it without passing props.
   plotOpen = typeof location !== 'undefined' && location.hash === '#plot';

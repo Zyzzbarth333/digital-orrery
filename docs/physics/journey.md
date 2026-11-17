@@ -299,7 +299,9 @@ bare model. Trouble is any of these:
 - an aim with no burn, or one that ends more than 50 km from its point;
 - a departure, descent or ascent it could not work out;
 - a crash, or a landing not made;
-- a waypoint missed by more than 50 km or 2 % of its periapsis.
+- a waypoint missed by more than 50 km or 2 % of its periapsis;
+- a flight that takes more than a minute to work out (a long stay in a low
+  lunar orbit, at degree 50, can take minutes).
 
 If the bare flight has none, it is the one kept. The craft is then flown
 bare too. Its Model row reads "Planner's (fallback)", and says what the
@@ -311,10 +313,11 @@ kept.
 trip takes 4.5 s, the week in lunar orbit then Mars 7 to 8 s (in Node,
 against 0.4 s bare). Most of it is the Moon's field at degree 50 in a low
 orbit. Looking ahead takes the fields to degree 10: a departure's wait for
-its plane, and a stay's trial orbits (step 3). An aim's sensitivities take
+its plane, and a stay's trial orbits (step 3, for stays up to a month). An aim's sensitivities take
 degree 4, and every run it keeps is flown at full degree. The window
 profiles now run in a worker of their own, so the strips need not wait
-for the flight.
+for the flight, and an edit made while a flight is still under way stops
+it and starts again.
 
 Each step, in time order:
 
@@ -717,7 +720,7 @@ orbits, waits 454 days.
 | The lamps: leaving Mars after 30 days, at 8 and 5 km/s; leaving at the window | the rules above | window and delta-v lamps lit, then no window; at the window, green with a 368-day wait |
 | Saturn V, Apollo 11's 45.7 t to 185 km and on to the Moon (TLI 3.13 km/s) | the flight | needs 12.03, gives 12.87 km/s: it can, with 0.84 to spare |
 | Falcon 9 expendable, 22.8 t to 200 km; Electron, 300 kg to 500 km | the user's guides | 8.88 needed, 9.43 given; Electron 0.02 km/s short with its kick stage carried as payload (it burns, in fact) |
-| A year in Mars orbit, then home, flown | the plan | departs 24.5 d late for the turned plane, 2,108 m/s against 2,000; Mars 1.2 km, Earth 22 km; corrections 177 m/s |
+| A year in Mars orbit, then home, flown | the plan | departs 11.5 d late for the turned plane, 2,070 m/s against 2,000; Mars 0.8 km, Earth 23 km; corrections 189 m/s |
 | The descent orbit burn, 100 to 15 km over the Moon | a Hohmann transfer's first burn (Curtis 6.2) | equal to 10⁻¹² |
 | An entry periapsis at 3 km/s over Mars | geometry (h = R v_R cos γ) | the hyperbola meets the ground at 12° to 10⁻⁹ |
 | Braking from 15 km over the Moon; the ascent to 100 km (two-body) | stops where asked; more than the speed taken off or given | 1.5 km up, 1,762 m/s for 1,692; 1,763 m/s for 1,634 |

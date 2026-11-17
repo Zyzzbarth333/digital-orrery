@@ -285,15 +285,19 @@ export function flightTrouble(plan, f) {
 // flight has trouble (flightTrouble) and the bare one has none. Returns the
 // flight with model ('full' | 'bare') and, for a fallback, bareWhy (the
 // full model's trouble, for the craft's Model row).
-export function flyPlanned(sys, plan, opts = {}) {
-  const full = flyJourney(sys, plan, { ...opts, model: 'full' }), why = flightTrouble(plan, full);
+// deadlineMs: the full model's flight is given up past this much wall time
+// (a long stay in a low lunar orbit, at degree 50, can take minutes), and
+// that is its trouble.
+export function flyPlanned(sys, plan, { deadlineMs = 60e3, ...opts } = {}) {
+  const full = flyJourney(sys, plan, { ...opts, model: 'full', deadlineMs }), why = flightTrouble(plan, full);
   if (!why.length) return { ...full, bareWhy: null };
   const bare = flyJourney(sys, plan, { ...opts, model: 'bare' });
   if (flightTrouble(plan, bare).length) return { ...full, bareWhy: null, fullTrouble: why };
   return { ...bare, bareWhy: why.join('; ') };
 }
 
-export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envIn = null } = {}) {
+export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envIn = null, deadlineMs = Infinity } = {}) {
+  const wallEnd = Date.now() + deadlineMs;
   const without = (key) => withoutBody(sys, key);
   // The model it is flown in: 'full', the environment (environment.js: the
   // Earth's and the Moon's gravity fields, the tides, drag, sunlight and
@@ -346,7 +350,8 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       s = { r: x.r, v: x.v, t: tn };
       out.path.push({ t: s.t, r: [...s.r] });
     }
-    while (s.t < t - 1e-6 && !out.impact && !touch) {
+    while (s.t < t - 1e-6 && !out.impact && !touch && !out.gaveUp) {
+      if (Date.now() > wallEnd) { out.gaveUp = true; out.trouble.push(`the flight took longer than ${Math.round(deadlineMs / 1000)} s to work out`); out.log.push('given up: past the time allowed'); break; }
       let tn = Math.min(t, s.t + chunk);
       for (const w of watches) if (tn > w.t0 && s.t < w.t1) tn = Math.min(tn, Math.max(s.t + w.step, Math.min(w.t0, tn)), s.t + w.step);
       const res = stepCraft(sys, { id: 0, version: 0, r: s.r, v: s.v, t: s.t, tEnd: tn, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env } : {}) });
@@ -456,7 +461,9 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   function stayTurned(key, r, v, rp, w, tUntil) {
     const mu = bodyState(key, s.t).mu, hN = unit(cross(r, v));
     const tp = Math.max(0, timeToPeriapsis(r, v, mu)), x = propagate(r, v, tp, mu), t0 = s.t + tp;
-    if (!x || !(tUntil > t0 + 3600)) return w;
+    // (Over a stay of more than a month the plane goes round many times,
+    // and the departure's wait for it does better.)
+    if (!x || !(tUntil > t0 + 3600) || tUntil - t0 > 30 * DAY) return w;
     let ww = w, best = null;
     // (In the full model, the trials take the Moon's field to degree 10:
     // its low harmonics move the plane, and a week at degree 50 is seconds.)
@@ -482,7 +489,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
 
   for (const e of plan.events) {
     let t = kernelSeconds(new Date(e.ms));
-    if (out.impact) break;
+    if (out.impact || out.gaveUp) break;
     if (e.kind === 'arrive') continue;
     if (e.kind === 'point') {
       // Home to the central body: how far from the aimed point on the arc.
@@ -791,7 +798,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       out.log.push(`rendezvous with ${e.body}: ${(norm(v) * 1000).toFixed(0)} m/s`);
     }
   }
-  if (!out.impact) flyTo(Math.max(s.t, tEnd - DAY + 3600, ...watches.map((w) => w.t1)));
+  if (!out.impact && !out.gaveUp) flyTo(Math.max(s.t, tEnd - DAY + 3600, ...watches.map((w) => w.t1)));
   // missKm: for a flyby or capture, the closest approach less the planned
   // periapsis; home to a central body, the distance from the aimed point.
   out.arrivals = watches.map((w) => ({ waypoint: w.waypoint, body: w.body, closest: w.best, plannedRp: w.plannedRp, missKm: w.pointMiss ?? Math.abs(w.best - w.plannedRp), at: w.at, central: w.central, landed: out.landings.some((l) => l.waypoint === w.waypoint) }));

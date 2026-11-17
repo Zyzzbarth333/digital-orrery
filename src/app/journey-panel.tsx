@@ -38,7 +38,7 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
   const dragging = useRef(false);
   useEffect(() => {
     if (dragging.current || !j.waypoints.length || !sol.ok) return;
-    if (store.kernel.state === 'flying' || (store.kernel.state === 'done' && store.kernel.forVersion === store.version)) return;
+    if ((store.kernel.state === 'flying' || store.kernel.state === 'done') && store.kernel.forVersion === store.version) return;
     const t = setTimeout(() => store.check(), 600);
     return () => clearTimeout(t);
   }, [store.version]);
