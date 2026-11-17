@@ -9,7 +9,8 @@
  *   usage: moon_cheb survey <tolerance km> <first year> <last year (exclusive)>
  *          moon_cheb <out dir> <tolerance km> <first year> <last year (exclusive)>
  *
- * $MOON_SYSTEMS (say "neptune,pluto") limits a run to those systems.
+ * $MOON_SYSTEMS (say "neptune,pluto") limits a run to those systems, and
+ * $MOON_PARTS ("main", "inner", "irregular") to those files.
  *
  * The kernels are NAIF's satellite SPKs (python/README.md), read from
  * python/data/kernels/spk/satellites, or from $SAT_KERNELS if set.
@@ -97,6 +98,74 @@ static const Moon MOONS[] = {
   { "neptune", 807, 8, "nep098_part-3.bsp" },
   { "neptune", 808, 8, "nep098_part-3.bsp" },
   { "neptune", 814, 8, "nep098_part-3.bsp" },
+  /* The irregular moons (docs/frontend/moons.md#the-irregular-moons), in
+   * files of their own, <system>-irregular-<year>.bin, so the app loads them
+   * only while their layer is shown. Like the others they are about the
+   * system barycentre: about the planet's centre they would carry its
+   * wobble with the Galilean moons, and cost 10 to 30 times the bytes. */
+  { "jupiter", 506, 5, "jup347.bsp" }, { "jupiter", 507, 5, "jup347.bsp" },
+  { "jupiter", 508, 5, "jup347.bsp" }, { "jupiter", 509, 5, "jup347.bsp" },
+  { "jupiter", 510, 5, "jup347.bsp" }, { "jupiter", 511, 5, "jup347.bsp" },
+  { "jupiter", 512, 5, "jup347.bsp" }, { "jupiter", 513, 5, "jup347.bsp" },
+  { "jupiter", 517, 5, "jup347.bsp" }, { "jupiter", 518, 5, "jup347.bsp" },
+  { "jupiter", 519, 5, "jup347.bsp" }, { "jupiter", 520, 5, "jup347.bsp" },
+  { "jupiter", 521, 5, "jup347.bsp" }, { "jupiter", 522, 5, "jup347.bsp" },
+  { "jupiter", 523, 5, "jup347.bsp" }, { "jupiter", 524, 5, "jup347.bsp" },
+  { "jupiter", 525, 5, "jup347.bsp" }, { "jupiter", 526, 5, "jup347.bsp" },
+  { "jupiter", 527, 5, "jup347.bsp" }, { "jupiter", 528, 5, "jup347.bsp" },
+  { "jupiter", 529, 5, "jup347.bsp" }, { "jupiter", 530, 5, "jup347.bsp" },
+  { "jupiter", 531, 5, "jup347.bsp" }, { "jupiter", 532, 5, "jup347.bsp" },
+  { "jupiter", 533, 5, "jup347.bsp" }, { "jupiter", 534, 5, "jup347.bsp" },
+  { "jupiter", 535, 5, "jup347.bsp" }, { "jupiter", 536, 5, "jup347.bsp" },
+  { "jupiter", 537, 5, "jup347.bsp" }, { "jupiter", 538, 5, "jup347.bsp" },
+  { "jupiter", 539, 5, "jup347.bsp" }, { "jupiter", 540, 5, "jup347.bsp" },
+  { "jupiter", 541, 5, "jup347.bsp" }, { "jupiter", 542, 5, "jup347.bsp" },
+  { "jupiter", 543, 5, "jup347.bsp" }, { "jupiter", 544, 5, "jup347.bsp" },
+  { "jupiter", 545, 5, "jup347.bsp" }, { "jupiter", 546, 5, "jup347.bsp" },
+  { "jupiter", 547, 5, "jup347.bsp" }, { "jupiter", 548, 5, "jup347.bsp" },
+  { "jupiter", 549, 5, "jup347.bsp" }, { "jupiter", 550, 5, "jup347.bsp" },
+  { "jupiter", 551, 5, "jup347.bsp" }, { "jupiter", 552, 5, "jup347.bsp" },
+  { "jupiter", 553, 5, "jup347.bsp" }, { "jupiter", 554, 5, "jup347.bsp" },
+  { "jupiter", 555, 5, "jup347.bsp" }, { "jupiter", 556, 5, "jup347.bsp" },
+  { "jupiter", 557, 5, "jup347.bsp" }, { "jupiter", 558, 5, "jup347.bsp" },
+  { "jupiter", 559, 5, "jup347.bsp" }, { "jupiter", 560, 5, "jup347.bsp" },
+  { "jupiter", 561, 5, "jup347.bsp" }, { "jupiter", 562, 5, "jup347.bsp" },
+  { "jupiter", 563, 5, "jup347.bsp" }, { "jupiter", 564, 5, "jup347.bsp" },
+  { "jupiter", 565, 5, "jup347.bsp" }, { "jupiter", 566, 5, "jup347.bsp" },
+  { "jupiter", 567, 5, "jup347.bsp" }, { "jupiter", 568, 5, "jup347.bsp" },
+  { "jupiter", 569, 5, "jup347.bsp" }, { "jupiter", 570, 5, "jup347.bsp" },
+  { "jupiter", 571, 5, "jup347.bsp" }, { "jupiter", 572, 5, "jup347.bsp" },
+  { "jupiter", 55501, 5, "jup347.bsp" }, { "jupiter", 55502, 5, "jup347.bsp" },
+  { "jupiter", 55503, 5, "jup347.bsp" }, { "jupiter", 55504, 5, "jup347.bsp" },
+  { "jupiter", 55505, 5, "jup347.bsp" }, { "jupiter", 55506, 5, "jup347.bsp" },
+  { "jupiter", 55507, 5, "jup347.bsp" }, { "jupiter", 55508, 5, "jup347.bsp" },
+  { "jupiter", 55509, 5, "jup347.bsp" }, { "jupiter", 55510, 5, "jup347.bsp" },
+  { "jupiter", 55511, 5, "jup347.bsp" }, { "jupiter", 55512, 5, "jup347.bsp" },
+  { "jupiter", 55513, 5, "jup347.bsp" }, { "jupiter", 55514, 5, "jup347.bsp" },
+  { "jupiter", 55515, 5, "jup347.bsp" }, { "jupiter", 55516, 5, "jup347.bsp" },
+  { "jupiter", 55517, 5, "jup347.bsp" }, { "jupiter", 55518, 5, "jup347.bsp" },
+  { "jupiter", 55519, 5, "jup347.bsp" }, { "jupiter", 55520, 5, "jup347.bsp" },
+  { "jupiter", 55521, 5, "jup347.bsp" }, { "jupiter", 55522, 5, "jup347.bsp" },
+  { "jupiter", 55523, 5, "jup347.bsp" }, { "jupiter", 55524, 5, "jup347.bsp" },
+  { "jupiter", 55525, 5, "jup347.bsp" }, { "jupiter", 55526, 5, "jup347.bsp" },
+  { "saturn", 619, 6, "sat456.bsp" }, { "saturn", 620, 6, "sat456.bsp" }, { "saturn", 621, 6, "sat456.bsp" },
+  { "saturn", 622, 6, "sat456.bsp" }, { "saturn", 623, 6, "sat456.bsp" }, { "saturn", 624, 6, "sat456.bsp" },
+  { "saturn", 625, 6, "sat456.bsp" }, { "saturn", 626, 6, "sat456.bsp" }, { "saturn", 627, 6, "sat456.bsp" },
+  { "saturn", 628, 6, "sat456.bsp" }, { "saturn", 629, 6, "sat456.bsp" }, { "saturn", 630, 6, "sat456.bsp" },
+  { "saturn", 631, 6, "sat456.bsp" }, { "saturn", 636, 6, "sat456.bsp" }, { "saturn", 637, 6, "sat456.bsp" },
+  { "saturn", 638, 6, "sat456.bsp" }, { "saturn", 639, 6, "sat456.bsp" }, { "saturn", 640, 6, "sat456.bsp" },
+  { "saturn", 641, 6, "sat456.bsp" }, { "saturn", 642, 6, "sat456.bsp" }, { "saturn", 643, 6, "sat456.bsp" },
+  { "saturn", 644, 6, "sat456.bsp" }, { "saturn", 645, 6, "sat456.bsp" }, { "saturn", 646, 6, "sat456.bsp" },
+  { "saturn", 647, 6, "sat456.bsp" }, { "saturn", 648, 6, "sat456.bsp" }, { "saturn", 650, 6, "sat456.bsp" },
+  { "saturn", 651, 6, "sat456.bsp" }, { "saturn", 652, 6, "sat456.bsp" }, { "saturn", 654, 6, "sat456.bsp" },
+  { "saturn", 655, 6, "sat456.bsp" }, { "saturn", 656, 6, "sat456.bsp" }, { "saturn", 657, 6, "sat456.bsp" },
+  { "saturn", 658, 6, "sat456.bsp" }, { "saturn", 659, 6, "sat456.bsp" }, { "saturn", 660, 6, "sat456.bsp" },
+  { "saturn", 661, 6, "sat456.bsp" }, { "saturn", 662, 6, "sat456.bsp" }, { "saturn", 663, 6, "sat456.bsp" },
+  { "saturn", 664, 6, "sat456.bsp" }, { "saturn", 665, 6, "sat456.bsp" }, { "saturn", 666, 6, "sat456.bsp" },
+  { "neptune", 809, 8, "nep104.bsp" }, { "neptune", 810, 8, "nep104.bsp" },
+  { "neptune", 811, 8, "nep104.bsp" }, { "neptune", 812, 8, "nep104.bsp" },
+  { "neptune", 813, 8, "nep104.bsp" }, { "neptune", 85051, 8, "nep104.bsp" },
+  { "neptune", 85052, 8, "nep104.bsp" },
   { "pluto", 999, 9, "plu060.bsp" }, { "pluto", 901, 9, "plu060.bsp" }, { "pluto", 902, 9, "plu060.bsp" },
   { "pluto", 903, 9, "plu060.bsp" }, { "pluto", 904, 9, "plu060.bsp" },
   { "pluto", 905, 9, "plu060.bsp" },
@@ -114,6 +183,16 @@ static int is_inner(const Moon *m) {
   for (int i = 0; i < 5; i++) if (!strcmp(m->kernel, k[i])) return 1;
   return 0;
 }
+/* The irregular moons are the rows from their own kernels. */
+static int is_irregular(const Moon *m) {
+  static const char *k[] = { "jup347.bsp", "sat456.bsp", "nep104.bsp" };
+  for (int i = 0; i < 3; i++) if (!strcmp(m->kernel, k[i])) return 1;
+  return 0;
+}
+/* Which file a moon goes in: 0 <system>-<year>.bin, 1 the inner moons',
+ * 2 the irregular moons'. */
+static int part_of(const Moon *m) { return is_irregular(m) ? 2 : is_inner(m); }
+static const char *PART_NAME[] = { "", "inner", "irregular" };
 static const char *SYSTEMS[] = { "mars", "jupiter", "saturn", "uranus", "neptune", "pluto" };
 
 static void die_if_failed(const char *what) {
@@ -272,9 +351,16 @@ static Choice choose(const Moon *m, double tol, double et0, double et1) {
 }
 
 /* $MOON_SYSTEMS (say "neptune,pluto") limits a run to those systems. */
-static int wanted(const char *system) {
+static int wanted_system(const char *system) {
   const char *w = getenv("MOON_SYSTEMS");
   return !w || strstr(w, system) != NULL;
+}
+/* $MOON_PARTS (say "irregular", or "main,inner") limits a run to those
+ * files: the irregular moons can be refitted without rewriting the rest. */
+static int wanted(const Moon *m) {
+  const char *w = getenv("MOON_PARTS");
+  const char *name = part_of(m) ? PART_NAME[part_of(m)] : "main";
+  return wanted_system(m->system) && (!w || strstr(w, name) != NULL);
 }
 
 /* Each system's planet kernel (the one its planet's row names) is loaded
@@ -292,7 +378,9 @@ static void furnsh_all(void) {
       int primary = 0;
       for (int j = 0; j < NM; j++)
         if (!strcmp(MOONS[j].kernel, MOONS[i].kernel) && MOONS[j].id % 100 == 99) primary = 1;
-      if (primary != pass || !wanted(MOONS[i].system)) continue;
+      /* A system's planet kernel is loaded whenever the system is, so the
+       * planet's centre is the same in every part's run. */
+      if (primary != pass || !(wanted(&MOONS[i]) || (MOONS[i].id % 100 == 99 && wanted_system(MOONS[i].system)))) continue;
       int dup = 0;
       for (int j = 0; j < ns; j++) if (!strcmp(seen[j], MOONS[i].kernel)) dup = 1;
       if (dup) continue;
@@ -338,7 +426,7 @@ int main(int argc, char **argv) {
   /* Chosen on samples at 0.8 tol, so that most pass tol in the full fit. */
   for (int i = 0; i < NM; i++) {
     ch[i] = (Choice){ 0, 0, 0, 0, 0 };
-    if (!wanted(MOONS[i].system)) continue;
+    if (!wanted(&MOONS[i])) continue;
     ch[i] = choose(&MOONS[i], 0.8 * tol, et0, et1);
     if (!ch[i].n) { fprintf(stderr, "%d: nothing within %g km\n", MOONS[i].id, tol); return 1; }
     total += ch[i].bytesPerYear * (y1 - y0);
@@ -358,7 +446,7 @@ int main(int argc, char **argv) {
     Choice *c = &ch[mi];
     coef[mi] = NULL;
     worst[mi] = worstV[mi] = jumpR[mi] = jumpV[mi] = 0;
-    if (!wanted(m->system)) continue;
+    if (!wanted(m)) continue;
     for (int tries = 0;; tries++) {
       const int k = c->k, n = c->n;
       coef[mi] = malloc(sizeof(double) * (size_t)ny * k * 3 * n);
@@ -397,13 +485,13 @@ int main(int argc, char **argv) {
     }
   }
   for (int y = y0; y < y1; y++) {
-    for (int s = 0; s < 6; s++) for (int part = 0; part < 2; part++) {
-      if (!wanted(SYSTEMS[s])) continue;
+    for (int s = 0; s < 6; s++) for (int part = 0; part < 3; part++) {
       int idx[NM], k = 0;
-      for (int i = 0; i < NM; i++) if (!strcmp(MOONS[i].system, SYSTEMS[s]) && is_inner(&MOONS[i]) == part) idx[k++] = i;
+      for (int i = 0; i < NM; i++) if (!strcmp(MOONS[i].system, SYSTEMS[s]) && part_of(&MOONS[i]) == part && wanted(&MOONS[i])) idx[k++] = i;
       if (!k) continue;
       char path[4096];
-      if (part) snprintf(path, sizeof path, "%s/%s-inner-%d.bin", y >= core0 && y < core1 ? argv[1] : extra, SYSTEMS[s], y);
+      if (part == 1) snprintf(path, sizeof path, "%s/%s-inner-%d.bin", y >= core0 && y < core1 ? argv[1] : extra, SYSTEMS[s], y);
+      else if (part == 2) snprintf(path, sizeof path, "%s/%s-irregular-%d.bin", argv[1], SYSTEMS[s], y);
       else snprintf(path, sizeof path, "%s/%s-%d.bin", argv[1], SYSTEMS[s], y);
       FILE *f = fopen(path, "wb");
       if (!f) { perror(path); return 1; }
@@ -433,7 +521,7 @@ int main(int argc, char **argv) {
   fprintf(stderr, "wrote %.0f kB\n", total / 1000);
   int bad = 0;
   for (int i = 0; i < NM; i++) {
-    if (!wanted(MOONS[i].system)) continue;
+    if (!wanted(&MOONS[i])) continue;
     fprintf(stderr, "%-8s %6d wrt %d: %4d intervals a year x %3d (%s); worst %.3f km, %.2e km/s; joins %.3f km, %.2e km/s\n",
             MOONS[i].system, MOONS[i].id, MOONS[i].center, ch[i].k, ch[i].n, ch[i].f32 ? "f32" : "f64", worst[i],
             worstV[i], jumpR[i], jumpV[i]);

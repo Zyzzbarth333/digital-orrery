@@ -86,7 +86,8 @@ position and acceleration error, checked between the fitting nodes against
 `moon_cheb.c` fits the moons' tables
 ([docs/frontend/moons.md](../docs/frontend/moons.md#2000-to-2049-jpls-satellite-ephemerides))
 from NAIF's satellite SPKs (`mar099s`, `jup365`, `sat441`, `sat415`, `ura184`
-parts 1–3, `nep098` parts 1–3, `plu060`, 11 GB, in `python/data/kernels/spk/satellites/`, or the
+parts 1–3, `nep098` parts 1–3, `plu060`, and for the irregular moons `jup347`,
+`sat456` and `nep104`, 13 GB, in `python/data/kernels/spk/satellites/`, or the
 folder `$SAT_KERNELS` names):
 
 ```bash
@@ -102,7 +103,11 @@ within twice that), the first year and the year after the last, and
 optionally a folder for the inner moons' files outside a core span (the
 first year of it and the year after its last): the repo keeps their files
 for 2020–2035 only, and `public/ephemeris/moons-extra` is git-ignored. `survey`
-only prints the size each body would take. The full run takes about
+only prints the size each body would take. `$MOON_SYSTEMS` (say
+`neptune,pluto`) limits a run to those systems, and `$MOON_PARTS` (`main`,
+`inner`, `irregular`) to those files: the irregular moons, in
+`<system>-irregular-<year>.bin`, were fitted with `MOON_PARTS=irregular`,
+which leaves the other files alone. The full run takes about
 eleven minutes and prints, for each body, its intervals a year, coefficients, worst
 error over every interval, and the jumps where intervals meet.
 
