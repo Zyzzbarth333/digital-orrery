@@ -25,7 +25,8 @@
     "fetch:flyby": "node src/physics/flyby.fetch.mjs",
     "crosscheck:artemis1": "node src/physics/artemis1.crosscheck.mjs",
     "fetch:environment": "node src/physics/environment.fetch.mjs",
-    "oracle:openrocket": "node src/physics/rocket.openrocket.mjs"
+    "oracle:openrocket": "node src/physics/rocket.openrocket.mjs",
+    "docs:clips": "node --experimental-websocket scripts/docs-clips.mjs"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

@@ -29,6 +29,8 @@ Hyperion and Janus, have GMs of 2.6, 0.55, 0.37 and 0.13 km³/s², about Mimas's
 
 ![Saturn and its moons out to Titan on the same date](moons-saturn.jpg)
 
+![Jupiter at a day a second: Metis, Adrastea, Amalthea, Thebe and Io go round on their orbit lines, then the camera flies to Io](../clips/jupiter-moons.webp)
+
 Code: `src/physics/moons.js` (positions), `src/physics/moonTables.js` (the
 satellite-ephemeris tables, fitted by `c/moon_cheb.c` into
 `public/ephemeris/moons/`, loaded by `moonLoad.js` in the browser and
