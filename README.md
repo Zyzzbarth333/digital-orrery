@@ -5,6 +5,19 @@
 
 A true-scale solar system and mission simulator that runs in the browser. The physics is plain JavaScript, checked against NASA's SPICE toolkit, JPL's DE442 and satellite ephemerides, and flown missions. The front end is TypeScript, React and three.js.
 
+![The inner solar system on 18 November 2026: the planets' orbits, the main belt drawn from 1.6 million real orbits, and the console's data plate for the Sun](docs/images/overview.jpg)
+
+| | |
+| --- | --- |
+| ![Saturn with its rings from Cassini measurements and its moons' orbits](docs/images/saturn.jpg) | ![The Earth from the sunlit side, with its atmosphere, over Australia](docs/images/earth.jpg) |
+| **Saturn**, its rings from Cassini's occultations, and its moons' orbits | **The Earth** over Australia, under a scattering atmosphere |
+| ![The plotting table: an Earth to Mars journey with its window strip and delta-v ledger](docs/images/plotting-table.jpg) | ![The rail's guides: Jupiter's Lagrange points and the planets' spheres of influence](docs/images/guides.jpg) |
+| **The plotting table**: a journey to Mars, its launch windows and its delta-v | **Guides**: spheres of influence and Lagrange points, with Jupiter's trojans at L4 and L5 |
+| ![The ROCKET tab with Saturn V's published figures greyed](docs/images/rocket.jpg) | ![Jupiter and its inner moons' orbits](docs/images/jupiter.jpg) |
+| **The ROCKET tab**: Saturn V from Apollo 11's actual weights | **Jupiter** and its moons, from JPL's satellite ephemerides |
+
+New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fits together](docs/architecture.md) maps the code.
+
 ## What it does
 
 - **The sky:**
@@ -137,7 +150,53 @@ npm run build       # the production build
 
 ## Credits
 
-Surface maps, data and imagery: NASA Earth Observatory (Blue Marble, Black Marble); NOAA NCEI (ETOPO 2022); NASA Global Imagery Browse Services (GIBS), part of NASA ESDIS (daily Earth imagery); NASA's Scientific Visualization Studio (CGI Moon Kit; Deep Star Maps 2020, the Milky Way layer; Gaia DR2: ESA/Gaia/DPAC); the Hipparcos Catalogue, ESA 1997 (ESA SP-1200), via NASA HEASARC (the stars); NASA/JPL, USGS Astrogeology (Viking Mars mosaic; the moons' Viking, Galileo, Voyager and Cassini mosaics, Cassini's with the Space Science Institute, Deimos's by Philip Stooke); NASA/GSFC MOLA Science Team; NASA/JHUAPL/Carnegie Institution of Washington (MESSENGER); NASA/JHUAPL/SwRI (New Horizons, Pluto and Charon); NASA/JPL/Space Science Institute (Cassini Jupiter map); NASA PDS Ring-Moon Systems Node (Cassini UVIS ring occultation); [Solar System Scope](https://www.solarsystemscope.com/textures/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (Venus clouds, Saturn, Uranus and Neptune maps). Ephemerides and frames: NASA JPL / NAIF SPICE (DE442 and the satellite kernels) and astronomy-engine (MIT). Moons: JPL Solar System Dynamics planetary satellite mean elements and JPL Horizons (orbits, radii, GMs, albedos); astronomy-engine for the Galilean moons. Transfer optima for comparison: NASA Ames Research Center, Trajectory Browser (Mission Design Division). Artemis II's reconstructed trajectory: NASA JSC/FOD/NAV, via NAIF. Artemis I's as-flown trajectory: NASA/JSC navigation, via JPL Horizons. 6-DOF check cases: NASA Engineering and Safety Center (NASA/TM-2015-218675). Earth gravity: EGM2008 (NGA), via GFZ ICGEM. Lunar gravity: GRAIL GL0660B (NASA/JPL), via the PDS Geosciences Node. Space weather: CelesTrak (NOAA SWPC, GFZ). Fonts: B612 and B612 Mono (Airbus) and Michroma (Vernon Adams), SIL Open Font License 1.1, via Fontsource. Equation font: DejaVu Math TeX Gyre (DejaVu fonts), Bitstream Vera licence, its DejaVu and math additions public domain ([src/app/fonts](src/app/fonts/LICENSE-DejaVuMath.txt)). Details in [docs/frontend/textures.md](docs/frontend/textures.md).
+Every data source, with what the app uses it for. Each map's details are in [docs/frontend/textures.md](docs/frontend/textures.md), and each dataset's in the page that uses it.
+
+**Surfaces, sky and imagery**
+
+| Source | Used for | Terms |
+| --- | --- | --- |
+| NASA Earth Observatory: Blue Marble, Black Marble | the Earth's surface and night lights | NASA |
+| NASA GIBS (ESDIS) | the Earth's clouds on the sim date | NASA |
+| NOAA NCEI: ETOPO 2022 | the Earth's relief | NOAA |
+| NASA Scientific Visualization Studio: CGI Moon Kit; Deep Star Maps 2020 (Gaia DR2: ESA/Gaia/DPAC) | the Moon's surface and relief; the Milky Way | NASA; ESA credit |
+| ESA Hipparcos Catalogue (ESA SP-1200), via NASA HEASARC | the stars | ESA credit |
+| NASA/JPL and USGS Astrogeology: Viking, Galileo, Voyager and Cassini mosaics (Cassini's with the Space Science Institute; Deimos by Philip Stooke) | Mars and fourteen moons' surfaces | NASA, USGS |
+| NASA/GSFC MOLA Science Team | Mars's relief | NASA |
+| NASA/JHUAPL/Carnegie Institution of Washington: MESSENGER | Mercury's surface | NASA |
+| NASA/JHUAPL/SwRI: New Horizons | Pluto's and Charon's surfaces | NASA |
+| NASA/JPL/Space Science Institute: Cassini | Jupiter's map | NASA |
+| NASA PDS Ring-Moon Systems Node: Cassini UVIS occultations | Saturn's ring profile | NASA |
+| [Solar System Scope](https://www.solarsystemscope.com/textures/) | Venus's clouds; Saturn, Uranus and Neptune maps | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+
+**Ephemerides, gravity and reference data**
+
+| Source | Used for |
+| --- | --- |
+| NASA JPL and NAIF SPICE: DE442, the satellite kernels, `pck00011`, `sb441-n16`, Earth orientation kernels | the planets', moons', Sun's and asteroids' positions; body shapes and rotation; the Earth's UT1 and polar motion |
+| JPL Solar System Dynamics: satellite mean elements; JPL Horizons; the Small-Body Database | moons outside their tables' years, radii, GMs and albedos; the 135,353 asteroids and comets |
+| [astronomy-engine](https://github.com/cosinekitty/astronomy) (MIT) | positions outside 2000–2050, and the Galilean moons' fallback |
+| EGM2008 (NGA), via GFZ ICGEM; GRAIL GL0660B (NASA/JPL), via the PDS Geosciences Node | the Earth's and the Moon's gravity fields |
+| CelesTrak (NOAA SWPC, GFZ) | space weather for the upper atmosphere's density |
+
+**Missions and validation**
+
+| Source | Used for |
+| --- | --- |
+| NASA JSC/FOD/NAV, via NAIF | Artemis II's reconstructed trajectory |
+| NASA/JSC navigation, via JPL Horizons | Artemis I's as-flown trajectory |
+| NASA Engineering and Safety Center (NASA/TM-2015-218675) | the 6-DOF check cases |
+| NASA Ames Research Center, Trajectory Browser | transfer optima to compare against |
+| NASA SP-2000-4029, *Apollo by the Numbers*; SpaceX's *Falcon User's Guide*; Rocket Lab's *Electron Payload User's Guide*; Crew Dragon Demo-1 webcast telemetry ([shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data), public domain) | the ROCKET tab's real launchers and their flights |
+
+**Fonts and software**
+
+| | Licence |
+| --- | --- |
+| B612 and B612 Mono (Airbus), Michroma (Vernon Adams), via Fontsource | SIL Open Font License 1.1 |
+| DejaVu Math TeX Gyre, the equation font ([licence](src/app/fonts/LICENSE-DejaVuMath.txt)) | Bitstream Vera; DejaVu and math additions public domain |
+| [three.js](https://threejs.org/), [React](https://react.dev/), [astronomy-engine](https://github.com/cosinekitty/astronomy) | MIT |
+| [Lucide](https://lucide.dev/) icons | ISC |
 
 ## Contributing
 
