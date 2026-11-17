@@ -57,7 +57,7 @@ $$
 $$
 
 so $T$ increases monotonically with $\chi$ and the equation has exactly one
-root. Curtis (4th ed., Algorithm 3.3) solves it by Newton's method from
+root. Curtis (4th ed., Algorithm 3.3) [1] solves it by Newton's method from
 $\chi_0 = \sqrt\mu\,|\alpha|\,\Delta t$.
 
 **What the code does differently, and why.** For a hyperbola and a long
@@ -100,17 +100,17 @@ $$
 
 | Check | Result |
 | --- | --- |
-| against NAIF `prop2b_c` (64 cases, `orbital.test.mjs` case 7) | elliptic 2×10⁻¹⁴, hyperbolic 4×10⁻¹⁵, near-parabolic (0.99 ≤ e ≤ 1.01, through periapsis) 2.4×10⁻¹³ relative |
-| Curtis Ex 3.4, exact parabola, 6 h | $r$ = 86,976.6 km, $\theta$ = 144.754° (the full-precision values) |
-| Curtis Ex 3.5, hyperbola from θ = 100° for 3 h | $r$ = 163,180.5 km, θ = 107.780°, $v_r$ equals $(\mu/h)\,e\sin\theta$ to 10⁻⁹ |
-| Curtis Ex 3.6, 3.7 | θ = 100.040°; $\mathbf r$ within 1.5 km of the printed values (the book rounds $f, g$) |
+| against NAIF `prop2b_c` [2] (64 cases, `orbital.test.mjs` case 7) | elliptic 2×10⁻¹⁴, hyperbolic 4×10⁻¹⁵, near-parabolic (0.99 ≤ e ≤ 1.01, through periapsis) 2.4×10⁻¹³ relative |
+| Curtis Ex 3.4 [1], exact parabola, 6 h | $r$ = 86,976.6 km, $\theta$ = 144.754° (the full-precision values) |
+| Curtis Ex 3.5 [1], hyperbola from θ = 100° for 3 h | $r$ = 163,180.5 km, θ = 107.780°, $v_r$ equals $(\mu/h)\,e\sin\theta$ to 10⁻⁹ |
+| Curtis Ex 3.6, 3.7 [1] | θ = 100.040°; $\mathbf r$ within 1.5 km of the printed values (the book rounds $f, g$) |
 | parabola with $e$ rounding to 0.9999999999999998 | matches an independent RK4 run to 6×10⁻¹² (the old element-based code returned a wrong state) |
 | hyperbola from perigee, $\Delta t$ up to 10⁸ s | energy conserved to 2×10⁻¹⁵, angular momentum to 2×10⁻¹¹ |
 | 1000.25 periods against an independent RK4 over 0.25 | 3×10⁻⁸ km |
 
 ## State vector to classical elements
 
-`rvToElements` (after Curtis, Algorithm 4.2): angular momentum
+`rvToElements` (after Curtis, Algorithm 4.2 [1]): angular momentum
 $\mathbf h = \mathbf r\times\mathbf v$, node vector $\mathbf n = \hat{\mathbf k}\times\mathbf h$,
 eccentricity vector
 
@@ -126,8 +126,8 @@ $\Omega = 0$ and $\omega$ is the longitude of periapsis; for a circular
 inclined orbit $\theta$ is the argument of latitude; for a circular equatorial
 orbit, the true longitude.
 
-Validated against NAIF `oscltx_c` on the fixture cases ($e$ to 2×10⁻¹⁵,
-angles to 10⁻¹²°) and against Curtis Ex 4.3 and 4.7.
+Validated against NAIF `oscltx_c` [2] on the fixture cases ($e$ to 2×10⁻¹⁵,
+angles to 10⁻¹²°) and against Curtis Ex 4.3 and 4.7 [1].
 
 `Craft.elements()` (`src/physics/craft.js`) calls `rvToElements` on the
 state relative to the craft's primary: about the Sun in the ecliptic frame,
@@ -137,9 +137,8 @@ km in $\mathbf h$, which made every orbit read $e \approx 1$.) For a parabola ($
 $h^2/\bigl(\mu(1+e)\bigr)$; for a radial orbit ($h = 0$) the inclination is
 reported as 0.
 
-## Sources
+## References
 
-- H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed.
-  (Elsevier, 2020): Algorithms 3.3, 3.4, 4.2, 4.5; Examples 3.4-3.7, 4.3,
-  4.7.
-- NAIF CSPICE `prop2b_c`, `oscltx_c`, `conics_c` (the fixture).
+[1] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. Algorithms 3.3, 3.4, 4.2, 4.5; Examples 3.4–3.7, 4.3, 4.7.
+
+[2] NAIF, "CSPICE Toolkit," routines `prop2b_c`, `oscltx_c` and `conics_c` (the fixture). [Online]. Available: https://naif.jpl.nasa.gov/naif/toolkit.html

@@ -12,11 +12,11 @@ Three constituents, each with a density that falls with altitude $h$:
 | Constituent | Coefficient at the surface | Profile | Phase function |
 | --- | --- | --- | --- |
 | Molecules (Rayleigh) | scattering $\beta_R = 1.24062\times10^{-6}\,\lambda^{-4}$ m⁻¹ ($\lambda$ in µm): (5.802, 13.558, 33.1)×10⁻⁶ at 680, 550, 440 nm | $e^{-h/8\,\text{km}}$ | $\tfrac{3}{16\pi}(1 + \cos^2\theta)$ |
-| Aerosols (Mie) | extinction $4.44\times10^{-6}$ m⁻¹, scattering 0.9 of it | $e^{-h/1.2\,\text{km}}$ | Cornette–Shanks, $g = 0.8$ |
+| Aerosols (Mie) | extinction $4.44\times10^{-6}$ m⁻¹, scattering 0.9 of it | $e^{-h/1.2\,\text{km}}$ | Cornette–Shanks [1], $g = 0.8$ |
 | Ozone (absorption) | (0.650, 1.881, 0.085)×10⁻⁶ m⁻¹ at the peak | tent, 10–40 km, peak 25 km | — |
 
 These are the reference values of Bruneton's precomputed atmospheric
-scattering model (`demo.cc`). The ozone peak coefficients are Hillaire's
+scattering model [2] (`demo.cc`). The ozone peak coefficients are Hillaire's
 (2020) and have not yet been checked against the paper. The shell reaches
 100 km.
 
@@ -57,7 +57,7 @@ kilometres of air, is dimmer and redder.
 | --- | --- | --- |
 | Zenith transmittance (R, G, B) | 0.940, 0.868, 0.762 | blue attenuated most |
 | Sunlight at 5° elevation (air mass ~10.4) | 0.53, 0.23, 0.06 | the deep orange of a low sun |
-| Zenith Rayleigh optical depth at 550 nm | 0.108 | about 0.097 for the US Standard Atmosphere (Bucholtz 1995, from memory, not yet checked): the constant 8 km scale height reads about 11 % high |
+| Zenith Rayleigh optical depth at 550 nm | 0.108 | about 0.097 for the US Standard Atmosphere (Bucholtz 1995 [3], from memory, not yet checked): the constant 8 km scale height reads about 11 % high |
 
 Visually: the full disc shows the blue haze over oceans and clouds; the
 terminator reddens; at a thin crescent only the sunlit limb glows.
@@ -73,3 +73,11 @@ terminator reddens; at a thin crescent only the sunlit limb glows.
   sunset), Venus, Titan and the giants need parameters from primary
   sources; the published Mars values found so far are a rendering
   approximation, not measurements, so Mars waits.
+
+## References
+
+[1] W. M. Cornette and J. G. Shanks, "Physically reasonable analytic expression for the single-scattering phase function," *Appl. Opt.*, vol. 31, no. 16, p. 3152, 1992, doi: 10.1364/AO.31.003152.
+
+[2] E. Bruneton and F. Neyret, "Precomputed atmospheric scattering," *Comput. Graph. Forum*, vol. 27, no. 4, pp. 1079–1086, 2008, doi: 10.1111/j.1467-8659.2008.01245.x.
+
+[3] A. Bucholtz, "Rayleigh-scattering calculations for the terrestrial atmosphere," *Appl. Opt.*, vol. 34, no. 15, p. 2765, 1995, doi: 10.1364/AO.34.002765.

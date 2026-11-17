@@ -2,7 +2,7 @@
 
 `src/physics/sixdof.js` propagates a rigid vehicle about the Earth: its
 position and velocity, and its attitude and body rates, together. It is
-checked against NASA's 6-DOF check cases (below). The app's own
+checked against NASA's 6-DOF check cases [1] (below). The app's own
 spacecraft are still point masses in the n-body kernel
 ([The n-body kernel](nbody-kernel.md)); this is the model a vehicle's
 attitude and the Earth's full gravity field will come from.
@@ -32,7 +32,7 @@ $$\dot{\mathbf r} = \mathbf v,\quad \dot{\mathbf v} = \mathbf a_g + \mathbf a_{3
 
 - **Gravity:** a point mass, or a spherical-harmonic field to any degree
   and order (`geopotential.js`). The field uses Cunningham's V/W recursion
-  (Montenbruck and Gill, *Satellite Orbits*, §3.2.4). It has no latitude or
+  (Montenbruck and Gill, *Satellite Orbits*, §3.2.4 [2]). It has no latitude or
   longitude in it, so no singularity at the poles. Fully normalised
   coefficients are converted once:
   $C_{nm} = \bar C_{nm}\sqrt{(2-\delta_{m0})(2n+1)(n-m)!/(n+m)!}$. The field is
@@ -40,8 +40,8 @@ $$\dot{\mathbf r} = \mathbf v,\quad \dot{\mathbf v} = \mathbf a_g + \mathbf a_{3
   $\mathbf a = M^\mathsf T\, \nabla U(M\mathbf r)$.
 - **Earth rotation** (`earthRotation.js`): $M = R_3(\text{GAST})\,N\,P$,
   from J2000 to the Earth-fixed frame of date.
-  - Precession is IAU 1976 (Lieske).
-  - Nutation is IAU 1980, the full 106-term series. The table and its
+  - Precession is IAU 1976 (Lieske [3]).
+  - Nutation is IAU 1980 [4], the full 106-term series. The table and its
     fundamental arguments are NAIF's (CSPICE `zzwahr.c`), and our sum
     matches NAIF's routine to 10⁻¹⁹ rad.
   - Sidereal time is GMST (IAU 1982) plus the classic equation of the
@@ -102,11 +102,11 @@ What is not reproduced:
 
 `src/physics/atmosphereMET.js` is the Marshall Engineering Thermosphere
 (MET), the atmosphere all four NASA tools ran. It is NASA Marshall's
-version of Jacchia's 1970 static diffusion model, with two of Jacchia's
-1971 terms. It gives density, temperature and composition from 90 to
+version of Jacchia's 1970 [5] static diffusion model, with two of Jacchia's
+1971 [6] terms. It gives density, temperature and composition from 90 to
 2,500 km. NASA's report says the code is available only from MSFC on
 request. The equations and Fortran listings are public, though: they are
-in four NASA reports on the Technical Reports Server (Sources). The
+in four NASA reports on the Technical Reports Server [7]–[10]. The
 module is built from those.
 
 Inputs are the time (UTC), geodetic latitude, east longitude and height,
@@ -134,7 +134,7 @@ The model, in the order MET computes it:
   - Above 105 km: diffusive equilibrium for each of N₂, O₂, O, Ar and He
     (He with thermal diffusion factor −0.38), and H from 500 km.
   - Gravity is $9.80665/(1+z/6356.766\text{ km})^2$.
-  - The integrals use MET's own Gaussian quadrature, over its eight fixed
+  - The integrals use MET's own Gaussian quadrature [8], over its eight fixed
     height bands, with its 7-digit abscissas and weights.
 - **Jacchia 1971's terms:**
   - Seasonal-latitudinal density below 170 km.
@@ -147,14 +147,14 @@ The version reproduced is MET-1999, which sims B and C ran (sim A ran
 MET-2007, sim D MET-1995). MET-1999 has a few quirks, which the module
 keeps:
 - It reads the time as whole minutes and the date as an integer day of
-  the year, over a 365.2422-day year. MET-2007 made these continuous.
+  the year, over a 365.2422-day year. MET-2007 [10] made these continuous.
 - Its helium fairing goes in 10 km steps. `{ fairing: 'smooth' }` gives
   MET-V 2.0's cos² fairing instead.
 
 How it checks (`nesc.test.mjs`, [Validation](../validation.md#the-met-atmosphere)):
-- **NASA's MET-V 2.0 worked example:** every one of the ten printed
+- **NASA's MET-V 2.0 worked example** [9]: every one of the ten printed
   outputs, to the digits printed.
-- **MET-88's test case:** within 1.2×10⁻⁵. MET-88 had an older Sun and
+- **MET-88's test case** [7]: within 1.2×10⁻⁵. MET-88 had an older Sun and
   Simpson's rule.
 - **Along cases 5A–C and the drag cases:** at every 60 s sample, density
   within 2.4×10⁻⁶ of sim B's and temperature within 0.7 mK, at all three
@@ -197,25 +197,24 @@ Case 4 found two problems in the kernel, each fixed:
 For comparison: with the same Sun and Moon but the Earth at the origin,
 `sixdof.js` matches sim B to 1 mm.
 
-## Sources
+## References
 
-- M. P. Hickey, *The NASA Marshall Engineering Thermosphere Model*,
-  NASA CR-179359, 1988 (MET-88's Fortran listing); and *An Improvement in
-  the Numerical Integration Procedure Used in the NASA Marshall Engineering
-  Thermosphere Model*, NASA CR-179389, 1988 (the Gaussian quadrature).
-- J. K. Owens, *NASA Marshall Engineering Thermosphere Model — Version
-  2.0*, NASA/TM-2002-211786, 2002 (MET-1999's Sun, the worked example).
-- J. K. Owens et al., *Marshall Engineering Thermosphere Model, Version
-  MET-2007*, NASA/TM-2017-218238, 2017 (what MET-1999 did with time).
-- L. G. Jacchia, *New Static Models of the Thermosphere and Exosphere with
-  Empirical Temperature Profiles*, SAO Special Report 313, 1970; and
-  *Revised Static Models…*, SAO Special Report 332, 1971.
-- NASA Engineering and Safety Center, *Check-Cases for Verification of
-  6-Degree-of-Freedom Flight Vehicle Simulations*, NASA/TM-2015-218675
-  (NESC-RP-12-00770), Volumes I and II, 2015; data at
-  [nescacademy.nasa.gov/flightsim/2015](https://nescacademy.nasa.gov/flightsim/2015).
-- O. Montenbruck and E. Gill, *Satellite Orbits*, Springer, 2000, §3.2.4.
-- J. H. Lieske et al., "Expressions for the precession quantities based
-  upon the IAU (1976) system of astronomical constants", *A&A* 58, 1977.
-- P. K. Seidelmann (ed.), *Explanatory Supplement to the Astronomical
-  Almanac*, 1992, pp. 114–115 (IAU 1980 nutation); NAIF CSPICE `zzwahr.c`.
+[1] NASA Engineering and Safety Center, "Check-cases for verification of 6-degree-of-freedom flight vehicle simulations," Vols. I and II, NASA/TM-2015-218675 (NESC-RP-12-00770), 2015. [Online]. Available: https://nescacademy.nasa.gov/flightsim/2015
+
+[2] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, §3.2.4.
+
+[3] J. H. Lieske *et al.*, "Expressions for the precession quantities based upon the IAU (1976) system of astronomical constants," *Astron. Astrophys.*, vol. 58, 1977.
+
+[4] P. K. Seidelmann, Ed., *Explanatory Supplement to the Astronomical Almanac*, 1992, pp. 114–115 (IAU 1980 nutation). The nutation table and fundamental arguments are those of NAIF CSPICE `zzwahr.c`.
+
+[5] L. G. Jacchia, "New static models of the thermosphere and exosphere with empirical temperature profiles," Smithsonian Astrophys. Observatory, Special Rep. 313, 1970.
+
+[6] L. G. Jacchia, "Revised static models of the thermosphere and exosphere with empirical temperature profiles," Smithsonian Astrophys. Observatory, Special Rep. 332, 1971.
+
+[7] M. P. Hickey, "The NASA Marshall Engineering Thermosphere Model," NASA Contractor Rep. CR-179359, 1988. MET-88's Fortran listing.
+
+[8] M. P. Hickey, "An improvement in the numerical integration procedure used in the NASA Marshall Engineering Thermosphere Model," NASA Contractor Rep. CR-179389, 1988. The Gaussian quadrature.
+
+[9] J. K. Owens, "NASA Marshall Engineering Thermosphere Model: Version 2.0," NASA/TM-2002-211786, 2002. MET-1999's Sun and the worked example.
+
+[10] J. K. Owens *et al.*, "Marshall Engineering Thermosphere Model, Version MET-2007," NASA/TM-2017-218238, 2017. What MET-1999 did with time.

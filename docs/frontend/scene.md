@@ -186,6 +186,9 @@ time (capped at 1 s, so a hidden tab does not jump). React panels subscribe
 through `useSyncExternalStore` and re-render at most ten times a second;
 the header and the body rail redraw only when a value they show changes
 (`useClockValue`).
+
+![The inner solar system at 30 days a second: the planets go round the Sun, the clock in the header races ahead and the rate reads 30 d/s](../clips/time-warp.webp)
+
 The URL can set the start state: `?focus=mars&t=2030-01-01T00:00Z`, and
 `&view=sun` starts on the sunlit side of the focused body.
 

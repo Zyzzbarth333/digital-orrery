@@ -79,7 +79,7 @@ pure white, so it cannot show.
 The white-light corona is always drawn, as it is always there
 (`makeCorona`, `sun.ts`): a billboard around the Sun, in the plane through
 its centre facing the camera, out to six solar radii, with Baumbach's mean
-brightness of ten eclipses (`src/physics/corona.js`),
+brightness of ten eclipses [1] (`src/physics/corona.js`),
 
 $$
 \frac{I(\rho)}{I_\text{centre}} = 10^{-6}\left(0.0532\,\rho^{-2.5}
@@ -104,12 +104,9 @@ on, nothing changes inside the Moon's disc, and the ring outside it gains
 where the billboard covers most of the screen, it costs about 0.5 ms a
 frame on the Intel GPU.
 
-**Source.** S. Baumbach, "Strahlung, Ergiebigkeit und Elektronendichte der
-Sonnenkorona", *Astronomische Nachrichten* 263, 121–134 (1937),
-[doi:10.1002/asna.19372630602](https://doi.org/10.1002/asna.19372630602); the formula as given in
+**Source.** Baumbach's 1937 paper [1]; the formula as given in
 R. Nelson's lecture notes, [chapter 5](https://science.gsfc.nasa.gov/671/staff/bios/cs/Nelson_Reginald/Chapter5.pdf)
-(NASA GSFC), and used by Turyshev and Toth (2022,
-[arXiv:2204.04866](https://arxiv.org/abs/2204.04866)).
+(NASA GSFC) [2], and used by Turyshev and Toth (2022) [3].
 
 ## Glare and bloom
 
@@ -215,7 +212,7 @@ brighten and fade. In space, and above about 20 km, stars are steady, as
 astronauts see them. The model is `src/physics/scintillation.js`, applied
 per star in the point stars' vertex shader (`stars.ts`):
 
-- **Turbulence.** The Hufnagel–Valley 5/7 profile of the refractive-index
+- **Turbulence.** The Hufnagel–Valley 5/7 profile [4] of the refractive-index
   structure constant, $C_n^2(h) = 0.00594 (v/27)^2 (10^{-5}h)^{10}
   e^{-h/1000} + 2.7\times10^{-16} e^{-h/1500} + A e^{-h/100}$ (h in m,
   v = 21 m/s, A = 1.7 × 10⁻¹⁴ m⁻²ᐟ³), a standard model named for the
@@ -227,7 +224,7 @@ per star in the point stars' vertex shader (`stars.ts`):
   the ground straight up, a tenth of that from 10 km, nothing from 30 km.
   The pupil (a few mm) is far smaller than the Fresnel zone
   $\sqrt{\lambda L}$ (about 6 cm), so the scintillation index is a point
-  aperture's, by Andrews and Phillips's expression for weak to strong
+  aperture's, by Andrews and Phillips's expression [5] for weak to strong
   turbulence, $\sigma_I^2 = \exp\!\left(\frac{0.49\sigma_R^2}{(1 + 1.11
   \sigma_R^{12/5})^{7/6}} + \frac{0.51\sigma_R^2}{(1 + 0.69
   \sigma_R^{12/5})^{5/6}}\right) - 1$: σ_R² while small, about 1 low in the
@@ -242,11 +239,11 @@ per star in the point stars' vertex shader (`stars.ts`):
   $s^2 = \ln(1 + \sigma^2_\text{eye})$, and n a smooth random signal with
   its own phase per star, changing over 0.1 s. Straight up a star's light
   varies by about 10 %; near the horizon by 30 to 50 %.
-- **Colour.** Air bends blue light more than red (Edlén's formula:
+- **Colour.** Air bends blue light more than red (Edlén's formula [6]:
   $n - 1$ is 1.5 % larger at 450 nm than at 650 nm), so low in the sky
   the two take paths that pass the turbulence apart, by
   $(n_b - n_r)L\sec z\tan z$. Once that passes a Fresnel zone their
-  twinkling no longer matches (Dravins et al. 1997, part II), and a bright
+  twinkling no longer matches (Dravins et al. 1997, part II [7]), and a bright
   star low in the sky flickers in colour: the channels share n by
   $\sqrt{1 - d^2}$ and take their own by d, d that separation over the
   Fresnel zone, capped at 1.
@@ -260,25 +257,13 @@ the equator's surface. Reduced motion turns twinkling off. With it on,
 frame time did not change measurably on either GPU (Intel 40.1 against
 39.7 ms, NVIDIA 7.4 against 7.5 ms, within the noise).
 
-**Sources.**
-
-- Hufnagel–Valley profile and its 5/7 parameters: e.g. pyBSM,
-  [hufnagel_valley_turbulence_profile](https://pybsm.readthedocs.io/en/latest/_implementations/otf/pybsm.otf.functional.hufnagel_valley_turbulence_profile.html);
-  L. C. Andrews and R. L. Phillips, *Laser Beam Propagation through Random
-  Media*, 2nd ed., SPIE Press, 2005 (Rytov variance, scintillation index).
-- D. Dravins, L. Lindegren, E. Mezey and A. T. Young, "Atmospheric
-  intensity scintillation of stars. I. Statistical distributions and
-  temporal properties", *PASP* 109, 173–207 (1997),
-  [doi:10.1086/133872](https://doi.org/10.1086/133872); "II. Dependence on
-  optical wavelength", *PASP* 109, 725–737 (1997).
-- B. Edlén, "The refractive index of air", *Metrologia* 2, 71–80 (1966),
-  [doi:10.1088/0026-1394/2/2/002](https://doi.org/10.1088/0026-1394/2/2/002).
+**Sources.** The Hufnagel–Valley profile [4] and Andrews and Phillips [5] (Rytov variance, scintillation index); Edlén's refractive index of air [6]; Dravins et al., parts I and II [7].
 
 ## Surface reflectance
 
 Each body reflects its **geometric albedo** $p$, the brightness of the
 full disc at zero phase relative to a flat white disc, from the NASA NSSDCA
-planetary fact sheets (Mercury 0.142, Venus 0.689, Earth 0.434, Moon 0.12,
+planetary fact sheets [8] (Mercury 0.142, Venus 0.689, Earth 0.434, Moon 0.12,
 Mars 0.170, Jupiter 0.538, Saturn 0.499, Uranus 0.488, Neptune 0.442,
 Pluto 0.52). The colour in the catalogue sets only the hue, scaled to that
 luminance.
@@ -360,3 +345,21 @@ Not modelled yet: sunlight refracted by Earth's atmosphere into its umbra
 brightness, so near-black at a daylight exposure). Earth's atmosphere is
 in [atmospheres](atmospheres.md); surface maps, relief and night lights in
 [textures](textures.md).
+
+## References
+
+[1] S. Baumbach, "Strahlung, Ergiebigkeit und Elektronendichte der Sonnenkorona," *Astron. Nachr.*, vol. 263, no. 6, pp. 121–134, 1937, doi: 10.1002/asna.19372630602.
+
+[2] R. Nelson, "Chapter 5," lecture notes, NASA Goddard Space Flight Center. [Online]. Available: https://science.gsfc.nasa.gov/671/staff/bios/cs/Nelson_Reginald/Chapter5.pdf
+
+[3] S. G. Turyshev and V. T. Toth, "Resolved imaging of exoplanets with the solar gravitational lens," 2022, arXiv:2204.04866. [Online]. Available: https://arxiv.org/abs/2204.04866
+
+[4] pyBSM, "hufnagel_valley_turbulence_profile." [Online]. Available: https://pybsm.readthedocs.io/en/latest/_implementations/otf/pybsm.otf.functional.hufnagel_valley_turbulence_profile.html
+
+[5] L. C. Andrews and R. L. Phillips, *Laser Beam Propagation through Random Media*, 2nd ed. Bellingham, WA, USA: SPIE Press, 2005.
+
+[6] B. Edlén, "The refractive index of air," *Metrologia*, vol. 2, no. 2, pp. 71–80, 1966, doi: 10.1088/0026-1394/2/2/002.
+
+[7] D. Dravins, L. Lindegren, E. Mezey, and A. T. Young, "Atmospheric intensity scintillation of stars. I. Statistical distributions and temporal properties," *Publ. Astron. Soc. Pac.*, vol. 109, pp. 173–207, 1997, doi: 10.1086/133872; "II. Dependence on optical wavelength," *Publ. Astron. Soc. Pac.*, vol. 109, pp. 725–737, 1997, doi: 10.1086/133937.
+
+[8] D. R. Williams, "Planetary fact sheets," NASA NSSDCA. [Online]. Available: https://nssdc.gsfc.nasa.gov/planetary/factsheet/

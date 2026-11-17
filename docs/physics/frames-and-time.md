@@ -19,7 +19,7 @@ only at the edges (rendering, the UI, external data).
 
 The kernel, the ephemeris adapter (`src/physics/ephemeris.js`) and the SPICE
 fixture all use the J2000 mean equator and equinox. That is SPICE's `J2000`
-frame and astronomy-engine's `EQJ`; it is the ICRF to within about 0.02
+frame [1] and astronomy-engine's `EQJ` [2]; it is the ICRF to within about 0.02
 arcseconds (a frame bias that matters only far below the accuracy here).
 
 ### Ecliptic J2000
@@ -112,7 +112,7 @@ from SPICE.
 The Earth's rotation keeps its own time, UT1: the angle it has turned.
 UTC is held within 0.9 s of it by leap seconds, and 0.9 s of the Earth's
 turn is 400 m at the equator. So the Earth's orientation does not use UTC
-directly. It adds the day's UT1 − UTC from NAIF's Earth PCKs, read into
+directly. It adds the day's UT1 − UTC from NAIF's Earth PCKs [1], read into
 `public/ephemeris/earth-orientation-2000-2126.bin` with the day's polar
 motion ([orientation](orientation.md#earth)). Between days, the table
 interpolates UT1 − TAI, which runs smoothly where UT1 − UTC jumps a second
@@ -121,8 +121,10 @@ at a leap second. Outside 2000 to 2126 the Earth turns on UTC, 180 m out.
 since a double holds a Julian date only to 40 µs (2 cm of the Earth's
 turn).
 
-## Sources
+## References
 
-- IAU 2012 Resolution B2 (the astronomical unit).
-- NAIF SPICE Required Reading: Frames, Time, PCK (ITRF93).
-- astronomy-engine documentation (EQJ, ECL, rotation functions).
+[1] NAIF, "SPICE Required Reading: Frames, Time and PCK (ITRF93)." [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/
+
+[2] D. Cross, "astronomy-engine documentation (EQJ, ECL, rotation functions)." [Online]. Available: https://github.com/cosinekitty/astronomy
+
+[3] International Astronomical Union, "Resolution B2 on the re-definition of the astronomical unit of length," 2012.
