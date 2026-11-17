@@ -50,7 +50,7 @@ import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmos
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
 import { HdrPipeline } from './post';
-import { makeSunMaterial, SunGlare, visibleFraction } from './sun';
+import { makeCorona, makeSunMaterial, SunGlare, visibleFraction } from './sun';
 import { RenderScale } from './renderScale';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
@@ -376,6 +376,8 @@ export class OrreryScene {
       const mesh = new THREE.Mesh(sphere, material);
       const [ra, rb, rc] = b.radiiKm;
       mesh.scale.set(ra / UNIT_KM, rb / UNIT_KM, rc / UNIT_KM);
+      // The corona rides on the Sun (it sizes itself, whatever the scale).
+      if (b.key === 'sun') mesh.add(makeCorona(SUN_RADIUS_KM / UNIT_KM));
       this.scene.add(mesh);
       this.meshes.set(b.key, mesh);
       this.labels.set(b.key, this.makeLabel(b.key, b.name));

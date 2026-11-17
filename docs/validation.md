@@ -410,6 +410,14 @@ published equations and Fortran listings
 | Height | the turbulence is low | σ_R² at 10, 20, 30 km: 0.11, 1×10⁻³, 0 of the ground's |
 | Air's refractivity | Edlén (1966), standard air: 2.7782×10⁻⁴ at 550 nm | 2.7782×10⁻⁴; blue 1.51 % above red |
 
+## The corona (`corona.test.mjs`)
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Baumbach's brightness at the limb | 10⁻⁶ (0.0532 + 1.425 + 2.565) of the disc's centre | 4.0432 × 10⁻⁶ |
+| Fall-off | steep inside 2 radii, then ρ^−2.5 | 0.5 % of the limb's at 2 radii; the ρ^−2.5 term alone by 6 |
+| In the scene | the disc's centre is 46,000/0.805 of white | 0.231 of white at the limb |
+
 ## A small body's plate (`smallbodies.test.mjs`)
 
 | Fact | Reference | Result |
