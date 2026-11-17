@@ -71,9 +71,45 @@ darkens more toward the limb than red; the colour of the limb is an
 approximation (the channel exponents 0.8, 1, 1.25 are not fitted to Neckel
 and Labs).
 
-Granulation and the corona are not drawn: at an exposure for sunlit
-surfaces the disc is pure white, so granulation cannot show, and the
-corona (about 10⁻⁶ of the disc) would be lost in the glare.
+Granulation is not drawn: at an exposure for sunlit surfaces the disc is
+pure white, so it cannot show.
+
+### The corona
+
+The white-light corona is always drawn, as it is always there
+(`makeCorona`, `sun.ts`): a billboard around the Sun, in the plane through
+its centre facing the camera, out to six solar radii, with Baumbach's mean
+brightness of ten eclipses (`src/physics/corona.js`),
+
+$$
+\frac{I(\rho)}{I_\text{centre}} = 10^{-6}\left(0.0532\,\rho^{-2.5}
++ 1.425\,\rho^{-7} + 2.565\,\rho^{-17}\right),
+$$
+
+ρ in solar radii from the Sun's centre and $I_\text{centre}$ the brightness
+at the centre of the disc, in the Sun's colour (the K corona is scattered
+sunlight). At the limb that is 4.04 × 10⁻⁶ of the disc's centre, about a
+quarter of white at the scene's exposure, and it falls to under a
+hundredth of that by two radii. Beside the uncovered Sun it is lost in the
+glare, as it is to any camera; when a body covers the disc the glare goes
+with it ([glare](#glare-and-bloom)), and the corona shows. It is real light
+drawn in the scene with depth, so the body in front hides the part behind
+it. It is Baumbach's smoothed average: no streamers, plumes or change over
+the solar cycle.
+
+Checked at a total eclipse staged behind the Moon (the camera on the
+Sun–Moon line 355,000 km out, the Moon 4.6 px in radius): with the corona
+on, nothing changes inside the Moon's disc, and the ring outside it gains
+37, 16, 5, 2.6 and 1.3 (of 255) at 5 to 9 px from the centre. Near the Sun,
+where the billboard covers most of the screen, it costs about 0.5 ms a
+frame on the Intel GPU.
+
+**Source.** S. Baumbach, "Strahlung, Ergiebigkeit und Elektronendichte der
+Sonnenkorona", *Astronomische Nachrichten* 263, 121–134 (1937),
+[doi:10.1002/asna.19372630602](https://doi.org/10.1002/asna.19372630602); the formula as given in
+R. Nelson's lecture notes, [chapter 5](https://science.gsfc.nasa.gov/671/staff/bios/cs/Nelson_Reginald/Chapter5.pdf)
+(NASA GSFC), and used by Turyshev and Toth (2022,
+[arXiv:2204.04866](https://arxiv.org/abs/2204.04866)).
 
 ## Glare and bloom
 
@@ -167,6 +203,76 @@ sky is scaled by 1 / (1 + 4 × that light), approached in 0.3 s toward light
 and 2 s back toward the dark, roughly as eyes adapt. Flying past a sunlit
 planet or turning toward the Sun therefore changes the sky as it would for
 a person there.
+
+### Twinkling
+
+Stars twinkle only when seen through the Earth's lower atmosphere: in
+practice, following a craft near the ground (`?craft=orbit,2`, then zoom
+in). Turbulence a few kilometres up bends starlight by tiny, shifting
+amounts, so the light arriving at the ground is patchy on a scale of
+centimetres and a small aperture like the eye's pupil sees the star
+brighten and fade. In space, and above about 20 km, stars are steady, as
+astronauts see them. The model is `src/physics/scintillation.js`, applied
+per star in the point stars' vertex shader (`stars.ts`):
+
+- **Turbulence.** The Hufnagel–Valley 5/7 profile of the refractive-index
+  structure constant, $C_n^2(h) = 0.00594 (v/27)^2 (10^{-5}h)^{10}
+  e^{-h/1000} + 2.7\times10^{-16} e^{-h/1500} + A e^{-h/100}$ (h in m,
+  v = 21 m/s, A = 1.7 × 10⁻¹⁴ m⁻²ᐟ³), a standard model named for the
+  coherence length r₀ = 5 cm and isoplanatic angle θ₀ = 7 µrad it gives
+  looking up at 0.5 µm. Integrated here, 4.96 cm and 6.90 µrad.
+- **Strength.** The Rytov variance of a plane wave from the star, seen
+  from height h₀ at zenith angle z: $\sigma_R^2 = 2.25 k^{7/6} \sec^{11/6} z
+  \int_{h_0} C_n^2(h) (h - h_0)^{5/6} dh$, k = 2π/λ at 550 nm: 0.21 from
+  the ground straight up, a tenth of that from 10 km, nothing from 30 km.
+  The pupil (a few mm) is far smaller than the Fresnel zone
+  $\sqrt{\lambda L}$ (about 6 cm), so the scintillation index is a point
+  aperture's, by Andrews and Phillips's expression for weak to strong
+  turbulence, $\sigma_I^2 = \exp\!\left(\frac{0.49\sigma_R^2}{(1 + 1.11
+  \sigma_R^{12/5})^{7/6}} + \frac{0.51\sigma_R^2}{(1 + 0.69
+  \sigma_R^{12/5})^{5/6}}\right) - 1$: σ_R² while small, about 1 low in the
+  sky. From the ground: 0.20 straight up, 0.36 at 45°, 0.59 at 60°, 0.88 at
+  70°. The airmass is the plane-parallel sec z, capped at 38 (the real
+  airmass at the horizon).
+- **What the eye sees.** The pattern blows across a Fresnel zone in
+  $\tau = \sqrt{\lambda L}/v$, a few milliseconds, and the eye averages
+  over about 0.1 s, keeping about 2τ/0.1 s of the variance: 6 % straight
+  up, more low in the sky where the path is longer. Each star's light is
+  multiplied by a log-normal factor of mean 1, $e^{sn - s^2/2}$ with
+  $s^2 = \ln(1 + \sigma^2_\text{eye})$, and n a smooth random signal with
+  its own phase per star, changing over 0.1 s. Straight up a star's light
+  varies by about 10 %; near the horizon by 30 to 50 %.
+- **Colour.** Air bends blue light more than red (Edlén's formula:
+  $n - 1$ is 1.5 % larger at 450 nm than at 650 nm), so low in the sky
+  the two take paths that pass the turbulence apart, by
+  $(n_b - n_r)L\sec z\tan z$. Once that passes a Fresnel zone their
+  twinkling no longer matches (Dravins et al. 1997, part II), and a bright
+  star low in the sky flickers in colour: the channels share n by
+  $\sqrt{1 - d^2}$ and take their own by d, d that separation over the
+  Fresnel zone, capped at 1.
+- **Planets** are drawn as discs, not as these points, and do not
+  twinkle: their discs are many times the turbulence's isoplanatic angle,
+  which averages it out, as the eye sees.
+
+The height is above the Earth's ellipsoid under the camera, since the
+turbulence fades over the first 10 km and the mean radius is 7 km below
+the equator's surface. Reduced motion turns twinkling off. With it on,
+frame time did not change measurably on either GPU (Intel 40.1 against
+39.7 ms, NVIDIA 7.4 against 7.5 ms, within the noise).
+
+**Sources.**
+
+- Hufnagel–Valley profile and its 5/7 parameters: e.g. pyBSM,
+  [hufnagel_valley_turbulence_profile](https://pybsm.readthedocs.io/en/latest/_implementations/otf/pybsm.otf.functional.hufnagel_valley_turbulence_profile.html);
+  L. C. Andrews and R. L. Phillips, *Laser Beam Propagation through Random
+  Media*, 2nd ed., SPIE Press, 2005 (Rytov variance, scintillation index).
+- D. Dravins, L. Lindegren, E. Mezey and A. T. Young, "Atmospheric
+  intensity scintillation of stars. I. Statistical distributions and
+  temporal properties", *PASP* 109, 173–207 (1997),
+  [doi:10.1086/133872](https://doi.org/10.1086/133872); "II. Dependence on
+  optical wavelength", *PASP* 109, 725–737 (1997).
+- B. Edlén, "The refractive index of air", *Metrologia* 2, 71–80 (1966),
+  [doi:10.1088/0026-1394/2/2/002](https://doi.org/10.1088/0026-1394/2/2/002).
 
 ## Surface reflectance
 

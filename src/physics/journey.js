@@ -24,7 +24,7 @@
 //   journeyPath(solution)        points along every arc, for drawing
 
 /** @typedef {{ id: number, ms: number, pro: number, nor: number, rad: number }} BurnNode */
-/** @typedef {{ id: number, body: string, kind: 'flyby' | 'orbit' | 'land', altKm: number, stayDays?: number, dateMs: number, via?: string, chosen?: string, revs?: number, branch?: string, leadDeg?: number, incDeg?: number, nodes?: BurnNode[], aim?: { bT: number, bR: number } }} Waypoint */
+/** @typedef {{ resonance?: [number, number], resonantPhi?: number, id: number, body: string, kind: 'flyby' | 'orbit' | 'land', altKm: number, stayDays?: number, dateMs: number, via?: string, chosen?: string, revs?: number, branch?: string, leadDeg?: number, incDeg?: number, nodes?: BurnNode[], aim?: { bT: number, bR: number } }} Waypoint */
 /** @typedef {{ body: string, kind: 'pad' | 'orbit' | 'craft', altKm: number, dateMs: number, latDeg?: number, incDeg?: number, state?: { r: number[], v: number[] }, craftId?: number }} JourneyStart */
 /** @typedef {{ start: JourneyStart, waypoints: Waypoint[] }} Journey */
 
@@ -221,7 +221,7 @@ const isResonant = (P, Q) => P.body === Q.body && (P.kind === 'flyby' || Q.kind 
 // vinfIn: the excess speed arriving at P when P is a flyby; arcs whose
 // departure excess speed differs from it cost that much more (the powered
 // flyby's burn, roughly), so a chain of flybys picks matching arcs.
-export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, maxRevs = 0, vinfIn = null } = {}) {
+export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, maxRevs = 0, vinfIn = null, resonance = null, resonantPhi = 0 } = {}) {
   const g = legGeometry(P.body, Q.body, isResonant(P, Q)), C = bodyInfo(g.central), mu = C.mu;
   const tof = (arrMs - depMs) / 1000;
   const out = { geometry: g.kind, central: g.central, from: P.body, to: Q.body, depMs, arrMs, tofDays: tof / DAY, arcs: [], vinfDep: null, vinfArr: null, depDv: 0, arrDv: 0, midDv: 0, ok: false };
@@ -229,6 +229,7 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
   if (!(tof > 0)) return { ...out, error: 'arrives before it leaves' };
   const pick = revs !== undefined && revs !== null ? { revs, branch } : null;
 
+  if (g.resonant) return solveResonantLeg(P, Q, depMs, arrMs, g, out, { resonance, vinf: vinfIn, phi: resonantPhi });
   if (g.kind === 'between') {
     const a = relState(g.endA, g.central, depMs), b = relState(g.endB, g.central, arrMs);
     const cost = (v1, v2) => departCost(P, norm(sub(v1, a.v)), g.A, g.viaA) + arriveCost(Q, norm(sub(v2, b.v)), g.B, g.viaB) + (P.kind === 'flyby' ? (vinfIn !== null ? Math.abs(norm(sub(v1, a.v)) - vinfIn) : norm(sub(v1, a.v)) * 1e-3) : 0) + (Q.kind === 'flyby' ? norm(sub(v2, b.v)) * 1e-3 : 0);
@@ -271,6 +272,74 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
     out.ringArr = s.r2;
   }
   return { ...out, ok: true, revs: 0 };
+}
+
+// The ratios a resonant return can take: N of the body's periods for M of
+// the craft's, N and M up to 6, the craft's period from a third to six
+// times the body's.
+const RESONANCES = [];
+for (let N = 1; N <= 6; N++) for (let M = 1; M <= 6; M++) if (N / M >= 1 / 3 && N / M <= 6 && gcd(N, M) === 1) RESONANCES.push([N, M]);
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+
+// The body's own period about the central body, from its osculating orbit
+// at the date (so the craft and the body both come round in it).
+function bodyPeriod(key, central, ms) {
+  const s = relState(key, central, ms), mu = bodyInfo(central).mu;
+  const a = 1 / (2 / norm(s.r) - dot(s.v, s.v) / mu);
+  return 2 * Math.PI * Math.sqrt(a ** 3 / mu);
+}
+
+// When a body comes back nearest where it was at depMs, within 20 days of
+// days later (golden section on the distance).
+function bodyReturn(key, central, depMs, days) {
+  const r0 = relState(key, central, depMs).r, d = (t) => norm(sub(relState(key, central, t).r, r0));
+  let lo = depMs + (days - 20) * DAY_MS, hi = depMs + (days + 20) * DAY_MS;
+  const g = (Math.sqrt(5) - 1) / 2;
+  for (let i = 0; i < 60; i++) { const c = hi - g * (hi - lo), e = lo + g * (hi - lo); if (d(c) < d(e)) hi = e; else lo = c; }
+  return Math.round((lo + hi) / 2);
+}
+
+// The resonant returns open to an excess speed vinf (null: any) at a body,
+// with their flight times: [{ N, M, tofDays, theta }].
+export function resonances(key, depMs, vinf = null) {
+  const B = bodyInfo(key), central = B.parent, s = relState(key, central, depMs), TB = bodyPeriod(key, central, depMs), mu = bodyInfo(central).mu;
+  return RESONANCES.map(([N, M]) => {
+    const c = X.resonantCone({ r: norm(s.r), vB: s.v, mu, vinf: vinf ?? 1, N, M, TB });
+    return { N, M, tofDays: c.tof / DAY, theta: c.theta, feasible: vinf === null || c.feasible };
+  }).filter((x) => x.feasible).sort((a, b) => a.tofDays - b.tofDays);
+}
+
+// A return to the same body on a resonant orbit (the leg's two ends the
+// same body, with a flyby at either). Its excess velocity lies on the
+// cone for the ratio N:M (transfers.js resonantCone) at clock angle phi,
+// chosen when the journey is solved so the flybys either side cost least;
+// the arrival is the body's N periods later, and later waypoints keep
+// their spacing. The ratio is the waypoint's `resonance` [N, M], or the
+// one whose flight time is nearest the waypoint's date. vinf: the excess
+// speed it leaves with (the flyby's; without one, a guess for now).
+function solveResonantLeg(P, Q, depMs, arrMs, g, out, { resonance = null, vinf = null, phi = 0 }) {
+  const C = bodyInfo(g.central), mu = C.mu, a = relState(P.body, g.central, depMs);
+  const v = vinf ?? 5;
+  const open = resonances(P.body, depMs, v);
+  const pick0 = resonance ? open.find((x) => x.N === resonance[0] && x.M === resonance[1]) : open.reduce((best, x) => (!best || Math.abs(x.tofDays * DAY_MS - (arrMs - depMs)) < Math.abs(best.tofDays * DAY_MS - (arrMs - depMs)) ? x : best), null);
+  if (!pick0) return { ...out, error: resonance ? `no ${resonance[0]}:${resonance[1]} resonant orbit at ${v.toFixed(2)} km/s` : `no resonant return at ${v.toFixed(2)} km/s` };
+  // The body's real return: its osculating period on the day is off by up
+  // to a day in two years (the Moon swings the Earth), so the leg ends when
+  // the body comes back nearest where it was, within 20 days of N periods,
+  // and the craft's period is set from that (N T / M).
+  const ret = bodyReturn(P.body, g.central, depMs, pick0.tofDays);
+  const TB = (ret - depMs) / 1000 / pick0.N;
+  const cone = X.resonantCone({ r: norm(a.r), vB: a.v, mu, vinf: v, N: pick0.N, M: pick0.M, TB });
+  if (!cone.feasible) return { ...out, error: `no ${pick0.N}:${pick0.M} resonant orbit at ${v.toFixed(2)} km/s` };
+  const pick = { ...pick0, theta: cone.theta, tofDays: (ret - depMs) / DAY_MS };
+  const vinfDep = X.resonantVinf({ rB: a.r, vB: a.v, vinf: v, theta: pick.theta, phi });
+  const t2 = ret, v1 = add(a.v, vinfDep);
+  const end = propagate(a.r, v1, pick.tofDays * DAY, mu), b = relState(Q.body, g.central, t2);
+  if (!end) return { ...out, error: 'the resonant orbit could not be flown' };
+  out.arcs.push({ r1: a.r, v1, t1: depMs, t2, mu });
+  out.vinfDep = vinfDep; out.vinfArr = sub(end.v, b.v);
+  out.depDv = departCost(P, v, g.A); out.arrDv = arriveCost(Q, norm(out.vinfArr), g.B);
+  return { ...out, arrMs: t2, tofDays: pick.tofDays, ok: true, revs: pick.M - 1, endA: P.body, endB: Q.body, resonance: { N: pick.N, M: pick.M, theta: pick.theta, phi, vinf: v, missKm: norm(sub(end.r, b.r)) } };
 }
 
 // A bi-elliptic leg between two bodies about the Sun (or a planet): out to
@@ -373,14 +442,38 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     if (P.kind === 'craft' && k === 1) leg = solveCraftLeg(P, Q, P.depMs, Q.arrMs, w);
     else {
       const prev = legs[k - 2], vinfIn = P.kind === 'flyby' && prev?.ok && prev.vinfArr ? norm(prev.vinfArr) : null;
-      leg = solveLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs, branch: w.branch, maxRevs, vinfIn });
+      leg = solveLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs, branch: w.branch, maxRevs, vinfIn, resonance: w.resonance ?? null });
     }
-    if (leg.geometry === 'local' && leg.ok) {
+    if ((leg.geometry === 'local' || leg.resonance) && leg.ok) {
       const d = leg.arrMs - Q.arrMs;
       Q.arrMs += d; Q.depMs += d; shift += d;
     }
     leg.index = k - 1;
     legs.push(leg);
+  }
+  // Resonant returns: the clock angle that makes the flybys either side
+  // cheapest, with the excess speed of the flyby it leaves (or, leaving an
+  // orbit, of the flyby it returns to).
+  for (let k = 1; k < S.length; k++) {
+    const leg = legs[k - 1];
+    if (!leg.ok || !leg.resonance) continue;
+    const P = S[k - 1], Q = S[k], w = journey.waypoints[k - 1];
+    const vinIn = P.kind === 'flyby' && legs[k - 2]?.ok ? legs[k - 2].vinfArr : null;
+    const vOut = Q.kind === 'flyby' && legs[k]?.ok ? legs[k].vinfDep : null;
+    const mag = vinIn ? norm(vinIn) : vOut ? norm(vOut) : leg.resonance.vinf;
+    const B = bodyInfo(P.body), rpMin = B.radius + ((P.kind === 'flyby' ? P.altKm : Q.altKm) ?? 300);
+    const at = (phi) => solveLeg(P, Q, P.depMs, Q.arrMs, { resonance: [leg.resonance.N, leg.resonance.M], vinfIn: mag, resonantPhi: phi });
+    const cost = (L) => !L.ok ? Infinity
+      : (vinIn ? X.poweredFlyby({ vinfIn: vinIn, vinfOut: L.vinfDep, mu: B.mu, rpMin: B.radius + (P.altKm ?? 300) }).dv : L.depDv)
+        + (vOut ? X.poweredFlyby({ vinfIn: L.vinfArr, vinfOut: vOut, mu: B.mu, rpMin: B.radius + (Q.altKm ?? 300) }).dv : L.arrDv);
+    let bi = 0, bv = Infinity;
+    for (let i = 0; i < 72; i++) { const c = cost(at((2 * Math.PI * i) / 72)); if (c < bv) { bv = c; bi = i; } }
+    let lo = (2 * Math.PI * (bi - 1)) / 72, hi = (2 * Math.PI * (bi + 1)) / 72;
+    const gr = (Math.sqrt(5) - 1) / 2;
+    for (let i = 0; i < 40; i++) { const c = hi - gr * (hi - lo), d = lo + gr * (hi - lo); if (cost(at(c)) < cost(at(d))) hi = d; else lo = c; }
+    const L = at(w.resonantPhi ?? (lo + hi) / 2);
+    if (L.ok) legs[k - 1] = { ...L, index: k - 1 };
+    void rpMin;
   }
   // Shaped legs: burn nodes along a leg, or a flyby aimed by hand before
   // it, fly it free from there (shapeLeg).
@@ -563,7 +656,7 @@ export function legOptions(journey, k, { search = true } = {}) {
   const joinIn = (L) => (P.kind === 'flyby' && inbound?.ok && inbound.vinfArr && L.vinfDep
     ? X.poweredFlyby({ vinfIn: inbound.vinfArr, vinfOut: L.vinfDep, mu: PB.mu, rpMin: PB.radius + (P.altKm ?? 300) }).dv : 0);
   const legDv = (L) => L.depDv + L.arrDv + L.midDv + joinIn(L);
-  if (asIs.ok && g.kind !== 'local') options.push({ type: 'lambert', name: 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch });
+  if (asIs.ok && g.kind !== 'local') options.push({ type: 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch });
 
   if (g.kind === 'local') {
     for (const via of ['hohmann', 'bielliptic', ...(((Q.incDeg ?? 0) !== (P.incDeg ?? 0)) ? ['planechange'] : []), ...(Q.altKm === P.altKm && Q.leadDeg ? ['phasing'] : [])]) {
@@ -577,9 +670,15 @@ export function legOptions(journey, k, { search = true } = {}) {
   }
 
   if (g.resonant) {
-    if (search) {
-      const T = X.orbitPeriod(mu, g.A.a) / DAY, o = porkchopSearch(P, Q, g, earliest, true, T * 0.8, T * 2.2, legDv);
-      if (o) options.push(o);
+    // Each resonant ratio open to the flyby's excess speed, costed by the
+    // flybys it needs either side (the journey solved with that ratio).
+    const vin = inbound?.ok && inbound.vinfArr ? norm(inbound.vinfArr) : null;
+    const fbCost = (s2) => (s2.flybys[k - 1]?.dv ?? 0) + (s2.flybys[k]?.dv ?? 0);
+    for (const r of resonances(P.body, P.depMs, vin).slice(0, 8)) {
+      const j2 = { ...journey, waypoints: journey.waypoints.map((x, i) => (i === k ? { ...x, resonance: [r.N, r.M] } : x)) };
+      const s2 = solveJourney(j2), L = s2.legs[k];
+      if (!L?.ok) continue;
+      options.push({ type: 'resonance', name: `Resonant ${r.N}:${r.M}`, dv: L.depDv + L.arrDv + fbCost(s2), tofDays: L.tofDays, depMs: L.depMs, arrMs: L.arrMs, resonance: [r.N, r.M], note: `${r.N} of ${bodyInfo(P.body).name}'s orbits, ${r.M} of the craft's; the flybys either side ${(fbCost(s2) * 1000).toFixed(0)} m/s` });
     }
     const fb = sol.flybys[k];
     if (fb) options.push(assistOption(fb, Q));
@@ -675,7 +774,8 @@ function flagBiElliptic(options) {
 export function applyOption(journey, k, o) {
   const j = { start: { ...journey.start }, waypoints: journey.waypoints.map((w) => ({ ...w })) };
   const w = j.waypoints[k];
-  w.via = o.type === 'porkchop' || o.type === 'hohmann' || o.type === 'planechange' ? 'lambert' : o.type;
+  w.via = o.type === 'porkchop' || o.type === 'hohmann' || o.type === 'planechange' || o.type === 'resonance' ? 'lambert' : o.type;
+  if (o.type === 'resonance') w.resonance = o.resonance;
   w.chosen = o.type;
   w.revs = o.revs; w.branch = o.branch;
   if (o.type === 'lambert') return j;
