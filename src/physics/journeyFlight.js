@@ -339,8 +339,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   // to, where an impact is the touchdown (touch: the state there).
   let held = null, landingOn = null, touch = null;
   // Fly to time t, recording the path; stops at an impact. chunk: the
-  // longest stretch handed to the kernel at once (a touchdown is found
-  // from the state before the stretch it fell in).
+  // longest stretch handed to the kernel at once.
   const flyTo = (t, chunk = every) => {
     while (held && s.t < t - 1e-6) {
       const tn = Math.min(t, s.t + every), x = siteAt(held, tn);
@@ -350,13 +349,13 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
     while (s.t < t - 1e-6 && !out.impact && !touch) {
       let tn = Math.min(t, s.t + chunk);
       for (const w of watches) if (tn > w.t0 && s.t < w.t1) tn = Math.min(tn, Math.max(s.t + w.step, Math.min(w.t0, tn)), s.t + w.step);
-      const prev = s;
       const res = stepCraft(sys, { id: 0, version: 0, r: s.r, v: s.v, t: s.t, tEnd: tn, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env } : {}) });
       const hit = res.events.find((e) => e.type === 'impact');
       s = { r: res.r, v: res.v, t: res.t };
       if (chunk >= every || s.t - out.path[out.path.length - 1].t >= every || s.t >= t - 1e-6) out.path.push({ t: s.t, r: [...s.r] });
       look();
-      if (hit && hit.body === landingOn) { touch = groundAt(prev, s, hit.body); s = touch; out.path.push({ t: s.t, r: [...s.r] }); break; }
+      // The kernel's impact is where its step crossed the surface (impact.js).
+      if (hit && hit.body === landingOn) { touch = s; if (out.path[out.path.length - 1].t !== s.t) out.path.push({ t: s.t, r: [...s.r] }); break; }
       if (hit) { out.impact = { body: hit.body, t: hit.t }; break; }
       if (!res.complete) { out.log.push(`kernel stopped short at ${s.t}`); out.trouble.push('the kernel stopped short'); break; }
     }
@@ -395,19 +394,6 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
     if (b?.surface && b.pole) { const z = dot(u, b.pole); return scale(u, 1 / Math.sqrt((1 - z * z) / b.surface.a ** 2 + z * z / b.surface.c ** 2)); }
     return scale(u, b?.radius ?? bodyInfo(key).radius);
   };
-  // Where a step that ended below the ground crossed it: from the state
-  // before the step, two-body about the body (bisection on the time). The
-  // kernel checks for the ground at the end of each step, which can be
-  // seconds long, and a hundred metres down.
-  function groundAt(p, q, key) {
-    const B0 = bodyState(key, p.t), x0 = { r: sub(p.r, B0.r), v: sub(p.v, B0.v) };
-    const under = (dt) => { const x = dt > 0 ? propagate(x0.r, x0.v, dt, B0.mu) : x0; return { x, below: norm(x.r) < norm(surfaceUnder(key, x.r, p.t + dt)) }; };
-    let lo = 0, hi = q.t - p.t;
-    if (!under(hi).below) return q;
-    for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; if (under(m).below) hi = m; else lo = m; }
-    const { x } = under(hi), B = bodyState(key, p.t + hi);
-    return { r: add(B.r, x.r), v: add(B.v, x.v), t: p.t + hi };
-  }
   // Down: the craft held at the point beneath it, the watch on the body
   // ended (it measured the way in), the landing recorded.
   const setDown = (key, waypoint, how, extra = {}) => {
