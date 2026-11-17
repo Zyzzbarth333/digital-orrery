@@ -12,17 +12,23 @@ parts fast.
 | Ten body states (one frame) | 0.04 ms | every frame; Earth and the Moon from the DE442 table, the rest astronomy-engine |
 | Ten body orientations (one frame) | 0.01 ms | every frame |
 | One orbit line (361 samples) | 2.4–2.8 ms | resampled at most one line per frame |
-| Kernel, low Earth orbit, Cowell | about 50 sim days per second | 9,776 steps per sim day |
-| Kernel, low Earth orbit, with Encke | about 220 sim days per second | 1,134 steps per sim day with Earth's J2 (326 with point masses, about 600 sim days per second); 4x more accurate than Cowell |
-| Kernel, GEO | about 850 sim days per second | Cowell (perturbed beyond Encke's range) |
-| Kernel, among Jupiter's moons (1.5 million km orbit) | about 450 sim days per second | Cowell, 61 steps per sim day; 3,400 with the system folded at its barycentre. Each step about 3 times dearer (13 bodies, each moon a sum of two cubics), and the Galilean moons' nodes add 1.2 ms per sim day ([kernel](physics/nbody-kernel.md#moons)) |
+| Kernel, low Earth orbit, Cowell | about 100 sim days per second (was 44) | 2,324 steps per sim day of error-controlled Dormand-Prince (was 9,795 of Yoshida); 3.5 m in a day against a tight reference (was 5.8 m) |
+| Kernel, low Earth orbit, with Encke | about 115 sim days per second with the asteroids in reach, 220 without (were 100 and 155) | 1,134 steps per sim day with Earth's J2 (326 with point masses) |
+| Kernel, GEO | about 1,060 sim days per second (was 680) | Cowell (perturbed beyond Encke's range), 205 steps per sim day (was 630); 2.0 m in 10 days (was 24 m) |
+| Kernel, cruise | about 36,000 sim days per second (was 15,000) | about one step a day; 5 m in 300 days (was 8.4 km) |
+| Kernel, among Jupiter's moons (1.5 million km orbit) | about 970 sim days per second (unchanged) | Cowell, 25 steps per sim day (was 61); 1.2 m in 30 days (was 207 m). Each step costs about 3 times a step near the Earth (13 bodies, each moon a sum of two cubics) |
+| Kernel, Jupiter with its moons folded up | about 4,000 sim days per second (was 5,000) | the one case the error-controlled steps are slower than Yoshida's: a smooth field where the old fixed fraction was already accurate |
 | Splitting systems near the craft (`focus`) | within the ±5 % noise away from them | the same steps as before; the check is skipped until the craft could reach a threshold |
 | Ephemeris for the kernel | under 1.6 ms per sim day | the Moon at hourly nodes, now from the DE442 table |
 
 Kernel speeds are steady forward running, as in the app: 90 days in 10-day
 chunks, the median of the last five (after V8 has compiled the hot code),
-in CPU time. Earlier single short runs mostly measured compilation.
-| Kernel, cruise | about 200 µs per step | each day-long step needs new ephemeris samples |
+in CPU time. Earlier single short runs mostly measured compilation. The
+figures in brackets are main before 18 November 2026's speed work, by the
+same `npm run bench`. The machine was busy, so separate runs vary by up to
+a third; run interleaved in one process, the speed work is 23 % faster in
+low Earth orbit with Encke, 56 % in Cowell, 41 % at GEO and 61 % in cruise,
+and 8 % slower among Jupiter's moons.
 
 A frame's ephemeris and orientation work is about 0.07 ms of a 16.7 ms
 frame. The limits are elsewhere:
@@ -200,10 +206,19 @@ since its numbers do change.
    interval (no map lookup per call), and integrators switch by the size of
    the tides, not their momentary value: about 4.5 µs per step, low Earth
    orbit 13 times faster than Cowell in steady running, GEO no slower.
-3. **Error-controlled integration.** An embedded high-order pair
-   (Runge-Kutta-Nyström 12(10) or DOP853) with a tolerance, replacing the
-   fixed fraction of the dynamical time: fewer steps where the motion is
-   smooth, and a stated error.
+   Since 18 November 2026 the other bodies are placed once a step, at its
+   far end, and at the stages by the cubic between its ends
+   ([kernel](physics/nbody-kernel.md#enckes-method)): six cubics a body
+   became two. `primaryOf` keeps each body's $(\mu/\mu_\text{primary})^{0.4}$
+   per list instead of a `Math.pow` per body per step (a fifth of a Cowell
+   step), and the closures the hot loops allocated each step are gone.
+3. **Error-controlled integration: done** (18 November 2026). Cowell's
+   integrator is Dormand-Prince 5(4) with its error held to $10^{-6}$ km plus
+   $10^{-11}$ of the distance from the primary a step
+   ([kernel](physics/nbody-kernel.md#integrators)): one to three orders of
+   magnitude more accurate than the fixed fraction of the dynamical time, in
+   fewer steps. DOP853 or a Runge-Kutta-Nyström 12(10) pair could follow
+   where a tighter tolerance is wanted.
 4. **DE442 in the browser.** Evaluate the Chebyshev segments directly:
    exact positions, and a few microseconds per body instead of an
    analytic series, which speeds up cruise steps.

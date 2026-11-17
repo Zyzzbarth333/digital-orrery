@@ -35,17 +35,23 @@ header('CASE 1: Sun only, kernel vs universal-variable propagate');
     if (c.start) { const s = propagate(c.r, c.v, c.start, MU_SUN); r0 = s.r; v0 = s.v; }
     const T = c.T ?? 2 * rvToElements(r0, v0, MU_SUN).period;
     const ref = propagate(r0, v0, T, MU_SUN);
-    const errFor = (eta) => {
+    const errFor = (o) => {
       const st = createState(r0, v0, 0);
-      const res = advance(st, T, { bodiesAt: noBodies, muSun: MU_SUN, eta });
+      const res = advance(st, T, { bodiesAt: noBodies, muSun: MU_SUN, ...o });
       return { err: norm(sub(st.r, ref.r)) / norm(ref.r), steps: res.steps };
     };
-    const d = errFor(0.01), f = errFor(0.0025);
-    console.log(`  ${c.name.padEnd(30)} default: ${String(d.steps).padStart(5)} steps, rel err ${d.err.toExponential(2)};` +
-      `  eta/4: ${String(f.steps).padStart(5)} steps, ${f.err.toExponential(2)}`);
-    check(`${c.name}: default step matches propagate (<1e-5)`, d.err < 1e-5);
-    // 4th order: a 4x finer step should cut the error about 4^4 = 256x.
-    check(`${c.name}: a 4x finer eta cuts the error >100x (got ${(d.err / f.err).toFixed(0)}x)`, d.err / f.err > 100);
+    // The default: Dormand-Prince 5(4) with its error held under cowellTolKm
+    // (1e-6 km) plus 1e-11 of the distance from the Sun, a step. Yoshida's fixed fraction of the dynamical time, eta,
+    // is kept for comparison and for fixed steps.
+    const d = errFor({}), t = errFor({ cowellTolKm: 1e-8 });
+    const y = errFor({ method: 'yoshida4', eta: 0.01 }), f = errFor({ method: 'yoshida4', eta: 0.0025 });
+    console.log(`  ${c.name.padEnd(30)} default (DP45): ${String(d.steps).padStart(5)} steps, rel err ${d.err.toExponential(2)};` +
+      `  tol/100: ${String(t.steps).padStart(5)}, ${t.err.toExponential(2)};  Yoshida: ${String(y.steps).padStart(5)}, ${y.err.toExponential(2)};` +
+      `  eta/4: ${String(f.steps).padStart(5)}, ${f.err.toExponential(2)}`);
+    check(`${c.name}: default matches propagate (<1e-8)`, d.err < 1e-8);
+    check(`${c.name}: the default is over 100x closer than Yoshida at eta 0.01, in fewer steps`, d.err * 100 < y.err && d.steps < y.steps);
+    // Yoshida, 4th order: a 4x finer step should cut the error about 4^4 = 256x.
+    check(`${c.name}: Yoshida, a 4x finer eta cuts the error >100x (got ${(y.err / f.err).toFixed(0)}x)`, y.err / f.err > 100);
   }
 }
 
@@ -418,9 +424,10 @@ header('CASE 12: kernel GMs match SPICE (DE442), with system GMs at barycentres'
 
 header("CASE 13: Encke's method near a primary, against a fine Cowell reference");
 {
-  // Reference: the Cowell kernel with a 20x finer step (4th order: ~1.6e5x
-  // smaller error). Encke must match it more closely than the default Cowell
-  // run does, in far fewer steps, and hand over to Cowell where the motion
+  // Reference: the Cowell kernel, Dormand-Prince at 1e-10 km a step (it
+  // agrees with Yoshida at a twentieth of its step to 0.06 m in low orbit).
+  // Encke must match it more closely than the default Cowell run (1e-6 km a
+  // step) does, in fewer steps, and hand over to Cowell where the motion
   // stops being nearly Keplerian.
   const sys = solarSystemBodies({ epochMs: Date.UTC(2026, 10, 12) });
   const E = sys.bodiesAt(0).find((b) => b.key === 'earth');
@@ -432,7 +439,8 @@ header("CASE 13: Encke's method near a primary, against a fine Cowell reference"
   // Low Earth orbit, 400 km, inclined, one day.
   const R = 6778, V = Math.sqrt(MU / R);
   const r0 = [rE[0] + R, rE[1], rE[2]], v0 = [vE[0], vE[1] + V * Math.cos(0.4), vE[2] + V * Math.sin(0.4)];
-  const ref = run(r0, v0, DAY, { encke: false, eta: 0.0005 });
+  const REF = { encke: false, method: 'dp45', cowellTolKm: 1e-10 };
+  const ref = run(r0, v0, DAY, REF);
   const cow = run(r0, v0, DAY, { encke: false });
   const enk = run(r0, v0, DAY, {});
   console.log(`  LEO 1 day: Cowell ${cow.res.steps} steps, ${(dist(cow, ref) * 1000).toFixed(1)} m; Encke ${enk.res.steps} steps, ${(dist(enk, ref) * 1000).toFixed(2)} m`);
@@ -448,8 +456,9 @@ header("CASE 13: Encke's method near a primary, against a fine Cowell reference"
   check('LEO: Encke more accurate than default Cowell', dist(enk, ref) < dist(cow, ref));
   // With Earth's J2 the deviation from the reference conic grows ~100 times
   // faster than from the tides alone, so Encke rectifies and steps more
-  // often: 1/8.6 of Cowell's steps (1/30 with point masses only).
-  check('LEO: Encke takes under 1/5 of the Cowell steps', enk.res.steps * 5 < cow.res.steps);
+  // often: 1/8.6 of the old fixed-fraction Cowell's steps, about half of the
+  // error-controlled one's (each a Dormand-Prince step either way).
+  check('LEO: Encke takes under 3/5 of the Cowell steps', enk.res.steps * 5 < 3 * cow.res.steps);
 
   // Back again: a day backwards returns to the start.
   const back = createState(enk.st.r, enk.st.v, DAY);
@@ -462,12 +471,17 @@ header("CASE 13: Encke's method near a primary, against a fine Cowell reference"
   // perigee, Cowell where the Sun and Moon matter (perturbation ratio).
   const ra = 386678, rp = 6678;
   const h0 = [rE[0] + rp, rE[1], rE[2]], hv = [vE[0], vE[1] + Math.sqrt(2 * MU * ra / (rp * (rp + ra))), vE[2]];
-  const href = run(h0, hv, 10 * DAY, { encke: false, eta: 0.0005 });
+  const href = run(h0, hv, 10 * DAY, REF);
   const hcow = run(h0, hv, 10 * DAY, { encke: false });
   const henk = run(h0, hv, 10 * DAY, {});
   console.log(`  HEO 10 days: Cowell ${hcow.res.steps} steps, ${dist(hcow, href).toFixed(2)} km; hybrid ${henk.res.steps} steps, ${dist(henk, href).toFixed(3)} km`);
-  check('HEO: hybrid at least 5x more accurate than default Cowell, in no more steps',
-    dist(henk, href) * 5 < dist(hcow, href) && henk.res.steps <= hcow.res.steps);
+  // Against the old fixed-fraction Cowell (1.91 km) the hybrid was ten times
+  // closer. The error-controlled Cowell is within 0.01 km of its own tighter
+  // run; the hybrid stays about 0.1 km off it, as it was off the old
+  // reference: Encke's tidal form leaves out the ephemeris's acceleration
+  // noise, which every Cowell run follows, so this is no longer its error.
+  check('HEO: hybrid within 0.2 km of the Cowell reference, in fewer steps than Cowell',
+    dist(henk, href) < 0.2 && henk.res.steps < hcow.res.steps);
 
   // A suborbital path (periapsis 3,000 km below the surface) still hits, at
   // the same time as in the Cowell kernel to within a step.

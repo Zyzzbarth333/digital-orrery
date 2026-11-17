@@ -136,6 +136,63 @@ degree 2 ([moons](#the-moons-own-fields)), and the asteroids.
 
 ## Integrators
 
+### Dormand-Prince 5(4) with error control (the default)
+
+Cowell's integrator is an embedded Runge-Kutta pair, Dormand and Prince's
+5(4) (the tableau Encke's method already uses), on the state
+$(\mathbf r, \mathbf v)$. Each step carries a fourth-order solution beside
+the fifth, and their difference estimates the step's error:
+
+- **Tolerance:** the estimate is held under `cowellTolKm` (default
+  $10^{-6}$ km) plus `cowellRelTol` ($10^{-11}$) of the craft's distance
+  from its primary (the Sun's in cruise), in position: a wide orbit is held
+  to the same fraction of its size as a low one, 15 µm in low Earth orbit,
+  15 m at 1 au. In velocity it is held under the same over a
+  time: the local dynamical time $\tau$ (as below, at most $h_\text{max}$),
+  or the step itself if that is shorter. A velocity error is weighed by how
+  far it moves the craft. The step grows or shrinks by
+  $0.9\,\text{err}^{-1/5}$ (between 0.2 and 5), and a step whose error is
+  over the tolerance is taken again, shorter.
+- **Rounding sets no step.** Without the step in that velocity scale, the
+  steps fell to 6 µs under a capsule's drogue: its height is a difference
+  of heliocentric places, with 3 cm of rounding at 1 au. Its chute opens
+  over 300 m of height, so its drag carries $10^{-4}$ of noise, above a
+  velocity tolerance of 1.2 µm/s a step.
+- **Forces that jump with the state** (a chute opening at a height) have no
+  step small enough for an error test: at 1 ms a step is taken anyway, as
+  a fixed-step method would take it.
+- **Seven forces a step, six new:** the last stage of a step is the first
+  of the next ("first same as last"), except after a burn's edge.
+- **Velocity-dependent forces** (drag, steered burns) see each stage's own
+  velocity, so the prediction the leapfrog needs (below) is not needed.
+- **Breakpoints, step caps and the step budget** work as for Yoshida: steps
+  end on burn edges, the environment can cap them, and they count against
+  `maxSteps`.
+- **Impacts:** on a conic that dips inside its primary the step is capped
+  at the old fixed fraction of the dynamical time (as in Encke's method),
+  so a craft is found inside a body as soon after hitting it as before.
+
+Against Yoshida's fixed fraction (below), at the default tolerance. The
+references are runs at $10^{-10}$ km a step, which agree with Yoshida at a
+tenth of its step to 0.14–0.84 m (`nbody.test.mjs` cases 1 and 13):
+
+| Flight | Yoshida, $\eta = 0.01$ | Dormand-Prince, the default |
+| --- | ---: | ---: |
+| circular 1 au, a year, Sun only | $5.8\times10^{-8}$ of the radius, 629 steps | $2.1\times10^{-11}$, 366 steps |
+| low Earth orbit, a day (Cowell only) | 5.8 m, 9,795 steps | 3.5 m, 2,324 steps |
+| GEO, 10 days | 24 m, 6,301 steps | 2.0 m, 2,051 steps |
+| 300 × 380,000 km, 10 days | 2.1 km, 1,272 steps | 41 m, 565 steps |
+| 300 days of cruise | 8.4 km, 377 steps | 5.1 m, 301 steps |
+| among Jupiter's moons, 30 days | 207 m, 1,842 steps | 1.2 m, 748 steps |
+
+Every one is more accurate, by 1 to 3 orders of magnitude, in fewer steps;
+each step costs six force evaluations to Yoshida's three, and in steady
+running it is faster everywhere but among a giant planet's moons
+([performance](../performance.md#measured)).
+
+`method: 'yoshida4'` (or `'leapfrog'`) gives the symplectic integrators
+below, and fixed steps always use them.
+
 ### Kick-drift-kick leapfrog (velocity Verlet)
 
 One step of length $h$ from $(t, \mathbf r, \mathbf v)$ with
@@ -152,7 +209,7 @@ time-independent field. The acceleration at the end of a step is the one at
 the start of the next, so each step costs one force evaluation ("first same
 as last").
 
-### Yoshida's fourth-order composition (the default)
+### Yoshida's fourth-order composition
 
 Three leapfrog steps of lengths $w_1 h$, $w_0 h$, $w_1 h$ with
 
@@ -194,7 +251,7 @@ cuts the error by 4.00 for leapfrog and 16.01 for Yoshida (orders 2.00 and
 bounded: its maximum over every step is the same, 2.54×10⁻⁴, in orbits 1-2
 and 99-100.
 
-### Step size
+### Step size (Yoshida and leapfrog)
 
 Each step is a fraction $\eta$ of the shortest local dynamical time:
 
@@ -207,9 +264,8 @@ is the time it takes to move about one radian of an orbit at that distance,
 so the step shrinks near a planet and grows in cruise. This varies the step,
 so the method is no longer exactly symplectic, and there is no error
 estimate. A 4× finer $\eta$ cuts the error by 216-300× (4⁴ = 256) on the
-test orbits, and the default is within 10⁻⁵ of the exact two-body answer.
-Error-controlled stepping (an embedded Runge-Kutta-Nyström pair or DOP853) is
-planned.
+test orbits, and $\eta = 0.01$ is within 10⁻⁵ of the exact two-body answer.
+The default integrator above holds a stated error instead.
 
 The last step of an advance lands exactly on the end time (at large $t$ a
 leftover smaller than one unit in the last place used to stop $t$ advancing
@@ -295,6 +351,16 @@ the Earth's is sea level, the WGS-84 ellipsoid about its pole of date
 (6,378.137 km at the equator, 6,356.752 km at the poles); every other
 body's is the sphere of its mean radius. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
 the conic is re-anchored on the current state (rectification).
+
+**The other bodies within a step.** They act on the craft only through
+their tides across $\boldsymbol\rho$. So each step evaluates them once, at
+its far end (place and velocity; the near end is the last step's far end),
+and places them at the stages by the cubic through the two ends. Against
+their own cubics that is $(hn)^4 a/384$ for a step $h$: $10^{-12}$ km for
+the Moon in low Earth orbit, $10^{-4}$ km over a two-hour step near apogee,
+where the tide it changes is $10^{-15}$ km/s². The primary is still placed
+exactly at every stage. Before, every stage placed every body: six cubics
+each where now there are two, and low Earth orbit runs about a third faster.
 
 **When it is used.** Encke pays only while the motion is nearly Keplerian.
 The kernel judges that by the size of the tides rather than their momentary
@@ -479,10 +545,10 @@ spacing turns into tens of metres.
 for the Galilean moons and 1,600 km for Titan
 ([moons](../frontend/moons.md#how-right-they-are)). Those errors, not the
 kernel, set how closely a flyby of a moon can be followed. On Juno's pass
-over Ganymede the kernel follows JPL's trajectory to 4 km after nine hours
-with JPL's moons (Ganymede where Juno's own track puts it), 20.8 km with
-`moons.js`'s (20.9 km with the Ganymede Horizons serves; 323 km with the
-fallback's), and 9,300 km with no moons
+over Ganymede the kernel follows JPL's trajectory to 0.09 km after nine
+hours with JPL's moons (Ganymede where Juno's own track puts it), 22.7 km
+with `moons.js`'s (22.9 km with the Ganymede Horizons serves; 323 km with
+the fallback's), and 9,300 km with no moons
 ([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
 
 **Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never

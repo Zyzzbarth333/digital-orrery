@@ -248,8 +248,8 @@ exception found on the way: for Neptune it serves `nep098` (2026), and the
 older `nep097`'s Triton is 275–385 km from it, so the tables use `nep098`.
 
 On Juno's 2021 Ganymede flyby the kernel now follows JPL's reconstruction to
-20.8 km nine hours on with these moons, the same as with Horizons' own
-(20.9 km); with the fallback's Ganymede it was 323 km
+22.7 km nine hours on with these moons, the same as with Horizons' own
+(22.9 km); with the fallback's Ganymede it was 323 km
 ([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
 
 ### From the fallback
