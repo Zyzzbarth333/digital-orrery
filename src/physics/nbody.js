@@ -206,7 +206,10 @@ function soiInfo(bodies, muSun) {
 //               the planet and its moons near it). The list bodiesAt
 //               returns may then change between steps, never within one.
 //
-// Returns { steps, events, complete }. complete is false when the budget ran
+// Returns { steps, floorSteps, events, complete }. floorSteps counts the
+// steps dp45 took at its 1 ms floor with their error over the tolerance (a
+// force that jumps with the state, or noise): 0 when nothing leaned on it.
+// complete is false when the budget ran
 // out (state.t is then short of tEnd) or an impact stopped the advance.
 // events holds { type: 'impact', body, t } and { type: 'primary', from, to, t }.
 export function advance(state, tEnd, opts) {
@@ -225,7 +228,7 @@ export function advance(state, tEnd, opts) {
   helio(1);
   if (!useEncke) return advanceCowell(state, tEnd, opts, false);
   const dir = tEnd >= state.t ? 1 : -1;
-  let steps = 0;
+  let steps = 0, floorSteps = 0;
   const events = [];
   for (;;) {
     const sub = { ...opts, maxSteps: maxSteps - steps, primaryOf };
@@ -239,9 +242,10 @@ export function advance(state, tEnd, opts) {
       res = advanceCowell(state, tEnd, sub, true);
     }
     steps += res.steps;
+    floorSteps += res.floorSteps ?? 0;
     events.push(...res.events);
-    if (!res.left) return { steps, events, complete: res.complete };
-    if (dir * (tEnd - state.t) <= 0) return { steps, events, complete: true };
+    if (!res.left) return { steps, floorSteps, events, complete: res.complete };
+    if (dir * (tEnd - state.t) <= 0) return { steps, floorSteps, events, complete: true };
   }
 }
 
@@ -312,11 +316,11 @@ function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
   const K = Array.from({ length: 7 }, () => [0, 0, 0, 0, 0, 0]), yt = [0, 0, 0, 0, 0, 0];
   let tau = tauAt(state.t, r);
   let h = Math.min(eta * tau, hMax);
-  let steps = 0, bp = 0, fsal = false;
+  let steps = 0, bp = 0, fsal = false, floorSteps = 0;
   const bps = (breakpoints && dir > 0) ? breakpoints : null;
 
   while (dir * (tEnd - state.t) > 0) {
-    if (steps >= maxSteps) return { steps, events, complete: false };
+    if (steps >= maxSteps) return { steps, floorSteps, events, complete: false };
     let cap = hMax;
     if (opts.stepCap) cap = Math.min(cap, opts.stepCap(state.t, helio(state.t, r, hB), helioV(state.t, v)));
     // On a conic that dips inside the primary, keep the old fixed-fraction
@@ -376,6 +380,7 @@ function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
     // has no step small enough for the error test: below H_MIN the step is
     // taken anyway, as a fixed-step method would take it.
     if (err > 1 && hs > H_MIN) { h = Math.max(hs * grow, H_MIN); fsal = true; continue; }
+    if (err > 1) floorSteps++;   // taken at the floor, over the tolerance
     for (let i = 0; i < 6; i++) { y[i] = yt[i]; K[0][i] = K[6][i]; }
     fsal = true;
     state.t = last ? t + dir * remaining : t + H;
@@ -388,14 +393,14 @@ function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
     const x = helio(state.t, r, hB);
     if (x[0] * x[0] + x[1] * x[1] + x[2] * x[2] < sunRadius * sunRadius) {
       events.push({ type: 'impact', body: 'sun', t: state.t });
-      return { steps, events, complete: false };
+      return { steps, floorSteps, events, complete: false };
     }
     if (focus) focus(x, state.t);
     const now = bodiesAt(state.t);
     for (const b of now) {
       if (below(x, b)) {
         events.push({ type: 'impact', body: b.key, t: state.t });
-        return { steps, events, complete: false };
+        return { steps, floorSteps, events, complete: false };
       }
     }
     const prevPrimary = state.primary;
@@ -406,10 +411,10 @@ function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
     }
     tau = tauAt(state.t, r);
     if (stopOnEntry && state.primary !== 'sun' && (p !== prevPrimary || steps % 16 === 0) && enckeSuitsAt(state, opts, dir, ssb)) {
-      return { steps, events, complete: dir * (tEnd - state.t) <= 0, left: true };
+      return { steps, floorSteps, events, complete: dir * (tEnd - state.t) <= 0, left: true };
     }
   }
-  return { steps, events, complete: true };
+  return { steps, floorSteps, events, complete: true };
 }
 
 // enckeSuits for a state about the SSB when ssb is given.
@@ -492,6 +497,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   const a = acc(state.t, r, [0, 0, 0]);
   if (state.primary === null) state.primary = primaryOf(helio(state.t, r, hB), bodiesAt(state.t), muSun);
   let steps = 0;
+  const floorSteps = 0;   // fixed fractions of the dynamical time never fall to dp45's floor
   let bp = 0;   // next breakpoint index (forward only)
   const bps = (breakpoints && dir > 0) ? breakpoints : null;
 
@@ -517,7 +523,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
       while (bp < bps.length && bps[bp] <= state.t) bp++;
       if (bp < bps.length && bps[bp] < tEnd) remaining = bps[bp] - state.t;
     }
-    if (steps >= maxSteps) return { steps, events, complete: false };
+    if (steps >= maxSteps) return { steps, floorSteps, events, complete: false };
     // The last step lands exactly on tEnd. Comparing against a fixed epsilon
     // instead fails once t is large: at t ~ 1e8 s a leftover of 1e-8 s is
     // below one ulp, t stops advancing and the loop drifts r without time.
@@ -536,14 +542,14 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
     const x = helio(state.t, r, hB);
     if (x[0] * x[0] + x[1] * x[1] + x[2] * x[2] < sunRadius * sunRadius) {
       events.push({ type: 'impact', body: 'sun', t: state.t });
-      return { steps, events, complete: false };
+      return { steps, floorSteps, events, complete: false };
     }
     if (focus) focus(x, state.t);
     const now = bodiesAt(state.t);
     for (const b of now) {
       if (below(x, b)) {
         events.push({ type: 'impact', body: b.key, t: state.t });
-        return { steps, events, complete: false };
+        return { steps, floorSteps, events, complete: false };
       }
     }
     const prevPrimary = state.primary;
@@ -555,10 +561,10 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
     // Whether Encke now suits: checked every 16 steps (the ratio changes
     // slowly, and the check costs about as much as a step).
     if (stopOnEntry && state.primary !== 'sun' && (p !== prevPrimary || steps % 16 === 0) && enckeSuitsAt(state, opts, dir, ssb)) {
-      return { steps, events, complete: dir * (tEnd - state.t) <= 0, left: true };
+      return { steps, floorSteps, events, complete: dir * (tEnd - state.t) <= 0, left: true };
     }
   }
-  return { steps, events, complete: true };
+  return { steps, floorSteps, events, complete: true };
 }
 
 // ---------------- about the solar system barycentre ----------------

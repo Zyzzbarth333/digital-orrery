@@ -158,9 +158,13 @@ the fifth, and their difference estimates the step's error:
   of heliocentric places, with 3 cm of rounding at 1 au. Its chute opens
   over 300 m of height, so its drag carries $10^{-4}$ of noise, above a
   velocity tolerance of 1.2 µm/s a step.
-- **Forces that jump with the state** (a chute opening at a height) have no
-  step small enough for an error test: at 1 ms a step is taken anyway, as
-  a fixed-step method would take it.
+- **Forces that jump with the state** (a chute opening at a height) need
+  short steps to pass the error test. With the velocity tolerance scaled
+  by the step, the error of crossing a jump falls as $h^2$, so the test is
+  passed above 1 ms unless the jump is of order 1,000 g. Below 1 ms a step
+  is taken anyway, as a fixed-step method would take it. Every such step is
+  counted, `floorSteps` in `advance()`'s result (and the worker's), so a run
+  that leans on the floor shows it (`nbody.test.mjs` case 15).
 - **Seven forces a step, six new:** the last stage of a step is the first
   of the next ("first same as last"), except after a burn's edge.
 - **Velocity-dependent forces** (drag, steered burns) see each stage's own
