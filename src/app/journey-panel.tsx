@@ -72,7 +72,7 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
     const r = k.state === 'done' && kernelNow ? k.reply : null;
     if (!r || !r.start) return;
     clock.setTime(r.start.ms);
-    const c = mission.flyJourney(r.start, r.burns, store.title(), r.landings ?? []);
+    const c = mission.flyJourney(r.start, r.burns, store.title(), r.landings ?? [], r.model ?? 'full', r.bareWhy ?? null);
     onFlown(c.id);
   };
 
@@ -277,7 +277,8 @@ function Summary({ store }: { store: JourneyStore }) {
           <tr key={i} className="burn-row"><th scope="row">{iso(b.ms)}</th><td className="value">{fmt(b.dv * 1000, 0)} m/s<span className="alt">{b.label}</span></td><td /></tr>
         ))}
         <tr><th scope="row">Kernel</th>
-          <td className="value">{k.state === 'flying' || (k.state !== 'idle' && !now) ? 'flying it…' : k.state === 'failed' ? <span className="bad">failed: {k.error}</span> : r ? `flown in ${fmt(r.ms / 1000, 1)} s · corrections ${fmt(r.correctionsDv * 1000, 1)} m/s` : 'waits for an edit to settle'}
+          <td className="value">{k.state === 'flying' || (k.state !== 'idle' && !now) ? 'flying it…' : k.state === 'failed' ? <span className="bad">failed: {k.error}</span> : r ? `flown in ${fmt(r.ms / 1000, 1)} s · corrections ${fmt(r.correctionsDv * 1000, 1)} m/s · ${r.model === 'bare' ? 'planner\'s model' : 'full model'}` : 'waits for an edit to settle'}
+            {r?.model === 'bare' && <span className="alt">Fell back to the planner's model (point masses and zonal terms): in the full one {r.bareWhy}</span>}
             {r && <span className="alt">{r.arrivals.map((a) => `${nameOf(a.body)} ${a.central ? `${fmt(a.missKm, 0)} km from the aim point` : `${fmt(a.missKm, 0)} km off the planned periapsis`}`).join(' · ')}{r.impact ? ` · hits ${nameOf(r.impact.body)}` : ''}</span>}
             {r && r.unsupported.length > 0 && <span className="alt">{r.unsupported.join(' · ')}</span>}
           </td>

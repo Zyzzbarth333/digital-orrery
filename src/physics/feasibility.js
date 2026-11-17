@@ -6,10 +6,10 @@
 //   legProfile(journey, k, opts)   the cheapest delta-v of leg k for each
 //                                  departure date from when it can first
 //                                  leave, each date's best flight time
-//   assess(journey, sol, opts)     the plotting table's lamps: window, wait,
-//                                  delta-v, no window, miss, flyby
+//   assess(journey, sol, opts)     the plotting table's lamps: window, phase,
+//                                  wait, delta-v, no window, miss, flyby
 
-import { solveJourney, solveLeg, legGeometry, bodyInfo } from './journey.js';
+import { solveJourney, solveLeg, legGeometry, bodyInfo, phaseOption } from './journey.js';
 import { hohmannCircular } from './transfers.js';
 
 const DAY_MS = 86400e3;
@@ -19,13 +19,18 @@ const DAY_MS = 86400e3;
 // lowest delta-v over flight times tofMin..tofMax (a fraction of the
 // Hohmann time between the two orbits by default). null for a leg whose
 // departure is fixed (after a flyby), an orbit change, or a return to the
-// same body. Returns { k, fromMs, points: [{ ms, dv, tofDays }], best }.
-export function legProfile(journey, k, { spanDays = null, stepDays = 8, tofSteps = 24, sol = null } = {}) {
+// same body. A leg that leaves or reaches a moon via its planet is profiled
+// every day, not every 8: the moon's phase ripples its price over a month
+// (journey.js moonExcess); leaving one, the profile also carries the best day
+// in the stay (journey.js phaseOption). Returns { k, fromMs, points: [{ ms,
+// dv, tofDays }], best, stepDays, phase }.
+export function legProfile(journey, k, { spanDays = null, stepDays = null, tofSteps = 24, sol = null } = {}) {
   const s = sol ?? solveJourney(journey);
   const P = s.stops[k], Q = s.stops[k + 1];
   if (!P || !Q || P.kind === 'flyby' || P.kind === 'craft') return null;
   const g = legGeometry(P.body, Q.body, P.body === Q.body && (P.kind === 'flyby' || Q.kind === 'flyby'));
   if (g.kind === 'local' || g.resonant) return null;
+  stepDays ??= g.viaA || g.viaB ? 1 : 8;
   const mu = bodyInfo(g.central).mu;
   const rA = g.kind === 'fromCentral' ? g.A.radius + P.altKm : bodyInfo(g.endA ?? P.body).a;
   const rB = g.kind === 'toCentral' ? g.B.radius + Q.altKm : bodyInfo(g.endB ?? Q.body).a;
@@ -47,7 +52,8 @@ export function legProfile(journey, k, { spanDays = null, stepDays = 8, tofSteps
     }
     if (p) { points.push(p); if (!best || p.dv < best.dv) best = p; }
   }
-  return { k, fromMs, points, best, stepDays };
+  const phase = g.viaA ? phaseOption(journey, k, { sol: s }) : null;
+  return { k, fromMs, points, best, stepDays, phase: phase && { ms: phase.depMs, dv: phase.dv, tofDays: phase.tofDays, arrMs: phase.arrMs, angleDeg: phase.moonAngleDeg } };
 }
 
 // The lamps. budget: the ship's delta-v from the parking orbit on (km/s).
@@ -74,6 +80,19 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
     const wait = Math.round((worst.p.best.ms - worst.L.depMs) / DAY_MS);
     lamps.push({ key: 'window', level: 'caution', leg: worst.p.k, text: `Leave ${name(worst.L.from)} ${iso(worst.p.best.ms)}: ${worst.p.best.dv.toFixed(2)} km/s, not ${dvOf(worst.L).toFixed(2)} (${wait > 0 ? `${wait} d later` : `${-wait} d earlier`})`, waitDays: wait, bestMs: worst.p.best.ms });
   } else if (profiles.some((p) => p?.best)) lamps.push({ key: 'window', level: 'go', text: 'Every leg leaves in its window' });
+
+  // Phase: leaving a moon for another planet on a day its phase makes
+  // dear, when a day in the stay (or within a turn of the moon) saves more
+  // than 50 m/s and 3 %.
+  for (const p of profiles) {
+    if (!p?.phase) continue;
+    const L = sol.legs[p.k], now = dvOf(L), save = now - p.phase.dv;
+    if (save > Math.max(0.05, 0.03 * now)) {
+      const d = Math.round((p.phase.ms - L.depMs) / DAY_MS);
+      lamps.push({ key: 'phase', level: 'caution', leg: p.k, text: `Leave ${name(L.from)} ${iso(p.phase.ms)} for its phase: ${p.phase.dv.toFixed(2)} km/s, not ${now.toFixed(2)} (${d === 0 ? 'the same day' : d > 0 ? `${d} d later` : `${-d} d earlier`})`, bestMs: p.phase.ms, waitDays: d });
+      break;
+    }
+  }
 
   // Wait: the longest stay.
   let stay = null;

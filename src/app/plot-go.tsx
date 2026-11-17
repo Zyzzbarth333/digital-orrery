@@ -42,7 +42,7 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
     rows.push(hit ? { key: 'Trajectory', state: 'nogo', text: `The kernel's craft hits ${bodyInfo(reply.impact!.body).name}`, fix: 'Raise the pass or the orbit there' }
       : worst > 50 ? { key: 'Trajectory', state: 'nogo', text: `The kernel misses a waypoint by ${fmt(worst, 0)} km`, fix: 'Shorten the leg or aim its last node' }
       : tooMuch ? { key: 'Trajectory', state: 'nogo', text: `The kernel needs ${fmt(corr * 1000, 0)} m/s of corrections to fly it`, fix: 'Leave at the windows, or aim the nodes; the plan and the n-body flight disagree' }
-        : { key: 'Trajectory', state: 'go', text: `Every waypoint within ${fmt(worst, 1)} km of the plan · corrections ${fmt(reply.correctionsDv * 1000, 0)} m/s` });
+        : { key: 'Trajectory', state: 'go', text: `Every waypoint within ${fmt(worst, 1)} km of the plan · corrections ${fmt(reply.correctionsDv * 1000, 0)} m/s · ${reply.model === 'bare' ? `planner's model (fallback: in the full one ${reply.bareWhy})` : 'full model'}` });
   }
   // Windows.
   const win = lamp('window'), nowin = lamp('nowindow');
@@ -68,7 +68,7 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
   const commit = () => {
     if (!reply?.start) return;
     clock.setTime(reply.start.ms);
-    const c = mission.flyJourney(reply.start, reply.burns, store.title(), reply.landings ?? []);
+    const c = mission.flyJourney(reply.start, reply.burns, store.title(), reply.landings ?? [], reply.model ?? 'full', reply.bareWhy ?? null);
     store.setPlotOpen(false);
     onFlown(c.id);
   };

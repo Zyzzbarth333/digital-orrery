@@ -35,7 +35,7 @@ const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
 const nameOf = (k: string) => { try { return bodyInfo(k).name as string; } catch { return k; } };
 interface Lamp { key: string; level: 'off' | 'go' | 'caution' | 'warn'; text: string; leg?: number }
-const LAMP_NAME: Record<string, string> = { window: 'Window', wait: 'Wait', dv: 'Delta-v', nowindow: 'No window', miss: 'Miss', flyby: 'Flyby', kernel: 'Kernel' };
+const LAMP_NAME: Record<string, string> = { window: 'Window', phase: 'Phase', wait: 'Wait', dv: 'Delta-v', nowindow: 'No window', miss: 'Miss', flyby: 'Flyby', kernel: 'Kernel' };
 
 // Delta-v a pulled tab adds each second: its square, so a small pull is
 // fine work (up to 240 m/s a second at the stalk's full length).
@@ -51,7 +51,7 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
     const k = store.kernel;
     if (k.state === 'done' && k.forVersion === store.version && k.reply) {
       const worst = Math.max(0, ...k.reply.arrivals.map((a) => a.missKm));
-      out.push({ key: 'kernel', level: k.reply.impact && !k.reply.arrivals.every((a) => a.central) ? 'warn' : worst > 50 ? 'caution' : 'go', text: `${fmt(worst, 1)} km worst · corrections ${fmt(k.reply.correctionsDv * 1000, 0)} m/s` });
+      out.push({ key: 'kernel', level: k.reply.impact && !k.reply.arrivals.every((a) => a.central) ? 'warn' : worst > 50 ? 'caution' : 'go', text: `${fmt(worst, 1)} km worst · corrections ${fmt(k.reply.correctionsDv * 1000, 0)} m/s · ${k.reply.model === 'bare' ? 'planner\'s model (fallback)' : 'full model'}` });
     } else if (k.state === 'flying' || (k.state !== 'idle' && k.forVersion !== store.version)) out.push({ key: 'kernel', level: 'off', text: 'flying it…' });
     return out;
   }, [store.version, store.kernel, store.budget, profilesFresh, store.profiles]);
@@ -406,7 +406,7 @@ function Timeline({ store, cursor, setCursor }: { store: JourneyStore; cursor: n
   return (
     <div className="plot-timeline">
       <svg ref={svg} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Timeline: each leg's cheapest delta-v by departure date against the budget, the plan, and the time cursor"
-        onPointerDown={(e) => { if ((e.target as Element).tagName === 'rect' && (e.target as Element).getAttribute('data-k')) return; (e.currentTarget as Element).setPointerCapture(e.pointerId); scrub(e); }}
+        onPointerDown={(e) => { if ((e.target as Element).getAttribute('data-k')) return; (e.currentTarget as Element).setPointerCapture(e.pointerId); scrub(e); }}
         onPointerMove={(e) => { if ((e.currentTarget as Element).hasPointerCapture(e.pointerId)) scrub(e); }}>
         {years.map((ms) => <g key={ms}><line x1={x(ms)} x2={x(ms)} y1={12} y2={H - 8} className="tl-year" /><text x={x(ms) + 4} y={22} className="tl-label">{new Date(ms).getUTCFullYear()}</text></g>)}
         {rows.map(({ p, k }, i) => {
@@ -421,6 +421,11 @@ function Timeline({ store, cursor, setCursor }: { store: JourneyStore; cursor: n
                   onClick={() => leaveOn(k, q)}><title>{`Leave ${iso(q.ms)}: ${fmt(q.dv, 2)} km/s, ${fmt(q.tofDays, 0)} d flight${ok ? '' : ' (over what the budget leaves this leg)'}. Click to leave then.`}</title></rect>;
               })}
               {p.best && <text x={x(p.best.ms)} y={y - 3} className="tl-best" textAnchor="middle">{`${fmt(p.best.dv, 2)} km/s`}</text>}
+              {p.phase && <g className="tl-phase">
+                <path d={`M${x(p.phase.ms)} ${y + 18} l-4 6 h8 z`} data-k={k} onClick={() => { store.set(applyOption(store.journey, k, { type: 'phase', depMs: p.phase!.ms, arrMs: p.phase!.arrMs, dv: p.phase!.dv } as never)); store.check(); }}>
+                  <title>{`The best day in the stay for ${nameOf(sol.legs[k]?.from ?? '')}'s phase: leave ${iso(p.phase.ms)}, ${fmt(p.phase.dv, 2)} km/s${p.phase.angleDeg !== null ? `, its velocity ${fmt(p.phase.angleDeg, 0)}° off the way out` : ''}. Click to leave then.`}</title>
+                </path>
+              </g>}
             </g>
           );
         })}

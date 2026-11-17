@@ -57,6 +57,9 @@ export class JourneyStore {
   private views: JourneyView | null = null;
   private listeners = new Set<() => void>();
   private worker: Worker | null = null;
+  // The window profiles in a worker of their own, so the strips need not
+  // wait for the flight (seconds, in the full model).
+  private profileWorker: Worker | null = null;
   private smallLoaded = false;
   private snap = { version: 0, tick: 0 };
 
@@ -176,13 +179,19 @@ export class JourneyStore {
   // The kernel flies the journey (once an edit is let go).
   check(): void {
     if (!this.solution.ok || !this.journey.waypoints.length) return;
+    const onProfiles = (e: MessageEvent<FlightReply | ProfilesReply>): boolean => {
+      if (!('type' in e.data) || e.data.type !== 'profiles') return false;
+      if (e.data.forVersion === this.version) { this.profiles = e.data.profiles; this.profilesFor = e.data.forVersion; this.notify(); }
+      return true;
+    };
+    if (!this.profileWorker) {
+      this.profileWorker = new Worker(new URL('./journey.worker.ts', import.meta.url), { type: 'module' });
+      this.profileWorker.onmessage = (e: MessageEvent<FlightReply | ProfilesReply>) => { onProfiles(e); };
+    }
     if (!this.worker) {
       this.worker = new Worker(new URL('./journey.worker.ts', import.meta.url), { type: 'module' });
       this.worker.onmessage = (e: MessageEvent<FlightReply | ProfilesReply>) => {
-        if ('type' in e.data && e.data.type === 'profiles') {
-          if (e.data.forVersion === this.version) { this.profiles = e.data.profiles; this.profilesFor = e.data.forVersion; this.notify(); }
-          return;
-        }
+        if (onProfiles(e)) return;
         if (e.data.forVersion !== this.kernelFor) return;
         const r = e.data as FlightReply;
         this.kernel = r.error ? { state: 'failed', error: r.error, forVersion: r.forVersion } : { state: 'done', reply: r, forVersion: r.forVersion };
@@ -194,7 +203,7 @@ export class JourneyStore {
     this.kernel = { state: 'flying', forVersion: this.version };
     this.worker.postMessage({ journey: this.journey, named: this.named, forVersion: this.version } satisfies FlightRequest);
     // And each leg's window profile, for the plotting table's strips and lamps.
-    this.worker.postMessage({ type: 'profiles', journey: this.journey, named: this.named, forVersion: this.version } satisfies FlightRequest);
+    this.profileWorker.postMessage({ type: 'profiles', journey: this.journey, named: this.named, forVersion: this.version } satisfies FlightRequest);
     this.notify();
   }
   private kernelFor = -1;
@@ -219,7 +228,7 @@ export class JourneyStore {
   budget = 8;
   setBudget(b: number): void { this.budget = b; this.notify(); }
 
-  dispose(): void { this.worker?.terminate(); this.worker = null; }
+  dispose(): void { this.worker?.terminate(); this.worker = null; this.profileWorker?.terminate(); this.profileWorker = null; }
 
   // The frame the whole journey is drawn and flown about: the Sun, unless
   // every leg stays about one planet (Earth and the Moon).
