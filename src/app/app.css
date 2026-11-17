@@ -596,6 +596,7 @@ details.section[open] > summary::after { content: '−'; }
   translate: -50% -50%;
 }
 .guide-tag.axis-n { color: #c8c2b4; padding: 0 3px; translate: -50% -110%; }
+.guide-tag.axis-n.retro { color: #ff9a66; }
 .guide-tag.soi, .guide-tag.hill, .guide-tag.pull { text-transform: none; letter-spacing: 0.06em; font-size: 9px; }
 .guide-tag.soi { color: var(--phosphor); translate: -50% -100%; }
 .guide-tag.hill { color: #9fc9b8; translate: -50% -100%; }
@@ -615,8 +616,12 @@ details.section[open] > summary::after { content: '−'; }
 .field-legend .field-ticks { display: flex; justify-content: space-between; font: 9px var(--mono); margin: 2px 0 4px; }
 .field-legend .field-unit { font: 9px var(--mono); }
 .field-legend .field-source { color: var(--label-dim); font-size: 9px; margin-top: 3px; }
+.field-legend.flow-legend .field-bar { background: linear-gradient(to right, #121110, #3d5a64 40%, #8fc8d8 80%, #fff7ea); }
+.field-legend.flow-legend.stacked { bottom: calc(7 * var(--u) + 118px); }
+.flow-opts { display: grid; gap: 4px; padding: 4px 0 6px 22px; }
+.flow-opts .sb-pick { margin: 0; }
 .small-bodies .lamp-sq { border: 1px solid; }
-/* The guides never scroll: five short rows, the body list gives way. */
+/* The guides never scroll: six short rows, the body list gives way. */
 .body-list.guides { flex: none; overflow: visible; padding-bottom: var(--u); }
 .body-list.guides .body-row { height: 26px; }
 

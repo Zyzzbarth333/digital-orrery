@@ -26,6 +26,7 @@ import type { Named } from '../scene/smallBodies';
 import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
 import type { GuideKey } from '../scene/guides';
+import type { FlowFrame, FlowPlane } from '../scene/gravityFlow';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -213,7 +214,8 @@ const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; l
 // Drawing aids for gravity (src/scene/guides.ts), each off until switched on.
 const GUIDE_ROWS: { key: GuideKey; label: string; colour: string; title: string }[] = [
   { key: 'axes', label: 'Spin axes', colour: '#c8c2b4', title: "Each body's spin axis through its poles (IAU rotation models), north marked N" },
-  { key: 'field', label: 'Gravity field', colour: '#2f8fb0', title: 'The real gravity field on the surface: EGM2008 for Earth, GRAIL for the Moon, J2 for the planets' },
+  { key: 'flow', label: 'Gravity field', colour: '#8fc8d8', title: "The field of every body summed, as lines flowing with the pull in a plane through the focus, brighter where it is stronger" },
+  { key: 'field', label: 'Surface gravity', colour: '#2f8fb0', title: 'The real gravity field on the surface: EGM2008 for Earth, GRAIL for the Moon, J2 for the planets' },
   { key: 'spheres', label: 'SOI and Hill', colour: '#ffb22e', title: "Each body's sphere of influence (solid) and Hill sphere (dashed) about its parent" },
   { key: 'lagrange', label: 'Lagrange', colour: '#ecd9b0', title: 'L1 to L5 of Sun-Earth, Earth-Moon, Sun-Jupiter and the focused body with its parent' },
   { key: 'pulls', label: 'Pulls', colour: '#ff7a3d', title: 'The four strongest gravitational pulls on the focused body, GM / d²' },
@@ -223,7 +225,7 @@ const GUIDE_ROWS: { key: GuideKey; label: string; colour: string; title: string 
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey, boolean>; onGuides?: (key: GuideKey, on: boolean) => void }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, flow, onFlow }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey, boolean>; onGuides?: (key: GuideKey, on: boolean) => void; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -355,6 +357,29 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
                   <span>{g.label}</span>
                   <span className="dist">{guides[g.key] ? 'on' : 'off'}</span>
                 </button>
+                {/* The field's frame and plane, while it is shown. */}
+                {g.key === 'flow' && guides.flow && flow && onFlow && (
+                  <div className="flow-opts">
+                    <label className="sb-pick">
+                      <span className="engraved">Frame</span>
+                      <select className="input select" value={flow.frame} onChange={(e) => onFlow({ ...flow, frame: e.target.value as FlowFrame })}
+                        title="Inertial: the plain sum. Falling: as seen falling freely with the focus, its own pull and the others' tides. Less focus's own pull: the same without it, what pulls things off their orbits about it. Rotating: the focus and its parent's rotating frame, where the Lagrange points are the field's still points">
+                        <option value="inertial">Inertial</option>
+                        <option value="falling">Falling with focus</option>
+                        <option value="others">Less focus's own pull</option>
+                        <option value="rotating">Rotating with parent</option>
+                      </select>
+                    </label>
+                    <label className="sb-pick">
+                      <span className="engraved">Plane</span>
+                      <select className="input select" value={flow.plane} disabled={flow.frame === 'rotating'} onChange={(e) => onFlow({ ...flow, plane: e.target.value as FlowPlane })}
+                        title="Orbit: the plane of the focus's system (its biggest moon's orbit, or its own). View: square to the line of sight. The rotating frame always uses the pair's orbit">
+                        <option value="orbit">Orbit</option>
+                        <option value="view">View</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
