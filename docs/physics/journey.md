@@ -213,7 +213,12 @@ The plan is patched conics; the kernel is the n-body truth
 (docs/physics/nbody-kernel.md). `planFlight` turns a solved journey into a
 schedule, and `flyJourney` flies it. The worker does the same in the app,
 and "Fly this journey" gives a new craft the burns the kernel made, as
-scripted burns on the same kernel. Each step, in time order:
+scripted burns on the same kernel, with its landings. That craft flies in
+the kernel's point masses and zonal terms alone, as the headless flight
+did, not with the extra fields of `environment.js` (the Moon's mascons,
+the Earth's field beyond J2, sunlight): the burns were worked out in that
+model, and a descent flown open loop in another one comes down tens of
+kilometres away, or into the ground. Each step, in time order:
 
 1. **The start:** at the periapsis of the departure hyperbola in the
    parking orbit (as the planner's launches already do,
@@ -255,16 +260,77 @@ scripted burns on the same kernel. Each step, in time order:
      more than 2 %. The excess velocity is re-solved for the later date (a
      Lambert arc about the leg's central body to the planned arrival).
 6. **Home through the air:** the aim is at the planned arc half an hour
-   before the end, so no trial run meets the ground first.
+   before the end, so no trial run meets the ground first. The kernel's
+   perigee after that point is its own (the Moon's and the Sun's pulls over
+   the days home move it by about 100 km), so for a landing two trims after
+   the point bring it to the planned entry height, about 60 m/s home from
+   the Moon.
+7. **Landings** (`landing.js`):
+   - **Through an atmosphere:** the drag-free path is flown to its
+     perigee, at the waypoint's height (120 km at Earth), and the craft is
+     set down on the ground beneath it. The entry itself (heat shield,
+     parachutes) is not flown, as the plan does not cost it.
+   - **On an airless body**, from the low orbit the capture left:
+     - **The descent orbit:** retrograde, onto the ellipse down to 15 km,
+       the first burn of a Hohmann transfer (17 m/s from 100 km over the
+       Moon).
+     - **The braking burn:** from that periapsis, steered against the
+       velocity. Its thrust is found by bisection so that the speed is gone
+       1.5 km up, on a two-body run from the craft's own state two minutes
+       before (the Earth's pull and the Moon's J2 move the periapsis by
+       kilometres over the half orbit).
+     - **Across the ground:** the braking stops the craft in space, and the
+       ground beneath moves with the body's spin (4.6 m/s on the Moon's
+       equator), so a sideways burn matches it.
+     - **The last fall and stop:** a fall, then thrust straight up at 2.5
+       times the surface gravity until the craft is coming down at 1.5 m/s
+       a metre up, where the engine is cut so it settles on. The fall's
+       length is found by bisection.
+     - **Touchdown:** the kernel's impact, at the point where the step
+       crossed the ground (two-body from the step's start, bisection on the
+       time). Faster than 10 m/s over the ground is a crash.
+   - **On a body without the kernel's gravity** (a small body, a moon other
+     than ours): set down from the rendezvous.
+   - **The stay:** the craft is held at the body-fixed site, turning with
+     the body (`orientation.js` axes), and its path follows the site.
+8. **Lifting off:** three hours before the departure, from the site's
+   state (the body's spin included):
+   - **The plane:** the one holding the site and the next departure's
+     excess velocity, turned the way the body spins.
+   - **The climb:** ten seconds tilted from the vertical towards the way
+     the orbit goes, then prograde (a gravity turn), both at five times the
+     surface gravity, until the coast's apoapsis is the parking orbit. The
+     tilt is chosen for the least delta-v: a scan from 2° to 86°, then a
+     golden-section search.
+   - **Circularising:** at the apoapsis, from the craft's own state. The
+     departure from that orbit is step 5.
+9. **Leaving a moon for another planet:** the plan's excess velocity is
+   the planet's. The flight finds the velocity about the planet, at the
+   moon's place, whose two-body hyperbola leaves on that asymptote (Newton,
+   as in step 5, from five first guesses, the solution nearest the moon's
+   own velocity kept). Less the moon's velocity, that is the excess
+   velocity about the moon, and step 5 flies it. The first aim waits until
+   the craft is clear of the planet.
 
 The burns are finite, at 20 m/s² (3 km/s in two and a half minutes). The
 closest approach to each waypoint is watched over a window about its date.
 The osculating conic between samples gives the periapsis itself.
 
-What the kernel does not yet fly:
-- a landing (it waits in the low orbit);
-- leaving a moon for another planet;
-- a plane change between two orbits about one body (planned, not flown).
+What the kernel does not yet fly: a plane change between two orbits about
+one body (planned, not flown).
+
+**The phase of a moon left for a planet.** The plan takes the moon as
+moving the way out (the speed needed at its distance less its own, as
+scalars), which is its best case. The flight leaves when the plan says,
+from where the moon then is. Leaving lunar orbit for Mars on 31 Oct 2026,
+the Moon's velocity is 65° off the way out, and the burn is 2,243 m/s
+against the plan's 1,652. Waiting does not help here: the Moon comes round
+in 27 days, but by then the re-solved way to Mars is faster.
+
+**The descent and the ascent flown cost more than the plan's ideal**
+(the low orbit's circular speed), by the gravity losses a real descent
+pays: over the Moon from 100 km, 1,854 m/s down and 1,764 up, against
+1,634.
 
 What the flight costs beyond the plan is its corrections. Most of them
 are on long legs home to a planet: the cruise aims fly without the
@@ -514,6 +580,12 @@ orbits, waits 454 days.
 | Saturn V, Apollo 11's 45.7 t to 185 km and on to the Moon (TLI 3.13 km/s) | the flight | needs 12.03, gives 12.87 km/s: it can, with 0.84 to spare |
 | Falcon 9 expendable, 22.8 t to 200 km; Electron, 300 kg to 500 km | the user's guides | 8.88 needed, 9.43 given; Electron 0.02 km/s short with its kick stage carried as payload (it burns, in fact) |
 | A year in Mars orbit, then home, flown | the plan | departs 13 d late for the turned plane, 2,058 m/s against 2,000; Mars 0.4 km, Earth 22 km; corrections 182 m/s |
+| The descent orbit burn, 100 to 15 km over the Moon | a Hohmann transfer's first burn (Curtis 6.2) | equal to 10⁻¹² |
+| An entry periapsis at 3 km/s over Mars | geometry (h = R v_R cos γ) | the hyperbola meets the ground at 12° to 10⁻⁹ |
+| Braking from 15 km over the Moon; the ascent to 100 km (two-body) | stops where asked; more than the speed taken off or given | 1.5 km up, 1,762 m/s for 1,692; 1,763 m/s for 1,634 |
+| Earth orbit, down to the Moon for 3 days, up, home through the air, flown | the plan | down at 2.8 m/s, 1,854 m/s for the descent; up for 1,764; home 1.9 km from the aimed point, the entry perigee 118 km for 120 |
+| The same, flown live by the app's Craft | the headless flight | down on the Moon, held, up, down at Earth, never crashed |
+| Earth orbit, a week in lunar orbit, then Mars, flown | the plan | leaves the Moon for 2,243 m/s (plan 1,652: the Moon's phase); Mars 1.4 km off; corrections 149 m/s |
 
 ## Limits
 
@@ -523,8 +595,13 @@ orbits, waits 454 days.
 - **Resonant returns:** circular-orbit physics on the real ephemeris. The
   flown return comes within about 9,000 km of the planet in two years, and
   the kernel's aims take up the rest.
-- **Landings:** the entry through an atmosphere and the losses of an ascent
-  or a descent are not costed.
+- **Landings:** the plan does not cost the entry through an atmosphere, or
+  the losses of an ascent or a descent; the flight pays the losses, and
+  sets a craft entering an atmosphere down beneath its perigee without
+  flying the entry. Terrain is a sphere (the Earth's, the WGS-84
+  ellipsoid).
+- **A moon left for a planet:** the plan is the moon's best phase; the
+  flight pays for the phase it gets.
 - **The ideal options:** Hohmann, bi-elliptic and plane change use mean
   circular orbits. "As scheduled" and the porkchop optimum use the real
   ones.

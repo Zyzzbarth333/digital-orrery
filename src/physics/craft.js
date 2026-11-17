@@ -37,6 +37,7 @@ const MAX_CARRY_S = 30 * 86400;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const norm = (a) => Math.hypot(a[0], a[1], a[2]);
+const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
 const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
@@ -93,7 +94,7 @@ export class Craft {
   // scriptIsp: the Isp (s) at which a real mission's scripted burns draw
   // propellant from the dry mass (a spacecraft's own tanks, beyond the
   // player's fuel), or null: they then leave the mass alone.
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null), scriptIsp = /** @type {number | null} */ (null) }) {
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null), scriptIsp = /** @type {number | null} */ (null), bare = false }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys.view ? sys.view() : sys;
@@ -108,6 +109,11 @@ export class Craft {
     this.entry = entry;
     this.entryState = null;          // the entry guidance's, from the kernel
     this.vent = vent;
+    // bare: flown in the kernel's point masses and zonal terms alone, without
+    // the environment (environment.js): a journey's craft, whose burns were
+    // worked out and flown headless in that model (journeyFlight.js), so the
+    // app flies the very flight the planner did, landings and all.
+    this.bare = bare;
     this.sys.focus?.(r, t);
     const bodies = this.sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
@@ -128,6 +134,8 @@ export class Craft {
     this.impactBody = null;
     this.impactSite = null;          // { key, t, local: body-fixed km }
     this.splashed = false;           // came down under its chutes, not crashed
+    this.landings = [];              // a journey's planned landings: { key, t, local, until, how, done }
+    this.landed = null;              // on the ground: { key, local, t, until } (body-fixed km, kernel s)
     this.error = null;
     this.log = [];                   // { t, text } for the app to show
     this.clockJumped = false;
@@ -246,6 +254,35 @@ export class Craft {
     this.version++;
   }
 
+  // A journey's landings, as the kernel flew them headless (journeyFlight.js
+  // landings: body, t touchdown, local the body-fixed site, until the
+  // liftoff or null, how 'descent' | 'entry' | 'setdown'). A descent is
+  // flown by the planned burns and its touchdown taken from the kernel's
+  // impact (or ten minutes on, settled, if it never quite touches); an
+  // entry or set-down is not flown below its perigee, so the craft is put
+  // on the site at that time. The craft then waits there until the liftoff.
+  addLandings(list) {
+    this.landings = list.map((L) => ({ key: L.body, t: L.t, local: [...L.local], until: L.until ?? null, how: L.how, done: false }));
+    this.version++;
+  }
+  nextLanding(after) { return this.landings.find((L) => !L.done && L.t + (L.how === 'descent' ? 600 : 0) > after - 1e-6) ?? null; }
+  setDown(L, local, t) {
+    L.done = true;
+    this.landed = { key: L.key, local, t, until: L.until };
+    this.engineOn = false;
+    this.version++;
+    this.note(`landed on ${L.key}`, t);
+  }
+  liftOff() {
+    const S = this.landed, x = this.siteState(S, S.until), B = this.body(S.key, S.until);
+    const d = B?.eph ? sub(x.r, B.eph.position(S.until)) : [1, 0, 0], up = scale(d, 1e-3 / norm(d));
+    const r = [x.r[0] + up[0], x.r[1] + up[1], x.r[2] + up[2]], bodies = this.sys.bodiesAt(S.until);
+    this.kState = { r, v: x.v, t: S.until, primary: primaryOf(r, bodies, this.sys.muSun), accel: accelHeliocentric(r, bodies, this.sys.muSun) };
+    this.landed = null;
+    this.version++;
+    this.note(`lift off from ${S.key}`, S.until);
+  }
+
   // Aimed pushes still to come after t are dropped (the clock was set back
   // past them: they are aimed again when it reaches them).
   dropAimed(t) {
@@ -340,12 +377,20 @@ export class Craft {
 
   buildRequest() {
     if (this.crashed || this.error) return null;
-    const tEnd = this.holdAt !== null && this.holdAt < this.clockT ? this.holdAt : this.clockT, span = tEnd - this.kState.t;
+    if (this.landed) {
+      if (this.landed.until === null || this.clockT < this.landed.until) return null;
+      this.liftOff();
+    }
+    let tEnd = this.holdAt !== null && this.holdAt < this.clockT ? this.holdAt : this.clockT;
+    // Up to a landing's time at most, to be put down there.
+    const L = this.nextLanding(this.kState.t);
+    if (L) tEnd = Math.min(tEnd, L.t + (L.how === 'descent' ? 600 : 0));
+    const span = tEnd - this.kState.t;
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
     const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
       .map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted, mass0, massFlow }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted, ...(mass0 !== undefined ? { mass0, massFlow } : {}) }));
-    return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns, env: this.envParams() };
+    return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns, env: this.bare ? null : this.envParams() };
   }
 
   // What the kernel's environment model needs of this craft (its mass as at
@@ -357,6 +402,7 @@ export class Craft {
   // (rebuilt when the mass changes). Without the entry's lift and guidance:
   // a frame's carry is no place for the guidance's predictions.
   environment() {
+    if (this.bare) return null;
     const key = `${this.mass}|${this.area}|${this.cr}|${this.cd}`;
     if (this._envKey !== key) { const { entry, ...p } = this.envParams(); this._env = makeEnvironment(this.sys, p); this._envKey = key; }
     return this._env;
@@ -388,6 +434,20 @@ export class Craft {
     if (res.envState?.entry) this.entryState = res.envState.entry;
     const impact = res.events.find((e) => e.type === 'impact');
     this.lagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
+    // A planned landing: an impact on its body within the hour of its time
+    // is the touchdown (the site where the craft came down, at the planned
+    // site's height); reaching its time without one, the planned site.
+    const L = this.nextLanding(this.kState.t - 3600);
+    if (L) {
+      const hit = impact && impact.body === L.key && Math.abs(impact.t - L.t) < 3600;
+      if (hit) {
+        const site = this.siteOn(L.key, res.r, res.t);
+        const local = site ? scale(site.local, norm(L.local) / norm(site.local)) : L.local;
+        this.setDown(L, local, impact.t);
+        return;
+      }
+      if (!impact && res.t >= L.t + (L.how === 'descent' ? 600 : 0) - 1e-6) { this.setDown(L, L.local, res.t); return; }
+    }
     for (const e of res.events) {
       if (e.type === 'impact') {
         this.crashed = true; this.impactBody = e.body; this.engineOn = false; this.impactSite = this.siteOn(e.body, res.r, res.t);
@@ -418,6 +478,7 @@ export class Craft {
   // speed (the Earth goes 7 million km in three days).
   displayState() {
     if (this.crashed) return this.onSite(this.clockT) ?? { r: [...this.kState.r], v: [...this.kState.v] };
+    if (this.landed) return this.siteState(this.landed, this.clockT) ?? { r: [...this.kState.r], v: [...this.kState.v] };
     let dtx = this.clockT - this.kState.t;
     if (!(dtx > 0)) dtx = 0;
     // Asked for several times a frame (the scene, the readouts): carried once.
@@ -447,8 +508,9 @@ export class Craft {
 
   // Where the impact point is at time t, and its velocity (the body's plus
   // the spin's, from the turn of the axes over a second).
-  onSite(t) {
-    const S = this.impactSite;
+  onSite(t) { return this.siteState(this.impactSite, t); }
+  // A body-fixed site { key, local } at time t: position and velocity.
+  siteState(S, t) {
     if (!S) return null;
     const B = this.body(S.key, t);
     if (!B?.eph) return null;

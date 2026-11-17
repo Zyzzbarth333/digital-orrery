@@ -21,7 +21,9 @@ import { propagate } from './orbital.js';
 import { planFlight, flyJourney } from './journeyFlight.js';
 import * as F from './feasibility.js';
 import { solarSystemBodies } from './bodies.js';
-import { KERNEL_EPOCH_MS } from './kernelHost.js';
+import { KERNEL_EPOCH_MS, createKernelHost, kernelSeconds } from './kernelHost.js';
+import * as LD from './landing.js';
+import { Craft } from './craft.js';
 
 let failures = 0;
 function check(name, ok) { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; }
@@ -358,6 +360,76 @@ header('CASE 8: resonant returns to the same body (Galileo, 1989-95)');
   console.log(`  corrections ${(f.correctionsDv * 1000).toFixed(0)} m/s over six years`);
   check('Galileo flown: Venus and both Earth flybys within 20 km of plan, Jupiter within 2 %, no impact', !f.impact && f.arrivals.length === 4 && f.arrivals.slice(0, 3).every((a) => a.missKm < 20) && f.arrivals[3].missKm < 0.02 * f.arrivals[3].plannedRp);
   check('and its corrections under a tenth of the plan\'s delta-v', f.correctionsDv < 0.1 * g.totalDv);
+}
+
+header('CASE 9: landings, flown: down to the Moon, a stay, up and home; and a moon left for a planet');
+{
+  // The pieces, against closed forms. A descent orbit from 100 km down to
+  // 15 km over the Moon is the first burn of a Hohmann transfer between the
+  // two (Curtis Eq. 6.2 by vis-viva).
+  const muM = J.bodyInfo('moon').mu, RM = J.bodyInfo('moon').radius, r0 = RM + 100, rp = RM + 15;
+  check('the descent orbit burn is a Hohmann transfer\'s first burn, down to 15 km', near(LD.deorbitDv(muM, r0, rp), X.hohmannCircular(muM, r0, rp).dv1, 1e-12));
+  // The entry: the drag-free hyperbola with that periapsis crosses the
+  // surface at the chosen angle (h = R v_R cos gamma, energy kept).
+  const muE = J.bodyInfo('mars').mu, RE = J.bodyInfo('mars').radius, vinf = 3;
+  const rpE = LD.entryPeriapsis({ mu: muE, R: RE, vinf, gammaDeg: 12 }), e = 1 + rpE * vinf * vinf / muE;
+  const hE = Math.sqrt(muE * rpE * (1 + e)), vR = Math.sqrt(vinf * vinf + 2 * muE / RE);
+  check('an entry periapsis: the hyperbola through it meets the ground 12 degrees below the horizontal', near(Math.acos(hE / (RE * vR)) / deg, 12, 1e-9) && rpE < RE);
+  // Braking from the descent orbit's periapsis, two-body: it stops where
+  // asked, and costs more than the speed it takes off (gravity losses).
+  const a = (r0 + rp) / 2, vp = Math.sqrt(muM * (2 / rp - 1 / a));
+  const br = LD.designBraking({ r: [rp, 0, 0], v: [0, vp, 0], mu: muM, R: RM, hEnd: 1.5 });
+  console.log(`  braking from 15 km at ${(vp * 1000).toFixed(0)} m/s: ${(br.accel * 1000).toFixed(2)} m/s^2 for ${br.dur.toFixed(0)} s, ${(br.dv * 1000).toFixed(0)} m/s, stopped ${((norm(br.end.r) - RM) * 1000).toFixed(0)} m up`);
+  check('the braking burn stops 1.5 km up (to 20 m), for more than the periapsis speed it takes off', near(norm(br.end.r) - RM, 1.5, 0.02) && br.dv > vp && br.dv < 1.1 * vp);
+  const asc = LD.designAscent({ r: [RM, 0, 0], v: [0, 0, 0], mu: muM, R: RM, rOrbit: r0, normal: [0, 0, 1], accel: 5 * muM / RM / RM });
+  console.log(`  ascent to 100 km: tilt ${(asc.kick / deg).toFixed(1)} deg, ${(asc.dv * 1000).toFixed(0)} m/s against the ideal ${(Math.sqrt(muM / r0) * 1000).toFixed(0)} (the orbit's speed)`);
+  check('the ascent reaches the 100 km orbit (to 1 km) for under 10 % over its circular speed', asc && near(asc.apo, r0, 1) && asc.dv > Math.sqrt(muM / r0) && asc.dv < 1.1 * Math.sqrt(muM / r0));
+
+  // Flown: Earth orbit, down to the Moon for three days, up, and home
+  // through the air.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const trip = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-12-01T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'land', altKm: 100, stayDays: 3, dateMs: D('2026-12-05T00:00:00Z') },
+    { id: 2, body: 'earth', kind: 'land', altKm: 120, dateMs: D('2026-12-12T00:00:00Z') }] };
+  const ts = J.solveJourney(trip), plan = planFlight(ts), f = flyJourney(sys, plan);
+  const [down, home] = f.landings;
+  for (const l of f.log.filter((x) => /^(landed|liftoff|entry|depart)/.test(x))) console.log(`  ${l}`);
+  console.log(`  planned: ${ts.burns.map((b) => `${b.label} ${b.dv.toFixed(3)}`).join('; ')} km/s`);
+  check('nothing left unflown: no unsupported notes for a Moon landing', plan.unsupported.length === 0);
+  check('down on the Moon under 3 m/s across the ground, held there for the stay', down?.body === 'moon' && down.how === 'descent' && down.speed < 0.003 && down.until - down.t > 2.5 * DAY);
+  check('the descent flown costs more than the plan\'s ideal (the orbit\'s speed), by under 15 %', (() => { const ideal = Math.sqrt(muM / (RM + 100)); return down.dv > ideal && down.dv < 1.15 * ideal; })());
+  const site = f.path.filter((p) => p.t > down.t + DAY && p.t < down.until - DAY);
+  check('on the ground the path follows the site: a steady distance from the Moon\'s centre', site.length > 3 && site.every((p) => near(norm(p.r.map((x, i) => x - sys.bodiesAt(p.t).find((b) => b.key === 'moon').r[i])), RM, 0.01)));
+  check('up into orbit for under 10 % over its speed, then home: through the air at Earth, no impact', down.ascentDv < 1.1 * Math.sqrt(muM / (RM + 100)) && home?.body === 'earth' && home.how === 'entry' && !f.impact);
+  check('the way home within 10 km of the aimed point, the entry perigee within 5 km of the planned 120 km', f.arrivals[1].missKm < 10 && near(home.entryKm, 120, 5));
+
+  // The same journey flown live by the app's Craft (bare, as the app flies
+  // a journey: the model the burns were worked out in): the planned burns
+  // and landings, ten-minute frames through the kernel host.
+  const host = createKernelHost();
+  const c = new Craft({ name: 'lander', r: plan.start.r, v: plan.start.v, t: kernelSeconds(new Date(plan.start.ms)), sys, bare: true });
+  c.addPlanned(f.burns); c.addLandings(f.landings);
+  const seen = { ground: false, up: false };
+  for (let t = c.clockT + 600; t <= home.t + 3600; t += 600) {
+    c.advanceClock(t);
+    const req = c.buildRequest();
+    if (req) c.applyResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]);
+    if (c.landed?.key === 'moon' && t > down.t + DAY && t < down.until - DAY) seen.ground = norm(c.displayState().r.map((x, i) => x - sys.bodiesAt(t).find((b) => b.key === 'moon').r[i])) < RM + 0.01;
+    if (!c.landed && t > down.until + 2 * 3600 && t < down.until + 3 * 3600) seen.up = norm(c.kState.r.map((x, i) => x - sys.bodiesAt(c.kState.t).find((b) => b.key === 'moon').r[i])) > RM + 80;
+  }
+  console.log(`  flown live: ${c.log.filter((l) => /landed|lift off|impact/.test(l.text)).map((l) => l.text).join('; ')}`);
+  check('flown live by the Craft: down on the Moon and held, up into orbit after the stay, down at Earth, never crashed', seen.ground && seen.up && c.landed?.key === 'earth' && !c.crashed);
+
+  // A moon left for another planet: Earth orbit, a week in lunar orbit,
+  // then Mars, its excess speed about the Earth turned into the Moon's.
+  const mm = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: 7, dateMs: D('2026-10-24T00:00:00Z') },
+    { id: 2, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z') }] };
+  const ms = J.solveJourney(mm), mp = planFlight(ms), mf = flyJourney(sys, mp);
+  const dep = mf.log.find((l) => l.startsWith('depart moon'));
+  console.log(`  Moon orbit to Mars: ${dep}, the plan's ${(ms.legs[1].depDv * 1000).toFixed(0)}; Mars ${mf.arrivals[1].missKm.toFixed(1)} km off the planned periapsis, corrections ${(mf.correctionsDv * 1000).toFixed(0)} m/s`);
+  check('leaving the Moon for Mars is flown (no unsupported note), Mars captured within 20 km of plan, no impact', mp.unsupported.length === 0 && mf.arrivals[1].missKm < 20 && !mf.impact);
+  check('its departure costs no less than the plan\'s (which takes the Moon as moving the way out) and the corrections under 250 m/s', (() => { const m = /moon: (\d+) m\/s/.exec(dep ?? ''); return m && Number(m[1]) >= ms.legs[1].depDv * 1000 - 1 && mf.correctionsDv < 0.25; })());
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');

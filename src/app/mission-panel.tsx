@@ -140,7 +140,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     }
     const plan = mission.plan(c);
     if (plan) rows.push([`Closest to ${plan.name}`, `${fmt(plan.closest / 1000, 0)} thousand km`, <SourceTag src="kernel" derived info="closest" detail={`planned arrival ${new Date(plan.arrivalMs).toISOString().slice(0, 10)}`} />]);
-    const state = c.splashed ? 'Splashdown' : c.crashed ? `Impact: ${c.impactBody}` : c.error ? `Error: ${c.error}` : c.lagSeconds > 60 ? `Behind the clock by ${fmt(c.lagSeconds / 60, 1)} min` : 'Stepping';
+    const state = c.splashed ? 'Splashdown' : c.crashed ? `Impact: ${c.impactBody}` : c.landed ? `Landed: ${c.landed.key}${c.landed.until !== null ? `, lift off ${utc(c.landed.until)} UTC` : ''}` : c.error ? `Error: ${c.error}` : c.lagSeconds > 60 ? `Behind the clock by ${fmt(c.lagSeconds / 60, 1)} min` : 'Stepping';
     readout = (
       <>
         <table className="readout"><tbody>

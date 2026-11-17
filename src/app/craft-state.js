@@ -14,13 +14,14 @@ export const craftWarns = (c) => craftLost(c) || !!c.error;
 
 /**
  * The header's word for a craft.
- * @param {{ crashed?: boolean, splashed?: boolean, error?: string | null }} c
+ * @param {{ crashed?: boolean, splashed?: boolean, error?: string | null, landed?: object | null }} c
  * @param {{ climbing?: boolean, burning?: boolean }} [now]
- * @returns {'Climb' | 'Down' | 'Lost' | 'Fault' | 'Burn' | 'Coast'}
+ * @returns {'Climb' | 'Down' | 'Lost' | 'Fault' | 'Landed' | 'Burn' | 'Coast'}
  */
 export function craftStateWord(c, { climbing = false, burning = false } = {}) {
   if (climbing) return 'Climb';
   if (c.crashed) return c.splashed ? 'Down' : 'Lost';
   if (c.error) return 'Fault';
+  if (c.landed) return 'Landed';
   return burning ? 'Burn' : 'Coast';
 }

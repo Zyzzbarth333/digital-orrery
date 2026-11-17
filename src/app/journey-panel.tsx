@@ -72,7 +72,7 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
     const r = k.state === 'done' && kernelNow ? k.reply : null;
     if (!r || !r.start) return;
     clock.setTime(r.start.ms);
-    const c = mission.flyJourney(r.start, r.burns, store.title());
+    const c = mission.flyJourney(r.start, r.burns, store.title(), r.landings ?? []);
     onFlown(c.id);
   };
 
