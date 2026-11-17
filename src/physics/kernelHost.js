@@ -175,7 +175,7 @@ export function stepCraft(sys, req) {
   return {
     id: req.id, version: req.version,
     r: state.r, v: state.v, t: state.t, tEnd: req.tEnd, primary: state.primary,
-    accel, events: res.events, complete: res.complete, steps: res.steps,
+    accel, events: res.events, complete: res.complete, steps: res.steps, floorSteps: res.floorSteps ?? 0,
     envState: env?.state?.() ?? null,
   };
 }

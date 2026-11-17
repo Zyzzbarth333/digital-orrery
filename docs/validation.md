@@ -111,6 +111,7 @@ other planets (`public/trajbrowser/planets.json`).
 | Encke, forward then back a day | start state | 0.86 m |
 | Encke/Cowell hybrid, 300 × 380,000 km orbit, 10 days | the same reference | 0.092 km in 475 steps; default Cowell 0.03 km in 577 (Yoshida's: 1.91 km in 1,283). Encke's tidal form leaves out the ephemeris's acceleration noise, which every Cowell run follows |
 | about the SSB against about the Sun (case 14) | the same flights, `{ frame: 'sun' }` | the same steps; under 1 mm in low Earth orbit in a day (Encke), 4.3 m at GEO in 10 days (Cowell), 149 m after 300 days of cruise; the Sun's daily nodes within 3 cm of DE442; hooks handed heliocentric states; a fall into the Sun is an impact on it |
+| steps at the error-controlled integrator's 1 ms floor (case 15) | counted in the result | none in a day of smooth flight; one of 49 where a 10 km/s² push switches on across a plane at 10⁻⁹ km; none for Yoshida |
 | Encke, suborbital path | Cowell | impact on Earth at the same time (310.8 s) |
 | `keplerStep` | `propagate` | 1.2×10⁻¹⁴ relative |
 

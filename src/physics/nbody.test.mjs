@@ -580,6 +580,27 @@ header('CASE 14: the kernel integrates about the solar system barycentre');
   check(`a fall from 0.05 au ends in an impact on the Sun (${hit?.body}, after ${hit ? (hit.t / DAY).toFixed(2) : '-'} d)`, hit?.body === 'sun');
 }
 
+header("CASE 15: steps taken at dp45's 1 ms floor are counted");
+{
+  // A smooth flight never needs the floor. A force that jumps as the craft
+  // crosses a plane (as a chute opens at a height) needs smaller steps to
+  // pass the error test; with the velocity tolerance scaled by the step, the
+  // test is passed above 1 ms unless the jump is of order 1,000 g at the
+  // default tolerance. Here 10 km/s^2 at 1e-9 km: the steps that cross it
+  // are taken at 1 ms anyway, and the result says how many.
+  const r0 = [AU, 0, 0], v0 = [0, Math.sqrt(MU_SUN / AU), 0];
+  const smooth = advance(createState(r0, v0, 0), DAY, { bodiesAt: noBodies, muSun: MU_SUN });
+  const jump = (t, r, out) => { out[0] = out[1] = out[2] = 0; if (r[1] > 1e4) out[0] = 10; return out; };
+  const st = createState(r0, v0, 0);
+  const tight = { bodiesAt: noBodies, muSun: MU_SUN, extraAccel: jump, cowellTolKm: 1e-9, cowellRelTol: 0 };
+  const res = advance(st, 3600, tight);
+  console.log(`  a day at 1 au: ${smooth.floorSteps} floor steps; with a 10 km/s^2 push that switches on across a plane: ${res.floorSteps} of ${res.steps}`);
+  check('a smooth flight takes no step at the floor', smooth.floorSteps === 0);
+  check('a jump with the state is counted, and the flight still completes', res.floorSteps > 0 && res.complete && st.t === 3600);
+  const y = advance(createState(r0, v0, 0), 3600, { ...tight, method: 'yoshida4' });
+  check('Yoshida reports none (its steps are a fixed fraction)', y.floorSteps === 0);
+}
+
 if (failures > 0) {
   console.log(`RESULT: ${failures} check(s) FAILED`);
   process.exit(1);
