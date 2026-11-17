@@ -53,6 +53,9 @@ once it has releases. Until then, everything sits under Unreleased.
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- A craft in low orbit at high time warp no longer stalls the frame on an
+  integrated GPU: the drawn craft's carry is 2.3–2.7× cheaper (this pull
+  request).
 - The ground stays drawn near a body: the camera can't go under it, and
   the horizon has no gaps (#66).
 - Moons without an IAU model have their axes again, and the scene no
