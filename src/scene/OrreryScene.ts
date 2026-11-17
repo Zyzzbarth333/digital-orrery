@@ -44,6 +44,7 @@ import { clampAboveSurface } from '../physics/surfaceClamp.js';
 import { JourneyLayer } from './journeyLayer';
 import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
+import { SatelliteLayer } from './satellites';
 import { GuideLayer } from './guides';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
@@ -265,6 +266,10 @@ export class OrreryScene {
   // followed craft: `focus` keeps the last body.
   focusSmall: string | null = null;
   onSmallPick: (pdes: string) => void = () => {};
+  // An Earth satellite the camera is on (satellites.ts), by NORAD id.
+  focusSat: number | null = null;
+  onSatPick: (id: number) => void = () => {};
+  private satDist: number | null = null;
   private craftLayer!: CraftLayer;
   // The ground under a camera close to a body, finely divided (surfacePatch.ts).
   private surfacePatch = new SurfacePatch();
@@ -284,6 +289,7 @@ export class OrreryScene {
   private journeyCentral = (key: string): Vec3 | null => (key === 'sun' ? [0, 0, 0] : this.states[key as BodyKey]?.r ?? null);
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
+  satellites!: SatelliteLayer;   // Earth satellites, for the rail's switch
   guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
 
   private bodyAnchor(key: FocusKey): Anchor {
@@ -300,11 +306,29 @@ export class OrreryScene {
     if (!this.smallBodies.body(pdes)) return;
     if (this.rig.flying && this.rig.destination.id === `small:${pdes}`) return;
     this.focusCraftId = null;
+    this.clearSat();
     this.focusSmall = pdes;
     this.smallBodies.setFocus(pdes);
     this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallBodies.radiusKm(pdes) * 8, 1));
     this.onFlight(this.rig.flying);
     this.onSmallPick(pdes);
+  }
+  // Fly to a named satellite: 200 km out, or the distance last zoomed to.
+  focusOnSatellite(id: number): void {
+    if (!this.satellites.sat(id)) return;
+    if (this.rig.flying && this.rig.destination.id === `sat:${id}`) return;
+    this.focusCraftId = null;
+    this.clearSmall();
+    this.focusSat = id;
+    this.satellites.setFocus(id);
+    this.rig.flyTo({ id: `sat:${id}`, pos: () => this.satellites.positionKm(id, this.clock.snapshot.timeMs, this.states.earth.r), minDist: 0.02 }, this.satDist ?? 200);
+    this.onFlight(this.rig.flying);
+    this.onSatPick(id);
+  }
+  private clearSat(): void {
+    if (this.focusSat === null) return;
+    this.focusSat = null;
+    this.satellites.setFocus(null);
   }
   private clearSmall(): void {
     if (this.focusSmall === null) return;
@@ -456,6 +480,9 @@ export class OrreryScene {
       (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
+    this.satellites = new SatelliteLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    this.satellites.setScale(this.scale.max, this.renderer.getPixelRatio());
+    this.satellites.onPick = (id) => this.focusOnSatellite(id);
     // The GPU can drop the WebGL context (sleep, driver reset, memory
     // pressure): say so rather than show a black view, and carry on when the
     // browser restores it.
@@ -500,6 +527,7 @@ export class OrreryScene {
   // Follow a craft: fly to it, or (immediate) start there.
   focusOnCraft(id: number, immediate = false): void {
     this.clearSmall();
+    this.clearSat();
     this.focusCraftId = id;
     const d = this.craftDist ?? 2.0e4;
     if (immediate) this.rig.jumpTo(this.craftAnchor(id), d);
@@ -512,9 +540,10 @@ export class OrreryScene {
   // changes nothing.
   focusOn(key: FocusKey): void {
     if (this.rig.flying && this.rig.destination.id === `body:${key}`) return;
-    const reframe = key === this.focus && this.focusCraftId === null && this.focusSmall === null;
+    const reframe = key === this.focus && this.focusCraftId === null && this.focusSmall === null && this.focusSat === null;
     this.focusCraftId = null;
     this.clearSmall();
+    this.clearSat();
     this.focus = key;
     if (!isBary(key)) this.loadSurfaces(key);   // start now: the flight hides the upload
     this.rig.flyTo(this.bodyAnchor(key), this.arrivalDist(key, reframe));
@@ -572,13 +601,14 @@ export class OrreryScene {
     e.preventDefault();
     const craft = this.focusCraftId !== null;
     const focus = this.focus;
-    const small = this.focusSmall;
-    const minDist = craft ? 0.05 : small ? this.smallBodies.radiusKm(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
+    const small = this.focusSmall, sat = this.focusSat !== null;
+    const minDist = craft ? 0.05 : sat ? 0.02 : small ? this.smallBodies.radiusKm(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
     // Lines are 3 % of a page; pixels as they come.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
     this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
     const goal = this.rig.goalDistance;
     if (craft) this.craftDist = goal;
+    else if (sat) this.satDist = goal;
     else if (small) { /* a small body's zoom is its own */ }
     else if (focus === 'sun') this.sunDist = goal;
     else if (!isBary(focus)) this.userRadii = goal / BODY_BY_KEY[focus].radiusKm;
@@ -600,6 +630,7 @@ export class OrreryScene {
     this.post.setSize(this.buffer.x, this.buffer.y, this.renderer.getPixelRatio());
     if (this.starPoints) setStarScale(this.starPoints, this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies?.setScale(this.scale.max, this.renderer.getPixelRatio());
+    this.satellites?.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.camera.aspect = w / h;
     this.applyInset();
   }
@@ -798,6 +829,7 @@ export class OrreryScene {
     // followed craft that is gone hands the camera back to the focus body.
     if (!this.rig.update(dtReal)) {
       this.focusCraftId = null;
+      this.clearSat();                  // a satellite SGP4 can no longer place
       this.onFocusChange(this.focus);   // the app stops showing FOLLOW
       this.rig.flyTo(this.bodyAnchor(this.focus), this.arrivalDist(this.focus, false));
       this.rig.update(0);
@@ -866,6 +898,7 @@ export class OrreryScene {
         now / 1000, matchMedia('(prefers-reduced-motion: reduce)').matches);
     }
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.satellites.update(tMs, cam, this.states.earth.r, 1 / this.renderer.toneMappingExposure, this.adapt);
     this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
       focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
@@ -1087,7 +1120,7 @@ export class OrreryScene {
       el.classList.toggle('resolved', radiusPx > 4);
       if (b.key === 'earth') this.earthResolved = radiusPx > 3;
       if (radiusPx > 3) this.loadSurfaces(b.key);
-      el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null && this.focusSmall === null);
+      el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null && this.focusSmall === null && this.focusSat === null);
     }
     // Barycentres: hidden while they sit on their body's marker (unless
     // focused). They are drawn over discs, the Sun's or a planet's, that
@@ -1097,7 +1130,7 @@ export class OrreryScene {
       const ndc = this.tmp.copy(this.baryPos.get(b.key)!).project(this.camera);
       if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
       const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
-      const focused = b.key === this.focus && this.focusCraftId === null && this.focusSmall === null;
+      const focused = b.key === this.focus && this.focusCraftId === null && this.focusSmall === null && this.focusSat === null;
       const ps = screen.get(b.of);
       if (!focused && ps && Math.hypot(x - ps[0], y - ps[1]) < 14) { el.style.display = 'none'; continue; }
       el.style.display = '';
@@ -1127,6 +1160,7 @@ export class OrreryScene {
     this.surfacePatch.dispose();
     this.journeyLayer.dispose();
     this.smallBodies.dispose();
+    this.satellites.dispose();
     this.guides.dispose();
     for (const el of this.labels.values()) el.remove();
     for (const el of this.baryLabels.values()) el.remove();

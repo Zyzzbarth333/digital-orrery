@@ -35,16 +35,26 @@
 // to, not through a Date's whole milliseconds (half a millisecond is 4 m of
 // the ISS's track).
 
-import { json2satrec, sgp4 } from 'satellite.js';
+import { json2satrec, sgp4 } from './sgp4.js';
 import { precession1976, nutation1980, meanObliquity1980, R1, R3 } from './earthRotation.js';
 import { ttMinusUtc, J2000_UTC_MS } from './timescale.js';
 
 const NUMERIC = new Set(['MEAN_MOTION', 'ECCENTRICITY', 'INCLINATION', 'RA_OF_ASC_NODE', 'ARG_OF_PERICENTER', 'MEAN_ANOMALY',
   'EPHEMERIS_TYPE', 'NORAD_CAT_ID', 'ELEMENT_SET_NO', 'REV_AT_EPOCH', 'BSTAR', 'MEAN_MOTION_DOT', 'MEAN_MOTION_DDOT']);
 
+/**
+ * An OMM record as CelesTrak gives it (its CSV's columns).
+ * @typedef {{ OBJECT_NAME: string, OBJECT_ID: string, EPOCH: string, NORAD_CAT_ID: number,
+ *   MEAN_MOTION: number, ECCENTRICITY: number, INCLINATION: number, RA_OF_ASC_NODE: number,
+ *   ARG_OF_PERICENTER: number, MEAN_ANOMALY: number, BSTAR: number, MEAN_MOTION_DOT: number,
+ *   MEAN_MOTION_DDOT: number, EPHEMERIS_TYPE?: number, CLASSIFICATION_TYPE?: string,
+ *   ELEMENT_SET_NO?: number, REV_AT_EPOCH?: number }} Omm
+ */
+
 // CelesTrak's CSV: a header row of OMM keywords, then one row a satellite.
 // Names hold no commas or quotes in CelesTrak's data; a quoted field is
 // handled all the same.
+/** @param {string} text @returns {Omm[]} */
 export function parseGpCsv(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (!lines.length) return [];
@@ -66,7 +76,7 @@ export function parseGpCsv(text) {
   for (let k = 1; k < lines.length; k++) {
     const f = split(lines[k]);
     if (f.length < head.length) continue;
-    const r = {};
+    const r = /** @type {any} */ ({});
     head.forEach((h, j) => { r[h] = NUMERIC.has(h) ? Number(f[j]) : f[j].trim(); });
     if (!Number.isFinite(r.NORAD_CAT_ID) || !(r.MEAN_MOTION > 0)) continue;
     rows.push(r);
@@ -104,6 +114,7 @@ export function ommFromTle(l1, l2) {
 }
 
 // A satellite: its OMM record, its SGP4 record and its exact epoch.
+/** @param {Omm} omm */
 export function satrecOf(omm) {
   return { omm, rec: json2satrec(omm, 'a'), epochMs: epochMs(omm.EPOCH) };
 }
