@@ -39,6 +39,8 @@ import { makeRings, tauTexture, type RingProfile } from './rings';
 import { makeStarPoints, makeStars, resetStars, setStarScale } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
+import { SurfacePatch } from './surfacePatch';
+import { clampAboveSurface } from '../physics/surfaceClamp.js';
 import { JourneyLayer } from './journeyLayer';
 import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
@@ -264,6 +266,8 @@ export class OrreryScene {
   focusSmall: string | null = null;
   onSmallPick: (pdes: string) => void = () => {};
   private craftLayer!: CraftLayer;
+  // The ground under a camera close to a body, finely divided (surfacePatch.ts).
+  private surfacePatch = new SurfacePatch();
   // The journey being planned (journeyLayer.ts): its arcs and burn nodes.
   journeySource: () => JourneyView | null = () => null;
   // While a full-screen view covers the sky (the plotting table), stop
@@ -636,6 +640,21 @@ export class OrreryScene {
   // moon (the planet's orbit passes the camera too). Each is resampled when
   // its body has moved a fifth of the way to its edge, or its coarse line
   // is resampled (the trail's offsets count from that line's centre).
+  // The camera moved out of any body it is inside (surfaceClamp.js), or null.
+  private aboveGround(cam: Vec3, date: Date): Vec3 | null {
+    for (const b of BODIES) {
+      if (b.key === 'sun') continue;
+      const st = this.states[b.key];
+      if (!st) continue;
+      const r = b.radiiKm, d = Math.hypot(cam[0] - st.r[0], cam[1] - st.r[1], cam[2] - st.r[2]);
+      if (d > Math.max(r[0], r[1], r[2]) + 0.01) continue;
+      const axes = (bodyAxesEqj(b.key, date) as Vec3[]).map((a) => eqjToEcl(a) as Vec3);
+      const out = clampAboveSurface(cam, st.r, axes, r, 0.005) as Vec3 | null;
+      if (out) return out;
+    }
+    return null;
+  }
+
   private updateNearOrbits(tMs: number): void {
     const want = new Set<BodyKey>();
     const drawn = (k: BodyKey) => !!orbitOrigin(k, this.refFrame) && !!orbitDays(k, this.refFrame);
@@ -784,8 +803,12 @@ export class OrreryScene {
     const f = this.rig.pivot;
     const { az, el, dist } = this.rig;
     const ce = Math.cos(el);
-    const offset: Vec3 = [dist * ce * Math.cos(az), dist * ce * Math.sin(az), dist * Math.sin(el)];
-    const cam: Vec3 = [f[0] + offset[0], f[1] + offset[1], f[2] + offset[2]];
+    let offset: Vec3 = [dist * ce * Math.cos(az), dist * ce * Math.sin(az), dist * Math.sin(el)];
+    let cam: Vec3 = [f[0] + offset[0], f[1] + offset[1], f[2] + offset[2]];
+    // Turning about a craft near the ground can take the camera under it:
+    // it is kept 5 m above the surface, still looking at the pivot.
+    const lifted = this.aboveGround(cam, date);
+    if (lifted) { cam = lifted; offset = [cam[0] - f[0], cam[1] - f[1], cam[2] - f[2]]; }
     const sys = this.focusCraftId === null ? systemOf(this.focus) : null;
     for (const p of SYSTEMS) {
       const r = this.states[p].r;
@@ -834,6 +857,7 @@ export class OrreryScene {
       level: 1 / this.renderer.toneMappingExposure, date });
 
     this.smallBodies.renderHaze(this.renderer, this.camera);
+    this.surfacePatch.update(SurfacePatch.nearest(this.meshes, (k) => k === 'sun'));
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
@@ -1085,6 +1109,7 @@ export class OrreryScene {
     this.container.removeEventListener('wheel', this.onWheel);
     this.resizeObserver.disconnect();
     this.craftLayer.dispose();
+    this.surfacePatch.dispose();
     this.journeyLayer.dispose();
     this.smallBodies.dispose();
     this.guides.dispose();
