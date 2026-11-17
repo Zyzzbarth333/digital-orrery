@@ -93,6 +93,8 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <SourceTag src="kernel" info="altitude" detail={`n-body state (Encke near a planet, Cowell elsewhere) carried to the clock${altNote}`} />],
       ['Speed', `${fmt(rel.v, 4)} km/s`, <SourceTag src="kernel" info="craft-speed" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
     ];
+    // A journey's craft flies the planner's model, not the full one.
+    if (c.bare) rows.push(['Model', 'Planner\'s', <SourceTag src="kernel" info="kernel-motion" detail="point masses and zonal terms only: no drag, full gravity fields or sunlight (the model its burns were worked out in), so a low orbit never decays" />]);
     const site = c.crashed ? c.impactSite : null;
     // Entry (a crew module with its guidance): the bank the guidance flies
     // and the chutes, by height above the ellipsoid.
@@ -140,7 +142,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     }
     const plan = mission.plan(c);
     if (plan) rows.push([`Closest to ${plan.name}`, `${fmt(plan.closest / 1000, 0)} thousand km`, <SourceTag src="kernel" derived info="closest" detail={`planned arrival ${new Date(plan.arrivalMs).toISOString().slice(0, 10)}`} />]);
-    const state = c.splashed ? 'Splashdown' : c.crashed ? `Impact: ${c.impactBody}` : c.error ? `Error: ${c.error}` : c.lagSeconds > 60 ? `Behind the clock by ${fmt(c.lagSeconds / 60, 1)} min` : 'Stepping';
+    const state = c.splashed ? 'Splashdown' : c.crashed ? `Impact: ${c.impactBody}` : c.landed ? `Landed: ${c.landed.key}${c.landed.until !== null ? `, lift off ${utc(c.landed.until)} UTC` : ''}` : c.error ? `Error: ${c.error}` : c.lagSeconds > 60 ? `Behind the clock by ${fmt(c.lagSeconds / 60, 1)} min` : 'Stepping';
     readout = (
       <>
         <table className="readout"><tbody>
