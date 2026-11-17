@@ -29,6 +29,11 @@ once it has releases. Until then, everything sits under Unreleased.
   Earth and Moon shadows (#22).
 - The kernel integrates about the solar system barycentre, with the Sun
   on DE442's path, as DE, GMAT and Orekit do (#64).
+- Impacts and touchdowns are found where the craft met the ground, not up
+  to a step later and tens of kilometres below it, so a landing's speed is
+  its speed at the surface (this pull request). The moons' pull is checked
+  on Juno's pass over Io and Cassini's over Titan too, which measure
+  those moons' J2 and C22 (this pull request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
