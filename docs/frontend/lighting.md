@@ -139,6 +139,18 @@ Light scatters in any eye or lens. Two parts, both before the tone curve:
   by the fraction of the Sun's disc that no body hides (the disc overlap
   below), so a planet in front of the Sun takes it away.
 
+  **Checked away from the Earth and in transits** (18 November 2026, in
+  the app). The glare's strength times the exposure is 1.2 seen from the
+  Earth, Mars, Jupiter and Neptune alike, so its core keeps one size while
+  the disc inside it shrinks (0.27°, 0.17°, 0.050° and 0.0089° in radius).
+  With the Sun about 20° from the view's centre the sky dims to the same
+  0.485 from all four, and when the planet itself covers the Sun the glare
+  goes and the sky comes back (0.95–0.98). At the transit of Venus
+  (6 June 2012, 01:29 UTC) the app leaves 0.999066 of the disc in view, a
+  dip of 0.093 % (Venus's 58″ on the Sun's 1891″ gives 0.094 %); at
+  Mercury's (11 November 2019, 15:20 UTC) 0.999974. The overlap itself
+  (`src/physics/discs.js`) is tested in `discs.test.mjs`.
+
   It used to be the CIE's disability glare for a young eye at 3 %
   ($\pi (10/\theta^3 + 5/\theta^2 + 0.05/\theta)$ of white): its
   $\theta^{-3}$ core stayed white out to 1.3°, so from 0.3 AU outward the Sun

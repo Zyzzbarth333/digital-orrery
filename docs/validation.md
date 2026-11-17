@@ -418,6 +418,16 @@ published equations and Fortran listings
 | Fall-off | steep inside 2 radii, then ρ^−2.5 | 0.5 % of the limb's at 2 radii; the ρ^−2.5 term alone by 6 |
 | In the scene | the disc's centre is 46,000/0.805 of white | 0.231 of white at the limb |
 
+## How much of the Sun is in view (`discs.test.mjs`)
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Overlap of two discs, 20 partial cases | the overlap counted on a 1200 × 1200 grid | within 3×10⁻⁵ |
+| Annular eclipse, 14 Oct 2023 | magnitude 0.95204, obscuration 0.90638 | 0.90638 |
+| Total eclipse, 8 Apr 2024 | magnitude 1.0566 | none of the disc in view |
+| Transit of Venus, 6 Jun 2012, in the app | Venus 58″ on the Sun's 1891″: 0.094 % | 0.093 % hidden |
+| Transit of Mercury, 11 Nov 2019, in the app | Mercury 10″ on 1940″: about 0.003 % | 0.0026 % hidden |
+
 ## A small body's plate (`smallbodies.test.mjs`)
 
 | Fact | Reference | Result |
