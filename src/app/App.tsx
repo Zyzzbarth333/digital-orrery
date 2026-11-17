@@ -98,6 +98,14 @@ export function App() {
   const [small, setSmall] = useState<string | null>(null);
   const [named, setNamed] = useState<readonly Named[]>([]);
   const smallBody = small ? named.find((b) => b.pdes === small) ?? null : null;
+  // Search any of the 135,353 (the rail's search box): a found point joins
+  // the named ones and is flown to as they are.
+  const smallSearch = useMemo(() => ({
+    search: (q: string) => scene.current?.smallBodies.search(q) ?? Promise.resolve([]),
+    load: () => scene.current?.smallBodies.loadIndex() ?? Promise.resolve(null),
+    pick: (j: number) => { const key = scene.current?.smallBodies.adopt(j); if (key) scene.current?.focusOnSmall(key); },
+    get count() { return scene.current?.smallBodies.count ?? 0; },
+  }), []);
   const [smallOn, setSmallOn] = useState<Record<string, boolean>>({ belt: true, neo: true, trojans: true, outer: true, comets: true, colours: false });
   const [guidesOn, setGuidesOn] = useState<Record<GuideKey, boolean>>({ axes: false, field: false, spheres: false, lagrange: false, pulls: false });
   // The followed craft's name, kept current (a rocket's climb included).
@@ -181,7 +189,7 @@ export function App() {
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
       <BodyRail clock={clock} focus={following === null && small === null ? focus : null} onSelect={(k) => { setFollowing(null); setSmall(null); setFocus(k); scene.current?.focusOn(k); }}
-        named={named} small={small} onSmall={(pdes) => scene.current?.focusOnSmall(pdes)}
+        named={named} small={small} onSmall={(pdes) => scene.current?.focusOnSmall(pdes)} smallSearch={smallSearch}
         frame={frame} onFrame={setFrame}
         smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }}
         guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); scene.current?.guides.set(k, on); }} />
