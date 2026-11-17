@@ -174,7 +174,9 @@ the fifth, and their difference estimates the step's error:
   `maxSteps`.
 - **Impacts:** on a conic that dips inside its primary the step is capped
   at the old fixed fraction of the dynamical time (as in Encke's method),
-  so a craft is found inside a body as soon after hitting it as before.
+  so a step that grazes a body and comes out again is still caught. Where
+  inside the step the craft met the surface is found on the step's dense
+  output ([impacts](#impacts)).
 
 Against Yoshida's fixed fraction (below), at the default tolerance. The
 references are runs at $10^{-10}$ km a step, which agree with Yoshida at a
@@ -350,10 +352,8 @@ local dynamical time in velocity. Steps end on the primary's ephemeris nodes
 the step so each uses the cubic of the interval it crosses; they are capped,
 as in Cowell, at 1 % of every other body's dynamical time, and at 1 % of the
 primary's on a conic whose periapsis is inside it, so impacts are caught as
-tightly as before. An impact is a step that ends below the body's surface:
-the Earth's is sea level, the WGS-84 ellipsoid about its pole of date
-(6,378.137 km at the equator, 6,356.752 km at the poles); every other
-body's is the sphere of its mean radius. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
+tightly as before. A step that ends below the body's surface has hit it,
+and the crossing is found inside the step ([impacts](#impacts)). When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
 the conic is re-anchored on the current state (rectification).
 
 **The other bodies within a step.** They act on the craft only through
@@ -403,9 +403,13 @@ elements) would win that back, and is the next speed-up.
 
 Checked at the end of each step:
 
-- **Impact**: closer to a body's centre than its radius, or closer than
-  695,700 km to the Sun's. The advance stops there. The planets' moons are
-  bodies like any other here, with their radii from Horizons.
+- **Impact**: below a body's surface, or closer than 695,700 km to the
+  Sun's centre. The Earth's surface is sea level, the WGS-84 ellipsoid
+  about its pole of date (6,378.137 km at the equator, 6,356.752 km at the
+  poles); every other body's is the sphere of its mean radius, the moons'
+  from Horizons. The advance stops where the step crossed the surface
+  (below), and the event carries that time and the speed relative to the
+  body's centre (`{ type: 'impact', body, t, speed }`).
 - **Primary change**: the innermost sphere of influence holding the craft, by
   Laplace's radius [4] $r_\text{SOI} = d\,(\mu/\mu_\text{primary})^{2/5}$ ($d$ the
   body's distance from its primary; the Moon's is relative to Earth, and
@@ -414,6 +418,70 @@ Checked at the end of each step:
 
 Known limit: the check is at step ends with no hysteresis, so a craft
 skimming a boundary can switch back and forth.
+
+### Impacts
+
+The surface is tested at the end of each step, so a step that ends below
+it crossed it somewhere inside. Until November 2026 the impact was
+reported there, up to a step late: 1 % of the local dynamical time near a
+surface, 14 s and 46 km below Ganymede's for a fall at 3.9 km/s. Now each
+integrator hands over its continuous extension of the step just taken,
+the state at a fraction $s \in [0, 1]$ of it (`impact.js`):
+
+- **Dormand–Prince** (Cowell's default): its dense output, the
+  fourth-order continuous extension of DOPRI5 [14, Sec. II.6], from the
+  step's two ends and seven stages, at no new force evaluations. Its
+  error is of the order of the step's own local error.
+- **Encke's method:** the same dense output for the deviation
+  $\boldsymbol\delta(s)$, with the reference conic carried to the same
+  instant (`keplerStep`) and the primary placed there from its ephemeris.
+- **Yoshida's and the leapfrog:** a cubic Hermite through the step's ends
+  (place and velocity at both). Their steps near a surface are 1 % of the
+  dynamical time, so the cubic errs by about $h^4|\mathbf r''''|/384$:
+  $10^{-10}$ km on a 14 s step onto Ganymede.
+
+On that path the crossing is the first root of the surface's level
+
+$$
+L(s) = \sqrt{\frac{|\mathbf d|^2 - z^2}{a^2} + \frac{z^2}{c^2}} - 1,
+$$
+
+$\mathbf d$ the craft less the body's centre at that time,
+$z = \mathbf d\cdot\hat{\mathbf p}$ along its pole, $a$ and $c$ its
+equatorial and polar radii (a sphere has $a = c = R$ and
+$L = |\mathbf d|/R - 1$). $L$ is negative exactly where the craft is below
+the surface, and near it $L$ is the height over the local radius. $L$ is
+sampled at eighths of the step for the first change of sign, so a step
+that dips in, out and in again is caught at its first entry. Then regula
+falsi in its Illinois form closes on the root to a microsecond. The state
+is put back there, and the advance returns.
+
+`nbody.test.mjs` case 6b drops a craft from 5,000 km onto a still body of
+radius 1,737.4 km, on an ellipse whose periapsis is 1,000 km. Two-body, it
+meets $r = R$ at the eccentric anomaly $E = 2\pi - \arccos((1 - R/a)/e)$,
+$(E - e\sin E - \pi)/n$ after apoapsis [4, Sec. 3.4], at the speed
+$\sqrt{\mu(2/R - 1/a)}$:
+
+| Integrator | Impact time against the two-body crossing | Height | Speed |
+| --- | ---: | ---: | ---: |
+| Dormand–Prince (Cowell) | 2 µs early | under 1 mm | to 1 mm/s |
+| Encke's method | under 1 µs | under 1 mm | to 1 mm/s |
+| Yoshida (Cowell) | 9 µs early | under 1 mm | to 1 mm/s |
+| leapfrog | 67 ms late (its own path, second order) | under 1 mm | 0.02 m/s fast |
+
+Onto a tilted WGS-84 ellipsoid it meets the exact conic's crossing
+(universal variables, bisected) to under 1 ms. `flyby.test.mjs` case 4's
+fall onto Ganymede now ends on the surface, not 46 km in.
+
+- **In the app:** a planned landing's touchdown speed (`landing.js`
+  `TOUCHDOWN_SPEED`, 10 m/s over the turning ground) is taken from the
+  kernel's state at the impact, which is now the crossing. `craft.js` and
+  `journeyFlight.js` used to walk back from the end of the step along a
+  two-body path, which left out the braking thrust. A capsule's
+  splashdown speed (under its chutes) is taken there too.
+- **Known limit:** a step that enters a body and leaves it again within
+  one eighth of a step is not seen. Near a body the step is capped at 1 %
+  of the dynamical time, so that would take a graze a few metres deep.
 
 ## Body positions between ephemeris calls
 
@@ -552,8 +620,14 @@ kernel, set how closely a flyby of a moon can be followed. On Juno's pass
 over Ganymede the kernel follows JPL's trajectory to 0.09 km after nine
 hours with JPL's moons (Ganymede where Juno's own track puts it), 22.7 km
 with `moons.js`'s (22.9 km with the Ganymede Horizons serves; 323 km with
-the fallback's), and 9,300 km with no moons
-([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
+the fallback's), and 9,300 km with no moons. Juno's pass 1,496 km over
+Io on 30 December 2023 is followed to 0.051 km an hour on, and Io's $J_2$
+and $C_{22}$ take that from 0.198 km; a fifth of what is left is Jupiter's
+$J_4$, which the kernel leaves out. Cassini's T45 pass 1,613 km over Titan
+is followed to 0.093 km nine hours on, nearly all of it the kernel's own
+Titan: its nodes three hours apart place it 27 m from the table at
+closest approach, and with nodes every 10 minutes 7 m is left
+([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
 
 **Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never
 evaluates a moon):
@@ -721,9 +795,12 @@ relative).
   10.263$) fits a Love number as well. The static 2010 solution is used,
   since the tide is not modelled.
 - **Not modelled:** the moons' fields beyond degree 2, and their tides.
-- **Effect:** small on a flyby. On Juno's pass 1,046 km over Ganymede it
-  moves the kernel's Juno by 0.2 km after nine hours. For a craft orbiting a
-  moon it is what turns the orbit.
+- **Effect:** small on most flybys, measurable on the close ones. On
+  Juno's pass 1,046 km over Ganymede it moves the kernel's Juno by 0.2 km
+  after nine hours. Over Io (1,496 km up) it is 0.15 km an hour on, and
+  over Titan (1,613 km) 0.34 km nine hours on; with it, both passes are
+  followed three to four times more closely (`flyby.test.mjs` cases 3b
+  and 3c). For a craft orbiting a moon it is what turns the orbit.
 
 ## References
 
@@ -752,3 +829,5 @@ relative).
 [12] L. Iess *et al.*, "Gravity field, shape, and moment of inertia of Titan," *Science*, vol. 327, pp. 1367–1369, 2010, doi: 10.1126/science.1182583.
 
 [13] L. Iess *et al.*, "The tides of Titan," *Science*, vol. 337, pp. 457–459, 2012, doi: 10.1126/science.1219631.
+
+[14] E. Hairer, S. P. Nørsett, and G. Wanner, *Solving Ordinary Differential Equations I: Nonstiff Problems*, 2nd rev. ed. Berlin, Germany: Springer, 1993, doi: 10.1007/978-3-540-78862-1. Section II.6, dense output: the continuous extension of DOPRI5.
