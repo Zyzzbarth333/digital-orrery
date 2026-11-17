@@ -264,6 +264,8 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Windows, departure, capture, flyby, Lambert leg | Ex 8.1, 8.2, 8.4, 8.5, 8.6, 8.8, 8.9, 8.10 | to the book's figures (Ex 8.8 within 0.12 % on DE442) |
 | Restricted and optimal staging | Ex 13.4, 13.5 | to the book's figures |
 | Mariner 10, Earth to Mars, a lunar free return, a Moon round trip, flown | the plan | every periapsis within 17 km, home within 3 km |
+| Resonant returns: the 2:1 cone; Galileo's Earth to Earth on NASA's dates; Galileo's whole route flown | geometry; PDS mission catalogue | 2:1 chosen, back on 8 Dec 1992, Earth flybys 0 and 70 m/s; flown within 20 km at Venus and Earth, 1.4 % at Jupiter |
+| Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft; lunar orbit to Mars, flown | Curtis 6.2; geometry; the plan | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.8 m/s, the entry perigee 118 km for 120; Mars 1.4 km off |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
@@ -396,6 +398,17 @@ published equations and Fortran listings
 | --- | --- |
 | The TeX subset's MathML and plain text | fractions, roots, scripts, fences, function names, unary signs |
 | Every tag's equations (`tag-info.js`, 59 entries) | all parse; each has what it is and a source |
+
+## Twinkling (`scintillation.test.mjs`)
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Hufnagel–Valley 5/7: r₀ and θ₀ straight up at 0.5 µm | 5 cm and 7 µrad by its definition | 4.96 cm, 6.90 µrad |
+| Weak turbulence | σ_I² = σ_R² | to 1 % at σ_R² = 10⁻³ |
+| Airmass | σ_R² ∝ sec^(11/6) z | exact; σ_I² rises 0.20 → 0.88 from 0° to 70° |
+| Strong turbulence | σ_I² saturates at 1 | 1.24, 1.14, 1.03 at σ_R² = 10, 100, 10⁴ |
+| Height | the turbulence is low | σ_R² at 10, 20, 30 km: 0.11, 1×10⁻³, 0 of the ground's |
+| Air's refractivity | Edlén (1966), standard air: 2.7782×10⁻⁴ at 550 nm | 2.7782×10⁻⁴; blue 1.51 % above red |
 
 ## The corona (`corona.test.mjs`)
 

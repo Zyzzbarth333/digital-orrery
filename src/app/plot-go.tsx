@@ -68,7 +68,7 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
   const commit = () => {
     if (!reply?.start) return;
     clock.setTime(reply.start.ms);
-    const c = mission.flyJourney(reply.start, reply.burns, store.title());
+    const c = mission.flyJourney(reply.start, reply.burns, store.title(), reply.landings ?? []);
     store.setPlotOpen(false);
     onFlown(c.id);
   };
