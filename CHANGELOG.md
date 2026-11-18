@@ -47,6 +47,15 @@ once it has releases. Until then, everything sits under Unreleased.
   legs show the month's ripple a day at a time, and the planner suggests
   the best day in the stay: an option, a lamp and a mark on the strip
   (#81).
+- A long stay in a planet's orbit turns the orbit's plane (the planet's
+  J2 regresses its node, about 9° a day 400 km over Mars), and the planner
+  now prices it. The departure is priced out of the plane on the planned
+  day, the leg shows how far off the plane is, and the window strip prices
+  each date with it. A parking orbit lamp, an option and a mark on the strip give
+  the day near the planned one when the plane holds the way out. After a
+  year at Mars the plan's price for the departure is within 5 % of the
+  flight's, and the flight's wait for the plane within a day. The Moon is
+  not priced: J2 alone does not turn a lunar orbit (this pull request).
 - Journeys are flown in the full model, with the Earth's and the Moon's
   gravity fields (mascons included), drag and sunlight, and their craft
   no longer flies bare: a Moon landing comes down on its site. The bare
@@ -73,6 +82,12 @@ once it has releases. Until then, everything sits under Unreleased.
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
   #24), with Orion's mass falling burn by burn (#30). Orion flies its
   entry to splashdown (#26).
+- Juno's 2012 deep-space burns and 2013 Earth flyby fly in the app against
+  JPL's reconstruction (`?mission=juno2013`), and DART's last five weeks to
+  Dimorphos against its navigators' (`?mission=dart`): burns along their
+  measured directions about the Sun, aims flown in the craft's own
+  sunlight and as they are flown; Juno shows no flyby anomaly, and the
+  app's DART strikes 23 m from Dimorphos's centre (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
@@ -92,7 +107,12 @@ once it has releases. Until then, everything sits under Unreleased.
   Cassini's over Titan to 4 m nine hours on, from 93 m (#86).
 - Jupiter, Saturn, Uranus and Neptune pull with their J4 as well as their
   J2, from the same published solutions: Juno's pass over Io is followed
-  to 40 m an hour on, from 51 m (this pull request).
+  to 40 m an hour on, from 51 m (#93).
+- Jupiter pulls with its zonal field to J12, and the kernel places
+  Jupiter and its four large moons to 10 m instead of 100 m. Juno is
+  followed through its PJ57 perijove, 1.02 Jupiter radii out, to 0.28 km
+  there and 0.55 km two hours on; with J2 and J4 alone it was 5 km
+  (this pull request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
@@ -142,6 +162,10 @@ once it has releases. Until then, everything sits under Unreleased.
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- A craft's orbit line and flown trail run up to and through it from any
+  distance. Followed from under a kilometre they used to stop a kilometre
+  short, and from 10 km the orbit line passed about 500 m beside the craft
+  (this pull request).
 - Artemis II at a day a second reads true: switched there straight from
   real time before the injection, its distance from the flown path no
   longer jumps to tens of thousands of km while the kernel catches up, and

@@ -49,6 +49,43 @@ A chord's sag stays under 0.4 % of the camera's height:
 The patch is rebuilt when the height changes by a tenth. Otherwise it is
 only turned to follow the point below.
 
+### Close to a craft
+
+The camera follows a craft from as close as 50 m, and an Earth satellite
+from 20 m. The near plane was a fixed kilometre, so everything nearer than
+that was clipped: the craft's conic and trail stopped a kilometre short of
+it, and a 3D model of the craft would not have been drawn at all. Each
+frame the near plane is now a tenth of the camera's distance from its
+pivot, between 1 m and 1 km (`fitNear` in `src/scene/OrreryScene.ts`).
+
+Two other ways were weighed:
+- **A fixed near plane of a metre.** It would do as well, because the
+  logarithmic depth buffer's precision does not depend on the near plane
+  ([Scene](scene.md#floating-origin)). But it changes every view, while the
+  adaptive one leaves the near plane at 1 km for anything followed from
+  beyond 10 km.
+- **A second pass for the craft with its own near and far planes.** It
+  would also give a 3D model its own depth precision. It costs a pass and
+  a depth clear every frame, and lines in it would not be hidden by the
+  Earth.
+
+On the ground (above), the camera is 5 m up but its pivot, the craft, is
+kilometres away, so the near plane stays at hundreds of metres. That is
+no worse than before. The ground within it is clipped, as it was within
+the kilometre.
+
+The near plane alone did not bring the lines to the craft: their samples
+and their float32 positions about the primary missed it by up to 500 m.
+Close up, they are drawn relative to the craft
+([Mission](mission.md#the-readout)).
+
+In the scene's 24-bit depth buffer, the logarithmic depth resolves
+$\Delta w \approx 2^{-24} \ln 2 \, \log_2(\text{far} + 1)\,(1 + w)$, with $w$
+in render units: about 1.4 m anywhere within a few hundred kilometres. Lines don't write depth, so this
+doesn't matter for them. A 3D model of the craft seen from 50 m would
+need its own pass (the second way above) for parts closer together than
+that.
+
 ## Flights
 
 Choosing a body (the rail, a marker in the sky, the arrow keys) or a craft

@@ -529,14 +529,14 @@ export const TAG_INFO = {
   // mission.ts distanceFromFlown
   'flown-path': {
     what: 'How far the craft is from where the real one was at this time.',
-    tex: ['d = |\\mathbf r(t) - \\mathbf r_\\text{BET}(t)|'],
-    where: '𝐫_BET: JSC\'s reconstructed trajectory, interpolated between its points',
-    source: 'NASA JSC Best Estimated Trajectory (BET revF) · docs/validation.md',
+    tex: ['d = |\\mathbf r(t) - \\mathbf r_\\text{flown}(t)|'],
+    where: '𝐫_flown: the mission\'s reconstructed trajectory, interpolated between its points',
+    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno and DART: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
   },
   'next-burn': {
     what: 'The real mission\'s next burn, as it was flown.',
     tex: ['1\\ \\text{ft/s} = 0.3048\\ \\text{m/s}'],
-    source: 'NASA JSC Best Estimated Trajectory (BET revF); NASA\'s mission blogs for the burns\' names',
+    source: 'The mission\'s reconstructed trajectory (as for the flown path); NASA\'s mission blogs and releases for the burns\' names and figures',
   },
   closest: {
     what: 'The closest the craft has come to its planned target so far.',
@@ -606,6 +606,13 @@ export const TAG_INFO = {
     tex: ['\\Delta\\mathbf v = \\Delta v_P\\,\\hat{\\mathbf T} + \\Delta v_N\\,\\hat{\\mathbf N} + \\Delta v_R\\,\\hat{\\mathbf R}', '\\hat{\\mathbf T} = \\frac{\\mathbf v}{v},\\quad \\hat{\\mathbf N} = \\frac{\\mathbf r \\times \\mathbf v}{|\\mathbf r \\times \\mathbf v|},\\quad \\hat{\\mathbf R} = \\hat{\\mathbf T} \\times \\hat{\\mathbf N}'],
     where: 'about the leg\'s central body, at the node\'s place; the miss counts as reached inside the target\'s sphere of influence',
     source: 'journey.js shapeLeg · docs/physics/journey.md#shaping-it-by-hand',
+  },
+  // journey.js planeAt, parkingPlane.js nodeRate, flownNodeRate, leaveCircularDv
+  'journey-plane': {
+    what: 'A stay in a planet\'s orbit turns the orbit\'s plane: the planet\'s J2 regresses its node about the pole, so after the stay the plane may no longer hold the way out, and the departure burns out of it. Up to 30 days the capture is aimed for it; beyond, the plane is priced on the day, and the best day near it suggested.',
+    tex: ['\\dot\\Omega = -\\frac{3}{2}\\,\\frac{\\sqrt{\\mu}\\,J_2 R^2}{(1-e^2)^2\\,a^{7/2}}\\cos i'],
+    where: 'i: the orbit\'s inclination to the planet\'s equator; the rate scaled by the orbit flown ten turns in the J2 field (0.15 to 0.6 % faster at 400 km over Mars); the burn the cheapest single one from the circular orbit onto the way out',
+    source: 'Curtis, 4th ed., §4.7, eq. 4.52 (Example 4.8) · docs/physics/journey.md#the-parking-orbits-plane',
   },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
