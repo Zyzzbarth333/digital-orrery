@@ -38,7 +38,7 @@ export function FlightConsole({ clock, mission, journey, tab, setTab, onClose, o
       <div role="tabpanel" id={`cpanel-${tab}`} aria-labelledby={`ctab-${tab}`} className="tab-panel">
         {tab === 'mission' && <MissionPanel clock={clock} mission={mission} onFocusCraft={onFocusCraft} />}
         {tab === 'planner' && <PlannerPanel clock={clock} mission={mission} journey={journey} autoPlan={autoPlan} onFlown={flown} />}
-        {tab === 'rocket' && <RocketPanel clock={clock} mission={mission} onFlown={flown} />}
+        {tab === 'rocket' && <RocketPanel clock={clock} mission={mission} journey={journey} onFlown={flown} />}
       </div>
     </section>
   );

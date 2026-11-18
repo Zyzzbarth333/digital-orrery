@@ -48,7 +48,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 - **Planning:**
   - a journey of any number of legs, each leg's transfers compared (a broken plane where a leg runs nearly 180° round the Sun), shaped by hand on a plotting table;
   - flown by the kernel, with the rocket it needs.
-- **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, or open an OpenRocket design, and fly it from a real pad into orbit.
+- **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, from the stack the planner sized for your journey, or from an OpenRocket design, and fly it from a real pad into orbit.
 
 The name nods to the orrery, a mechanical model of the solar system, and in particular to the Digital Orrery, the special-purpose computer built in the 1980s to integrate the long-term dynamics of the outer planets.
 
