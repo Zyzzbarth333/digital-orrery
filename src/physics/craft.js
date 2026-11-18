@@ -30,7 +30,7 @@ import { TOUCHDOWN_SPEED } from './landing.js';
 import { accelHeliocentric, primaryOf } from './nbody.js';
 import { eqjToEcl } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
-import { vnbDirection } from './kernelHost.js';
+import { vnbDirection, SUN_AT_ORIGIN } from './kernelHost.js';
 import { CraftAttitude } from './craftAttitude.js';
 import { thrustAxis } from './attitude.js';
 
@@ -272,7 +272,12 @@ export class Craft {
   setScript(burns, about = 'earth') {
     // F = accel on a nominal 1 kg: the data give acceleration, not thrust
     // and mass, so these are flagged and their thrust ignores the mass.
-    this.script = burns.map((b) => ({ t0: b.t0, t1: b.t1, dir: b.dir, F: b.accel, m0: 1, mdot: 0, frame: 'vnb', about: b.about ?? about, scripted: true }));
+    // frame 'eqj': a fixed J2000 direction (a deep-space burn's 10 s
+    // intervals, about the Sun, whose orbital frame barely turns in one);
+    // otherwise the orbital frame about the burn's body.
+    this.script = burns.map((b) => (b.frame === 'eqj'
+      ? { t0: b.t0, t1: b.t1, dir: b.dir, F: b.accel, m0: 1, mdot: 0, scripted: true }
+      : { t0: b.t0, t1: b.t1, dir: b.dir, F: b.accel, m0: 1, mdot: 0, frame: 'vnb', about: b.about ?? about, scripted: true }));
     this.scriptMass0 = this.dryMass + this.fuel;
     this.scriptMasses();
     this.version++;
@@ -538,6 +543,7 @@ export class Craft {
 
   // A body by key at t (any planet, its centre, or moon, split or not).
   body(key, t) {
+    if (key === 'sun') return SUN_AT_ORIGIN;
     return this.sys.bodyAt ? this.sys.bodyAt(key, t) : this.sys.bodiesAt(t).find((b) => b.key === key);
   }
 

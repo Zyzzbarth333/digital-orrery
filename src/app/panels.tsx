@@ -253,9 +253,9 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
   { key: 'spheres', label: 'SOI and Hill', colour: '#ffb22e', title: "Each body's sphere of influence (solid) and Hill sphere (dashed) about its parent" },
   { key: 'lagrange', label: 'Lagrange', colour: '#ecd9b0', title: 'L1 to L5 of Sun-Earth, Earth-Moon, Sun-Jupiter and the focused body with its parent' },
   { key: 'pulls', label: 'Pulls', colour: '#ff7a3d', title: 'The four strongest gravitational pulls on the focused body, GM / d²' },
-  { key: 'magnetic', label: 'Magnetic fields', colour: '#f5f0e4', title: 'Field lines of Mercury (MESSENGER), Earth (IGRF-14), Jupiter (JRM33 and its current sheet), Saturn (Cassini 11), Uranus and Neptune (Voyager), shaded by field strength' },
-  { key: 'aurora', label: 'Auroras', colour: '#52ff73', title: "The Earth's auroras: NOAA's live OVATION Prime map near now, Starkov's oval for the day's Kp otherwise; Jupiter's, Saturn's, Uranus's and Neptune's auroral zones and Io's footprint, in false colour" },
-  { key: 'belts', label: 'Radiation belts', colour: '#7fb8c9', title: "The Earth's inner and outer Van Allen belts, Jupiter's and Saturn's radiation belts, as shells along their L-shells in each planet's own field" },
+  { key: 'magnetic', label: 'Magnetic fields', colour: '#f5f0e4', title: 'Mars\'s magnetised crust (MGS and MAVEN); field lines of Mercury (MESSENGER), Earth (IGRF-14), Ganymede (Juno), Jupiter (JRM33 and its current sheet), Saturn (Cassini 11), Uranus and Neptune (Voyager), shaded by field strength' },
+  { key: 'aurora', label: 'Auroras', colour: '#52ff73', title: "The Earth's auroras: NOAA's live OVATION Prime map near now, Starkov's oval for the day's Kp otherwise; Jupiter's, Saturn's, Uranus's, Neptune's and Ganymede's auroral zones, the moons' footprints and Mars's discrete aurora, in false colour" },
+  { key: 'belts', label: 'Radiation belts', colour: '#7fb8c9', title: "The Earth's inner and outer Van Allen belts and the radiation belts of Jupiter, Saturn, Uranus and Neptune, as shells along their L-shells in each planet's own field" },
 ];
 
 // The moons each planet has in the rail (Earth's Moon is always shown).
@@ -444,9 +444,11 @@ function Credits() {
       used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</>
   );
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
+  items.push(['Flown missions', "Artemis I: NASA/JSC navigation's as-flown ephemeris, via JPL Horizons; Artemis II: NASA JSC/FOD/NAV's reconstruction, via NAIF; Juno: JPL navigation's reconstruction, via JPL Horizons; DART: its navigation's reconstruction and Dimorphos, via JPL Horizons, and Daly et al., Nature 616 (2023), CC BY 4.0"]);
   items.push(['Magnetic fields', 'IGRF-14 (IAGA V-MOD, via NOAA NCEI); JRM33 and con2020 (Connerney et al. 2022, 2020); Cassini 11 (Dougherty et al. 2018, Cao et al. 2020) via libinternalfield (MIT); Voyager 2 dipoles (Ness et al. 1986, 1989); MESSENGER (Anderson et al. 2012)']);
   items.push(['Auroras', 'NOAA SWPC OVATION Prime live aurora forecast (US Government work); Starkov 1994 oval as Sigernes et al. 2011 give it; Kp from GFZ Potsdam via CelesTrak; Badman et al. 2006 (Saturn); Clarke et al. 2004 (Jupiter); Melin et al. 2025 (Neptune)']);
-  items.push(['Radiation belts', 'Reeves and Daglis 2016 (Earth); Roussos and Kollmann 2021, Roussos et al. 2018 (Jupiter, Saturn)']);
+  items.push(['Radiation belts', 'Reeves and Daglis 2016 (Earth); Roussos and Kollmann 2021, Roussos et al. 2018 (Jupiter, Saturn); Cooper and Stone 1991 (Uranus); Mauk et al. 1991 (Neptune)']);
+  items.push(['Ganymede and Mars', 'Weber et al. 2022, Kivelson et al. 2002, Feldman et al. 2000 (Ganymede); Langlais et al. 2019 via libinternalfield (MIT), Bertaux et al. 2005, Brain et al. 2006 (Mars); Hue et al. 2023 (lead angles)']);
   items.push(['Equation font', 'DejaVu Math TeX Gyre, from the DejaVu fonts: Bitstream Vera licence, its DejaVu and math additions public domain']);
   return (
     <details className="credits">

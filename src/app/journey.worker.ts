@@ -21,7 +21,8 @@ let sys: ReturnType<typeof solarSystemBodies> | null = null;
 
 export interface FlightRequest { type?: 'flight' | 'profiles'; journey: Journey; named: unknown[]; forVersion: number }
 export interface ProfilePoint { ms: number; dv: number; tofDays: number }
-export interface LegProfile { k: number; fromMs: number; points: ProfilePoint[]; best: ProfilePoint | null; stepDays: number; phase: { ms: number; dv: number; tofDays: number; arrMs: number; angleDeg: number | null } | null }
+export interface LegProfile { k: number; fromMs: number; points: ProfilePoint[]; best: ProfilePoint | null; stepDays: number; phase: { ms: number; dv: number; tofDays: number; arrMs: number; angleDeg: number | null } | null;
+  plane?: { ms: number; dv: number; tofDays: number; arrMs: number; angleDeg: number; aimed: boolean; waitDays: number; flight: { ms: number; waitDays: number; dv: number; angleDeg: number } } | null }
 export interface ProfilesReply { type: 'profiles'; forVersion: number; profiles: (LegProfile | null)[] }
 export interface Arrival { waypoint: number; body: string; closest: number; plannedRp: number; missKm: number; at: number; central: boolean }
 export interface Landing { body: string; waypoint: number; t: number; local: number[]; how: 'descent' | 'entry' | 'setdown'; speed: number; lat: number; lon: number; until: number | null; dv?: number; ascentDv?: number; entryKm?: number }

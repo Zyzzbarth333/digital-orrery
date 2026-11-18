@@ -75,6 +75,12 @@ export function kernelMs(t) {
 }
 
 // Advance one craft. sys is a body set from solarSystemBodies().
+// The Sun as a burn's body: the origin, still.
+export const SUN_AT_ORIGIN = Object.freeze({
+  key: 'sun', r: [0, 0, 0],
+  eph: { position: (t, out = [0, 0, 0]) => { out[0] = out[1] = out[2] = 0; return out; }, velocity: (t, out = [0, 0, 0]) => { out[0] = out[1] = out[2] = 0; return out; } },
+});
+
 // deadline: a performance.now() time (ms) to stop by (nbody.js advance).
 export function stepCraft(sys, req, deadline = null) {
   // NaN does not throw anywhere in the kernel: it would integrate quietly and
@@ -84,8 +90,10 @@ export function stepCraft(sys, req, deadline = null) {
       (req.thrust && !finite(req.thrust))) {
     throw new Error('non-finite craft state, time or thrust');
   }
-  // A body by key, a moon or planet whether or not its system is split.
-  const bodyOf = (key, t) => (sys.bodyAt ? sys.bodyAt(key, t) : sys.bodiesAt(t).find((x) => x.key === key));
+  // A body by key, a moon or planet whether or not its system is split; or
+  // the Sun, at the origin of the heliocentric frame the hooks see (a deep-
+  // space burn is steered about it).
+  const bodyOf = (key, t) => (key === 'sun' ? SUN_AT_ORIGIN : sys.bodyAt ? sys.bodyAt(key, t) : sys.bodiesAt(t).find((x) => x.key === key));
   const burns = (req.burns || []).filter((b) => b.t1 > req.t && b.t0 < req.tEnd);
   for (const b of burns) {
     if (![b.t0, b.t1, b.F, b.m0, b.mdot].every(Number.isFinite) || !finite(b.dir) || !(b.m0 - b.mdot * (b.t1 - b.t0) > 0)) {
@@ -203,20 +211,27 @@ export function stepCraft(sys, req, deadline = null) {
 // aim is flown in the full model; without it, gravity alone. envJ: a
 // cheaper one for the sensitivities alone (lower degrees of the fields):
 // Newton's steps are then a little less exact, but every run that is kept
-// is flown with env, so the aim is still the full model's.
-export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds = 4, damped = false, env = null, envJ = env }) {
+// is flown with env, so the aim is still the full model's. spread: seconds
+// over which the correction will be flown (a steady push from t0, as
+// RealMission.aimStep adds it to its burn), solved for as that push rather
+// than an impulse: aimed two minutes ahead of a burn of an hour (DART's
+// terminal guidance), the two differ by kilometres.
+export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds = 4, damped = false, env = null, envJ = env, spread = 0 }) {
   const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
   const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
   const list = burns.filter((b) => !b.aimed && b.t1 > t0 && b.t0 < T);
-  const fly = (vv, e = env) => {
-    const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: vv, t: t0, tEnd: T, primary: null, burns: list.map((b) => ({ ...b })), maxSteps: 1e6, ...(e ? { env: e } : {}) });
+  // The craft flown to T with the correction dv: at once, or spread.
+  const fly = (dv, e = env) => {
+    const n = Math.hypot(dv[0], dv[1], dv[2]);
+    const push = spread > 0 && n > 0 ? [{ t0, t1: t0 + spread, dir: dv.map((x) => x / n), F: n * 1000 / spread, m0: 1, mdot: 0, scripted: true }] : [];
+    const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: spread > 0 ? [...v] : add3(v, dv), t: t0, tEnd: T, primary: null, burns: [...list.map((b) => ({ ...b })), ...push], maxSteps: 1e6, ...(e ? { env: e } : {}) });
     return res.complete && !res.events.some((e) => e.type === 'impact') ? res.r : null;
   };
-  const plain = fly([...v]);
+  const plain = fly([0, 0, 0]);
   const miss0 = plain ? Math.hypot(...sub3(plain, target)) : Infinity;
   let dv = [0, 0, 0], base = plain, best = { dv, after: miss0 };
   if (dv0) {
-    const guess = fly(add3(v, dv0));
+    const guess = fly([...dv0]);
     if (guess && Math.hypot(...sub3(guess, target)) < miss0) { dv = [...dv0]; base = guess; best = { dv, after: Math.hypot(...sub3(guess, target)) }; }
   }
   if (!base) return null;
@@ -224,16 +239,16 @@ export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds
     const miss = sub3(base, target), h = 1e-5;
     // (With a cheaper envJ, the nudged runs are differenced against a base
     // run of their own in it.)
-    const baseJ = envJ === env ? base : fly(add3(v, dv), envJ);
+    const baseJ = envJ === env ? base : fly(dv, envJ);
     if (!baseJ) break;
-    const cols = [0, 1, 2].map((j) => { const vv = add3(v, dv); vv[j] += h; const q = fly(vv, envJ); return q && sub3(q, baseJ).map((d) => d / h); });
+    const cols = [0, 1, 2].map((j) => { const dd = [...dv]; dd[j] += h; const q = fly(dd, envJ); return q && sub3(q, baseJ).map((d) => d / h); });
     if (cols.some((c) => !c)) break;
     const A = [0, 1, 2].map((i) => [cols[0][i], cols[1][i], cols[2][i]]), D = det3(A);
     if (!(Math.abs(D) > 0)) break;
     let step = [0, 1, 2].map((k) => det3(A.map((row, i) => row.map((val, c) => (c === k ? -miss[i] : val)))) / D);
     let next = null, after = Infinity;
     for (let half = 0; half <= (damped ? 5 : 0); half++, step = step.map((x) => x / 2)) {
-      next = fly(add3(v, add3(dv, step)));
+      next = fly(add3(dv, step));
       after = next ? Math.hypot(...sub3(next, target)) : Infinity;
       if (after < best.after) break;
     }

@@ -128,31 +128,44 @@ table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
-**The giants' $J_4$.** Jupiter, Saturn, Uranus and Neptune also carry
-their $J_4$, from the same solutions as their $J_2$ and referred to the
-same radius. With $s = z/d$ and $P_4(s) = (35s^4 - 30s^2 + 3)/8$, its
-potential is $-\mu J_4 R^4 P_4(s)/d^5$, and
+**The giants' higher zonal terms.** Jupiter carries its zonal field to
+$J_{12}$, and Saturn, Uranus and Neptune their $J_4$, each from the same
+solution as its $J_2$ and referred to the same radius (Jupiter's from the
+PDS table of Durante et al. 2020). With $s = z/d$ and $P_n$ the Legendre
+polynomial, degree $n$'s potential is $-\mu J_n R^n P_n(s)/d^{n+1}$, and
 
 $$
-\mathbf a_{J_4} = -\mu J_4 R^4\left[\frac{P_4'(s)}{d^6}\,\hat{\mathbf p}
-- \frac{s\,P_4'(s) + 5P_4(s)}{d^7}\,\mathbf d\right],
-\qquad P_4'(s) = \frac{140s^3 - 60s}{8}.
+\mathbf a_n = -\frac{\mu J_n R^n}{d^{n+2}}\left[P_n'(s)\,\hat{\mathbf p}
+- \bigl(s\,P_n'(s) + (n+1)P_n(s)\bigr)\,\frac{\mathbf d}{d}\right],
 $$
 
-`flyby.test.mjs` case 5 checks it against the potential's gradient
-($2\times10^{-10}$ relative). At five Jupiter radii it is $5\times10^{-7}$
-of Jupiter's pull. On Juno's pass of Io, 4.7 to 11 Jupiter radii out, it
-takes the error an hour on from 0.051 km to 0.040 km, and the kernel's
-term matches the same term written out separately as an outside force to
-0.1 m (case 3b). The rocky planets' $J_4$ is left out: about $10^{-3}$ of
-the Earth's $J_2$ and $10^{-2}$ of Mars's, and the app's craft carry the
-Earth's and the Moon's full fields.
+with $P_n$ and $P_n'$ from Bonnet's recursion,
+$(n+1)P_{n+1} = (2n+1)sP_n - nP_{n-1}$ and
+$P_{n+1}' = P_{n-1}' + (2n+1)P_n$. A term acts only where
+$(n+1)|J_n|(R/d)^n$ is above $10^{-13}$ of the planet's pull: $J_4$
+everywhere within the $J_2$ cutoff, $J_8$ within 7 Jupiter radii, $J_{12}$
+within 2.7, so out among the moons the extra degrees cost nothing.
+
+- **Checks:** `flyby.test.mjs` case 5 takes Jupiter's field to $J_{12}$
+  against the potential's gradient ($2\times10^{-9}$ relative, 1.05 to 1.6
+  Jupiter radii out, where $J_5$ to $J_{12}$ are up to 0.4 % of the
+  field's pull). Case 3b flies the same $J_4$ written out separately as an
+  outside force: it matches the kernel's to 0.1 m.
+- **Effect:** at five Jupiter radii $J_4$ is $5\times10^{-7}$ of
+  Jupiter's pull; near Juno's perijoves, 1.02 radii out, $J_6$ is
+  $4\times10^{-5}$. Flown through the PJ57 perijove, Juno is 5.0 km off
+  two hours on with $J_2$ and $J_4$ only and 0.55 km with the field to
+  $J_{12}$; with $J_2$ alone, 150 km ([validation](../validation.md#juno-at-io)).
+- **What is not in it:** Jupiter's tesseral terms and tides. Its $J_9$,
+  $J_{11}$ and $J_{12}$ are in, though within their own 3σ uncertainties. The rocky planets'
+  $J_4$ is left out: about $10^{-3}$ of the Earth's $J_2$ and $10^{-2}$ of
+  Mars's, and the app's craft carry the Earth's and the Moon's full fields.
 
 The forces beyond these (the Earth's and Moon's higher harmonics, the
 Earth's tides, drag, sunlight pressure, venting and relativity) come from
 [the space environment](environment.md), through the `extraAccel` hook. Not
-yet modelled: the planets' harmonics beyond $J_2$ (beyond $J_4$ for the
-giants), the moons' fields beyond
+yet modelled: the planets' harmonics beyond $J_2$ (beyond $J_{12}$ for
+Jupiter and $J_4$ for the other giants), the moons' fields beyond
 degree 2 ([moons](#the-moons-own-fields)), and the asteroids.
 
 ## Integrators
@@ -610,14 +623,12 @@ of it. Beyond that its pull is under $2\times10^{-15}$ km/s², a kilometre in
 a year, and the inner solar system never comes within 28 AU of it.
 Everywhere else it would only add a tenth to every force sum.
 
-**Nodes.** A planet's centre is interpolated on 6-hour nodes, built on the
-barycentre's own cubic plus the moons' offset. Each moon about its planet
-is a cubic of its own, whose spacing divides 6 hours and keeps
-$(\Delta n)^4 a/384$ under 10 m. Io, Europa, Ganymede and Callisto share
-Io's spacing, because `JupiterMoons` gives all four at once, held to
-100 m: that holds the other three under a metre, and at 10 m Io's nodes
-would cost a third of a run among them without moving either of Juno's
-checked passes by more than a metre. A moon's heliocentric ephemeris is
+**Nodes.** A planet's centre is interpolated on nodes, built on the
+barycentre's own cubic plus the moons' offset: Jupiter's an hour apart,
+the others' 6 hours. Each moon about its planet is a cubic of its own,
+whose spacing divides its planet's and keeps $(\Delta n)^4 a/384$ under
+10 m. Io, Europa, Ganymede and Callisto share Io's spacing, because
+`JupiterMoons` gives all four at once. A moon's heliocentric ephemeris is
 the sum of the two cubics (its nodes are the moon's, which Encke's steps
 end on). Measured against `moons.js` directly over 20 days from 12
 November 2026, from the satellite-ephemeris tables (`flyby.test.mjs`
@@ -626,7 +637,7 @@ case 1):
 | Body | Node spacing | Worst error |
 | --- | ---: | ---: |
 | Mars's centre; Phobos, Deimos | 6 h; 10, 30 min | 0 m; 10 m, 7 m |
-| Jupiter's centre; Io, Europa, Ganymede, Callisto | 6 h; 36 min | 98 m; 71 m (Io), 102–104 m |
+| Jupiter's centre; Io, Europa, Ganymede, Callisto | 1 h; 20 min | 10 m; 12 m |
 | Saturn's centre; Mimas to Rhea; Titan; Iapetus | 6 h; 14–45 min; 2 h; 6 h | 29 m; 26–31 m; 28 m; 1 m |
 | Uranus's centre; Miranda to Oberon | 6 h; 22 min–2 h | 1 m; 5–22 m |
 | Neptune's centre; Triton | 6 h; 72 min | 1 m; 7 m |
@@ -634,17 +645,24 @@ case 1):
 
 Where an error is well over 10 m, the cubics are not what sets it. Each
 interval of a satellite table is pinned to the SPK at its ends, but its
-velocity there is a few cm/s off, which a cubic over a node spacing turns
-into tens of metres: Jupiter's centre and its moons carry about 100 m of
-that, Saturn's about 30 m.
+velocity there is a few cm/s off, which a cubic turns into an error that
+grows with the node spacing. On 6-hour nodes Jupiter's centre was 100 m
+off, and its moons with it, though their own cubics held them to 2–7 m
+about it; hourly nodes bring it to 10 m. Saturn's centre keeps 6 hours
+and about 30 m: its moons swing it less, and no check yet needs it closer.
 
 The spacing matters most on a slow pass. On Cassini's T45 pass over Titan
 (below), Titan's nodes three hours apart (100 m, before November 2026)
 put it 27 m from JPL's table at closest approach and Cassini 0.093 km off
-nine hours on; two hours apart, 14 m and 0.004 km. It costs more nodes:
-at Saturn 336 a simulated day instead of 192, at 4.5 µs each about 6 % of
-a run among Saturn's moons (about 10 % among Mars's); Jupiter's are
-unchanged.
+nine hours on; two hours apart, 14 m and 0.004 km.
+
+**Cost** of the tighter nodes, in simulated days: at Saturn 336 moon nodes
+a day instead of 192, at 4.5 µs each about 6 % of a run among its moons
+(about 10 % among Mars's). At Jupiter, 288 moon and 24 centre nodes a day
+instead of 160 and 4. Steps are unchanged in number. On a wide orbit
+(1.5 million km, 25 steps a day) that and the higher zonal terms cost 10
+to 30 % more CPU a simulated day, and on a busy one crossing Io's orbit
+(198 steps a day) 0 to 4 %, within this machine's noise.
 
 `moons.js` knows the moons themselves to within 1 km from 2000 to 2049
 (JPL's satellite ephemerides as tables) and, outside that, to 130 to 650 km
@@ -655,8 +673,10 @@ over Ganymede the kernel follows JPL's trajectory to 0.09 km after nine
 hours with JPL's moons (Ganymede where Juno's own track puts it), 22.7 km
 with `moons.js`'s (22.9 km with the Ganymede Horizons serves; 323 km with
 the fallback's), and 9,300 km with no moons. Juno's pass 1,496 km over
-Io on 30 December 2023 is followed to 0.040 km an hour on; Io's $J_2$
-and $C_{22}$ take that from 0.184 km, and Jupiter's $J_4$ from 0.051 km. Cassini's T45 pass 1,613 km over Titan
+Io on 30 December 2023 is followed to 0.041 km an hour on; Io's $J_2$
+and $C_{22}$ take that from 0.186 km. On through the perijove that
+followed, 1.02 Jupiter radii out, it is 0.28 km off there and 0.55 km two
+hours on, with Jupiter's field to $J_{12}$. Cassini's T45 pass 1,613 km over Titan
 is followed to 4 m nine hours on, with Titan's nodes two hours apart
 ([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
 
@@ -876,7 +896,7 @@ relative).
   Juno's pass 1,046 km over Ganymede it moves the kernel's Juno by 0.2 km
   after nine hours. Over Io (1,496 km up) it is 0.14 km an hour on, and
   over Titan (1,613 km) 0.36 km nine hours on; with it, the Io pass is
-  followed five times more closely and the Titan pass seventy times (`flyby.test.mjs` cases 3b
+  followed four and a half times more closely and the Titan pass seventy times (`flyby.test.mjs` cases 3b
   and 3c). For a craft orbiting a moon it is what turns the orbit.
 
 ## References
