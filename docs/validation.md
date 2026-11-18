@@ -886,7 +886,7 @@ torque, and burns along the body axis to the kernel
 | The same, about a point-mass Earth | `sixdof.js` with translation and attitude together, the app's controller in the loop | 0.21 m (the kernel's point-mass burn: 0.42 m, the Sun's and Moon's tides) |
 | The same burn begun 30° off prograde, turning as it burns | the same coupled run (fixed inertia; the app's falls 2 % over the turn) | 1.2 m, of the 7.5 km the turn costs |
 | A weathervane: 2° in pitch at 7.8 km/s in air of 2.5×10⁻¹⁰ kg/m³, the centre of pressure 0.3 m aft | the small-angle period $2\pi/\sqrt{q C_D A\,|r_{cp}|/I}$ | 1,598.9 s against 1,598.8 s |
-| A craft held prograde, two days at a day a second | its point-mass twin's frame | no attitude steps; no slower |
+| A craft held prograde, two days at a day a second | its point-mass twin's frame, the CPU time of 120 frames paired | no attitude steps; frames 1.02–1.03 times the point mass's (median; tolerance 1.1) |
 | The thrusters' impulse for rest-to-rest turns of 10°, 90°, 120° and 170° | $2I\omega_\text{peak}/L$, the angular momentum given and taken back, over the thrusters' arm | within 0.17 % (tolerance 1 %): 169.9 N s against 170.2 N s for 90° in pitch, 59.8 g at 290 s |
 | The same through the craft: a 90° slew to prograde in a 400 km orbit | the same; the tank's loss against $J/(I_{sp}g_0)$ | 0.13 % (tolerance 1 %); the tank to 10⁻¹² kg |
 | Held prograde for 60 s | the hold's limit cycle in closed form, each frame's | to 10⁻⁸ (the clock's rounding): 0.667 N s, 0.338 kg a day, against 1.5×10⁻⁵ N s for the gravity gradient alone |
