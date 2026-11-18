@@ -35,7 +35,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 ## What it does
 
 - **The sky:**
-  - the Sun, planets, 76 moons and 135,353 asteroids and comets, at their real positions for any date, at true scale;
+  - the Sun, planets, 76 moons (and 381 irregular moons of Jupiter, Saturn and Neptune as a layer) and 135,353 asteroids and comets, at their real positions for any date, at true scale;
   - 16,892 Earth satellites from CelesTrak's element sets, moved by SGP4, with the ISS, Tiangong, Hubble, GPS, Galileo and the weather satellites' orbits;
   - real surface maps and relief, Saturn's rings from Cassini measurements, Earth's clouds as satellites saw them that day under a physically based atmosphere;
   - the real star field and Milky Way.
@@ -49,7 +49,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 - **Planning:**
   - a journey of any number of legs, each leg's transfers compared (a broken plane where a leg runs nearly 180° round the Sun), shaped by hand on a plotting table;
   - flown by the kernel, with the rocket it needs.
-- **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, or open an OpenRocket design, and fly it from a real pad into orbit.
+- **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, from the stack the planner sized for your journey, or from an OpenRocket design, and fly it from a real pad into orbit.
 
 The name nods to the orrery, a mechanical model of the solar system, and in particular to the Digital Orrery, the special-purpose computer built in the 1980s to integrate the long-term dynamics of the outer planets.
 
@@ -57,7 +57,7 @@ The name nods to the orrery, a mechanical model of the solar system, and in part
 
 The physics is checked against references, and each model's page says how and how well. [Physics and accuracy](docs/accuracy.md) gives the whole picture and what is still approximate; [validation](docs/validation.md) lists every check with its result.
 
-- **Where things are:** the planets from JPL's DE442 (2000–2050) to within a metre, 76 moons from JPL's satellite ephemerides to within a kilometre, and SPICE-precision GM values.
+- **Where things are:** the planets from JPL's DE442 (2000–2050) to within a metre, 76 moons and 381 irregular moons from JPL's satellite ephemerides to within a kilometre, and SPICE-precision GM values.
 - **How craft move:** an n-body kernel in a Web Worker, with error-controlled Dormand–Prince steps and Encke's method near a planet. It includes the major moons with their $J_2$ and $C_{22}$, the heaviest asteroids, the Earth's and Moon's gravity fields, drag and sunlight pressure. It is checked against Artemis I and II, and against Juno's and Cassini's moon flybys, followed to within 0.1 km hours on.
 - **The orbital core:** two-body propagation and Lambert's problem, checked against Curtis's worked examples and NAIF CSPICE.
 - **Still approximate:** journeys are planned by patched conics (then flown in the full model), and the ROCKET tab's ascent has no closed-loop guidance.

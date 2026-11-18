@@ -16,6 +16,12 @@
 // from the kernels into public/ephemeris/moons-extra/, which git ignores.
 // Where an inner file is missing, those moons quietly use the mean elements.
 //
+// The irregular moons of Jupiter, Saturn and Neptune (jup347-jup349,
+// sat455-sat459, nep104; irregularMoons.js) are in a third part, <system>-irregular-
+// <year>.bin, about the system barycentre like the rest, for every year
+// 2000-2049. They are fetched only while their layer is shown
+// (wantIrregularTables), or, with onMiss, when one is asked for.
+//
 // Files are installed lazily, a system and a year at a time:
 //   setMoonChunkLoader(load, { onMiss }): load(path) fetches a file (a path
 //     under public/, from moonChunkPath) and returns it parsed, or a
@@ -34,11 +40,13 @@
 export const MOON_TABLE_YEARS = [2000, 2049];
 export const INNER_CORE_YEARS = [2020, 2035];
 const INNER_SYSTEMS = new Set(['saturn', 'uranus', 'neptune']);
+export const IRREGULAR_SYSTEMS = new Set(['jupiter', 'saturn', 'neptune']);
 
 // Where a year's file is, under public/: part '' (every moon but the inner
-// ones, and the planet) or 'inner'.
+// and irregular ones, and the planet), 'inner' or 'irregular'.
 export function moonChunkPath(system, year, part) {
   if (!part) return `ephemeris/moons/${system}-${year}.bin`;
+  if (part === 'irregular') return `ephemeris/moons/${system}-irregular-${year}.bin`;
   const core = year >= INNER_CORE_YEARS[0] && year <= INNER_CORE_YEARS[1];
   return `ephemeris/${core ? 'moons' : 'moons-extra'}/${system}-inner-${year}.bin`;
 }
@@ -67,10 +75,13 @@ export function parseMoonChunk(buffer) {
   return series;
 }
 
+const systemVersion = {};
 function install(path, parsed) {
   chunks.set(path, parsed);
   merged.clear();
   version++;
+  const system = path.slice(path.lastIndexOf('/') + 1).split('-')[0];
+  systemVersion[system] = (systemVersion[system] ?? 0) + 1;
 }
 
 export function setMoonChunkLoader(load, opts = {}) {
@@ -79,6 +90,8 @@ export function setMoonChunkLoader(load, opts = {}) {
 }
 
 export const moonTablesVersion = () => version;
+// The same, for one system's files only.
+export const moonTablesVersionOf = (system) => systemVersion[system] ?? 0;
 
 // TDB seconds past J2000 at the start of a year (a uniform calendar, as
 // c/moon_cheb.c cuts the files).
@@ -170,3 +183,23 @@ export const chunkState = (chunk, id, tt, r, v) => {
   const s = chunk.get(id);
   return !!s && evaluate(s, tt, r, v);
 };
+
+// The irregular moons' years from tt - days to tt + days, and the main
+// files of those years (the planet's centre is in them).
+export function wantIrregularTables(system, tt, days = 0) {
+  if (!IRREGULAR_SYSTEMS.has(system)) return;
+  const a = yearOf(tt - days * 86400), b = yearOf(tt + days * 86400);
+  for (let y = Math.max(a, MOON_TABLE_YEARS[0]); y <= Math.min(b, MOON_TABLE_YEARS[1]); y++) {
+    request(system, y, false);
+    requestPath(moonChunkPath(system, y, 'irregular'));
+  }
+}
+
+// The installed irregular-moon year for a system at tt, or null.
+export function irregularChunkAt(system, tt) {
+  if (!enabled || !IRREGULAR_SYSTEMS.has(system) || !(tt >= yearStart(MOON_TABLE_YEARS[0]) && tt <= yearStart(MOON_TABLE_YEARS[1] + 1))) return null;
+  const y = Math.min(yearOf(tt), MOON_TABLE_YEARS[1]), path = moonChunkPath(system, y, 'irregular');
+  if (onMiss) requestPath(path);
+  const c = chunks.get(path);
+  return c instanceof Map ? c : null;
+}

@@ -57,6 +57,11 @@ once it has releases. Until then, everything sits under Unreleased.
   stay changes. The flight no longer pays hundreds of metres a second
   chasing a plane that won't hold. A plane lamp says where the plane breaks,
   and the direct arc is listed beside it for comparison (this pull request).
+- The ROCKET tab offers the journey's own stack, as the plotting table's
+  STACK station sizes it, beside the real launchers, and the journey as
+  its job: its ascent can be flown and launched from the pad. What sizing
+  leaves out (thrust, sea-level Isp, size, drag) are the real launchers'
+  medians, shown as estimates (this pull request).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
@@ -84,13 +89,20 @@ once it has releases. Until then, everything sits under Unreleased.
   after which every step ran on the page's thread (#82).
 - The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
   to 10 m instead of 100 m, so a slow pass is followed more closely:
-  Cassini's over Titan to 4 m nine hours on, from 93 m (this pull
-  request).
+  Cassini's over Titan to 4 m nine hours on, from 93 m (#86).
+- Jupiter, Saturn, Uranus and Neptune pull with their J4 as well as their
+  J2, from the same published solutions: Juno's pass over Io is followed
+  to 40 m an hour on, from 51 m (this pull request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
   come from JPL's satellite ephemerides to within a kilometre, 76 of them
   (#33, #56). The Earth turns on UT1 with polar motion (#50).
+- Jupiter's, Saturn's and Neptune's 381 irregular moons, as a layer the
+  rail switches on: points, labels and orbit lines, and each one to fly
+  to with a plate of its orbit, sense, size, GM and discovery. From 2000
+  to 2049 they come from JPL's satellite kernels for them, within 0.51 km
+  (this pull request).
 - Bodies are drawn as their IAU ellipsoids (#47). Fourteen moons have USGS
   surface maps (#42).
 - 135,353 asteroids and comets (#27), the faint main belt as a haze from
