@@ -232,11 +232,14 @@ the gravity-gradient torque and the aerodynamic torque are the standard
 forms [11].
 
 The app's craft is a 2 × 2 × 3 m box of 1,500 kg, long along the thrust
-axis: $I = \mathrm{diag}(1000, 1625, 1625)$ kg m², from
-$I = m(b^2+c^2)/12$. Its thrusters give 20 N m in roll and 40 N m in pitch
-and yaw, at most 3°/s. The centre of pressure is 0.3 m behind the centre
-of mass, and $C_D A$ is the craft's drag area (2.2 × 5 m²). The inertia is
-held fixed as propellant burns.
+axis: full, $I = \mathrm{diag}(1000, 1625, 1625)$ kg m², from
+$I = m(b^2+c^2)/12$. Its thrusters are 20 N pairs fired as couples,
+0.5 m from the roll axis and 1 m from the pitch and yaw axes: 20 N m in
+roll and 40 N m in pitch and yaw, at most 3°/s. The centre of pressure is
+0.3 m behind the centre of mass, and $C_D A$ is the craft's drag area
+(2.2 × 5 m²). The thrusters burn propellant
+([below](#the-thrusters-propellant)), and the inertia falls as the tank
+empties ([below](#inertia-and-the-propellant)).
 
 ### Pointing and the controller
 
@@ -296,6 +299,90 @@ attitude locks: it is the reference from then on, without integration,
 until the mode changes or a disturbance grows past half the limit. A craft
 holding prograde at a day a second costs nothing to carry.
 
+### The thrusters' propellant
+
+The attitude thrusters draw on the engine's tank. Each axis has its pair
+of thrusters, fired as a couple $L_i$ from the axis, so a torque
+$\tau_i$ takes $|\tau_i|/L_i$ of thrust between them, and the propellant
+is the total impulse over the exhaust velocity [14, §13.3]:
+
+$$J = \int \sum_i \frac{|\tau_i|}{L_i}\,dt,\qquad \Delta m = \frac{J}{I_{sp}\,g_0}$$
+
+- **The torque counted** is the controller's, held over each control
+  period. Locked on its reference, the craft is charged for the
+  disturbance it holds against (the gravity gradient, the air), found at
+  the start of each frame.
+- **The default craft:** $L = (0.5, 1, 1)$ m and $I_{sp}$ = 290 s,
+  bipropellant from the main tank. That is the class of ArianeGroup's
+  10 N bipropellant thruster, 292 s at its nominal point [15].
+- **Accounting:** `attitude.js` adds up $J$ as it steps; `craftAttitude.js`
+  takes $\Delta m$ from the tank each frame, after the engine's own draw
+  (`craft.js` `updateBurns`). An empty tank switches control off and cuts
+  the engine.
+- **A rest-to-rest turn** about a principal axis costs
+  $J = 2 I\,\omega_\text{peak}/L$, whatever the torque profile: the
+  torque gives the body all its angular momentum and takes it back. A 90°
+  pitch turn at the 3°/s limit is
+  $2 \times 1625 \times 0.0524 / 1 = 170.2$ N s, 59.8 g.
+- **Left out:** the thrusters' minimum impulse bit and the deadband limit
+  cycle a real hold pays for (here the hold pays only for the torque it
+  cancels), and the propellant they use during a burn, which the engine's
+  mass flow does not include (a few grams against kilograms).
+
+### Inertia and the propellant
+
+The propellant sits in two equal spherical tanks of radius $R$ = 0.37 m
+on the thrust axis, $d$ = 0.6 m fore and aft of the centre of mass. 250 kg
+of MMH and NTO at about 1.2 t/m³ fills each. With $m$ kg on board, each
+tank is a solid sphere about its centre, moved by the parallel-axis
+theorem [14, ch. 9]:
+
+$$I(m) = I_\text{dry} + \mathrm{diag}\left(\tfrac25 mR^2,\ \tfrac25 mR^2 + md^2,\ \tfrac25 mR^2 + md^2\right)$$
+
+The dry tensor is the full box's less the full tanks':
+$I_\text{dry} = \mathrm{diag}(972.6, 1417.6, 1417.6)$ kg m². Empty, the
+craft turns 15 % faster in pitch and yaw than full.
+
+- **Each frame** the tank has changed, `craftAttitude.js` sets the new
+  tensor (`attitude.js` `setInertia`, which makes the `sixdof.js` models
+  again, since they hold its inverse). Within a frame the tensor is held.
+- **The liquid turns with its tank,** as a rigid body. Slosh, and the lag
+  of a liquid in a turning tank, are left out. So are the terms in
+  $\dot I$ and the exhaust's own angular momentum (jet damping). They
+  are of the order of the propellant's flow times a distance squared (to
+  the tanks, to the nozzle) times the rate: during an engine burn
+  (1.6 kg/s) at the 3°/s limit with the nozzle 1.5 m back, about 0.2 N m,
+  half a per cent of the thrusters' torque, and nothing outside a burn.
+- **The tanks are equal,** so the centre of mass stays put as they drain.
+- The NASA check cases and `sixdof.js` keep fixed inertia, as the cases
+  do.
+
+### Turning for a node
+
+A manoeuvre node turns the craft to it by itself (AUTO NODE TURN, on by
+default). The turn starts
+
+$$t_\text{turn} = t_\text{node} - (1.1\,t_\text{slew} + 5\ \text{s})$$
+
+before the node, with $t_\text{slew}$ the controller's own closed-form
+time for the turn (`slewTime`, a few per cent over what it takes): the
+tenth covers the gyroscopic terms, the sampling and the reference's own
+turning, and the 5 s lets it lock. The turn is measured where the craft
+and the node's direction will be at $t_\text{turn}$: a locked craft on
+its reference then, and the node's direction in the orbital frame then.
+That matters at high warp, when a frame can carry the orbital frame
+through tens of degrees. Found a few passes from now, the turn starts
+exactly at its time, even inside a frame. After the burn the craft goes
+back to the mode it had. A node too close to settle for starts the turn
+at once, and the log says how long the turn needs and how long is left.
+When a node burn starts, the log says if the axis is more than a degree
+off its direction.
+
+In NODE mode, the craft aims along the node's $\Delta\mathbf v$ in the
+orbital frame of the moment until the burn is set up (at the start of the
+frame it falls in), then along the burn's fixed direction, and afterwards
+holds the direction it burned along.
+
 **Steps.** Under control, one RK4 step a control period, cut at frame
 edges. Without control, RK4 at a step that turns the body at most
 0.05 rad and takes a twentieth of the gravity-gradient and aerodynamic
@@ -351,8 +438,9 @@ Accuracy of the main-thread path, against `sixdof.js` integrating the
 translation and the attitude together with the controller in the loop
 (a 428 m/s burn in a 400 km orbit, 600 s,
 [Validation](../validation.md#attitude-in-the-app-attitudetestmjs)):
-held prograde, 0.2 m; burning through a 30° turn, 2.0 m of the 7.5 km the
-turn costs. The two-body carry within a frame leaves out the frame's
+held prograde, 0.2 m; burning through a 30° turn, 1.2 m of the 7.5 km the
+turn costs (the coupled run's inertia fixed, the app's falling 2 % over
+the turn). The two-body carry within a frame leaves out the frame's
 thrust: at a day a second, a 5 kN burn on 1.5 t turns prograde by 0.03°
 in a frame, while a locked burn goes to the kernel steered exactly.
 
@@ -383,3 +471,7 @@ in a frame, while a locked burn goes to the kernel steered exactly.
 [12] B. Wie, *Space Vehicle Dynamics and Control*, 2nd ed. Reston, VA, USA: AIAA, 2008.
 
 [13] K. D. Bilimoria and B. Wie, "Time-optimal three-axis reorientation of a rigid spacecraft," *J. Guid. Control Dyn.*, vol. 16, no. 3, pp. 446–452, 1993, doi: 10.2514/3.21030.
+
+[14] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. §13.3 (specific impulse), ch. 9 (moments of inertia, the parallel-axis theorem).
+
+[15] ArianeGroup, "Chemical bi-propellant thruster family," product brochure. [Online]. Available: https://ariane.group/app/uploads/2024/09/ArianeGroup_Chemical_Bipropellant_Thruster_Family.pdf
