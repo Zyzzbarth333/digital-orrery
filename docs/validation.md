@@ -400,7 +400,7 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 
 ## Journeys (`journey.test.mjs`)
 
-Curtis's chapter 6, 8 and 13 worked examples, the journey's chaining rules,
+Curtis's chapter 4, 6, 8 and 13 worked examples, the journey's chaining rules,
 and journeys flown by the kernel to their waypoints; the table is in
 [the journey page](physics/journey.md#validation-journeytestmjs).
 
@@ -413,6 +413,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Resonant returns: the 2:1 cone; Galileo's Earth to Earth on NASA's dates; Galileo's whole route flown | geometry; PDS mission catalogue | 2:1 chosen, back on 8 Dec 1992, Earth flybys 0 and 70 m/s; flown within 20 km at Venus and Earth, 1.4 % at Jupiter |
 | Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 60 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 47 m/s) |
 | Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,257 (1.4 %, within 3 %); lows a month apart; the best day priced 1,657, flown 1,666 |
+| The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's; the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % (within 0.25 %); to 0.1 m/s; the planned day 2,911 m/s, flown 3,043 (4.3 %); the wait 12.5 d, flown 11.5 (2,025 against 2,070 m/s); the lamp's day 2,008, flown 2,086 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)

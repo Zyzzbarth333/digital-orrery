@@ -539,6 +539,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       // the wait chosen is flown.
       const t0 = s.t;
       let best = cheapest(), bestAt = s.t, st = { ...s };
+      const onDay = best?.m;
       for (let h = 0.5; h <= (e.waitDays ?? 30) && best; h += 0.5) {
         const res = stepCraft(sys, { id: 0, version: 0, r: st.r, v: st.v, t: st.t, tEnd: t0 + h * DAY, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env: searchEnv } : {}) });
         if (!res.complete || res.events.some((q) => q.type === 'impact')) break;
@@ -551,7 +552,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       let tb = s.t + best.dt;
       if (tb - durOf(best.m) / 2 < s.t) tb += best.T;
       burn(tb, best.d, best.m);
-      out.log.push(`depart ${e.body}: ${(best.m * 1000).toFixed(0)} m/s, ${((tb - kernelSeconds(new Date(e.ms))) / 3600).toFixed(1)} h after the planned time`);
+      out.log.push(`depart ${e.body}: ${(best.m * 1000).toFixed(0)} m/s, ${((tb - kernelSeconds(new Date(e.ms))) / 3600).toFixed(1)} h after the planned time${bestAt !== t0 && onDay ? ` (${(onDay * 1000).toFixed(0)} m/s on the planned day)` : ''}`);
       continue;
     }
     if (e.kind === 'depart-ring') {
