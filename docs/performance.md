@@ -259,8 +259,9 @@ the overview of a low orbit:
 | Before | 25.6–26.0 ms | 113–174 ms | 1–3 |
 | After | 20.9–22.7 ms | 72–87 ms | 0 |
 
-What remains is mostly the GPU, which half the frame waits on near the
-Earth (the atmosphere fills the view).
+What remained was mostly the GPU, which half the frame waited on near
+the Earth: the atmosphere filled the view
+([the atmosphere near the Earth](#the-atmosphere-near-the-earth)).
 
 ### A steered burn at a day a second
 
@@ -314,6 +315,38 @@ the burn it falls about 4 h behind for 0.2 s, the time the worker takes to
 fly it, and is back within two frames 0.25 s after the switch. Later
 jumps of 3–6 frames are the holds at the aimed corrections, while the
 worker aims each one (`RealMission.aimStep`).
+
+### The atmosphere near the Earth
+
+Each pixel of the Earth's atmosphere shell used to march its own view ray:
+32 steps, each a sunlight transmittance lookup and five exponentials. With
+the Earth filling the view on the Intel GPU, that was about 17 ms of a
+52 ms frame. Hiding the shell in the page, between timed spells, gave
+35 ms. Leaving out the surface's sunlight through the air as well changed
+nothing beyond the noise. So the cost was the shell's march, over every
+pixel the shell covers.
+
+Now each frame marches a table of 128 × 256 rays from the camera, and the
+shell's pixels look theirs up
+([atmospheres](frontend/atmospheres.md#the-view-table)). The shell then
+costs about 3 ms of the same frame. Screenshots at the same time and view
+differ by at most 1 of 255 at the 99.9th percentile of pixels.
+
+`npm run bench:frames`, 18 November 2026, 1920 × 1080 at DPR 1, main
+before and this change after, interleaved, the median of three rounds.
+The Intel GPU's samples each ran in a fresh browser, since one browser
+grew past 8 GB over a run's page loads. Load average 8–18.
+
+| Scenario | Intel, before → after | NVIDIA, before → after |
+| --- | ---: | ---: |
+| Earth close-up, 20,000 km | 35.6 → 21.2 ms (−40 %) | 5.6 → 5.4 ms (−4 %) |
+| Earth filling the view, 9,000 km | 43.0 → 25.3 ms (−41 %) | 6.2 → 5.5 ms (−11 %) |
+| Craft in LEO, 0.4 km | 24.8 → 23.0 ms (−7 %) | 8.0 → 6.7 ms (−16 %) |
+| Craft in LEO at 1 d/s, 3,000 km | 53.3 → 40.8 ms (−23 %) | 17.3 → 18.2 ms (noise) |
+
+At 0.4 km the camera looks along the orbit, past the craft, with little
+of the Earth in view. At 1 d/s the NVIDIA's frame is the kernel's carry
+on the CPU, and its rounds ran 11.6–28.8 ms before and 16.4–22.1 ms after.
 
 ### Earth satellites
 
