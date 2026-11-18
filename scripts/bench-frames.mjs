@@ -17,6 +17,7 @@
 //   --settle S, --seconds S           seconds to load, then to time (8, 4)
 //   --size WxH, --dpr N               the viewport (1920x1080, 1)
 //   --json FILE                       every round's numbers as JSON
+//   --force                           start with less memory than the cap needs
 //   scenario … | all                  which scenarios (the defaults below)
 //
 // Each round loads every scenario afresh in each variant, the variants
@@ -55,6 +56,13 @@ const CRAFT = 'orrery.focusCraftId !== null';
 // Earth satellites switched on (all 16,892 points), and the ISS followed.
 const SATS_ON = '(async () => { const L = orrery.satellites; L.setOn(true); while (!L.count) await new Promise((r) => setTimeout(r, 100)); return true; })()';
 const ISS = SATS_ON.replace('return true;', 'orrery.focusOnSatellite(25544); return true;');
+// Sets of them by switch (the active ones, the debris clouds, the rocket
+// bodies, the analyst objects), loaded before the timing.
+const setsOn = (keys) => `(async () => { const L = orrery.satellites; for (const k of ${JSON.stringify(keys)}) L.setLayer(k, true); while (L.sets.size < ${keys.length}) await new Promise((r) => setTimeout(r, 100)); return true; })()`;
+const ALL_SETS = ['active', 'debris', 'rocket-bodies', 'analyst'];
+// The Moon's landing sites switched on, and Apollo 11's flown to.
+const SITES_ON = '(orrery.sites?.setOn(true), true)';
+const SITE_NEAR = "(orrery.sites.setOn(true), orrery.focusOnSite('apollo11'), true)";
 const SCENARIOS = {
   'overview': { label: 'Overview (the Sun)', query: `?focus=sun&${DATE}`, km: 1.6e9 },
   'earth': { label: 'Earth close-up', query: `?focus=earth&${DATE}`, km: 20000 },
@@ -67,21 +75,21 @@ const SCENARIOS = {
   'point-far': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 3000, ready: CRAFT },
   'sats': { label: 'Earth satellites, all on', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON },
   'sat-near': { label: 'The ISS followed', query: `?focus=earth&${DATE}`, km: 0.1, setup: ISS },
+  'sats-all': { label: 'Earth satellites, every set on', query: `?focus=earth&${DATE}`, km: 20000, setup: setsOn(ALL_SETS) },
+  'sats-all-hour': { label: 'Earth satellites, every set on, 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: setsOn(ALL_SETS), rate: 3600 },
+  'sats-hour': { label: 'Earth satellites, all on, 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON, rate: 3600 },
+  'sat-track': { label: 'The ISS followed, its passes and ground track', query: `?focus=earth&${DATE}`, km: 20000, setup: ISS },
+  'sat-track-warp': { label: 'The same at 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: ISS, rate: 3600 },
   'saturn': { label: 'Saturn and its rings', query: `?focus=saturn&${DATE}`, km: 500000 },
   'jupiter': { label: 'Jupiter and its rings', query: `?focus=jupiter&${DATE}`, km: 700000 },
   'jupiter-in': { label: 'Inside Jupiter\'s rings', query: `?focus=jupiter&${DATE}`, km: 200000 },
   'uranus': { label: 'Uranus and its rings', query: `?focus=uranus&${DATE}`, km: 200000 },
   'neptune': { label: 'Neptune and its rings', query: `?focus=neptune&${DATE}`, km: 250000 },
-  // The gravity guides' field of every body (docs/physics/gravity-guides.md),
-  // each beside the same view with the guides off.
-  'jupiter-far': { label: 'Jupiter\'s moons', query: `?focus=jupiter&${DATE}`, km: 6e6 },
-  'field-jupiter': { label: 'Jupiter\'s moons, gravity field (falling) and spin arrows', query: `?focus=jupiter&${DATE}`, km: 6e6,
-    setup: "orrery.guides.set('flow', true); orrery.guides.set('axes', true); orrery.guides.setFlow('falling', 'orbit')" },
-  'earth-moon': { label: 'The Earth and the Moon', query: `?focus=moon&${DATE}`, km: 1.3e6 },
-  'field-rotating': { label: 'The Earth and the Moon, gravity field (rotating)', query: `?focus=moon&${DATE}`, km: 1.3e6,
-    setup: "orrery.guides.set('flow', true); orrery.guides.setFlow('rotating', 'orbit')" },
-  'field-belt': { label: 'The asteroid belt, gravity field (inertial)', query: `?focus=sun&${DATE}`, km: 9e8,
-    setup: "orrery.guides.set('flow', true); orrery.guides.setFlow('inertial', 'orbit')" },
+  'moon': { label: 'Moon close-up', query: `?focus=moon&${DATE}`, km: 20000 },
+  // The landing sites' layer on (a build without it times the Moon alone),
+  // and Apollo 11's site framed from low over it.
+  'moon-sites': { label: 'Moon, landing sites on', query: `?focus=moon&${DATE}`, km: 20000, setup: SITES_ON },
+  'site-near': { label: 'Apollo 11\'s site framed', query: `?focus=moon&${DATE}`, km: 140, setup: SITE_NEAR, ready: '!!orrery.focusSmall' },
 };
 const DEFAULTS = ['earth', 'belt', 'craft-near', 'craft-far', 'point-near', 'point-far'];
 const GPU_NAME = { intel: 'Intel', nvidia: 'NVIDIA' };
@@ -226,7 +234,7 @@ function args() {
   const flag = (k) => { const i = argv.indexOf(k); return i < 0 ? false : (argv.splice(i, 1), true); };
   const num = (k, d) => { const v = Number(opt(k, d)); if (!(v > 0)) throw new Error(`${k} wants a positive number`); return v; };
   const o = {
-    list: flag('--list'),
+    list: flag('--list'), force: flag('--force'),
     url: opt('--url'), dist: opt('--dist'), baseUrl: opt('--base-url'), baseDist: opt('--base-dist'),
     label: opt('--label'), baseLabel: opt('--base-label'),
     gpus: opt('--gpu', 'intel').split(','),
@@ -264,7 +272,7 @@ async function main() {
   const loads = [];
   const log = (s) => console.error(s);
   const started = new Date();
-  const lock = await gpuLock({ log });
+  const lock = await gpuLock({ log, force: o.force });
   try {
     for (const v of variants) {
       if (v.dist) { v.server = await serve(v.dist); v.base = v.server.url; } else v.base = v.url.replace(/\/$/, '');
@@ -304,7 +312,7 @@ async function main() {
   console.log(`Frame cost and frame gap, median ms, ${what}:\n`);
   console.log(table(results, o.names, variants, o.gpus));
   console.log(`\n\`npm run bench:frames\`, ${day}: ${o.view.width} × ${o.view.height} at DPR ${o.dpr}, ${o.rounds} round${o.rounds === 1 ? '' : 's'}${variants.length > 1 ? ' interleaved' : ''}, ${o.seconds} s timed after ${o.settle} s, load average ${loadRange(loads)}; ${o.gpus.map((g) => `${GPU_NAME[g]}: ${renderers[g] ?? "?"}`).join('; ')}.`);
-  if (failed.length) console.log(`\nLeft out after ${o.retries + 1} tries (the medians are over the other rounds):\n${failed.map((f) => `- ${f}`).join('\n')}`);
+  if (failed.length) console.log(`\nLeft out after ${o.retries + 1} ${o.retries ? "tries" : "try"} (the medians are over the other rounds):\n${failed.map((f) => `- ${f}`).join('\n')}`);
   if (o.json) writeFileSync(o.json, JSON.stringify({ started, options: { ...o, names: o.names }, renderers, variants: variants.map(({ label, where }) => ({ label, where })), loads, failed, results }, null, 2));
   if (failed.length) { console.error(`${failed.length} sample${failed.length === 1 ? '' : 's'} left out`); process.exitCode = 1; }
 }

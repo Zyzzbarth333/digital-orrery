@@ -110,7 +110,10 @@ and $a_{x,y} = -\tfrac32 J_2\mu R^2 (x, y)(1 - 5z^2/d^2)/d^5$.
 $J_2 = -\sqrt5\,\bar C_{20}$ converts the fully normalised coefficient.
 
 - **The pole** is the body's spin axis of date from `orientation.js`,
-  refreshed once a simulated day (Earth's moves 0.14″ a day).
+  refreshed once a simulated day (Earth's moves 0.14″ a day). Neptune's
+  is nep097's instead, the pole its field was fitted with, which Triton
+  turns by 0.5° about the system's: 0.056° from the IAU's in 1989
+  ([validation](../validation.md#voyager-2-at-neptune-and-triton)).
 - **What is applied:** only the direct term on the craft. The bulge's
   reaction on the body is already in its ephemeris.
 - **Range:** beyond 100 reference radii the term is dropped. There it is
@@ -128,33 +131,8 @@ table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
-**Mean and osculating semi-major axis.** Under $J_2$ an orbit's
-osculating semi-major axis (from vis-viva at one instant) swings about its
-mean within every turn. For a circular orbit Brouwer's short-period term
-[20, p. 395] comes to
-
-$$
-a - \bar a = \frac{3}{2}\frac{J_2R^2}{\bar a}\sin^2 i\,\cos 2u,
-$$
-
-with $u$ the argument of latitude. 400 km over Mars at 150.6° that is
-±2.15 km. Started circular at the node ($u = 0$, the top of the swing),
-the orbit's mean is 2.1 km below its starting radius, which is why
-eq. (4.52) is slow there ([journey](journey.md#the-parking-orbits-plane)).
-Sampled every 30 days, close to a whole number of turns, each sample finds
-the orbit a few degrees further from the node, so the osculating value
-falls steadily: 3,789.93 to 3,787.10 km in a year, which looks like a
-drift. It is not one. The turn-averaged semi-major axis holds to 14 m in
-the year ($4\times10^{-6}$, so the node rate to 0.001 %), and every
-30-day sample is that mean plus the swing to 46 m (`nbody.test.mjs` case
-8c). It holds as well with Phobos and Deimos off, $J_2$ off, Encke off
-or a 100 times tighter tolerance, so neither a moon, nor a resonance, nor
-the integrator moves it: in Brouwer's theory $\bar a$ has no secular
-term [20], and the kernel agrees. Compare semi-major axes as turn averages
-(or at the same $u$), not at sampled instants.
-
 **The giants' higher zonal terms.** Jupiter and Saturn carry their zonal
-fields to $J_{12}$, and Uranus and Neptune their $J_4$, each from the same
+fields to $J_{12}$, and Uranus and Neptune their $J_4$ and $J_6$, each from the same
 solution as its $J_2$ and referred to the same radius: Jupiter's from the
 PDS table of Durante et al. 2020 [17], Saturn's from Iess et al. 2019
 [18], Table 1. With $s = z/d$ and $P_n$ the Legendre
@@ -638,7 +616,7 @@ a system's sphere of influence, `bodies.js` **splits** it. Beyond
 | Mars | 42,828.375 (499, mar099s) | Phobos 0.00072, Deimos 0.00012 |
 | Jupiter | 126,686,531.9 (599, jup365) | Io 5,959.9, Europa 3,202.7, Ganymede 9,887.8, Callisto 7,179.3 |
 | Saturn | 37,931,206.2 (699, sat441) | Mimas 2.5, Enceladus 7.2, Tethys 41.2, Dione 73.1, Rhea 153.9, Titan 8,978.1, Iapetus 120.5 |
-| Uranus | 5,793,950.6 (799, ura184) | Miranda 4.3, Ariel 83.4, Umbriel 85.4, Titania 222.8, Oberon 205.3 |
+| Uranus | 5,793,950.6 (799, ura184) | Miranda 4.1, Ariel 83.4, Umbriel 85.4, Titania 222.8, Oberon 214.2 (ura184's, not Horizons' 4.3 and 205.3) |
 | Neptune | 6,835,100.0 (899, nep097) | Triton 1,428.5 |
 | Pluto | 869.3 (999, plu060) | Charon 106.1 |
 
@@ -648,7 +626,9 @@ small part of the moons' share:
 - 0.01 % for Jupiter (Amalthea and the other small moons, 2.4 km³/s², are
   left out) and 0.02 % for Saturn;
 - 0.1 % for Neptune and Pluto;
-- 0.7 % (4.5 km³/s², $8\times10^{-7}$ of the system) for Uranus.
+- for Uranus the five moons (ura184's GMs) hold 0.7 % more than DE442's
+  system GM leaves them (4.2 km³/s², $7\times10^{-7}$ of the system):
+  ura184's own system GM is 4.3 km³/s² larger than DE442's.
 
 **Which systems are split** is state, kept in a *view* of the bodies:
 
@@ -733,8 +713,10 @@ Europa (PJ45) is followed to 5 m an hour on, 0.13 km without Europa's
 $J_2$ and $C_{22}$. Cassini's T45 pass 1,613 km over Titan is followed to
 3 m nine hours on, and its E12 pass 43 km over Enceladus to 0.16 km
 (0.88 km without Enceladus's field). Voyager 2 is followed past Neptune
-and Triton to 3.2 km against NAIF's reconstruction, 1.6 km with Neptune's
-$J_2$ two σ larger ([validation](../validation.md#moon-and-planet-flybys-flybytestmjs)).
+and Triton to 2.6 km against NAIF's reconstruction, and past Miranda and
+Uranus to 2.3 km twelve hours on; most of each is steps in the
+reconstruction's own velocity (Voyager's thruster firings), and with them
+put back, 1.8 km and 0.30 km ([validation](../validation.md#moon-and-planet-flybys-flybytestmjs)).
 
 **Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never
 evaluates a moon):
@@ -998,5 +980,3 @@ relative).
 [18] L. Iess *et al.*, "Measurement and implications of Saturn's gravity field and ring mass," *Science*, vol. 364, no. 6445, Art. no. eaat2965, 2019, doi: 10.1126/science.aat2965. Table 1.
 
 [19] L. Iess *et al.*, "The gravity field and interior structure of Enceladus," *Science*, vol. 344, no. 6179, p. 78, 2014, doi: 10.1126/science.1250551.
-
-[20] D. Brouwer, "Solution of the problem of artificial satellite theory without drag," *Astron. J.*, vol. 64, no. 1274, pp. 378–396, 1959, doi: 10.1086/107958. Section 9, the short-period terms (the semi-major axis's on p. 395).

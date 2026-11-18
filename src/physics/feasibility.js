@@ -7,10 +7,10 @@
 //                                  departure date from when it can first
 //                                  leave, each date's best flight time
 //   assess(journey, sol, opts)     the plotting table's lamps: window, phase,
-//                                  parking, wait, delta-v, no window, plane,
-//                                  miss, flyby
+//                                  parking, low orbit, wait, delta-v, no
+//                                  window, plane, miss, flyby
 
-import { solveJourney, solveLeg, legGeometry, bodyInfo, phaseOption, planeOption, planePricer, BROKEN_ALWAYS } from './journey.js';
+import { solveJourney, solveLeg, legGeometry, bodyInfo, phaseOption, planeOption, planePricer, BROKEN_ALWAYS, MOON_LOW_KM } from './journey.js';
 import { hohmannCircular } from './transfers.js';
 
 const DAY_MS = 86400e3;
@@ -140,6 +140,24 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
     break;
   }
 
+  // Low orbit: a stay in lunar orbit whose eccentricity, raised by the
+  // field's odd degrees (journey.js moonStay), brings the orbit down within
+  // the stay (warn), or its mean periapsis within MOON_LOW_KM of the ground
+  // (caution). The first such stay.
+  for (const L of sol.legs) {
+    const o = L?.stayOrbit;
+    if (!o || (o.fallMs === null && o.lowKm >= MOON_LOW_KM)) continue;
+    const at = `${name(L.from)}: ${Math.round(o.altKm)} km up`, over = o.toDays < o.stayDays - 0.5 ? ` (its first ${Math.round(o.toDays)} d)` : '';
+    const higher = o.safeAltKm ? `orbit ${Math.round(o.safeAltKm)} km up` : 'orbit higher';
+    if (o.fallMs !== null) {
+      const d = Math.floor(o.fallDays);
+      lamps.push({ key: 'lowOrbit', level: 'warn', leg: L.index, text: `${at}, the field raises the orbit's eccentricity to ${o.eMax.toFixed(3)} and it falls ${d} d into the ${Math.round(o.stayDays)} d stay: stay under ${Math.max(0, d - 1)} d, or ${higher}`, bestMs: o.fallMs });
+    } else {
+      lamps.push({ key: 'lowOrbit', level: 'caution', leg: L.index, text: `${at}, the field raises the orbit's eccentricity to ${o.eMax.toFixed(3)}, its periapsis ${Math.round(o.lowKm)} km over the ground on ${iso(o.lowMs)}${over}; ${higher} for room` });
+    }
+    break;
+  }
+
   // Wait: the longest stay.
   let stay = null;
   sol.stops.forEach((s, i) => { if (i > 0 && s.kind !== 'flyby' && s.depMs - s.arrMs > 30 * DAY_MS && (!stay || s.depMs - s.arrMs > stay.d)) stay = { d: s.depMs - s.arrMs, s }; });
@@ -170,7 +188,7 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
   // deepSpaceBurn) or on a broken plane (brokenPlane), or, where neither
   // could be found, direct on a plane that will not hold.
   for (const L of sol.legs) {
-    if (!L?.ok || L.geometry !== 'between' || L.resonance) continue;
+    if (!L?.ok || (L.geometry !== 'between' && L.geometry !== 'craft') || L.resonance) continue;
     const ds = L.deepSpace, bp = L.brokenPlane;
     if (ds) {
       lamps.push({ key: 'plane', level: 'caution', leg: L.index, text: `To ${name(L.to)}: ${ds.angleDeg.toFixed(1)}° round the ${name(L.central)}, so a deep-space burn on ${iso(ds.ms)}, ${(ds.dv * 1000).toFixed(0)} m/s, reshapes the transfer${Number.isFinite(ds.directDv) ? `; direct ${ds.directDv.toFixed(2)} km/s, tilted ${ds.directIncDeg.toFixed(1)}°` : ''}`, bestMs: ds.ms });

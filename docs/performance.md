@@ -74,12 +74,11 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   (`craft-far` with the clock at a day a second), the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`),
   the Earth with all 16,892 satellites on (`sats`, 20,000 km) and the ISS
-  followed from 0.1 km (`sat-near`, its close-up orbit drawn), and the
-  gravity guides' field (`field-jupiter`, `field-rotating`, `field-belt`)
-  beside the same views without it (`jupiter-far`, `earth-moon`, `belt`)
-  run by name, and `all` runs every one; `--list` lists them. A scenario
-  can run a setup expression once the page is up (the satellites' switch,
-  the field's).
+  followed from 0.1 km (`sat-near`, its close-up orbit drawn) and from
+  20,000 km with its passes and ground track (`sat-track`, and
+  `sat-track-warp` at an hour a second) run by name, and `all` runs every
+  one; `--list` lists them. A scenario can run a setup expression once the
+  page is up (the satellites' switch).
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
@@ -115,6 +114,17 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   than systemd-oomd killing everything that shares the terminal's or the
   editor's cgroup. `ORRERY_GPU_LOCK=0` and `ORRERY_BROWSER_MEMORY=0` turn
   them off; without `flock` or `systemd-run` (CI, macOS) both are skipped.
+  `npm run bench:textures` holds the same lock. A wait names who holds
+  the lock: one of these scripts by its folder and pid, a run wrapped in
+  `flock` by hand by its command line (from `/proc/locks`). The scripts
+  take the lock themselves, so there is no need to wrap them in `flock`;
+  a run that is wrapped anyway sees that its own parent holds the lock and
+  goes on under it, rather than waiting for itself for ever. Once it has
+  the lock, a run refuses to start with less memory available
+  (`MemAvailable`) than the cap and 4 GiB to spare, 14 GiB by default,
+  unless given `--force`. A browser the cap stops is reported as such,
+  and its failed scope reset, so `systemctl --user --failed` stays
+  clear.
 
 Read the before and after of one run rather than numbers from different
 runs. On a busy machine repeat runs differ by 10 to 20 %.
@@ -414,6 +424,28 @@ code, so its differences are noise. In one page, with the close-up
 stretch switched on and off every 4.5 s six times on the Intel GPU, the
 frame was 31.6 ms on and 32.4 ms off, and `placeNear` took 0.1 ms.
 
+### Satellite passes and the ground track
+
+The passes run in a worker (about 50 ms for three days of the ISS, four
+times a day of clock). The ground track is two lines and a point on the
+Earth, resampled by SGP4 on the main thread (241 calls, about 2 ms) once
+the clock has moved a two-hundredth of a period, at most every 50 ms
+([satellites.md](frontend/satellites.md#passes-over-a-place)).
+`npm run bench:frames -- --gpu intel,nvidia sat-track sat-track-warp earth`
+on 18 November 2026, main (52a371f) against the branch, 3 rounds
+interleaved, load average 11–15, median frame, ms:
+
+| Scenario | Intel | RTX |
+| --- | ---: | ---: |
+| The ISS followed, its passes and ground track, 20,000 km | 30.3 → 22.2 | 7.8 → 6.7 |
+| The same at an hour a second | 27.1 → 24.8 | 9.6 → 9.4 |
+| Earth close-up (no satellites), 20,000 km | 26.8 → 22.8 | 7.4 → 7.5 |
+
+Every difference is the machine's load: the Earth close-up runs none of
+the new code and moved as much, and the Intel rounds swung 20–35 ms in
+both builds. The RTX's frame gap stayed at 16.7 ms throughout. The ground
+track costs nothing measurable.
+
 ### GPU-compressed maps
 
 Measured on 18 November 2026: the maps as WebP (`?webp`, which loads them
@@ -516,6 +548,30 @@ measurable on the RTX. At a day a second a low orbiter's path fell due
 every frame, so a path is now resampled at most every 250 ms of real
 time. That leaves up to 2 ms on the RTX, where the app at that rate already
 takes 10 ms.
+
+### The Moon's landing sites
+
+Measured on 18 November 2026 with `npm run bench:frames`: main (`52a371f`,
+#130) against feat/moon-landing-sites, production builds,
+interleaved, headless at 1920 × 1080 and DPR 1, the Moon from 20,000 km at
+real time ([landing sites](frontend/landing-sites.md)). On main the layer
+does not exist, so "layer on" there is the Moon alone. The machine was
+loaded (load average 11 to 15). Median frame, ms, median over the rounds
+(Intel: four rounds, each in a fresh browser; RTX: three):
+
+| Scene | Intel UHD | RTX 5070 Ti |
+| --- | ---: | ---: |
+| Moon, layer off: main → branch | 18.8 → 20.1 | 8.0 → 8.1 |
+| Moon, layer on: main → branch | 19.9 → 19.3 | 7.9 → 7.7 |
+| Apollo 11's site framed, 140 km (branch) | 20.5 | 7.5 |
+| the Moon from 20,000 km in the same run (branch) | 18.6 | 6.7 |
+
+Within the noise: the same branch build timed faster with the layer on
+than off, and main's own samples of one view ranged from 18.2 to 21.3 ms on
+the Intel GPU. The markers are 38 positions a frame on the CPU and no GPU
+work; the one new per-frame call, the Moon's axes, takes 3 µs. The low
+view costs about 1 to 2 ms more than the distant one: that is the surface
+patch and the near ground ([camera](frontend/camera.md)), not the layer.
 
 ### The panels
 

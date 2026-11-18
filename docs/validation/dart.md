@@ -26,12 +26,12 @@ strikes 23 m from the centre.
 
 ## The reference
 
-- **Trajectory:** the DART navigation reconstruction [3] through
+- **Trajectory:** the DART navigation reconstruction through
   [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/), object −135: the
   segments `dart_2022_231_2022_269_rec_v03` (to 22:00 TDB on 26 September)
   and `dart_2022_269_2022_269_rec_v03` (to 23:14:45.3 TDB, 23:13:36 UTC),
   then `dart_2022_269_2022_269_spc_v04`, the final solution, to the impact.
-  Dimorphos from Horizons too (120065803, JPL's solution s547) [4].
+  Dimorphos from Horizons too (120065803, JPL's solution s547).
 - **Two solutions at the end.** The reconstruction hands over to the final
   solution 48 s before the impact, with a step of 1.95 km along the track
   and 119 m across it. They are two estimates of one flight; the final one
@@ -148,12 +148,13 @@ in the small-body search.
 - **Checks:** aimed, within 1 km of the flown path at the end, 100 km
   throughout, 50 m from Dimorphos's centre, for under 5 m/s.
 
-## References
+## Sources
 
-[1] R. T. Daly et al., "Successful kinetic impact into an asteroid for planetary defence," *Nature*, vol. 616, pp. 443–447, 2023, doi: [10.1038/s41586-023-05810-5](https://doi.org/10.1038/s41586-023-05810-5). CC BY 4.0. Also arXiv:2303.02248.
-
-[2] Space.com, "LICIACube readies to observe DART hit asteroid," Sep. 2022. [Online]. Available: https://www.space.com/liciacube-readies-to-observe-dart-hit-asteroid
-
-[3] DART Navigation, "dart_2022_231_2022_269_rec_v03," "dart_2022_269_2022_269_rec_v03" and "dart_2022_269_2022_269_spc_v04," reconstructed trajectory and final solution, via JPL Horizons, object −135. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
-
-[4] JPL Solar System Dynamics, Dimorphos (120065803), solution s547, via JPL Horizons. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+1. R. T. Daly et al., "Successful kinetic impact into an asteroid for
+   planetary defence," *Nature*, vol. 616, pp. 443–447, 2023: Table 1 (the
+   impact's time, speed, point and DART's mass), the SMART Nav timeline,
+   and the ROSA arrays' length. CC BY 4.0.
+   <https://doi.org/10.1038/s41586-023-05810-5> (also arXiv:2303.02248)
+2. Space.com, *LICIACube readies to observe DART hit asteroid* (2022):
+   released "7:14 p.m. EDT (2314 GMT)" on 11 September.
+   <https://www.space.com/liciacube-readies-to-observe-dart-hit-asteroid>

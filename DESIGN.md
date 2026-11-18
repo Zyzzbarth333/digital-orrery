@@ -406,6 +406,10 @@ numerals, an engraved label above, and the unit beside.
 - **Mars's crust:** the gravity field's diverging ramp, blue inward and
   amber outward, on a shell over the planet; its aurora in the giants'
   violet false colour.
+- **A satellite's ground track:** pale amber on the Earth, its next pass
+  over the chosen place bright amber, the place a small amber square. On
+  the plate each pass carries a square lamp, lit green only when the pass
+  can be seen, and an UP NOW window while it is above the horizon.
 - **Radiation belts:** pale teal (`#7fb8c9`) shells along the L-shells,
   brightest where seen edge-on so the belt reads as a volume.
 

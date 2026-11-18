@@ -20,7 +20,7 @@
 //                                that join them, the burns, totals and a path
 //   legOptions(journey, k)       the transfers that apply to leg k, compared
 //   phaseOption(journey, k)      leaving a moon: the best day in the stay
-//   planeOption(journey, k)      leaving a planet's orbit after a long stay:
+//   planeOption(journey, k)      leaving a planet's (or the Moon's) orbit after a long stay:
 //                                the day near the planned one its turned
 //                                plane holds the way out, and the day the
 //                                flight would wait for
@@ -34,12 +34,13 @@
 /** @typedef {{ start: JourneyStart, waypoints: Waypoint[] }} Journey */
 
 import { lambert, lambertRevs, propagate } from './orbital.js';
-import { helioStateEcl, ttSeconds, eqjToEcl } from './ephemeris.js';
+import { helioStateEcl, ttSeconds, eqjToEcl, eclToEqj } from './ephemeris.js';
 import { MOON_KEYS, moonStateEqj } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
 import { bodyConstants, MU_SUN, ZONAL } from './bodies.js';
 import { bodyAxesEqj } from './orientation.js';
 import { nodeRate, flownNodeRate, turnPlane, leaveCircularDv, planeAngle } from './parkingPlane.js';
+import { moonPlaneTrack, moonEccentricityTrack } from './lunarPlane.js';
 import { PLANETS } from '../utils/constants.js';
 import { nelderMead } from './trajsearch.js';
 import * as X from './transfers.js';
@@ -214,7 +215,8 @@ function moonEnd(m, vinf, key, arrive) {
 // ---------------- the parking orbit's plane over a stay ----------------
 
 // A stay in a planet's orbit turns the orbit's plane: the planet's J2
-// regresses its node (parkingPlane.js), so on the day the next leg leaves,
+// regresses its node (parkingPlane.js; at the Moon, its whole field and the
+// Earth's tide, lunarPlane.js), so on the day the next leg leaves,
 // the plane may no longer hold the way out, and the burn leaves out of it.
 // The flight (journeyFlight.js) captures into the plane that holds the way
 // in and the planned way out; for a stay of up to 30 days it aims the
@@ -223,6 +225,15 @@ function moonEnd(m, vinf, key, arrive) {
 // departure waits for the plane (up to 30 days) or burns out of it.
 export const PLANE_AIMED_DAYS = 30;
 const PLANE_WAIT_DAYS = 30;
+// At the Moon the plane is priced for a stay of up to 120 days: beyond, the
+// eccentricity the field's odd degrees raise (which lunarPlane.js leaves
+// out) has grown to several hundredths, and many low orbits have fallen.
+// (It also bounds the window strip's work: a trial plane per date.)
+export const MOON_PLANE_MAX_DAYS = 120;
+// The Moon's field to degree 30 for the plane (lunarPlane.js): within 0.1
+// degree of the kernel's over 90 days where the eccentricity stays small;
+// degree 20, 0.25 degrees.
+const MOON_PLANE_DEGREE = 30;
 // J2 is taken to rule where every other body's tide on the orbit is under
 // 5 % of J2's pull.
 const PLANE_TIDE_MAX = 0.05;
@@ -237,11 +248,11 @@ function planeContext(S, legs, k) {
   const P = S[k], L = legs[k], inLeg = legs[k - 1];
   if (k === 0 || P.kind !== 'orbit' || !L?.ok || !inLeg?.ok || L.resonance || !(L.vinfDep || L.moonDep)) return null;
   if (!inLeg.vinfArr || inLeg.ringArr || inLeg.geometry === 'local' || inLeg.geometry === 'craft') return null;
-  // The Moon: the flight aims the capture for a stay of up to 30 days by
-  // flying the stay (journeyFlight.js stayTurned); beyond, J2 alone is not
-  // the plane's motion there (PR #81: a week in a low lunar orbit turned it
-  // 4 degrees the other way), so it is not priced.
-  if (P.body === 'moon') return { why: 'about the Moon, the Earth\'s pull and the Moon\'s own field turn the plane, not J2 alone', moon: true };
+  // The Moon: J2 alone is not the plane's motion there (PR #81: a week in
+  // a low lunar orbit turned it 4 degrees the other way), so the plane is
+  // flown through the stay in the Moon's whole field and the Earth's and
+  // the Sun's tides, averaged over each turn (lunarPlane.js).
+  if (P.body === 'moon') return moonPlaneContext(P, L, inLeg);
   if (L.geometry !== 'between' || (L.endA && L.endA !== P.body) || !L.vinfDep) return null;
   const B = bodyInfo(P.body);
   const z = ZONAL[P.body];
@@ -280,17 +291,127 @@ function planeContext(S, legs, k) {
   return { body: P.body, B, z, rp, vin, pole, arrMs: P.arrMs, n0, factor: flown ? flown.rate / first : 1, aMean: flown?.aMean };
 }
 
+// The way out about the Moon for a leg leaving it: to the Earth, the leg's
+// own excess velocity; for another planet (via the Earth), the excess
+// about the Moon its excess about the Earth needs where the Moon is
+// (journey.js moonEnd).
+const moonWayOut = (L) => (L?.ok ? (L.moonDep?.vinf ?? (L.geometry !== 'between' || !L.endA || L.endA === 'moon' ? L.vinfDep : null)) : null);
+// The parking orbit's plane at the Moon (planeContext): the capture's way
+// in, the circular orbit's radius, the Moon's pole, and the plane flown
+// through the stay as lunarPlane.js has it, each start plane's track kept.
+// via: the leg leaves for another planet via the Earth, and the flight does
+// not wait for the plane (the Moon's phase prices each day differently).
+function moonPlaneContext(P, L, inLeg) {
+  const vin = inLeg.moonArr?.vinf ?? inLeg.vinfArr, w = moonWayOut(L);
+  if (!vin || !w) return null;
+  const h = cross(vin, w);
+  if (norm(h) < 1e-9 * norm(vin) * norm(w)) return null;
+  const B = bodyInfo('moon'), rp = B.radius + P.altKm;
+  const pole = unit(eqjToEcl(bodyAxesEqj('moon', new Date(P.arrMs))[2]));
+  const tracks = new Map();
+  // The plane at ms from the capture's (n, ecliptic): its track from the
+  // arrival, kept for the next ask. quick: the field's quadrupole and the
+  // tides alone (lunarPlane.js degree 2, 0.5 ms for 120 days, against 8 at
+  // degree 30), for the searches that price thousands of days and flight
+  // times (the window strip, the porkchop, the best phase).
+  const turned = (n, ms, quick = false) => {
+    const key = `${quick ? 'q' : 'f'}${n.map((x) => x.toFixed(9)).join(',')}`;
+    let t = tracks.get(key);
+    if (!t || t.toMs < ms) {
+      // (Asked again further on, as the flight's wait is, flown on 30 days
+      // more at once.)
+      t = moonPlaneTrack({ n0: eclToEqj(n), a: rp, fromMs: P.arrMs, toMs: t ? ms + PLANE_WAIT_DAYS * DAY_MS : ms, degree: quick ? 2 : MOON_PLANE_DEGREE });
+      if (tracks.size > 2000) tracks.clear();
+      tracks.set(key, t);
+    }
+    return { n1: unit(eqjToEcl(t(ms))), track: t };
+  };
+  return { moon: true, body: 'moon', B, z: ZONAL.moon, rp, vin, pole, arrMs: P.arrMs, n0: unit(h), wayOut: moonWayOut, via: !!L.moonDep, turned };
+}
+
+// A stay in a low lunar orbit can end on the ground: the field's odd
+// degrees raise the orbit's eccentricity (lunarPlane.js
+// moonEccentricityTrack), near the equator by about 0.004 a day 100 km up,
+// and Earth-to-Moon journeys arrive near it. So the stay's mean
+// eccentricity is flown on the plane's track from the capture (circular)
+// to the departure, or to MOON_STAY_MAX_DAYS. Returns { altKm, stayDays,
+// toDays, iDeg, eMax, lowKm, lowMs, fallMs, fallDays, safeAltKm }: the
+// highest mean e, the lowest mean periapsis over the ground and when, the
+// day the mean periapsis reaches the ground (null if it does not in the
+// stay), and where it falls or comes low, the lowest orbit 50 km higher
+// at a time (up to 400 km more) that holds the stay with MOON_LOW_KM to
+// spare (null if none does).
+export const MOON_STAY_MAX_DAYS = 365;
+// The model's mean e is within 0.007 of the kernel's 100 km up (13 km of
+// periapsis), so a stay whose mean periapsis comes within 20 km of the
+// ground is flagged.
+export const MOON_LOW_KM = 20;
+const stays = new Map();
+function moonStayAt(n0, pole, rp, R, arrMs, toMs, track) {
+  const key = `${n0.map((x) => x.toFixed(9)).join(',')}:${rp}:${arrMs}:${toMs}`;
+  let st = stays.get(key);
+  if (st) return st;
+  track ??= moonPlaneTrack({ n0: eclToEqj(n0), a: rp, fromMs: arrMs, toMs, degree: MOON_PLANE_DEGREE });
+  const et = moonEccentricityTrack({ track, a: rp, toMs, ground: R });
+  const fallMs = et.fall !== null && et.fall <= toMs ? et.fall : null;
+  const n = Math.min(et.es.length - 1, Math.ceil(((fallMs ?? toMs) - arrMs) / et.dt));
+  st = { altKm: rp - R, iDeg: Math.acos(clamp1(dot(n0, pole))) * RAD, eMax: Math.max(...et.es.slice(0, n + 1)), lowKm: Math.max(0, et.low.km), lowMs: et.low.ms,
+    fallMs, fallDays: fallMs === null ? null : (fallMs - arrMs) / DAY_MS };
+  if (stays.size > 200) stays.clear();
+  stays.set(key, st);
+  return st;
+}
+function moonStay(ctx, depMs) {
+  const toMs = Math.min(depMs, ctx.arrMs + MOON_STAY_MAX_DAYS * DAY_MS), R = ctx.B.radius;
+  if (!(toMs > ctx.arrMs + DAY_MS / 4)) return null;
+  const st = moonStayAt(ctx.n0, ctx.pole, ctx.rp, R, ctx.arrMs, toMs, ctx.turned(ctx.n0, toMs).track);
+  let safeAltKm;
+  if (st.fallMs !== null || st.lowKm < MOON_LOW_KM) {
+    safeAltKm = null;
+    for (let alt = Math.ceil(st.altKm / 50 + 1e-9) * 50; alt <= st.altKm + 400; alt += 50) {
+      const q = moonStayAt(ctx.n0, ctx.pole, R + alt, R, ctx.arrMs, toMs);
+      if (q.fallMs === null && q.lowKm >= MOON_LOW_KM) { safeAltKm = alt; break; }
+    }
+  }
+  return { ...st, stayDays: (depMs - ctx.arrMs) / DAY_MS, toDays: (toMs - ctx.arrMs) / DAY_MS, ...(safeAltKm !== undefined ? { safeAltKm } : {}) };
+}
+
+// The node of the plane n about the pole, rad, and its mean rate over a
+// track from its start to ms (rad/s): the turns at each step summed.
+function moonNodeRate(ctx, track, ms) {
+  const p = ctx.pole, f1 = unit(cross(p, Math.abs(p[2]) < 0.9 ? Z : [1, 0, 0])), f2 = cross(p, f1);
+  const nodeOf = (n) => { const q = cross(p, n); return Math.atan2(dot(q, f2), dot(q, f1)); };
+  const end = Math.min(track.normals.length - 1, Math.max(1, Math.round((ms - ctx.arrMs) / track.dt)));
+  let total = 0, prev = nodeOf(eqjToEcl(track.normals[0]));
+  for (let i = 1; i <= end; i++) {
+    const q = nodeOf(eqjToEcl(track.normals[i]));
+    let d = q - prev;
+    d -= TWO_PI * Math.round(d / TWO_PI);
+    total += d; prev = q;
+  }
+  return total / ((end * track.dt) / 1000);
+}
+
 // The plane on the day ms for a departure along w (about the planet): for a
 // stay of up to 30 days, aimed (the capture is aimed for it); beyond, the
 // capture's plane (n0, or the one holding the way in and w) turned by its
 // node's rate over the stay, and the cheapest burn from it onto w
 // (parkingPlane.js leaveCircularDv). Returns { aimed, stayDays, i, rate,
 // angle, dv, extra } (rad, rad/s, km/s), extra over the burn in the plane.
-function planeAt(ctx, ms, w, n0 = null) {
+function planeAt(ctx, ms, w, n0 = null, quick = false) {
   const stayDays = (ms - ctx.arrMs) / DAY_MS, inPlane = X.departureDv(norm(w), ctx.B.mu, ctx.rp);
   const h = n0 ?? cross(ctx.vin, w);
   if (!(norm(h) > 0)) return null;
   const n = unit(h), i = Math.acos(clamp1(dot(n, ctx.pole)));
+  if (ctx.moon) {
+    // The Moon: the plane flown through the stay (lunarPlane.js), its node's
+    // mean rate over it for the record.
+    if (stayDays <= PLANE_AIMED_DAYS) return { aimed: true, stayDays, i, rate: 0, angle: 0, dv: inPlane, extra: 0 };
+    if (stayDays > MOON_PLANE_MAX_DAYS) return null;
+    const { n1, track } = ctx.turned(n, ms, quick);
+    const extra = Math.max(0, leaveCircularDv(n1, ctx.rp, ctx.B.mu, w).dv - inPlane);
+    return { aimed: false, stayDays, i, rate: moonNodeRate(ctx, track, ms), angle: planeAngle(n1, w), dv: inPlane + extra, extra, n1 };
+  }
   const rate = ctx.factor * nodeRate(ctx.B.mu, ctx.z.j2, ctx.z.rJ2, ctx.rp, 0, i);
   if (stayDays <= PLANE_AIMED_DAYS) return { aimed: true, stayDays, i, rate, angle: 0, dv: inPlane, extra: 0 };
   const n1 = turnPlane(n, ctx.pole, (rate * (ms - ctx.arrMs)) / 1000);
@@ -307,6 +428,9 @@ const planeSummary = (ctx, p) => ({
   // way the craft goes round), the planet's pole and the node's rate
   // (rad/s): the flight's trims at the approach aim the node for them.
   normal: ctx.n0, pole: ctx.pole, rate: p.rate, arrMs: ctx.arrMs,
+  // At the Moon the plane is flown, not turned about the pole: the trims at
+  // the approach put the capture in the plan's plane itself.
+  ...(ctx.moon ? { model: 'moon', iEndDeg: p.n1 ? Math.acos(clamp1(dot(p.n1, ctx.pole))) * RAD : null } : {}),
 });
 
 // For leg k of a solved journey, the extra its departure pays for the
@@ -316,7 +440,8 @@ const planeSummary = (ctx, p) => ({
 export function planePricer(sol, k) {
   const ctx = planeContext(sol.stops, sol.legs, k);
   if (!ctx || ctx.why) return null;
-  return (L) => (L?.ok && L.vinfDep ? planeAt(ctx, L.depMs, L.vinfDep)?.extra ?? 0 : 0);
+  const wOf = ctx.moon ? ctx.wayOut : (L) => L.vinfDep;
+  return (L) => { const w = L?.ok ? wOf(L) : null; return w ? planeAt(ctx, L.depMs, w, null, true)?.extra ?? 0 : 0; };
 }
 
 // Leaving a planet's orbit after a stay of more than 30 days, the day near
@@ -334,17 +459,19 @@ export function planeOption(journey, k, { sol = null } = {}) {
   if (!L?.plane?.priced || L.plane.aimed) return null;
   const ctx = planeContext(S, sol.legs, k);
   if (!ctx || ctx.why) return null;
-  const legAt = (ms) => solveLeg(P, Q, ms, Q.arrMs);
+  const legAt = (ms) => solveLeg(P, Q, ms, Q.arrMs), wOf = ctx.moon ? ctx.wayOut : (Lx) => Lx.vinfDep;
   // As planned: the flight's wait, the cheapest of the half days, refined
   // by golden section within half a day either side, taken where it saves
   // more than 2 % on the planned day's burn.
   const waitAt = (h) => {
-    const ms = L.depMs + h * DAY_MS, Lh = legAt(ms), p = Lh.ok ? planeAt(ctx, ms, Lh.vinfDep, ctx.n0) : null;
+    const ms = L.depMs + h * DAY_MS, Lh = legAt(ms), p = Lh.ok && wOf(Lh) ? planeAt(ctx, ms, wOf(Lh), ctx.n0) : null;
     return p ? { ms, waitDays: h, dv: p.dv, angleDeg: p.angle * RAD } : null;
   };
   const onDay = { ms: L.depMs, waitDays: 0, dv: L.plane.dv, angleDeg: L.plane.angleDeg };
   let flight = onDay;
-  for (let h = 0.5; h <= PLANE_WAIT_DAYS; h += 0.5) { const q = waitAt(h); if (q && q.dv < flight.dv) flight = q; }
+  // (Leaving the Moon for another planet, via the Earth, the flight does
+  // not wait: journeyFlight.js.)
+  for (let h = 0.5; h <= (ctx.via ? 0 : PLANE_WAIT_DAYS); h += 0.5) { const q = waitAt(h); if (q && q.dv < flight.dv) flight = q; }
   if (flight.dv < onDay.dv * 0.98) {
     const g = (Math.sqrt(5) - 1) / 2, f = (h) => waitAt(h)?.dv ?? Infinity;
     let a = Math.max(0, flight.waitDays - 0.5), b = Math.min(PLANE_WAIT_DAYS, flight.waitDays + 0.5), c1 = b - g * (b - a), c2 = a + g * (b - a), f1 = f(c1), f2 = f(c2);
@@ -354,17 +481,27 @@ export function planeOption(journey, k, { sol = null } = {}) {
     const q = waitAt((a + b) / 2);
     if (q && q.dv < flight.dv) flight = q;
   } else flight = onDay;
-  // Re-timed: the best day either side.
+  // Re-timed: the best day either side. (At the Moon, the days scanned
+  // with the quick plane, every day's own capture plane its own trial, and
+  // the three cheapest priced again in the whole field.)
   let best = null;
-  const lo = Math.max(-PLANE_WAIT_DAYS, -Math.floor(((L.depMs - P.arrMs) / DAY_MS) * 2) / 2);
-  for (let d = lo; d <= PLANE_WAIT_DAYS; d += 0.5) {
+  const lo = Math.max(-PLANE_WAIT_DAYS, -Math.floor(((L.depMs - P.arrMs) / DAY_MS) * 2) / 2), seen = [];
+  const priceAt = (d, quick) => {
     const ms = L.depMs + d * DAY_MS, Ld = d === 0 ? null : legAt(ms);
-    if (Ld && !Ld.ok) continue;
-    const p = d === 0 ? { dv: L.plane.dv, angle: L.plane.angleDeg / RAD, aimed: false } : planeAt(ctx, ms, Ld.vinfDep);
-    if (!p) continue;
-    const dv = d === 0 ? L.depDv + L.arrDv + L.midDv : Ld.depDv + p.extra + Ld.arrDv + Ld.midDv;
-    if (!best || dv < best.dv - 1e-9) best = { d, ms, dv, depDv: d === 0 ? L.depDv : Ld.depDv + p.extra, angleDeg: p.angle * RAD, aimed: p.aimed };
+    if (Ld && !Ld.ok) return null;
+    const p = d === 0 && !quick ? { dv: L.plane.dv, angle: L.plane.angleDeg / RAD, extra: L.plane.extraDv, aimed: false } : wOf(Ld ?? L) ? planeAt(ctx, ms, wOf(Ld ?? L), null, quick) : null;
+    if (!p) return null;
+    const dv = d === 0 && !quick ? L.depDv + L.arrDv + L.midDv : (Ld ?? L).depDv - (d === 0 ? L.plane.extraDv : 0) + p.extra + (Ld ?? L).arrDv + (Ld ?? L).midDv;
+    return { d, ms, dv, depDv: dv - (Ld ?? L).arrDv - (Ld ?? L).midDv, angleDeg: p.angle * RAD, aimed: p.aimed };
+  };
+  for (let d = lo; d <= PLANE_WAIT_DAYS; d += 0.5) {
+    const q = priceAt(d, !!ctx.moon);
+    if (q) seen.push(q);
   }
+  if (ctx.moon) {
+    seen.sort((x, y) => x.dv - y.dv);
+    for (const q of [...seen.slice(0, 3).map((x) => x.d), 0]) { const r = priceAt(q, false); if (r && (!best || r.dv < best.dv - 1e-9)) best = r; }
+  } else for (const q of seen) if (!best || q.dv < best.dv - 1e-9) best = q;
   if (!best) return null;
   const name = bodyInfo(P.body).name;
   return {
@@ -431,30 +568,19 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
     const cost = ends(mA, mB), mean = g.viaA || g.viaB ? ends(g.viaA || null, g.viaB || null) : cost;
     if (via === 'bielliptic') return solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out, mA, mB);
     const s = bestArc(a.r, b.r, tof, mu, cost, pick ? pick.revs : g.resonant ? Math.max(2, maxRevs) : maxRevs, pick);
-    // Near 180 degrees round the central body the direct arc's plane is
-    // ill-defined: a deep-space burn (or a broken plane: with dsm false, for
-    // a quick scan, or by choice), where it costs less (or there is no
-    // direct arc at all).
-    const angle = transferAngle(a.r, b.r);
-    out.transferDeg = angle * 180 / Math.PI;
-    if (via !== 'direct' && (!pick || pick.revs === 0) && Math.abs(angle - Math.PI) < BROKEN_BAND) {
-      const bp = brokenPlane(a, b, depMs, arrMs, mu, cost);
-      const ds = bp && via !== 'brokenplane' && dsm ? deepSpaceBurn(a, b, depMs, arrMs, mu, mean, cost, bp) : null;
-      const x = ds ?? bp;
-      if (x && (!s || via === 'brokenplane' || via === 'deepspace' || x.cost < s.cost || Math.abs(angle - Math.PI) < BROKEN_ALWAYS)) {
-        out.arcs.push({ r1: a.r, v1: x.v1, t1: depMs, t2: x.ms, mu }, { r1: x.r, v1: x.v1b, t1: x.ms, t2: arrMs, mu });
-        out.vinfDep = sub(x.v1, a.v); out.vinfArr = sub(x.v2, b.v);
-        out.depDv = departCost(P, out.vinfDep, g.A, mA);
-        out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
-        out.midDv = x.midDv;
-        out.mid = { ms: x.ms, r: x.r };
-        out.moonDep = P.kind === 'flyby' ? null : moonEnd(mA, out.vinfDep, P.body, false);
-        out.moonArr = Q.kind === 'flyby' ? null : moonEnd(mB, out.vinfArr, Q.body, true);
-        const info = { ms: x.ms, r: x.r, dv: x.midDv, turnDeg: x.turnDeg, angleDeg: angle * 180 / Math.PI, directDv: s ? s.cost : Infinity, directIncDeg: s ? arcTilt(a, s.v1) : null };
-        if (ds) out.deepSpace = { ...info, heightDeg: ds.heightDeg, brokenDv: bp.cost, brokenMeanDv: ds.brokenMean, meanDv: ds.mean };
-        else out.brokenPlane = info;
-        return { ...out, revs: 0, branch: 'single', ok: true, endA: g.endA, endB: g.endB };
-      }
+    // Near 180 degrees round the central body: a deep-space burn or a
+    // broken plane, where it costs less (halfTurn).
+    out.transferDeg = transferAngle(a.r, b.r) * 180 / Math.PI;
+    const h = halfTurn(a, b, depMs, arrMs, mu, cost, mean, s, { via, dsm, pick });
+    if (h) {
+      Object.assign(out, h);
+      out.vinfDep = sub(h.arcs[0].v1, a.v); out.vinfArr = sub(h.v2, b.v);
+      out.depDv = departCost(P, out.vinfDep, g.A, mA);
+      out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
+      out.moonDep = P.kind === 'flyby' ? null : moonEnd(mA, out.vinfDep, P.body, false);
+      out.moonArr = Q.kind === 'flyby' ? null : moonEnd(mB, out.vinfArr, Q.body, true);
+      delete out.v2;
+      return { ...out, revs: 0, branch: 'single', ok: true, endA: g.endA, endB: g.endB };
     }
     if (!s) return { ...out, error: 'no Lambert arc between these dates' };
     out.arcs.push({ r1: a.r, v1: s.v1, t1: depMs, t2: arrMs, mu });
@@ -561,6 +687,31 @@ function brokenPlane(a, b, depMs, arrMs, mu, cost) {
 }
 // The angle between the arcs' planes either side of a burn at r.
 const planeTurn = (s) => Math.acos(Math.max(-1, Math.min(1, dot(unit(cross(s.r, s.v2a)), unit(cross(s.r, s.v1b)))))) * 180 / Math.PI;
+
+// Near 180 degrees round the central body the direct arc's plane is
+// ill-defined: a deep-space burn (or a broken plane: with dsm false, for a
+// quick scan, or by via 'brokenplane'), where it costs less than the
+// direct arc s, or within BROKEN_ALWAYS of 180, or where there is no direct
+// arc at all. a: the departure's state ({ r, v } about the central body: a
+// body's, or a craft's own), whose orbit plane is the plane the first arc
+// keeps; b: the target's at the arrival. cost and mean price the end burns
+// as solveLeg's do (mean: any moon at its best phase). Returns null for
+// the direct arc, or the leg's fields for two arcs: { arcs, v2 (the
+// arrival velocity), midDv, mid, deepSpace or brokenPlane }.
+function halfTurn(a, b, depMs, arrMs, mu, cost, mean, s, { via = 'lambert', dsm = true, pick = null } = {}) {
+  const angle = transferAngle(a.r, b.r);
+  if (via === 'direct' || (pick && pick.revs !== 0) || !(Math.abs(angle - Math.PI) < BROKEN_BAND)) return null;
+  const bp = brokenPlane(a, b, depMs, arrMs, mu, cost);
+  const ds = bp && via !== 'brokenplane' && dsm ? deepSpaceBurn(a, b, depMs, arrMs, mu, mean, cost, bp) : null;
+  const x = ds ?? bp;
+  if (!x || !(!s || via === 'brokenplane' || via === 'deepspace' || x.cost < s.cost || Math.abs(angle - Math.PI) < BROKEN_ALWAYS)) return null;
+  const info = { ms: x.ms, r: x.r, dv: x.midDv, turnDeg: x.turnDeg, angleDeg: angle * 180 / Math.PI, directDv: s ? s.cost : Infinity, directIncDeg: s ? arcTilt(a, s.v1) : null };
+  return {
+    arcs: [{ r1: a.r, v1: x.v1, t1: depMs, t2: x.ms, mu }, { r1: x.r, v1: x.v1b, t1: x.ms, t2: arrMs, mu }],
+    v2: x.v2, midDv: x.midDv, mid: { ms: x.ms, r: x.r },
+    ...(ds ? { deepSpace: { ...info, heightDeg: ds.heightDeg, brokenDv: bp.cost, brokenMeanDv: ds.brokenMean, meanDv: ds.mean } } : { brokenPlane: info }),
+  };
+}
 
 // ---------------- the deep-space burn ----------------
 
@@ -788,7 +939,7 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     Q.arrMs += shift; Q.depMs += shift;
     const w = journey.waypoints[k - 1];
     let leg;
-    if (P.kind === 'craft' && k === 1) leg = solveCraftLeg(P, Q, P.depMs, Q.arrMs, w);
+    if (P.kind === 'craft' && k === 1) leg = solveCraftLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs });
     else {
       const prev = legs[k - 2], vinfIn = P.kind === 'flyby' && prev?.ok && prev.vinfArr ? norm(prev.vinfArr) : null;
       leg = solveLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs, branch: w.branch, maxRevs, vinfIn, resonance: w.resonance ?? null });
@@ -843,8 +994,10 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     const ctx = planeContext(S, legs, k), L = legs[k];
     if (!ctx) continue;
     const stayDays = (L.depMs - S[k].arrMs) / DAY_MS;
-    if (ctx.why) { L.plane = ctx.moon && stayDays <= PLANE_AIMED_DAYS ? { priced: true, body: S[k].body, aimed: true, stayDays, angleDeg: 0, extraDv: 0 } : { priced: false, why: ctx.why, stayDays }; continue; }
-    const p = planeAt(ctx, L.depMs, L.vinfDep);
+    if (ctx.why) { L.plane = { priced: false, why: ctx.why, stayDays }; continue; }
+    if (ctx.moon) L.stayOrbit = moonStay(ctx, L.depMs);
+    if (ctx.moon && stayDays > MOON_PLANE_MAX_DAYS) { L.plane = { priced: false, why: `over ${MOON_PLANE_MAX_DAYS} days in lunar orbit the eccentricity the Moon's field raises turns the plane too, and a low orbit may fall`, stayDays }; continue; }
+    const w = ctx.moon ? ctx.wayOut(L) : L.vinfDep, p = w ? planeAt(ctx, L.depMs, w) : null;
     if (!p) continue;
     L.plane = planeSummary(ctx, p);
     L.depDv += p.extra;
@@ -892,8 +1045,12 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
 
 // From a craft's own state (heliocentric, or about a planet if it is in
 // orbit there: the journey's start body): the first leg is a Lambert arc
-// from where it is, the burn the change of velocity.
-function solveCraftLeg(P, Q, depMs, arrMs, w) {
+// from where it is, the burn the change of velocity. To a body round the
+// central one (a planet about the Sun, a moon about its planet) near 180
+// degrees, a deep-space burn or a broken plane as between bodies
+// (halfTurn), the in-plane reference the craft's own orbit plane. via
+// ('lambert', 'direct', 'brokenplane'), revs and dsm as solveLeg's.
+function solveCraftLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, dsm = true } = {}) {
   const s = P.state;
   if (!s) return { ok: false, error: 'no craft state', arcs: [], from: P.body, to: Q.body, depMs, arrMs };
   const g = legGeometry(P.body, Q.body), central = g.kind === 'local' ? P.body : g.central;
@@ -902,8 +1059,18 @@ function solveCraftLeg(P, Q, depMs, arrMs, w) {
   const b = Q.body === central ? null : relState(Q.body === central ? central : (g.endB ?? Q.body), central, arrMs);
   const B = bodyInfo(Q.body);
   const mB = moonAt(g.viaB, Q.body, arrMs);
-  const sol = b && bestArc(r1, b.r, tof, mu, (v1, v2) => norm(sub(v1, v0)) + arriveCost(Q, sub(v2, b.v), B, mB), w.revs ?? 0);
+  const ends = (m) => (v1, v2) => norm(sub(v1, v0)) + arriveCost(Q, sub(v2, b.v), B, m);
+  const cost = ends(mB), mean = g.viaB ? ends(g.viaB) : cost;
+  const sol = b && bestArc(r1, b.r, tof, mu, cost, revs ?? 0);
   const base = { geometry: 'craft', central, from: P.body, to: Q.body, depMs, arrMs, tofDays: tof / DAY, arcs: [], vinfDep: null, vinfArr: null, depDv: 0, arrDv: 0, midDv: 0 };
+  if (b && g.kind === 'between') {
+    base.transferDeg = transferAngle(r1, b.r) * 180 / Math.PI;
+    const h = halfTurn({ r: r1, v: v0 }, b, depMs, arrMs, mu, cost, mean, sol, { via, dsm, pick: revs ? { revs } : null });
+    if (h) {
+      const { v2, ...legFields } = h;
+      return { ...base, ...legFields, vinfArr: sub(v2, b.v), depDv: norm(sub(h.arcs[0].v1, v0)), arrDv: arriveCost(Q, sub(v2, b.v), B, mB), ok: true, revs: 0, branch: 'single', endB: g.endB ?? Q.body };
+    }
+  }
   if (!sol) return { ...base, ok: false, error: 'no Lambert arc from the craft between these dates' };
   return { ...base, arcs: [{ r1, v1: sol.v1, t1: depMs, t2: arrMs, mu }], vinfArr: sub(sol.v2, b.v), depDv: norm(sub(sol.v1, v0)), arrDv: arriveCost(Q, sub(sol.v2, b.v), B, mB), ok: true, revs: sol.revs, branch: sol.branch, endB: g.endB ?? Q.body };
 }
@@ -1048,23 +1215,47 @@ export function legOptions(journey, k, { search = true } = {}) {
   // already.
   const plane = planePricer(sol, k);
   const legDv = (L) => L.depDv + L.arrDv + L.midDv + joinIn(L) + (plane && L !== asIs ? plane(L) : 0);
-  const ds = asIs.ok ? asIs.deepSpace : null, bpl = asIs.ok ? asIs.brokenPlane : null, near = ds ?? bpl, ms = (x) => `${(x * 1000).toFixed(0)} m/s`;
-  if (asIs.ok && g.kind !== 'local') options.push({ type: 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : ds ? 'Deep-space burn, as scheduled' : bpl ? 'Broken plane, as scheduled' : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch,
-    ...(ds ? { note: `${ds.angleDeg.toFixed(1)}° round the ${C.name}: ${ms(ds.dv)} on ${new Date(ds.ms).toISOString().slice(0, 10)}, ${ds.heightDeg.toFixed(2)}° off the departure's plane, reshapes the transfer` } : bpl ? { note: `${bpl.angleDeg.toFixed(1)}° round the ${C.name}: the plane turned ${bpl.turnDeg.toFixed(2)}° on the way, for ${ms(bpl.dv)}` } : {}) });
-  // Near 180 degrees, the broken plane (beside a deep-space burn) and the
-  // direct arc on one plane, for comparison.
+  // Near 180 degrees the leg is the planner's own choice (a deep-space burn
+  // or a broken plane) unless one was chosen by hand (via 'direct',
+  // 'brokenplane' or 'deepspace'). Each of the others is listed beside it,
+  // and the planner's own choice is listed as 'lambert' (choosing it hands
+  // the leg back to the planner), so a choice by hand can always be undone.
+  const ms = (x) => `${(x * 1000).toFixed(0)} m/s`;
   const vinIn = inbound?.ok && inbound.vinfArr && P.kind === 'flyby' ? norm(inbound.vinfArr) : null;
-  if (ds) {
-    const B = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'brokenplane', vinfIn: vinIn });
+  // (From a craft's own state, from where it is.)
+  const legVia = (via) => (P.kind === 'craft' && k === 0 ? solveCraftLeg(P, Q, asIs.depMs, asIs.arrMs, { via }) : solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via, vinfIn: vinIn }));
+  const byHand = ['direct', 'brokenplane', 'deepspace'].includes(journey.waypoints[k]?.via) ? journey.waypoints[k].via : null;
+  const auto = byHand && asIs.ok ? legVia('lambert') : asIs;
+  const kindOf = (L) => (!L?.ok ? null : L.deepSpace ? 'deepspace' : L.brokenPlane ? 'brokenplane' : 'direct');
+  const ds = asIs.ok ? asIs.deepSpace : null, bpl = asIs.ok ? asIs.brokenPlane : null;
+  const near = ds ?? bpl ?? (auto?.ok ? auto.deepSpace ?? auto.brokenPlane : null);
+  const directNote = near ? `its plane tilted ${near.directIncDeg?.toFixed(1)}° to the departure's: ill-defined this near 180°, and dear to fly` : null;
+  const dsNote = (x) => `${x.angleDeg.toFixed(1)}° round the ${C.name}: ${ms(x.dv)} on ${new Date(x.ms).toISOString().slice(0, 10)}, ${x.heightDeg.toFixed(2)}° off the departure's plane, reshapes the transfer`;
+  const bpNote = (x) => `${x.angleDeg.toFixed(1)}° round the ${C.name}: the plane turned ${x.turnDeg.toFixed(2)}° on the way, for ${ms(x.dv)}`;
+  if (asIs.ok && g.kind !== 'local') {
+    const k0 = near ? kindOf(asIs) : null;
+    options.push({ type: byHand ?? 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : k0 === 'deepspace' ? 'Deep-space burn, as scheduled' : k0 === 'brokenplane' ? 'Broken plane, as scheduled' : k0 === 'direct' ? 'Direct, one plane, as scheduled' : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch,
+      ...(ds ? { note: dsNote(ds) } : bpl ? { note: bpNote(bpl) } : k0 === 'direct' ? { note: directNote } : {}) });
+  }
+  // The planner's own choice, when the leg was set by hand to another.
+  if (byHand && auto?.ok && kindOf(auto) !== kindOf(asIs) && (auto.deepSpace || auto.brokenPlane)) {
+    const x = auto.deepSpace ?? auto.brokenPlane;
+    options.push({ type: 'lambert', name: auto.deepSpace ? 'Deep-space burn' : 'Broken plane', dv: legDv(auto), tofDays: auto.tofDays, depMs: auto.depMs, arrMs: auto.arrMs, revs: auto.revs, branch: auto.branch, note: `the planner's choice: ${auto.deepSpace ? dsNote(x) : bpNote(x)}` });
+  }
+  // The broken plane beside a deep-space burn, for comparison.
+  const dsAny = ds ?? (auto?.ok ? auto.deepSpace : null);
+  if (dsAny && kindOf(asIs) !== 'brokenplane') {
+    const B = legVia('brokenplane');
     if (B.ok && B.brokenPlane) {
-      const d = legDv(B) - legDv(asIs), mean = ds.brokenMeanDv - ds.meanDv;
+      const ref = kindOf(asIs) === 'deepspace' ? asIs : auto, d = legDv(B) - legDv(ref), mean = dsAny.brokenMeanDv - dsAny.meanDv;
       options.push({ type: 'brokenplane', name: 'Broken plane', dv: legDv(B), tofDays: B.tofDays, depMs: B.depMs, arrMs: B.arrMs, revs: 0, branch: 'single',
         note: `the plane turned ${B.brokenPlane.turnDeg.toFixed(2)}° on the way, for ${ms(B.brokenPlane.dv)}; ${d >= 0 ? `${ms(d)} dearer` : `${ms(-d)} cheaper on the day, for the ${bodyInfo(P.body).name}'s phase`}${g.viaA || g.viaB ? `, ${ms(mean)} dearer at the mean phase` : ''}` });
     }
   }
-  if (near) {
-    const D = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'direct', vinfIn: vinIn });
-    if (D.ok) options.push({ type: 'direct', name: 'Direct, one plane', dv: legDv(D), tofDays: D.tofDays, depMs: D.depMs, arrMs: D.arrMs, revs: D.revs, branch: D.branch, note: `its plane tilted ${near.directIncDeg?.toFixed(1)}° to the departure's: ill-defined this near 180°, and dear to fly` });
+  // The direct arc on one plane, for comparison.
+  if (near && kindOf(asIs) !== 'direct') {
+    const D = legVia('direct');
+    if (D.ok) options.push({ type: 'direct', name: 'Direct, one plane', dv: legDv(D), tofDays: D.tofDays, depMs: D.depMs, arrMs: D.arrMs, revs: D.revs, branch: D.branch, note: directNote });
   }
 
   if (g.kind === 'local') {
@@ -1225,7 +1416,7 @@ export function applyOption(journey, k, o) {
   if (o.type === 'resonance') w.resonance = o.resonance;
   w.chosen = o.type;
   w.revs = o.revs; w.branch = o.branch;
-  if (o.type === 'lambert' || o.type === 'direct' || o.type === 'brokenplane') return j;
+  if (o.type === 'lambert' || o.type === 'direct' || o.type === 'brokenplane' || o.type === 'deepspace') return j;
   const sol = solveJourney(journey), P = sol.stops[k];
   if (k === 0) j.start.dateMs = o.depMs;
   else if (P.kind !== 'flyby') j.waypoints[k - 1].stayDays = Math.max(0, (o.depMs - P.arrMs) / DAY_MS);

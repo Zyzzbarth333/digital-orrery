@@ -3,14 +3,17 @@
 // The data plate for the Earth satellite the camera is on (chosen by its
 // marker, the rail's Fly-to list or the search): where SGP4 puts it now,
 // whether it is in sunlight, and its GP element set, with the epoch's age
-// and where the elements came from. Each value carries its source tag.
+// and where the elements came from, then its passes over a place
+// (satellite-passes.tsx). Each value carries its source tag.
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
 import { bodyState } from '../scene/OrreryScene';
 import { eclToEqj } from '../physics/ephemeris.js';
 import { stateEqj, meanOrbit, inShadow, type satrecOf } from '../physics/satellites.js';
-import { orbitClass, SAT_GROUPS, type NamedSat, type SatSource } from '../scene/satellites';
+import { orbitClass, SAT_GROUPS, type NamedSat, type SatLayerKey, type SatSource, type SatCloudView } from '../scene/satellites';
+import type { GroundTrack } from '../scene/groundTrack';
+import { SatellitePasses } from './satellite-passes';
 
 const WGS84_A = 6378.137, WGS84_B = 6356.752;
 
@@ -23,7 +26,7 @@ function age(ms: number): string {
   return ms >= 0 ? `${s} after epoch` : `${s} before epoch`;
 }
 
-export function SatellitePlate({ clock, sat, source }: { clock: SimClock; sat: PlateSat; source: SatSource | null }) {
+export function SatellitePlate({ clock, sat, source, track = null }: { clock: SimClock; sat: PlateSat; source: SatSource | null; track?: GroundTrack | null }) {
   const s = useClock(clock);
   const st = stateEqj(sat.rec, s.timeMs);
   const o = meanOrbit(sat.rec);
@@ -66,12 +69,45 @@ export function SatellitePlate({ clock, sat, source }: { clock: SimClock; sat: P
     <div className="tab-body">
       <div className="plate-head">
         <h2>{sat.named.name}</h2>
-        <p className="engraved">{group && sat.named.group !== 'found' ? `${group} · ` : ''}{kind.charAt(0).toUpperCase() + kind.slice(1)}</p>
+        <p className="engraved">{group && sat.named.group !== 'found' ? `${group} · ` : layerNoun(sat.named)}{kind.charAt(0).toUpperCase() + kind.slice(1)}</p>
+      </div>
+      <p className="strip" aria-hidden="true">Readout · source</p>
+      <Readout rows={rows} />
+      <SatellitePasses key={sat.omm.NORAD_CAT_ID} clock={clock} sat={sat} track={track} />
+      <div className="plate-notes">
+        <p>Moved by SGP4 from its GP element set, as the US Space Force fits them: about a kilometre at the epoch, a few kilometres a day either side. Drawn as a point; the camera can come to within 20 m. Choose a body in the rail to leave it.</p>
+      </div>
+    </div>
+  );
+}
+
+// A found one from the debris, rocket bodies or analyst objects says so.
+const NOUN: Record<SatLayerKey, string> = { active: '', debris: 'Debris · ', 'rocket-bodies': 'Rocket body · ', analyst: 'Analyst object · ' };
+const layerNoun = (n: NamedSat): string => NOUN[n.layer ?? 'active'];
+
+// The data plate for a debris cloud (the rail's Fly-to list): the breakup,
+// how many of its pieces the snapshot holds, and their orbits' spread.
+const km3 = (q: [number, number, number]) => `${fmtGroup(q[0], 0)} – ${fmtGroup(q[2], 0)}`;
+export function SatCloudPlate({ cloud }: { cloud: SatCloudView }) {
+  const rows: Row[] = [
+    { label: 'Breakup', value: cloud.date, unit: 'UTC', alt: cloud.event.charAt(0).toLowerCase() + cloud.event.slice(1), src: 'CelesTrak', info: 'sat-cloud' },
+    { label: 'Pieces tracked', value: fmtGroup(cloud.tracked, 0), alt: `its parent ${cloud.intdes}`, src: 'CelesTrak', info: 'sat-cloud', hint: 'Pieces with an element set in the snapshot; more were catalogued, and have come down since' },
+    { label: 'Perigee', value: fmtGroup(cloud.perigee[1], 0), unit: 'km', alt: `median; ${km3(cloud.perigee)} km for most`, src: 'mean', derived: true, info: 'sat-cloud', hint: 'Height of the lowest point of each piece\'s orbit: the median, and the 10th to 90th percentiles' },
+    { label: 'Apogee', value: fmtGroup(cloud.apogee[1], 0), unit: 'km', alt: `median; ${km3(cloud.apogee)} km for most`, src: 'mean', derived: true, info: 'sat-cloud', hint: 'Height of the highest point of each piece\'s orbit: the median, and the 10th to 90th percentiles' },
+    { label: 'Inclination', value: cloud.incl[1].toFixed(2), unit: '°', alt: `median; ${cloud.incl[0].toFixed(1)}–${cloud.incl[2].toFixed(1)}° for most`, src: 'CelesTrak', info: 'sat-cloud' },
+    { label: 'Epochs', value: cloud.epochs.median.slice(0, 16).replace('T', ' '), unit: 'UTC', alt: `median; the oldest ${cloud.epochs.first.slice(0, 10)}`, src: 'CelesTrak', info: 'sat-epoch' },
+    { label: 'Element sets', value: 'snapshot', alt: `fetched ${cloud.fetched.slice(0, 16).replace('T', ' ')} UTC`, src: 'CelesTrak', info: 'sat-elements', detail: cloud.query },
+  ];
+  return (
+    <div className="tab-body">
+      <div className="plate-head">
+        <h2>{cloud.name} debris</h2>
+        <p className="engraved">Debris cloud · {cloud.event}</p>
       </div>
       <p className="strip" aria-hidden="true">Readout · source</p>
       <Readout rows={rows} />
       <div className="plate-notes">
-        <p>Moved by SGP4 from its GP element set, as the US Space Force fits them: about a kilometre at the epoch, a few kilometres a day either side. Drawn as a point; the camera can come to within 20 m. Choose a body in the rail to leave it.</p>
+        <p>Its pieces are drawn brighter and the rest dimmer, each moved by SGP4 from its own element set. Search finds a piece by its name or number. Choose a body in the rail to leave it.</p>
       </div>
     </div>
   );

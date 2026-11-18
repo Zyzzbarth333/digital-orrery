@@ -83,6 +83,7 @@ export const REAL_MISSIONS = [
   { id: 'juno2013', label: 'Juno · Earth flyby, 2012–13' },
   { id: 'dart', label: 'DART · impact on Dimorphos, Sep 2022' },
   { id: 'lro', label: 'LRO · capture at the Moon, June 2009' },
+  { id: 'messenger', label: 'MESSENGER · cruise to Mercury, 2004–11' },
 ];
 // Orion as the app flies a real mission: its mass falling burn by burn,
 // its sunlit area and its venting (ORION_CRAFT in src/physics/orion.js).

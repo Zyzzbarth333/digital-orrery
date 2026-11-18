@@ -5,8 +5,12 @@ round the Earth, moved by SGP4 from their published element sets. The
 named ones carry a marker, a label and their orbit, and can be flown to.
 They are the ISS, Tiangong, Hubble, the GPS and Galileo constellations
 and the weather satellites in geostationary orbit, plus any found by
-search. The rail's **Satellites** section switches the layer on; it is
-off until then, and its data loads the first time.
+search. Three more sets have switches of their own, each drawn dimmer and
+in its own colour: the tracked debris of the three breakups CelesTrak keeps
+as groups (2,679 pieces), the spent rocket bodies (2,194) and the analyst
+objects (573, tracked but not identified). The debris clouds can be flown
+to as groups. The rail's **Satellites** section has the four switches; all
+are off until then, and each set's data loads the first time.
 
 | | |
 | --- | --- |
@@ -20,7 +24,9 @@ physics), [`src/scene/satellites.ts`](../../src/scene/satellites.ts) and
 [`satellites.worker.ts`](../../src/scene/satellites.worker.ts) (drawing),
 [`satellite-rail.tsx`](../../src/app/satellite-rail.tsx) and
 [`satellite-plate.tsx`](../../src/app/satellite-plate.tsx) (the rail and
-the data plate).
+the data plate); [`passes.js`](../../src/physics/passes.js) and
+[`satellite-passes.tsx`](../../src/app/satellite-passes.tsx) (passes over
+a place, [below](#passes-over-a-place)).
 
 ## The data
 
@@ -35,14 +41,42 @@ These are SGP4's own mean elements, not an osculating ellipse: they give
 the right positions only through SGP4 [3], [4].
 
 **The snapshot.** `npm run fetch:satellites`
-([`satellites.fetch.mjs`](../../src/physics/satellites.fetch.mjs)) asks
-CelesTrak for four groups: `active` (every satellite: 16,892 on
-17 November 2026), `gps-ops`, `galileo` and `weather`. It writes:
+([`satellites.fetch.mjs`](../../src/physics/satellites.fetch.mjs)) makes
+nine queries, each of a kind CelesTrak's GP documentation gives [2]:
+
+| Query | What | Objects, 18 Nov 2026 |
+| --- | --- | ---: |
+| `GROUP=active` | every active satellite | 16,892 |
+| `GROUP=gps-ops`, `galileo`, `weather` | the named constellations (below) | |
+| `GROUP=fengyun-1c-debris` | the debris of Fengyun-1C, destroyed by a Chinese anti-satellite missile on 11 January 2007 [8] | 1,988 |
+| `GROUP=cosmos-2251-debris` | the debris of Cosmos 2251 … | 582 |
+| `GROUP=iridium-33-debris` | … and of Iridium 33, which collided on 10 February 2009 at 790 km [9] | 109 |
+| `NAME=R/B` | rocket bodies: every object with "R/B" in its name | 2,194 |
+| `GROUP=analyst` | analyst objects: tracked, but not tied to a launch, with catalogue numbers in the US Space Force's analyst ranges (81011 to 270449 here) | 573 |
+
+The groups are those CelesTrak's Current Data page lists [10]. It has none
+for rocket bodies, so they come from the `NAME` query, which matches part
+of a name (its documentation's own example is `NAME=COSMOS 2251 DEB`). The
+catalogue names every spent stage "… R/B", and the script keeps only names
+with "R/B" as a word. The debris of COSMOS 1408, the Russian test of
+November 2021, is no longer a group there, and isn't fetched.
+
+Each object is kept once, in the first file it falls in. The script writes:
 
 - `public/data/satellites.csv`, the `active` group as CelesTrak sends it
   (2.5 MB, 0.9 MB compressed);
-- `public/data/satellites.json`, with when it was fetched, the spread of
-  the epochs (median 17 November 06:00 UTC), and the named ones.
+- `public/data/satellites-debris.csv`, `satellites-rocket-bodies.csv` and
+  `satellites-analyst.csv`: CelesTrak's CSV, one header and the queries'
+  rows (0.4, 0.3 and 0.08 MB);
+- `public/data/satellites.json`, with when each was fetched, the spread of
+  the epochs (the active ones' median 17 November 13:36 UTC), the named
+  ones, and the debris clouds: each one's group, event and parent's
+  international designator.
+
+Every piece of a breakup is catalogued under its parent's international
+designator (Fengyun-1C's is 1999-025A, its pieces 1999-025-something), so
+the app tells the three clouds apart by it. The script stops if a group
+holds a piece of another launch.
 
 The named ones are 85. Three are chosen by catalogue number: the ISS
 (25544, the Zarya module), Tiangong (48274, its core module Tianhe) and
@@ -60,13 +94,16 @@ Hubble (20580). The rest are every member of `gps-ops` (32) and
   policy asks for it.
 - Any answer but HTTP 200 stops at once, with no retry: the script prints
   CelesTrak's message for a person to read.
+- Only what is used: the nine queries, none of them repeated. Nothing is
+  scraped or asked for one object at a time.
 
 **Live refresh.** The rail's **Latest** key fetches CelesTrak's current
 `active` CSV from the browser (2.5 MB), at most once in 2 hours from the
 same browser (a timestamp in `localStorage`), and replaces the snapshot
 until the page is reloaded. An answer other than 200 is reported and not
-retried. Nothing else in the layer talks to CelesTrak, and SECURITY.md
-lists the request.
+retried. The debris, rocket bodies and analyst objects stay the snapshot's.
+Nothing else in the layer talks to CelesTrak, and SECURITY.md lists the
+request.
 
 ## Moving them: SGP4
 
@@ -146,7 +183,25 @@ arrives centred.
   6 minutes of sim time, and the ellipse is up to a few kilometres off.
   At a day a second the low orbits are a blur.
 
-Each refresh sends 0.7 MB to the GPU.
+Each refresh sends 0.7 MB to the GPU for the active satellites, and
+0.2 MB more with the other three sets on.
+
+**The four sets.** Each switch has its own points: a buffer, a draw call
+and a material of its own, sharing the rest of the uniforms. The worker
+holds every set it has been given, and steps only those whose switches are
+on, so a set that is off costs neither the worker nor the GPU. A set
+switched on is stepped at once.
+
+| Set | Sunlit | In shadow | Peak |
+| --- | --- | --- | ---: |
+| active | warm white (0.95, 0.93, 0.86) | blue-grey (0.55, 0.62, 0.80) | 1 |
+| debris | rust (0.86, 0.50, 0.38) | (0.50, 0.44, 0.56) | 0.55 |
+| rocket bodies | sea green (0.52, 0.80, 0.74) | (0.40, 0.52, 0.66) | 0.6 |
+| analyst objects | lavender (0.70, 0.64, 0.88) | (0.46, 0.46, 0.66) | 0.5 |
+
+The colours are display values, and none is amber, which is the craft's
+([DESIGN.md](../../DESIGN.md)). They tell the sets apart; they don't say
+what the objects look like.
 
 Each point is a Gaussian of fixed width in device pixels, as the stars'
 and the small bodies' are, so it neither shimmers nor vanishes as the
@@ -218,6 +273,25 @@ units away, to it.
 
 ## Flying to one
 
+**A debris cloud.** With the debris on, the rail's **Fly to** list has the
+three clouds. Choosing one flies the camera to the Earth, three times the
+cloud's median orbit radius out (21,600 km for Fengyun-1C). It draws that
+cloud's pieces at 2.2 times their brightness and every other point at
+0.35 times. Each point carries its cloud's number, set from its designator.
+A plate gives:
+
+- the breakup's date and what happened;
+- the pieces in the snapshot and their parent's designator;
+- the median perigee and apogee and the median inclination, each with
+  its 10th to 90th percentiles. The heights come from each piece's mean
+  motion and eccentricity, as the satellite plate's do;
+- the epochs' median and the oldest.
+
+Choosing a body or a satellite leaves the cloud. Search finds its pieces
+one at a time.
+
+**A satellite.**
+
 Choose a marker, the rail's **Fly to** list, or a search result. The
 camera flies to the satellite, 200 km out (or the distance last zoomed
 to), and follows it as it does a craft: its anchor is SGP4's position each
@@ -234,7 +308,11 @@ catalogue in three ways:
   old TLE format can't hold);
 - by international designator ("1998-067A").
 
-The one chosen joins the named ones, with a marker, an orbit and a plate.
+The search covers every set that has loaded. A piece of debris, a rocket
+body or an analyst object says so in the results. Analyst objects have no
+name in the catalogue ("UNKNOWN"), so one is named by its number. The one
+chosen joins the named ones, with a marker, an orbit and a plate; its marker
+shows while its set's switch is on.
 
 **The data plate**
 ([`satellite-plate.tsx`](../../src/app/satellite-plate.tsx)) shows:
@@ -245,10 +323,103 @@ The one chosen joins the named ones, with a marker, an orbit and a plate.
 - its element set: the epoch and the clock's distance from it, perigee and
   apogee heights, period, eccentricity, the angles and B\*;
 - whether the elements are the snapshot or live, and when they were
-  fetched.
+  fetched;
+- its passes over a place ([below](#passes-over-a-place)).
 
 Each value has its source tag: CelesTrak for the elements, SGP4 for what
 is worked out from them.
+
+## Passes over a place
+
+The satellite plate lists the satellite's next passes over a place on the
+Earth for three days: when it rises, culminates and sets, where it is in
+the sky then, and whether it can be seen. The rail's **Passes** key shows
+the ISS's, or those of the satellite in view. The ground under the
+satellite can be drawn on the Earth, its next pass over the place brighter.
+
+| | |
+| --- | --- |
+| ![The Earth from 22,000 km at 18:23 UTC on 18 November 2026: the ISS's ground track in pale amber across the Atlantic and on round the Earth, the stretch of its pass over Greenwich in bright amber over Britain, just inside the night side](satellite-passes-track.jpg) | ![The plate's passes: the place's latitude, longitude and height, then each pass with a VISIBLE, DAYLIGHT or IN SHADOW lamp, its rise, peak and set with times, directions and ranges, and when it can be seen](satellite-passes-plate.jpg) |
+| The ISS over Greenwich, 18 Nov 2026 18:23 UTC: its ground track, the pass in bright amber | The plate's passes for the same evening |
+
+Code: [`src/physics/passes.js`](../../src/physics/passes.js) (the
+physics), [`passes.worker.ts`](../../src/app/passes.worker.ts) and
+[`satellite-passes.tsx`](../../src/app/satellite-passes.tsx) (the
+plate), [`groundTrack.ts`](../../src/scene/groundTrack.ts) (the line on
+the Earth).
+
+**The place.** Latitude (north positive), longitude (east positive) and
+height, on the WGS-84 ellipsoid [11]. **Locate** asks the browser for its
+position. The place is kept in this browser's `localStorage` and sent
+nowhere. Until one is given it is the Royal Observatory, Greenwich.
+
+**The frames.** SGP4's TEME turns into the Earth's own frame of the true
+pole (PEF) by the Greenwich mean sidereal time, as Vallado et al. do [4,
+eq. (1)]. Polar motion then turns it to the crust (ITRF):
+
+$$\mathbf r_\text{ITRF} = W\,R_3(\theta_\text{GMST})\,\mathbf r_\text{TEME},\qquad W = R_1(-y_p)\,R_2(-x_p)$$
+
+θ<sub>GMST</sub> is the IAU 1982 expression [4, eq. (2)] at UT1. UT1 − UTC,
+*x*<sub>p</sub> and *y*<sub>p</sub> are the day's Earth orientation
+parameters, those the Earth's own orientation uses
+([Body orientation](../physics/orientation.md)). This agrees with the
+app's J2000 path (TEME to J2000, then the Earth's J2000-to-ITRF93 matrix)
+within 1.3 m for the ISS. The rest is the IERS corrections to the 1980
+nutation, which the Earth's frame has and TEME does not.
+
+**Where in the sky.** From the place **r**<sub>s</sub>, with **ê**, **n̂**
+and **û** east, north and up (the ellipsoid's normal there):
+
+$$\boldsymbol\rho = \mathbf r_\text{ITRF} - \mathbf r_\text{s},\qquad \sin h = \frac{\boldsymbol\rho\cdot\hat{\mathbf u}}{|\boldsymbol\rho|},\qquad A = \operatorname{atan2}(\boldsymbol\rho\cdot\hat{\mathbf e},\ \boldsymbol\rho\cdot\hat{\mathbf n})$$
+
+The elevation *h* is geometric. Refraction, which lifts a satellite on the
+horizon by about 0.6°, is left out: its rise would come a few seconds
+earlier.
+
+**Finding the passes.** The search runs in a worker, from half a period
+before the clock to three days after it:
+
+- It samples the elevation every hundredth of a period (56 s for the ISS)
+  and takes each local maximum.
+- It refines each maximum by golden-section search to 1 ms.
+- A pass is a maximum of 10° or more. Lower, the ground and the haze
+  hide it, and Heavens-Above lists none.
+- Each pass gets its rise and set, where it crosses the horizon, and the
+  times it crosses 10°, each by bisection to 1 ms.
+- A satellite that stays up or down for half a period either side
+  (geostationary) has no passes. The plate says where it is in the sky.
+
+The search reruns when the clock enters a new six hours, and when the
+place, the satellite or its element set changes. Three days of the ISS
+take about 50 ms. The list shows the next six passes; **Visible only**
+keeps those that can be seen. **Go** sets the clock to a minute before a
+pass rises.
+
+**Visible.** A pass can be seen while both of these hold:
+
+- the satellite is sunlit, outside the Earth's shadow (the cylinder
+  above);
+- the Sun is 6° or more below the place's horizon, the end of civil
+  twilight [12], so the sky is dark enough for it to show.
+
+This is judged from rise to set, as Heavens-Above judges it. The
+satellite enters or leaves the shadow at most once in a pass, and the Sun
+crosses −6° at most once. So each state is checked at both ends, and its
+one change, if any, is found by bisection. A pass is marked **Visible**
+if the two overlap, **Daylight** if the Sun is above −6° at its peak, and
+**In shadow** otherwise. The plate gives the span it can be seen, and
+whether it fades into the shadow or comes out of it. How bright it is
+(its magnitude) is left out.
+
+**The ground track.** The point under the satellite, down the
+ellipsoid's normal, from a quarter of an orbit back to one ahead, in pale
+amber. The next pass, rise to set, is in bright amber, and the place is
+a small square. It is drawn in the Earth's frame, as a child of the
+Earth's mesh, and lifted 19 km so that the surface and the clouds don't
+cut it. The Earth hides the far side. SGP4 resamples it (241 points,
+about 2 ms) once the clock has moved a two-hundredth of a period, at most
+every 50 ms. The **Ground track** key switches it, remembered in the
+browser.
 
 ## How right they are
 
@@ -291,8 +462,54 @@ Starlink keeps station) jump to a new track with each new element set.
   - 802 are deep-space.
   - All 85 named ones are in it.
   - The ISS's elements give 414 × 424 km and 92.94 minutes.
+- **The debris, rocket bodies and analyst objects** (2,679, 2,194 and 573):
+  - each file holds the count `satellites.json` gives;
+  - SGP4 places every object at the time its query was fetched;
+  - all are above the WGS-84 ellipsoid: the lowest debris 232 km up, the
+    lowest rocket body 234 km and analyst object 427 km. The farthest is
+    367,000 km out: the Long March 3B stage that launched Chang'e 3
+    (2013-070B), whose orbit reaches 486,000 km;
+  - no object is in two files, or among the active ones;
+  - each cloud's pieces, picked out by its parent's designator, number what
+    `satellites.json` says, and together they are the whole file;
+  - every rocket body's name holds "R/B".
 - **The shadow test:** points on and off the axis, the edge at the Earth's
   radius, and the ISS in shadow for 39 % of an orbit at its epoch.
+
+**Pass checks** (`npm test`,
+[`passes.test.mjs`](../../src/physics/passes.test.mjs)), against
+Heavens-Above's predictions [13] for the same element set: the ISS's,
+epoch 17 November 2026 20:24:46 UTC, as Heavens-Above's orbit page gave
+it. The fixture holds every pass above 10° from 18 to 28 November 2026
+over two places: Greenwich (51.4769° N, 0.0005° W, 46 m, 47 passes) and
+Sydney Observatory (33.8597° S, 151.2048° E, 45 m, 43 passes). It also
+holds seven of those passes in detail.
+
+- **The passes:** all 90 found, none extra.
+- **Culminations:** within 0.70 s of the instant Heavens-Above's link
+  gives for each, which it rounds to the second on the page.
+- **Peak elevations:** within their whole degree (worst 0.51° from it).
+- **The 10° crossings:** within 1.3 s, for the 86 passes that peak at
+  11° or more. A pass that peaks within a degree of 10 crosses it at
+  times a hundredth of a degree moves by seconds. Heavens-Above's own
+  move by 4 s between its summary and its details.
+- **Directions** at 10°, the peak and 10° again: all in their 16-point
+  compass sector, within 0.23° (the peaks above 85°, where the azimuth
+  turns fast, are left out).
+- **Visible, daylight or in shadow:** as they have it for all 90. Four
+  passes over each place are sunlit only below 10°, and count as visible.
+- **The detailed passes** (rise, 10°, shadow edge, peak, 10°, set: 38
+  events):
+  - the times, shadow edges included, within 1.2 s;
+  - rises and sets at 0° within 0.85 s, so Heavens-Above's are geometric
+    too;
+  - azimuth and elevation at their times within their rounding (half a
+    degree each, plus the satellite's motion in a second);
+  - ranges within 0.4 km past a second's change;
+  - the Sun's altitude within 0.06° of theirs (worst 0.051°).
+- **The frames:** TEME to ITRF by GMST against the app's J2000 path, the
+  ISS over 10 days, within 1.3 m. WGS-84 places back from ITRF within
+  1 mm, from the pole to geostationary height.
 
 `npm run fetch:satellites-horizons`
 ([`satellites.horizons.mjs`](../../src/physics/satellites.horizons.mjs))
@@ -302,10 +519,15 @@ rebuilds the Horizons fixture from the current snapshot's ISS.
 
 The layer costs about 3.5 ms a frame on an integrated GPU with all 16,892
 on, and nothing measurable on a discrete one. It is off until switched on,
-and costs nothing then. The numbers, and the two fixes the first timing
+and costs nothing then. The other three sets add 5,446 points, three draw
+calls and 0.2 MB a refresh. They have not yet been timed on a quiet
+machine: `npm run bench:frames -- --gpu intel,nvidia sats sats-all
+sats-all-hour` does it (one page load per browser on the Intel GPU). The numbers, and the two fixes the first timing
 called for, are in [performance.md](../performance.md#earth-satellites).
 The focused one's close-up orbit costs nothing measurable on either GPU
 (the same section).
+Nor do the passes and the ground track
+([performance.md](../performance.md#satellite-passes-and-the-ground-track)).
 
 ## References
 
@@ -322,3 +544,15 @@ The focused one's close-up orbit costs nothing measurable on either GPU
 [6] S. Kandadai *et al.*, "satellite.js," v7.1.0, MIT licence, 2026. [Online]. Available: https://github.com/shashwatak/satellite-js
 
 [7] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544). [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[8] NASA Orbital Debris Program Office, "Chinese anti-satellite test creates most severe orbital debris cloud in history," *Orbital Debris Q. News*, vol. 11, no. 2, pp. 2–3, Apr. 2007. [Online]. Available: https://orbitaldebris.jsc.nasa.gov/quarterly-news/pdfs/odqnv11i2.pdf
+
+[9] NASA Orbital Debris Program Office, "Satellite collision leaves significant debris clouds," *Orbital Debris Q. News*, vol. 13, no. 2, pp. 1–2, Apr. 2009. [Online]. Available: https://orbitaldebris.jsc.nasa.gov/quarterly-news/pdfs/odqnv13i2.pdf
+
+[10] T. S. Kelso, "NORAD GP element sets: current data," CelesTrak, 2026. [Online]. Available: https://celestrak.org/NORAD/elements/
+
+[11] National Imagery and Mapping Agency, "Department of Defense World Geodetic System 1984: Its definition and relationships with local geodetic systems," Tech. Rep. TR8350.2.
+
+[12] US Naval Observatory, Astronomical Applications Dept., "Rise, set, and twilight definitions." [Online]. Available: https://aa.usno.navy.mil/faq/RST_defs
+
+[13] C. Peat, "Heavens-Above," Heavens-Above GmbH: ISS (25544) orbit, all passes and pass details over Greenwich and Sydney Observatory, 18–28 Nov. 2026, fetched 18 Nov. 2026. [Online]. Available: https://www.heavens-above.com/orbit.aspx?satid=25544

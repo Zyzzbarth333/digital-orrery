@@ -12,6 +12,8 @@
 //   its MATLAB code's output (fixtures/sgp4_verification.json); Appendix C,
 //   eq. C-3, the TEME -> J2000 example for satellite 00005.
 // - JPL Horizons, the ISS (-125544): fixtures/iss_horizons.json.
+// - The snapshot's debris, rocket bodies and analyst objects
+//   (npm run fetch:satellites): each placed above the ground.
 
 import { readFileSync } from 'node:fs';
 import { ommFromTle, satrecOf, stateTeme, stateEqj, temeToEqj, apply, parseGpCsv, epochMs, inShadow, meanOrbit, R_EARTH_KM } from './satellites.js';
@@ -133,6 +135,46 @@ console.log('The snapshot (public/data/satellites.csv, satellites.json)');
   // The ISS's orbit from its elements: about 415 km up, 92.9 minutes.
   const iss = meanOrbit(satrecOf(rows.find((r) => r.NORAD_CAT_ID === 25544)));
   check(iss.perigeeKm > 350 && iss.apogeeKm < 450 && Math.abs(iss.periodMin - 92.8) < 1.5, `ISS ${iss.perigeeKm.toFixed(0)} x ${iss.apogeeKm.toFixed(0)} km, ${iss.periodMin.toFixed(2)} min`);
+}
+
+// ----- The debris, rocket bodies and analyst objects -----
+// Each file parses, holds the count satellites.json gives, and every object
+// in it is placed by SGP4 above the ground (the WGS-84 ellipsoid) at the
+// time its query was fetched. No object is in two files, or among the
+// active ones.
+console.log('The snapshot\'s other sets (satellites-debris.csv, -rocket-bodies.csv, -analyst.csv)');
+{
+  const meta = JSON.parse(readFileSync(new URL('../../public/data/satellites.json', import.meta.url), 'utf8'));
+  const read = (f) => parseGpCsv(readFileSync(new URL(`../../public/data/${f}`, import.meta.url), 'utf8'));
+  const seen = new Set(read('satellites.csv').map((r) => r.NORAD_CAT_ID));
+  const WGS84_A = 6378.137, WGS84_B = 6356.752;
+  for (const key of ['debris', 'rocket-bodies', 'analyst']) {
+    const L = meta.layers[key];
+    const rows = read(L.file);
+    check(rows.length === L.count && rows.length > 100, `${key}: ${rows.length} objects, as satellites.json says`);
+    const t = Date.parse(L.fetched), M = temeToEqj(t);
+    let unplaced = 0, low = Infinity, high = 0, twice = 0;
+    for (const r of rows) {
+      if (seen.has(r.NORAD_CAT_ID)) twice++;
+      seen.add(r.NORAD_CAT_ID);
+      const s = stateEqj(satrecOf(r), t, M);
+      if (!s) { unplaced++; continue; }
+      const d = Math.hypot(...s.r), sinLat = s.r[2] / d;
+      const h = d - (WGS84_A * WGS84_B) / Math.hypot(WGS84_B * Math.sqrt(1 - sinLat * sinLat), WGS84_A * sinLat);
+      low = Math.min(low, h); high = Math.max(high, d);
+    }
+    check(unplaced === 0, `${key}: every one placed by SGP4 at ${L.fetched.slice(0, 16)} UTC (${unplaced} not)`);
+    check(low > 100 && high < 2e6, `${key}: all above the ground, the lowest ${low.toFixed(0)} km up, the farthest ${high.toFixed(0)} km from the Earth's centre`);
+    check(twice === 0, `${key}: none in an earlier file (${twice})`);
+    if (key === 'debris') {
+      // Each cloud's pieces carry its parent's international designator,
+      // which the app picks them out by.
+      const counts = L.clouds.map((c) => rows.filter((r) => r.OBJECT_ID.startsWith(c.intdes)).length);
+      check(L.clouds.length === 3 && counts.every((n, k) => n === L.clouds[k].count) && counts.reduce((a, b) => a + b) === rows.length,
+        `the ${L.clouds.length} clouds by designator: ${L.clouds.map((c, k) => `${c.name} ${counts[k]}`).join(', ')}`);
+    }
+    if (key === 'rocket-bodies') check(rows.every((r) => /(^|[\s(])R\/B(\b|$)/.test(r.OBJECT_NAME)), 'rocket bodies: every name holds "R/B"');
+  }
 }
 
 // ----- The Earth's shadow -----

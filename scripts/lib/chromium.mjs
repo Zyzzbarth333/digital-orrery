@@ -16,15 +16,17 @@
 // memory cap (ORRERY_BROWSER_MEMORY, 10G), so a browser that grows too big
 // is killed alone rather than taking the desktop with it (systemd-oomd
 // kills the whole cgroup of whatever started it). Without flock or
-// systemd-run (CI, macOS) both are skipped.
+// systemd-run (CI, macOS) both are skipped. Once it holds the lock, a run
+// refuses to start with less memory available than the cap and 4 GiB to
+// spare, unless forced (--force); a wait names who holds the lock.
 //
 // Needs Node 22 (or Node 20 with --experimental-websocket).
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 // ---- Cleanup --------------------------------------------------------------
 // Everything started here, stopped on close, on an error or on a signal.
@@ -109,22 +111,123 @@ function sweepProfiles() {
 
 const LOCK = join(homedir(), '.cache/digital-orrery/gpu-bench.lock');
 
+const MARK = 'orrery-gpu-lock'; // in our lock holders' command lines
+const GiB = 2 ** 30;
+const SPARE = 4 * GiB; // memory left for everything else
+const gib = (b) => `${(b / GiB).toFixed(1).replace(/\.0$/, '')} GiB`;
+const tilde = (p) => p.replace(homedir(), '~');
+const readText = (f) => { try { return readFileSync(f, 'utf8'); } catch { return null; } };
+
+// A size as systemd takes it (512M, 10G, or bytes), in bytes; 0 for none.
+export function parseSize(s) {
+  const m = /^(\d+(?:\.\d+)?)([KMGT]?)$/i.exec(String(s).trim());
+  if (!m) throw new Error(`ORRERY_BROWSER_MEMORY=${s}: a size such as 10G or 512M, or 0`);
+  return Math.round(Number(m[1]) * 1024 ** ' KMGT'.indexOf(m[2].toUpperCase() || ' '));
+}
+
+// The memory the kernel says can be had without swapping, in bytes.
+export function memAvailable(meminfo) {
+  const m = /^MemAvailable:\s+(\d+) kB/m.exec(meminfo ?? '');
+  return m ? Number(m[1]) * 1024 : null;
+}
+
+// The pids holding a flock on the file with inode ino, from /proc/locks
+// (waiters, marked "->", are not holders).
+export function lockHolders(locks, ino) {
+  const out = [];
+  for (const m of (locks ?? '').matchAll(/^\d+:\s+FLOCK\s+\S+\s+\S+\s+(\d+)\s+[0-9a-f]+:[0-9a-f]+:(\d+)\s/gm)) {
+    if (Number(m[2]) === ino) out.push(Number(m[1]));
+  }
+  return out;
+}
+
+// The pids from pid up to init, from each /proc/<pid>/stat's parent field.
+// The command name in field 2 may hold spaces or brackets, so the fields
+// are read after its last ")".
+export function ancestry(pid, readStat = (p) => readText(`/proc/${p}/stat`)) {
+  const out = [];
+  for (let p = pid; p > 1 && out.length < 4096; ) {
+    out.push(p);
+    const stat = readStat(p);
+    const m = stat && /^\)\s+\S+\s+(\d+)/.exec(stat.slice(stat.lastIndexOf(')')));
+    if (!m) break;
+    p = Number(m[1]);
+  }
+  return out;
+}
+
+// The holder of the lock that is this process or one of its ancestors, if
+// any. A run started inside `flock gpu-bench.lock …` by hand would
+// otherwise wait for a lock its own parent holds, and never get it.
+function ancestorHolding() {
+  let holders;
+  try { holders = lockHolders(readText('/proc/locks'), statSync(LOCK).ino); } catch { return null; }
+  const mine = new Set(ancestry(process.pid));
+  return holders.find((p) => mine.has(p)) ?? null;
+}
+
+// Who holds the lock: one of these scripts by what it said it was, a run
+// wrapped in flock by hand by its folder and command line.
+function lockHolder() {
+  let pids;
+  try { pids = lockHolders(readText('/proc/locks'), statSync(LOCK).ino); } catch { return null; }
+  for (const pid of pids) {
+    const argv = (readText(`/proc/${pid}/cmdline`) ?? '').split('\0').filter(Boolean);
+    if (!argv.length) continue;
+    let since = '';
+    try { since = ` for ${Math.round((Date.now() - statSync(`/proc/${pid}`).mtimeMs) / 1000)} s`; } catch { /* gone */ }
+    const m = argv.indexOf(MARK);
+    if (m >= 0) return `pid ${pid}${since}: ${argv[m + 1]}`;
+    let cwd = '';
+    try { cwd = ` in ${tilde(readlinkSync(`/proc/${pid}/cwd`))}`; } catch { /* gone */ }
+    const cmd = tilde(argv.join(' '));
+    return `pid ${pid}${since}${cwd}: ${cmd.length > 200 ? `${cmd.slice(0, 200)}…` : cmd}`;
+  }
+  return null;
+}
+
 // The shared GPU lock, held until release() or this process ends: a
 // flock(1) holding it runs cat on a pipe from here, so the lock goes when
-// the pipe closes, however this process ends. Resolves once held; says so
-// if it has to wait. ORRERY_GPU_LOCK=0 skips it.
-export async function gpuLock({ log = (s) => console.error(s) } = {}) {
+// the pipe closes, however this process ends. Resolves once held, saying
+// who holds it if it has to wait; then refuses to go on with too little
+// memory available unless force. ORRERY_GPU_LOCK=0 skips the lock.
+export async function gpuLock({ log = (s) => console.error(s), force = false } = {}) {
   const none = { release: async () => {} };
-  if (process.env.ORRERY_GPU_LOCK === '0') return none;
+  const skip = process.env.ORRERY_GPU_LOCK === '0';
+  const parent = skip ? null : ancestorHolding();
+  if (parent) log(`The GPU lock is already held by this run's own parent (pid ${parent}), so it goes on under that`);
+  const lock = skip || parent ? none : await takeLock(log);
+  const cap = parseSize(browserMemory());
+  const avail = memAvailable(readText('/proc/meminfo'));
+  if (avail !== null && avail < cap + SPARE) {
+    const msg = cap
+      ? `Only ${gib(avail)} of memory is available, and a browser may take ${gib(cap)} (ORRERY_BROWSER_MEMORY) with ${gib(SPARE)} to spare for everything else`
+      : `Only ${gib(avail)} of memory is available, under the ${gib(SPARE)} to spare for everything else`;
+    if (!force) {
+      await lock.release();
+      throw new Error(`${msg}. Wait for other work to finish, lower ORRERY_BROWSER_MEMORY, or pass --force.`);
+    }
+    log(`${msg}; going on (--force).`);
+  }
+  return lock;
+}
+
+async function takeLock(log) {
   mkdirSync(join(LOCK, '..'), { recursive: true });
-  const proc = spawn('flock', [LOCK, 'sh', '-c', 'echo held; exec cat >/dev/null'], { stdio: ['pipe', 'pipe', 'ignore'] });
+  const what = `${basename(process.argv[1] ?? 'node')} in ${tilde(process.cwd())}, pid ${process.pid}`;
+  // Its own process group, so a Ctrl-C reaches the script, which releases
+  // the lock once it has cleaned up.
+  const proc = spawn('flock', [LOCK, 'sh', '-c', 'echo held; exec cat >/dev/null', MARK, what], { stdio: ['pipe', 'pipe', 'ignore'], detached: true });
+  const t0 = Date.now();
+  let waited = false;
   const held = await new Promise((ok) => {
-    const t = setTimeout(() => log(`Waiting for the GPU: another benchmark holds ${LOCK}`), 1000);
+    const t = setTimeout(() => { waited = true; log(`Waiting for the GPU: ${tilde(LOCK)} is held by ${lockHolder() ?? 'another run'}`); }, 1000);
     proc.stdout.once('data', () => { clearTimeout(t); ok(true); });
     proc.once('error', () => { clearTimeout(t); ok(false); }); // no flock(1)
     proc.once('exit', () => { clearTimeout(t); ok(false); });
   });
-  if (!held) { log('No flock: running without the shared GPU lock'); return none; }
+  if (!held) { log('No flock: running without the shared GPU lock'); return { release: async () => {} }; }
+  if (waited) log(`Got the GPU lock after ${Math.round((Date.now() - t0) / 1000)} s`);
   let released = null;
   const release = () => released ??= new Promise((done) => {
     untrack();
@@ -146,9 +249,18 @@ function scope() {
   if (scopeCmd !== undefined) return scopeCmd;
   const cap = browserMemory();
   const cmd = ['systemd-run', '--user', '--scope', '--quiet', '-p', `MemoryMax=${cap}`, '-p', 'MemorySwapMax=0'];
-  const ok = process.platform === 'linux' && cap !== '0' && spawnSync(cmd[0], [...cmd.slice(1), 'true'], { stdio: 'ignore', timeout: 10000 }).status === 0;
-  if (!ok && cap !== '0') console.error('No systemd user scope: the browser runs without its memory cap');
+  const ok = process.platform === 'linux' && parseSize(cap) > 0 && spawnSync(cmd[0], [...cmd.slice(1), 'true'], { stdio: 'ignore', timeout: 10000 }).status === 0;
+  if (!ok && parseSize(cap) > 0) console.error('No systemd user scope: the browser runs without its memory cap');
   return scopeCmd = ok ? cmd : [];
+}
+
+// A scope the kernel stopped at its cap stays listed, failed, until it is
+// reset; say so, then reset it.
+let launches = 0;
+function resetScope(unit) {
+  const show = spawnSync('systemctl', ['--user', 'show', `${unit}.scope`, '-p', 'Result'], { encoding: 'utf8', timeout: 5000 });
+  if (/Result=oom-kill/.test(show.stdout ?? '')) console.error(`The browser outgrew its ${browserMemory()} memory cap (ORRERY_BROWSER_MEMORY); only its own scope was stopped`);
+  spawnSync('systemctl', ['--user', 'reset-failed', `${unit}.scope`], { stdio: 'ignore', timeout: 5000 });
 }
 
 // A headless browser on its first page: { proc, cdp, profile, close }.
@@ -157,8 +269,10 @@ export async function launch({ gpu = 'intel', width = 1200, height = 750 } = {})
   sweepProfiles();
   const profile = mkdtempSync(join(tmpdir(), PROFILE));
   // In scope mode systemd-run becomes the browser (the same pid and
-  // process group), so stopping the group still stops it.
-  const [cmd, ...pre] = [...scope(), findChrome()];
+  // process group), so stopping the group still stops it. The scope is
+  // named, so a failed one (stopped at its cap) can be reset when closed.
+  const unit = scope().length ? `orrery-chromium-${process.pid}-${++launches}` : null;
+  const [cmd, ...pre] = [...scope(), ...(unit ? [`--unit=${unit}`] : []), findChrome()];
   const proc = spawn(cmd, [...pre,
     '--headless=new', '--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist',
     '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
@@ -171,6 +285,7 @@ export async function launch({ gpu = 'intel', width = 1200, height = 750 } = {})
     try { cdp?.close(); } catch { /* already */ }
     await stopGroup(proc);
     rmSync(profile, { recursive: true, force: true });
+    if (unit) resetScope(unit);
     untrack();
   })();
   const untrack = track({ stop: close, kill: () => killGroup(proc.pid, 'SIGKILL') });

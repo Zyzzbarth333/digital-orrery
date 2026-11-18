@@ -48,8 +48,11 @@ import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { IrregularMoonLayer, type IrregularPlanet } from './irregularMoons';
 import { SatelliteLayer } from './satellites';
+import { GroundTrack } from './groundTrack';
 import { SpacecraftLayer } from './spacecraftLayer';
 import { GuideLayer } from './guides';
+import { LandingSiteLayer, axesToEcl, siteFrame } from './landingSites';
+import { SITE_BY_KEY } from '../physics/landingSites.js';
 import { MagneticLayer } from './magnetic';
 import { orbitTrailMaterial, reachOf } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, renderViewTable, type AtmosphereParams } from './atmosphere';
@@ -60,6 +63,10 @@ import { makeCorona, makeSunMaterial, SunGlare, visibleFraction } from './sun';
 import { RenderScale } from './renderScale';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
+// A landing site is framed from this far, this high above its horizon
+// (rad), with the Sun to one side (focusOnSite); the camera keeps at
+// least SITE_EL_MIN above it while turned about it.
+const SITE_DIST_KM = 140, SITE_EL = 0.35, SITE_EL_MIN = 0.02;
 // The near plane (render units): a tenth of the camera's distance from its
 // pivot, from 1 m to 1 km (fitNear).
 const NEAR_SHARE = 0.1, NEAR_MIN = 1e-6, NEAR_MAX = 1e-3;
@@ -106,6 +113,16 @@ function toRender(a: Vec3, out: THREE.Vector3): THREE.Vector3 {
 
 function sub(a: Vec3, b: Vec3): Vec3 {
   return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+// The unit vector a fraction t of the way from unit a to unit b, on the
+// great circle between them.
+function slerp(a: Vec3, b: Vec3, t: number): Vec3 {
+  const c = Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]));
+  const w = Math.acos(c);
+  if (w < 1e-6 || Math.PI - w < 1e-6) return t < 0.5 ? a : b;   // the same, or no one great circle
+  const s = Math.sin(w), ka = Math.sin((1 - t) * w) / s, kb = Math.sin(t * w) / s;
+  return [ka * a[0] + kb * b[0], ka * a[1] + kb * b[1], ka * a[2] + kb * b[2]];
 }
 
 // Rotation taking a render-frame direction to J2000 equatorial.
@@ -280,9 +297,14 @@ export class OrreryScene {
   // (irregularMoons.ts) is one too, as 'irr:<key>'.
   focusSmall: string | null = null;
   onSmallPick: (pdes: string) => void = () => {};
+  // A landing site on the Moon is one too, as 'site:<key>' (landingSites.ts):
+  // the camera then turns about the site's own vertical, and its up is
+  // that vertical (the frame loop).
   // An Earth satellite the camera is on (satellites.ts), by NORAD id.
   focusSat: number | null = null;
   onSatPick: (id: number) => void = () => {};
+  // A debris cloud picked (satellites.ts): the camera is on the Earth.
+  onSatCloudPick: (key: string) => void = () => {};
   private satDist: number | null = null;
   // A spacecraft beyond Earth orbit the camera is on (spacecraftLayer.ts).
   focusProbe: string | null = null;
@@ -310,7 +332,16 @@ export class OrreryScene {
   // The irregular moons of Jupiter, Saturn and Neptune (irregularMoons.ts).
   irregulars!: IrregularMoonLayer;
   satellites!: SatelliteLayer;   // Earth satellites, for the rail's switch
+  groundTrack!: GroundTrack;     // the plate's satellite's ground track and place (satellite-passes.tsx)
   spacecraft!: SpacecraftLayer;  // spacecraft beyond Earth orbit, from JPL Horizons
+  sites!: LandingSiteLayer;      // the Moon's landing sites
+  // Flying to a site: the camera's direction from its pivot when the flight
+  // began (ecliptic), turned onto the site's framing as the flight goes.
+  private siteFrom: Vec3 | null = null;
+  // The camera's direction from its pivot last frame (ecliptic, unit), and
+  // its up (render frame), which eases to a site's vertical and back.
+  private offsetDir: Vec3 = [0, 0, 1];
+  private viewUp = new THREE.Vector3(0, 1, 0);
   guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
   magnetic!: MagneticLayer;      // magnetic field lines and auroras
 
@@ -320,21 +351,28 @@ export class OrreryScene {
   }
 
   private smallAnchor(pdes: string): Anchor {
+    if (pdes.startsWith('site:')) {
+      const key = pdes.slice(5);
+      return { id: `small:${pdes}`, pos: () => this.sites.positionKm(key, this.states.moon.r, this.moonAxes()), minDist: 0.06 };
+    }
     const irr = pdes.startsWith('irr:') ? pdes.slice(4) : null;
     return { id: `small:${pdes}`, pos: () => (irr ? this.irregulars.positionKm(irr) : this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs)), minDist: this.smallRadius(pdes) * 1.2 };
   }
   private smallRadius(pdes: string): number {
+    if (pdes.startsWith('site:')) return 0.05;
     return pdes.startsWith('irr:') ? this.irregulars.radiusKm(pdes.slice(4)) : this.smallBodies.radiusKm(pdes);
   }
 
   // Fly to a named small body or an irregular moon: framed at eight radii,
   // at least 1 km out.
   focusOnSmall(pdes: string): void {
+    if (pdes.startsWith('site:')) { this.focusOnSite(pdes.slice(5)); return; }
     const irr = pdes.startsWith('irr:') ? pdes.slice(4) : null;
     if (irr ? !this.irregulars.has(irr) : !this.smallBodies.body(pdes)) return;
     if (this.rig.flying && this.rig.destination.id === `small:${pdes}`) return;
     this.focusCraftId = null;
     this.clearSat();
+    this.leaveSite();
     this.focusSmall = pdes;
     this.smallBodies.setFocus(irr ? null : pdes);
     this.irregulars.setFocus(irr);
@@ -342,19 +380,79 @@ export class OrreryScene {
     this.onFlight(this.rig.flying);
     this.onSmallPick(pdes);
   }
+  // The Moon's body axes in the ecliptic now.
+  private moonAxes(): Vec3[] { return axesToEcl(bodyAxesEqj('moon', new Date(this.clock.snapshot.timeMs))); }
+  private siteKey(): string | null { return this.focusSmall?.startsWith('site:') ? this.focusSmall.slice(5) : null; }
+
+  // Fly to a landing site (landingSites.ts): framed from SITE_DIST_KM,
+  // SITE_EL above its horizon, looking across the sunlight so the relief
+  // casts its shadows sideways (docs/frontend/landing-sites.md). The Moon
+  // becomes the focus, so its maps load and its plate's facts apply.
+  focusOnSite(key: string): void {
+    const site = SITE_BY_KEY[key];
+    if (!site) return;
+    const id = `site:${key}`;
+    if (this.rig.flying && this.rig.destination.id === `small:${id}`) return;
+    this.focusCraftId = null;
+    this.clearSat();
+    if (this.focusSmall !== null && !this.siteKey()) { this.smallBodies.setFocus(null); this.irregulars.setFocus(null); }
+    this.focusSmall = id;
+    this.sites.setFocus(key);
+    if (this.focus !== 'moon') { this.focus = 'moon'; this.onFocusChange('moon'); }
+    this.loadSurfaces('moon');
+    const fr = siteFrame(site, this.states.moon.r, this.moonAxes());
+    const toSun = fr.P.map((x) => -x) as Vec3;
+    this.rig.az = Math.atan2(toSun[0] * fr.N[0] + toSun[1] * fr.N[1] + toSun[2] * fr.N[2],
+      toSun[0] * fr.E[0] + toSun[1] * fr.E[1] + toSun[2] * fr.E[2]) + Math.PI / 2;
+    this.rig.el = SITE_EL;
+    this.siteFrom = [...this.offsetDir];
+    this.rig.flyTo(this.smallAnchor(id), SITE_DIST_KM);
+    if (!this.rig.flying) this.siteFrom = null;      // a cut (reduced motion): straight to the framing
+    this.onFlight(this.rig.flying);
+    this.onSmallPick(id);
+  }
+  // Leaving a site: the camera's turn about it, which was in the site's own
+  // frame, goes back to the ecliptic one from where the camera is now.
+  private leaveSite(): void {
+    if (!this.siteKey()) return;
+    const d = this.offsetDir;
+    this.rig.az = Math.atan2(d[1], d[0]);
+    this.rig.el = Math.asin(Math.max(-1, Math.min(1, d[2])));
+    this.siteFrom = null;
+    this.sites.setFocus(null);
+  }
+
   // Fly to a named satellite: 200 km out, or the distance last zoomed to.
   focusOnSatellite(id: number): void {
     if (!this.satellites.sat(id)) return;
     if (this.rig.flying && this.rig.destination.id === `sat:${id}`) return;
     this.focusCraftId = null;
     this.clearSmall();
+    this.satellites.setCloud(null);
     this.focusSat = id;
     this.satellites.setFocus(id);
     this.rig.flyTo({ id: `sat:${id}`, pos: () => this.satellites.positionKm(id, this.clock.snapshot.timeMs, this.states.earth.r), minDist: 0.02 }, this.satDist ?? 200);
     this.onFlight(this.rig.flying);
     this.onSatPick(id);
   }
+  // Fly to a debris cloud: the Earth, framed at three times the cloud's
+  // median orbit radius, with its pieces drawn brighter than the rest.
+  focusOnSatCloud(key: string): void {
+    const c = this.satellites.cloudView(key);
+    if (!c) return;
+    this.focusCraftId = null;
+    this.clearSmall();
+    this.clearSat();
+    this.focus = 'earth';
+    this.loadSurfaces('earth');
+    this.satellites.setCloud(key);
+    this.rig.flyTo(this.bodyAnchor('earth'), 3 * c.aKm);
+    this.onFlight(this.rig.flying);
+    this.onFocusChange('earth');
+    this.onSatCloudPick(key);
+  }
   private clearSat(): void {
+    this.satellites.setCloud(null);
     if (this.focusSat !== null) { this.focusSat = null; this.satellites.setFocus(null); }
     if (this.focusProbe !== null) { this.focusProbe = null; this.spacecraft.setFocus(null); }
   }
@@ -374,6 +472,7 @@ export class OrreryScene {
   }
   private clearSmall(): void {
     if (this.focusSmall === null) return;
+    this.leaveSite();
     this.focusSmall = null;
     this.smallBodies.setFocus(null);
     this.irregulars.setFocus(null);
@@ -542,9 +641,12 @@ export class OrreryScene {
     this.irregulars = new IrregularMoonLayer(this.scene, this.overlay);
     this.irregulars.setScale(this.renderer.getPixelRatio());
     this.irregulars.onPick = (key) => this.focusOnSmall(`irr:${key}`);
+    this.sites = new LandingSiteLayer(this.overlay);
+    this.sites.onPick = (key) => this.focusOnSite(key);
     this.satellites = new SatelliteLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.satellites.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.satellites.onPick = (id) => this.focusOnSatellite(id);
+    this.groundTrack = new GroundTrack(BODY_BY_KEY.earth.radiiKm);
     this.spacecraft = new SpacecraftLayer(this.scene, this.overlay,
       (key) => (key === 'sun' ? [0, 0, 0] : (this.states[key as BodyKey]?.r as Vec3 | undefined) ?? null), import.meta.env.BASE_URL);
     this.spacecraft.onPick = (key) => this.focusOnProbe(key);
@@ -916,9 +1018,33 @@ export class OrreryScene {
       this.rig.update(0);
     }
     const f = this.rig.pivot;
-    const { az, el, dist } = this.rig;
-    const ce = Math.cos(el);
-    let offset: Vec3 = [dist * ce * Math.cos(az), dist * ce * Math.sin(az), dist * Math.sin(el)];
+    const moonAxes = axesToEcl(bodyAxesEqj('moon', date));
+    // About a landing site the camera turns in the site's own frame (east,
+    // north, up), so it stays over the ground as the Moon turns; flying
+    // there, its direction turns onto that framing as the flight goes.
+    const siteKey = this.siteKey();
+    let offset: Vec3, upGoal: Vec3 = [0, 0, 1];
+    if (siteKey) {
+      const fr = siteFrame(SITE_BY_KEY[siteKey], this.states.moon.r, moonAxes);
+      // A flight there that ended or was stopped (Escape, a drag): the
+      // turn about the site carries on from where the camera is.
+      if (this.siteFrom && !this.rig.flying) {
+        const o = this.offsetDir, dot = (v: Vec3) => o[0] * v[0] + o[1] * v[1] + o[2] * v[2];
+        this.rig.az = Math.atan2(dot(fr.N), dot(fr.E));
+        this.rig.el = Math.asin(Math.max(-1, Math.min(1, dot(fr.U))));
+        this.siteFrom = null;
+      }
+      if (this.rig.el < SITE_EL_MIN) this.rig.el = SITE_EL_MIN;
+      const { az, el, dist } = this.rig, ce = Math.cos(el);
+      let d = [0, 1, 2].map((i) => ce * Math.cos(az) * fr.E[i] + ce * Math.sin(az) * fr.N[i] + Math.sin(el) * fr.U[i]) as Vec3;
+      if (this.siteFrom) d = slerp(this.siteFrom, d, this.rig.progress);
+      offset = [dist * d[0], dist * d[1], dist * d[2]];
+      upGoal = fr.U;
+    } else {
+      const { az, el, dist } = this.rig, ce = Math.cos(el);
+      offset = [dist * ce * Math.cos(az), dist * ce * Math.sin(az), dist * Math.sin(el)];
+    }
+    const { dist } = this.rig;
     let cam: Vec3 = [f[0] + offset[0], f[1] + offset[1], f[2] + offset[2]];
     // Turning about a craft near the ground can take the camera under it:
     // it is kept 5 m above the surface, still looking at the pivot.
@@ -961,7 +1087,8 @@ export class OrreryScene {
     const journey = this.journeySource();
     this.journeyLayer.place(journey, this.journeyCentral, cam, UNIT_KM, dist);
 
-    this.camera.up.set(0, 1, 0);
+    this.easeUp(upGoal, offset, dtReal);
+    this.camera.up.copy(this.viewUp);
     this.camera.lookAt(toRender([-offset[0], -offset[1], -offset[2]], this.tmp));
     this.camera.updateMatrixWorld();
     this.updateGlare(sunPos, cam, now);
@@ -983,6 +1110,7 @@ export class OrreryScene {
     this.irregulars.update(tMs, cam, (p: IrregularPlanet) => this.states[p].r, 1 / this.renderer.toneMappingExposure,
       this.focusCraftId === null ? systemOf(this.focus) : null);
     this.satellites.update(tMs, cam, this.states.earth.r, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.groundTrack.update(tMs, this.meshes.get('earth'), 1 / this.renderer.toneMappingExposure);
     this.spacecraft.update(tMs, cam, 1 / this.renderer.toneMappingExposure);
     this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
@@ -1001,8 +1129,25 @@ export class OrreryScene {
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
     this.spacecraft.label(this.camera, this.container.clientWidth, this.container.clientHeight);
+    this.sites.update(cam, this.states.moon.r, moonAxes, this.camera, this.container.clientWidth, this.container.clientHeight);
     this.journeyLayer.label(this.journeyCentral, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
+
+  // Turn the camera's up towards `goal` (ecliptic): at once with reduced
+  // motion, else over about a quarter second. Opposite ups (from ecliptic
+  // north to a site near the south pole) turn about the line of sight, as
+  // a roll. Also keeps offsetDir, the camera's direction from its pivot.
+  private easeUp(goal: Vec3, offset: Vec3, dt: number): void {
+    const n = Math.hypot(offset[0], offset[1], offset[2]);
+    if (n > 0) this.offsetDir = [offset[0] / n, offset[1] / n, offset[2] / n];
+    const g = toRender(goal, this.tmp2).normalize();
+    const angle = this.viewUp.angleTo(g);
+    if (angle < 1e-6) return;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const axis = new THREE.Vector3().crossVectors(this.viewUp, g);
+    if (axis.lengthSq() < 1e-12) toRender([-offset[0], -offset[1], -offset[2]], axis);
+    this.viewUp.applyAxisAngle(axis.normalize(), reduced ? angle : angle * (1 - Math.exp(-dt / 0.25)));
+  }
 
   // The Sun's glare: its strength follows the sunlight at the camera and
   // the part of the disc that no body hides (the eclipse overlap again).
@@ -1262,7 +1407,9 @@ export class OrreryScene {
     this.journeyLayer.dispose();
     this.smallBodies.dispose();
     this.irregulars.dispose();
+    this.sites.dispose();
     this.satellites.dispose();
+    this.groundTrack.dispose();
     this.spacecraft.dispose();
     this.guides.dispose();
     this.magnetic.dispose();
