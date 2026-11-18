@@ -114,6 +114,9 @@ function table(rows) {
 function flybyRuns(file, planet, { degree2 = false, variants = {} } = {}) {
   const fx = JSON.parse(fs.readFileSync(new URL(`./fixtures/${file}`, import.meta.url), 'utf8'));
   const key = fx.moon;
+  // A periapsis of the planet itself (Cassini's Grand Finale): no moon to
+  // place, so Horizons' moons are the run the others vary.
+  const atPlanet = key === planet;
   const horizonsMoons = (moons) => {
     const m = Object.fromEntries(Object.entries(moons).map(([k, rows]) => [k, table(rows)]));
     const c = table(fx.centre);
@@ -126,7 +129,7 @@ function flybyRuns(file, planet, { degree2 = false, variants = {} } = {}) {
   // craft about the moon, less the centre.
   const craft = new Map(fx.craft.map((r) => [r[0].toFixed(6), r]));
   const centreAt = new Map(fx.centre.map((r) => [r[0].toFixed(6), r]));
-  const implied = fx.craftMoon.filter((r) => craft.has(r[0].toFixed(6))).map((r) => {
+  const implied = atPlanet ? null : fx.craftMoon.filter((r) => craft.has(r[0].toFixed(6))).map((r) => {
     const j = craft.get(r[0].toFixed(6)), c = centreAt.get(r[0].toFixed(6));
     return [r[0], ...[1, 2, 3, 4, 5, 6].map((i) => j[i] - r[i] - c[i])];
   });
@@ -136,7 +139,8 @@ function flybyRuns(file, planet, { degree2 = false, variants = {} } = {}) {
   const epochMs = utcMsAtTt(ttOf(flown[0][0]) - 3600);
   // Where the moon really is (as the craft's track has it), for the
   // distance from it in every run.
-  const real = solarSystemBodies({ epochMs, satellites: horizonsMoons({ ...fx.moons, [key]: implied }) });
+  const trackSats = () => horizonsMoons(atPlanet ? fx.moons : { ...fx.moons, [key]: implied });
+  const real = solarSystemBodies({ epochMs, satellites: trackSats() });
   const tt0 = ttSeconds(epochMs);
   const bary = (t) => helioStateEqjAtTt(planet, tt0 + t);
   // tweak(sys, key) changes a body before the run; extraOf(sys) gives an
@@ -175,35 +179,39 @@ function flybyRuns(file, planet, { degree2 = false, variants = {} } = {}) {
     'no moons (system at its barycentre)': fly({ moons: false }),
     'moons from moons.js': fly({}),
     "JPL's moons (Horizons')": fly({ satellites: horizonsMoons(fx.moons) }),
-    [`JPL's moons, ${key} as the track has it`]: fly({ satellites: horizonsMoons({ ...fx.moons, [key]: implied }) }),
   };
-  const trackSats = () => horizonsMoons({ ...fx.moons, [key]: implied });
+  if (!atPlanet) runs[`JPL's moons, ${key} as the track has it`] = fly({ satellites: trackSats() });
   if (degree2) runs[`the same, without ${key}'s J2 and C22`] = fly({ satellites: trackSats() }, (sys, k) => { const m = sys.bodyAt(k, 0); m.j2 = 0; m.c22 = 0; });
   for (const [name, v] of Object.entries(variants)) runs[name] = fly({ satellites: trackSats() }, v.tweak, v.extraOf, v.setup, v.advance);
   const after = flown.slice(1).findIndex((r) => r[0] > hzClose[0]);
-  const R = MOON_DATA[key].radiusKm, hours = (fx.span[1] - hzClose[0]) * 24;
+  const R = atPlanet ? real.bodyAt(planet, 0).radius : MOON_DATA[key].radiusKm, hours = (fx.span[1] - hzClose[0]) * 24;
   // The two moons: Horizons' against the one the track implies, at closest approach.
-  const iCA = implied.reduce((a, b) => (Math.abs(b[0] - hzClose[0]) < Math.abs(a[0] - hzClose[0]) ? b : a));
-  const hz = fx.moons[key].find((r) => r[0] === iCA[0]);
-  const moonGap = Math.hypot(hz[1] - iCA[1], hz[2] - iCA[2], hz[3] - iCA[3]);
+  let moonGap = NaN;
+  if (!atPlanet) {
+    const iCA = implied.reduce((a, b) => (Math.abs(b[0] - hzClose[0]) < Math.abs(a[0] - hzClose[0]) ? b : a));
+    const hz = fx.moons[key].find((r) => r[0] === iCA[0]);
+    moonGap = Math.hypot(hz[1] - iCA[1], hz[2] - iCA[2], hz[3] - iCA[3]);
+  }
   // The kernel's own moon (its Hermite nodes through the track's table)
   // against the table, about the barycentre, over the hour about closest
   // approach.
   let nodeGap = 0, centreGap = 0;
-  for (const r of implied.filter((q) => Math.abs(q[0] - hzClose[0]) < 1 / 48)) {
-    const t = ttOf(r[0]) - tt0, c = centreAt.get(r[0].toFixed(6)), b = bary(t).r, m = real.bodyAt(key, t).r, p = real.bodyAt(planet, t).r;
-    nodeGap = Math.max(nodeGap, Math.hypot(...[0, 1, 2].map((i) => m[i] - b[i] - c[1 + i] - r[1 + i])));
-    centreGap = Math.max(centreGap, Math.hypot(...[0, 1, 2].map((i) => p[i] - b[i] - c[1 + i])));
+  for (const r of fx.centre.filter((q) => Math.abs(q[0] - hzClose[0]) < 1 / 48)) {
+    const t = ttOf(r[0]) - tt0, b = bary(t).r, p = real.bodyAt(planet, t).r;
+    centreGap = Math.max(centreGap, Math.hypot(...[0, 1, 2].map((i) => p[i] - b[i] - r[1 + i])));
+    const m = !atPlanet && implied.find((q) => q[0].toFixed(6) === r[0].toFixed(6));
+    if (m) { const k = real.bodyAt(key, t).r; nodeGap = Math.max(nodeGap, Math.hypot(...[0, 1, 2].map((i) => k[i] - b[i] - r[1 + i] - m[1 + i]))); }
   }
-  console.log(`  the kernel's ${key} (its Hermite nodes) within ${(nodeGap * 1000).toFixed(1)} m of the track's, ${planet}'s centre within ${(centreGap * 1000).toFixed(1)} m, over the hour about closest approach`);
-  console.log(`  Horizons: closest approach ${hzCA.toFixed(1)} km from ${key}'s centre (${(hzCA - R).toFixed(0)} km up), ${Math.hypot(hzClose[4], hzClose[5], hzClose[6]).toFixed(2)} km/s; Horizons' ${key} and the track's ${moonGap.toFixed(2)} km apart`);
-  console.log(`  ${fx.craftName} from Horizons, km: run${' '.repeat(Math.max(1, 22 - fx.craftName.length))}3 min after CA ${hours.toFixed(1).padStart(5)} h after CA   closest to ${key}`);
+  console.log(`  ${atPlanet ? '' : `the kernel's ${key} (its Hermite nodes) within ${(nodeGap * 1000).toFixed(1)} m of the track's, `}${planet}'s centre within ${(centreGap * 1000).toFixed(1)} m, over the hour about closest approach`);
+  const ref = fx.source.startsWith('NAIF') ? 'NAIF' : 'Horizons';
+  console.log(`  ${ref}: closest approach ${hzCA.toFixed(1)} km from ${key}'s centre (${(hzCA - R).toFixed(0)} km up), ${Math.hypot(hzClose[4], hzClose[5], hzClose[6]).toFixed(2)} km/s${atPlanet ? '' : `; ${ref}'s ${key} and the track's ${moonGap.toFixed(2)} km apart`}`);
+  console.log(`  ${fx.craftName} from ${ref}, km: run${' '.repeat(Math.max(1, 22 - fx.craftName.length))}3 min after CA ${hours.toFixed(1).padStart(5)} h after CA   closest to ${key}`);
   for (const [name, r] of Object.entries(runs)) {
     console.log(`  ${name.padEnd(46)} ${r.err[after].toFixed(3).padStart(10)} ${r.err.at(-1).toFixed(3).padStart(14)} ${r.closest.toFixed(2).padStart(14)}`);
   }
   // FLYBY_OUT=dir writes each case's errors, for plotting.
   if (process.env.FLYBY_OUT) fs.writeFileSync(`${process.env.FLYBY_OUT}/${key}.json`, JSON.stringify({ jd: flown.slice(1).map((r) => r[0]), ...Object.fromEntries(Object.entries(runs).map(([k, r]) => [k, r.err])) }));
-  return { runs: Object.values(runs), names: Object.keys(runs), hzCA, epochMs, hours, jd: flown.slice(1).map((r) => r[0]), caJd: hzClose[0] };
+  return { runs: Object.values(runs), names: Object.keys(runs), byName: runs, ref, hzCA, epochMs, hours, jd: flown.slice(1).map((r) => r[0]), caJd: hzClose[0] };
 }
 
 // A planet's J4 written out again here, as an outside force, to check the
@@ -215,7 +223,12 @@ function flybyRuns(file, planet, { degree2 = false, variants = {} } = {}) {
 const J4_OF = { jupiter: { j4: -586.6085e-6, R: 71492 } };
 // Jupiter's zonal terms beyond J2 kept only to degree nMax (0: J2 alone),
 // for the runs without them.
-const jupiterTo = (nMax) => (sys) => { const J = sys.bodyAt('jupiter', 0); J.zn = nMax ? J.zn.filter((t) => t.n <= nMax && t.n % 2 === 0) : null; };
+const zonalTo = (planet, nMax) => (sys) => { const J = sys.bodyAt(planet, 0); J.zn = nMax && J.zn ? J.zn.filter((t) => t.n <= nMax && t.n % 2 === 0) : null; };
+const jupiterTo = (nMax) => zonalTo('jupiter', nMax);
+// Jupiter's tide from its moons (zonal.js addTide) switched off.
+const noTide = (sys) => { sys.bodyAt('jupiter', 0).tide = null; };
+// A planet as a point mass, no J2 or higher.
+const pointMass = (planet) => (sys) => { const P = sys.bodyAt(planet, 0); P.j2 = 0; P.zn = null; };
 const j4Accel = (planet) => (sys) => {
   const { j4, R } = J4_OF[planet], P = sys.bodyAt(planet, 0), c = [0, 0, 0];
   return (t, r, out) => {
@@ -259,26 +272,28 @@ header("CASE 3b: Juno's flyby of Io, 30 December 2023 (PJ57), against JPL's reco
   //     that from 0.18 km, so the pass measures them, and Jupiter's J4
   //     from 0.051 km;
   //   - through the perijove Jupiter's field is the test: with its zonal
-  //     terms to J12 (Durante et al. 2020), 0.28 km at the perijove and
+  //     terms to J12 (Durante et al. 2020), 0.27 km at the perijove and
   //     0.55 km two hours on; with J2 and J4 only, 0.79 km and 5.0 km;
-  //     with J2 alone, 22 km and 150 km.
+  //     with J2 alone, 22 km and 150 km. Jupiter's tide from its moons
+  //     (k22 = 0.565) moves that by 5 m.
   // The kernel's J4 matches the same term written out here as an outside
   // force. Neither finer nodes for Io nor tighter tolerances move what is
   // left; nor does Durante's own pole for Jupiter in place of the IAU's
   // (7e-6 rad apart, 12 m at the end). Jupiter's centre on 6-hour nodes
   // was 17 m off the table here and left 0.22 and 0.44 km, a partial
   // cancellation: on hourly nodes it is within 0.1 m. The rest is outside
-  // the kernel's model: Jupiter's tides and tesseral terms, the field the
+  // the kernel's model: Jupiter's tesseral terms, the field the
   // reconstruction was fitted with, and Juno's own small forces.
   const R = flybyRuns('flyby_juno_io.json', 'jupiter', {
     degree2: true,
     variants: { "the same, Jupiter's J2 alone": { tweak: jupiterTo(0) },
       "the same, Jupiter's J2 and J4": { tweak: jupiterTo(4) },
       'the same, J2, and J4 outside the kernel': { tweak: jupiterTo(0), extraOf: j4Accel('jupiter') },
+      "the same, without Jupiter's tide": { tweak: noTide },
       'the same, its nodes every 10 min': fineNodes,
       'the same, tolerances 1e-10 and 1e-9 km': { advance: { tolKm: 1e-10, cowellTolKm: 1e-9 } } },
   });
-  const [none, ours, jpl, track, flat, j2, j24, outside, nodes, tight] = R.runs, hzCA = R.hzCA;
+  const [none, ours, jpl, track, flat, j2, j24, outside, untided, nodes, tight] = R.runs, hzCA = R.hzCA;
   const at = (jd) => R.jd.findIndex((x) => x >= jd - 1e-7);
   const i1 = at(R.caJd + 1 / 24), iP = at(2460309.027777778), iE = R.jd.length - 1;   // PJ57, 12:40 TDB
   console.log('  Juno from Horizons, km: run                  1 h after the Io pass   at the perijove   2 h after it');
@@ -291,11 +306,139 @@ header("CASE 3b: Juno's flyby of Io, 30 December 2023 (PJ57), against JPL's reco
     `Jupiter's J6 to J12 take that from ${j24.err[iE].toFixed(2)} km (J2 and J4), and J4 from ${j2.err[iE].toFixed(1)} km (J2 alone)`);
   check(j2.err[i1] > track.err[i1] + 0.005, `an hour after the Io pass Jupiter's J4 is already a fifth of the error (${j2.err[i1].toFixed(3)} km with J2 alone)`);
   check(Math.abs(outside.err[iP] - j24.err[iP]) < 0.002, `the kernel's J4 against the same term written out as an outside force, at the perijove: ${j24.err[iP].toFixed(4)} and ${outside.err[iP].toFixed(4)} km`);
+  check(Math.abs(untided.err[iE] - track.err[iE]) < 0.02, `Jupiter's tide from its moons moves it by ${((track.err[iE] - untided.err[iE]) * 1000).toFixed(0)} m: below what the check resolves`);
   check(Math.abs(nodes.err[iE] - track.err[iE]) < 0.01 && Math.abs(tight.err[iE] - track.err[iE]) < 0.01,
     `Io's nodes (${nodes.err[iE].toFixed(3)} km) and tighter tolerances (${tight.err[iE].toFixed(3)} km) change nothing`);
   check(jpl.err[i1] < 2 && Math.abs(ours.err[i1] - jpl.err[i1]) < 0.1, `with Horizons' own moons ${jpl.err[i1].toFixed(3)} km off, with moons.js's ${ours.err[i1].toFixed(3)} km`);
   check(Math.abs(track.closest - hzCA) < 0.1, `closest approach ${track.closest.toFixed(2)} km from Io's centre, Horizons ${hzCA.toFixed(2)} km`);
   check(ours.events.some((e) => e.type === 'primary' && e.to === 'io'), `the primary goes to Io (${ours.events.filter((e) => e.type === 'primary').map((e) => `${e.from}->${e.to}`).join(', ')})`);
+}
+
+// Each run's error at row i, for the table of a case.
+const row = (R, cols) => {
+  console.log(`  ${R.craftName} from ${R.ref}, km: run`.padEnd(48) + cols.map(([h]) => h.padStart(16)).join(''));
+  R.names.forEach((n, k) => console.log(`  ${n.padEnd(46)}${cols.map(([, i]) => R.runs[k].err[i].toFixed(3).padStart(16)).join('')}`));
+};
+const atJd = (R, jd) => R.jd.findIndex((x) => x >= jd - 1e-7);
+// A planet's J2 (and J4) moved by its published uncertainty.
+const shiftZonal = (planet, n, dJ) => (sys) => {
+  const P = sys.bodyAt(planet, 0);
+  if (n === 2) P.j2 += dJ; else P.zn = P.zn.map((t) => (t.n === n ? { ...t, J: t.J + dJ } : t));
+};
+
+header("CASE 3d: Juno's flyby of Europa, 29 September 2022 (PJ45), against JPL's reconstruction");
+{
+  // Six hours in to closest approach, 355 km up at 23.6 km/s, then on
+  // through the perijove seven and a half hours later (17:10 TDB, 1.04
+  // Jupiter radii) and two hours out. Horizons' Europa is 1.7 km from the
+  // one Juno's track has. With it:
+  //   - an hour after the pass 5 m is left; Europa's J2 and C22 take that
+  //     from 0.13 km, so the pass measures them (Europa's J2 is the least
+  //     certain of the moons' fields, +-77.5e-6 of 437.6e-6);
+  //   - through the perijove, with Jupiter's field to J12, 0.14 km at the
+  //     perijove and 0.10 km two hours on; with J2 and J4 only, 3.3 km;
+  //     with J2 alone, 110 km.
+  // Jupiter's tide from its moons moves it by under 0.01 km.
+  const R = flybyRuns('flyby_juno_europa.json', 'jupiter', {
+    degree2: true,
+    variants: { "the same, Jupiter's J2 alone": { tweak: jupiterTo(0) }, "the same, Jupiter's J2 and J4": { tweak: jupiterTo(4) },
+      "the same, without Jupiter's tide": { tweak: noTide } },
+  });
+  const [none, ours, jpl, track, flat, j2, j24, untided] = R.runs;
+  const i1 = atJd(R, R.caJd + 1 / 24), iP = atJd(R, 2459852.215277778), iE = R.jd.length - 1;   // PJ45, 17:10 TDB
+  R.craftName = 'Juno';
+  row(R, [['1 h after', i1], ['at the perijove', iP], ['2 h after it', iE]]);
+  check(none.err[i1] > 300, `without the moons Juno is ${none.err[i1].toFixed(0)} km off an hour after the pass`);
+  check(track.err[i1] < 0.02 && flat.err[i1] > 10 * track.err[i1],
+    `an hour after the pass ${(track.err[i1] * 1000).toFixed(0)} m off with Europa where Juno's track has it; ${flat.err[i1].toFixed(3)} km without Europa's J2 and C22: the pass measures them`);
+  check(track.err[iP] < 0.2 && track.err[iE] < 0.15, `through the perijove: ${track.err[iP].toFixed(3)} km off there, ${track.err[iE].toFixed(3)} km two hours on`);
+  check(j24.err[iE] > 10 * track.err[iE] && j2.err[iE] > 50, `Jupiter's J6 to J12 take that from ${j24.err[iE].toFixed(2)} km (J2 and J4), and J4 from ${j2.err[iE].toFixed(0)} km (J2 alone)`);
+  check(Math.abs(untided.err[iE] - track.err[iE]) < 0.02, `Jupiter's tide moves it by ${((untided.err[iE] - track.err[iE]) * 1000).toFixed(0)} m: below what the check resolves`);
+  check(jpl.err[i1] < 1 && ours.err[i1] < 1, `with Horizons' own moons ${jpl.err[i1].toFixed(3)} km off, with moons.js's ${ours.err[i1].toFixed(3)} km`);
+  check(Math.abs(track.closest - R.hzCA) < 0.1, `closest approach ${track.closest.toFixed(2)} km from Europa's centre, Horizons ${R.hzCA.toFixed(2)} km`);
+}
+
+header("CASE 3e: Cassini's flyby of Enceladus, 30 November 2010 (E12), against JPL's reconstruction");
+{
+  // One of the three passes Iess et al. 2014 measured Enceladus's field
+  // on: 43 km above its mean radius over the north pole, away from the
+  // plumes, at 6.3 km/s, nine hours either side. Horizons' Enceladus is
+  // 0.64 km from the one Cassini's track has. With it, 0.16 km is left
+  // nine hours on; Enceladus's J2 and C22 take that from 0.88 km. (A
+  // higher pass, E8 at 1,594 km, showed a 0.25 m/s change at closest
+  // approach that no force here accounts for, nor Enceladus's GM a quarter
+  // larger: an event in the reconstruction, so it is not used.)
+  const R = flybyRuns('flyby_cassini_enceladus.json', 'saturn', {
+    degree2: true, variants: { 'the same, tolerances 1e-10 and 1e-9 km': { advance: { tolKm: 1e-10, cowellTolKm: 1e-9 } } },
+  });
+  const [none, ours, jpl, track, flat, tight] = R.runs;
+  check(none.err.at(-1) > 100, `without the moons Cassini is ${none.err.at(-1).toFixed(0)} km off nine hours on`);
+  check(track.err.at(-1) < 0.25, `with Enceladus where Cassini's track has it, ${track.err.at(-1).toFixed(3)} km off nine hours on`);
+  check(flat.err.at(-1) > 4 * track.err.at(-1), `without Enceladus's J2 and C22, ${flat.err.at(-1).toFixed(3)} km: the pass measures them`);
+  check(Math.abs(tight.err.at(-1) - track.err.at(-1)) < 0.005, `tighter tolerances change nothing (${tight.err.at(-1).toFixed(3)} km)`);
+  check(jpl.err.at(-1) < 1 && ours.err.at(-1) < 2, `with Horizons' own moons ${jpl.err.at(-1).toFixed(3)} km off, with moons.js's ${ours.err.at(-1).toFixed(3)} km`);
+  // Sampled every 10 s at 6.3 km/s, the closest sample can be 1.6 km off the true minimum.
+  check(Math.abs(track.closest - R.hzCA) < 2, `closest sampled approach ${track.closest.toFixed(1)} km from Enceladus's centre, Horizons ${R.hzCA.toFixed(1)} km (10 s samples)`);
+  check(ours.events.some((e) => e.type === 'primary' && e.to === 'enceladus'), `the primary goes to Enceladus (${ours.events.filter((e) => e.type === 'primary').map((e) => `${e.from}->${e.to}`).join(', ')})`);
+}
+
+header("CASE 3f: Cassini's Grand Finale periapsis on Rev 278, 10 June 2017, against JPL's reconstruction");
+{
+  // One of the five gravity passes Iess et al. 2019 measured Saturn's
+  // field on: between the rings and the planet, 63,623 km from its centre
+  // at 33.8 km/s, six hours either side. With JPL's moons, 0.05 km off at
+  // periapsis and 0.32 km six hours on; with Saturn's J2 and J4 only,
+  // 2.6 km; with J2 alone, 114 km. J10 and J12 move it by 10 m. Not in the
+  // kernel: the rings' own pull (0.41 Mimas masses, Iess et al. 2019),
+  // Saturn's tides and its deep winds' time-varying field.
+  const R = flybyRuns('flyby_cassini_saturn.json', 'saturn', {
+    variants: { "the same, Saturn's J2 alone": { tweak: zonalTo('saturn', 0) }, "the same, Saturn's J2 and J4": { tweak: zonalTo('saturn', 4) },
+      "the same, Saturn's J2 to J8": { tweak: zonalTo('saturn', 8) } },
+  });
+  const [none, ours, jpl, j2, j24, j28] = R.runs, iC = atJd(R, R.caJd), iE = R.jd.length - 1;
+  R.craftName = 'Cassini';
+  row(R, [['at periapsis', iC], ['6 h after', iE]]);
+  check(none.err[iE] > 500, `without the moons Cassini is ${none.err[iE].toFixed(0)} km off six hours on`);
+  check(jpl.err[iC] < 0.1 && jpl.err[iE] < 0.4, `with JPL's moons ${jpl.err[iC].toFixed(3)} km off at periapsis, ${jpl.err[iE].toFixed(3)} km six hours on`);
+  check(j2.err[iE] > 100 && j24.err[iE] > 5 * jpl.err[iE], `Saturn's J6 to J12 take that from ${j24.err[iE].toFixed(2)} km (J2 and J4), and J4 from ${j2.err[iE].toFixed(0)} km (J2 alone)`);
+  check(Math.abs(j28.err[iE] - jpl.err[iE]) < 0.03, `J10 and J12 move it by ${((jpl.err[iE] - j28.err[iE]) * 1000).toFixed(0)} m`);
+  check(ours.err[iE] < 0.5, `with moons.js's moons, ${ours.err[iE].toFixed(3)} km`);
+  check(Math.abs(jpl.closest - R.hzCA) < 0.1, `periapsis ${jpl.closest.toFixed(2)} km from Saturn's centre, Horizons ${R.hzCA.toFixed(2)} km`);
+}
+
+header("CASE 3g: Voyager 2 at Neptune and Triton, 25 August 1989, against NAIF's reconstruction");
+{
+  // Seven hours in to Neptune (03:55 TDB, 29,240 km from its centre, at
+  // 27 km/s), then Triton five hours later (39,783 km) and six hours out.
+  // Horizons' Voyager 2 is a patched-conic design trajectory until 29
+  // August 1989, so the reference is NAIF's reconstruction of the
+  // encounter, vgr2_nep097.bsp (R. Jacobson, 2022), sampled by
+  // c/flyby_ref; it sits 35 km from the design one at Triton.
+  // Neptune's field is the test: as a point mass Voyager is 1,100 km off
+  // at the end, with J2 alone 7 km, with J2 and J4 3.2 km. The error grows
+  // from Neptune's closest approach, and Neptune's J2 is the lever: one
+  // sigma of Jacobson 2009's fit larger (4.5e-6) leaves 2.0 km, two sigma
+  // 1.6 km, while Neptune's or Triton's GM nudged only makes it worse. The
+  // rest includes Voyager's own small accelerations (attitude thrusters,
+  // the RTGs' heat), which the reconstruction estimates and the kernel
+  // leaves out. Before 2000 the planets' places are astronomy-engine's;
+  // flown about Neptune's barycentre, their error only enters through the
+  // Sun's tide.
+  const R = flybyRuns('flyby_voyager2_triton.json', 'neptune', {
+    variants: { "the same, Neptune's J2 alone": { tweak: zonalTo('neptune', 0) }, 'the same, Neptune a point mass': { tweak: pointMass('neptune') },
+      "the same, Neptune's J2 one sigma larger": { tweak: shiftZonal('neptune', 2, 4.5e-6) },
+      "the same, Neptune's J2 two sigma larger": { tweak: shiftZonal('neptune', 2, 9e-6) } },
+  });
+  const [none, ours, jpl, track, j2, pm, dj1, dj2] = R.runs, iN = atJd(R, 2447763.663194444), iE = R.jd.length - 1;
+  R.craftName = 'Voyager 2';
+  row(R, [['at Neptune', iN], ['6 h after Triton', iE]]);
+  check(none.err[iE] > 500, `without Triton (the system at its barycentre) Voyager 2 is ${none.err[iE].toFixed(0)} km off at the end`);
+  check(track.err[iN] < 0.3 && track.err[iE] < 4, `with Triton, ${track.err[iN].toFixed(3)} km off at Neptune, ${track.err[iE].toFixed(2)} km six hours after Triton`);
+  check(pm.err[iE] > 100 * track.err[iE] && j2.err[iE] > 1.5 * track.err[iE], `Neptune as a point mass ${pm.err[iE].toFixed(0)} km, with J2 alone ${j2.err[iE].toFixed(1)} km: the pass measures its J2 and J4`);
+  check(dj1.err[iE] < track.err[iE] && dj2.err[iE] < dj1.err[iE],
+    `Neptune's J2 is the lever: one sigma larger ${dj1.err[iE].toFixed(2)} km, two sigma ${dj2.err[iE].toFixed(2)} km`);
+  // Sampled every 10 s at 18 km/s; the error has grown to 1.7 km by Triton.
+  check(Math.abs(track.closest - R.hzCA) < 2.5, `closest approach ${track.closest.toFixed(2)} km from Triton's centre, the reconstruction ${R.hzCA.toFixed(2)} km`);
 }
 
 header("CASE 3c: Cassini's flyby of Titan, 31 July 2008 (T45), against JPL's reconstruction");
@@ -390,6 +533,25 @@ header("CASE 5: a moon's degree-2 field (J2 and C22), and Jupiter's zonals to J1
       worst6 = Math.max(worst6, Math.hypot(a[0] - a4[0], a[1] - a4[1], a[2] - a4[2]) / Math.hypot(...g));
     }
     check(worstJ < 1e-6 && worst6 > 1e-3, `Jupiter's zonal field to J12 against the potential's gradient: worst relative difference ${worstJ.toExponential(1)} (J5 to J12 are up to ${(worst6 * 100).toFixed(1)} % of the field's pull here)`);
+  }
+  // Jupiter's tide raised by a moon (zonal.js addTide), against
+  // V = k2 GM_m R^5 / rm^3 [ P2(d . u / d) + P2(d . n / d) / 2 ] / d^3.
+  {
+    const { addTide } = await import('./zonal.js');
+    const P2 = (x) => 1.5 * x * x - 0.5;
+    const moon = { key: 'm', mu: 5959.9, r: [300000, 250000, 40000], pole: unit([0.05, -0.1, 1]) };
+    const J = { key: 'j', r: [0, 0, 0], rJ2: 71492, tide: { k2: 0.565, raisers: ['m'] } };
+    const list = [J, moon], rm = Math.hypot(...moon.r), u = moon.r.map((x) => x / rm);
+    const K = J.tide.k2 * moon.mu * J.rJ2 ** 5 / rm ** 3;
+    const V = (d) => { const r = Math.hypot(...d); return K * (P2(dotp(d, u) / r) + 0.5 * P2(dotp(d, moon.pole) / r)) / r ** 3; };
+    let worstT = 0;
+    for (const d of [[80000, 20000, 10000], [-60000, 90000, -30000], [10000, -20000, 120000]]) {
+      const a = [0, 0, 0];
+      addTide(d[0], d[1], d[2], dotp(d, d), J, list, a);
+      const g = [0, 1, 2].map((i) => { const h = 1, p = [...d], m = [...d]; p[i] += h; m[i] -= h; return (V(p) - V(m)) / (2 * h); });
+      worstT = Math.max(worstT, Math.hypot(a[0] - g[0], a[1] - g[1], a[2] - g[2]) / Math.hypot(...g));
+    }
+    check(worstT < 1e-6, `Jupiter's tide from a moon against its potential's gradient: worst relative difference ${worstT.toExponential(1)}`);
   }
   // In the kernel the moons carry it, turning with their orbits.
   const sys = solarSystemBodies({ epochMs: Date.UTC(2026, 10, 12) });

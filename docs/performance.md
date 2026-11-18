@@ -18,6 +18,7 @@ parts fast.
 | Kernel, cruise | about 36,000 sim days per second (was 15,000) | about one step a day; 5 m in 300 days (was 8.4 km) |
 | Kernel, among Jupiter's moons (1.5 million km orbit) | about 970 sim days per second (unchanged) | Cowell, 25 steps per sim day (was 61); 1.2 m in 30 days (was 207 m). Each step costs about 3 times a step near the Earth (13 bodies, each moon a sum of two cubics) |
 | Kernel, Jupiter with its moons folded up | about 4,000 sim days per second (was 5,000) | the one case the error-controlled steps are slower than Yoshida's: a smooth field where the old fixed fraction was already accurate |
+| Kernel, Artemis II's injection burn (23 min, one request) | 35–80 ms wall (was 1.5–2.6 s) | 276 steps (was 5,480) with Orion's whole environment ([a steered burn](#a-steered-burn-at-a-day-a-second)) |
 | Splitting systems near the craft (`focus`) | within the ±5 % noise away from them | the same steps as before; the check is skipped until the craft could reach a threshold |
 | Ephemeris for the kernel | under 1.6 ms per sim day | the Moon at hourly nodes, now from the DE442 table |
 
@@ -67,8 +68,11 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   km), `belt` (the Sun at 9 × 10⁸ km), and a craft launched with
   `?craft=orbit,400,51.6` and followed at 0.4 km and 3,000 km, with an
   attitude (`craft-near`, `craft-far`) and as a point mass (`,point`:
-  `point-near`, `point-far`). Those six run by default; `overview` and
-  `all` by name, `--list` lists them.
+  `point-near`, `point-far`). Those six run by default. `overview`,
+  `earth-fill` (the Earth at 9,000 km, filling the view), `craft-warp`
+  (`craft-far` with the clock at a day a second) and the ringed planets
+  (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`) run by name,
+  and `all` runs every one; `--list` lists them.
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
@@ -255,8 +259,94 @@ the overview of a low orbit:
 | Before | 25.6–26.0 ms | 113–174 ms | 1–3 |
 | After | 20.9–22.7 ms | 72–87 ms | 0 |
 
-What remains is mostly the GPU, which half the frame waits on near the
-Earth (the atmosphere fills the view).
+What remained was mostly the GPU, which half the frame waited on near
+the Earth: the atmosphere filled the view
+([the atmosphere near the Earth](#the-atmosphere-near-the-earth)).
+
+### A steered burn at a day a second
+
+`?mission=artemis2` starts ten minutes before the translunar injection.
+Switched straight from real time to a day a second, the clock passes the
+whole 23-minute burn (its settling pulses included) in a frame. The kernel
+worker then took 4–5 s of wall time to fly it, against its 200 ms budget
+a request. For those seconds the LAG lamp was lit and the kernel fell 2–5
+days behind the clock. The burn was the cost, not the coast after it:
+- **The steps.** A burn steered in the orbital frame had its steps capped
+  at 0.25 s, a rule from the symplectic integrator before the
+  error-controlled one. That made 5,480 steps where the burn's 273
+  five-second intervals need 276. The cap is gone, and the burn ends 2 mm
+  from the same burn at 0.01 s steps
+  ([Artemis II check](validation/artemis2.md#3-the-whole-mission-with-orions-burns)).
+- **The environment at each stage.** It was 88 % of a step: the MET
+  density through the eight altitude bands between 186 and 2,100 km, the
+  degree-20 field, the solid tide, and a scan of all 273 intervals for the
+  thrust and the mass. Each is now cheaper and gives the same numbers to
+  the bit (checked over seven days of Artemis II and 9,906 MET points):
+  - MET's quadrature nodes are worked out once a band, and a band two
+    integrals cover is summed once (2.2 times faster).
+  - The field runs on flat arrays.
+  - The tide works out each body's place once rather than for each of its
+    seven terms.
+  - The space weather's dates are parsed once.
+  - The burn on, and the mass, are kept per interval between burn edges.
+  - The Earth's rotation and the time scale are kept for a stage's repeated
+    asks.
+
+Node, warm, the burn in one request with Orion's whole environment
+(interleaved runs, the machine heavily loaded by other work):
+
+| | Steps | Wall time |
+| --- | ---: | ---: |
+| Before | 5,480 | 1.5–2.6 s |
+| Without the cap | 276 | 70–120 ms |
+| And the cheaper environment | 276 | 35–70 ms |
+
+In the app (production build, headless Chromium on the Intel GPU, five
+runs each, interleaved, the machine at a load of 25–31 on 32
+threads):
+
+| | LAG lamp lit | Kernel behind the clock, worst | First burn request in the worker |
+| --- | ---: | ---: | ---: |
+| Before | 72–110 frames | 55–115 h | cut by the budget |
+| After | none in four runs, 2 frames in one | 3.6–9.3 h | 109–127 ms |
+
+The kernel is now a frame or two (24–48 min) behind on the coast. Through
+the burn it falls about 4 h behind for 0.2 s, the time the worker takes to
+fly it, and is back within two frames 0.25 s after the switch. Later
+jumps of 3–6 frames are the holds at the aimed corrections, while the
+worker aims each one (`RealMission.aimStep`).
+
+### The atmosphere near the Earth
+
+Each pixel of the Earth's atmosphere shell used to march its own view ray:
+32 steps, each a sunlight transmittance lookup and five exponentials. With
+the Earth filling the view on the Intel GPU, that was about 17 ms of a
+52 ms frame. Hiding the shell in the page, between timed spells, gave
+35 ms. Leaving out the surface's sunlight through the air as well changed
+nothing beyond the noise. So the cost was the shell's march, over every
+pixel the shell covers.
+
+Now each frame marches a table of 128 × 256 rays from the camera, and the
+shell's pixels look theirs up
+([atmospheres](frontend/atmospheres.md#the-view-table)). The shell then
+costs about 3 ms of the same frame. Screenshots at the same time and view
+differ by at most 1 of 255 at the 99.9th percentile of pixels.
+
+`npm run bench:frames`, 18 November 2026, 1920 × 1080 at DPR 1, main
+before and this change after, interleaved, the median of three rounds.
+The Intel GPU's samples each ran in a fresh browser, since one browser
+grew past 8 GB over a run's page loads. Load average 8–18.
+
+| Scenario | Intel, before → after | NVIDIA, before → after |
+| --- | ---: | ---: |
+| Earth close-up, 20,000 km | 35.6 → 21.2 ms (−40 %) | 5.6 → 5.4 ms (−4 %) |
+| Earth filling the view, 9,000 km | 43.0 → 25.3 ms (−41 %) | 6.2 → 5.5 ms (−11 %) |
+| Craft in LEO, 0.4 km | 24.8 → 23.0 ms (−7 %) | 8.0 → 6.7 ms (−16 %) |
+| Craft in LEO at 1 d/s, 3,000 km | 53.3 → 40.8 ms (−23 %) | 17.3 → 18.2 ms (noise) |
+
+At 0.4 km the camera looks along the orbit, past the craft, with little
+of the Earth in view. At 1 d/s the NVIDIA's frame is the kernel's carry
+on the CPU, and its rounds ran 11.6–28.8 ms before and 16.4–22.1 ms after.
 
 ### Earth satellites
 

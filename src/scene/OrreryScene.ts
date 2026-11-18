@@ -52,7 +52,7 @@ import { SpacecraftLayer } from './spacecraftLayer';
 import { GuideLayer } from './guides';
 import { MagneticLayer } from './magnetic';
 import { orbitTrailMaterial, reachOf } from './orbitTrail';
-import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
+import { EARTH_ATMOSPHERE, makeAtmosphere, renderViewTable, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
 import { HdrPipeline } from './post';
@@ -529,7 +529,11 @@ export class OrreryScene {
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.guides = new GuideLayer(this.scene, this.overlay, toRender,
       (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
-    this.magnetic = new MagneticLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    // The Sun's body-fixed (Carrington) axes as a render -> body rotation, for its field lines.
+    this.magnetic = new MagneticLayer(this.scene, this.overlay, import.meta.env.BASE_URL, (date) => {
+      const [X, Y, Z] = (bodyAxesEqj('sun', date) as Vec3[]).map((a) => toRender(eqjToEcl(a) as Vec3, new THREE.Vector3()).normalize());
+      return new THREE.Matrix3().set(X.x, X.y, X.z, Y.x, Y.y, Y.z, Z.x, Z.y, Z.z);
+    });
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     this.irregulars = new IrregularMoonLayer(this.scene, this.overlay);
@@ -987,6 +991,8 @@ export class OrreryScene {
       level: 1 / this.renderer.toneMappingExposure, date });
 
     this.smallBodies.renderHaze(this.renderer, this.camera);
+    // Each atmosphere's view table, from where the camera is now.
+    for (const shell of this.atmospheres.values()) renderViewTable(this.renderer, shell, this.camera, shell.position, shell.userData.sunDir, UNIT_KM);
     this.surfacePatch.update(SurfacePatch.nearest(this.meshes, (k) => k === 'sun'));
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
@@ -1131,13 +1137,8 @@ export class OrreryScene {
       const shape = u.atmoShape.value as THREE.Matrix3;
       shadowAxes(body.uniforms.toBody.value as THREE.Matrix3, [ra / Rg, rb / Rg, rc / Rg], shape);
       (body.uniforms.atmoShape.value as THREE.Matrix3).copy(shape);
-      (u.centre.value as THREE.Vector3).copy(p);
-      (u.sunDir.value as THREE.Vector3).copy(sunPos).sub(p).normalize();
+      (shell.userData.sunDir as THREE.Vector3).copy(sunPos).sub(p).normalize();
       u.irradiance.value = body.uniforms.irradiance.value;
-      u.inside.value = this.tmp.copy(p).applyMatrix3(shape).length() * UNIT_KM < (u.atmoRt.value as number) ? 1 : 0;
-      // From inside, the shell's far side lies behind the planet: draw it
-      // regardless of depth (the shader stops each ray at the ground).
-      (shell.material as THREE.ShaderMaterial).depthTest = u.inside.value < 0.5;
     }
 
     if (this.rings) {

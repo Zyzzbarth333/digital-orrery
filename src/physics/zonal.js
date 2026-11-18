@@ -105,6 +105,48 @@ function addZonals(dx, dy, dz, d2, z, b, out) {
   out[2] += kp * p[2] + kd * dz;
 }
 
+// The tide its moons raise on a planet (b.tide = { k2, raisers }: the
+// raisers' keys). Moon m at r_m from the planet's centre (unit u, distance
+// rm, orbit pole n) deforms it, and the deformation pulls a craft at d with
+// the potential
+//
+//   V = k2 GM_m R^5 / rm^3 * [ P2(d . u / |d|) + P2(d . n / |d|) / 2 ] / |d|^3,
+//
+// R the reference radius the Love number is referred to. The second term
+// takes out the tide's average round the moon's orbit (P2 averages to
+// -P2(n . d / |d|) / 2 over a circle about n), which is already in the
+// measured J2. Its gradient, with g(w) the gradient of P2(d . w / |d|) / |d|^3,
+//
+//   g(w) = 3 (d . w) w / |d|^5 - 15 (d . w)^2 d / (2 |d|^7) + 3 d / (2 |d|^5),
+//
+// gives a = sum_m k2 GM_m R^5 / rm^3 [ g(u) + g(n) / 2 ]. bodies is the list
+// the planet is in, which holds its moons when its system is split.
+const TIDE_INDEX = new WeakMap();
+export function addTide(dx, dy, dz, d2, b, bodies, out) {
+  let idx = TIDE_INDEX.get(bodies);
+  if (!idx || idx.b !== b) {
+    idx = { b, at: bodies.map((x, i) => (b.tide.raisers.includes(x.key) ? i : -1)).filter((i) => i >= 0) };
+    TIDE_INDEX.set(bodies, idx);
+  }
+  if (!idx.at.length) return;
+  const d = Math.sqrt(d2), d5 = d2 * d2 * d, d7 = d5 * d2, R = b.rJ2, R5 = R * R * R * R * R;
+  const g = (w, k) => {
+    const dw = dx * w[0] + dy * w[1] + dz * w[2];
+    const a = 3 * dw / d5, c = -7.5 * dw * dw / d7 + 1.5 / d5;
+    out[0] += k * (a * w[0] + c * dx); out[1] += k * (a * w[1] + c * dy); out[2] += k * (a * w[2] + c * dz);
+  };
+  const u = [0, 0, 0];
+  for (const i of idx.at) {
+    const m = bodies[i];
+    const mx = m.r[0] - b.r[0], my = m.r[1] - b.r[1], mz = m.r[2] - b.r[2];
+    const rm2 = mx * mx + my * my + mz * mz, rm = Math.sqrt(rm2);
+    const K = b.tide.k2 * m.mu * R5 / (rm2 * rm);
+    u[0] = mx / rm; u[1] = my / rm; u[2] = mz / rm;
+    g(u, K);
+    if (m.pole) g(m.pole, 0.5 * K);
+  }
+}
+
 // Below a body's surface: its ellipsoid (b.surface = { a, c }, equatorial and
 // polar radii, about b.pole) where it has one, else the sphere of b.radius.
 // The Earth's is WGS-84, so a craft comes down at sea level, at 6,378 km on

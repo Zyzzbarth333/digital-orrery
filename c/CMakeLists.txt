@@ -27,6 +27,14 @@ target_compile_options(artemis2_ref PRIVATE -O2 -Wall -Wextra)
 target_compile_definitions(artemis2_ref PRIVATE
   ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")
 
+# A body's state about another from SPK kernels, as a Horizons-style
+# table, for flyby checks with no Horizons reconstruction
+# (src/physics/flyby.fetch.mjs).
+add_executable(flyby_ref flyby_ref.c)
+target_include_directories(flyby_ref PRIVATE "${CSPICE_ROOT}/include")
+target_link_libraries(flyby_ref PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
+target_compile_options(flyby_ref PRIVATE -O2 -Wall -Wextra)
+
 # DE442's Earth and Moon as Chebyshev series for the app
 # (docs/physics/ephemerides-and-gm.md).
 add_executable(de_cheb de_cheb.c)
