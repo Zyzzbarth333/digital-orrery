@@ -61,9 +61,11 @@ real pad ([rocket](../physics/rocket.md#in-the-app)).
 
 The MISSION tab's launch is armed first, as real panels guard a command
 that can't be taken back ([DESIGN.md](../../DESIGN.md#what-real-panels-do)):
-ARM lights in caution yellow and says what will fly (the orbit or departure,
+ARM turns into a caution-yellow ARMED key (an ink legend, unlike the dark
+key of a chosen option) and says what will fly (the orbit or departure,
 6-DOF or a point mass, and the time), LAUNCH fires it, and DISARM, Esc or
-any change to the form stands it down. It adds one press and no waiting.
+any change to the form stands it down. It adds one press and no waiting. Removing a craft is guarded the same way:
+REMOVE CRAFT asks to confirm (Remove Orbiter 1, or Keep, or Esc).
 
 - **Orbit.** A circular orbit at a chosen altitude, inclined to Earth's
   J2000 equator, starting at the ascending node.

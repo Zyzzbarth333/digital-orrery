@@ -204,7 +204,8 @@ export function FindField({ api, inputId = 'find' }: { api: FindApi; inputId?: s
 
   const status = note || (state === 'loading' ? 'Loading the asteroid index…'
     : query.trim() && open && !hits.length ? 'No match'
-      : state === 'failed' && query.trim() ? 'The asteroid index did not load' : '');
+      // Not after a pick (the body was found without the index); focus retries.
+      : state === 'failed' && query.trim() && query.trim() !== picked.current ? 'The asteroid index did not load: leave the field and come back to retry' : '');
 
   return (
     <div className="sb-search find" role="search">

@@ -58,7 +58,12 @@
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: var(--ink); font: 13px/1.45 var(--sans); font-synthesis: none; }
 ::selection { background: var(--phosphor); color: var(--window); }
-:focus-visible { outline: 2px solid var(--key); outline-offset: 1px; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* Over the dark fields (the plotting table, tag details, the key sheet,
+   FIND's list) the ring is phosphor; ink on the panels (11.9:1), not RUN's
+   orange, which read 2.8:1 there and is the one orange key's colour. */
+.plot-table :focus-visible, .tag-pop :focus-visible, .key-sheet :focus-visible, .sb-hits :focus-visible, .scene-host :focus-visible { outline-color: var(--phosphor); }
+.input::placeholder { color: var(--label-dim); opacity: 1; }
 * { scrollbar-width: thin; scrollbar-color: var(--seam-strong) transparent; }
 
 .app {
@@ -378,7 +383,10 @@ kbd {
 .key.primary { white-space: nowrap; height: 38px; padding: 0 18px; background: linear-gradient(var(--sheen), var(--panel-raised)); color: var(--ink); border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink), inset 0 1px 0 var(--white); }
 .key.primary:disabled { background: linear-gradient(var(--panel-raised), var(--key-low)); color: var(--ink-muted); border-color: var(--seam-strong); box-shadow: none; }
 /* ARM: lit caution while a launch is armed (yellow: recheck before acting). */
-.key.arm[aria-pressed='true'], .key.arm[aria-pressed='true']:disabled { background: var(--window); color: var(--caution); border-color: var(--window); box-shadow: inset 0 2px 4px #000; opacity: 1; }
+/* Armed is a caution state, not a selection: a yellow field with an ink
+   legend (about 11:1), unlike the dark pressed-in look of a chosen key. */
+.key.arm[aria-pressed='true'], .key.arm[aria-pressed='true']:disabled { background: var(--caution); color: var(--ink); border-color: var(--ink); box-shadow: 0 2px 0 var(--ink); opacity: 1; }
+.guarded { display: inline-flex; gap: 6px; }
 .launch-row .hint { flex: 1 1 14em; }
 .key.primary:hover { filter: brightness(1.06); }
 
@@ -422,7 +430,7 @@ button.src-tag:hover { background: var(--panel-sunk); }
 .tag-pop-where { color: var(--label-dim); }
 .tag-pop-source { color: var(--label-dim); }
 .tag-pop-label { display: block; margin-bottom: 1px; }
-.strip.split { display: flex; justify-content: space-between; }
+.strip.split { display: flex; justify-content: space-between; gap: var(--u); }
 .plate, .console { scrollbar-gutter: stable; }
 details.section > summary { list-style: none; cursor: pointer; margin: calc(2 * var(--u)) calc(-2.5 * var(--u)) var(--u); display: flex; justify-content: space-between; }
 details.section > summary::-webkit-details-marker { display: none; }

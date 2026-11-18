@@ -1426,15 +1426,18 @@ The table's other two stations:
     tenth of the plan;
   - **windows** and **delta-v:** from the lamps;
   - **flybys:** none underground, with what each one gives (its
-    heliocentric change, and for a powered one, its burn and credit);
-  - **landings:** how each is paid for: the powered descent's delta-v, or
-    entry and parachutes;
+    heliocentric change, and for a powered one, its burn and credit); or
+    N/A, unlit, when the journey has none (a lamp with nothing to report
+    stays dark);
+  - **landings** (only when there is one): how each is paid for: the
+    powered descent's delta-v, or entry and parachutes;
   - **orbits** (only when the low orbit lamp is lit): no-go where a stay
     in lunar orbit falls;
   - **vehicle:** a stack exists, and which real launchers could fly it;
-  - **launch.**
+  - **launch:** no-go when the parking orbit is below 120 km, inside the
+    air's dense part, as the MISSION tab's launch floor.
 
-  When every row reads GO, "Commit to the orrery" jumps the clock to the
+  When every row reads GO (or N/A), "Commit to the orrery" jumps the clock to the
   departure (BACK undoes it), gives a new craft the kernel's burns, and
   follows it.
 
