@@ -25,6 +25,9 @@
 //              long (MESSENGER's solar sailing)
 //   fixHours   the app flies the file with a tracking fix this often;
 //              fixesOnly: the validation doesn't fly it aimed as well
+//   blindFlybys  the blind replay (every burn as flown, no fixes) is flown
+//              through this many flybys and a day past the last, not to the
+//              end: MESSENGER's is lost after its first (missions.validate.mjs)
 //   dense      windows fetched more finely: [{ from, to, step, about (the
 //              body they are fetched about: the flyby's) }]
 //   keep       the mission file's flown samples: { cruise (ms), near:
@@ -305,7 +308,7 @@ export const MISSIONS = {
     craft: { dryMass: 507.6, fuel: 599.4, area: 2.5 * 2 + 2 * 1.5 * 1.65, cr: 1.3, isp: 314, thrust: 646 },
     craftSrc: 'https://www.nasa.gov/pdf/525164main_MercuryMOI_PK.pdf',
     sunlightPieceDays: 10,
-    fixHours: 24, fixesOnly: true,
+    fixHours: 24, fixesOnly: true, blindFlybys: 1,
     checks: { burnPct: 1, burnMms: 10, burnDeg: 2, startS: 60, arcGain: 10, crFitPct: 30, piecesKm: 10, crAPct: 75, tiltDeg: 30, orbitPct: 5, flybyKm: 3, flybyKernelM: 20, flybyEndKm: 1, appEndKm: 15, appWorstKm: 500, appFlybyKm: 5, appAimedMps: 5 },
   },
 };

@@ -10,7 +10,7 @@ Follow the [quick start](README.md#quick-start): Node.js 20.19+ or 22.12+,
 then `npm install` and `npm run dev`. The checks:
 
 ```bash
-npm test            # every physics and app check (about two minutes)
+npm test            # every physics and app check, four files at a time (about two minutes)
 npm run typecheck   # the TypeScript
 npm run build       # the production build
 ```
@@ -27,7 +27,9 @@ A change can't break any of these.
   - NASA, JPL or NAIF data, held as a fixture in `src/physics/fixtures/`;
   - or an independent oracle.
   
-  Each check prints its tolerance and the value it got.
+  Each check prints its tolerance and the value it got. A new check file
+  goes in the list in [scripts/test.mjs](scripts/test.mjs), which runs
+  them side by side ([the test suite](docs/performance.md#the-test-suite)).
 - **Every model has its page.** The equations, sources, constants and
   validation go in `docs/`, in the same pull request, and its checks go in
   [docs/validation.md](docs/validation.md) (see the

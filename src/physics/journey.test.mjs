@@ -33,15 +33,25 @@ import { Craft } from './craft.js';
 
 let failures = 0;
 function check(name, ok) { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; }
-const header = (s) => { console.log('='.repeat(60)); console.log(s); console.log('='.repeat(60)); };
+// node src/physics/journey.test.mjs [case ...]: just those cases (5, 3b),
+// or with --except all but those; every case by default. npm test runs it
+// in parts side by side (scripts/test.mjs). header() says whether to run
+// its case.
+const args = process.argv.slice(2), except = args[0] === '--except', named = except ? args.slice(1) : args, seen = new Set();
+const header = (s) => {
+  const n = /^CASE (\w+):/.exec(s)[1];
+  seen.add(n);
+  if (named.length && named.includes(n) === except) return false;
+  console.log('='.repeat(60)); console.log(s); console.log('='.repeat(60));
+  return true;
+};
 const near = (x, ref, tol) => Math.abs(x - ref) <= tol;
 const rel = (x, ref) => Math.abs(x / ref - 1);
 const deg = Math.PI / 180, DAY = 86400, DAY_MS = 86400e3;
 const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const MU_E = 398600;                                   // Curtis Table A.2
 
-header('CASE 1: orbit changes about one body (Curtis chapter 6)');
-{
+if (header('CASE 1: orbit changes about one body (Curtis chapter 6)')) {
   // Example 6.1: 480 by 800 km orbit, from perigee to a 16,000 km circle.
   const h = X.hohmannApse({ mu: MU_E, from: { rp: 6858, ra: 7178 }, rA: 6858, to: { rp: 22378, ra: 22378 }, rB: 22378 });
   const prop = 2000 * (1 - Math.exp(-h.total / (300 * 9.807e-3)));
@@ -75,8 +85,7 @@ header('CASE 1: orbit changes about one body (Curtis chapter 6)');
   check('a pure plane change is 2 v sin(di/2), and combined with no turn it is the speed change', near(X.planeChangeDv(7.5, 60 * deg), 7.5, 1e-12) && near(X.combinedDv(3, 4, 0), 1, 1e-12));
 }
 
-header('CASE 2: between planets (Curtis chapter 8)');
-{
+if (header('CASE 2: between planets (Curtis chapter 8)')) {
   const muS = 132.71e9, RE = 149.6e6, RM = 227.9e6, nE = 2 * Math.PI / 365.26, nM = 2 * Math.PI / 687.99;
   // Ex 8.1 prints 777.9 d, but its own periods give 778.65 d, the figure
   // Ex 8.2 then uses (its wait time is 778.65 N - 324.85 d).
@@ -129,8 +138,7 @@ header('CASE 2: between planets (Curtis chapter 8)');
   check('a flyby needing no burn: equal speeds and a turn its periapsis gives cost nothing', rel(pf.rp, rpW) < 1e-6 && pf.dv < 1e-9 && !pf.tooTight);
 }
 
-header('CASE 3: staging (Curtis chapter 13)');
-{
+if (header('CASE 3: staging (Curtis chapter 13)')) {
   const c = { isp: 350, eps: 0.15, g0: 9.81 };
   const v1 = restrictedStaging({ n: 1, ...c, payloadRatio: 0.05 }), v2 = restrictedStaging({ n: 2, ...c, payloadRatio: 0.05 }), v3 = restrictedStaging({ n: 3, ...c, payloadRatio: 0.05 });
   console.log(`  Ex 13.4 and 13.5: burnout ${(v1 / 1000).toFixed(3)}, ${(v2 / 1000).toFixed(3)}, ${(v3 / 1000).toFixed(3)} km/s for 1, 2, 3 stages (5.657, 7.407, 7.928)`);
@@ -158,8 +166,7 @@ header('CASE 3: staging (Curtis chapter 13)');
   check('the launch budget is the climb to orbit plus the journey', near(B.total, B.toOrbit + 3600, 1e-9) && near(B.toOrbit, 8876, 2));
 }
 
-header('CASE 3b: real launchers against a job (launchers.js)');
-{
+if (header('CASE 3b: real launchers against a job (launchers.js)')) {
   // Each launcher's own published job, as a delta-v budget (the climb with
   // 1.5 km/s of losses, then any departure), against its stack by the
   // rocket equation with vacuum Isp.
@@ -181,7 +188,6 @@ header('CASE 3b: real launchers against a job (launchers.js)');
   check('no payload at all when even an empty stack falls short (Electron to Mars and back)', launcherFor(el, { payload: 1000, dv: 16556 }).maxPayload === 0);
 }
 
-header('CASE 4: a journey of several legs, chained');
 J.registerSmallBodies(JSON.parse(fs.readFileSync(new URL('../../public/data/smallbodies.json', import.meta.url))).named);
 const D = (s) => Date.parse(s);
 // Mariner 10's journey (NASA's mission dates): Earth to Venus to Mercury.
@@ -191,7 +197,7 @@ const MARINER10 = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D
 const MOON_TRIP = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-12-01T00:00:00Z') }, waypoints: [
   { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: 3, dateMs: D('2026-12-05T00:00:00Z') },
   { id: 2, body: 'earth', kind: 'land', altKm: 120, dateMs: D('2026-12-12T00:00:00Z') }] };
-{
+if (header('CASE 4: a journey of several legs, chained')) {
   const s = J.solveJourney(MARINER10), fb = s.flybys[0];
   console.log(`  Mariner 10: leave Earth ${s.legs[0].depDv.toFixed(3)} km/s, at Venus v_inf in ${norm(s.legs[0].vinfArr).toFixed(3)}, out ${norm(s.legs[1].vinfDep).toFixed(3)} km/s, turn ${(fb.delta / deg).toFixed(1)} deg, powered ${(fb.dv * 1000).toFixed(1)} m/s`);
   check('each leg leaves where and when the last arrived (a flyby: at once)', s.legs[1].depMs === s.legs[0].arrMs && s.legs[1].from === s.legs[0].to);
@@ -234,8 +240,7 @@ const MOON_TRIP = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D
   check('a small body as a waypoint (433 Eros): solved, its capture a rendezvous', sb.ok && rel(sb.legs[0].arrDv, norm(sb.legs[0].vinfArr)) < 1e-3);
 }
 
-header('CASE 5: journeys flown by the n-body kernel');
-{
+if (header('CASE 5: journeys flown by the n-body kernel')) {
   // The capture burn (landing.js designCapture, planCapture), two-body: from
   // the periapsis of a 2,026 m/s capture 400 km over Mars at 20 m/s^2.
   // Impulsive, it is vp - sqrt(mu / rp) (Curtis Eq. 8.58); held retrograde
@@ -320,8 +325,7 @@ header('CASE 5: journeys flown by the n-body kernel');
   check('leaving on the plan\'s day for the plane: the flight leaves within a day of it, its burn within 1 % of the plan\'s, and both arrivals reached', m2 && Number(m2[2]) < 24 && rel(Number(m2[1]) / 1000, rts2.legs[1].depDv) < 0.01 && rtf2.arrivals[0].missKm < 20 && rtf2.arrivals[1].missKm < 50);
 }
 
-header('CASE 6: shaping a journey by hand: burn nodes and an aimed flyby');
-{
+if (header('CASE 6: shaping a journey by hand: burn nodes and an aimed flyby')) {
   const em = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-11-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z') }] };
   const base = J.solveJourney(em), mid = (em.start.dateMs + em.waypoints[0].dateMs) / 2;
   const withNode = (n) => ({ ...em, waypoints: [{ ...em.waypoints[0], nodes: [{ id: 7, ms: mid, pro: 0, nor: 0, rad: 0, ...n }] }] });
@@ -351,8 +355,7 @@ header('CASE 6: shaping a journey by hand: burn nodes and an aimed flyby');
   check('a leg with a burn node, flown by the kernel: the node flown, Mars within 20 km of plan', !fl.impact && fl.arrivals[0].missKm < 20 && fl.burns.length >= 3);
 }
 
-header('CASE 7: can it be flown, and when: window profiles and the lamps');
-{
+if (header('CASE 7: can it be flown, and when: window profiles and the lamps')) {
   // Mars and back: arrive 7 Sep 2027, leave 30 days later.
   const rt = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-11-01T00:00:00Z') }, waypoints: [
     { id: 1, body: 'mars', kind: 'orbit', altKm: 400, stayDays: 30, dateMs: D('2027-09-07T00:00:00Z') },
@@ -378,8 +381,7 @@ header('CASE 7: can it be flown, and when: window profiles and the lamps');
   check('a leg after a flyby has no profile (its departure is fixed)', F.legProfile(MARINER10, 1) === null);
 }
 
-header('CASE 8: resonant returns to the same body (Galileo, 1989-95)');
-{
+if (header('CASE 8: resonant returns to the same body (Galileo, 1989-95)')) {
   // The cone: 2:1 at 8.9 km/s about a circular 1 AU orbit.
   const muS = 1.32712440041e11, r = 1.496e8, vb = Math.sqrt(muS / r), TB = 2 * Math.PI * Math.sqrt(r ** 3 / muS);
   const c = X.resonantCone({ r, vB: [0, vb, 0], mu: muS, vinf: 8.9, N: 2, M: 1, TB });
@@ -420,8 +422,7 @@ header('CASE 8: resonant returns to the same body (Galileo, 1989-95)');
   check('and its corrections under a tenth of the plan\'s delta-v', f.correctionsDv < 0.1 * g.totalDv);
 }
 
-header('CASE 9: landings, flown: down to the Moon, a stay, up and home; and a moon left for a planet');
-{
+if (header('CASE 9: landings, flown: down to the Moon, a stay, up and home; and a moon left for a planet')) {
   // The pieces, against closed forms. A descent orbit from 100 km down to
   // 15 km over the Moon is the first burn of a Hohmann transfer between the
   // two (Curtis Eq. 6.2 by vis-viva).
@@ -526,8 +527,7 @@ header('CASE 9: landings, flown: down to the Moon, a stay, up and home; and a mo
   check('and the corrections under 250 m/s', mf.correctionsDv < 0.25);
 }
 
-header('CASE 10: leaving a moon by where it is: the phase, the strips and the best day');
-{
+if (header('CASE 10: leaving a moon by where it is: the phase, the strips and the best day')) {
   // The hyperbola about the planet from the moon's place: both velocities
   // that leave on a given excess velocity, against the asymptote of the
   // orbit they start (from its eccentricity vector), over random states.
@@ -603,8 +603,7 @@ header('CASE 10: leaving a moon by where it is: the phase, the strips and the be
   check('the price moves only as the Moon does: its largest hourly step under 100 m/s over stays of 18 to 30 days, where the old rule jumped by over 500', nowRule.worst < 0.1 && oldRule.worst > 0.5);
 }
 
-header('CASE 11: the full model, or the bare one as a fallback');
-{
+if (header('CASE 11: the full model, or the bare one as a fallback')) {
   // flightTrouble: what keeps a flight from being taken in the full model.
   const plan = { events: [{ kind: 'land', body: 'moon', waypoint: 0 }] };
   const ok = flightTrouble(plan, { trouble: [], impact: null, landings: [{ waypoint: 0 }], arrivals: [{ body: 'moon', missKm: 3, plannedRp: 1838 }] });
@@ -613,8 +612,7 @@ header('CASE 11: the full model, or the bare one as a fallback');
   check('a flight with no trouble is taken in the full model; an aim with no burn, a crash, a landing not made and a 400 km miss are each reasons to fall back', ok.length === 0 && bad.length === 4);
 }
 
-header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira 2007)');
-{
+if (header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira 2007)')) {
   // Earth orbit, lunar orbit, then Mars arriving 20 Aug 2027: as the stay
   // at the Moon lengthens, the leg to Mars sweeps through 180 degrees round
   // the Sun. There a direct arc must tilt steeply to reach Mars out of the
@@ -682,8 +680,7 @@ header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira 200
   check('inside 6 deg of 180 the planner takes the deep-space burn; flown, it and the broken plane each correct under 250 m/s and reach Mars within 20 km, against over 500 m/s for the direct arc', !!s21.legs[1].deepSpace && [f21, g21].every((f) => f.correctionsDv < 0.25 && f.arrivals[1].missKm < 20 && !f.impact) && d21.correctionsDv > 0.5);
 }
 
-header('CASE 13: the deep-space burn, against primer vector theory (Lawden 1963)');
-{
+if (header('CASE 13: the deep-space burn, against primer vector theory (Lawden 1963)')) {
   // Earth orbit (200 km) on 16 Nov 2026 to Mars orbit (400 km) on 20 Aug
   // 2027, 180.4 deg round the Sun. Lawden's necessary conditions for an
   // optimal impulsive trajectory [Lawden 1963; Prussing 2010, ch. 2]: the
@@ -793,8 +790,7 @@ header('CASE 13: the deep-space burn, against primer vector theory (Lawden 1963)
   check('from the Moon the plan\'s excess speed runs smoothly (second difference under 20 m/s a day) and the burn saves at the mean phase on every stay', bend(vd) < 0.02 && meanSaved.every((x) => x >= 0) && cheaper.filter(Boolean).length >= 12);
 }
 
-header("CASE 14: the parking orbit's plane over a stay (Curtis Sec. 4.7)");
-{
+if (header("CASE 14: the parking orbit's plane over a stay (Curtis Sec. 4.7)")) {
   // Curtis Ex. 4.8: a 280 by 400 km orbit at 51.43 deg: eq. (4.52) gives
   // -1.0465e-6 rad/s, 5.181 deg a day westward (J2 = 0.0010826, R = 6378 km).
   const w48 = PP.nodeRate(398600, 0.0010826, 6378, 6718, 0.008931, 51.43 * deg);
@@ -922,8 +918,7 @@ header("CASE 14: the parking orbit's plane over a stay (Curtis Sec. 4.7)");
   check('the parking orbit lamp: the day near the planned one, at under half the planned day\'s extra', lamp?.level === 'caution' && lamp.bestMs === prof.plane.ms && prof.plane.dv < sol.legs[1].depDv + sol.legs[1].arrDv - sol.legs[1].plane.extraDv / 2);
 }
 
-header('CASE 15: burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg)');
-{
+if (header('CASE 15: burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg)')) {
   // A node with no burn leaves a two-arc leg as planned (its arcs are
   // Lambert's, so on target to 1 m and the same delta-v, as CASE 6 for one
   // arc); the burn at the break is still flown, putting the craft on the
@@ -960,8 +955,7 @@ header('CASE 15: burn nodes on a leg of two arcs (a deep-space burn, a bi-ellipt
   check('flown in the full model: the node as planned, Mars within 20 km of plan', !fl.impact && fl.arrivals[1].missKm < 20 && fl.burns.length >= 3);
 }
 
-header('CASE 16: reaching a moon via its planet: Mars orbit to the Moon, flown');
-{
+if (header('CASE 16: reaching a moon via its planet: Mars orbit to the Moon, flown')) {
   // Mars orbit to lunar orbit, and to a landing, on the leg's porkchop
   // optimum. The leg is solved about the Sun to the Earth; the flight aims
   // at the Moon itself, with the B-plane point from the excess velocity
@@ -987,8 +981,7 @@ header('CASE 16: reaching a moon via its planet: Mars orbit to the Moon, flown')
   check('Mars orbit to a Moon landing, flown: down under 3 m/s, no trouble', down?.body === 'moon' && down.speed < 0.003 && flightTrouble(l.p, l.f).length === 0);
 }
 
-header('CASE 17: the planets\' major moons, flown with their gravity: Europa, Titan');
-{
+if (header('CASE 17: the planets\' major moons, flown with their gravity: Europa, Titan')) {
   // The kernel pulls with the planets' major moons (bodies.js splits a
   // planet's system near it), so the flight treats them as it does the
   // Moon: aims without the moon's pull, approach trims, a capture, a
@@ -1048,8 +1041,7 @@ header('CASE 17: the planets\' major moons, flown with their gravity: Europa, Ti
   check('a flyby of Europa via Jupiter is aimed at Europa and passes within 5 km of the planned periapsis, no trouble', fb.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'europa') && fb.f.arrivals[0].missKm < 5 && fb.trouble.length === 0);
 }
 
-header("CASE 18: a craft's own first leg near 180 degrees round the Sun (Abilleira 2007; Lawden 1963)");
-{
+if (header("CASE 18: a craft's own first leg near 180 degrees round the Sun (Abilleira 2007; Lawden 1963)")) {
   // A craft in heliocentric orbit near the Earth (where the Earth was two
   // days before, its orbit tilted 1 deg about the radius) sent to Mars
   // orbit (400 km) on 20 Aug 2027, leaving 9 to 29 Nov 2026: about 180 deg
@@ -1107,8 +1099,7 @@ header("CASE 18: a craft's own first leg near 180 degrees round the Sun (Abillei
   check('planFlight flies the craft\'s first leg: an impulse onto its first arc (the leg\'s burn, to 1 mm/s), then an aim at B; flown, the deep-space burn and the broken plane correct under 250 m/s and reach Mars within 20 km, against over 500 m/s for the direct arc', imp.kind === 'impulse' && Math.abs(norm(imp.dvEqj) - L.depDv) < 1e-6 && aimB.arrive === L.mid.ms && [f18, fB].every((f) => f.correctionsDv < 0.25 && f.arrivals[0].missKm < 20 && !f.impact && f.trouble.length === 0) && fD.correctionsDv > 0.5);
 }
 
-header('CASE 19: near 180 degrees, a choice by hand can be undone');
-{
+if (header('CASE 19: near 180 degrees, a choice by hand can be undone')) {
   // Each option's price is the leg the option gives (the solver's own,
   // to 1e-9 km/s), and the planner's choice stays in the list after the
   // direct arc or the broken plane is chosen by hand.
@@ -1129,5 +1120,8 @@ header('CASE 19: near 180 degrees, a choice by hand can be undone');
   }
 }
 
+// A case named that isn't in the file is a failure, so a part of npm test
+// can't run nothing.
+for (const n of named) if (!seen.has(n)) { console.log(`  FAIL  no CASE ${n} in this file`); failures++; }
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
 process.exit(failures ? 1 : 0);
