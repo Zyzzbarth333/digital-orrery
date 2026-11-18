@@ -282,8 +282,19 @@ looks flat and has no darkened limb.
 
 ## Eclipses
 
-Every surface point checks the bodies that can shadow it (its parent other
-than the Sun, and its moons). Each occluder is its triaxial ellipsoid,
+Every surface point checks the bodies that can shadow it: its parent other
+than the Sun, its moons, and its sibling moons (the moons' mutual
+eclipses). The shader takes four, chosen each frame (`pickOccluders` in
+`OrreryScene.ts`): a candidate counts if it lies sunward of the body and
+the body's centre is within the body's radius plus the penumbra's radius
+there of the shadow's axis, $r_\text{off} < R + r + D\,(R_\odot + r)/d_\odot$
+for a caster of radius $r$ a distance $d_\odot$ from the Sun and $D$ in
+front of the body. With more than four (Saturn near equinox, its small
+moons crossing in a row), the largest and most central go first, by
+$r\,(1 - r_\text{off}/\text{reach})$, so a kilometre-sized moon on the
+axis does not take Tethys's place. Before, each body kept the four largest
+of its moons, so Tethys, Enceladus and Mimas never shadowed Saturn and
+Miranda never shadowed Uranus. Each occluder is its triaxial ellipsoid,
 worked in its frame scaled to a unit sphere ([scene](scene.md#shapes)),
 where the following holds exactly. Seen from the point, the Sun is a disc of
 angular radius $a = \arcsin(R_\odot/d_\odot)$, the occluder a disc of
@@ -312,7 +323,62 @@ darkening is ignored. The umbra and penumbra therefore have their true
 sizes and shapes. Checked visually at astronomy-engine's peak times for the
 2026 eclipses: the total solar eclipse of 12 August (17:45:47 UTC, umbra on
 the northern hemisphere) and the total lunar eclipse of 3 March (11:33:40
-UTC, Moon fully in the umbra).
+UTC, Moon fully in the umbra). Also at the triple shadow transit on
+Jupiter of 24 January 2015 (06:27–06:52 UTC seen from the Earth, so
+05:59 UTC at Jupiter, 36 minutes of light time earlier): Io's and
+Callisto's shadows on the disc and Europa's at the limb, each where a ray
+from the Sun through the moon meets Jupiter, to the pixel; and on Saturn
+on 6 May 2025 12:30 UTC, the day of its equinox, Tethys's shadow.
+
+![The total lunar eclipse of 7 September 2025: before, the Moon black in the umbra; after, copper, brighter toward the umbra's edge](../images/eclipse-lunar-2025.jpg)
+
+### Light in the Earth's shadow
+
+The eclipsed Moon is lit by sunlight the Earth's air bends into the
+shadow (`src/physics/umbra.js`, the shader's `UMBRA_LIGHT`), the
+classical refraction-and-extinction picture [9], [10]. A ray grazing the
+Earth at tangent height $h$ is bent toward the shadow's axis by
+
+$$
+\delta(h) = \delta_0\,e^{-h/H}, \qquad \delta_0 = 2 \times 34.5' \approx 1.15^\circ,\quad H = 8\ \text{km},
+$$
+
+twice the refraction at the horizon (Bennett [11]) at the ground, falling
+with the air's density. A point $L$ Earth radii behind the Earth and
+$\rho$ off the axis is reached from the near limb by rays bent
+$(1-\rho)/L$ and from the far limb by rays bent $(1+\rho)/L$ across the
+axis. Each limb's annulus spreads over a ring of radius $\rho$ and width
+$L\,|d\delta/dh|\,dh = L\delta\,dh/H$, so each gives
+
+$$
+\frac{E}{E_\odot} = T(h)\,\frac{H}{\rho_\text{eff}\,L\,\delta},
+\qquad \rho_\text{eff} = \sqrt{\rho^2 + (L a)^2},
+$$
+
+the axis's focus spread by the Sun's disc ($a$ its angular radius).
+$T(h)$ is the transmittance of the straight grazing path through the same
+medium the sky is drawn with ([atmospheres](atmospheres.md): Rayleigh
+scattering, aerosols, ozone), tabulated every 2.6 km to 60 km for the
+shader. At the Moon's distance this gives $3.6 \times 10^{-4}$ of
+sunlight in red at the centre of the umbra and almost no green or blue
+(rays at 1.5 km), rising to $1.7 \times 10^{-3}$ at 0.7 Earth radii (11
+km), and toward the edge ozone's Chappuis band takes more green than blue:
+the turquoise fringe photographs show. `umbra.test.mjs` checks these and
+the grazing Rayleigh depth against Chapman's air mass.
+
+That light is about 1/3,000 of sunlight, which a view exposed for sunlit
+bodies draws black, so it is drawn 200 times brighter (`UMBRA_GAIN`), a
+display level as the night lights are: the totally eclipsed Moon shows dark
+copper, its colour and its brightening toward the umbra's edge kept. The
+direct sunlight of the penumbra is drawn as it is.
+
+**What is left out:** clouds, which cut off the lowest rays, and volcanic
+aerosols, which darken some eclipses by several magnitudes (the Danjon
+scale's range); sunlight scattered rather than refracted into the shadow,
+which García Muñoz and Pallé [10] show matters most after eruptions; the
+umbra's enlargement by the upper atmosphere (about 2 %); and refraction
+by other bodies' air (Titan's haze, Mars's thin air). The rays are
+treated as straight for their transmittance.
 
 ## Saturn's rings
 
@@ -344,10 +410,12 @@ Jupiter's, Uranus's and Neptune's rings use the same layer photometry with
 $A$ split between dark particles and forward-scattering dust
 ([rings](rings.md#light)). Saturn's keeps a constant $A$ of 1.
 
-Not modelled yet: sunlight refracted by Earth's atmosphere into its umbra
-(the copper colour of a lunar eclipse, $10^{-4}$ to $10^{-6}$ of full Moon
-brightness, so near-black at a daylight exposure). Earth's atmosphere is
-in [atmospheres](atmospheres.md); surface maps, relief and night lights in
+Not modelled yet: the moons' shadows on the rings (near equinox), the
+rings' shadows on Jupiter, Uranus and Neptune (their rings are too thin to
+show one at the scales drawn), and shadows on spacecraft and satellites
+(markers, not lit models; the satellites dim in a cylinder of the Earth's
+shadow, [satellites](satellites.md)). Earth's atmosphere is in
+[atmospheres](atmospheres.md); surface maps, relief and night lights in
 [textures](textures.md).
 
 ## References
@@ -367,3 +435,9 @@ in [atmospheres](atmospheres.md); surface maps, relief and night lights in
 [7] D. Dravins, L. Lindegren, E. Mezey, and A. T. Young, "Atmospheric intensity scintillation of stars. I. Statistical distributions and temporal properties," *Publ. Astron. Soc. Pac.*, vol. 109, pp. 173–207, 1997, doi: 10.1086/133872; "II. Dependence on optical wavelength," *Publ. Astron. Soc. Pac.*, vol. 109, pp. 725–737, 1997, doi: 10.1086/133937.
 
 [8] D. R. Williams, "Planetary fact sheets," NASA NSSDCA. [Online]. Available: https://nssdc.gsfc.nasa.gov/planetary/factsheet/
+
+[9] F. Link, *Eclipse Phenomena in Astronomy*. Berlin, Germany: Springer-Verlag, 1969, doi: 10.1007/978-3-642-86475-9.
+
+[10] A. García Muñoz and E. Pallé, "Lunar eclipse theory revisited: Scattered sunlight in both the quiescent and the volcanically perturbed atmosphere," *J. Quant. Spectrosc. Radiat. Transf.*, vol. 112, no. 10, pp. 1609–1621, 2011, doi: 10.1016/j.jqsrt.2011.03.017.
+
+[11] G. G. Bennett, "The calculation of astronomical refraction in marine navigation," *J. Navig.*, vol. 35, no. 2, pp. 255–259, 1982, doi: 10.1017/S0373463300022037.

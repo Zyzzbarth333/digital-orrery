@@ -27,7 +27,7 @@ const JOURNEY_PARTS = [['17'], ['12'], ['20', '21'], ['5'], ['15', '16', '8'], [
 const MISSIONS = Object.keys(MISSION_DATA);
 
 const FILES = [
-  'src/app/tex.test.mjs', 'src/scene/ktx2.test.mjs', 'src/app/craft-state.test.mjs', 'src/app/remember.test.mjs',
+  'src/app/tex.test.mjs', 'src/scene/ktx2.test.mjs', 'src/scene/layerComposite.test.mjs', 'src/app/craft-state.test.mjs', 'src/app/remember.test.mjs',
   'src/physics/orbital.test.mjs', 'src/physics/porkchop.test.mjs', 'src/physics/nbody.test.mjs',
   'src/physics/orientation.test.mjs', 'src/physics/surfaceClamp.test.mjs', 'src/physics/bodyfacts.test.mjs',
   'src/physics/craft.test.mjs', 'src/physics/warp.test.mjs', 'src/physics/trajsearch.test.mjs',
@@ -40,7 +40,7 @@ const FILES = [
   'src/physics/gravityFlow.test.mjs', 'src/physics/magnetic.test.mjs', 'src/physics/aurora.test.mjs',
   'src/physics/moons.test.mjs', 'src/physics/landingSites.test.mjs', 'src/physics/irregularMoons.test.mjs', 'src/physics/flyby.test.mjs',
   'src/physics/kernelClient.test.mjs', 'src/physics/barycentres.test.mjs', 'src/physics/deTable.test.mjs',
-  'src/physics/corona.test.mjs', 'src/physics/rings.test.mjs', 'src/physics/discs.test.mjs',
+  'src/physics/corona.test.mjs', 'src/physics/rings.test.mjs', 'src/physics/discs.test.mjs', 'src/physics/umbra.test.mjs',
   'src/physics/satellites.test.mjs', 'src/physics/passes.test.mjs', 'src/physics/spacecraft.test.mjs',
   'src/physics/artemis2.validate.mjs', 'src/physics/artemis1.validate.mjs',
   ...MISSIONS.map((id) => `src/physics/missions.validate.mjs ${id}`),

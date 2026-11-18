@@ -94,6 +94,11 @@ export const TAG_INFO = {
     where: 'R: the mean radius; the planet\'s own GM, not its system\'s',
     source: 'from the GM and the mean radius above',
   },
+  clouds: {
+    what: 'The Earth\'s day side as satellites saw it. Over the Americas and the Pacific, where GOES-East and GOES-West look down from geostationary orbit, the GeoColor frame at the sim\'s minute (one every 10 minutes, never newer than an hour before now, as GIBS is 40-60 minutes behind). Elsewhere one true-colour mosaic a day from polar orbiters, each place imaged once at about 13:30 local time (10:30 for Terra); within two days of now each place shows the newest of the last three days that has it.',
+    tex: [],
+    source: 'NASA GIBS / EOSDIS: GOES-East and GOES-West ABI GeoColor (NOAA, via NASA SPoRT); VIIRS corrected reflectance on NOAA-21, NOAA-20 and Suomi NPP; MODIS on Terra',
+  },
   albedo: {
     what: 'How bright the full disc is, against a white disc of the same size.',
     tex: [],

@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import {
   harmonicField, northEastDown, igrfCoeffs, igrfGeodetic, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
   eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002, withAmbient, vacuumOcbColatitude, withField,
+  bounceTrack,
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
@@ -615,6 +616,42 @@ console.log('Radiation belts');
     if (h < low[0]) low = [h, Math.asin(p[2] / Math.hypot(...p)) / DEG, Math.atan2(p[1], p[0]) / DEG];
   }
   check(low[2] > -80 && low[2] < -10 && low[1] < 0, `IGRF-14's L = 1.25 shell is lowest, ${low[0].toFixed(0)} km up, at ${low[1].toFixed(1)} N ${low[2].toFixed(1)} E: over the South Atlantic`);
+}
+
+// ---- trapped particles' bounce (the field lines' pulses) ----
+console.log('Bounce along a field line');
+{
+  // A centred dipole: v times the half-bounce period is 2 L T(y), y the
+  // sine of the equatorial pitch angle, T(y) the dipole's bounce integral
+  // (Hamlin et al. 1961 approximate it as 1.30 - 0.56 y), worked here by
+  // quadrature.
+  const model = { field: offsetDipole([0, 0, -30000], [0, 0, 0]), dipole: { m: [0, 0, -30000], centre: [0, 0, 0] }, rMax: 20 };
+  const bounceT = (y) => {
+    const f = (l) => Math.sqrt(1 + 3 * Math.sin(l) ** 2) / Math.cos(l) ** 6;
+    let lo = 0, hi = 1.5;
+    for (let i = 0; i < 80; i++) { const m = (lo + hi) / 2; if (f(m) < 1 / (y * y)) lo = m; else hi = m; }
+    let T = 0;
+    const N = 20000;
+    for (let i = 0; i < N; i++) {
+      const u = ((i + 0.5) / N) * (Math.PI / 2), l = lo * Math.sin(u), dl = lo * Math.cos(u) * (Math.PI / 2 / N);
+      T += (Math.cos(l) * Math.sqrt(1 + 3 * Math.sin(l) ** 2) / Math.sqrt(Math.max(1 - y * y * f(l), 1e-30))) * dl;
+    }
+    return T;
+  };
+  let worst = 0;
+  for (const L of [2, 4, 6]) for (const a of [30, 60]) {
+    const [line] = traceShell(model, L, 1, { eq: 1, pol: 1 });
+    const t = bounceTrack(line, a);
+    worst = Math.max(worst, Math.abs(t.total / (2 * L * bounceT(Math.sin(a * DEG))) - 1));
+  }
+  check(worst < 0.01, `v x half-bounce period on L = 2, 4, 6 at 30 and 60 deg pitch within ${(worst * 100).toFixed(2)} % of the dipole's bounce integral`);
+  const [line] = traceShell(model, 4, 1, { eq: 1, pol: 1 });
+  const t = bounceTrack(line, 30);
+  const [i0, i1] = t.mirror, n = line.strength.length;
+  check(Math.abs(t.x[i0]) < 0.06 && Math.abs(t.x[i1] - 1) < 0.06 && t.x[0] < 0 && t.x[n - 1] > 1, 'its coordinate runs 0 to 1 between the mirror points and on past them');
+  const mirrorLat = Math.asin(line.points[3 * i1 + 2] / Math.hypot(line.points[3 * i1], line.points[3 * i1 + 1], line.points[3 * i1 + 2])) / DEG;
+  check(Math.abs(Math.abs(mirrorLat) - 33.4) < 2, `a 30 deg pitch angle mirrors at ${Math.abs(mirrorLat).toFixed(1)} deg magnetic latitude (33.4 in a dipole)`);
+  check(bounceTrack({ ...line, closed: false }) === null, 'an open line has no bounce');
 }
 
 if (failed) { console.log(`\n${failed} check(s) failed`); process.exit(1); }

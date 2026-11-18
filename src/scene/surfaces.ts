@@ -204,9 +204,9 @@ export class TextureUploader {
 // relief maps are data); the bitmap is transferred back.
 let decoder: Worker | null = null;
 let nextId = 1;
-const waiting = new Map<number, { resolve: (r: { bitmap: ImageBitmap; whiteLuminance?: number }) => void; reject: (e: Error) => void }>();
+const waiting = new Map<number, { resolve: (r: { bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] }) => void; reject: (e: Error) => void }>();
 
-export function decodeImage(url: string, opts: { premultiply: boolean; brightLuminance?: boolean; maxSize?: number }): Promise<{ bitmap: ImageBitmap; whiteLuminance?: number }> {
+export function decodeImage(url: string, opts: { premultiply: boolean; brightLuminance?: boolean; maxSize?: number; under?: string[]; masks?: DecodeRequest['masks'] }): Promise<{ bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] }> {
   if (!decoder) {
     decoder = new Worker(new URL('./decode.worker.ts', import.meta.url), { type: 'module' });
     decoder.onmessage = (e: MessageEvent<DecodeReply>) => {
@@ -214,14 +214,14 @@ export function decodeImage(url: string, opts: { premultiply: boolean; brightLum
       if (!w) return;
       waiting.delete(e.data.id);
       if ('error' in e.data) w.reject(new Error(e.data.error));
-      else w.resolve({ bitmap: e.data.bitmap, whiteLuminance: e.data.whiteLuminance });
+      else w.resolve({ bitmap: e.data.bitmap, whiteLuminance: e.data.whiteLuminance, shares: e.data.shares });
     };
   }
   const id = nextId++;
   const abs = new URL(url, location.href).href;
   return new Promise((resolve, reject) => {
     waiting.set(id, { resolve, reject });
-    decoder!.postMessage({ id, url: abs, ...opts } satisfies DecodeRequest);
+    decoder!.postMessage({ id, url: abs, ...opts, under: opts.under?.map((u) => new URL(u, location.href).href) } satisfies DecodeRequest);
   });
 }
 

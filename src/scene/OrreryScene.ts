@@ -34,7 +34,8 @@ import { moonTablesVersion, wantMoonTables } from '../physics/moonTables.js';
 import { baryStateEqj } from '../physics/barycentres.js';
 import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, systemOf, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
-import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, shadowAxes } from './bodyMaterial';
+import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, setUmbraTable, shadowAxes } from './bodyMaterial';
+import { umbraTable } from '../physics/umbra.js';
 import { makeRings, tauTexture, type RingProfile } from './rings';
 import { JupiterRings, makeNeptuneRings, makeUranusRings, type LorriFile, type PpsFile, type RingFrame } from './ringSystems';
 import { jdFromTt } from '../physics/rings.js';
@@ -238,7 +239,10 @@ export class OrreryScene {
   private ssbLinePos = new THREE.Vector3();
   refFrame: Frame = 'sun';
   private materials = new Map<BodyKey, THREE.ShaderMaterial>();
+  // The bodies that can shadow each body (its parent, its moons, its
+  // sibling moons); the four whose penumbra reaches it are picked each frame.
   private occluderKeys = new Map<BodyKey, BodyKey[]>();
+  private occPick: { key: BodyKey; score: number }[] = [];
   private manifest: Manifest | null = null;
   private surfaces: SurfaceLoader;
   private uploader: TextureUploader;
@@ -583,11 +587,11 @@ export class OrreryScene {
         const m = makeBodyMaterial(b.colour, b.geometricAlbedo ?? 0.3, AIRLESS.has(b.key));
         this.materials.set(b.key, m);
         material = m;
-        // A body can be shadowed by its parent (not the Sun) and its moons,
-        // the largest first.
-        const occ = BODIES.filter((o) => o.parent === b.key).sort((x, y) => y.radiusKm - x.radiusKm).map((o) => o.key);
+        // A body can be shadowed by its parent (not the Sun), its moons and
+        // its sibling moons (the moons' mutual eclipses).
+        const occ = BODIES.filter((o) => o.parent === b.key || (b.parent && b.parent !== 'sun' && o.parent === b.parent && o.key !== b.key)).map((o) => o.key);
         if (b.parent && b.parent !== 'sun') occ.unshift(b.parent);
-        this.occluderKeys.set(b.key, occ.slice(0, MAX_OCCLUDERS));
+        this.occluderKeys.set(b.key, occ);
       }
       const mesh = new THREE.Mesh(sphere, material);
       const [ra, rb, rc] = b.radiiKm;
@@ -611,6 +615,8 @@ export class OrreryScene {
       this.atmospheres.set(key, shell);
       applyAtmosphere(this.materials.get(key)!, a, R);
     }
+    // The light the Earth's air bends into its shadow (lunar eclipses).
+    setUmbraTable(this.materials.values(), umbraTable(EARTH_ATMOSPHERE, BODY_BY_KEY.earth.radiusKm), BODY_BY_KEY.earth.radiusKm);
 
     this.uploader = new TextureUploader(this.renderer);
     this.surfaces = new SurfaceLoader(this.uploader);
@@ -1363,7 +1369,7 @@ export class OrreryScene {
     this.guides.render(this.renderer);
     this.magnetic.update({ camera: this.camera, meshes: this.meshes, materials: this.materials,
       focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
-      level: 1 / this.renderer.toneMappingExposure, date });
+      level: 1 / this.renderer.toneMappingExposure, date, running: this.clock.snapshot.playing });
 
     this.smallBodies.renderHaze(this.renderer, this.camera);
     // Each atmosphere's view table, from where the camera is now.
@@ -1447,6 +1453,35 @@ export class OrreryScene {
     if (this.stars) (this.stars.material as THREE.ShaderMaterial).uniforms.visibility.value = this.adapt;
   }
 
+  // The (up to four) bodies whose shadow reaches a body now: each candidate
+  // between it and the Sun whose penumbra there, plus the body's radius,
+  // reaches the body's centre (off / reach under 1). With more than four
+  // (Saturn near equinox, its small moons in a row), the largest and most
+  // central first: by the caster's radius times 1 - off / reach, so a
+  // kilometre-sized moon on the axis does not take Tethys's place.
+  private pickOccluders(key: BodyKey, sunPos: THREE.Vector3): { key: BodyKey; score: number }[] {
+    const pick = this.occPick;
+    pick.length = 0;
+    const P = this.meshes.get(key)!.position, rP = maxRadiusKm(key) / UNIT_KM;
+    const rSun = SUN_RADIUS_KM / UNIT_KM;
+    for (const k of this.occluderKeys.get(key)!) {
+      const O = this.meshes.get(k)!.position, rO = maxRadiusKm(k) / UNIT_KM;
+      const ax = O.x - sunPos.x, ay = O.y - sunPos.y, az = O.z - sunPos.z;
+      const dSun = Math.sqrt(ax * ax + ay * ay + az * az);
+      const ux = ax / dSun, uy = ay / dSun, uz = az / dSun;
+      const qx = P.x - O.x, qy = P.y - O.y, qz = P.z - O.z;
+      const D = qx * ux + qy * uy + qz * uz;              // how far behind the caster, along the axis
+      if (D <= -rP) continue;
+      const ox = qx - D * ux, oy = qy - D * uy, oz = qz - D * uz;
+      const off = Math.sqrt(ox * ox + oy * oy + oz * oz);
+      const reach = rP + rO + Math.max(D, 0) * (rSun + rO) / dSun;
+      if (off >= reach) continue;
+      pick.push({ key: k, score: -rO * (1 - off / reach) });
+    }
+    if (pick.length > MAX_OCCLUDERS) pick.sort((a, b) => a.score - b.score);
+    return pick;
+  }
+
   // Per-body sunlight and shadow casters, and the camera's exposure.
   private updateLighting(sunPos: THREE.Vector3, cam: Vec3, date: Date): void {
     const basis = new THREE.Matrix4();
@@ -1487,14 +1522,16 @@ export class OrreryScene {
       u.sunRadius.value = SUN_RADIUS_KM / UNIT_KM;
       const occ = u.occluders.value as THREE.Vector4[];
       const occAxes = u.occAxes.value as THREE.Matrix3[];
-      const keys = this.occluderKeys.get(key)!;
+      const keys = this.pickOccluders(key, sunPos);
+      u.umbraOcc.value = -1;
       for (let i = 0; i < MAX_OCCLUDERS; i++) {
-        const k = keys[i];
+        const k = keys[i]?.key;
         if (!k) { occ[i].set(0, 0, 0, 0); continue; }
         const p = this.meshes.get(k)!.position;
         const c = caster(k);
         occ[i].set(p.x, p.y, p.z, c.k);
         occAxes[i].copy(c.A);
+        if (k === 'earth') u.umbraOcc.value = i;
       }
     }
     // Meter for sunlight where the camera is (no closer than 0.2 AU, so the

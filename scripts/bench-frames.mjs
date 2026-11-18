@@ -88,6 +88,9 @@ const SCENARIOS = {
   'uranus': { label: 'Uranus and its rings', query: `?focus=uranus&${DATE}`, km: 200000 },
   'neptune': { label: 'Neptune and its rings', query: `?focus=neptune&${DATE}`, km: 250000 },
   'moon': { label: 'Moon close-up', query: `?focus=moon&${DATE}`, km: 20000 },
+  'lunar-eclipse': { label: 'The Moon in the Earth\'s shadow (2025-09-07)', query: '?focus=moon&t=2025-09-07T18:11Z', km: 20000 },
+  'axes': { label: 'Spin axes on (Earth)', query: `?focus=earth&${DATE}`, km: 40000, setup: "(orrery.guides.set('axes', true), true)" },
+  'magnetic': { label: 'Magnetic field on (Jupiter), pulses running', query: `?focus=jupiter&${DATE}`, km: 2.5e6, setup: "(orrery.magnetic.set('magnetic', true), true)" },
   // The landing sites' layer on (a build without it times the Moon alone),
   // and Apollo 11's site framed from low over it.
   'moon-sites': { label: 'Moon, landing sites on', query: `?focus=moon&${DATE}`, km: 20000, setup: SITES_ON },

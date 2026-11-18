@@ -7,7 +7,7 @@ Every data source, map, font and library the app uses, with a link to where it c
 | Source | Used for | Terms |
 | --- | --- | --- |
 | NASA Earth Observatory: [Blue Marble](https://visibleearth.nasa.gov/collection/1484/blue-marble), [Black Marble](https://earthobservatory.nasa.gov/features/NightLights) | the Earth's surface and night lights | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
-| [NASA GIBS](https://nasa-gibs.github.io/gibs-api-docs/) (ESDIS) | the Earth's clouds on the sim date | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
+| [NASA GIBS](https://nasa-gibs.github.io/gibs-api-docs/) (ESDIS); GOES-East and GOES-West GeoColor from NOAA via NASA SPoRT | the Earth's clouds on the sim date: daily VIIRS and MODIS mosaics, and GOES frames every 10 minutes over the Americas and the Pacific | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/) |
 | NOAA NCEI: [ETOPO 2022](https://www.ncei.noaa.gov/products/etopo-global-relief-model), [doi:10.25921/fd45-gt74](https://doi.org/10.25921/fd45-gt74) | the Earth's relief | NOAA, public domain |
 | NASA Scientific Visualization Studio: [CGI Moon Kit](https://svs.gsfc.nasa.gov/4720/); [Deep Star Maps 2020](https://svs.gsfc.nasa.gov/4851/) ([Gaia DR2](https://www.cosmos.esa.int/web/gaia/dr2): ESA/Gaia/DPAC) | the Moon's surface and relief; the Milky Way | [NASA](https://www.nasa.gov/nasa-brand-center/images-and-media/); ESA credit |
 | [ESA Hipparcos Catalogue](https://www.cosmos.esa.int/web/hipparcos/catalogues) (ESA SP-1200), via [NASA HEASARC](https://heasarc.gsfc.nasa.gov/W3Browse/all/hipparcos.html) | the stars | ESA credit |
