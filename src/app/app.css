@@ -835,3 +835,13 @@ details.section[open] > summary::after { content: '−'; }
 .sat-source .tag { font: 10px var(--mono); border: 1px solid var(--ink); padding: 0 4px; color: var(--ink); }
 .sat-live { display: flex; align-items: center; gap: var(--u); padding: var(--u) calc(1.5 * var(--u)) 0; font-size: 11px; color: var(--ink-muted); }
 .sat-live [role='status'] { min-width: 0; }
+
+/* Spacecraft beyond Earth orbit (src/scene/spacecraftLayer.ts): a small
+   open square with a cross through it, in its group's colour; the user's
+   own craft are diamonds. */
+.body-marker.spacecraft .dot { position: relative; width: 7px; height: 7px; border-color: var(--probe, rgba(236, 217, 176, 0.7)); }
+.body-marker.spacecraft .dot::before, .body-marker.spacecraft .dot::after { content: ''; position: absolute; background: var(--probe, rgba(236, 217, 176, 0.7)); }
+.body-marker.spacecraft .dot::before { left: 3px; top: -3px; width: 1px; height: 13px; }
+.body-marker.spacecraft .dot::after { top: 3px; left: -3px; height: 1px; width: 13px; }
+.body-marker.spacecraft .name { opacity: 0.85; font-size: 10px; }
+.body-marker.spacecraft.focused .name { opacity: 1; }

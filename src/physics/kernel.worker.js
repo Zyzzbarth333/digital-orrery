@@ -9,8 +9,11 @@ import { loadDeTable } from './deLoad.js';
 import { installMoonLoader } from './moonLoad.js';
 
 const host = createKernelHost();
-// DE442's Earth and Moon before the first step (deTable.js).
+// DE442's Earth and Moon before the first step (deTable.js). Its tables
+// (3.2 MB) can take a while on a slow line, so the worker says when they
+// are in: KernelClient's reply timeout counts from then.
 const ready = loadDeTable();
+ready.then(() => self.postMessage({ type: 'ready' }));
 // The moons' tables for a system a craft comes near (moonLoad.js).
 installMoonLoader({ onMiss: true });
 

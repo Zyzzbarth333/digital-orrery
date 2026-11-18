@@ -55,7 +55,10 @@ once it has releases. Until then, everything sits under Unreleased.
   the day near the planned one when the plane holds the way out. After a
   year at Mars the plan's price for the departure is within 5 % of the
   flight's, and the flight's wait for the plane within a day. The Moon is
-  not priced: J2 alone does not turn a lunar orbit (this pull request).
+  not priced: J2 alone does not turn a lunar orbit (#94). At Jupiter and
+  the other giants the node's rate takes their zonal terms beyond J2 as the
+  kernel does (to J12 for Jupiter, 2.5 % faster than J2 alone 1.5 radii
+  out); since #98 it had fallen back to J2 alone (this pull request).
 - Journeys are flown in the full model, with the Earth's and the Moon's
   gravity fields (mascons included), drag and sunlight, and their craft
   no longer flies bare: a Moon landing comes down on its site. The bare
@@ -106,7 +109,9 @@ once it has releases. Until then, everything sits under Unreleased.
 - At a day a second the kernel stays in its worker through Artemis II's
   entry: each request has a time budget, so the entry is flown in pieces
   rather than in one 4 s request that the page took for a dead worker,
-  after which every step ran on the page's thread (#82).
+  after which every step ran on the page's thread (#82). On a slow
+  connection the worker's tables can take longer to load than that
+  timeout; the timeout now waits for them (this pull request).
 - The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
   to 10 m instead of 100 m, so a slow pass is followed more closely:
   Cassini's over Titan to 4 m nine hours on, from 93 m (#86).
@@ -139,8 +144,13 @@ once it has releases. Until then, everything sits under Unreleased.
   in the Earth's shadow. The ISS, Tiangong, Hubble, GPS, Galileo and the
   geostationary weather satellites have their orbits. Any satellite can be
   found by name, NORAD number or designator and flown to, with a data
-  plate. A **Latest** key fetches CelesTrak's current elements (this pull
-  request).
+  plate. A **Latest** key fetches CelesTrak's current elements (#79).
+- Spacecraft beyond Earth orbit: the orbiters of Mercury, the Moon, Mars
+  and Jupiter, the observatories about the Sun-Earth L1 and L2 points (JWST,
+  Roman, Euclid and others) and the probes in cruise, on JPL Horizons'
+  trajectories for 2026 and 2027, with their paths, a fly-to list and a data
+  plate that says whether the clock is in a reconstruction or a prediction
+  (this pull request).
 - Guides for spin axes, real gravity fields, spheres of influence,
   Lagrange points and the strongest pulls (#43).
 - Magnetic fields and auroras, two new guides. Field lines traced through

@@ -453,7 +453,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 60 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 47 m/s) |
 | Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,257 (1.4 %, within 3 %); lows a month apart; the best day priced 1,657, flown 1,666 |
 | Mars orbit to the Moon, flown: lunar orbit and a landing | the plan | 1.3 km off the planned periapsis; capture within 3 % of its price; down at 2.3 m/s |
-| The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's; the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % (within 0.25 %); to 0.1 m/s; the planned day 2,911 m/s, flown 3,043 (4.3 %); the wait 12.5 d, flown 11.5 (2,025 against 2,070 m/s); the parking orbit lamp's day 2,008, flown 2,086 on time |
+| The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's, at Mars and at Jupiter (to J12); the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % at Mars and 0.03 % at Jupiter (within 0.25 %; J2 alone 2.5 % off there); to 0.1 m/s; the planned day 2,911 m/s, flown 3,043 (4.3 %); the wait 12.5 d, flown 11.5 (2,025 against 2,070 m/s); the parking orbit lamp's day 2,008, flown 2,086 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 20-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 205 m/s of corrections against the direct arc's 679 |
 | Burn nodes on a leg of two arcs (a broken plane, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 1.1 km off |
@@ -733,6 +733,17 @@ references these are).
 | Mars's crustal field | Langlais et al. 2019: Br −8,520 to 11,260 nT | −8,522 to 11,261 nT (0.25° grid), strongest at 47.9° S 174.6° E |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
 
+## Spacecraft beyond Earth orbit (`spacecraft.test.mjs`)
+
+Twenty-eight craft on JPL Horizons' trajectories for 2026 and 2027, held as
+states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraft.md#how-right-they-are)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the packed trajectories, every craft | Horizons states not kept, one a month a craft (522), from mid-interval [6] | within 2 km: worst 1.95 km (Mars Odyssey); L1/L2 and cruise within 1.3 km |
+| the joins between days | each day's last state and the next day's first | within 3.5 m over 8,081 joins |
+| the packing itself | every Horizons sample of every day (4 to 60 minutes apart) | within 2 km on every day |
+
 ## The field of every body and spin directions (`gravityFlow.test.mjs`)
 
 [Gravity guides](physics/gravity-guides.md#the-field-of-every-body).
@@ -759,3 +770,5 @@ references these are).
 [4] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
 
 [5] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[6] NASA JPL Solar System Dynamics, "Horizons system," spacecraft trajectories, fetched 18 Nov. 2026 by `npm run fetch:spacecraft`. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
