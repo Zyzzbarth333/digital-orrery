@@ -260,8 +260,18 @@ function planeContext(S, legs, k) {
   const n0 = unit(h), uin = unit(vin), uout = X.rotate(uin, n0, X.turnAngle(rp, norm(vin), B.mu));
   const d = unit(sub(uin, uout));
   const pole = unit(eqjToEcl(bodyAxesEqj(P.body, new Date(P.arrMs))[2]));
-  const flown = flownNodeRate({ mu: B.mu, j2: z.j2, jn: z.jn ?? null, R: z.rJ2, pole, r: scale(d, rp), v: scale(unit(cross(n0, d)), Math.sqrt(B.mu / rp)) });
-  return { body: P.body, B, z, rp, vin, pole, arrMs: P.arrMs, n0, factor: flown ? flown.ratio : 1 };
+  // The flight leaves the capture circular at the planned *mean* radius
+  // (journeyFlight.js: the osculating semi-major axis averaged over a turn),
+  // so the trial orbit is too: started circular at the periapsis point, its
+  // mean semi-major axis is not rp but off by J2's terms within a turn (as
+  // where it starts, 0.2 % of the node's rate 400 km over Mars), so the
+  // starting radius is moved by that and the orbit flown again. The factor
+  // is the flown rate over eq. (4.52)'s at rp.
+  const fly = (r0) => flownNodeRate({ mu: B.mu, j2: z.j2, jn: z.jn ?? null, R: z.rJ2, pole, r: scale(d, r0), v: scale(unit(cross(n0, d)), Math.sqrt(B.mu / r0)) });
+  let r0 = rp, flown = fly(r0);
+  for (let it = 0; it < 2 && flown && Math.abs(flown.aMean - rp) > 1e-3; it++) { r0 -= flown.aMean - rp; flown = fly(r0); }
+  const first = nodeRate(B.mu, z.j2, z.rJ2, rp, 0, Math.acos(clamp1(dot(n0, pole))));
+  return { body: P.body, B, z, rp, vin, pole, arrMs: P.arrMs, n0, factor: flown ? flown.rate / first : 1, aMean: flown?.aMean };
 }
 
 // The plane on the day ms for a departure along w (about the planet): for a
@@ -287,6 +297,10 @@ const planeSummary = (ctx, p) => ({
   priced: true, body: ctx.body, aimed: p.aimed, stayDays: p.stayDays, iDeg: p.i * RAD, rateDegDay: p.rate * DAY * RAD,
   firstOrderDegDay: nodeRate(ctx.B.mu, ctx.z.j2, ctx.z.rJ2, ctx.rp, 0, p.i) * DAY * RAD,
   angleDeg: p.angle * RAD, inPlaneDv: p.dv - p.extra, dv: p.dv, extraDv: p.extra,
+  // The capture's plane the price starts from (ecliptic unit normal, the
+  // way the craft goes round), the planet's pole and the node's rate
+  // (rad/s): the flight's trims at the approach aim the node for them.
+  normal: ctx.n0, pole: ctx.pole, rate: p.rate, arrMs: ctx.arrMs,
 });
 
 // For leg k of a solved journey, the extra its departure pays for the
@@ -304,8 +318,9 @@ export function planePricer(sol, k) {
 // kept) when the leg costs least with the plane as the stay would turn it
 // (a later departure is a longer stay, and the capture holds that day's way
 // out); and what the flight does as planned: from the capture's plane,
-// waiting (in half days, up to 30) while a day costs 2 % less than the best
-// before it, as journeyFlight.js does. Returns the option (type 'plane'),
+// waiting (up to 30 days) for the cheapest moment, the cheapest half day
+// refined within half a day either side, where it saves more than 2 %, as
+// journeyFlight.js does. Returns the option (type 'plane'),
 // or null where the plane is not priced or the capture is aimed for it.
 export function planeOption(journey, k, { sol = null } = {}) {
   sol ??= solveJourney(journey);
@@ -314,14 +329,25 @@ export function planeOption(journey, k, { sol = null } = {}) {
   const ctx = planeContext(S, sol.legs, k);
   if (!ctx || ctx.why) return null;
   const legAt = (ms) => solveLeg(P, Q, ms, Q.arrMs);
-  // As planned: the flight's wait.
-  let flight = { ms: L.depMs, waitDays: 0, dv: L.plane.dv, angleDeg: L.plane.angleDeg };
-  for (let h = 0.5; h <= PLANE_WAIT_DAYS; h += 0.5) {
-    const ms = L.depMs + h * DAY_MS, Lh = legAt(ms);
-    if (!Lh.ok) continue;
-    const p = planeAt(ctx, ms, Lh.vinfDep, ctx.n0);
-    if (p && p.dv < flight.dv * 0.98) flight = { ms, waitDays: h, dv: p.dv, angleDeg: p.angle * RAD };
-  }
+  // As planned: the flight's wait, the cheapest of the half days, refined
+  // by golden section within half a day either side, taken where it saves
+  // more than 2 % on the planned day's burn.
+  const waitAt = (h) => {
+    const ms = L.depMs + h * DAY_MS, Lh = legAt(ms), p = Lh.ok ? planeAt(ctx, ms, Lh.vinfDep, ctx.n0) : null;
+    return p ? { ms, waitDays: h, dv: p.dv, angleDeg: p.angle * RAD } : null;
+  };
+  const onDay = { ms: L.depMs, waitDays: 0, dv: L.plane.dv, angleDeg: L.plane.angleDeg };
+  let flight = onDay;
+  for (let h = 0.5; h <= PLANE_WAIT_DAYS; h += 0.5) { const q = waitAt(h); if (q && q.dv < flight.dv) flight = q; }
+  if (flight.dv < onDay.dv * 0.98) {
+    const g = (Math.sqrt(5) - 1) / 2, f = (h) => waitAt(h)?.dv ?? Infinity;
+    let a = Math.max(0, flight.waitDays - 0.5), b = Math.min(PLANE_WAIT_DAYS, flight.waitDays + 0.5), c1 = b - g * (b - a), c2 = a + g * (b - a), f1 = f(c1), f2 = f(c2);
+    for (let i = 0; i < 16; i++) {
+      if (f1 < f2) { b = c2; c2 = c1; f2 = f1; c1 = b - g * (b - a); f1 = f(c1); } else { a = c1; c1 = c2; f1 = f2; c2 = a + g * (b - a); f2 = f(c2); }
+    }
+    const q = waitAt((a + b) / 2);
+    if (q && q.dv < flight.dv) flight = q;
+  } else flight = onDay;
   // Re-timed: the best day either side.
   let best = null;
   const lo = Math.max(-PLANE_WAIT_DAYS, -Math.floor(((L.depMs - P.arrMs) / DAY_MS) * 2) / 2);
