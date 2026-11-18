@@ -18,8 +18,8 @@
   --seam: #a39a86;             /* panel seams and rules */
   --seam-strong: #7d7564;
   --ink: #1d1b16;              /* 11.9:1 on the panel */
-  --ink-muted: #5a5446;        /* 5.2:1 */
-  --engrave: #9a3216;          /* orange-red engraved labels: 5.1:1 */
+  --ink-muted: #433e34;        /* 6.0:1 on panel-sunk, 6.6 on panel-low, 7.3 on panel */
+  --engrave: #70220d;          /* oxblood engraved labels: 6.2:1 on panel-sunk, 6.8 on panel-low, 7.5 on panel */
   --window: #121110;           /* readout windows */
   --phosphor: #ffb22e;         /* amber numerals: 10.5:1 on the window */
   --phosphor-dim: #ecd9b0;
@@ -176,8 +176,9 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
 }
 .key:hover { background: linear-gradient(var(--sheen), var(--key-low)); }
 .key:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--seam-strong); }
+/* A lit key carries a dark legend on its lit field (6.6:1 or better). */
 .key.run[aria-pressed='true'] {
-  background: linear-gradient(var(--key-lit), var(--key)); color: var(--key-ink); border-color: var(--key-edge);
+  background: linear-gradient(var(--key-sheen), var(--key-lit)); color: var(--ink); border-color: var(--key-edge);
   box-shadow: 0 2px 0 var(--key-edge), inset 0 1px 0 var(--key-sheen);
 }
 
@@ -355,7 +356,7 @@ kbd {
 /* ---------------- annunciator ---------------- */
 .annunciator { margin-left: auto; display: grid; grid-auto-flow: column; gap: 4px; align-items: center; }
 .lamp { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; background: var(--window); border-radius: 2px;
-  font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: #6e685b;
+  font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--label-dim);
   box-shadow: inset 0 2px 4px #000, 0 1px 0 var(--sheen); }
 .lamp i { width: 8px; height: 8px; border-radius: 50%; background: var(--lamp-dark); box-shadow: inset 0 1px 1px #000; }
 .lamp.k-advisory[data-on='true'] { color: var(--advisory-ink); }
@@ -364,14 +365,18 @@ kbd {
 .lamp.k-caution[data-on='true'] i { background: var(--caution); box-shadow: 0 0 6px var(--caution); }
 .lamp.k-warning[data-on='true'] { color: var(--warn-ink); }
 .lamp.k-warning[data-on='true'] i { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
-.key.master { background: linear-gradient(var(--warn-lit), var(--warn)); color: var(--key-ink); border-color: var(--warn-edge); box-shadow: 0 2px 0 var(--warn-edge); animation: master 0.9s steps(2) infinite; }
+.key.master { background: linear-gradient(var(--warn-ink), var(--warn-lit)); color: var(--ink); border-color: var(--warn-edge); box-shadow: 0 2px 0 var(--warn-edge); animation: master 0.9s steps(2) infinite; }
 @keyframes master { 50% { filter: brightness(1.35); } }
 
 /* ---------------- latching and primary keys ---------------- */
 .key.hold[aria-checked='true'] { background: var(--window); color: var(--phosphor-dim); border-color: var(--window); box-shadow: inset 0 2px 4px #000; transform: translateY(1px); }
 .key.run[aria-checked='false'] { background: linear-gradient(var(--panel-raised), var(--key-low)); color: var(--ink); border-color: var(--seam-strong); box-shadow: 0 2px 0 var(--seam-strong), inset 0 1px 0 var(--sheen); }
-.key.run[aria-checked='true'] { background: linear-gradient(var(--key-lit), var(--key)); color: var(--key-ink); border-color: var(--key-edge); box-shadow: 0 1px 0 var(--key-edge), inset 0 1px 0 var(--key-sheen); transform: translateY(1px); }
-.key.primary { white-space: nowrap; background: linear-gradient(var(--key-lit), var(--key)); color: var(--key-ink); border-color: var(--key-edge); box-shadow: 0 2px 0 var(--key-edge), inset 0 1px 0 var(--key-sheen); }
+.key.run[aria-checked='true'] { background: linear-gradient(var(--key-sheen), var(--key-lit)); color: var(--ink); border-color: var(--key-edge); box-shadow: 0 1px 0 var(--key-edge), inset 0 1px 0 var(--key-sheen); transform: translateY(1px); }
+/* A flow's commit key: raised like any key, but taller and outlined in
+   ink, so it stands apart by shape and place, not colour. RUN stays the one
+   orange key, and a selected key is the dark, pressed-in one. */
+.key.primary { white-space: nowrap; height: 38px; padding: 0 18px; background: linear-gradient(var(--sheen), var(--panel-raised)); color: var(--ink); border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink), inset 0 1px 0 var(--white); }
+.key.primary:disabled { background: linear-gradient(var(--panel-raised), var(--key-low)); color: var(--ink-muted); border-color: var(--seam-strong); box-shadow: none; }
 .key.primary:hover { filter: brightness(1.06); }
 
 /* ---------------- tags, strips, sections ---------------- */
@@ -674,6 +679,13 @@ details.section[open] > summary::after { content: '−'; }
 .slide input[type='range'] { width: 100%; accent-color: var(--key); }
 .readout.compact th, .readout.compact td { padding: 5px 0; }
 .readout.options th, .readout.options td { padding: 5px 4px 5px 0; }
+/* STACK's real launchers: the launcher's name on its own line, then its
+   verdict and its tag side by side, so a long verdict wraps instead of
+   running into the tag. */
+.readout.launchers tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--u); border-bottom: var(--hair) solid var(--seam); padding: 5px 0; }
+.readout.launchers th, .readout.launchers td { border-bottom: 0; padding: 0; width: auto; }
+.readout.launchers th { grid-column: 1 / -1; margin-bottom: 2px; }
+.readout.launchers td.value { text-align: left; padding-right: 0; }
 .readout.options thead th { font-size: 10px; }
 .readout.options th[scope='row'] { text-transform: none; letter-spacing: 0.04em; font: 11px var(--sans); color: var(--ink); width: auto; }
 .readout.options th .alt { display: block; color: var(--ink-muted); font-size: 10px; margin-top: 2px; }

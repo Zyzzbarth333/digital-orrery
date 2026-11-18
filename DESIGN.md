@@ -10,8 +10,8 @@ colors:
   seam: "#a39a86"
   seam-strong: "#7d7564"
   ink: "#1d1b16"
-  ink-muted: "#5a5446"
-  engrave: "#9a3216"
+  ink-muted: "#433e34"
+  engrave: "#70220d"
   window: "#121110"
   phosphor: "#ffb22e"
   phosphor-dim: "#ecd9b0"
@@ -127,8 +127,8 @@ components:
     padding: "0 14px"
     height: "34px"
   key-run-on:
-    backgroundColor: "{colors.key}"
-    textColor: "{colors.key-ink}"
+    backgroundColor: "{colors.key-lit}"
+    textColor: "{colors.ink}"
     rounded: "{rounded.key}"
   readout-window:
     backgroundColor: "{colors.window}"
@@ -179,7 +179,7 @@ bezel:
 - and, when opened, a flight console (MISSION, PLANNER, ROCKET), the app's
   own panel rather than any body's.
 
-Labels are engraved in orange-red wide capitals. Each panel carries a small
+Labels are engraved in oxblood wide capitals. Each panel carries a small
 designation code, as Shuttle panels do (PNL F1, L1, R1), and section titles
 sit on black nomenclature strips. The signature is the provenance column:
 every value in the data plate has a tag naming its source. Original: the
@@ -198,6 +198,41 @@ principles, not its interface:
 
 Starfield's own logo, colour stripe, fonts and screen layouts are not used.
 
+### What real panels do
+
+The lineage is real hardware, so its rules are real too: NASA-STD-3001
+Volume 2 [1], [2], and MIL-STD-1472 as the FAA's Human Factors Design
+Standard quotes it [3].
+
+- **Contrast is 6:1 or better, 10:1 where it can be** [1, App. F.5.10 f].
+  A lit key carries a dark legend on its lit field, as a master-warning
+  legend does [3, §6.2.2.2.5], so a legend reads lit and unlit
+  [3, §6.2.2.2.7]. RUN lit is ink on the bright end of the key (6.6:1 or
+  better), not cream on orange.
+- **One colour, one meaning** [3, Exh. 6.2.2.1.27], [1, Table F.5-1]: red
+  for failure or warning, yellow for caution, green for in tolerance and OK
+  to proceed, white for selected, blue for advisory, grey for unavailable.
+  Every coloured state also has a word [1, App. F.5.10 e].
+- **A lamp reports what the system did** [3, §6.2.2.1.2–.5]. A lamp with
+  nothing to report is dark, and green is never lit for nothing: the
+  plotting table's DELTA-V lamp stays dark until there is a journey to
+  price.
+- **The primary action is marked by place, size and shape, not by colour**
+  [3, §6.1.1.3.4], [1, App. F.4.3.2 j]. Aviation keeps red, amber and
+  yellow for alerting [5, (f)], so RUN is the one orange key, and a flow's
+  commit key is a taller key outlined in ink.
+- **Guard what can't be undone** [3, §6.1.1.6.4], [1, App. F.4.3.2 c–e]:
+  an irreversible command takes two steps, arm then act, without slowing
+  the action beyond what it needs [3, §6.1.1.6.3].
+- **Size labels to the eye.** NASA sets labels at 0.4° and any text at
+  0.25° or more [1, §10.4.3.3, App. F.5.1 g]. A CSS px is defined at
+  710 mm [4], and Michroma's and B612's capitals are 0.75 em, so at a desk
+  that is about 14 px for text, 18 px for control legends and 23 px for
+  group labels, each step about 25 % up as MIL-STD-1472 grades them
+  [3, §6.1.2.1.2–.5]. The console's 10–11 px engraving is below this; it is
+  the target for a typography pass, not yet applied. Panel codes stay
+  decoration.
+
 Product truth is in [PRODUCT.md](PRODUCT.md).
 
 ## Colors
@@ -206,12 +241,14 @@ Product truth is in [PRODUCT.md](PRODUCT.md).
 
 - **phosphor** `#ffb22e`: amber numerals in readout windows and the current
   body. 10.5:1 on the window.
-- **key** `#d9531f` (lit gradient to `#ff7a3d`): the RUN key while time
-  runs, the only orange surface.
+- **key** `#d9531f`, lit `#ff7a3d` to `#ffb48d`: the RUN key while time
+  runs, the only orange surface, with an ink legend when lit (6.6:1 or
+  better).
 
 ### Secondary
 
-- **engrave** `#9a3216`: engraved labels on the panel. 5.1:1 on the panel.
+- **engrave** `#70220d`: engraved labels on the panel, oxblood. 7.5:1 on
+  the panel, 6.2:1 at worst (panel-sunk).
 - **lamp-on** `#7fe06a`: a lit indicator lamp.
 
 ### Neutral
@@ -221,7 +258,8 @@ Product truth is in [PRODUCT.md](PRODUCT.md).
   for hover.
 - **Seams:** **seam** `#a39a86` and **seam-strong** `#7d7564`, for rules and
   seams.
-- **Ink:** **ink** `#1d1b16` (11.9:1) and **ink-muted** `#5a5446` (5.2:1).
+- **Ink:** **ink** `#1d1b16` (11.9:1) and **ink-muted** `#433e34` (7.3:1,
+  6.0:1 at worst).
 - **Window and bezel:** **window** `#121110` for readout windows and strips,
   **bezel** `#1b1a17` around the sky.
 - **Highlights:** **sheen** `#f5f0e4`, plus **key-low**, **key-edge** and
@@ -234,6 +272,20 @@ Product truth is in [PRODUCT.md](PRODUCT.md).
 - A lamp is lit only when it means something (RUN: time is running; LIVE:
   the sim clock is within a minute of now).
 - Body swatches keep each body's own colour.
+- An unlit lamp's label is **label-dim** `#b9ad92` on the window (8.5:1): a
+  legend reads whether or not it is lit.
+
+### Data encodings and lamp states
+
+Colours that encode data in the sky's overlays, or a lamp's state in the
+plotting table, kept out of the panel palette:
+
+- **Guides:** `#ff9a66` a retrograde spin axis and the pull arrows, `#9fc9b8`
+  Hill spheres, `#8dffa0` the Kp-driven auroral oval; the gravity field's
+  bar runs to `#2f8fb0`, and the flow legend from `#3d5a64` to `#8fc8d8`.
+- **Plotting-table lamps:** go `#1f3a1b`, caution `#4a3c0e` and warn
+  `#4b130b` fields, with `#8d877a` for an unlit lamp's ink; `#3a3328` for
+  the rules between their rows.
 
 ## Typography
 
@@ -314,8 +366,9 @@ casts a shadow onto the sky.
 Keys are 34 px high, engraved Michroma, with a raised bevel. RUN and HOLD
 are a radio pair (`role=radio`): RUN lights orange while time runs, HOLD
 stays pressed while it is held. NOW jumps to the present and is disabled
-when the clock is live. The primary key of a flow (Launch, Fly this) is
-orange; the ACK key flashes only while a warning is unacknowledged, and not
+when the clock is live. The primary key of a flow (Launch, Fly this,
+Commit to the orrery) is a taller key outlined in ink, marked by shape and
+place, since RUN is the one orange key; the ACK key flashes only while a warning is unacknowledged, and not
 at all with reduced motion.
 
 ### The FLIGHT field and the flight console
@@ -337,8 +390,8 @@ lights and the plate reads EN ROUTE · Esc stop.
 
 ### Annunciator
 
-The header's lamps follow the flight-deck convention: green advisory (LIVE,
-KERNEL), amber caution (LAG) and red warning (WARN). Every lamp is labelled,
+The header's lamps follow the flight-deck convention: green status (LIVE,
+KERNEL: in tolerance, not advisories, which aviation keeps off green [5, (e)]), amber caution (LAG) and red warning (WARN). Every lamp is labelled,
 so colour is never the only cue. A new warning lights WARN and flashes ACK;
 acknowledging stops the flash, but the lamp stays lit while the condition
 lasts, as on the Shuttle's caution and warning panel.
@@ -426,3 +479,15 @@ amber on the window black, its swatch glowing.
 - Don't use glass, blur, gradients for colour, or rounded cards.
 - Don't take any game's or film's interface, logo or stripe: the lineage is
   real NASA hardware.
+
+## References
+
+[1] NASA Office of the Chief Health and Medical Officer, "NASA Spaceflight Human-System Standard, Volume 2: Human Factors, Habitability, and Environmental Health," NASA-STD-3001 Vol. 2, Rev. F, 2026. [Online]. Available: https://standards.nasa.gov/standard/NASA/NASA-STD-3001_VOL_2
+
+[2] NASA, "Appendix F (Vol. 2)," NASA-STD-3001 reference page. [Online]. Available: https://www.nasa.gov/reference/appendix-f-vol-2/
+
+[3] FAA William J. Hughes Technical Center, "Chapter 6: Controls and visual indicators," in *Human Factors Design Standard (HFDS)*, 2003 ed. [Online]. Available: https://hf.tc.faa.gov/hfds/download-hfds/hfds_pdfs/Ch6_Controls_and_visual_indicators.pdf
+
+[4] W3C, "CSS Values and Units Module Level 4," §6.2, the reference pixel. [Online]. Available: https://www.w3.org/TR/css-values-4/#reference-pixel
+
+[5] *Code of Federal Regulations*, 14 CFR §25.1322, "Flightcrew alerting," amdt. 25-131, 75 FR 67209, Nov. 2, 2010. [Online]. Available: https://www.law.cornell.edu/cfr/text/14/25.1322

@@ -231,7 +231,7 @@ function Scope({ store, cursor }: { store: JourneyStore; cursor: number }) {
       g.beginPath(); g.moveTo(q[0] + d[0] * 10, q[1] + d[1] * 10); g.lineTo(at2[0], at2[1]); g.stroke();
       g.fillStyle = pulled ? KEY : '#e9e3d6'; g.strokeStyle = '#7d7564'; g.lineWidth = 1;
       g.fillRect(at2[0] - 15, at2[1] - 10, 30, 20); g.strokeRect(at2[0] - 15, at2[1] - 10, 30, 20);
-      g.fillStyle = pulled ? '#fff7ea' : '#9a3216'; g.font = '10px Michroma, sans-serif'; g.textAlign = 'center'; g.fillText(label, at2[0], at2[1] + 4); g.textAlign = 'start';
+      g.fillStyle = pulled ? '#fff7ea' : '#70220d'; g.font = '10px Michroma, sans-serif'; g.textAlign = 'center'; g.fillText(label, at2[0], at2[1] + 4); g.textAlign = 'start';
       if (pulled) { g.fillStyle = KEY; g.font = '11px "B612 Mono", monospace'; g.fillText(`${fmt(pullRate(pulled) * 1000, 0)} m/s/s`, at2[0] + 19, at2[1] + 4); }
       tabs.current.push({ id: m.id!, axis, sign, at: at2, dir: d, label });
     }
