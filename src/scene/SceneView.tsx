@@ -19,23 +19,34 @@ interface Props {
   insetRight?: number;                                  // px of the sky covered on the right (the console)
   view: { kind: 'focus' | 'follow'; name: string };    // what the camera is on, for the view plate
   flying?: boolean;
+  panned?: boolean;                                      // the camera panned off what it is on
+  onCentre?: () => void;                                 // back onto it (C)
+  onHome?: () => void;                                   // the opening view (H)
 }
 
 // The view plate names what the camera is on, with two cues for the mode
 // (word and glyph: a circle for a body, a diamond for a craft, as in the
-// sky), and says when a flight is under way and how to stop it.
-function ViewPlate({ view, flying }: { view: Props['view']; flying: boolean }) {
+// sky), and says when a flight is under way and how to stop it. Its keys:
+// CENTRE while the camera is panned off what it is on, and HOME.
+function ViewPlate({ view, flying, panned, onCentre, onHome }: { view: Props['view']; flying: boolean; panned: boolean; onCentre?: () => void; onHome?: () => void }) {
   return (
-    <div className={`view-plate${flying ? ' flying' : ''}`} role="status" aria-live="polite">
-      <span className={`mode m-${view.kind}`} aria-hidden="true" />
-      <span className="engraved">{view.kind === 'focus' ? 'Focus' : 'Follow'}</span>
-      <span className="name">{view.name}</span>
-      {flying && <span className="enroute">En route · <kbd>Esc</kbd> stop</span>}
+    <div className={`view-plate${flying ? ' flying' : ''}${panned ? ' panned' : ''}`}>
+      <span role="status" aria-live="polite" className="view-status">
+        <span className={`mode m-${view.kind}`} aria-hidden="true" />
+        <span className="engraved">{view.kind === 'focus' ? 'Focus' : 'Follow'}</span>
+        <span className="name">{view.name}</span>
+        {flying && <span className="enroute">En route · <kbd>Esc</kbd> stop</span>}
+        {panned && !flying && <span className="enroute">Panned</span>}
+      </span>
+      {panned && !flying && onCentre && (
+        <button type="button" className="key small" onClick={onCentre} aria-keyshortcuts="C" title={`Put the view back on ${view.name} (C, or double-click the sky)`}>Centre</button>
+      )}
+      {onHome && <button type="button" className="key small" onClick={onHome} aria-keyshortcuts="H" title="Back to the opening view, the Sun from above the inner planets (H)">Home</button>}
     </div>
   );
 }
 
-export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, view, flying = false, frame = 'sun' }: Props) {
+export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, view, flying = false, frame = 'sun', panned = false, onCentre, onHome }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<OrreryScene | null>(null);
@@ -87,8 +98,8 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
   return (
     <div className="scene-host" ref={hostRef} onPointerDown={seen}>
       <div className="scene-overlay" ref={overlayRef} />
-      {hint && !failed && <p className="touch-hint">Tap a body's name to fly there · drag to turn · pinch to zoom</p>}
-      {!failed && <ViewPlate view={view} flying={flying} />}
+      {hint && !failed && <p className="touch-hint">Tap a body's name to fly there · drag to turn · two fingers to pan and zoom</p>}
+      {!failed && <ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} />}
       {lost && !failed && (
         <div className="scene-error caution" role="alert">
           The graphics card dropped the 3D view (this happens after sleep or a driver reset). It comes back when the browser restores it; the panels and the clock keep running.

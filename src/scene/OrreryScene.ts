@@ -57,7 +57,7 @@ import { MagneticLayer } from './magnetic';
 import { orbitTrailMaterial, reachOf } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, renderViewTable, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
-import { CameraRig, type Anchor } from './cameraRig';
+import { CameraRig, HOME, type Anchor } from './cameraRig';
 import { HdrPipeline } from './post';
 import { makeCorona, makeSunMaterial, SunGlare, visibleFraction } from './sun';
 import { RenderScale } from './renderScale';
@@ -721,6 +721,68 @@ export class OrreryScene {
   // Stop a flight where it is (Escape).
   stopFlight(): void { this.rig.interrupt(); }
 
+  // HOME: back to the view a first visit opens on, the Sun from above the
+  // inner planets, flown to (turning on the way), with the zoom the user
+  // carried from body to body forgotten.
+  home(): void {
+    this.userRadii = null;
+    this.sunDist = null;
+    this.focusCraftId = null;
+    this.clearSmall();
+    this.clearSat();
+    this.focus = 'sun';
+    this.rig.flyTo(this.bodyAnchor('sun'), HOME.dist, { az: HOME.az, el: HOME.el });
+    this.onFlight(this.rig.flying);
+    this.onFocusChange('sun');
+  }
+
+  // What a refresh needs to come back here (App.tsx keeps it, remember.js):
+  // the body, what the camera is on if not the body (an irregular moon, a
+  // landing site, a named small body), and the camera about it. About a
+  // craft, a satellite or a spacecraft the camera is not kept (they need a
+  // mission or a catalogue loaded first): a refresh frames the body instead,
+  // the Earth for a satellite.
+  viewState(): { focus: FocusKey; on: string | null; cam: { az: number; el: number; dist: number; pan: Vec3 } | null } {
+    if (this.restoreOn) return { focus: this.focus, on: this.restoreOn.on, cam: this.restoreOn.cam };   // still waiting to go back to it
+    const { az, el, goalDistance: dist, pan } = this.rig;
+    const off = this.focusCraftId !== null || this.focusSat !== null || this.focusProbe !== null;
+    const to = this.rig.destination.id;
+    // Mid-flight, the camera is between two views: the one it is going to is kept, framed afresh.
+    const cam = off || this.rig.flying ? null : { az, el, dist, pan: [...pan] as Vec3 };
+    const focus = this.focusSat !== null ? 'earth' : this.focus;
+    return { focus, on: off ? null : this.focusSmall ?? (to.startsWith('small:') ? to.slice(6) : null), cam };
+  }
+
+  // Put a kept view back, as a cut (a refresh): the body, then what the
+  // camera was on and where it was. A named small body may not be loaded
+  // yet: the camera waits on its body, and goes to it once it is.
+  restoreView(v: { focus: FocusKey; on: string | null; cam: { az: number; el: number; dist: number; pan: Vec3 } | null }): void {
+    this.focus = v.focus;
+    if (!isBary(v.focus)) this.loadSurfaces(v.focus);
+    this.onFocusChange(v.focus);
+    this.restoreOn = null;
+    if (v.on && this.restoreSmall(v.on, v.cam)) return;
+    if (v.on && !v.on.startsWith('irr:') && !v.on.startsWith('site:')) this.restoreOn = { on: v.on, cam: v.cam, until: performance.now() + 30e3 };
+    const a = this.bodyAnchor(v.focus);
+    if (v.cam) { this.rig.restore(a, v.cam); this.rememberZoom(v.cam.dist); }
+    else this.rig.jumpTo(a, this.arrivalDist(v.focus, false));
+  }
+  private restoreOn: { on: string; cam: { az: number; el: number; dist: number; pan: Vec3 } | null; until: number } | null = null;
+  private restoreSmall(on: string, cam: { az: number; el: number; dist: number; pan: Vec3 } | null): boolean {
+    const irr = on.startsWith('irr:') ? on.slice(4) : null, site = on.startsWith('site:') ? on.slice(5) : null;
+    if (irr ? !this.irregulars.has(irr) : site ? !SITE_BY_KEY[site] : !this.smallBodies.body(on)) return false;
+    this.focusSmall = on;
+    this.smallBodies.setFocus(irr || site ? null : on);
+    this.irregulars.setFocus(irr);
+    this.sites.setFocus(site);
+    if (site && this.focus !== 'moon') { this.focus = 'moon'; this.loadSurfaces('moon'); this.onFocusChange('moon'); }
+    const a = this.smallAnchor(on);
+    if (cam) this.rig.restore(a, cam);
+    else this.rig.jumpTo(a, site ? SITE_DIST_KM : Math.max(this.smallRadius(on) * 8, 1));
+    this.onSmallPick(on);
+    return true;
+  }
+
   private loadSurfaces(key: BodyKey): void {
     if (!this.manifest || !this.unloadedSurfaces.has(key)) return;
     this.unloadedSurfaces.delete(key);
@@ -734,31 +796,97 @@ export class OrreryScene {
 
   private attachControls(): void {
     const el = this.renderer.domElement;
-    // One pointer drags; a second finger is ignored until the first lifts.
-    let pointer: number | null = null, lx = 0, ly = 0;
+    // A drag turns the camera about its pivot; a right-drag, a middle-drag
+    // or a Shift-drag pans it, moving the pivot off the body
+    // (docs/frontend/camera.md#panning). On touch, one finger turns and two
+    // pan (their midpoint) and pinch-zoom (their spread); lifting one goes
+    // back to turning from where the other is, so the view does not jump.
+    const down = new Map<number, { x: number; y: number }>();
+    let mode: 'turn' | 'pan' = 'turn';
+    let lx = 0, ly = 0, spread = 0;
     // A press that does not move (a click) goes to the journey: a burn
     // node on the arc under it, or the selection cleared.
-    let sx = 0, sy = 0, travel = 0;
+    let sx = 0, sy = 0, travel = 0, button = 0;
+    const mid = () => {
+      let x = 0, y = 0;
+      for (const p of down.values()) { x += p.x; y += p.y; }
+      return [x / down.size, y / down.size];
+    };
+    const gap = () => { const [a, b] = [...down.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
     el.addEventListener('pointerdown', (e) => {
-      if (pointer !== null) return;
-      pointer = e.pointerId; lx = sx = e.clientX; ly = sy = e.clientY; travel = 0; el.setPointerCapture(e.pointerId);
+      if (down.size >= 2) return;                 // a third finger: ignored
+      down.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      el.setPointerCapture(e.pointerId);
+      if (down.size === 1) {
+        mode = e.button === 2 || e.button === 1 || e.shiftKey ? 'pan' : 'turn';
+        [lx, ly] = [e.clientX, e.clientY]; sx = lx; sy = ly; travel = 0; button = e.button;
+      } else {
+        mode = 'pan';
+        [lx, ly] = mid(); spread = gap(); travel = Infinity;   // a two-finger touch is never a click
+      }
     });
     const end = (e: PointerEvent) => {
-      if (e.pointerId !== pointer) return;
-      pointer = null;
+      if (!down.has(e.pointerId)) return;
+      down.delete(e.pointerId);
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
-      if (e.type === 'pointerup' && travel < 4) this.journeyLayer.click(sx, sy);
+      if (down.size === 1) { [lx, ly] = mid(); mode = 'turn'; return; }   // one finger left: it turns
+      if (e.type === 'pointerup' && travel < 4 && button === 0) this.journeyLayer.click(sx, sy);
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
     el.addEventListener('pointermove', (e) => {
-      if (e.pointerId !== pointer) return;
-      travel = Math.max(travel, Math.hypot(e.clientX - sx, e.clientY - sy));
-      this.rig.rotate(-(e.clientX - lx) * 0.005, (e.clientY - ly) * 0.005);
-      lx = e.clientX; ly = e.clientY;
+      const p = down.get(e.pointerId);
+      if (!p) return;
+      p.x = e.clientX; p.y = e.clientY;
+      const [x, y] = mid();
+      if (down.size === 1) travel = Math.max(travel, Math.hypot(x - sx, y - sy));
+      if (mode === 'pan') this.panPixels(x - lx, y - ly);
+      else this.rig.rotate(-(x - lx) * 0.005, (y - ly) * 0.005);
+      if (down.size === 2) {
+        const g = gap();
+        if (spread > 0 && g > 0) this.zoomBy(spread / g);
+        spread = g;
+      }
+      lx = x; ly = y;
     });
+    // The right button pans, so its menu is not wanted over the sky.
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+    // A double-click on the sky puts the pivot back on the body.
+    el.addEventListener('dblclick', () => this.recentre());
     this.container.addEventListener('wheel', this.onWheel, { passive: false });
     window.addEventListener('keydown', this.onKey);
+  }
+
+  // Pan by a drag of (dx, dy) CSS pixels: the sky moves with the pointer,
+  // so the point under it stays under it at the pivot's depth.
+  private panPixels(dx: number, dy: number): void {
+    if (!dx && !dy) return;
+    const h = this.container.clientHeight || 1;
+    const kmPerPx = (this.camDist * 2 * Math.tan((this.camera.fov * Math.PI) / 360)) / h;
+    const m = this.camera.matrixWorld.elements;
+    // The camera's right and up (render frame) in the ecliptic: render
+    // (x, y, z) is ecliptic (x, z, -y).
+    const right: Vec3 = [m[0], -m[2], m[1]], up: Vec3 = [m[4], -m[6], m[5]];
+    const k = kmPerPx;
+    this.rig.panBy([0, 1, 2].map((i) => (-right[i] * dx + up[i] * dy) * k) as Vec3);
+    this.notifyPan();
+  }
+  // The camera's distance from its pivot last frame, km (dist, or more when
+  // it was lifted off the ground).
+  private camDist = 1.6e9;
+
+  // Back onto the focus after a pan (a double-click, C, or the view plate's key).
+  recentre(): void {
+    this.rig.recentre();
+    this.notifyPan();
+  }
+  get panned(): boolean { return this.rig.panned; }
+  onPan: (panned: boolean) => void = () => {};
+  private wasPanned = false;
+  private notifyPan(): void {
+    if (this.rig.panned === this.wasPanned) return;
+    this.wasPanned = this.rig.panned;
+    this.onPan(this.wasPanned);
   }
 
   // The wheel takes over from a flight and zooms smoothly; the distance it
@@ -766,21 +894,32 @@ export class OrreryScene {
   // the whole sky, labels included (they sit over the canvas).
   private onWheel = (e: WheelEvent): void => {
     e.preventDefault();
-    const craft = this.focusCraftId !== null;
-    const focus = this.focus;
-    const small = this.focusSmall, sat = this.focusSat !== null || this.focusProbe !== null;
-    const minDist = craft ? 0.05 : sat ? 0.02 : small ? this.smallRadius(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
     // Lines are 3 % of a page; pixels as they come.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
-    this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
-    const goal = this.rig.goalDistance;
+    this.zoomBy(Math.exp(dy * 0.0015));
+  };
+
+  // Zoom by a factor (the wheel, a pinch), within the target's limits, and
+  // remember the distance for the next body (arrivalDist).
+  private zoomBy(factor: number): void {
+    this.rig.zoom(factor, this.minZoom(), 2.0e10);
+    this.rememberZoom(this.rig.goalDistance);
+  }
+  private minZoom(): number {
+    const craft = this.focusCraftId !== null, focus = this.focus;
+    const small = this.focusSmall, sat = this.focusSat !== null || this.focusProbe !== null;
+    return craft ? 0.05 : sat ? 0.02 : small ? this.smallRadius(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
+  }
+  private rememberZoom(goal: number): void {
+    const craft = this.focusCraftId !== null, focus = this.focus;
+    const small = this.focusSmall, sat = this.focusSat !== null || this.focusProbe !== null;
     if (craft) this.craftDist = goal;
     else if (this.focusProbe !== null) this.probeDist = goal;
     else if (sat) this.satDist = goal;
     else if (small) { /* a small body's zoom is its own */ }
     else if (focus === 'sun') this.sunDist = goal;
     else if (!isBary(focus)) this.userRadii = goal / BODY_BY_KEY[focus].radiusKm;
-  };
+  }
 
   private onKey = (e: KeyboardEvent): void => {
     if (e.key !== 'Escape' || !this.rig.flying) return;
@@ -1001,6 +1140,14 @@ export class OrreryScene {
     this.updateOrbits(tMs, now);
     this.updateNearOrbits(tMs);
 
+    // A kept view on a named small body, once the named ones have loaded
+    // (restoreView); given up after 30 s, or when the user has chosen
+    // something else meanwhile.
+    if (this.restoreOn) {
+      const r = this.restoreOn;
+      if (performance.now() > r.until || this.rig.target.id !== `body:${this.focus}` || this.rig.flying) this.restoreOn = null;
+      else if (this.smallBodies.body(r.on)) { this.restoreOn = null; this.restoreSmall(r.on, r.cam); }
+    }
     if (this.sunViewPending && this.focus !== 'sun') {
       const b = this.states[this.focus].r;
       const d = Math.hypot(b[0], b[1], b[2]);
@@ -1017,6 +1164,7 @@ export class OrreryScene {
       this.rig.flyTo(this.bodyAnchor(this.focus), this.arrivalDist(this.focus, false));
       this.rig.update(0);
     }
+    this.notifyPan();                   // a flight clears a pan
     const f = this.rig.pivot;
     const moonAxes = axesToEcl(bodyAxesEqj('moon', date));
     // About a landing site the camera turns in the site's own frame (east,
@@ -1050,7 +1198,8 @@ export class OrreryScene {
     // it is kept 5 m above the surface, still looking at the pivot.
     const lifted = this.aboveGround(cam, date);
     if (lifted) { cam = lifted; offset = [cam[0] - f[0], cam[1] - f[1], cam[2] - f[2]]; }
-    this.fitNear(Math.hypot(offset[0], offset[1], offset[2]));
+    this.camDist = Math.hypot(offset[0], offset[1], offset[2]);
+    this.fitNear(this.camDist);
     const sys = this.focusCraftId === null ? systemOf(this.focus) : null;
     for (const p of SYSTEMS) {
       const r = this.states[p].r;

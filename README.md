@@ -105,11 +105,14 @@ npm run build
 ## Controls
 
 - Drag: rotate the view about the focused body
-- Scroll: zoom in and out (the zoom is kept when you move to another body)
+- Right-drag or Shift-drag (two fingers on touch): pan across the sky with a body still in focus; C, a double-click or the CENTRE key puts the view back on it
+- Scroll (pinch on touch): zoom in and out (the zoom is kept when you move to another body)
+- H or the HOME key: back to the opening view
+- A refresh in the same tab comes back to the same view, clock and layer switches; a new tab starts at home
 - Click a label or a name in the list: fly there (drag, scroll or Esc stops the flight; click the body in view again to reframe it)
 - Header: the RUN key runs or holds time; choose a rate (real time to one year per second), or jump back to now with NOW
 - Header: FLIGHT shows the selected craft (press it to follow the craft); CONSOLE opens the flight console
-- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now, M flight console, Esc stop a flight or close the console
+- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now, M flight console, H home, C centre after a pan, Esc stop a flight or close the console
 
 The data plate gives each value with its source (the provenance column): a solid tag for data, a dashed one for values worked out in the app; hover a tag for detail.
 

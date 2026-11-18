@@ -487,7 +487,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
           {onKeys ? <button type="button" className="foot-key" {...{ [KEYS_TOGGLE]: '' }} onClick={onKeys} aria-keyshortcuts="?" title="Every keyboard shortcut (?)"><kbd>?</kbd> keys</button>
             : <><kbd>?</kbd> keys</>} · <kbd>/</kbd> find
         </p>
-        <p>Choose a body to fly there; drag to turn, scroll to zoom.</p>
+        <p>Choose a body to fly there; drag to turn, right-drag or Shift-drag to pan, scroll to zoom.</p>
         <div className="foot-links">
           <a href="https://github.com/Zyzzbarth333/digital-orrery/blob/main/docs/README.md" target="_blank" rel="noreferrer">How it works</a>
           <Credits />

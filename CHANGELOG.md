@@ -194,6 +194,9 @@ once it has releases. Until then, everything sits under Unreleased.
   and its rings, and Voyager 2 at Neptune and Triton (this pull request).
 
 ### The sky and its bodies
+- Pan across the solar system with a body in focus: right-drag, middle-drag or Shift-drag, or two fingers on touch, which also pinch-zoom (the touch hint promised pinch; nothing handled it). C, a double-click on the sky or the view plate's CENTRE key puts the view back on the body; a panned view rides with the body under time warp ([camera](docs/frontend/camera.md#panning), this pull request).
+- A HOME key on the view plate, and H, fly back to the opening view (this pull request).
+- A refresh comes back to where you were: the body, the camera and its pan, the clock's time, rate and RUN or HOLD, from this tab's session, and every layer switch in the rail, for this browser. A new tab starts at home, and a URL's `?focus=` or `?t=` still wins ([camera](docs/frontend/camera.md#across-a-refresh), this pull request).
 - The Moon's landing sites, as a layer the rail's **Moon landings** section switches on: every soft landing from Luna 9 to Blue Ghost, where Lunokhod 1 and 2 and Yutu stopped, the landers that crashed and were found, and the early craft never found. Each is where the LROC team measured it in its images, to metres, and the rail flies to any one, framing it from low over the ground across the sunlight, the camera's up the site's own vertical. Its plate gives the mission, when it landed, the crew, the coordinates and their source, and the Sun's height there now. The sites are within 85 m of SPICE's MOON_ME (this pull request).
 - The planets' and moons' maps load GPU-compressed where the GPU can take
   them (KTX2 with Basis Universal, transcoded to BC7, ASTC or ETC2): a
@@ -315,6 +318,8 @@ once it has releases. Until then, everything sits under Unreleased.
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- Switching the irregular moons off, or flying away from their planet, no longer leaves their names on the screen: the names were hidden only while the moons' points were drawn (this pull request).
+- Choosing a planet in the rail below an open moon grid no longer makes its row jump from under the pointer (by up to 362 px, leaving a switch there for the next click), on a desktop or a phone ([camera](docs/frontend/camera.md#the-rail-holds-still), this pull request).
 - A gravity field asked for past degree 85 no longer comes out wrong. At
   degree 100 it was off by up to 0.07 % (Venus, 300 km up); now it is
   within 7×10⁻¹⁵ of an independent oracle, over the Moon's pole too.

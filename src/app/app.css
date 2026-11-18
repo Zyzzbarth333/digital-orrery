@@ -586,6 +586,9 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .view-plate .enroute { font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--phosphor-dim); }
 .view-plate .enroute kbd { background: transparent; color: var(--phosphor-dim); border-color: var(--lamp-off); box-shadow: none; }
 .view-plate.flying .mode { background: var(--phosphor); box-shadow: 0 0 6px rgba(255, 178, 46, 0.7); }
+/* Its keys (CENTRE while panned, HOME) take presses; the rest lets them through to the sky. */
+.view-plate .view-status { display: contents; }
+.view-plate .key { pointer-events: auto; }
 
 /* ---------------- phones: after the console's own rules ---------------- */
 @media (max-width: 720px) {
