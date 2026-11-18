@@ -16,7 +16,7 @@ import { bodyInfo } from '../physics/journey.js';
 
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-type State = 'go' | 'nogo' | 'standby';
+type State = 'go' | 'nogo' | 'standby' | 'na';
 interface Row { key: string; state: State; text: string; fix?: string }
 
 export function GoStation({ store, clock, mission, onFlown }: { store: JourneyStore; clock: SimClock; mission: Mission; onFlown: (id: number) => void }) {
@@ -58,7 +58,11 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
   const lo = lamp('lowOrbit');
   if (lo) rows.push(lo.level === 'warn' ? { key: 'Orbits', state: 'nogo', text: lo.text, fix: 'Shorten the stay or raise the orbit in PLOT' } : { key: 'Orbits', state: 'go', text: lo.text });
   const fb = lamps.filter((l) => l.key === 'flyby');
-  rows.push(fb.some((l) => l.level === 'warn') ? { key: 'Flybys', state: 'nogo', text: fb.map((l) => l.text).join('; ') } : { key: 'Flybys', state: 'go', text: sol.flybys.some(Boolean) ? (fb.length ? fb.map((l) => l.text).join('; ') : 'Every pass above its floor') : 'None' });
+  // A row with nothing to report stays dark (N/A): green is never lit for
+  // nothing (DESIGN.md, What real panels do).
+  rows.push(fb.some((l) => l.level === 'warn') ? { key: 'Flybys', state: 'nogo', text: fb.map((l) => l.text).join('; ') }
+    : sol.flybys.some(Boolean) ? { key: 'Flybys', state: 'go', text: fb.length ? fb.map((l) => l.text).join('; ') : 'Every pass above its floor' }
+      : { key: 'Flybys', state: 'na', text: 'None in this journey' });
   // Vehicle.
   const can = real.filter((r) => r.can).map((r) => r.label);
   // The stack sized in STACK, which the ROCKET tab flies as "Journey's stack".
@@ -66,9 +70,13 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
     : { key: 'Vehicle', state: 'nogo', text: `No stack of these stages gives ${fmt(dv / 1000, 1)} km/s`, fix: 'Change the stages in STACK' });
   // Launch.
   const s0 = j.start;
-  rows.push({ key: 'Launch', state: 'go', text: `${s0.kind === 'pad' ? `Pad ${fmt(s0.latDeg ?? 28.5, 1)}°` : s0.kind === 'orbit' ? 'From orbit' : 'From the craft'}, ${iso(sol.startMs)}, ${s0.kind === 'craft' ? 'its own state' : `${s0.altKm} km parking orbit`}` });
+  // Launch: checked, not assumed. A parking orbit below 120 km is inside the
+  // air's dense part (the MISSION tab's floor for a launch).
+  const where = `${s0.kind === 'pad' ? `Pad ${fmt(s0.latDeg ?? 28.5, 1)}°` : s0.kind === 'orbit' ? 'From orbit' : 'From the craft'}, ${iso(sol.startMs)}, ${s0.kind === 'craft' ? 'its own state' : `${s0.altKm} km parking orbit`}`;
+  rows.push(s0.kind !== 'craft' && !(s0.altKm >= 120) ? { key: 'Launch', state: 'nogo', text: `${where}: the parking orbit is inside the atmosphere`, fix: 'Raise the parking orbit to 120 km or more in PLOT' }
+    : { key: 'Launch', state: 'go', text: where });
 
-  const allGo = rows.every((r) => r.state === 'go');
+  const allGo = rows.every((r) => r.state === 'go' || r.state === 'na');
   const commit = () => {
     if (!reply?.start) return;
     clock.setTime(reply.start.ms);
@@ -82,7 +90,7 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
         {rows.map((r) => (
           <div key={r.key} className="go-row" role="row">
             <b role="rowheader">{r.key}</b>
-            <span role="cell" className={`plot-lamp ${r.state === 'go' ? 'go' : r.state === 'nogo' ? 'warn' : ''}`}>{r.state === 'go' ? 'GO' : r.state === 'nogo' ? 'NO GO' : 'STANDBY'}</span>
+            <span role="cell" className={`plot-lamp ${r.state === 'go' ? 'go' : r.state === 'nogo' ? 'warn' : ''}`}>{r.state === 'go' ? 'GO' : r.state === 'nogo' ? 'NO GO' : r.state === 'na' ? 'N/A' : 'STANDBY'}</span>
             <span role="cell">{r.text}{r.fix && <small>{r.fix}</small>}</span>
           </div>
         ))}

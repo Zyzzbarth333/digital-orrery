@@ -224,6 +224,9 @@ Standard quotes it [3].
 - **Guard what can't be undone** [3, §6.1.1.6.4], [1, App. F.4.3.2 c–e]:
   an irreversible command takes two steps, arm then act, without slowing
   the action beyond what it needs [3, §6.1.1.6.3].
+  Here: ARM then LAUNCH (the MISSION tab and the pad), and a confirm for
+  removing a craft or a stage; ARMED is caution yellow with an ink legend,
+  never the dark key of a selection.
 - **Size labels to the eye.** NASA sets labels at 0.4° and any text at
   0.25° or more [1, §10.4.3.3, App. F.5.1 g]. A CSS px is defined at
   710 mm [4], and Michroma's and B612's capitals are 0.75 em, so at a desk

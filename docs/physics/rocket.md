@@ -31,7 +31,7 @@ found by bisection.
   times everything above it.
 - **Limit:** no stack exists beyond $\sum_i c_i\ln(1/\varepsilon_i)$.
 
-The tab's "Size the stack for this job" keeps each stage's Isp, structural
+The tab's "Size for this job" keeps each stage's Isp, structural
 ratio and thrust-to-weight, and rescales its masses and thrust.
 
 ## Working backwards from a job

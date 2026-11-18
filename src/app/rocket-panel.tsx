@@ -20,6 +20,7 @@ import {
 import { bodyAxesEqj } from '../physics/orientation.js';
 import { LAUNCHERS } from '../physics/launchers.js';
 import { SourceTag } from './source-tag';
+import { GuardedKey } from './guarded-key';
 import { rvToElements } from '../physics/orbital.js';
 import { orkXml, readOrk, vehicleFromOrk, flyOrk } from '../physics/ork.js';
 import { stackAsLauncher } from '../physics/staging.js';
@@ -239,7 +240,10 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
 
   return (
     <div className="tab-body rocket">
-      <details className="section" open>
+      {/* Folded on arrival (its header says the vehicle, its mass and
+          delta-v), unless the journey flies another stack: then it opens
+          on the note that says so. */}
+      <details className="section" open={!!journeyPreset && !P0.fromJourney}>
         <summary className="strip"><span>Vehicle</span><span className="sum-note" title={vehicleNote}>{vehicleNote}</span></summary>
         <div className="form-grid">
           <label className="num wide"><span className="engraved">Start from</span>
@@ -281,7 +285,7 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
           <fieldset className="stage" key={i}>
             <div className="stage-head">
               <input className={inputClass} aria-label={`stage ${i + 1} name`} value={s.name} onChange={(e) => edit(i, 'name', e.target.value)} />
-              <button className="key small" aria-label={`remove ${s.name}`} disabled={stages.length < 2} onClick={() => removeStage(i)}>Remove</button>
+              <GuardedKey className="key small" label="Remove" ariaLabel={`remove ${s.name}`} confirm={`Remove ${s.name}`} disabled={stages.length < 2} onConfirm={() => removeStage(i)} />
             </div>
             <div className="form-grid">
               {([['dry', 'Dry mass', 't', 'empty: structure, engines, tanks'], ['prop', 'Propellant', 't', ''], ['isp', 'Isp vacuum', 's', 'specific impulse in vacuum'], ['ispSl', 'Isp sea level', 's', 'specific impulse at sea level'], ['thrust', 'Thrust', 'kN', 'vacuum thrust']] as const).map(([k, label, unit, title]) => (
@@ -343,7 +347,7 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
           </tbody></table>
         )}
         <div className="keys-row">
-          <button className="key" onClick={size} disabled={needed === null || !perf}>Size the stack for this job</button>
+          <button className="key" onClick={size} disabled={needed === null || !perf}>Size for this job</button>
           <span className="hint">The lightest stack of these stages (Curtis 13.6)</span>
         </div>
         {note && <p className="status">{note}</p>}
