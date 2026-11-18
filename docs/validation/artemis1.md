@@ -15,7 +15,7 @@ from November 2026.
 
 - **Trajectory:** NASA/JSC navigation's as-flown ephemeris,
   `Post_TLI_Orion_AsFlown_20221213_EPH_OEM`, through
-  [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) (object −1023). It runs
+  [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) (object −1023) [1]. It runs
   from after the translunar injection burn (08:46 TDB on 16 November) to
   just before entry (17:20 TDB on 11 December). NAIF holds no Artemis I
   kernel; Artemis II's came from NAIF ([Artemis II](artemis2.md)).
@@ -55,9 +55,9 @@ event as a whole adds up.
 
 ## The burns: ours against NASA's
 
-NASA's as-flown figures are from AAS 23-363, Table 1, its post-flight
-review column, and Fig. 7 (ignition). Durations and engines are from
-Belair et al., *Artemis I engine performance*, Table 1.
+NASA's as-flown figures are from AAS 23-363 [2, Table 1], its post-flight
+review column, and [2, Fig. 7] (ignition). Durations and engines are from
+Belair et al., *Artemis I engine performance* [3, Table 1].
 
 | Burn | Ignition (UTC) | Engine, duration | NASA | Ours |
 | --- | --- | --- | --- | --- |
@@ -177,8 +177,8 @@ alone, and 43.5 m and 5.35 m with the full model.
    - the Sun from the Earth: within 17 m.
 
 The published numbers are a check of their own: NASA's burns, flyby
-distances and farthest point, below and above, come from NASA's papers
-and blog, not from the ephemeris.
+distances and farthest point, below and above, come from NASA's papers [2], [3]
+and blog [4], not from the ephemeris.
 
 ## The lunar flybys and the farthest point
 
@@ -225,14 +225,12 @@ powered flyby. The craft then comes down at 17:28 UTC on 11 December,
 13.9° S, 119.6° W: the app flies entry as a ballistic fall, not Orion's
 skip entry, which splashed down off Baja California at 17:40.
 
-## Sources
+## References
 
-- NASA/JSC navigation, `Post_TLI_Orion_AsFlown_20221213_EPH_OEM`, through
-  JPL Horizons (object −1023), [ssd.jpl.nasa.gov/horizons](https://ssd.jpl.nasa.gov/horizons/).
-- *Artemis I Operations*, AAS 23-363: as-flown burns (Table 1) and their
-  times (Fig. 7),
-  [NTRS 20230010480](https://ntrs.nasa.gov/api/citations/20230010480/downloads/AAS_23-363_artemis1-operations_rev2.pdf).
-- Belair et al., *Artemis I Engine Performance*: durations and engines,
-  [NTRS 20240003648](https://ntrs.nasa.gov/api/citations/20240003648/downloads/382_BELAIR_ARTEMIS_I_ENGINE_PERFORMANCE_FINAL.pdf).
-- NASA Artemis I blog, flight days 6, 13 and 20: closest approaches and the
-  farthest distance.
+[1] NASA/JSC Navigation, "Post_TLI_Orion_AsFlown_20221213_EPH_OEM," via JPL Horizons, object −1023. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[2] "Artemis I Operations," AAS 23-363, NASA Technical Reports Server (NTRS) 20230010480, 2023. [Online]. Available: https://ntrs.nasa.gov/api/citations/20230010480/downloads/AAS_23-363_artemis1-operations_rev2.pdf
+
+[3] Belair et al., "Artemis I Engine Performance," NTRS 20240003648, 2024. [Online]. Available: https://ntrs.nasa.gov/api/citations/20240003648/downloads/382_BELAIR_ARTEMIS_I_ENGINE_PERFORMANCE_FINAL.pdf
+
+[4] NASA, "Artemis I blog," flight days 6, 13 and 20: closest approaches and the farthest distance.

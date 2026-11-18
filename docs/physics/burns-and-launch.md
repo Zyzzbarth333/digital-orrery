@@ -14,7 +14,7 @@ $$
 \mathbf a_\text{thrust}(t) = \frac{F}{m_0 - \dot m\,(t - t_0)}\,\hat{\mathbf d}\times10^{-3}\ \text{km/s}^2,\qquad t_0 \le t < t_1 .
 $$
 
-With no gravity this integrates to the rocket equation. With
+With no gravity this integrates to the rocket equation [1, §13.3–13.4]. With
 $m_1 = m_0 - \dot m\,T$ and $T = t_1 - t_0$:
 
 $$
@@ -114,7 +114,7 @@ $\hat{\mathbf u}$ with speed $\sqrt{v_\infty^2 + 2\mu/R}$.
 
 ## Porkchop grid
 
-`src/physics/porkchop.js`. For each departure date and time of flight, the
+`src/physics/porkchop.js` [1, §8.11]. For each departure date and time of flight, the
 Lambert arc between the two planets' heliocentric ecliptic states gives
 $\mathbf v_1$ and $\mathbf v_2$; then
 
@@ -146,9 +146,6 @@ centre with only the Sun pulling; closing that gap needs targeting (a
 differential corrector on $\mathbf v_\infty$), which is planned. No capture
 burn is modelled yet.
 
-## Sources
+## References
 
-- The rocket equation: Curtis, 4th ed., Sections 13.3-13.4.
-- Patched conics and planetary departure: Curtis, Sections 8.5-8.6;
-  non-Hohmann interplanetary transfers (the basis of porkchop plots),
-  Section 8.11.
+[1] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. Sections 13.3–13.4 (the rocket equation); 8.5–8.6 (patched conics and planetary departure); 8.11 (non-Hohmann interplanetary transfers, the basis of porkchop plots).

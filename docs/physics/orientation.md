@@ -14,7 +14,7 @@ $(X\cdot\mathbf v,\ Y\cdot\mathbf v,\ Z\cdot\mathbf v)$.
 
 ### Earth
 
-The Earth is ITRF93, the frame NAIF's Earth PCKs give and the one GPS,
+The Earth is ITRF93, the frame NAIF's Earth PCKs give [1] and the one GPS,
 launch sites and surface maps are measured in. Its axes are the rows of
 
 $$
@@ -36,7 +36,7 @@ $\delta\Delta\epsilon$ come from `public/ephemeris/earth-orientation-2000-2126.b
 equator. Without them (before 2000, after 2126, or if the file fails to
 load) the Earth turns on UTC with no polar motion, 180 m out.
 
-**Where the table comes from.** NAIF's two binary Earth PCKs, sampled with
+**Where the table comes from.** NAIF's two binary Earth PCKs [2], sampled with
 CSPICE by `c/earth_orientation.c`:
 
 | Segment | Kernel | What it holds |
@@ -83,7 +83,7 @@ publishes a new one from time to time.
 
 ### The other bodies
 
-The IAU Working Group on Cartographic Coordinates and Rotational Elements
+The IAU Working Group on Cartographic Coordinates and Rotational Elements [3]
 gives each body's north pole as a right ascension and declination
 $(\alpha_0, \delta_0)$ and its prime meridian as an angle $W$ along the
 equator, measured from the node where the body's equator crosses the ICRF
@@ -105,7 +105,7 @@ astronomy-engine's `RotationAxis`.
 ### The planets' moons
 
 The 20 major moons the scene draws (Phobos to Charon) use the IAU models as
-NAIF's `pck00011_n0066.tpc` gives them, the same constants SPICE's
+NAIF's `pck00011_n0066.tpc` [4] gives them, the same constants SPICE's
 `IAU_<MOON>` frames use. `src/physics/pck.build.mjs` reads the kernel's
 data blocks (a later assignment replacing an earlier one, as SPICE's pool
 does) and writes `src/physics/pck.data.js`. With $d$ days and $T$ Julian
@@ -175,7 +175,7 @@ plate shows.
   average out). The IAU puts a planet's north pole on the north side of
   the invariable plane, so Venus and Uranus have $\dot W < 0$; a dwarf
   planet's pole is the positive one, so Pluto's $\dot W > 0$. The Earth's
-  is the Earth Rotation Angle's rate (IERS Conventions 2010), the stellar
+  is the Earth Rotation Angle's rate (IERS Conventions 2010 [5]), the stellar
   day.
 - **Axial tilt:** the spin axis $\hat{\mathbf s} = \operatorname{sign}(\dot W)\,\mathbf Z$
   against the osculating orbit's normal $\hat{\mathbf h}$,
@@ -188,16 +188,16 @@ plate shows.
   month).
 - **Mean density** $\bar\rho = (GM/G)/(\tfrac43\pi R^3)$ and **escape speed**
   $\sqrt{2GM/R}$, from the body's own GM and its mean radius, with
-  $G = 6.67430\times10^{-11}$ m³ kg⁻¹ s⁻² (CODATA 2018).
+  $G = 6.67430\times10^{-11}$ m³ kg⁻¹ s⁻² (CODATA 2018 [6]).
 
 For the Sun:
 - **By latitude:** $\omega(\varphi) = A + B\sin^2\varphi + C\sin^4\varphi$,
   sidereal, $A = 2.894$, $B = -0.428$, $C = -0.370$ µrad/s (Howard,
-  Harvey & Forgach 1990, from small magnetic features): 25.1 days at the
+  Harvey & Forgach 1990 [7], from small magnetic features): 25.1 days at the
   equator, 34.7 near the poles (the fit carried there). The IAU's own rate,
   14.1844°/day (25.38 days), is Carrington's.
 - **Its Galactic orbit:** Sgr A* drifts along the Galactic plane by
-  6.379 mas/yr (Reid & Brunthaler 2004), the Sun's motion round it. As an
+  6.379 mas/yr (Reid & Brunthaler 2004 [8]), the Sun's motion round it. As an
   angular rate $\Omega_\odot = 4.74047\,\mu$ km/s/kpc $= 30.24$, so
   $T = 2\pi/\Omega_\odot = 203$ million years, with no need for the
   distance to the centre. The often quoted 225–250 million years comes
@@ -205,7 +205,7 @@ For the Sun:
 - **The barycentre:** $\mathbf r_\text{SSB} = \sum\mu_i\mathbf r_i/\sum\mu_i$,
   from astronomy-engine (the Sun and the four giant planets).
 
-`bodyfacts.test.mjs` checks them against NASA's planetary fact sheets
+`bodyfacts.test.mjs` checks them against NASA's planetary fact sheets [9]
 (NSSDCA): rotation to 0.02 %, the solar day to 0.04 %, the tilts to 0.05°,
 density to 1 %. Two differ, and the plate says so:
 - **Neptune:** NSSDCA gives 16.11 h, Voyager 2's radio period; the IAU
@@ -257,37 +257,22 @@ The giant planets have no surface; their "longitude" is a rotation model
 (System III), so these differences only move cloud bands, and only for the
 models astronomy-engine and pck00011 take from different IAU reports.
 
-## Sources
+## References
 
-- NAIF, `pck00011_n0066.tpc`, the generic text PCK in the N0066 toolkit's
-  format (<https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/>): the
-  moons' rotation models and every body's radii, as the IAU 2015 report and
-  its later corrections give them.
+[1] NAIF, "PCK Required Reading" and "Frames Required Reading" (ITRF93 and the high-precision Earth frame). [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/
 
-- B. A. Archinal et al., "Report of the IAU Working Group on Cartographic
-  Coordinates and Rotational Elements: 2015", *Celestial Mechanics and
-  Dynamical Astronomy* 130:22 (2018),
-  [doi:10.1007/s10569-017-9805-5](https://doi.org/10.1007/s10569-017-9805-5).
-- G. Petit and B. Luzum (eds.), *IERS Conventions (2010)*, IERS Technical
-  Note 36: the Earth Rotation Angle; polar motion (chapter 5).
-- NAIF, Earth binary PCKs and their comments (`commnt -r`):
-  [generic_kernels/pck](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/),
-  `earth_latest_high_prec.bpc` (13 Nov 2026) and
-  `earth_2026_260806_2126_predict.bpc` (7 Aug 2026), both made by WRTPEM
-  from JPL's EOP file `latest.long`
-  ([eop.jpl.nasa.gov](https://eop.jpl.nasa.gov/)).
-- NAIF, *PCK Required Reading* and *Frames Required Reading*: ITRF93 and
-  the high-precision Earth frame.
-- R. Howard, J. W. Harvey and S. Forgach, "Solar surface velocity fields
-  determined from small magnetic features", *Solar Physics* 130, 295
-  (1990), doi:10.1007/BF00156795, ADS 1990SoPh..130..295H. SunPy's
-  `differential_rotation` uses the same coefficients by default
-  ([docs](https://docs.sunpy.org/en/stable/generated/api/sunpy.sun.models.differential_rotation.html)).
-- M. J. Reid and A. Brunthaler, "The proper motion of Sagittarius A*. II.
-  The mass of Sagittarius A*", *ApJ* 616, 872 (2004),
-  [doi:10.1086/424960](https://doi.org/10.1086/424960): 6.379 ± 0.024
-  mas/yr.
-- D. R. Williams, NASA NSSDCA planetary fact sheets,
-  [nssdc.gsfc.nasa.gov/planetary/factsheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/).
-- CODATA 2018 value of G,
-  [physics.nist.gov](https://physics.nist.gov/cgi-bin/cuu/Value?bg).
+[2] NAIF, "Earth binary PCKs and their comments (`commnt -r`): `earth_latest_high_prec.bpc` (13 Nov. 2026) and `earth_2026_260806_2126_predict.bpc` (7 Aug. 2026)," both made by WRTPEM from JPL's EOP file `latest.long` (https://eop.jpl.nasa.gov/). [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/
+
+[3] B. A. Archinal *et al.*, "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015," *Celest. Mech. Dyn. Astron.*, vol. 130, no. 3, Art. no. 22, 2018, doi: 10.1007/s10569-017-9805-5. The poles and rotation rates, through astronomy-engine and NAIF's `pck00011`.
+
+[4] NAIF, "`pck00011_n0066.tpc`," generic text PCK in the N0066 toolkit's format. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/. The moons' rotation models and every body's radii, as the IAU 2015 report and its later corrections give them.
+
+[5] G. Petit and B. Luzum, Eds., *IERS Conventions (2010)*, IERS Tech. Note 36. Frankfurt am Main, Germany: Verlag des Bundesamts für Kartographie und Geodäsie, 2010. The Earth Rotation Angle; polar motion (ch. 5).
+
+[6] National Institute of Standards and Technology, "Fundamental physical constants: Newtonian constant of gravitation (CODATA 2018)." [Online]. Available: https://physics.nist.gov/cgi-bin/cuu/Value?bg
+
+[7] R. Howard, J. W. Harvey, and S. Forgach, "Solar surface velocity fields determined from small magnetic features," *Sol. Phys.*, vol. 130, nos. 1–2, pp. 295–311, 1990, doi: 10.1007/BF00156795, ADS 1990SoPh..130..295H. SunPy's `differential_rotation` uses the same coefficients by default: https://docs.sunpy.org/en/stable/generated/api/sunpy.sun.models.differential_rotation.html
+
+[8] M. J. Reid and A. Brunthaler, "The proper motion of Sagittarius A*. II. The mass of Sagittarius A*," *Astrophys. J.*, vol. 616, no. 2, pp. 872–884, 2004, doi: 10.1086/424960. 6.379 ± 0.024 mas/yr.
+
+[9] D. R. Williams, "Planetary fact sheets," NASA NSSDCA. [Online]. Available: https://nssdc.gsfc.nasa.gov/planetary/factsheet/

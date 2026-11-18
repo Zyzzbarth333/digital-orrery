@@ -4,7 +4,7 @@ How the simulator works, with the maths, the constants the code uses, where
 they come from, and how each part is checked.
 
 - **New here?** [How it fits together](architecture.md) maps the code with a diagram, and the [glossary](glossary.md) explains the terms.
-- **Pictures:** the [README](../README.md) has screenshots of each part of the app.
+- **Pictures:** the [README](../README.md) has screenshots of each part of the app, and short clips of it running. The clips live in `docs/clips/` as animated WebP; `npm run build && npm run docs:clips` films them again from the app when its interface changes (it needs ffmpeg and Playwright's Chromium).
 
 ## Physics
 
@@ -36,6 +36,7 @@ they come from, and how each part is checked.
 | [Moons](frontend/moons.md) | Seventy-six moons of Mars to Pluto: JPL's satellite ephemerides as per-year Chebyshev tables (2000–2049, within 1 km), loaded lazily; astronomy-engine and JPL's mean elements outside; planets drawn at their centres; the errors against Horizons |
 | [Barycentres and the SSB frame](frontend/barycentres.md) | The solar system's, Earth-Moon and each planet system's barycentre to fly to, orbits and distances about the SSB, checked against Horizons |
 | [Asteroids and comets](frontend/small-bodies.md) | 135,353 small bodies from JPL's SBDB drawn by the GPU, the named ones, how right they are |
+| [Earth satellites](frontend/satellites.md) | 16,892 active satellites from CelesTrak's GP elements, SGP4 via satellite.js, TEME to J2000, the GPU's points, the named ones' orbits, search and data plate; checked against Vallado's verification set and Horizons |
 | [Atmospheres](frontend/atmospheres.md) | Rayleigh, Mie and ozone single scattering along the view ray, sunlight reddening on the ground, checks |
 | [Surface maps, rings, stars and daily Earth](frontend/textures.md) | Every source and its credit, map layout, relief from elevation, night lights, GIBS daily imagery, the Cassini ring profile, the star map |
 
@@ -63,5 +64,8 @@ the browser, with every kept claim checked against its source.
 
 - Every new model ships with its page, in the same pull request: equations,
   sources, constants and validation.
+- Each page ends with a numbered "References" section in IEEE style, in
+  order of first citation, and the text cites them with markers such as [1]
+  or [1, Alg. 3.3].
 - Equations here are written out in this project's own notation; textbooks
   are cited by section and example, not quoted.

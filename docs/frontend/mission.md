@@ -82,6 +82,8 @@ real pad ([rocket](../physics/rocket.md#in-the-app)).
 
 The app reads both with `src/physics/realMission.js`.
 
+![Artemis II about the Earth, from translunar injection at an hour a second and then a day a second: the craft climbs out, loops round the Moon and falls back, its flown path drawn beside the real one, while the readout gives its distance from the flown path](../clips/artemis2.webp)
+
 - **Fly it:** sets the clock to the mission's start (BACK undoes it). For
   Artemis II that's 2 April 2026, 23:39:59 UTC, ten minutes before
   translunar injection. The craft starts from its flown state.
@@ -243,7 +245,7 @@ next on the physics roadmap.
 ## NASA's Trajectory Browser
 
 Under the porkchop, the PLANNER tab shows what NASA Ames's
-[Trajectory Browser](https://trajbrowser.arc.nasa.gov) lists for the chosen
+[Trajectory Browser](https://trajbrowser.arc.nasa.gov) [1] lists for the chosen
 planet, rendezvous or flyby:
 - **NASA's optima:** the lowest eight per-opportunity optima from 2026 to
   2040, with their route, so gravity assists such as EVM show.
@@ -281,3 +283,7 @@ How the data gets in:
 | `?plan=mars` | opens the planner and computes the grid |
 | `?mission=artemis2` | flies Artemis II from its start (`artemis2,first` flies only the injection burn) |
 | `?mission=artemis2&t=2026-04-06T22:50:00Z&fix=12` | starts just before the lunar flyby, with a tracking fix every 12 h |
+
+## References
+
+[1] NASA Ames Research Center, Mission Design Division, "Trajectory Browser." [Online]. Available: https://trajbrowser.arc.nasa.gov/
