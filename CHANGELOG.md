@@ -29,6 +29,11 @@ once it has releases. Until then, everything sits under Unreleased.
   time to settle before the node fires (AUTO NODE TURN), saying in the
   log when it can't. The node mode now holds the direction it burned
   along afterwards (this pull request).
+- A craft launched from the ROCKET tab turns as its own stage would: its
+  inertia is a cylinder of the stack's diameter round a tank that holds
+  its stages' propellant, and its thrusters are sized to turn it as
+  briskly as the MISSION tab's craft, instead of both being the 1.5 t
+  box's. The MISSION tab's own craft is unchanged (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
@@ -65,7 +70,12 @@ once it has releases. Until then, everything sits under Unreleased.
   days costs 4.57 km/s, not 15.69, and the price no longer leaps as the
   stay changes. The flight no longer pays hundreds of metres a second
   chasing a plane that won't hold. A plane lamp says where the plane breaks,
-  and the direct arc is listed beside it for comparison (this pull request).
+  and the direct arc is listed beside it for comparison (#89).
+- Burn nodes on a broken-plane or bi-elliptic leg no longer skip its burn
+  at the break: the leg keeps it, priced by what the nodes left it to do,
+  and aiming a node before the break aims it at the break point. In
+  flight, such a leg's departure, if it waits, is re-aimed at the break
+  point, not straight at the target (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
@@ -151,6 +161,14 @@ once it has releases. Until then, everything sits under Unreleased.
   measured. Uranus and Neptune have radiation belts too, and the belts
   cost an integrated GPU about a millisecond at Earth instead of eight
   (this pull request).
+- The gravity field of every body at once, as field lines flowing toward
+  the masses in a plane through the focus: inertial, falling with the
+  focus, less its own pull (Jupiter's moons' wells), or in the rotating
+  frame of the focus and its parent, with the zero-velocity curves through
+  L1–L3. The spin axes show which way each body turns, with Venus, Uranus
+  and Pluto marked retrograde. Orbit lines fade where they pass close to
+  the camera against their size, so a body's own orbit no longer cuts
+  across the view when zoomed in on it (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
