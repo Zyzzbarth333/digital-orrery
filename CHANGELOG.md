@@ -296,7 +296,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ### Fixes
 - A gravity field asked for past degree 85 no longer comes out wrong. At
   degree 100 it was off by up to 0.07 % (Venus, 300 km up); now it is
-  within 7×10⁻¹⁵ of an independent oracle, and to the Moon's pole.
+  within 7×10⁻¹⁵ of an independent oracle, over the Moon's pole too.
   Mercury's and Venus's fields now go to degree 100, as the Moon's does,
   and each call is 6 to 10 % faster (#140).
 - A craft's orbit line and flown trail run up to and through it from any
