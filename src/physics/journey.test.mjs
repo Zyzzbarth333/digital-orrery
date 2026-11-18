@@ -1107,5 +1107,27 @@ header("CASE 18: a craft's own first leg near 180 degrees round the Sun (Abillei
   check('planFlight flies the craft\'s first leg: an impulse onto its first arc (the leg\'s burn, to 1 mm/s), then an aim at B; flown, the deep-space burn and the broken plane correct under 250 m/s and reach Mars within 20 km, against over 500 m/s for the direct arc', imp.kind === 'impulse' && Math.abs(norm(imp.dvEqj) - L.depDv) < 1e-6 && aimB.arrive === L.mid.ms && [f18, fB].every((f) => f.correctionsDv < 0.25 && f.arrivals[0].missKm < 20 && !f.impact && f.trouble.length === 0) && fD.correctionsDv > 0.5);
 }
 
+header('CASE 19: near 180 degrees, a choice by hand can be undone');
+{
+  // Each option's price is the leg the option gives (the solver's own,
+  // to 1e-9 km/s), and the planner's choice stays in the list after the
+  // direct arc or the broken plane is chosen by hand.
+  const D = Date.parse;
+  const mm = (via) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: 23, dateMs: D('2026-10-24T00:00:00Z') },
+    { id: 2, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z'), ...(via ? { via } : {}) }] });
+  const legCost = (j) => { const L = J.solveJourney(j).legs[1]; return L.depDv + L.arrDv + L.midDv; };
+  const kind = (j) => { const L = J.solveJourney(j).legs[1]; return L.deepSpace ? 'deep-space burn' : L.brokenPlane ? 'broken plane' : 'direct'; };
+  const own = legCost(mm());
+  for (const via of [null, 'direct', 'brokenplane']) {
+    const j = mm(via), opts = J.legOptions(j, 1, { search: false }).options.filter((o) => ['lambert', 'direct', 'brokenplane', 'deepspace'].includes(o.type));
+    const used = opts.map((o) => ({ o, j2: J.applyOption(j, 1, o) })).map(({ o, j2 }) => ({ o, kind: kind(j2), err: Math.abs(legCost(j2) - o.dv) }));
+    console.log(`  chosen ${via ?? 'by the planner'}: ${used.map((u) => `${u.o.name} ${u.o.dv.toFixed(3)} (gives the ${u.kind}, off by ${u.err.toExponential(0)})`).join('; ')}`);
+    const back = used.find((u) => u.o.type === 'lambert');
+    check(`chosen ${via ?? 'by the planner'}: the deep-space burn, the broken plane and the direct arc each listed once, each priced as the leg it gives (1e-9 km/s), and one of them hands the leg back to the planner at ${own.toFixed(3)} km/s`,
+      used.length === 3 && new Set(used.map((u) => u.kind)).size === 3 && used.every((u) => u.err < 1e-9) && back?.kind === 'deep-space burn' && Math.abs(back.o.dv - own) < 1e-9);
+  }
+}
+
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
 process.exit(failures ? 1 : 0);
