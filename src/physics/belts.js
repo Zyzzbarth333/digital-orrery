@@ -14,7 +14,14 @@
 //            fall by about ten at L 6 (Roussos and Kollmann 2020);
 //   Saturn   the electron belt outside the A ring, L 2.27-7, peaking near
 //            2.5; and the innermost belt between the planet and the D ring,
-//            L 1.03-1.22 (the same review; Roussos et al. 2018).
+//            L 1.03-1.22 (the same review; Roussos et al. 2018);
+//   Uranus   Voyager 2's electrons, most intense at its closest L, 4.67,
+//            swept by Miranda, Ariel and Umbriel out to Umbriel's L, 10.4
+//            (Cooper and Stone 1991); inside 4.67 was not sampled;
+//   Neptune  energetic particles from the planet out to Triton's L-shell,
+//            14.4, which bounds them (Mauk et al. 1991); where they peak
+//            within is not drawn from data (the bump is centred).
+// Mercury's and Ganymede's fields are too small to hold stable belts.
 //
 //   BELTS[key] -> [{ name, L: [inner, outer], peak }]
 //   beltWeight(belt, L) -> 0..1, a smooth bump from the edges to the peak
@@ -35,6 +42,12 @@ export const BELTS = {
   saturn: [
     { name: 'innermost belt', L: [1.03, 1.22], peak: 1.12 },
     { name: 'electron belt', L: [2.27, 7], peak: 2.5 },
+  ],
+  uranus: [
+    { name: 'electron belts', L: [4.5, 10.4], peak: 4.7 },
+  ],
+  neptune: [
+    { name: 'radiation belts', L: [1.2, 14.4], peak: 7.8 },
   ],
 };
 

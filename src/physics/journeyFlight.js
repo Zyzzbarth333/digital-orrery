@@ -157,7 +157,8 @@ export function planFlight(sol) {
       // departure (an ascent and its coast take about one).
       if (P.kind === 'land') events.push({ kind: 'liftoff', ms: Math.max(P.arrMs, leg.depMs - 3 * 3600e3), body: P.body, rOrbit: bodyInfo(P.body).radius + P.altKm, waypoint: k - 1 });
       // The way out is re-solved if the departure waits: Lambert about the
-      // leg's central body to where the target is at the arrival. Leaving
+      // leg's central body to where the target is at the arrival (on a leg
+      // of two arcs, to its break point when it reaches it). Leaving
       // a moon for another planet (via its planet), the excess velocity is
       // the planet's, and the moon's own is worked out from it.
       const via = leg.geometry === 'between' && leg.endA && leg.endA !== P.body ? leg.endA : null;
@@ -165,7 +166,7 @@ export function planFlight(sol) {
       // plane: the moon's phase prices every day differently, and the plan
       // has chosen the day.)
       if (leg.vinfDep && KERNEL.has(P.body)) events.push(departEv = { kind: 'depart', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep), rp: bodyInfo(P.body).radius + P.altKm, via, ...(via ? { waitDays: 0 } : {}),
-        reaim: leg.geometry === 'between' && !leg.resonance ? (leg.brokenPlane ? { central: leg.central, from: leg.endA ?? P.body, toEqj: ecl(leg.mid.r), arrMs: leg.mid.ms } : { central: leg.central, from: leg.endA ?? P.body, to: leg.endB ?? Q.body, arrMs: leg.arrMs }) : null });
+        reaim: leg.geometry === 'between' && !leg.resonance ? (leg.mid ? { central: leg.central, from: leg.endA ?? P.body, toEqj: ecl(leg.mid.r), arrMs: leg.mid.ms } : { central: leg.central, from: leg.endA ?? P.body, to: leg.endB ?? Q.body, arrMs: leg.arrMs }) : null });
       else if (leg.ringDep) events.push({ kind: 'depart-ring', ms: leg.depMs, body: P.body, dv: leg.depDv, dirEqj: ecl(unit(leg.ringDep)) });
       else if (leg.vinfDep) events.push({ kind: 'impulse-rel', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep) });
     }
@@ -202,8 +203,9 @@ export function planFlight(sol) {
     // at a moon so deep in its planet's well (Europa's sphere is 1.4 % of
     // its distance from Jupiter, and Europa's velocity turns 1.6 degrees
     // while the craft crosses it), 0.8 km/s off in the excess about Jupiter.
-    // (On a broken plane, aimed at its break point, as the first aim is.)
-    if (departEv?.via && MOON_IN_KERNEL.has(P.body)) Object.assign(departEv, { aimPlanet: 3 * DAY, aimAt: leg.brokenPlane ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null } : target });
+    // (On a leg of two arcs, a broken plane or a bi-elliptic leg, aimed at
+    // its break point, as the way out is re-solved.)
+    if (departEv?.via && MOON_IN_KERNEL.has(P.body)) Object.assign(departEv, { aimPlanet: 3 * DAY, aimAt: leg.mid ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null } : target });
     const dur = leg.arrMs - leg.depMs;
     // When: the first once the craft is clear of the body it left (half
     // again its sphere of influence at the leg's excess speed; a flyby's
@@ -228,8 +230,9 @@ export function planFlight(sol) {
     const back = (leg.endB ?? Q.body) === (leg.endA ?? P.body);
     const first = Math.max(afterNodes, leg.mid ? leg.mid.ms : leg.depMs + (back ? 0.25 * dur : Math.min(clearP, 0.3 * dur)));
     // A broken plane: aimed at its break point first, while the craft is
-    // near the departure (from there the target is near 180 degrees away).
-    if (leg.brokenPlane) events.push({ kind: 'aim', ms: leg.depMs + Math.min(clearP, 0.3 * (leg.mid.ms - leg.depMs)), body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central });
+    // near the departure (from there the target is near 180 degrees away),
+    // unless nodes before the break shape the way there.
+    if (leg.brokenPlane && !nodes.some((n) => n.ms < leg.mid.ms)) events.push({ kind: 'aim', ms: leg.depMs + Math.min(clearP, 0.3 * (leg.mid.ms - leg.depMs)), body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central });
     const aims = [{ kind: 'aim', ms: first, ...target }];
     // Reaching a moon via its planet, the way in falls through the planet's
     // well, where a miss grows fast: more aims on the way down, at a few

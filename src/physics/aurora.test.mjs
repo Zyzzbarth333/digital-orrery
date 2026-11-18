@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import {
   STARKOV, alFromKp, starkovCoefficients, ovalLatitude, installKp, kpAt, kpLabel, cgmFrame, cgmToGeo, cgmGrid,
   centredDipolePoint, dipoleLongitude, mlt, magneticEquatorFrame, equatorFootprints, ioFootprint, saturnOval, JUPITER_MAIN, ICE_GIANT_AURORA,
+  leadAngle, LEAD_ANGLE, moonFootprint, FOOTPRINT_MOONS,
 } from './aurora.js';
 import { magneticModel, offsetDipole } from './magnetic.js';
 import { parseOvation, ovationAt, ovationCovers } from './ovation.js';
@@ -179,6 +180,26 @@ console.log("NOAA's OVATION Prime map against Starkov's oval");
     }
     check(inside > 1.5 * eq && inside > 5 * pole, `${h > 0 ? 'north' : 'south'}: OVATION's mean ${(inside / n).toFixed(1)} % mid-oval, ${(eq / n).toFixed(1)} % 6 deg equatorward, ${(pole / n).toFixed(1)} % 6 deg poleward (Kp ${kpLabel(kp)})`);
   }
+}
+
+console.log("The moons' footprints and their lead angles (Hue et al. 2023)");
+{
+  // The paper's averaged lead angles: Io 4.3 N, 4.1 S; Europa 5.8, 7.0;
+  // Ganymede 12.3, 13.0 deg; its Table 1 fits averaged over Io's longitude.
+  const want = { io: [4.3, 4.1], europa: [5.8, 7.0], ganymede: [12.3, 13.0] };
+  for (const moon of Object.keys(want)) {
+    const avg = ['north', 'south'].map((h) => { let t = 0; for (let l = 0; l < 360; l += 0.5) t += leadAngle(moon, h, l); return t / 720; });
+    check(avg.every((a, i) => Math.abs(a - want[moon][i]) < 0.2), `${moon}: mean lead angle ${avg.map((a) => a.toFixed(2)).join(' N, ')} S deg (paper ${want[moon].join(', ')})`);
+  }
+  const range = [0, 1].map(() => [Infinity, -Infinity]);
+  for (let l = 0; l < 360; l++) ['north', 'south'].forEach((h, i) => { const d = leadAngle('io', h, l); range[i] = [Math.min(range[i][0], d), Math.max(range[i][1], d)]; });
+  check(range.every(([a, b]) => a > 0 && b < 8), `Io's lead angle stays ${range.map(([a, b]) => `${a.toFixed(1)}-${b.toFixed(1)}`).join(' (N), ')} (S) deg, always ahead of the footprint`);
+  check(leadAngle('enceladus', 'north', 100) === 0 && Object.keys(LEAD_ANGLE).length === 3, 'no lead angle where none was fitted (Enceladus)');
+  // Enceladus's footprint on Saturn: in the north, near 60-65 deg (a dipole at
+  // L 3.95 gives 59.8 deg; Cassini 11's northward offset raises it).
+  const S = magneticModel('saturn'), f = moonFootprint(S, 0, { eq: 1, pol: 54364 / 60268 }, FOOTPRINT_MOONS.enceladus.r);
+  const latN = Math.asin(f.north[2] / Math.hypot(...f.north)) / DEG, latS = Math.asin(f.south[2] / Math.hypot(...f.south)) / DEG;
+  check(latN > 59 && latN < 66 && latN > -latS, `Enceladus's footprints at ${latN.toFixed(1)} N and ${(-latS).toFixed(1)} S (the north nearer the pole: the field is offset north)`);
 }
 
 if (failed) { console.log(`\n${failed} check(s) failed`); process.exit(1); }
