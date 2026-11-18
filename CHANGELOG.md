@@ -62,6 +62,12 @@ once it has releases. Until then, everything sits under Unreleased.
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
   #24), with Orion's mass falling burn by burn (#30). Orion flies its
   entry to splashdown (#26).
+- Juno's 2012 deep-space burns and 2013 Earth flyby fly in the app against
+  JPL's reconstruction (`?mission=juno2013`), and DART's last five weeks to
+  Dimorphos against its navigators' (`?mission=dart`): burns along their
+  measured directions about the Sun, aims flown in the craft's own
+  sunlight and as they are flown; Juno shows no flyby anomaly, and the
+  app's DART strikes 23 m from Dimorphos's centre (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
