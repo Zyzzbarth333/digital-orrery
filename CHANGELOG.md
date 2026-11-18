@@ -29,6 +29,12 @@ once it has releases. Until then, everything sits under Unreleased.
   time to settle before the node fires (AUTO NODE TURN), saying in the
   log when it can't. The node mode now holds the direction it burned
   along afterwards (this pull request).
+- A held attitude costs propellant as a real one does: the thrusters keep
+  it within a 0.5° deadband by pulses of their minimum impulse bit, and
+  the hold pays that limit cycle (about 0.34 kg a day for the app's
+  craft, where it paid almost nothing), or the disturbance it holds
+  against when that is larger. The ATTITUDE readout shows what holding
+  costs a day (this pull request).
 - A craft launched from the ROCKET tab turns as its own stage would: its
   inertia is a cylinder of the stack's diameter round a tank that holds
   its stages' propellant, and its thrusters are sized to turn it as
@@ -79,6 +85,14 @@ once it has releases. Until then, everything sits under Unreleased.
   and aiming a node before the break aims it at the break point. In
   flight, such a leg's departure, if it waits, is re-aimed at the break
   point, not straight at the target (this pull request).
+- Such a leg is now flown with a deep-space burn: the burn near halfway
+  can go anywhere, so it reshapes the transfer as well as turning its
+  plane. It is the optimum by Lawden's primer vector conditions, never
+  dearer than the direct arc or the broken plane, and up to 76 m/s
+  cheaper than the broken plane leaving Earth orbit for Mars in November
+  2026. Its price still runs smoothly as the dates change. "Broken plane"
+  is listed beside it and can be chosen, and the plane lamp says where the
+  burn is (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
@@ -132,7 +146,10 @@ once it has releases. Until then, everything sits under Unreleased.
   rail switches on: points, labels and orbit lines, and each one to fly
   to with a plate of its orbit, sense, size, GM and discovery. From 2000
   to 2049 they come from JPL's satellite kernels for them, within 0.51 km
-  (this pull request).
+  (#80). Each has a real size, measured by NEOWISE for 13 and estimated
+  from its brightness for the rest, and the 23 whose shape is known are
+  drawn as ellipsoids turning at their measured periods (this pull
+  request).
 - Bodies are drawn as their IAU ellipsoids (#47). Fourteen moons have USGS
   surface maps (#42).
 - 135,353 asteroids and comets (#27), the faint main belt as a haze from

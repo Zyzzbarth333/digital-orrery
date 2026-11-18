@@ -18,7 +18,7 @@
 
 import * as THREE from 'three';
 import { eqjToEcl, ttSeconds } from '../physics/ephemeris.js';
-import { IRREGULAR_DATA as RAW, IRREGULAR_KEYS, IRREGULARS_OF, irregularPositionEqjAtTt, irregularSource } from '../physics/irregularMoons.js';
+import { IRREGULAR_DATA as RAW, IRREGULAR_KEYS, IRREGULARS_OF, irregularPositionEqjAtTt, irregularStateEqjAtTt, irregularSource } from '../physics/irregularMoons.js';
 import { moonTablesVersionOf, wantIrregularTables } from '../physics/moonTables.js';
 import { makeBodyMaterial } from './bodyMaterial';
 
@@ -29,6 +29,11 @@ export interface IrregularMoon {
   key: string; name: string; planet: IrregularPlanet; naif: number; kernel: string; a: number; e: number; i: number; P: number;
   retrograde: boolean; radiusKm: number; radiusNote?: string; gm: number | null; geometricAlbedo: number | null;
   discovery: { year: string; by: string; ref: string } | null; fit: { rmsKm: number; maxKm: number };
+  // Its diameter and where it is from (irregularMoons.fetch.mjs), and, where
+  // a lightcurve or images give it, an ellipsoid a x b x b and its spin.
+  size: { diameterKm: number; errKm?: number; source: 'NEOWISE' | 'Denk' | 'MPEC' | 'Sheppard'; note: string };
+  axesKm: [number, number, number] | null; shapeNote?: string;
+  rotation: { periodH: number; source: string; uncertain: boolean } | null;
 }
 const IRREGULAR_DATA = RAW as unknown as Record<string, Omit<IrregularMoon, 'key'>>;
 export const IRREGULAR_MOONS: IrregularMoon[] = IRREGULAR_KEYS.map((key: string) => ({ key, ...IRREGULAR_DATA[key] }));
@@ -114,6 +119,8 @@ export class IrregularMoonLayer {
   private positions = new Float32Array(IRREGULAR_KEYS.length * 3);
   private rel = new Map<string, Vec3>();          // camera-relative ecliptic km, this frame
   private cam: Vec3 = [0, 0, 0];
+  private planetAt: ((p: IrregularPlanet) => Vec3) | null = null;
+  private lastMs = NaN;
   private lines: THREE.LineSegments;
   private lineEpoch = new Map<string, number>();   // moons with a line: its centre (UTC ms)
   private markers = new Map<string, HTMLDivElement>();
@@ -188,11 +195,20 @@ export class IrregularMoonLayer {
 
   // Heliocentric ecliptic km of a moon this frame (its planet's centre from
   // the scene), or null when it has not been placed.
+  // A moon not placed this frame (its layer off, or its planet out of
+  // range: the first frame of a flight to it) is worked out here, from its
+  // planet's centre as the scene last gave it.
   positionKm(key: string): Vec3 | null {
     const r = this.rel.get(key), c = this.cam;
-    return r ? [r[0] + c[0], r[1] + c[1], r[2] + c[2]] : null;
+    if (r) return [r[0] + c[0], r[1] + c[1], r[2] + c[2]];
+    const m = IRREGULAR_DATA[key];
+    if (!m || !this.planetAt || !Number.isFinite(this.lastMs)) return null;
+    const p = this.planetAt(m.planet), q = eqjToEcl(irregularPositionEqjAtTt(key, ttSeconds(this.lastMs)));
+    return [p[0] + q[0], p[1] + q[1], p[2] + q[2]];
   }
-  radiusKm(key: string): number { return IRREGULAR_DATA[key]?.radiusKm ?? 1; }
+  // Its largest radius (the long semi-axis where it has a shape): what the
+  // camera keeps clear of and frames.
+  radiusKm(key: string): number { const m = IRREGULAR_DATA[key]; return m ? (m.axesKm ? m.axesKm[0] : m.radiusKm) : 1; }
   source(key: string, timeMs: number): 'table' | 'elements' { return irregularSource(key, ttSeconds(timeMs)); }
 
   setFocus(key: string | null): void {
@@ -211,6 +227,8 @@ export class IrregularMoonLayer {
   update(timeMs: number, cam: readonly number[], planet: (p: IrregularPlanet) => Vec3, level: number, focusSystem: string | null): void {
     this.rel.clear();
     this.cam = [cam[0], cam[1], cam[2]];
+    this.planetAt = planet;
+    this.lastMs = timeMs;
     const tt = ttSeconds(timeMs);
     const want = this.on || this.focusKey !== null;
     let n = 0;
@@ -253,7 +271,7 @@ export class IrregularMoonLayer {
     pm.uLevel.value = level;
     (this.lines.material as THREE.ShaderMaterial).uniforms.level.value = level;
     this.sunRender.set(-cam[0] / UNIT_KM, -cam[2] / UNIT_KM, cam[1] / UNIT_KM);
-    this.placeFocus(cam, level);
+    this.placeFocus(cam, level, timeMs);
   }
 
   // A moon's orbit line: one period about its planet's centre, sampled from
@@ -286,13 +304,34 @@ export class IrregularMoonLayer {
     this.lineEpoch.delete(key);
   }
 
-  private placeFocus(cam: readonly number[], level: number): void {
-    const rel = this.focusKey ? this.rel.get(this.focusKey) : undefined;
-    if (!rel) { this.focusMesh.visible = false; return; }
-    const R = this.radiusKm(this.focusKey!);
+  // The focused moon's body: its radius, or its ellipsoid a x b x b with the
+  // long axis turning in its orbit's plane at its rotation period. Neither
+  // pole nor phase is known for any of them, so it spins about the pole of
+  // its orbit about the planet, from 0 at J2000.
+  private turn = new THREE.Matrix4();
+  private placeFocus(cam: readonly number[], level: number, timeMs: number): void {
+    const key = this.focusKey, rel = key ? this.rel.get(key) : undefined;
+    if (!key || !rel) { this.focusMesh.visible = false; return; }
+    const m = IRREGULAR_DATA[key];
     this.focusMesh.visible = true;
     this.focusMesh.position.set(rel[0] / UNIT_KM, rel[2] / UNIT_KM, -rel[1] / UNIT_KM);
-    this.focusMesh.scale.setScalar(R / UNIT_KM);
+    if (!m.axesKm) {
+      this.focusMesh.quaternion.identity();
+      this.focusMesh.scale.setScalar(m.radiusKm / UNIT_KM);
+    } else {
+      const s = irregularStateEqjAtTt(key, ttSeconds(timeMs));
+      const h = eqjToEcl([s.r[1] * s.v[2] - s.r[2] * s.v[1], s.r[2] * s.v[0] - s.r[0] * s.v[2], s.r[0] * s.v[1] - s.r[1] * s.v[0]]);
+      const pole = this.tmp.set(h[0], h[2], -h[1]).normalize();
+      const x0 = new THREE.Vector3(1, 0, 0).cross(pole);
+      if (x0.lengthSq() < 1e-6) x0.set(0, 1, 0).cross(pole);
+      x0.normalize();
+      const turns = m.rotation ? ((timeMs - Date.UTC(2000, 0, 1, 12)) / 3.6e6) / m.rotation.periodH : 0;
+      const x = x0.applyAxisAngle(pole, 2 * Math.PI * (turns % 1));
+      const y = new THREE.Vector3().crossVectors(pole, x);
+      this.turn.makeBasis(x, y, pole);
+      this.focusMesh.quaternion.setFromRotationMatrix(this.turn);
+      this.focusMesh.scale.set(m.axesKm[0] / UNIT_KM, m.axesKm[1] / UNIT_KM, m.axesKm[2] / UNIT_KM);
+    }
     const u = (this.focusMesh.material as THREE.ShaderMaterial).uniforms;
     const rAu = Math.hypot(rel[0] + cam[0], rel[1] + cam[1], rel[2] + cam[2]) / AU_KM;
     u.irradiance.value = 1 / (rAu * rAu);
