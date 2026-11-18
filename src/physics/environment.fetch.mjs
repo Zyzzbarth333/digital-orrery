@@ -166,9 +166,10 @@ function truncate(T, N) {
   for (const [n, m, c, s] of T.rows) if (n <= N) { C[n][m] = c; S[n][m] = s; k++; }
   return { C, S, k };
 }
-// To degree 80: geopotential.js runs on unnormalised coefficients, whose
-// (n + m)! overflows a double past about degree 85.
-const NP = 80;
+// To degree 100, GRAIL's: past it the fields are mostly noise at the
+// heights craft fly (190 kB each). geopotential.js runs on fully normalised
+// coefficients, so it has no limit of its own.
+const NP = 100;
 {
   // JGMESS160A (Konopliv et al. 2020): MESSENGER's tracking, 2011-2015. Its
   // label gives the Mercury-fixed frame the field was solved in, pole and
