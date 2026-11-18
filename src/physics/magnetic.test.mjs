@@ -15,7 +15,7 @@
 
 import fs from 'node:fs';
 import {
-  harmonicField, northEastDown, igrfCoeffs, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
+  harmonicField, northEastDown, igrfCoeffs, igrfGeodetic, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
   eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002,
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
@@ -79,6 +79,23 @@ for (const r of noaa.rows.filter((x) => year(x.date) < 2015.01)) {
   const out = northEastDown(harmonicField(igrfCoeffs(year(r.date)), 13), IGRF.a, angle(r.lat), angle(r.lon), heightKm(r.alt));
   const dn = Math.max(...['X', 'Y', 'Z'].map((k) => Math.abs(out[k] - r[k])));
   check(dn < 0.3, `IGRF-14 at ${r.date}, ${r.lat} ${r.lon} ${r.alt}: X ${out.X.toFixed(1)} Y ${out.Y.toFixed(1)} Z ${out.Z.toFixed(1)} nT, NOAA ${r.X} ${r.Y} ${r.Z} (worst ${dn.toFixed(2)} nT, limit 0.3: two weeks of secular change)`);
+}
+
+// IGRF-14 after 2025 against NOAA's online Magnetic Field Calculator
+// (model IGRF2025), read on 18 Nov 2026 at four places, heights and years,
+// two of them on the 2025-30 secular variation. The calculator counts
+// 1 January as day 0 of the year.
+{
+  const calc = fixture('noaa-calculator-igrf14.json');
+  let worstNT = 0, worstDeg = 0;
+  for (const r of calc.rows) {
+    const [y, m, d] = r.date.split('-').map(Number), leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    const t = y + ([0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334][m - 1] + (m > 2 && leap ? 1 : 0) + d - 1) / (365 + (leap ? 1 : 0));
+    const o = igrfGeodetic(r.lat, r.lon, r.h, t);
+    worstNT = Math.max(worstNT, ...['X', 'Y', 'Z', 'F'].map((k) => Math.abs(o[k] - r[k])));
+    worstDeg = Math.max(worstDeg, Math.abs(o.D - r.D), Math.abs(o.I - r.I));
+  }
+  check(worstNT < 0.1 && worstDeg < 0.0002, `IGRF-14 at NOAA's online calculator's 4 points (2025.4-2028.0, 0-400 km): X Y Z F within ${worstNT.toFixed(3)} nT (limit 0.1, its rounding), D and I within ${worstDeg.toFixed(5)} deg`);
 }
 
 // The eccentric dipole of IGRF-14 for 2025: the geomagnetic north pole is
