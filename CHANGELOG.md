@@ -131,7 +131,19 @@ once it has releases. Until then, everything sits under Unreleased.
   final reconstruction (`?mission=lro`), down to its 30 km commissioning
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
-  (this pull request).
+  (#113).
+- MESSENGER's cruise to Mercury, 2004 to 2011, flies in the app against
+  JHU/APL's reconstruction (`?mission=messenger`): six flybys, every burn
+  within 1.1 % and 1.7° of APL's record, and the sunlight it steered by
+  fitted every 10 days, which brings 49 coast arcs within 5.4 km. A real
+  mission's flown path is now interpolated in TT seconds, so a leap
+  second no longer puts it 38 km off (this pull request).
+- Craft near Mercury and Venus feel their gravity fields, MESSENGER's
+  JGMESS160A and Magellan's MGNP180U, to degree 20 by default (`mercury:
+  { degree }` and `venus: { degree }`, as the Moon's). MESSENGER's pass
+  338 km over Venus now leaves 0.7 mm/s in the reconstruction's 10 s
+  steps instead of 105, and ends 0.6 km off half a day later instead of
+  4.0 (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
