@@ -21,6 +21,7 @@ import {
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
 import { radialFieldGrid, encodeBr, decodeBr } from './marsCrustal.js';
+import { pfssField, parseWso, carringtonRotation, SOURCE_SURFACE } from './sunField.js';
 import { SATURN_RC, ellipticKE, loopField, loopSumField, ringCurrentTable, totalCurrentMA, discMoment } from './ringCurrent.js';
 
 let failed = 0;
@@ -273,6 +274,47 @@ console.log("Saturn's ring current (Connerney et al. 1983, as Bunce and Cowley 2
     const a0 = apex(S), a1 = apex(SR);
     check(a1 > a0 * 1.1, `the field line from 76 N crosses the equator at ${a1.toFixed(2)} R_S with the ring current, ${a0.toFixed(2)} without`);
   }
+}
+
+// ---- the Sun: WSO's PFSS model ----
+console.log("The Sun: Wilcox Solar Observatory's PFSS coefficients");
+{
+  const sun = JSON.parse(fs.readFileSync(new URL('../../public/data/sun-pfss.json', import.meta.url), 'utf8'));
+  // A WSO file reads back as the shipped row (CR 2300's first lines, as WSO
+  // writes them).
+  const text = `0   0.327 \n1 -41.784  47.355 \t\t\tg's for Rotation beginning: CT2300:360\n2  11.963 -11.393 -22.026 \n\n0   0.000 \n1   0.000  69.771 \t\t\th's\n2   0.000  11.812  73.857 \n`;
+  const gh = parseWso(text, 2);
+  check(gh[0] === -41.784 && gh[1] === 47.355 && gh[2] === 69.771 && gh[3] === 11.963 && gh[7] === 73.857, 'a WSO file parses to g10 g11 h11 g20 ... (the monopole dropped)');
+  const row = sun.rows[2300 - sun.first];
+  check(Math.abs(row[0] + 41.78) < 0.006 && Math.abs(row[2] - 69.77) < 0.006, `the shipped CR 2300 holds g10 ${row[0]}, h11 ${row[2]} uT`);
+  // The model: radial at the source surface, the photospheric map at r = 1, and
+  // curl- and divergence-free between.
+  const f = pfssField(row);
+  const b = f(SOURCE_SURFACE * 0.6, SOURCE_SURFACE * 0.48, SOURCE_SURFACE * 0.64, [0, 0, 0]), rhat = [0.6, 0.48, 0.64];
+  const along = (b[0] * rhat[0] + b[1] * rhat[1] + b[2] * rhat[2]) / Math.hypot(...b);
+  check(Math.abs(Math.abs(along) - 1) < 1e-9, `the field at the source surface is radial (cosine ${along.toFixed(12)})`);
+  {
+    const h = 1e-5, p = [0.9, 0.7, 0.8], B = (x) => f(x[0], x[1], x[2], [0, 0, 0]);
+    const d = (i, j) => { const q1 = p.slice(), q2 = p.slice(); q1[j] += h; q2[j] -= h; return (B(q1)[i] - B(q2)[i]) / (2 * h); };
+    const div = d(0, 0) + d(1, 1) + d(2, 2), curl = Math.hypot(d(2, 1) - d(1, 2), d(0, 2) - d(2, 0), d(1, 0) - d(0, 1)), sc = Math.hypot(...B(p));
+    check(Math.abs(div) / sc < 1e-6 && curl / sc < 1e-6, `potential between the photosphere and the source surface: |div B| ${(Math.abs(div) / sc).toExponential(1)}, |curl B| ${(curl / sc).toExponential(1)}`);
+  }
+  // Carrington rotations: CR 1927 began on 8 Sep 1997 (WSO), 27.2753 days each.
+  check(Math.abs(carringtonRotation(Date.UTC(1997, 8, 8)) - 1927) < 1e-9 && Math.abs(carringtonRotation(Date.UTC(1997, 8, 8) + 27.2753 * 864e5) - 1928) < 1e-9, 'CR 1927 begins 8 Sep 1997 and each rotation lasts 27.2753 days');
+  // The dipole's sign against WSO's own polar-field record (line-of-sight
+  // fields near the poles, a different measurement): wherever the filtered
+  // average is clearly away from zero, g10 has its sign. North was
+  // negative through the 2000s, positive after the 2012-13 reversal, and
+  // negative again after 2024's.
+  const polar = fixture('wso_polar.json');
+  let agree = 0, n = 0;
+  for (const [date, , , avg] of polar.rows) {
+    if (Math.abs(avg) < 20) continue;
+    const r = sun.rows[Math.floor(carringtonRotation(Date.parse(date))) - sun.first];
+    if (!r) continue;
+    n++; if (Math.sign(r[0]) === Math.sign(avg)) agree++;
+  }
+  check(n > 400 && agree / n > 0.95, `g10's sign follows WSO's polar field at ${agree} of ${n} dates (|avg| > 20 uT, 2000-2026)`);
 }
 
 // ---- Uranus and Neptune: Voyager's offset tilted dipoles ----

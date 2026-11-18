@@ -20,6 +20,10 @@
 //   (src/physics/fixtures/langlais2019.json), and the app's map of the
 //   radial field on the 3,393.5 km sphere, 720 x 360 cells, one signed byte
 //   each on marsCrustal.js's asinh scale (public/data/mars-crustal-br.bin).
+// - public/data/sun-pfss.json: the Sun's field, the Wilcox Solar
+//   Observatory's radial PFSS harmonic coefficients (degree 9, microtesla),
+//   one set per Carrington rotation from CR 1958 (January 2000) to the
+//   latest, from wso.stanford.edu/Harmonic.rad (cached one file a rotation).
 // - public/data/kp.json: the planetary Kp index every three hours from 2000,
 //   observed and then CelesTrak's 45-day prediction, from the same SW-All.csv
 //   as the atmosphere's space weather (environment.fetch.mjs), read from its
@@ -128,6 +132,30 @@ console.log(`magnetic.data.js: IGRF-14 ${epochs[0]}-${epochs.at(-1)}, JRM33 to 1
   let lo = Infinity, hi = -Infinity;
   for (const v of grid) { if (v < lo) lo = v; if (v > hi) hi = v; }
   console.log(`mars-crustal-br.bin: 720 x 360, Br ${lo.toFixed(0)} to ${hi.toFixed(0)} nT`);
+}
+
+// ---- the Sun: WSO's PFSS coefficients ----
+{
+  const { parseWso } = await import('./sunField.js');
+  const WSO = 'http://wso.stanford.edu/Harmonic.rad';
+  fs.mkdirSync(`${CACHE}/magnetic/wso`, { recursive: true });
+  const index = await (await fetch(`${WSO}/`, { headers: { 'User-Agent': 'digital-orrery magnetic model' } })).text();
+  const crs = [...new Set([...index.matchAll(/CR(\d{4})/g)].map((m) => Number(m[1])))].filter((c) => c >= 1958).sort((a, b) => a - b);
+  const rows = [];
+  let first = null;
+  for (const cr of crs) {
+    const text = await cached(`${WSO}/CR${cr}`, `magnetic/wso/CR${cr}`);
+    const gh = parseWso(text, 9);
+    if (!text.trim() || gh.every((v) => v === 0)) { if (first !== null) rows.push(null); continue; }
+    first ??= cr;
+    rows.push(gh.map((v) => Math.round(v * 100) / 100));
+  }
+  while (rows.length && rows.at(-1) === null) rows.pop();
+  const out = { source: 'Wilcox Solar Observatory radial PFSS harmonic coefficients (Zhao and Hoeksema 1993)', url: `${WSO}/`, unit: 'microtesla',
+    n: 9, sourceSurface: 2.5, order: 'g10 g11 h11 g20 g21 h21 g22 h22 ... (magnetic.js)', first, rows };
+  const path = new URL('../../public/data/sun-pfss.json', import.meta.url);
+  fs.writeFileSync(path, JSON.stringify(out));
+  console.log(`sun-pfss.json: CR ${first} to ${first + rows.length - 1} (${rows.filter((r) => !r).length} missing), ${(fs.statSync(path).size / 1024).toFixed(0)} kB`);
 }
 
 // ---- Kp ----
