@@ -34,7 +34,9 @@ A change can't break any of these.
   [docs conventions](docs/README.md#conventions)).
 - **The front pages stay current.** A change users will notice updates
   the README's description and [CHANGELOG.md](CHANGELOG.md) in the same
-  pull request, not later.
+  pull request, not later. A change to how accurate something is updates
+  [docs/accuracy.md](docs/accuracy.md) too, and the README's summary of it
+  if that no longer holds.
 - **Sources are cited, not copied.** Write equations in this project's
   notation and cite textbooks by section and example. Don't commit a
   textbook or paper's PDF, its figures or long quotations.
@@ -57,7 +59,7 @@ A change can't break any of these.
   used only as separate-process oracles. Their source and their example
   files are never committed or imported. The project is MIT.
 - **Data has a source and a licence.** A new map, catalogue, kernel,
-  library or font is credited in the [README](README.md#credits), with a
+  library or font is credited in [docs/credits.md](docs/credits.md), with a
   link to where it comes from and its licence, and in the page that uses
   it (maps in [docs/frontend/textures.md](docs/frontend/textures.md)).
   - Large raw downloads stay out of git, under `python/data/` (ignored) or
