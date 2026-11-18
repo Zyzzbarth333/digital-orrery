@@ -4,7 +4,7 @@ How the simulator works, with the maths, the constants the code uses, where
 they come from, and how each part is checked.
 
 - **New here?** [How it fits together](architecture.md) maps the code with a diagram, and the [glossary](glossary.md) explains the terms.
-- **How good is it?** [Physics and accuracy](accuracy.md) says what is high-fidelity, what is still approximate and what comes next; [validation](validation.md) has every check.
+- **How good is it?** [Physics and accuracy](accuracy.md) says what is high-fidelity and what is still approximate; the [roadmap](roadmap.md) says what comes next; [validation](validation.md) has every check.
 - **Credits:** [every data source, map, font and library](credits.md), with its licence.
 - **Pictures:** the [README](../README.md) has screenshots of each part of the app, and short clips of it running. The clips live in `docs/clips/` as animated WebP; `npm run build && npm run docs:clips` films them again from the app when its interface changes (it needs ffmpeg and Playwright's Chromium).
 
