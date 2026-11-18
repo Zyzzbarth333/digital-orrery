@@ -3,9 +3,12 @@
 Three switches in the rail's **Guides** section, all off until switched on:
 
 - **Magnetic fields** draws field lines traced through each planet's
-  measured internal field, Ganymede's included. The lines are shaded by
-  field strength, and the dipole's axis runs through the dipole's own
-  centre. Mars, which has no global field, shows its magnetised crust.
+  measured internal field, Ganymede's and the Sun's included. The lines
+  are shaded by field strength, and the dipole's axis runs through the
+  dipole's own centre. The Earth's lines are bent by its magnetosphere for
+  the day's Kp, Jupiter's and Saturn's by their current sheets, and
+  Ganymede's close inside Jupiter's field. Mars, which has no global
+  field, shows its magnetised crust.
 - **Auroras** draws:
   - the Earth's auroral ovals;
   - Jupiter's and Saturn's main ovals;
@@ -24,12 +27,16 @@ draw. Mercury's and Ganymede's are too small to hold stable belts.
 | ![The Earth's field lines from IGRF-14, tilted 9 degrees, shaded from sheen near the surface to orange far out, with the auroral oval as a green and red band on the night-side limb tagged Kp 3−, and the field legend](../images/magnetic-earth.jpg) | ![Jupiter's field lines from JRM33 and its current sheet, stretched outward beyond a few radii, with the main oval near the north pole and the legend giving 1.78 to 20.6 gauss at the surface](../images/magnetic-jupiter.jpg) | ![Uranus's field lines from Voyager's offset tilted dipole, crowded on one side where the dipole sits 0.31 radii off centre, tilted 60 degrees](../images/magnetic-uranus.jpg) |
 
 Code: `src/physics/magnetic.js` (the field models and the tracer),
+`src/physics/t89.js` (the Earth's magnetosphere),
+`src/physics/ringCurrent.js` (Saturn's ring current),
+`src/physics/sunField.js` (the Sun's field),
 `src/physics/aurora.js` (the ovals and the moons' footprints),
 `src/physics/ovation.js` (NOAA's live map), `src/physics/belts.js` (the
 radiation belts) and `src/physics/marsCrustal.js` (Mars's crust), tested
 in `magnetic.test.mjs` and `aurora.test.mjs`; `src/scene/magnetic.ts` draws them. The coefficients
 come from `npm run fetch:magnetic` (`magnetic.fetch.mjs`), which writes
-`src/physics/magnetic.data.js`, `public/data/kp.json`, Mars's map
+`src/physics/magnetic.data.js`, `public/data/kp.json`,
+`public/data/sun-pfss.json` (the Sun's coefficients), Mars's map
 `public/data/mars-crustal-br.bin` and its coefficients'
 test fixture.
 
@@ -37,13 +44,14 @@ test fixture.
 
 | Body | Model | Reference radius |
 | --- | --- | --- |
-| Earth | IGRF-14 at the date, to degree 13 [1] | 6,371.2 km |
+| Earth | IGRF-14 at the date, to degree 13 [1], plus T89 for the day's Kp [45] | 6,371.2 km |
 | Jupiter | JRM33 to degree 13 [2], plus the con2020 current sheet [3] | 71,492 km |
-| Saturn | Cassini 11, axisymmetric, to degree 11 [4], [5] | 60,268 km |
+| Saturn | Cassini 11, axisymmetric, to degree 11 [4], [5], plus the Voyager ring current [50], [51] | 60,268 km |
 | Uranus | Voyager 2's offset tilted dipole [6] | 25,559 km |
 | Neptune | Voyager 2's offset tilted dipole [7] | 24,765 km |
 | Mercury | MESSENGER's offset dipole [8] | 2,440 km |
-| Ganymede | Juno and Galileo's dipole [9] | 2,634.1 km |
+| Ganymede | Juno and Galileo's dipole [9], in Jupiter's field at its place | 2,634.1 km |
+| Sun | WSO's PFSS model for the Carrington rotation, to degree 9 [47]–[49] | 695,700 km |
 | Mars | its crust, Langlais et al., to degree 134 [10] | 3,393.5 km |
 
 Each is evaluated in the body's fixed frame
@@ -164,9 +172,26 @@ Juno's 2021 flyby together with Galileo's six [9]: $g_1^0 = -716.4$,
 $g_1^1 = 56.0$, $h_1^1 = 27.0$ nT. That is 719 nT at the equator, tilted
 5° from the spin axis and pointing against Jupiter's field. Kivelson et
 al.'s Galileo-only fit [17] agrees within 0.8° in direction and 1% in
-strength. Its lines are drawn from the dipole alone. The real field closes
-only near the moon, inside Jupiter's own field: a magnetosphere about two
-Ganymede radii across, which is not drawn.
+strength.
+
+Ganymede orbits at 15 $R_J$, inside Jupiter's magnetosphere, where
+Jupiter's field (JRM33 with con2020) is 70–120 nT and points south. Its
+own moment points the same way, so the two oppose at its magnetic equator
+and add over its poles. The lines are traced through the dipole plus
+Jupiter's field at Ganymede's place, taken as uniform across the moon and
+turned into Ganymede's frame: the vacuum-superposition picture of Kivelson
+et al. [53]. Lines near the equator close on the moon; those from its
+polar caps run off into Jupiter's field. For a dipole $M$ in a uniform
+opposing field $B_0$ the last closed line leaves the surface at
+
+$$
+\sin^2\theta = \frac{3}{2 r_n (1 + B_0 / 2M)}, \qquad r_n = (M / B_0)^{1/3},
+$$
+
+about 31° latitude for 719 nT in 100 nT. The ambient field changes as
+Ganymede moves through Jupiter's tilted current sheet; the lines are
+retraced when it has changed by 8%. Left out: the plasma flowing past,
+which bends the open lines downstream.
 
 ### Jupiter's current sheet
 
@@ -189,6 +214,91 @@ edge and 13a–b beyond it, and the two are blended by
 $\tanh((\rho - a)/1\,R_J)$, as the con2020 community code does. Those
 approximate the original model's Bessel-function integrals [19] to a few
 nT near $\rho = r_0$.
+
+### Saturn's ring current
+
+Voyager found Saturn's field lines stretched by a ring of azimuthal
+current around 8–16 $R_S$. Connerney et al.'s model [50], as Bunce and
+Cowley give it [51], is a disc of current density $I_0/\rho$ between
+$\rho$ = 8 and 15.5 $R_S$, 3 $R_S$ either side of the magnetic equator,
+with $\mu_0 I_0$ = 60.4 nT: 11.5 MA in all.
+
+Bunce and Cowley found that Edwards et al.'s forms, which serve Jupiter's
+thin, wide sheet, fail near Saturn's squarer disc [51]. So the field here
+is summed exactly: the disc as 30 × 24 circular loops, each loop's field
+from complete elliptic integrals [52],
+
+$$
+B_z = c \left[K + \frac{a^2 - \rho^2 - z^2}{(a - \rho)^2 + z^2} E\right], \quad
+B_\rho = c \frac{z}{\rho} \left[-K + \frac{a^2 + \rho^2 + z^2}{(a - \rho)^2 + z^2} E\right],
+$$
+
+with $k^2 = 4a\rho/((a + \rho)^2 + z^2)$ and
+$c = \mu_0 I / 2\pi\sqrt{(a + \rho)^2 + z^2}$. $K$ and $E$ come from the
+arithmetic-geometric mean. The sum is tabulated once on a 0.2 $R_S$ grid
+to 24 $R_S$ out and 20 $R_S$ up, a third of a second spread over the
+first frames, and interpolated. Beyond the table the disc is a dipole of
+its own moment. Its field adds about 10 nT northward inside the disc, and
+it draws the 76° line out from 9.4 to 14.2 $R_S$ at the equator.
+
+### The Earth's magnetosphere
+
+The solar wind squeezes the Earth's field on the day side and draws it
+out into a tail on the night side. Tsyganenko's T89 [45] models the
+currents that do it: the ring current, the tail's warped current sheet
+and its closure, and the magnetopause's and Birkeland currents. Its 30
+parameters were fitted to spacecraft data in seven sets by Kp, level 1
+for Kp 0 and 0+ up to level 7 for 6− and above. The day's Kp, from the
+same table as the auroral ovals [23], picks the set. The port is of
+geopack's Python [46] of the revised version, T89c.
+
+T89 works in geocentric solar magnetospheric (GSM) axes: X toward the Sun,
+Z the dipole's north axis made square to X. The dipole tilt $\psi$ is the
+angle between that axis and Z, positive when the north magnetic pole leans
+toward the Sun. Here the axes come from the Sun's direction in the Earth's
+frame and IGRF's centred dipole. T89's field is added to IGRF's in the
+Earth's frame.
+
+The GSM axes turn with the Earth, so the lines are retraced once the Earth
+has turned 7.5° under the Sun (half an hour) or Kp changes level. The last
+set stays up while the next is traced. The auroral ovals' CGM grid and the
+radiation belts stay on IGRF alone, as their definitions use it.
+
+T89 has no sharp magnetopause and no bow shock. Its field is a smooth fit,
+not a boundary, so lines on the day side past about 10 $R_E$ are not cut
+where the real magnetopause would end them. Lines are drawn out to 40
+$R_E$.
+
+### The Sun's field
+
+The Wilcox Solar Observatory has mapped the Sun's photospheric field
+every Carrington rotation since 1976. From each map it fits the
+potential-field source-surface (PFSS) model [47], [48]: a field with no
+currents between the photosphere and a source surface at 2.5 $R_\odot$,
+where the solar wind is taken to have turned it radial. WSO gives the
+coefficients $g_l^m$, $h_l^m$ to degree 9, in μT, with Schmidt
+semi-normalised Legendre functions [49]. With
+$c_l = l + 1 + l\,(1/R_s)^{2l+1}$ and $r$ in $R_\odot$ [48, eqs. 16–18],
+
+$$
+\begin{aligned}
+B_r &= \sum P_l^m (g \cos m\phi + h \sin m\phi)\, r^{-(l+2)}\, \frac{l + 1 + l (r/R_s)^{2l+1}}{c_l}, \\
+B_\theta &= -\sum \frac{dP_l^m}{d\theta} (g \cos m\phi + h \sin m\phi)\, r^{-(l+2)}\, \frac{1 - (r/R_s)^{2l+1}}{c_l}, \\
+B_\phi &= \sum \frac{m P_l^m}{\sin\theta} (g \sin m\phi - h \cos m\phi)\, r^{-(l+2)}\, \frac{1 - (r/R_s)^{2l+1}}{c_l}.
+\end{aligned}
+$$
+
+Past $R_s$ the field is radial, falling as $1/r^2$. Longitude is
+Carrington longitude, the IAU's prime meridian for the Sun [15].
+
+`npm run fetch:magnetic` reads WSO's files from CR 1958 (January 2000) on, one a
+rotation, into `public/data/sun-pfss.json` (213 kB). The app takes the
+rotation of the date, numbered from CR 1927's start on 8 September 1997,
+27.2753 days each. About 300 footpoints spread evenly over the photosphere
+are traced out to 3.5 $R_\odot$: closed loops over active regions and
+the streamer belt, open lines from the polar coronal holes. The lines are
+retraced when the rotation changes. Degree 9 is about 20° on the Sun: the
+large-scale field only, without active regions' detail.
 
 ### Mars's crust
 
@@ -220,8 +330,9 @@ centre:
 
 Each is traced both ways by RK4 along the unit field direction
 $d\mathbf x/ds = \pm \mathbf B/|\mathbf B|$, with steps 3% of the distance from the
-centre. A line stops at the surface (bisected to it), beyond 12 (Earth), 16
-(Uranus, Neptune), 20 (Saturn) or 40 (Jupiter) radii, or after 3,000 steps.
+centre. A line stops at the surface (bisected to it), beyond 16 (Uranus,
+Neptune), 20 (Saturn) or 40 (Earth, Jupiter) radii, 3.5 for the Sun, or
+after 3,000 steps.
 
 The tracing happens 3 ms a frame, focused body first, until done: about
 100 lines a body, under a second. The lines are fixed in the body's frame,
@@ -233,10 +344,11 @@ and key orange, to engraving 1,000 times weaker. The lines are brighter
 where stronger. The legend gives the surface range, the dipole moment, tilt
 and offset, and the source.
 
-**What is left out:** the solar wind. These are the planets' own fields,
-with no magnetopause, bow shock or tail. Earth's real lines past about
-8 $R_E$ on the day side end at the magnetopause; the night side's are
-drawn out into a tail. Only Jupiter has its current sheet.
+**What is left out:** the magnetopause and bow shock as boundaries.
+The Earth's T89 bends its lines into a compressed day side and a tail, but
+does not end them at the magnetopause. Jupiter has its current sheet and
+Saturn its ring current, but neither has a magnetopause or tail.
+Uranus's, Neptune's and Mercury's lines are their internal fields alone.
 
 ## Auroras
 
@@ -477,6 +589,40 @@ since from within, a belt is only a haze over the whole view.
 - **Uranus:** belts are drawn for the five planets that hold them.
   Uranus's L = 5 shell crosses its magnetic equator between 4.75 and 5.26
   $R_U$ from the planet's centre, the offset dipole's doing.
+- **Ganymede in Jupiter's field:**
+  - Jupiter's field at 15 $R_J$ in its equator is 71–116 nT, southward at
+    every longitude.
+  - Traced through a 719 nT dipole in a uniform opposing 100 nT field, the
+    last closed line leaves at 58.48° colatitude, where the flux function
+    puts it.
+- **Saturn's ring current** [50], [51]:
+  - $K(1/2)$ and $E(1/2)$ match their tabulated values to $10^{-9}$, and one
+    loop's field on its axis matches the closed form.
+  - The disc carries 11.50 MA (paper: 11.5).
+  - The table holds the direct loop sum within 0.17 nT. At the centre it
+    gives 10.531 nT northward, against 10.532 from the on-axis integral.
+  - At 200 $R_S$ the disc is a dipole of its own moment within 1%.
+- **The Earth's magnetosphere:**
+  - T89 at Tsyganenko's own test point (level 2, tilt −0.5336 rad, GSM
+    (−5.1, 0.3, 2.8) $R_E$) gives (20.77213, −0.64655, −15.07164) nT,
+    within $2 \times 10^{-6}$ nT of his Fortran's output as geopack's tests
+    record it [46].
+  - The dipole tilt from IGRF and the Sun at 2001-01-01 02:03:04 UT is
+    −0.53356 rad, against geopack's −0.53359.
+  - Kp maps to T89's levels as Tsyganenko's table gives.
+  - The 68° line at midnight reaches 6.2 $R_E$ with T89 at Kp 2 (5.2 on
+    IGRF alone) and 11.7 at Kp 5; its noon twin moves by under 5%. T89's
+    own field 9 $R_E$ toward the Sun points north: the compressed day side.
+- **The Sun** [47]–[49]:
+  - A WSO file parses to the coefficients in the app's order, with the
+    monopole a finite map leaves dropped.
+  - The field at the source surface is radial, and between the
+    photosphere and it the sum is curl- and divergence-free to $10^{-9}$.
+  - CR 1927 begins on 8 September 1997, as WSO's own example gives.
+  - The sign of the dipole term $g_1^0$ follows WSO's measured polar field
+    [49] at all 739 dates from 2000 to 2026 when the poles' mean is past
+    20 μT. The polar field reverses every solar cycle; the PFSS fit tracks
+    each reversal.
 - **Mercury** is MESSENGER's 190 nT $R_M^3$ dipole, 479 km north [8].
   Its harmonic expansion matches libinternalfield's terms to 0.06 nT, and
   their eccentric dipole sits 479 km north.
@@ -613,3 +759,21 @@ since from within, a belt is only a haze over the whole view.
 [43] NOAA National Centers for Environmental Information, "Magnetic Field Calculator," model IGRF (IGRF2025). [Online]. Available: https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml#igrfwmm (read 18 Nov. 2026).
 
 [44] J. E. P. Connerney, M. H. Acuña, and N. F. Ness, "The magnetic field of Uranus," *J. Geophys. Res.*, vol. 92, no. A13, pp. 15329–15336, 1987, doi: 10.1029/JA092iA13p15329.
+
+[45] N. A. Tsyganenko, "A magnetospheric magnetic field model with a warped tail current sheet," *Planet. Space Sci.*, vol. 37, no. 1, pp. 5–20, 1989, doi: 10.1016/0032-0633(89)90066-4.
+
+[46] S. Tian, "geopack: Python version of geopack and Tsyganenko models," GitHub, MIT licence. [Online]. Available: https://github.com/tsssss/geopack (T89 and its test values, as ported to `t89.js`).
+
+[47] J. T. Hoeksema, "Structure and evolution of the large scale solar and heliospheric magnetic fields," Ph.D. dissertation, Stanford Univ., Stanford, CA, USA, 1984.
+
+[48] X. Sun, "Notes on PFSS extrapolation," Wilcox Solar Observatory, Stanford Univ., 2009. [Online]. Available: http://wso.stanford.edu/words/pfss.pdf
+
+[49] Wilcox Solar Observatory, "Radial PFSS harmonic coefficients" (Harmonic.rad, one file a Carrington rotation) and "Polar field observations." [Online]. Available: http://wso.stanford.edu/Harmonic.rad/ and http://wso.stanford.edu/Polar.html (read 18 Nov. 2026). Data use: http://wso.stanford.edu/DataPolicy.html. For the coronal field maps WSO asks for J. T. Hoeksema, J. M. Wilcox, and P. H. Scherrer, "The structure of the heliospheric current sheet: 1978–1982," *J. Geophys. Res.*, vol. 88, no. A12, pp. 9910–9918, 1983, doi: 10.1029/JA088iA12p09910.
+
+[50] J. E. P. Connerney, M. H. Acuña, and N. F. Ness, "Currents in Saturn's magnetosphere," *J. Geophys. Res.*, vol. 88, no. A11, pp. 8779–8789, 1983, doi: 10.1029/JA088iA11p08779. (Not opened; its parameters as [51] gives them.)
+
+[51] E. J. Bunce and S. W. H. Cowley, "A note on the ring current in Saturn's magnetosphere: Comparison of magnetic data obtained during the Pioneer-11 and Voyager-1 and -2 fly-bys," *Ann. Geophys.*, vol. 21, no. 3, pp. 661–669, 2003, doi: 10.5194/angeo-21-661-2003.
+
+[52] J. D. Jackson, *Classical Electrodynamics*, 3rd ed. New York, NY, USA: Wiley, 1999, sec. 5.5.
+
+[53] M. G. Kivelson *et al.*, "Ganymede's magnetosphere: Magnetometer overview," *J. Geophys. Res. Planets*, vol. 103, no. E9, pp. 19963–19972, 1998, doi: 10.1029/98JE00227. (Not opened; the vacuum-superposition picture as it is widely cited.)

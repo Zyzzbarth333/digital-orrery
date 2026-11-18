@@ -21,7 +21,7 @@ Near its planet each major moon also pulls on spacecraft with its own GM:
 the kernel splits the planet's system into the planet and those moons there
 ([kernel](../physics/nbody-kernel.md#moons)), from the same positions.
 That is checked on Juno's 2021 flyby of Ganymede
-([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
+([validation](../validation.md#moon-and-planet-flybys-flybytestmjs)).
 The small moons are drawn only; the largest of them, Proteus, Phoebe,
 Hyperion and Janus, have GMs of 2.6, 0.55, 0.37 and 0.13 km³/s², about Mimas's at most.
 
@@ -255,7 +255,7 @@ older `nep097`'s Triton is 275–385 km from it, so the tables use `nep098`.
 On Juno's 2021 Ganymede flyby the kernel now follows JPL's reconstruction to
 22.7 km nine hours on with these moons, the same as with Horizons' own
 (22.9 km); with the fallback's Ganymede it was 323 km
-([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
+([validation](../validation.md#moon-and-planet-flybys-flybytestmjs)).
 
 ### From the fallback
 

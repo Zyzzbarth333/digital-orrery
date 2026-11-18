@@ -293,27 +293,31 @@ header('CASE 5: journeys flown by the n-body kernel');
   check('and the departure from the turned orbit within 2 % of the plan\'s burn in the plane', (() => { const m = /mars: (\d+) m\/s/.exec(dep ?? ''); return m && Number(m[1]) < 1.02 * rts.legs[1].plane.inPlaneDv * 1000; })());
   // The plan prices the plane (journey.js planeAt; docs/physics/journey.md#the-parking-orbits-plane):
   // on the planned day, out of the plane; and what the flight does, waiting
-  // for it (planeOption's flight), against what it flew. Tolerances: the
-  // wait within 1.5 days and its burn within 2 %, the planned day's burn
-  // within 4 %. The capture now leaves the orbit circular at the planned
-  // mean radius (e 0.002; held retrograde it was 0.046, and these were 4 %
-  // and 6 %), but its plane is 0.5 degrees steeper than the plan's (the
-  // kernel's way in is not the patched conics', and the trims keep only the
-  // way out in the plane), so its node turns 0.3 % faster: 11 degrees over
-  // the year, the plane round 1.2 days early.
+  // for it (planeOption's flight), against what it flew. The capture leaves
+  // the orbit circular at the planned mean radius, the plan's trial orbit is
+  // at that mean radius too, and the trims at the approach aim the node for
+  // the planned day (the plane through the kernel's way in and the way out
+  // was 0.5 degrees steeper than the plan's, its node 0.3 % faster, 11
+  // degrees over the year, and these were 3.5 % and 4.3 %). Tolerances: the
+  // node aimed to 0.01 degree for under 1 m/s; the wait within half a day
+  // and its burn within 1 %; the planned day's burn within 1 %.
   const pl = rts.legs[1].plane, po = J.planeOption(rt, 1, { sol: rts });
   const flown = /mars: (\d+) m\/s, ([\d.]+) h after the planned time(?: \((\d+) m\/s on the planned day\))?/.exec(dep ?? '');
   const flownDv = Number(flown?.[1]) / 1000, flownWait = Number(flown?.[2]) / 24, flownOnDay = Number(flown?.[3]) / 1000;
+  const trims = rtf.log.filter((l) => l.startsWith('trim at mars')), trimDv = trims.reduce((q, l) => q + Number(/: ([\d.]+) m\/s/.exec(l)[1]), 0) / 1000;
+  const nodeOff = Number(/node on the planned day [-\d.]+ to ([-\d.]+) deg/.exec(trims.at(-1) ?? '')?.[1] ?? NaN);
+  console.log(`  the trims at Mars: ${(trimDv * 1000).toFixed(2)} m/s, the node on the planned day ${nodeOff.toFixed(3)} deg off the plan's`);
+  check('the trims at Mars aim the node for the planned day: within 0.01 deg of the plan\'s, for under 1 m/s', Math.abs(nodeOff) < 0.01 && trimDv < 0.001);
   console.log(`  the plan: on the planned day the plane ${pl.angleDeg.toFixed(1)} deg off the way out (i ${pl.iDeg.toFixed(1)} deg, node ${pl.rateDegDay.toFixed(3)} deg/d, eq. (4.52) ${pl.firstOrderDegDay.toFixed(3)}), ${(pl.dv * 1000).toFixed(0)} m/s for ${(pl.inPlaneDv * 1000).toFixed(0)} in the plane; flown ${(flownOnDay * 1000).toFixed(0)}`);
-  console.log(`  the flight's wait: planned ${po.flight.waitDays.toFixed(1)} d, ${(po.flight.dv * 1000).toFixed(0)} m/s; flown ${flownWait.toFixed(1)} d, ${(flownDv * 1000).toFixed(0)} m/s (within 1.5 d and 2 %)`);
-  check('the plan prices the year\'s turn of the plane: the planned day dear by more than 500 m/s, its burn within 4 % of the flight\'s on that day', !pl.aimed && pl.extraDv > 0.5 && rel(pl.dv, flownOnDay) < 0.04);
-  check('and the flight\'s wait for the plane as the plan has it: the day within 1.5 d, the burn within 2 %', Math.abs(po.flight.waitDays - flownWait) < 1.5 && rel(po.flight.dv, flownDv) < 0.02);
+  console.log(`  the flight's wait: planned ${po.flight.waitDays.toFixed(2)} d, ${(po.flight.dv * 1000).toFixed(0)} m/s; flown ${flownWait.toFixed(2)} d, ${(flownDv * 1000).toFixed(0)} m/s (within half a day and 1 %)`);
+  check('the plan prices the year\'s turn of the plane: the planned day dear by more than 500 m/s, its burn within 1 % of the flight\'s on that day', !pl.aimed && pl.extraDv > 0.5 && rel(pl.dv, flownOnDay) < 0.01);
+  check('and the flight\'s wait for the plane as the plan has it: the day within half a day, the burn within 1 %', Math.abs(po.flight.waitDays - flownWait) < 0.5 && rel(po.flight.dv, flownDv) < 0.01);
   // The day the plan suggests, flown: it leaves on time, for what the plan
-  // prices (within 5 %: 4.3 %, the plane's inclination again).
+  // prices (within 1 %; before the node was aimed, 4.3 %).
   const rt2 = J.applyOption(rt, 1, po), rts2 = J.solveJourney(rt2), rtf2 = flyJourney(sys, planFlight(rts2));
   const dep2 = rtf2.log.find((l) => l.startsWith('depart mars')), m2 = /mars: (\d+) m\/s, ([\d.]+) h after/.exec(dep2 ?? '');
   console.log(`  re-timed ${po.waitDays} d (a ${rt2.waypoints[0].stayDays.toFixed(1)} d stay): the plan ${(rts2.legs[1].depDv * 1000).toFixed(0)} m/s, the plane ${rts2.legs[1].plane.angleDeg.toFixed(1)} deg off; flown ${dep2}`);
-  check('leaving on the plan\'s day for the plane: the flight leaves within a day of it, its burn within 5 % of the plan\'s, and both arrivals reached', m2 && Number(m2[2]) < 24 && rel(Number(m2[1]) / 1000, rts2.legs[1].depDv) < 0.05 && rtf2.arrivals[0].missKm < 20 && rtf2.arrivals[1].missKm < 50);
+  check('leaving on the plan\'s day for the plane: the flight leaves within a day of it, its burn within 1 % of the plan\'s, and both arrivals reached', m2 && Number(m2[2]) < 24 && rel(Number(m2[1]) / 1000, rts2.legs[1].depDv) < 0.01 && rtf2.arrivals[0].missKm < 20 && rtf2.arrivals[1].missKm < 50);
 }
 
 header('CASE 6: shaping a journey by hand: burn nodes and an aimed flyby');
@@ -834,6 +838,28 @@ header("CASE 14: the parking orbit's plane over a stay (Curtis Sec. 4.7)");
   });
   for (const q of res) console.log(`  from ${q.u0} deg past the node: kernel ${(q.kernel * DAY / deg).toFixed(4)} deg/d, eq. (4.52) ${(q.first * DAY / deg).toFixed(4)} (${((q.kernel / q.first - 1) * 100).toFixed(2)} % off), flown in the J2 field ${(q.flown * DAY / deg).toFixed(4)} (${((q.flown / q.kernel - 1) * 100).toFixed(2)} % off)`);
   check('eq. (4.52) within 1 % of the kernel\'s node 400 km over Mars; the rate flown in the J2 field within 0.25 %', res.every((q) => rel(q.first, q.kernel) < 0.01 && rel(q.flown, q.kernel) < 0.0025));
+  // Started circular, the orbit's mean semi-major axis (the osculating one
+  // averaged over its turns) is off the starting radius by J2's terms
+  // within a turn, as where it starts, and so is its node's rate. Started
+  // at the radius moved by that (journey.js planeContext, as the flight's
+  // capture ends at the mean radius), the mean semi-major axis is the
+  // planned one, and the rate depends far less on where the orbit starts.
+  // What is left is the inclination's own term within a turn, as cos 2u
+  // like the radius's: the starts at the node and 90 degrees past it,
+  // tilted 0.03 degrees each way, give the rate from 45 degrees.
+  const startAt = (u0, di = 0) => {
+    const ii = inc + di * deg, q = e2.map((x, i) => Math.cos(ii) * x + Math.sin(ii) * pole[i]), c = Math.cos(u0 * deg), s = Math.sin(u0 * deg);
+    const go = (r0) => PP.flownNodeRate({ mu, j2: z.j2, R: z.rJ2, pole, r: e1.map((x, i) => r0 * (c * x + s * q[i])), v: e1.map((x, i) => Math.sqrt(mu / r0) * (-s * x + c * q[i])) });
+    const a = go(rp);
+    let r0 = rp, b = a;
+    for (let it = 0; it < 2; it++) { r0 -= b.aMean - rp; b = go(r0); }
+    return { u0, osc: a, mean: b };
+  };
+  const atMean = [0, 45, 90, 135].map((u0) => startAt(u0));
+  const spread = (k) => (Math.max(...atMean.map((x) => x[k].rate)) - Math.min(...atMean.map((x) => x[k].rate))) / Math.abs(atMean[0][k].rate);
+  const tilted = [startAt(0, -0.03).mean.rate, startAt(90, 0.03).mean.rate], at45 = atMean[1].mean.rate;
+  console.log(`  started circular at ${rp.toFixed(0)} km, 0 to 135 deg past the node: mean a ${atMean.map((x) => x.osc.aMean.toFixed(2)).join(', ')} km, node rates ${(spread('osc') * 100).toFixed(3)} % apart; at the mean radius, ${(spread('mean') * 100).toFixed(3)} % apart; tilted 0.03 deg, the starts at 0 and 90 deg ${tilted.map((x) => ((x / at45 - 1) * 100).toFixed(4)).join(' and ')} % off the one at 45`);
+  check('started at the mean radius, the orbit\'s mean semi-major axis is the planned one to 1 m, and its node\'s rates within 0.1 % wherever it starts (from a circular start, 0.3 % or more apart); the rest the inclination\'s term within a turn (tilted 0.03 deg, within 0.005 %)', atMean.every((x) => Math.abs(x.mean.aMean - rp) < 1e-3) && spread('mean') < 1e-3 && spread('osc') > 3e-3 && tilted.every((x) => rel(x, at45) < 5e-5));
   // At Jupiter the kernel's field goes on to J12 (bodies.js ZONAL jn), and
   // J4 and J6 turn the node too: 1.5 Jupiter radii out, 30 deg to its
   // equator, with its moons, flown three days. The kernel's node is

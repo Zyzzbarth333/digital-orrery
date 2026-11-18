@@ -250,7 +250,7 @@ only the Earth and the Moon. Each value is from the field's primary source
 | Venus | 4.4044×10⁻⁶ | | 6,051.0 km | Magellan, MGNP180U (Konopliv et al. 1999), PDS |
 | Mars | 1.9566×10⁻³ | | 3,396.0 km | MRO120D, PDS |
 | Jupiter | 14,696.5735×10⁻⁶ | −586.6085×10⁻⁶ (and J3, J5 to J12) | 71,492 km | Juno (Durante et al. 2020 [9]), PDS `GRV_JUGR_SHA_JUP_U_DUR2020` |
-| Saturn | 16,290.573×10⁻⁶ | −935.314×10⁻⁶ | 60,330 km | Cassini Grand Finale (Iess et al. 2019 [10]) |
+| Saturn | 16,290.573×10⁻⁶ | −935.314×10⁻⁶ (and J3, J5 to J12) | 60,330 km | Cassini Grand Finale (Iess et al. 2019 [10]), Table 1 |
 | Uranus | 3,510.7×10⁻⁶ | −34.2×10⁻⁶ | 25,559 km | Jacobson 2014 [11], Table 12 |
 | Neptune | 3,408.43×10⁻⁶ | −33.40×10⁻⁶ | 25,225 km | Jacobson 2009 [12], Table 5 |
 
@@ -258,7 +258,7 @@ Mercury's, Venus's and Mars's are their normalised C20 times −√5.
 Jupiter's J3 to J12 are the PDS table's C30 to C120 with their signs
 changed (J4 = −C40 = −586.6085×10⁻⁶, 3σ 2.4×10⁻⁹;
 J6 = 34.2007×10⁻⁶; J8 = −2.422×10⁻⁶; J10 = 0.181×10⁻⁶; J9, J11 and J12
-are within their own 3σ uncertainties); Saturn's is the paper's, ±0.037×10⁻⁶. Uranus's and
+are within their own 3σ uncertainties); Saturn's J3 to J12 are the paper's Table 1 (J4 ±0.037×10⁻⁶, J6 = 86.340×10⁻⁶, J8 = −14.624×10⁻⁶, uncertainties 3× formal; J7 and J11 within them). Uranus's and
 Neptune's were read from the same tables as their J2, by a summary of the
 articles' pages rather than from the PDFs themselves, with the J2 beside
 them matching the kernel's to every digit. Each acts within 100 reference

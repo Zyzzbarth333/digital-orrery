@@ -529,7 +529,11 @@ export class OrreryScene {
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.guides = new GuideLayer(this.scene, this.overlay, toRender,
       (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
-    this.magnetic = new MagneticLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
+    // The Sun's body-fixed (Carrington) axes as a render -> body rotation, for its field lines.
+    this.magnetic = new MagneticLayer(this.scene, this.overlay, import.meta.env.BASE_URL, (date) => {
+      const [X, Y, Z] = (bodyAxesEqj('sun', date) as Vec3[]).map((a) => toRender(eqjToEcl(a) as Vec3, new THREE.Vector3()).normalize());
+      return new THREE.Matrix3().set(X.x, X.y, X.z, Y.x, Y.y, Y.z, Z.x, Z.y, Z.z);
+    });
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     this.irregulars = new IrregularMoonLayer(this.scene, this.overlay);
