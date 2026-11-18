@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "bench": "node src/physics/bench.mjs",
     "bench:attitude": "node src/physics/attitude.bench.mjs",
+    "bench:frames": "node --experimental-websocket scripts/bench-frames.mjs",
     "validate:artemis2": "node src/physics/artemis2.validate.mjs && node src/physics/artemis1.validate.mjs",
     "design:artemis2": "node src/physics/artemis2.design.mjs",
     "fetch:trajbrowser": "node src/physics/trajbrowser.fetch.mjs",

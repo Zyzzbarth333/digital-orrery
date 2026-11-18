@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- `npm run bench:frames` times the app's frames on the integrated and the discrete GPU, a build against main, and prints the table a pull request needs (this pull request).
 - Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (this pull request).
 - Screenshots in the README, a glossary, an architecture diagram, and the credits as tables (this pull request).
 - CI, a contributing guide, a security policy, this changelog and a citation (#68).
