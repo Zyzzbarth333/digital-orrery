@@ -5,7 +5,7 @@
 // (tag "kernel"); orbital elements are the osculating two-body elements
 // about the craft's primary (dashed tag "2-body": worked out here).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SimClock } from './clock';
 import { useClock } from './clock';
 import { useMission, REAL_MISSIONS, altitudeRadius, type Mission, type DepartureDirection, type RealBurns } from './mission';
@@ -69,8 +69,24 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     : ![dvR, dvP, dvN].every(Number.isFinite) ? 'a number for each component'
       : Math.hypot(dvR, dvP, dvN) === 0 ? 'a non-zero delta-v' : null;
 
+  // A launch is armed first, then fired, as real panels guard a command that
+  // can't be taken back (DESIGN.md, What real panels do): ARM shows what
+  // will fly, LAUNCH fires it, DISARM (or Esc, or any change to the form)
+  // stands it down. It adds one press and no waiting.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => { setArmed(false); }, [kind, alt, inc, vinf, dir, sixdof]);
+  useEffect(() => {
+    if (!armed) return;
+    // First Escape disarms; the console stays open (App skips a prevented Escape).
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setArmed(false); } };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, [armed]);
+  const nowUtc = new Date(s.timeMs).toISOString().slice(0, 16).replace('T', ' ');
+  const flying = `${kind === 'orbit' ? `a circular orbit ${alt.toLocaleString('en-AU')} km up at ${inc}°, from the ascending node` : `a departure at ${vinf} km/s ${dir}, from a 200 km parking orbit`}, ${sixdof ? '6-DOF' : 'as a point mass'}, at ${nowUtc} UTC`;
   const launch = () => {
-    if (launchProblem) return;
+    if (launchProblem || !armed) return;
+    setArmed(false);
     const craft = kind === 'orbit' ? mission.launchOrbit(s.timeMs, alt, inc) : mission.launchDeparture(s.timeMs, { speed: vinf, dir });
     onFocusCraft(craft.id);
   };
@@ -362,9 +378,11 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         <button className="key" role="radio" aria-checked={sixdof} onClick={() => chooseSixdof(true)} title="It points and turns, and burns along its body axis">6-DOF</button>
         <button className="key" role="radio" aria-checked={!sixdof} onClick={() => chooseSixdof(false)} title="Burns go along the direction chosen, with no turning">Point mass</button>
       </div>
-      <div className="keys-row">
-        <button className="key primary" onClick={launch} disabled={!!launchProblem}>Launch</button>
-        <span className="hint">{launchProblem ? `Needs ${launchProblem}` : kind === 'orbit' ? 'circular, from the ascending node' : 'from a 200 km parking orbit'}</span>
+      <div className="keys-row wrap launch-row">
+        <button className="key arm" aria-pressed={armed} onClick={() => setArmed(true)} disabled={!!launchProblem || armed}>{armed ? 'Armed' : 'Arm'}</button>
+        <button className="key primary" onClick={launch} disabled={!armed || !!launchProblem}>Launch</button>
+        {armed && <button className="key" onClick={() => setArmed(false)}>Disarm</button>}
+        <span className="hint" aria-live="polite">{launchProblem ? `Needs ${launchProblem}` : armed ? `Launches ${flying}. Disarm or Esc to stand down.` : `Arm, then launch: ${kind === 'orbit' ? 'a circular orbit, from the ascending node' : 'from a 200 km parking orbit'}.`}</span>
       </div>
       </details>
     </div>

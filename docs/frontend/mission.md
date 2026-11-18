@@ -59,6 +59,12 @@ All launches are from Earth for now. The MISSION tab's two place a craft
 straight in orbit or on a departure; the ROCKET tab's fly a rocket from a
 real pad ([rocket](../physics/rocket.md#in-the-app)).
 
+The MISSION tab's launch is armed first, as real panels guard a command
+that can't be taken back ([DESIGN.md](../../DESIGN.md#what-real-panels-do)):
+ARM lights in caution yellow and says what will fly (the orbit or departure,
+6-DOF or a point mass, and the time), LAUNCH fires it, and DISARM, Esc or
+any change to the form stands it down. It adds one press and no waiting.
+
 - **Orbit.** A circular orbit at a chosen altitude, inclined to Earth's
   J2000 equator, starting at the ascending node.
 - **Departure.** The departure hyperbola from a 200 km parking orbit: its
