@@ -69,9 +69,10 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   `?craft=orbit,400,51.6` and followed at 0.4 km and 3,000 km, with an
   attitude (`craft-near`, `craft-far`) and as a point mass (`,point`:
   `point-near`, `point-far`). Those six run by default. `overview`,
-  `earth-fill` (the Earth at 9,000 km, filling the view) and `craft-warp`
-  (`craft-far` with the clock at a day a second) run by name, and `all`
-  runs every one; `--list` lists them.
+  `earth-fill` (the Earth at 9,000 km, filling the view), `craft-warp`
+  (`craft-far` with the clock at a day a second) and the ringed planets
+  (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`) run by name,
+  and `all` runs every one; `--list` lists them.
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
