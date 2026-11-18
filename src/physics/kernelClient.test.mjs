@@ -30,23 +30,29 @@ const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
 const m = new RealMission({ ...JSON.parse(readFileSync(new URL('../../public/missions/artemis2.json', import.meta.url), 'utf8')), id: 'artemis2' });
 const EN = ORION_ENTRIES.artemis2, C = orionFor('artemis2');
 
-// A Worker stand-in: kernelHost, answering a turn later. silent: it never
-// answers (a dead Worker). gaps: each request's wall time to its answer.
+// A Worker stand-in: kernelHost, answering a turn later. As the real one
+// (kernel.worker.js), it loads its tables first, readyAfterMs (null: a load
+// that never ends), holding messages until then, and says when it is
+// ready. silent: it never answers (a dead Worker). gaps: each request's
+// wall time to its answer, from when the Worker could take it.
 class StandInWorker {
-  constructor() { this.host = createKernelHost(); this.gaps = []; this.silent = false; }
+  constructor(readyAfterMs = 0) {
+    this.host = createKernelHost(); this.gaps = []; this.silent = false;
+    this.ready = readyAfterMs === null ? new Promise(() => {}) : new Promise((resolve) => setTimeout(resolve, readyAfterMs));
+    this.ready.then(() => { if (!this.silent) this.onmessage({ data: { type: 'ready' } }); });
+  }
   postMessage(msg) {
     if (this.silent) return;
-    const sent = performance.now();
-    setTimeout(() => {
-      const reply = this.host.handle(structuredClone(msg));
+    this.ready.then(() => setTimeout(() => {
+      const sent = performance.now(), reply = this.host.handle(structuredClone(msg));
       this.gaps.push(performance.now() - sent);
-      this.onmessage({ data: reply });
-    }, 0);
+      if (!this.silent) this.onmessage({ data: reply });
+    }, 0));
   }
   terminate() { this.silent = true; }
 }
 let lastWorker = null;
-const createWorker = () => (lastWorker = new StandInWorker());
+const createWorker = (readyAfterMs = 0) => () => (lastWorker = new StandInWorker(readyAfterMs));
 
 // The crew module at separation, as Mission.entry makes it, with the clock
 // a day on (a day a second).
@@ -74,15 +80,18 @@ let site = null;
   const wholeMs = performance.now() - wall;
   console.log(`  in one request: ${(wholeMs / 1000).toFixed(1)} s of kernel time; ${whole.log.at(-1)?.text}`);
 
-  // Through the client, a frame a turn, with the old 2 s timeout.
-  const c = capsule(), client = new KernelClient({ createWorker, replyTimeoutMs: 2000 }), w = lastWorker;
+  // Through the client, a frame a turn. The budget is checked between
+  // steps, so a request takes its budget and one step more: a guided step
+  // costs up to about 20 ms on a quiet machine, 0.5 s under a load of 25
+  // (each guidance cycle predicts the landing several times).
+  const c = capsule(), client = new KernelClient({ createWorker: createWorker() }), w = lastWorker;
   wall = performance.now();
   let frames = 0;
   for (; frames < 2000 && !c.crashed; frames++) { client.tick([c]); await turn(); }
   const longest = Math.max(...w.gaps);
   console.log(`  through the client: ${w.gaps.length} requests in ${((performance.now() - wall) / 1000).toFixed(1)} s, the longest answered in ${longest.toFixed(0)} ms (budget ${client.budgetMs} ms); ${c.log.at(-1)?.text}`);
   check('the kernel stays in the Worker (no fallback, no warning)', client.mode === 'worker' && client.worker === w && warnings.length === 0);
-  check(`every request is answered well inside the old 2 s timeout (longest ${longest.toFixed(0)} ms)`, longest < 1000);
+  check(`every request is answered well inside the ${client.replyTimeoutMs / 1000} s reply timeout (longest ${longest.toFixed(0)} ms, against ${(wholeMs / 1000).toFixed(1)} s in one request)`, longest < client.replyTimeoutMs / 3 && longest < wholeMs / 2);
   check('the capsule splashes down', c.crashed && c.splashed);
   // Flown in pieces, each piece's first step restarts the integrator and the
   // guidance sees its cycles at other instants, so where the pieces end
@@ -116,7 +125,8 @@ header('CASE 3: a Worker that has died');
 {
   // Silent with a request in flight past the timeout: the client gives up
   // on it and steps on this thread, as before.
-  const o = capsule(), client = new KernelClient({ createWorker, replyTimeoutMs: 50 }), w = lastWorker;
+  const o = capsule(), client = new KernelClient({ createWorker: createWorker(), replyTimeoutMs: 50 }), w = lastWorker;
+  await turn();                         // its tables in
   w.silent = true;
   client.tick([o]);
   await new Promise((resolve) => setTimeout(resolve, 80));
@@ -125,6 +135,22 @@ header('CASE 3: a Worker that has died');
   check(`it falls back to this thread ("${warnings[0] ?? ''}")`, client.mode === 'main-thread' && /looks stuck/.test(warnings[0] ?? ''));
   // There it runs to its end in one go: the one-request entry exactly.
   check('and flies the craft there, to the one-request splashdown', o.crashed && o.splashed && norm(sub(o.impactSite.local, site.local)) < 1e-6);
+}
+
+header('CASE 4: a Worker still loading its tables');
+{
+  // The worker fetches 3.2 MB before its first answer (deLoad.js): 26 s at
+  // 1 Mbit/s. A load slower than the reply timeout is not a dead Worker.
+  warnings.length = 0;
+  const o = capsule(), client = new KernelClient({ createWorker: createWorker(300), replyTimeoutMs: 100, loadTimeoutMs: 5000 });
+  for (let i = 0; i < 2000 && !o.crashed; i++) { client.tick([o]); await turn(); }
+  check(`a 300 ms load against a 100 ms reply timeout: it waits, and the kernel stays in the Worker (${warnings[0] ?? 'no warning'})`, client.mode === 'worker' && warnings.length === 0 && o.crashed && o.splashed);
+  // A load that never ends: after loadTimeoutMs, this thread takes over.
+  const p = capsule(), stuck = new KernelClient({ createWorker: createWorker(null), replyTimeoutMs: 1e6, loadTimeoutMs: 50 });
+  stuck.tick([p]);
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  for (let i = 0; i < 20 && !p.crashed; i++) stuck.tick([p]);
+  check(`a load that never ends falls back after the load timeout ("${warnings[0] ?? ''}")`, stuck.mode === 'main-thread' && /tables not loaded/.test(warnings[0] ?? '') && p.crashed && p.splashed);
 }
 
 console.warn = warn;

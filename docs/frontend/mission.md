@@ -89,8 +89,39 @@ real pad ([rocket](../physics/rocket.md#in-the-app)).
   injection to entry. Its file, `public/missions/artemis2.json`, is
   written from JSC's reconstructed trajectory by
   `src/physics/artemis2.export.mjs`.
+- **Juno** (August 2012 to November 2013), from five days before its
+  first deep-space burn to seven weeks after its Earth flyby. Its file,
+  `public/missions/juno2013.json`, is written from JPL's navigation
+  reconstruction (through JPL Horizons) by `src/physics/missions.build.mjs`
+  (`npm run build:missions -- juno2013`), which builds every real mission
+  beyond Artemis from its facts in `src/physics/missions.data.mjs`
+  ([Juno 2012–13](../validation/juno2013.md)).
+- **DART** (August to September 2022), its last five weeks to the impact
+  on Dimorphos, ending on the final solution at the published impact
+  point. Its file, `public/missions/dart.json`, is built the same way
+  ([DART](../validation/dart.md)).
+- **LRO** (June 2009), from the day after launch through lunar orbit
+  insertion to its 30 by 216 km commissioning orbit. Its file,
+  `public/missions/lro.json`, is built the same way
+  ([LRO](../validation/lro.md)). It flies with a tracking fix every 6 h
+  by default (`fixHours` in the file) rather than aimed burns: aimed a day
+  ahead across twelve lunar orbits, the aims find costly phasing answers.
+  Its four burns after insertion, which the reconstruction's samples can't
+  resolve, are each one steady push fitted to the samples either side.
 
-The app reads both with `src/physics/realMission.js`.
+The app reads them all with `src/physics/realMission.js`. A file's states
+are about its `centre` (the Earth, or the Sun for Juno), and it may carry
+its own craft (`craftModel`: mass, sunlit area, Cr and the engine's Isp);
+without one the craft is Orion. Its flown path is drawn about the same
+centre. A burn about the Sun (`frame: 'eqj'`) is flown along its 10 s
+intervals' measured J2000 directions: the orbital frame there barely turns
+in a burn, and a burn steered in it is flown in quarter-second steps. A
+file with `aimInEnvironment` has its aimed burns flown in the craft's own
+environment, since over seven months sunlight moves Juno 6,000 km, and
+solved for as the push they are flown as, spread over the burn: DART's
+terminal guidance ends two minutes before the impact, where an impulse at
+its start would miss by 0.6 km. A file with flybys aims at a flyby's
+perigee rather than across it.
 
 ![Artemis II about the Earth, from translunar injection at an hour a second and then a day a second: the craft climbs out, loops round the Moon and falls back, its flown path drawn beside the real one, while the readout gives its distance from the flown path](../clips/artemis2.webp)
 
@@ -179,7 +210,11 @@ running), which the injection burn grew to 180 km by the next day.
 The kernel learned two things for this:
 - **Steered burns:** a burn can be steered in the orbital frame about a
   body (`frame: 'vnb'`). The integrator passes the craft's velocity to the
-  thrust (in Encke too), and steps inside such a burn are capped at 0.25 s.
+  thrust (in Encke too). Steps inside such a burn were capped at 0.25 s
+  while the kernel's Cowell steps were symplectic. The error-controlled
+  steps follow the turn on their own: one step to each 5-second interval
+  ends the injection burn within millimetres of 0.01 s steps
+  ([Artemis II check](../validation/artemis2.md#3-the-whole-mission-with-orions-burns)).
 - **Tracking fixes:** `Craft.setState` takes a fix.
 
 ## Manoeuvre nodes and the engine
@@ -368,6 +403,10 @@ How the data gets in:
 | `?plan=mars` | opens the planner and computes the grid |
 | `?mission=artemis2` | flies Artemis II from its start (`artemis2,first` flies only the injection burn) |
 | `?mission=artemis2&t=2026-04-06T22:50:00Z&fix=12` | starts just before the lunar flyby, with a tracking fix every 12 h |
+| `?mission=juno2013` | flies Juno from 25 August 2012, through its deep-space burns and the Earth flyby |
+| `?mission=juno2013&t=2013-10-09T13:00:00Z` | starts six hours before Juno's Earth flyby |
+| `?mission=dart&t=2022-09-26T22:00:00Z` | starts DART 74 minutes before its impact on Dimorphos, with SMART Nav steering |
+| `?mission=lro&t=2009-06-23T09:30:00Z` | starts LRO 17 minutes before its lunar orbit insertion |
 
 ## References
 

@@ -2,14 +2,21 @@
 //
 // The irregular moons of Jupiter, Saturn and Neptune (irregularMoons.js).
 // Elements: JPL Solar System Dynamics, Planetary Satellite Mean Elements,
-// https://ssd.jpl.nasa.gov/sats/elem/, fetched 2026-11-17: referred to the J2000 ecliptic, epoch
+// https://ssd.jpl.nasa.gov/sats/elem/, fetched 2026-11-18: referred to the J2000 ecliptic, epoch
 // as given (2000-01-01.5 TDB; 2020-01-01.0 for Neptune's); a in km, angles
 // in degrees, P in days, P apsis and P node in years. kernel: the JPL
 // satellite ephemeris they are fitted to. retrograde: i over 90 degrees.
-// Radius, GM and geometric albedo: each moon's JPL Horizons object page,
-// fetched 2026-11-17; a moon with no measured radius is drawn at a nominal
-// 1.5 km. discovery: JPL's Planetary Satellite Discovery
-// Circumstances, https://ssd.jpl.nasa.gov/sats/discovery.html, fetched 2026-11-17.
+// GM and geometric albedo: each moon's JPL Horizons object page, fetched
+// 2026-11-18 (the albedo NEOWISE's, Grav et al. 2015, where it has one).
+// size: the diameter (km) and where it is from: NEOWISE (measured, Grav et
+// al. 2015), Denk (T. Denk's table, https://tilmanndenk.de/wp-content/uploads/OSM_7_Table.txt, from H at an albedo of
+// 0.06), MPEC (the Minor Planet Electronic Circular's H, the same
+// way) or Sheppard (S. S. Sheppard's tables, https://sites.google.com/carnegiescience.edu/sheppard/moons/); radiusKm is half
+// of it. axesKm: an ellipsoid a x b x b of the same volume where the
+// lightcurve (Denk et al. 2018, Table 3) or images (Himalia, Porco et al.
+// 2003) give a/b; rotation: the period (h) from the same, or Pilcher et al.
+// (2012) for Himalia. discovery: JPL's Planetary Satellite Discovery
+// Circumstances, https://ssd.jpl.nasa.gov/sats/discovery.html. All fetched 2026-11-18.
 // fit: corrections fitted to Horizons every 10 days over 2000-2050, as for
 // the other moons (moons.data.js): M += dM + dn t, w += dW, node += dNode;
 // rmsKm and maxKm are what is left there, unfittedMaxKm the table's own.
@@ -33,13 +40,30 @@ export const IRREGULAR_DATA = {
   "Pnode": 297.1,
   "kernel": "jup347",
   "retrograde": false,
-  "radiusKm": 85,
+  "radiusKm": 69.8,
   "gm": 0.151552,
-  "geometricAlbedo": 0.04,
+  "geometricAlbedo": 0.057,
   "discovery": {
    "year": "1904",
    "by": "C.D. Perrine",
    "ref": "IAU WGPSN"
+  },
+  "size": {
+   "diameterKm": 139.6,
+   "errKm": 1.7,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": [
+   81,
+   64.8,
+   64.8
+  ],
+  "shapeNote": "a/b from Cassini's images (Porco et al. 2003), c taken as b",
+  "rotation": {
+   "periodH": 7.7819,
+   "source": "Pilcher et al. 2012",
+   "uncertain": false
   },
   "fit": {
    "dM": -30.7011,
@@ -69,15 +93,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 270.9,
   "kernel": "jup347",
   "retrograde": false,
-  "radiusKm": 40,
+  "radiusKm": 39.95,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": 0.03,
+  "geometricAlbedo": 0.046,
   "discovery": {
    "year": "1905",
    "by": "C.D. Perrine",
    "ref": "IAU WGPSN"
   },
+  "size": {
+   "diameterKm": 79.9,
+   "errKm": 1.7,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -34.5491,
    "dn": -0.006183628,
@@ -106,15 +138,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 79.2,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 18,
+  "radiusKm": 28.9,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.044,
   "discovery": {
    "year": "1908",
    "by": "P.J. Melotte",
    "ref": "IAU WGPSN"
   },
+  "size": {
+   "diameterKm": 57.8,
+   "errKm": 0.8,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 30.1422,
    "dn": -0.009418032,
@@ -143,15 +183,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 93.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 14,
+  "radiusKm": 17.5,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.042,
   "discovery": {
    "year": "1914",
    "by": "S.B. Nicholson",
    "ref": "IAU WGPSN"
   },
+  "size": {
+   "diameterKm": 35,
+   "errKm": 0.6,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 70.9289,
    "dn": -0.01548571,
@@ -180,15 +228,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 290.6,
   "kernel": "jup347",
   "retrograde": false,
-  "radiusKm": 12,
+  "radiusKm": 21.1,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.036,
   "discovery": {
    "year": "1938",
    "by": "S.B. Nicholson",
    "ref": "IAU WGPSN"
   },
+  "size": {
+   "diameterKm": 42.2,
+   "errKm": 0.7,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -13.2244,
    "dn": -0.00584924,
@@ -217,15 +273,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 89,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 15,
+  "radiusKm": 23.35,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.035,
   "discovery": {
    "year": "1938",
    "by": "S.B. Nicholson",
    "ref": "IAU WGPSN"
   },
+  "size": {
+   "diameterKm": 46.7,
+   "errKm": 0.9,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 37.4634,
    "dn": -0.01815448,
@@ -254,15 +318,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 115.5,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 10,
+  "radiusKm": 14.55,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.038,
   "discovery": {
    "year": "1951",
    "by": "S.B. Nicholson",
    "ref": "IAU WGPSN"
   },
+  "size": {
+   "diameterKm": 29.1,
+   "errKm": 0.6,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 32.3157,
    "dn": -0.009614842,
@@ -291,15 +363,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 309.4,
   "kernel": "jup347",
   "retrograde": false,
-  "radiusKm": 5,
+  "radiusKm": 10.75,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.034,
   "discovery": {
    "year": "1974",
    "by": "C.T. Kowal",
    "ref": "IAU WGPSN"
   },
+  "size": {
+   "diameterKm": 21.5,
+   "errKm": 1.7,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -12.9157,
    "dn": -0.005613381,
@@ -328,16 +408,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 92.7,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 4.8,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.052,
   "discovery": {
    "year": "1999",
    "by": "J.V. Scotti, T.B. Spahr, R.S. McMillan, J.A. Larsen, J. Montani, A.E. Gleason, T. Gehrels",
    "ref": "IAUC 7460"
   },
+  "size": {
+   "diameterKm": 9.6,
+   "errKm": 1.3,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 41.153,
    "dn": -0.008633206,
@@ -366,8 +453,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 648.5,
   "kernel": "jup347",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 4.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -376,6 +463,13 @@ export const IRREGULAR_DATA = {
    "by": "C.T. Kowal, E. Roemer (1975), S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier (2000)",
    "ref": "IAUC 7525"
   },
+  "size": {
+   "diameterKm": 9,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 7.3354,
    "dn": -0.001036104,
@@ -404,8 +498,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 74.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -414,6 +508,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 6,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 58.8065,
    "dn": -0.0107478,
@@ -442,8 +543,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 91.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -452,6 +553,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 5,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 41.7378,
    "dn": -0.01811245,
@@ -480,8 +588,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 82.7,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -490,6 +598,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 60.7171,
    "dn": -0.01882679,
@@ -518,8 +633,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 116.5,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -528,6 +643,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.2395,
    "dn": -0.009668504,
@@ -556,16 +678,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 83.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.45,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.029,
   "discovery": {
    "year": "2000",
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 6.9,
+   "errKm": 1.3,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 99.0015,
    "dn": -0.01868745,
@@ -594,8 +723,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 116.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -604,6 +733,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 5,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 84.2252,
    "dn": -0.01017553,
@@ -633,7 +769,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -642,6 +778,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 59.8579,
    "dn": -0.01851131,
@@ -670,8 +813,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 93.9,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -680,6 +823,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 71.4418,
    "dn": -0.01802682,
@@ -708,16 +858,23 @@ export const IRREGULAR_DATA = {
   "Pnode": 119.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.5,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.029,
   "discovery": {
    "year": "2000",
    "by": "S.S. Sheppard, D.C. Jewitt, Y.R. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 7,
+   "errKm": 0.7,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 40.5847,
    "dn": -0.009570851,
@@ -746,8 +903,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 90.4,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -756,6 +913,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 56.0704,
    "dn": -0.01160889,
@@ -784,8 +948,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 122.4,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -794,6 +958,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 46.8245,
    "dn": -0.009494679,
@@ -822,8 +993,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 113.6,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -832,6 +1003,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 28.4961,
    "dn": -0.01114166,
@@ -861,7 +1039,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -870,6 +1048,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 49.5541,
    "dn": -0.01812273,
@@ -899,7 +1084,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -908,6 +1093,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 52.9602,
    "dn": -0.01066803,
@@ -937,7 +1129,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -946,6 +1138,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 34.0111,
    "dn": -0.009823792,
@@ -974,8 +1173,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 143.4,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -984,6 +1183,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 102.2899,
    "dn": -0.008201622,
@@ -1012,8 +1218,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 116.2,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1022,6 +1228,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 81.2324,
    "dn": -0.00699064,
@@ -1050,8 +1263,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 82.8,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1060,6 +1273,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 46.9426,
    "dn": -0.01157739,
@@ -1088,8 +1308,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 85.8,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1098,6 +1318,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 102.5693,
    "dn": -0.01838903,
@@ -1126,8 +1353,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 91.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1136,6 +1363,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2002-J54"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 37.2197,
    "dn": -0.01765826,
@@ -1165,7 +1399,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1174,6 +1408,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8088"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 40.2154,
    "dn": -0.0126093,
@@ -1202,8 +1443,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 114.9,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1212,6 +1453,13 @@ export const IRREGULAR_DATA = {
    "by": "B. Gladman, L. Allen",
    "ref": "IAUC 8138"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 68.4439,
    "dn": -0.009304141,
@@ -1240,8 +1488,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 75,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1250,6 +1498,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8087"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 26.2206,
    "dn": -0.01304542,
@@ -1278,8 +1533,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 111.7,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1288,6 +1543,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8276"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 48.4813,
    "dn": -0.01147485,
@@ -1317,7 +1579,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1326,6 +1588,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8035"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 70.2739,
    "dn": -0.01820255,
@@ -1354,8 +1623,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 86.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1364,6 +1633,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8089"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 55.6519,
    "dn": -0.01859831,
@@ -1392,8 +1668,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 121.6,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1402,6 +1678,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8087"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 53.7486,
    "dn": -0.01306804,
@@ -1431,7 +1714,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": false,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1440,6 +1723,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8125"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 55.876,
    "dn": -0.00001295985,
@@ -1468,8 +1758,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 84.2,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1478,6 +1768,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8087"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 36.6337,
    "dn": -0.0184504,
@@ -1506,8 +1803,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 83.4,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1516,6 +1813,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8116"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -5.738,
    "dn": -0.008465956,
@@ -1544,8 +1848,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 85.6,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1554,6 +1858,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8116"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 38.0856,
    "dn": -0.006471989,
@@ -1582,8 +1893,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 88.9,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1592,6 +1903,13 @@ export const IRREGULAR_DATA = {
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, and L. Allen",
    "ref": "IAUC 8116"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 82.8859,
    "dn": -0.01815349,
@@ -1620,8 +1938,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 89.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1630,6 +1948,13 @@ export const IRREGULAR_DATA = {
    "by": "R. Jacobson, M. Brozovic, B. Gladman, M. Alexandersen",
    "ref": "IAUC 9222"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 41.8385,
    "dn": -0.01822834,
@@ -1658,8 +1983,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 115.7,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1668,6 +1993,13 @@ export const IRREGULAR_DATA = {
    "by": "C. Veillet",
    "ref": "IAUC 9222"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 67.4929,
    "dn": -0.009353769,
@@ -1696,8 +2028,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 258.2,
   "kernel": "jup347",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1706,6 +2038,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, Y. Fernandez, G. Magnier",
    "ref": "IAUC 7555"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -33.3244,
    "dn": -0.006495974,
@@ -1734,8 +2073,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 125.4,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1744,6 +2083,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2017-L08"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 29.3019,
    "dn": -0.00813393,
@@ -1772,8 +2118,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 131.6,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1782,6 +2128,13 @@ export const IRREGULAR_DATA = {
    "by": "B. Gladman",
    "ref": "IAUC 8116"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 50.104,
    "dn": -0.009239039,
@@ -1810,8 +2163,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 84.4,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1820,6 +2173,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "CBET 3002/IAUC 9252"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 30.2884,
    "dn": -0.01168619,
@@ -1848,8 +2208,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 88.6,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1858,6 +2218,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, and J. Kleyna",
    "ref": "IAUC 8087"
   },
+  "size": {
+   "diameterKm": 4,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 58.3021,
    "dn": -0.01832098,
@@ -1886,8 +2253,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 105.8,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1896,6 +2263,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, and J. Kleyna",
    "ref": "IAUC 8116"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 51.5246,
    "dn": -0.009534804,
@@ -1924,8 +2298,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 95.8,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1934,6 +2308,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2017-L47"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 77.5375,
    "dn": -0.008413291,
@@ -1962,8 +2343,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 122.9,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -1972,6 +2353,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, and J. Kleyna",
    "ref": "IAUC 8087"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 68.661,
    "dn": -0.009444902,
@@ -2000,8 +2388,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 90.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2010,6 +2398,13 @@ export const IRREGULAR_DATA = {
    "by": "B. Gladman",
    "ref": "IAUC 8125"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 83.9136,
    "dn": -0.0178995,
@@ -2038,8 +2433,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 147.1,
   "kernel": "jup347",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2048,6 +2443,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O09"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -127.3589,
    "dn": -0.009913779,
@@ -2076,8 +2478,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 81,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2086,6 +2488,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O10"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 85.0656,
    "dn": -0.01867793,
@@ -2114,8 +2523,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 110.9,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2124,6 +2533,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O11"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.879,
    "dn": -0.009996826,
@@ -2153,7 +2569,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": false,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2162,6 +2578,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O12"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -20.2003,
    "dn": -0.005741396,
@@ -2190,8 +2613,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 83.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2200,6 +2623,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O13"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 67.8306,
    "dn": -0.01890153,
@@ -2228,8 +2658,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 87.8,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2238,6 +2668,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O14"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 50.2992,
    "dn": -0.01093127,
@@ -2266,8 +2703,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 115.9,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2276,6 +2713,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O15"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 53.9265,
    "dn": -0.009711525,
@@ -2304,8 +2748,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 94.6,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2314,6 +2758,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O16"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 55.7469,
    "dn": -0.01766584,
@@ -2343,7 +2794,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2352,6 +2803,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O17"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 74.2613,
    "dn": -0.01418251,
@@ -2381,7 +2839,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": false,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2390,6 +2848,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2018-O18"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -25.4228,
    "dn": -0.005511945,
@@ -2418,8 +2883,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 90.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2428,6 +2893,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "CBET 3002/IAUC 9252"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 84.3928,
    "dn": -0.01793341,
@@ -2456,8 +2928,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 119.2,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2466,6 +2938,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8087"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 50.1316,
    "dn": -0.01053384,
@@ -2494,8 +2973,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 95.5,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2504,6 +2983,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8087"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 72.59,
    "dn": -0.009791666,
@@ -2532,8 +3018,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 89.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2542,6 +3028,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8089"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 58.8504,
    "dn": -0.01816009,
@@ -2570,8 +3063,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 89.4,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2580,6 +3073,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8089"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 73.9546,
    "dn": -0.01823164,
@@ -2608,8 +3108,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 109.7,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2618,6 +3118,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8089"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 93.0306,
    "dn": -0.01089592,
@@ -2646,8 +3153,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 120.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2656,6 +3163,13 @@ export const IRREGULAR_DATA = {
    "by": "B. Gladman",
    "ref": "IAUC 8116"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 55.6337,
    "dn": -0.009215884,
@@ -2684,8 +3198,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 98.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2694,6 +3208,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "IAUC 8281"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 69.2582,
    "dn": -0.008051453,
@@ -2722,8 +3243,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 93.2,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2732,6 +3253,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, B.J. Gladman, C. Veillet",
    "ref": "MPEC 2021-V333"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 70.4656,
    "dn": -0.01778377,
@@ -2761,7 +3289,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": false,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2770,6 +3298,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2022-Y69"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -36.2484,
    "dn": -0.006164122,
@@ -2799,7 +3334,7 @@ export const IRREGULAR_DATA = {
   "kernel": "jup347",
   "retrograde": false,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2808,6 +3343,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2022-Y68"
   },
+  "size": {
+   "diameterKm": 3,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -22.5818,
    "dn": -0.005742879,
@@ -2836,8 +3378,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 87.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2846,6 +3388,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-B38"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 61.1782,
    "dn": -0.01829842,
@@ -2874,8 +3423,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 118.4,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2884,6 +3433,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-A14"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 46.7004,
    "dn": -0.01090848,
@@ -2912,8 +3468,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 114.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2922,6 +3478,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-B37"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 47.4374,
    "dn": -0.00971929,
@@ -2950,8 +3513,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 120.7,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2960,6 +3523,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-B39"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 53.8754,
    "dn": -0.009332397,
@@ -2988,8 +3558,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 89.8,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -2998,6 +3568,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-B40"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 91.6838,
    "dn": -0.0180404,
@@ -3026,8 +3603,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 88.1,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3036,6 +3613,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.J. Tholen, C. Trujillo",
    "ref": "MPEC 2023-B41"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 57.5547,
    "dn": -0.01831609,
@@ -3064,8 +3648,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 81.7,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3074,6 +3658,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.J. Tholen, C. Trujillo",
    "ref": "MPEC 2023-B50"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 55.0249,
    "dn": -0.01877684,
@@ -3102,8 +3693,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 93.9,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3112,6 +3703,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-A13"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 74.5253,
    "dn": -0.01783871,
@@ -3140,8 +3738,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 94.5,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3150,6 +3748,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-B96"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 68.6381,
    "dn": -0.00991371,
@@ -3178,8 +3783,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 239.7,
   "kernel": "jup347",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3188,6 +3793,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-B51"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 41.7033,
    "dn": -0.001170381,
@@ -3216,8 +3828,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 87.8,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3226,6 +3838,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-D44"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 56.5543,
    "dn": -0.01825543,
@@ -3254,8 +3873,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 84.3,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3264,6 +3883,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-D45"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 45.2218,
    "dn": -0.01862126,
@@ -3292,8 +3918,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 119.9,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3302,6 +3928,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2023-D46"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 49.5991,
    "dn": -0.009544704,
@@ -3330,8 +3963,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 125.6,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3340,6 +3973,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2025-H210"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 78.717,
    "dn": -0.008264906,
@@ -3368,8 +4008,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 91.2,
   "kernel": "jup347",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3378,6 +4018,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2025-H211"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 37.7368,
    "dn": -0.01790445,
@@ -3406,8 +4053,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 317.5,
   "kernel": "jup348",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3416,6 +4063,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-F09"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -32.7517,
    "dn": -0.005313797,
@@ -3444,8 +4098,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 81.9,
   "kernel": "jup348",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3454,6 +4108,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-F10"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 63.6253,
    "dn": -0.01923782,
@@ -3482,8 +4143,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 86.9,
   "kernel": "jup348",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3492,6 +4153,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.J. Tholen",
    "ref": "MPEC 2026-F11"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -101.9142,
    "dn": -0.01826382,
@@ -3520,8 +4188,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 82,
   "kernel": "jup348",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3530,6 +4198,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-F12"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 175.6689,
    "dn": -0.01926863,
@@ -3558,8 +4233,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 86.4,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3568,6 +4243,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G43"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -47.1686,
    "dn": -0.0107172,
@@ -3596,8 +4278,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 91.8,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3606,6 +4288,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G48"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 1.2307,
    "dn": -0.01759836,
@@ -3634,8 +4323,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 83.7,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3644,6 +4333,13 @@ export const IRREGULAR_DATA = {
    "by": "E. J. Ashton, M. Beaudoin, B. J. Gladman, S. Deen",
    "ref": "MPEC 2026-G65"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -46.8463,
    "dn": -0.018985,
@@ -3672,8 +4368,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 104.2,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3682,6 +4378,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G66"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -100.6955,
    "dn": -0.01055289,
@@ -3710,8 +4413,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 85.8,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3720,6 +4423,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G44"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -40.1591,
    "dn": -0.01856344,
@@ -3748,8 +4458,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 83.4,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3758,6 +4468,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G45"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 175.0122,
    "dn": -0.01907814,
@@ -3786,8 +4503,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 88,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3796,6 +4513,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G46"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -68.3752,
    "dn": -0.01784176,
@@ -3824,8 +4548,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 80.2,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3834,6 +4558,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G47"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -125.3514,
    "dn": -0.005986214,
@@ -3862,8 +4593,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 97.7,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3872,6 +4603,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G49"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -55.1221,
    "dn": -0.01170457,
@@ -3900,8 +4638,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 84.2,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3910,6 +4648,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G50"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 94.8951,
    "dn": -0.01849253,
@@ -3938,8 +4683,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 286.4,
   "kernel": "jup349",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3948,6 +4693,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G51"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -97.9094,
    "dn": -0.005818811,
@@ -3976,8 +4728,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 90.2,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -3986,6 +4738,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G52"
   },
+  "size": {
+   "diameterKm": 2,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 173.5694,
    "dn": -0.01818596,
@@ -4014,8 +4773,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 97.6,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4024,6 +4783,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard",
    "ref": "MPEC 2026-G67"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -99.8624,
    "dn": -0.01140403,
@@ -4052,8 +4818,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 122.4,
   "kernel": "jup349",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 0.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4062,6 +4828,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.J. Tholen, C. Trujillo",
    "ref": "MPEC 2026-G73"
   },
+  "size": {
+   "diameterKm": 1,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -35.7259,
    "dn": -0.008828821,
@@ -4090,8 +4863,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 267.8,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 9,
+  "radiusNote": "estimated: from H 12.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4099,6 +4872,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7512"
+  },
+  "size": {
+   "diameterKm": 18,
+   "H": 12.4,
+   "source": "Denk",
+   "note": "from H 12.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   11.1,
+   8.1,
+   8.1
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 11.9222,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": 78.0058,
@@ -4128,8 +4918,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 704.4,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 12.5,
+  "radiusNote": "estimated: from H 11.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4137,6 +4927,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7512"
+  },
+  "size": {
+   "diameterKm": 25,
+   "H": 11.7,
+   "source": "Denk",
+   "note": "from H 11.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   12.91,
+   12.3,
+   12.3
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 18.79,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -5.5883,
@@ -4166,8 +4973,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 352,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 7,
+  "radiusNote": "estimated: from H 13.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4175,6 +4982,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7513"
+  },
+  "size": {
+   "diameterKm": 14,
+   "H": 13.1,
+   "source": "Denk",
+   "note": "from H 13.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   7.37,
+   6.82,
+   6.82
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 10.691,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -165.7196,
@@ -4204,8 +5028,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1223,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 6,
+  "radiusNote": "estimated: from H 13.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4213,6 +5037,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7521"
+  },
+  "size": {
+   "diameterKm": 12,
+   "H": 13.3,
+   "source": "Denk",
+   "note": "from H 13.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   6.32,
+   5.85,
+   5.85
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 13.03,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -47.181,
@@ -4242,8 +5083,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 401.5,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.4,
+  "radiusNote": "estimated: from H 14.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4251,6 +5092,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7548"
+  },
+  "size": {
+   "diameterKm": 6.8,
+   "H": 14.6,
+   "source": "Denk",
+   "note": "from H 14.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   3.8,
+   3.22,
+   3.22
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 7.67,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": 163.1551,
@@ -4280,8 +5138,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1214.7,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 8,
+  "radiusNote": "estimated: from H 12.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4289,6 +5147,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7521"
+  },
+  "size": {
+   "diameterKm": 16,
+   "H": 12.7,
+   "source": "Denk",
+   "note": "from H 12.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   14.02,
+   6.04,
+   6.04
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 21.97,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -1.9581,
@@ -4318,8 +5193,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 414.2,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.4,
+  "radiusNote": "estimated: from H 14.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4327,6 +5202,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7538"
+  },
+  "size": {
+   "diameterKm": 6.8,
+   "H": 14.6,
+   "source": "Denk",
+   "note": "from H 14.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   4.32,
+   3.02,
+   3.02
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 6.74,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": 170.9179,
@@ -4356,15 +5248,31 @@ export const IRREGULAR_DATA = {
   "Pnode": 434.3,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 14.3,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.062,
   "discovery": {
    "year": "2000",
    "by": "M. Holman",
    "ref": "IAUC 7545"
+  },
+  "size": {
+   "diameterKm": 28.6,
+   "errKm": 5.4,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": [
+   17.38,
+   12.97,
+   12.97
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 13.33,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -128.359,
@@ -4394,8 +5302,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 561.8,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.65,
+  "radiusNote": "estimated: from H 14.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4403,6 +5311,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7538"
+  },
+  "size": {
+   "diameterKm": 7.3,
+   "H": 14.4,
+   "source": "Denk",
+   "note": "from H 14.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   4.28,
+   3.37,
+   3.37
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 11.1,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -157.3396,
@@ -4432,8 +5357,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 407.8,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 5,
+  "radiusNote": "estimated: from H 13.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4441,6 +5366,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7539"
+  },
+  "size": {
+   "diameterKm": 10,
+   "H": 13.7,
+   "source": "Denk",
+   "note": "from H 13.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   6.58,
+   4.36,
+   4.36
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 28.15,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -81.2846,
@@ -4470,15 +5412,31 @@ export const IRREGULAR_DATA = {
   "Pnode": 598.3,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 19.65,
   "gm": null,
   "gmNote": "not measured",
-  "geometricAlbedo": null,
+  "geometricAlbedo": 0.05,
   "discovery": {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7513"
+  },
+  "size": {
+   "diameterKm": 39.3,
+   "errKm": 5.9,
+   "source": "NEOWISE",
+   "note": "measured in the thermal infrared (Grav et al. 2015)"
+  },
+  "axesKm": [
+   21.82,
+   18.65,
+   18.65
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 10.18785,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": 135.6579,
@@ -4508,8 +5466,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 263.3,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.8,
+  "radiusNote": "estimated: from H 14.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4517,6 +5475,23 @@ export const IRREGULAR_DATA = {
    "year": "2000",
    "by": "B. Gladman, J. Kavelaars, J.-M. Petit, H. Scholl, M. Holman, B.G. Marsden, P. Nicholson, J.A. Burns",
    "ref": "IAUC 7538"
+  },
+  "size": {
+   "diameterKm": 7.6,
+   "H": 14.3,
+   "source": "Denk",
+   "note": "from H 14.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   4.31,
+   3.57,
+   3.57
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 38.79,
+   "source": "Denk et al. 2018",
+   "uncertain": true
   },
   "fit": {
    "dM": 149.8242,
@@ -4546,8 +5521,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 367.6,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.45,
+  "radiusNote": "estimated: from H 14.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4555,6 +5530,18 @@ export const IRREGULAR_DATA = {
    "year": "2003",
    "by": "S.S. Sheppard, D.C. Jewitt, and J. Kleyna",
    "ref": "IAUC 8116"
+  },
+  "size": {
+   "diameterKm": 6.9,
+   "H": 14.5,
+   "source": "Denk",
+   "note": "from H 14.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": {
+   "periodH": 10.21,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -0.2396,
@@ -4584,8 +5571,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 348.4,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.2,
+  "radiusNote": "estimated: from H 15.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4594,6 +5581,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8523"
   },
+  "size": {
+   "diameterKm": 4.4,
+   "H": 15.5,
+   "source": "Denk",
+   "note": "from H 15.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.0005,
    "dn": -0.005087733,
@@ -4622,8 +5617,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 451,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.8,
+  "radiusNote": "estimated: from H 15 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4631,6 +5626,23 @@ export const IRREGULAR_DATA = {
    "year": "2004",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8523"
+  },
+  "size": {
+   "diameterKm": 5.6,
+   "H": 15,
+   "source": "Denk",
+   "note": "from H 15 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   3.52,
+   2.5,
+   2.5
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 16.33,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": 21.2197,
@@ -4660,8 +5672,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 430.9,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.6,
+  "radiusNote": "estimated: from H 15.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4669,6 +5681,23 @@ export const IRREGULAR_DATA = {
    "year": "2004",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8523"
+  },
+  "size": {
+   "diameterKm": 5.2,
+   "H": 15.2,
+   "source": "Denk",
+   "note": "from H 15.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   2.82,
+   2.5,
+   2.5
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 8.13,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": 65.5152,
@@ -4698,8 +5727,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 333.6,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.35,
+  "radiusNote": "estimated: from H 14.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4707,6 +5736,23 @@ export const IRREGULAR_DATA = {
    "year": "2004",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8523"
+  },
+  "size": {
+   "diameterKm": 6.7,
+   "H": 14.6,
+   "source": "Denk",
+   "note": "from H 14.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   4.33,
+   2.95,
+   2.95
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 14.6238,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -137.0682,
@@ -4736,8 +5782,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 374.4,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.95,
+  "radiusNote": "estimated: from H 15.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4746,6 +5792,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8523"
   },
+  "size": {
+   "diameterKm": 3.9,
+   "H": 15.8,
+   "source": "Denk",
+   "note": "from H 15.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -78.4137,
    "dn": -0.00416749,
@@ -4774,8 +5828,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 350.1,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.85,
+  "radiusNote": "estimated: from H 15.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4784,6 +5838,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8523"
   },
+  "size": {
+   "diameterKm": 3.7,
+   "H": 15.9,
+   "source": "Denk",
+   "note": "from H 15.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 112.792,
    "dn": -0.005728498,
@@ -4812,8 +5874,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 278.6,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.65,
+  "radiusNote": "estimated: from H 15.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4821,6 +5883,23 @@ export const IRREGULAR_DATA = {
    "year": "2004",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8523"
+  },
+  "size": {
+   "diameterKm": 5.3,
+   "H": 15.1,
+   "source": "Denk",
+   "note": "from H 15.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   2.84,
+   2.56,
+   2.56
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 9.5,
+   "source": "Denk et al. 2018",
+   "uncertain": true
   },
   "fit": {
    "dM": -178.3244,
@@ -4850,8 +5929,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 325.3,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.25,
+  "radiusNote": "estimated: from H 15.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4859,6 +5938,23 @@ export const IRREGULAR_DATA = {
    "year": "2004",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8523"
+  },
+  "size": {
+   "diameterKm": 4.5,
+   "H": 15.5,
+   "source": "Denk",
+   "note": "from H 15.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   2.84,
+   2,
+   2
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 5.45,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -84.2954,
@@ -4888,8 +5984,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 418,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.75,
+  "radiusNote": "estimated: from H 14.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4897,6 +5993,23 @@ export const IRREGULAR_DATA = {
    "year": "2004",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
+  },
+  "size": {
+   "diameterKm": 7.5,
+   "H": 14.3,
+   "source": "Denk",
+   "note": "from H 14.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   4.4,
+   3.46,
+   3.46
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 12.76,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": 88.4106,
@@ -4926,8 +6039,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 264.6,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3.5,
+  "radiusNote": "estimated: from H 14.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4935,6 +6048,18 @@ export const IRREGULAR_DATA = {
    "year": "2006",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
+  },
+  "size": {
+   "diameterKm": 7,
+   "H": 14.5,
+   "source": "Denk",
+   "note": "from H 14.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": {
+   "periodH": 7.7,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -152.9351,
@@ -4964,8 +6089,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 299.8,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.35,
+  "radiusNote": "estimated: from H 15.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -4973,6 +6098,23 @@ export const IRREGULAR_DATA = {
    "year": "2006",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
+  },
+  "size": {
+   "diameterKm": 4.7,
+   "H": 15.4,
+   "source": "Denk",
+   "note": "from H 15.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   2.41,
+   2.32,
+   2.32
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 6.9,
+   "source": "Denk et al. 2018",
+   "uncertain": true
   },
   "fit": {
    "dM": -36.3793,
@@ -5002,8 +6144,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 337.7,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.3,
+  "radiusNote": "estimated: from H 15.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5011,6 +6153,23 @@ export const IRREGULAR_DATA = {
    "year": "2006",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
+  },
+  "size": {
+   "diameterKm": 4.6,
+   "H": 15.4,
+   "source": "Denk",
+   "note": "from H 15.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   2.51,
+   2.2,
+   2.2
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 7.26,
+   "source": "Denk et al. 2018",
+   "uncertain": true
   },
   "fit": {
    "dM": -135.9194,
@@ -5040,8 +6199,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 222.9,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.95,
+  "radiusNote": "estimated: from H 15.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5050,6 +6209,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
   },
+  "size": {
+   "diameterKm": 3.9,
+   "H": 15.8,
+   "source": "Denk",
+   "note": "from H 15.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 151.4393,
    "dn": -0.005711228,
@@ -5078,8 +6245,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 410.1,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.1,
+  "radiusNote": "estimated: from H 15.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5088,6 +6255,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
   },
+  "size": {
+   "diameterKm": 4.2,
+   "H": 15.6,
+   "source": "Denk",
+   "note": "from H 15.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 33.7517,
    "dn": -0.004455632,
@@ -5116,8 +6291,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 376.1,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.4,
+  "radiusNote": "estimated: from H 15.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5125,6 +6300,23 @@ export const IRREGULAR_DATA = {
    "year": "2006",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
+  },
+  "size": {
+   "diameterKm": 4.8,
+   "H": 15.3,
+   "source": "Denk",
+   "note": "from H 15.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   2.68,
+   2.27,
+   2.27
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 12.75,
+   "source": "Denk et al. 2018",
+   "uncertain": true
   },
   "fit": {
    "dM": -32.7768,
@@ -5154,8 +6346,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 686.4,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 3,
+  "radiusNote": "estimated: from H 14.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5163,6 +6355,23 @@ export const IRREGULAR_DATA = {
    "year": "2007",
    "by": "S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8836"
+  },
+  "size": {
+   "diameterKm": 6,
+   "H": 14.8,
+   "source": "Denk",
+   "note": "from H 14.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": [
+   3.61,
+   2.73,
+   2.73
+  ],
+  "shapeNote": "a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b",
+  "rotation": {
+   "periodH": 76.13,
+   "source": "Denk et al. 2018",
+   "uncertain": false
   },
   "fit": {
    "dM": -157.4025,
@@ -5192,8 +6401,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 407.9,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.95,
+  "radiusNote": "estimated: from H 15.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5202,6 +6411,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T126"
   },
+  "size": {
+   "diameterKm": 3.9,
+   "H": 15.8,
+   "source": "Denk",
+   "note": "from H 15.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -56.8531,
    "dn": -0.004599542,
@@ -5230,8 +6447,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 360.3,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5240,6 +6457,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T128"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -136.9348,
    "dn": -0.005607856,
@@ -5268,8 +6493,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 247.4,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.1,
+  "radiusNote": "estimated: from H 15.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5278,6 +6503,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T129"
   },
+  "size": {
+   "diameterKm": 4.2,
+   "H": 15.6,
+   "source": "Denk",
+   "note": "from H 15.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -3.1875,
    "dn": -0.005559299,
@@ -5306,8 +6539,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 222.9,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.85,
+  "radiusNote": "estimated: from H 15.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5316,6 +6549,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T132"
   },
+  "size": {
+   "diameterKm": 3.7,
+   "H": 15.9,
+   "source": "Denk",
+   "note": "from H 15.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 165.6464,
    "dn": -0.00522524,
@@ -5344,8 +6585,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 273.4,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: from H 15.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5354,6 +6595,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T133"
   },
+  "size": {
+   "diameterKm": 4,
+   "H": 15.7,
+   "source": "Denk",
+   "note": "from H 15.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -15.6218,
    "dn": -0.007569516,
@@ -5382,8 +6631,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 403,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.3,
+  "radiusNote": "estimated: from H 15.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5392,6 +6641,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T134"
   },
+  "size": {
+   "diameterKm": 4.6,
+   "H": 15.4,
+   "source": "Denk",
+   "note": "from H 15.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 169.5396,
    "dn": -0.004759696,
@@ -5420,8 +6677,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 414.1,
   "kernel": "sat456",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.9,
+  "radiusNote": "estimated: from H 15.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5430,6 +6687,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T136"
   },
+  "size": {
+   "diameterKm": 3.8,
+   "H": 15.8,
+   "source": "Denk",
+   "note": "from H 15.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -63.7556,
    "dn": -0.003156139,
@@ -5458,8 +6723,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 392.1,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.7,
+  "radiusNote": "estimated: from H 16.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5468,6 +6733,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T137"
   },
+  "size": {
+   "diameterKm": 3.4,
+   "H": 16.1,
+   "source": "Denk",
+   "note": "from H 16.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 176.1487,
    "dn": -0.004714133,
@@ -5496,8 +6769,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 356.2,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.15,
+  "radiusNote": "estimated: from H 15.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5506,6 +6779,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T154"
   },
+  "size": {
+   "diameterKm": 4.3,
+   "H": 15.6,
+   "source": "Denk",
+   "note": "from H 15.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -136.3682,
    "dn": -0.004695351,
@@ -5534,8 +6815,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 201.4,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.85,
+  "radiusNote": "estimated: from H 15.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5544,6 +6825,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T155"
   },
+  "size": {
+   "diameterKm": 3.7,
+   "H": 15.9,
+   "source": "Denk",
+   "note": "from H 15.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 149.7939,
    "dn": -0.004650456,
@@ -5572,8 +6861,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 251.6,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5582,6 +6871,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T156"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -119.887,
    "dn": -0.0065317,
@@ -5610,8 +6907,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 320.8,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.1,
+  "radiusNote": "estimated: from H 15.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5620,6 +6917,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T157"
   },
+  "size": {
+   "diameterKm": 4.2,
+   "H": 15.6,
+   "source": "Denk",
+   "note": "from H 15.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -65.8037,
    "dn": -0.005999246,
@@ -5648,8 +6953,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 229.6,
   "kernel": "sat456",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.85,
+  "radiusNote": "estimated: from H 15.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5658,6 +6963,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T160"
   },
+  "size": {
+   "diameterKm": 3.7,
+   "H": 15.9,
+   "source": "Denk",
+   "note": "from H 15.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -100.2243,
    "dn": -0.003915313,
@@ -5686,8 +6999,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 705.3,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.1,
+  "radiusNote": "estimated: from H 15.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5696,6 +7009,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T153"
   },
+  "size": {
+   "diameterKm": 4.2,
+   "H": 15.6,
+   "source": "Denk",
+   "note": "from H 15.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.7064,
    "dn": -0.000937348,
@@ -5724,8 +7045,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 386.2,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.75,
+  "radiusNote": "estimated: from H 16 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5734,6 +7055,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T131"
   },
+  "size": {
+   "diameterKm": 3.5,
+   "H": 16,
+   "source": "Denk",
+   "note": "from H 16 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -44.0056,
    "dn": -0.002862123,
@@ -5762,8 +7091,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 336,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.95,
+  "radiusNote": "estimated: from H 15.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5772,6 +7101,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T135"
   },
+  "size": {
+   "diameterKm": 3.9,
+   "H": 15.8,
+   "source": "Denk",
+   "note": "from H 15.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 12.547,
    "dn": -0.005894941,
@@ -5800,8 +7137,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 268.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5810,6 +7147,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T127"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -9.7138,
    "dn": -0.004011479,
@@ -5838,8 +7183,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 173.9,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5848,6 +7193,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T158"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 19.8266,
    "dn": -0.003809446,
@@ -5876,8 +7229,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 413.8,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.8,
+  "radiusNote": "estimated: from H 15.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5886,6 +7239,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T159"
   },
+  "size": {
+   "diameterKm": 3.6,
+   "H": 15.9,
+   "source": "Denk",
+   "note": "from H 15.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -0.7004,
    "dn": -0.00292916,
@@ -5914,8 +7275,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 328.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5924,6 +7285,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2019-T161"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.1,
+   "source": "Denk",
+   "note": "from H 16.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 34.7878,
    "dn": -0.006161315,
@@ -5952,8 +7321,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 237,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.15,
+  "radiusNote": "estimated: from H 15.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -5962,6 +7331,14 @@ export const IRREGULAR_DATA = {
    "by": "D. Jewitt, S. Sheppard, J. Kleyna",
    "ref": "IAUC 8523"
   },
+  "size": {
+   "diameterKm": 4.3,
+   "H": 15.6,
+   "source": "Denk",
+   "note": "from H 15.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -9.9672,
    "dn": -0.004807959,
@@ -5990,8 +7367,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 331.8,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.85,
+  "radiusNote": "estimated: from H 15.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6000,6 +7377,14 @@ export const IRREGULAR_DATA = {
    "by": "D. Jewitt, S. Sheppard, J. Kleyna",
    "ref": "IAUC 8523"
   },
+  "size": {
+   "diameterKm": 3.7,
+   "H": 15.9,
+   "source": "Denk",
+   "note": "from H 15.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.778,
    "dn": -0.00468203,
@@ -6028,8 +7413,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 396.5,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6038,6 +7423,14 @@ export const IRREGULAR_DATA = {
    "by": "D. Jewitt, S. Sheppard, J. Kleyna",
    "ref": "IAUC 8523"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 4.4368,
    "dn": -0.004620312,
@@ -6066,8 +7459,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 390.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.8,
+  "radiusNote": "estimated: from H 16 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6076,6 +7469,14 @@ export const IRREGULAR_DATA = {
    "by": "D. Jewitt, S. Sheppard, J. Kleyna",
    "ref": "IAUC 8523"
   },
+  "size": {
+   "diameterKm": 3.6,
+   "H": 16,
+   "source": "Denk",
+   "note": "from H 16 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 27.9936,
    "dn": -0.004986699,
@@ -6104,8 +7505,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 477.4,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.05,
+  "radiusNote": "estimated: from H 15.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6114,6 +7515,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
   },
+  "size": {
+   "diameterKm": 4.1,
+   "H": 15.7,
+   "source": "Denk",
+   "note": "from H 15.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.5214,
    "dn": -0.003799758,
@@ -6142,8 +7551,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 273.4,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.05,
+  "radiusNote": "estimated: from H 15.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6152,6 +7561,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D. Jewitt, J. Kleyna",
    "ref": "IAUC 8727"
   },
+  "size": {
+   "diameterKm": 4.1,
+   "H": 15.7,
+   "source": "Denk",
+   "note": "from H 15.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.0619,
    "dn": -0.004166325,
@@ -6180,8 +7597,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 513.1,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.1,
+  "radiusNote": "estimated: from H 15.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6190,6 +7607,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D. Jewitt, J. Kleyna",
    "ref": "IAUC 8836"
   },
+  "size": {
+   "diameterKm": 4.2,
+   "H": 15.6,
+   "source": "Denk",
+   "note": "from H 15.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 2.9888,
    "dn": -0.003892624,
@@ -6218,8 +7643,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 397.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: from H 15.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6228,6 +7653,14 @@ export const IRREGULAR_DATA = {
    "by": "S. Sheppard, D. Jewitt, J. Kleyna",
    "ref": "IAUC 8836"
   },
+  "size": {
+   "diameterKm": 4,
+   "H": 15.7,
+   "source": "Denk",
+   "note": "from H 15.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 5.411,
    "dn": -0.005258031,
@@ -6256,8 +7689,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1111.8,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2.4,
+  "radiusNote": "estimated: from H 15.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6266,6 +7699,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, C. Veillet, M. Alexandersen",
    "ref": "MPEC 2021-W14"
   },
+  "size": {
+   "diameterKm": 4.8,
+   "H": 15.3,
+   "source": "Denk",
+   "note": "from H 15.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 0.1462,
    "dn": -0.0000958811,
@@ -6294,8 +7735,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 464.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6304,6 +7745,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J25"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "Denk",
+   "note": "from H 16.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 17.9646,
    "dn": -0.004016523,
@@ -6332,8 +7781,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 466.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6342,6 +7791,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J26"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.668,
    "dn": -0.004022685,
@@ -6370,8 +7827,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1136.5,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.8,
+  "radiusNote": "estimated: from H 15.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6380,6 +7837,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J21"
   },
+  "size": {
+   "diameterKm": 3.6,
+   "H": 15.9,
+   "source": "Denk",
+   "note": "from H 15.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 6.217,
    "dn": -0.0003303283,
@@ -6408,8 +7873,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 457.9,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6418,6 +7883,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J27"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "Denk",
+   "note": "from H 16.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.6588,
    "dn": -0.004494589,
@@ -6446,8 +7919,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 469.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6456,6 +7929,14 @@ export const IRREGULAR_DATA = {
    "by": "D.C. Jewitt, S.S. Sheppard, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J24"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -0.8978,
    "dn": -0.003793956,
@@ -6484,8 +7965,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 590.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6494,6 +7975,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J22"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "Denk",
+   "note": "from H 16.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -0.2426,
    "dn": -0.003364451,
@@ -6522,8 +8011,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 594.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6532,6 +8021,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J34"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 5.4472,
    "dn": -0.00311237,
@@ -6560,8 +8057,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 639.8,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6570,6 +8067,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J35"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "Denk",
+   "note": "from H 16.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -62.6206,
    "dn": -0.0009902025,
@@ -6598,8 +8103,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 347.4,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6608,6 +8113,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J36"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "Denk",
+   "note": "from H 16.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 5.9677,
    "dn": -0.004288214,
@@ -6637,7 +8150,7 @@ export const IRREGULAR_DATA = {
   "kernel": "sat457",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6646,6 +8159,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J37"
   },
+  "size": {
+   "diameterKm": 3,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.8095,
    "dn": -0.004180285,
@@ -6674,8 +8195,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 371.5,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.1,
+  "radiusNote": "estimated: from H 17 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6684,6 +8205,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J38"
   },
+  "size": {
+   "diameterKm": 2.2,
+   "H": 17,
+   "source": "Denk",
+   "note": "from H 17 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -29.823,
    "dn": -0.00323035,
@@ -6712,8 +8241,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 610.5,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6722,6 +8251,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J39"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "Denk",
+   "note": "from H 16.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.9471,
    "dn": -0.0006732964,
@@ -6751,7 +8288,7 @@ export const IRREGULAR_DATA = {
   "kernel": "sat457",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: from H 16.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6760,6 +8297,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J40"
   },
+  "size": {
+   "diameterKm": 3,
+   "H": 16.4,
+   "source": "Denk",
+   "note": "from H 16.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.0716,
    "dn": -0.004542248,
@@ -6788,8 +8333,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 448.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6798,6 +8343,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J41"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.1,
+   "source": "Denk",
+   "note": "from H 16.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 7.9525,
    "dn": -0.004407635,
@@ -6826,8 +8379,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 442.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6836,6 +8389,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J42"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "Denk",
+   "note": "from H 16.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -3.5439,
    "dn": -0.004327475,
@@ -6864,8 +8425,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 424.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.3,
+  "radiusNote": "estimated: from H 16.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6874,6 +8435,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J43"
   },
+  "size": {
+   "diameterKm": 2.6,
+   "H": 16.7,
+   "source": "Denk",
+   "note": "from H 16.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.0463,
    "dn": -0.004024233,
@@ -6903,7 +8472,7 @@ export const IRREGULAR_DATA = {
   "kernel": "sat457",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6912,6 +8481,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J45"
   },
+  "size": {
+   "diameterKm": 3,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.4657,
    "dn": -0.004563006,
@@ -6940,8 +8517,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 414.9,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.9,
+  "radiusNote": "estimated: from H 15.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6950,6 +8527,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J46"
   },
+  "size": {
+   "diameterKm": 3.8,
+   "H": 15.8,
+   "source": "Denk",
+   "note": "from H 15.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 19.3221,
    "dn": -0.004914023,
@@ -6978,8 +8563,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 269.1,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.8,
+  "radiusNote": "estimated: from H 16 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -6988,6 +8573,14 @@ export const IRREGULAR_DATA = {
    "by": "D.C. Jewitt, S.S. Sheppard, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J47"
   },
+  "size": {
+   "diameterKm": 3.6,
+   "H": 16,
+   "source": "Denk",
+   "note": "from H 16 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 0.6301,
    "dn": -0.003333889,
@@ -7016,8 +8609,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 385.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7026,6 +8619,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J48"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "Denk",
+   "note": "from H 16.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 8.4603,
    "dn": -0.005337497,
@@ -7054,8 +8655,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 304.4,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7064,6 +8665,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J49"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -4.6131,
    "dn": -0.004568797,
@@ -7092,8 +8701,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 647,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: from H 15.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7102,6 +8711,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J55"
   },
+  "size": {
+   "diameterKm": 4,
+   "H": 15.7,
+   "source": "Denk",
+   "note": "from H 15.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 14.0367,
    "dn": -0.001080103,
@@ -7130,8 +8747,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 359.2,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.7,
+  "radiusNote": "estimated: from H 16.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7140,6 +8757,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J56"
   },
+  "size": {
+   "diameterKm": 3.4,
+   "H": 16.1,
+   "source": "Denk",
+   "note": "from H 16.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.3011,
    "dn": -0.004376023,
@@ -7168,8 +8793,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 367.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7178,6 +8803,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J57"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.3313,
    "dn": -0.005388769,
@@ -7206,8 +8839,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 330.8,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7216,6 +8849,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J58"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 12.8864,
    "dn": -0.005382699,
@@ -7244,8 +8885,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 282.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7254,6 +8895,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J59"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 14.1145,
    "dn": -0.004314285,
@@ -7282,8 +8931,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 348.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7292,6 +8941,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J60"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "Denk",
+   "note": "from H 16.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 26.6491,
    "dn": -0.005519668,
@@ -7320,8 +8977,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 358.2,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.3,
+  "radiusNote": "estimated: from H 16.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7330,6 +8987,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J61"
   },
+  "size": {
+   "diameterKm": 2.6,
+   "H": 16.7,
+   "source": "Denk",
+   "note": "from H 16.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -7.0715,
    "dn": -0.004962283,
@@ -7358,8 +9023,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 496.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7368,6 +9033,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J62"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.9729,
    "dn": -0.003349942,
@@ -7396,8 +9069,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 279.5,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7406,6 +9079,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J63"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -0.2074,
    "dn": -0.001966186,
@@ -7434,8 +9115,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 376.2,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7444,6 +9125,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J64"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "Denk",
+   "note": "from H 16.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -15.4317,
    "dn": -0.005544549,
@@ -7473,7 +9162,7 @@ export const IRREGULAR_DATA = {
   "kernel": "sat457",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7482,6 +9171,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J67"
   },
+  "size": {
+   "diameterKm": 3,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -6.5745,
    "dn": -0.004871975,
@@ -7510,8 +9207,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 237,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7520,6 +9217,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J68"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "Denk",
+   "note": "from H 16.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 18.1834,
    "dn": -0.004928755,
@@ -7548,8 +9253,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 311.4,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.3,
+  "radiusNote": "estimated: from H 16.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7558,6 +9263,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J69"
   },
+  "size": {
+   "diameterKm": 2.6,
+   "H": 16.7,
+   "source": "Denk",
+   "note": "from H 16.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -6.3842,
    "dn": -0.005661097,
@@ -7586,8 +9299,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1161.1,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: from H 15.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7596,6 +9309,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J79"
   },
+  "size": {
+   "diameterKm": 4,
+   "H": 15.7,
+   "source": "Denk",
+   "note": "from H 15.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.0577,
    "dn": -0.0003013595,
@@ -7624,8 +9345,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 520.2,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7634,6 +9355,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "MPEC 2023-J80"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 3.6602,
    "dn": -0.003775364,
@@ -7662,8 +9391,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 403.1,
   "kernel": "sat457",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.8,
+  "radiusNote": "estimated: from H 16 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7672,6 +9401,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J81"
   },
+  "size": {
+   "diameterKm": 3.6,
+   "H": 16,
+   "source": "Denk",
+   "note": "from H 16 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -14.7118,
    "dn": -0.003348591,
@@ -7700,8 +9437,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 325.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7710,6 +9447,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J82"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "Denk",
+   "note": "from H 16.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 1.1439,
    "dn": -0.00359712,
@@ -7739,7 +9484,7 @@ export const IRREGULAR_DATA = {
   "kernel": "sat457",
   "retrograde": false,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: from H 16.3 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7748,6 +9493,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J83"
   },
+  "size": {
+   "diameterKm": 3,
+   "H": 16.3,
+   "source": "Denk",
+   "note": "from H 16.3 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -19.4873,
    "dn": -0.001055167,
@@ -7776,8 +9529,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 352.4,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7786,6 +9539,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J84"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "Denk",
+   "note": "from H 16.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 19.028,
    "dn": -0.004428698,
@@ -7815,7 +9576,7 @@ export const IRREGULAR_DATA = {
   "kernel": "sat457",
   "retrograde": true,
   "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusNote": "estimated: from H 16.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7824,6 +9585,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J85"
   },
+  "size": {
+   "diameterKm": 3,
+   "H": 16.4,
+   "source": "Denk",
+   "note": "from H 16.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 16.232,
    "dn": -0.005055923,
@@ -7852,8 +9621,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 368.5,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7862,6 +9631,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J163"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.9567,
    "dn": -0.005166947,
@@ -7890,8 +9667,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 337.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7900,6 +9677,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J164"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.5,
+   "source": "Denk",
+   "note": "from H 16.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 4.8192,
    "dn": -0.005432372,
@@ -7928,8 +9713,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 253.2,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.75,
+  "radiusNote": "estimated: from H 16 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7938,6 +9723,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J165"
   },
+  "size": {
+   "diameterKm": 3.5,
+   "H": 16,
+   "source": "Denk",
+   "note": "from H 16 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.4079,
    "dn": -0.005595131,
@@ -7966,8 +9759,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 275.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.8,
+  "radiusNote": "estimated: from H 16 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -7976,6 +9769,14 @@ export const IRREGULAR_DATA = {
    "by": "D.C. Jewitt, S.S. Sheppard, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J166"
   },
+  "size": {
+   "diameterKm": 3.6,
+   "H": 16,
+   "source": "Denk",
+   "note": "from H 16 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -7.1785,
    "dn": -0.004957002,
@@ -8004,8 +9805,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 319.9,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8014,6 +9815,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J167"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "Denk",
+   "note": "from H 16.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 35.3421,
    "dn": -0.005122681,
@@ -8042,8 +9851,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 249.1,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.8,
+  "radiusNote": "estimated: from H 16 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8052,6 +9861,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J168"
   },
+  "size": {
+   "diameterKm": 3.6,
+   "H": 16,
+   "source": "Denk",
+   "note": "from H 16 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.6479,
    "dn": -0.004715529,
@@ -8080,8 +9897,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 233.1,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8090,6 +9907,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J169"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "Denk",
+   "note": "from H 16.4 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 23.8284,
    "dn": -0.00509151,
@@ -8118,8 +9943,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 317.1,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8128,6 +9953,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J170"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.1,
+   "source": "Denk",
+   "note": "from H 16.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 21.6609,
    "dn": -0.0062471,
@@ -8156,8 +9989,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 306.5,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.3,
+  "radiusNote": "estimated: from H 16.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8166,6 +9999,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J171"
   },
+  "size": {
+   "diameterKm": 2.6,
+   "H": 16.7,
+   "source": "Denk",
+   "note": "from H 16.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.3571,
    "dn": -0.00552574,
@@ -8194,8 +10035,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 207,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.85,
+  "radiusNote": "estimated: from H 15.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8204,6 +10045,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, , D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J172"
   },
+  "size": {
+   "diameterKm": 3.7,
+   "H": 15.9,
+   "source": "Denk",
+   "note": "from H 15.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.4958,
    "dn": -0.003943986,
@@ -8232,8 +10081,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 225.5,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8242,6 +10091,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J173"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "Denk",
+   "note": "from H 16.6 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -6.6995,
    "dn": -0.004221153,
@@ -8270,8 +10127,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 239.4,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8280,6 +10137,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-J174"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "Denk",
+   "note": "from H 16.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.9904,
    "dn": -0.003955875,
@@ -8308,8 +10173,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 269.2,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8318,6 +10183,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J175"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "Denk",
+   "note": "from H 16.7 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 18.4038,
    "dn": -0.004813248,
@@ -8346,8 +10219,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 209.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.7,
+  "radiusNote": "estimated: from H 16.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8356,6 +10229,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J176"
   },
+  "size": {
+   "diameterKm": 3.4,
+   "H": 16.1,
+   "source": "Denk",
+   "note": "from H 16.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -7.308,
    "dn": -0.006069476,
@@ -8384,8 +10265,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 255.6,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8394,6 +10275,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J177"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.1,
+   "source": "Denk",
+   "note": "from H 16.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.5141,
    "dn": -0.007311956,
@@ -8422,8 +10311,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 167.7,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.75,
+  "radiusNote": "estimated: from H 16 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8432,6 +10321,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J178"
   },
+  "size": {
+   "diameterKm": 3.5,
+   "H": 16,
+   "source": "Denk",
+   "note": "from H 16 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.2478,
    "dn": -0.005585382,
@@ -8460,8 +10357,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 217.1,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8470,6 +10367,14 @@ export const IRREGULAR_DATA = {
    "by": "D.C. Jewitt, S.S. Sheppard, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-J179"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "Denk",
+   "note": "from H 16.5 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.2121,
    "dn": -0.007019646,
@@ -8498,8 +10403,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 332.9,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.7,
+  "radiusNote": "estimated: from H 16.1 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8508,6 +10413,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman",
    "ref": "MPEC 2023-K02"
   },
+  "size": {
+   "diameterKm": 3.4,
+   "H": 16.1,
+   "source": "Denk",
+   "note": "from H 16.1 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.2767,
    "dn": -0.00432642,
@@ -8536,8 +10449,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 309,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8546,6 +10459,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-K03"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.7283,
    "dn": -0.005619458,
@@ -8574,8 +10495,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 234.3,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.9 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8584,6 +10505,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-K04"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.9,
+   "source": "Denk",
+   "note": "from H 16.9 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 26.2867,
    "dn": -0.006431621,
@@ -8612,8 +10541,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 265.6,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8622,6 +10551,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-K05"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "Denk",
+   "note": "from H 16.2 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 25.2461,
    "dn": -0.007634011,
@@ -8650,8 +10587,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 697,
   "kernel": "sat457",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.95,
+  "radiusNote": "estimated: from H 15.8 at an assumed albedo of 0.06 (Denk's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8660,6 +10597,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2023-K118"
   },
+  "size": {
+   "diameterKm": 3.9,
+   "H": 15.8,
+   "source": "Denk",
+   "note": "from H 15.8 at an assumed albedo of 0.06 (Denk's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.1963,
    "dn": -0.002888096,
@@ -8688,8 +10633,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1085.2,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.1 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8698,6 +10643,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.1,
+   "source": "MPEC",
+   "note": "from H 16.1 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 8.4513,
    "dn": -0.0003174225,
@@ -8726,8 +10679,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1261.8,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8736,6 +10689,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.3964,
    "dn": -0.0002584317,
@@ -8764,8 +10725,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 596.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.9,
+  "radiusNote": "estimated: from H 15.8 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8774,6 +10735,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.8,
+   "H": 15.8,
+   "source": "MPEC",
+   "note": "from H 15.8 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.5242,
    "dn": -0.002658086,
@@ -8802,8 +10771,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 410.5,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8812,6 +10781,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "MPEC",
+   "note": "from H 16.2 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 19.4906,
    "dn": -0.004384483,
@@ -8840,8 +10817,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 582.7,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.9,
+  "radiusNote": "estimated: from H 15.8 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8850,6 +10827,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.8,
+   "H": 15.8,
+   "source": "MPEC",
+   "note": "from H 15.8 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -17.073,
    "dn": -0.001107509,
@@ -8878,8 +10863,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 385.5,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8888,6 +10873,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 4.7677,
    "dn": -0.004588708,
@@ -8916,8 +10909,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 350.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8926,6 +10919,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 7.9502,
    "dn": -0.005146873,
@@ -8954,8 +10955,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 262.3,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -8964,6 +10965,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.4784,
    "dn": -0.004853385,
@@ -8992,8 +11001,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 673.8,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9002,6 +11011,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 18.361,
    "dn": -0.0009199792,
@@ -9030,8 +11047,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 305.9,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9040,6 +11057,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -23.0211,
    "dn": -0.004654646,
@@ -9068,8 +11093,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 573.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9078,6 +11103,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.425,
    "dn": -0.003554642,
@@ -9106,8 +11139,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 553.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9116,6 +11149,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.9588,
    "dn": -0.003579198,
@@ -9144,8 +11185,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 598.4,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9154,6 +11195,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 8.2019,
    "dn": -0.001326909,
@@ -9182,8 +11231,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 382.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9192,6 +11241,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 14.2843,
    "dn": -0.004182855,
@@ -9220,8 +11277,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 397,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9230,6 +11287,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.4248,
    "dn": -0.003797908,
@@ -9258,8 +11323,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 402.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9268,6 +11333,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.2661,
    "dn": -0.004728247,
@@ -9296,8 +11369,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 420.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9306,6 +11379,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 7.5617,
    "dn": -0.004975116,
@@ -9334,8 +11415,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 331.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9344,6 +11425,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.3965,
    "dn": -0.006032744,
@@ -9372,8 +11461,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 286.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9382,6 +11471,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 28.1855,
    "dn": -0.005224816,
@@ -9410,8 +11507,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1033.5,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.1 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9420,6 +11517,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.1,
+   "source": "MPEC",
+   "note": "from H 16.1 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 8.6354,
    "dn": -0.0003623702,
@@ -9448,8 +11553,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 392.2,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9458,6 +11563,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -16.1558,
    "dn": -0.003573442,
@@ -9486,8 +11599,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1073.8,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9496,6 +11609,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 4.6053,
    "dn": -0.0003201821,
@@ -9524,8 +11645,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1253.3,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9534,6 +11655,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.4935,
    "dn": -0.0002403807,
@@ -9562,8 +11691,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1090,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.1 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9572,6 +11701,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.1,
+   "source": "MPEC",
+   "note": "from H 16.1 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 3.5562,
    "dn": -0.0003424374,
@@ -9600,8 +11737,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1214.6,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9610,6 +11747,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 7.0903,
    "dn": -0.0002923495,
@@ -9638,8 +11783,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1078,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9648,6 +11793,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 4.8293,
    "dn": -0.0003100933,
@@ -9676,8 +11829,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 407.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9686,6 +11839,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 12.7469,
    "dn": -0.003279705,
@@ -9714,8 +11875,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 486.5,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9724,6 +11885,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 16.6307,
    "dn": -0.003594081,
@@ -9752,8 +11921,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 429.8,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9762,6 +11931,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -29.855,
    "dn": -0.002952356,
@@ -9790,8 +11967,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 485.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9800,6 +11977,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 24.5098,
    "dn": -0.004350428,
@@ -9828,8 +12013,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 392.4,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9838,6 +12023,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 1.4996,
    "dn": -0.003206125,
@@ -9866,8 +12059,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 581.6,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 2,
+  "radiusNote": "estimated: from H 15.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9876,6 +12069,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 4,
+   "H": 15.7,
+   "source": "MPEC",
+   "note": "from H 15.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.0092,
    "dn": -0.001223238,
@@ -9904,8 +12105,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 371.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9914,6 +12115,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.0913,
    "dn": -0.004699337,
@@ -9942,8 +12151,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 344.4,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9952,6 +12161,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.8517,
    "dn": -0.004175547,
@@ -9980,8 +12197,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 260.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -9990,6 +12207,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.88,
    "dn": -0.003512985,
@@ -10018,8 +12243,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 400.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10028,6 +12253,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -6.2293,
    "dn": -0.004964169,
@@ -10056,8 +12289,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 346.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10066,6 +12299,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -15.5815,
    "dn": -0.002997342,
@@ -10094,8 +12335,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 277.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10104,6 +12345,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -10.8515,
    "dn": -0.00498229,
@@ -10132,8 +12381,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 293.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10142,6 +12391,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 36.2402,
    "dn": -0.007061217,
@@ -10170,8 +12427,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 303.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10180,6 +12437,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 19.7008,
    "dn": -0.006165175,
@@ -10208,8 +12473,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 272.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10218,6 +12483,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 25.0327,
    "dn": -0.005252659,
@@ -10246,8 +12519,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 317.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.85,
+  "radiusNote": "estimated: from H 15.9 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10256,6 +12529,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 3.7,
+   "H": 15.9,
+   "source": "MPEC",
+   "note": "from H 15.9 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 23.3808,
    "dn": -0.006097531,
@@ -10284,8 +12565,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 228.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10294,6 +12575,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 34.5489,
    "dn": -0.006890691,
@@ -10322,8 +12611,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 168.3,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10332,6 +12621,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 6.5512,
    "dn": -0.00653105,
@@ -10360,8 +12657,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1093,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10370,6 +12667,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 6.2492,
    "dn": -0.0002876859,
@@ -10398,8 +12703,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1306.1,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10408,6 +12713,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 12.137,
    "dn": -0.0002116841,
@@ -10436,8 +12749,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1064.2,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10446,6 +12759,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 5.869,
    "dn": -0.00029167,
@@ -10474,8 +12795,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 472.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10484,6 +12805,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 1.7291,
    "dn": -0.003382799,
@@ -10512,8 +12841,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 448.5,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10522,6 +12851,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -14.9646,
    "dn": -0.002730829,
@@ -10550,8 +12887,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 392.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10560,6 +12897,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.7874,
    "dn": -0.003829989,
@@ -10588,8 +12933,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 446.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.55,
+  "radiusNote": "estimated: from H 16.3 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10598,6 +12943,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 3.1,
+   "H": 16.3,
+   "source": "MPEC",
+   "note": "from H 16.3 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 2.2142,
    "dn": -0.002404613,
@@ -10626,8 +12979,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 462.5,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10636,6 +12989,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.6948,
    "dn": -0.004355729,
@@ -10664,8 +13025,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 689.6,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10674,6 +13035,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.0537,
    "dn": -0.0008339397,
@@ -10702,8 +13071,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 455.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10712,6 +13081,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 12.7074,
    "dn": -0.004530373,
@@ -10740,8 +13117,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 369.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10750,6 +13127,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.1964,
    "dn": -0.004701449,
@@ -10778,8 +13163,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 440.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10788,6 +13173,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -4.4914,
    "dn": -0.004493955,
@@ -10816,8 +13209,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 410,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10826,6 +13219,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.2841,
    "dn": -0.004949786,
@@ -10854,8 +13255,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 370.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10864,6 +13265,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 0.4568,
    "dn": -0.004496467,
@@ -10892,8 +13301,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 305.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.1,
+  "radiusNote": "estimated: from H 17 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10902,6 +13311,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.2,
+   "H": 17,
+   "source": "MPEC",
+   "note": "from H 17 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 4.7942,
    "dn": -0.005477285,
@@ -10930,8 +13347,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 338.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10940,6 +13357,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -6.0898,
    "dn": -0.005111595,
@@ -10968,8 +13393,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 377,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -10978,6 +13403,14 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, J. Kleyna",
    "ref": "MPEC 2025-E155"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E155) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.3705,
    "dn": -0.002923385,
@@ -11006,8 +13439,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 251.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11016,6 +13449,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.5657,
    "dn": -0.004342374,
@@ -11044,8 +13485,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 353.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11054,6 +13495,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 53.6303,
    "dn": -0.006093908,
@@ -11082,8 +13531,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 201.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11092,6 +13541,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 3.289,
    "dn": -0.003619987,
@@ -11120,8 +13577,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 309,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11130,6 +13587,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 14.2439,
    "dn": -0.005478663,
@@ -11158,8 +13623,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 226,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11168,6 +13633,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 22.358,
    "dn": -0.004946672,
@@ -11196,8 +13669,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 203.9,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11206,6 +13679,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 20.2846,
    "dn": -0.004890579,
@@ -11234,8 +13715,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 348.5,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11244,6 +13725,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.2124,
    "dn": -0.00525249,
@@ -11272,8 +13761,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 282,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11282,6 +13771,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 34.193,
    "dn": -0.006572872,
@@ -11310,8 +13807,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 280.5,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11320,6 +13817,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 3.4878,
    "dn": -0.005766182,
@@ -11348,8 +13853,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 252.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11358,6 +13863,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 37.6702,
    "dn": -0.006369831,
@@ -11386,8 +13899,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 199.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.65,
+  "radiusNote": "estimated: from H 16.1 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11396,6 +13909,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 3.3,
+   "H": 16.1,
+   "source": "MPEC",
+   "note": "from H 16.1 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 5.1062,
    "dn": -0.00507274,
@@ -11424,8 +13945,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 269.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11434,6 +13955,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 2.8207,
    "dn": -0.005390991,
@@ -11462,8 +13991,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 217,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11472,6 +14001,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 28.8183,
    "dn": -0.005856836,
@@ -11500,8 +14037,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 218.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11510,6 +14047,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 31.7879,
    "dn": -0.00541002,
@@ -11538,8 +14083,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 176.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11548,6 +14093,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 5.1604,
    "dn": -0.004918558,
@@ -11576,8 +14129,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 236.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11586,6 +14139,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 48.1288,
    "dn": -0.007122758,
@@ -11614,8 +14175,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 252.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11624,6 +14185,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 16.9772,
    "dn": -0.007356967,
@@ -11652,8 +14221,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1092.5,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11662,6 +14231,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 1.4744,
    "dn": -0.0003090607,
@@ -11690,8 +14267,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1079.6,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11700,6 +14277,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.7569,
    "dn": -0.0003681564,
@@ -11728,8 +14313,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 657.1,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11738,6 +14323,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 14.4886,
    "dn": -0.001107908,
@@ -11766,8 +14359,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 420.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11776,6 +14369,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -4.5464,
    "dn": -0.004403359,
@@ -11804,8 +14405,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 153.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11814,6 +14415,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 6.8632,
    "dn": -0.005808246,
@@ -11842,8 +14451,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1036.4,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11852,6 +14461,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 7.0481,
    "dn": -0.0005124905,
@@ -11880,8 +14497,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1016.6,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.85,
+  "radiusNote": "estimated: from H 15.9 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11890,6 +14507,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 3.7,
+   "H": 15.9,
+   "source": "MPEC",
+   "note": "from H 15.9 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.8998,
    "dn": -0.0004752056,
@@ -11918,8 +14543,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 678.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11928,6 +14553,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.7938,
    "dn": -0.003084796,
@@ -11956,8 +14589,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 722.9,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -11966,6 +14599,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.0824,
    "dn": -0.002937692,
@@ -11994,8 +14635,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 510.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12004,6 +14645,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.6442,
    "dn": -0.003352065,
@@ -12032,8 +14681,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 580.9,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12042,6 +14691,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 1.2101,
    "dn": -0.003148399,
@@ -12070,8 +14727,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 297.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12080,6 +14737,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -3.5579,
    "dn": -0.003570906,
@@ -12108,8 +14773,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 585.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12118,6 +14783,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 11.7314,
    "dn": -0.003482004,
@@ -12146,8 +14819,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 335,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12156,6 +14829,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 0.2955,
    "dn": -0.003975251,
@@ -12184,8 +14865,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 271.9,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12194,6 +14875,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.3629,
    "dn": -0.003874325,
@@ -12222,8 +14911,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 467.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12232,6 +14921,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.3365,
    "dn": -0.00369382,
@@ -12260,8 +14957,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 378,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.05,
+  "radiusNote": "estimated: from H 17.1 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12270,6 +14967,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.1,
+   "H": 17.1,
+   "source": "MPEC",
+   "note": "from H 17.1 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -3.2779,
    "dn": -0.003687552,
@@ -12298,8 +15003,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 432.3,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12308,6 +15013,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -0.1371,
    "dn": -0.003170687,
@@ -12336,8 +15049,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 709.7,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.1,
+  "radiusNote": "estimated: from H 17 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12346,6 +15059,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.2,
+   "H": 17,
+   "source": "MPEC",
+   "note": "from H 17 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -21.6393,
    "dn": -0.0008218147,
@@ -12374,8 +15095,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 476.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12384,6 +15105,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -2.9709,
    "dn": -0.0009410032,
@@ -12412,8 +15141,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 511.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12422,6 +15151,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 6.83,
    "dn": -0.003563455,
@@ -12450,8 +15187,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 620.9,
   "kernel": "sat455",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.6,
+  "radiusNote": "estimated: from H 16.2 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12460,6 +15197,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 3.2,
+   "H": 16.2,
+   "source": "MPEC",
+   "note": "from H 16.2 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 18.2922,
    "dn": -0.001169154,
@@ -12488,8 +15233,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 369.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12498,6 +15243,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.6835,
    "dn": -0.004289877,
@@ -12526,8 +15279,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 358,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12536,6 +15289,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 3.4541,
    "dn": -0.004449686,
@@ -12564,8 +15325,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 367.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.1,
+  "radiusNote": "estimated: from H 17 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12574,6 +15335,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.2,
+   "H": 17,
+   "source": "MPEC",
+   "note": "from H 17 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -4.1393,
    "dn": -0.004730366,
@@ -12602,8 +15371,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 345.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12612,6 +15381,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 8.8501,
    "dn": -0.004621421,
@@ -12640,8 +15417,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 218.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12650,6 +15427,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.6421,
    "dn": -0.003199183,
@@ -12678,8 +15463,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 225.3,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12688,6 +15473,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -1.7412,
    "dn": -0.004480428,
@@ -12716,8 +15509,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 382.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12726,6 +15519,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 30.9073,
    "dn": -0.005415313,
@@ -12754,8 +15555,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 364.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12764,6 +15565,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -9.6407,
    "dn": -0.001806834,
@@ -12792,8 +15601,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 382.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.1,
+  "radiusNote": "estimated: from H 17 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12802,6 +15611,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.2,
+   "H": 17,
+   "source": "MPEC",
+   "note": "from H 17 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 21.5678,
    "dn": -0.004908805,
@@ -12830,8 +15647,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 400.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: from H 17.2 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12840,6 +15657,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2,
+   "H": 17.2,
+   "source": "MPEC",
+   "note": "from H 17.2 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 37.8008,
    "dn": -0.005448254,
@@ -12868,8 +15693,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 174.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12878,6 +15703,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 3.2579,
    "dn": -0.004086406,
@@ -12906,8 +15739,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 211.4,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12916,6 +15749,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 15.8913,
    "dn": -0.004776929,
@@ -12944,8 +15785,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 329.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12954,6 +15795,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 26.7741,
    "dn": -0.00601324,
@@ -12982,8 +15831,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 270,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -12992,6 +15841,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 18.3803,
    "dn": -0.005496361,
@@ -13020,8 +15877,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 381.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13030,6 +15887,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 26.2544,
    "dn": -0.005202779,
@@ -13058,8 +15923,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 256.1,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.1,
+  "radiusNote": "estimated: from H 17 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13068,6 +15933,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.2,
+   "H": 17,
+   "source": "MPEC",
+   "note": "from H 17 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -45.7328,
    "dn": 0.8448062,
@@ -13096,8 +15969,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 389,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13106,6 +15979,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 8.152,
    "dn": -0.005151816,
@@ -13134,8 +16015,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 289.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13144,6 +16025,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 5.6725,
    "dn": -0.005369671,
@@ -13172,8 +16061,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 314.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13182,6 +16071,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 9.7969,
    "dn": -0.005711444,
@@ -13210,8 +16107,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 365,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13220,6 +16117,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 4.877,
    "dn": -0.005714389,
@@ -13248,8 +16153,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 296.9,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.45,
+  "radiusNote": "estimated: from H 16.4 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13258,6 +16163,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.9,
+   "H": 16.4,
+   "source": "MPEC",
+   "note": "from H 16.4 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 12.1756,
    "dn": -0.006025439,
@@ -13286,8 +16199,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 301.7,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13296,6 +16209,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 19.7832,
    "dn": -0.004588769,
@@ -13324,8 +16245,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 166.2,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13334,6 +16255,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -9.1478,
    "dn": -0.004674459,
@@ -13362,8 +16291,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 284.5,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13372,6 +16301,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 31.342,
    "dn": -0.002353702,
@@ -13400,8 +16337,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 282.6,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.1,
+  "radiusNote": "estimated: from H 17 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13410,6 +16347,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.2,
+   "H": 17,
+   "source": "MPEC",
+   "note": "from H 17 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 50.7077,
    "dn": -0.006672116,
@@ -13438,8 +16383,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 414.8,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13448,6 +16393,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2025-E154"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2025-E154) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 103.3108,
    "dn": -0.005268292,
@@ -13476,8 +16429,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 353.3,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13486,6 +16439,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -132.4663,
    "dn": -0.006139205,
@@ -13514,8 +16475,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 813.9,
   "kernel": "sat455",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13524,6 +16485,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2025-E153"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2025-E153) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -3.0032,
    "dn": -0.002275215,
@@ -13552,8 +16521,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 283.4,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.35,
+  "radiusNote": "estimated: from H 16.6 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13562,6 +16531,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.7,
+   "H": 16.6,
+   "source": "MPEC",
+   "note": "from H 16.6 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 47.4053,
    "dn": -0.006680092,
@@ -13590,8 +16567,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 411.7,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13600,6 +16577,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -58.4401,
    "dn": -0.004683685,
@@ -13628,8 +16613,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 250.5,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.25,
+  "radiusNote": "estimated: from H 16.7 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13638,6 +16623,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.5,
+   "H": 16.7,
+   "source": "MPEC",
+   "note": "from H 16.7 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -8.0518,
    "dn": -0.002633808,
@@ -13666,8 +16659,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1030.4,
   "kernel": "sat459",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13676,6 +16669,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 154.7563,
    "dn": -0.0003309687,
@@ -13704,8 +16705,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 295.8,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13714,6 +16715,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 78.611,
    "dn": -0.005943125,
@@ -13742,8 +16751,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 385.8,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13752,6 +16761,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 115.3233,
    "dn": -0.003094761,
@@ -13780,8 +16797,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 491.9,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13790,6 +16807,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -93.4117,
    "dn": -0.004350508,
@@ -13818,8 +16843,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 391.7,
   "kernel": "sat459",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.1,
+  "radiusNote": "estimated: from H 17 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13828,6 +16853,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.2,
+   "H": 17,
+   "source": "MPEC",
+   "note": "from H 17 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -109.6391,
    "dn": -0.003314668,
@@ -13856,8 +16889,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 412.1,
   "kernel": "sat459",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13866,6 +16899,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 10.5187,
    "dn": -0.003230158,
@@ -13894,8 +16935,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1051.7,
   "kernel": "sat459",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.05,
+  "radiusNote": "estimated: from H 17.1 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13904,6 +16945,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2.1,
+   "H": 17.1,
+   "source": "MPEC",
+   "note": "from H 17.1 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -169.9089,
    "dn": -0.0003574333,
@@ -13932,8 +16981,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 360,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1,
+  "radiusNote": "estimated: from H 17.2 (MPEC 2026-F14) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13942,6 +16991,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-F14"
   },
+  "size": {
+   "diameterKm": 2,
+   "H": 17.2,
+   "source": "MPEC",
+   "note": "from H 17.2 (MPEC 2026-F14) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 166.7318,
    "dn": -0.005113442,
@@ -13970,8 +17027,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1083.9,
   "kernel": "sat459",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2026-G74) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -13980,6 +17037,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2026-G74"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2026-G74) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 6.2434,
    "dn": -0.0003158029,
@@ -14008,8 +17073,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 507.9,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2026-G68) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14018,6 +17083,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-G68"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2026-G68) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 6.9782,
    "dn": -0.004214083,
@@ -14046,8 +17119,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 275.7,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2026-G69) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14056,6 +17129,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-G69"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2026-G69) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 16.6101,
    "dn": -0.004673694,
@@ -14084,8 +17165,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 452.9,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.2,
+  "radiusNote": "estimated: from H 16.8 (MPEC 2026-G70) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14094,6 +17175,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-G70"
   },
+  "size": {
+   "diameterKm": 2.4,
+   "H": 16.8,
+   "source": "MPEC",
+   "note": "from H 16.8 (MPEC 2026-G70) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 16.1087,
    "dn": -0.004340173,
@@ -14122,8 +17211,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 285.2,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.4,
+  "radiusNote": "estimated: from H 16.5 (MPEC 2026-G71) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14132,6 +17221,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-G71"
   },
+  "size": {
+   "diameterKm": 2.8,
+   "H": 16.5,
+   "source": "MPEC",
+   "note": "from H 16.5 (MPEC 2026-G71) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -7.8415,
    "dn": -0.003418273,
@@ -14160,8 +17257,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 493.6,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.15,
+  "radiusNote": "estimated: from H 16.9 (MPEC 2026-G72) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14170,6 +17267,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen, W.C. Fraser, S.M. Lawler, J.J. Kavelaars",
    "ref": "MPEC 2026-G72"
   },
+  "size": {
+   "diameterKm": 2.3,
+   "H": 16.9,
+   "source": "MPEC",
+   "note": "from H 16.9 (MPEC 2026-G72) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 5.8658,
    "dn": -0.00237947,
@@ -14198,8 +17303,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 403.9,
   "kernel": "sat459",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 1.75,
+  "radiusNote": "estimated: from H 16 (MPEC 2026-G75) at an assumed albedo of 0.06",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14208,6 +17313,14 @@ export const IRREGULAR_DATA = {
    "by": "E.J. Ashton, B.J. Gladman, J.-M. Petit, M. Alexandersen",
    "ref": "MPEC 2026-G75"
   },
+  "size": {
+   "diameterKm": 3.5,
+   "H": 16,
+   "source": "MPEC",
+   "note": "from H 16 (MPEC 2026-G75) at an assumed albedo of 0.06"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 18.0794,
    "dn": -0.004368225,
@@ -14236,8 +17349,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 5156,
   "kernel": "nep104",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 30.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14246,6 +17359,13 @@ export const IRREGULAR_DATA = {
    "by": "M. Holman, J.J. Kavelaars, T. Grav, W. Fraser, D. Milisavljevic",
    "ref": "IAUC 8047"
   },
+  "size": {
+   "diameterKm": 61,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 54.9167,
    "dn": -0.0003393769,
@@ -14274,8 +17394,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1333,
   "kernel": "nep104",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 19,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14284,6 +17404,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.C. Jewitt, J. Kleyna",
    "ref": "IAUC 8193"
   },
+  "size": {
+   "diameterKm": 38,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -98.5966,
    "dn": -0.001213629,
@@ -14312,8 +17439,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 4454,
   "kernel": "nep104",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 20,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14322,6 +17449,13 @@ export const IRREGULAR_DATA = {
    "by": "T. Grav, M. Holman, J. Kavelaars, W. Fraser, D. Milisavljevic",
    "ref": "IAUC 8047"
   },
+  "size": {
+   "diameterKm": 40,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 16.2874,
    "dn": 0.0004081923,
@@ -14350,8 +17484,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 3154,
   "kernel": "nep104",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 20,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14360,6 +17494,13 @@ export const IRREGULAR_DATA = {
    "by": "J. Kavelaars, M. Holman, T. Grav, W. Fraser, D. Milisavljevic",
    "ref": "IAUC 8047"
   },
+  "size": {
+   "diameterKm": 40,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 13.743,
    "dn": -0.0006946649,
@@ -14388,8 +17529,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 1116,
   "kernel": "nep104",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 30,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14398,6 +17539,13 @@ export const IRREGULAR_DATA = {
    "by": "M. Holman, J. Kavelaars, T. Grav, W. Fraser, D. Milisavljevic",
    "ref": "IAUC 8213"
   },
+  "size": {
+   "diameterKm": 60,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 102.7579,
    "dn": 0.001876289,
@@ -14426,8 +17574,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 3121,
   "kernel": "nep104",
   "retrograde": false,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 11.5,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14436,6 +17584,13 @@ export const IRREGULAR_DATA = {
    "by": "M. Holman, J.J. Kavelaars, T. Grav, W. Fraser",
    "ref": "MPEC 2024-D114"
   },
+  "size": {
+   "diameterKm": 23,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": -13.3913,
    "dn": -0.00010901,
@@ -14464,8 +17619,8 @@ export const IRREGULAR_DATA = {
   "Pnode": 924,
   "kernel": "nep104",
   "retrograde": true,
-  "radiusKm": 1.5,
-  "radiusNote": "not measured; drawn at a nominal 1.5 km",
+  "radiusKm": 7,
+  "radiusNote": "estimated: estimated from its brightness (Sheppard's table)",
   "gm": null,
   "gmNote": "not measured",
   "geometricAlbedo": null,
@@ -14474,6 +17629,13 @@ export const IRREGULAR_DATA = {
    "by": "S.S. Sheppard, D.J. Tholen, C. Trujillo, P.S. Lykawka",
    "ref": "MPEC 2024-D112"
   },
+  "size": {
+   "diameterKm": 14,
+   "source": "Sheppard",
+   "note": "estimated from its brightness (Sheppard's table)"
+  },
+  "axesKm": null,
+  "rotation": null,
   "fit": {
    "dM": 151.1748,
    "dn": 0.0009755878,

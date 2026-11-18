@@ -175,6 +175,68 @@ def rings(src, out, colour_map, heights_km, normal_map):
                                  "NASA PDS Ring-Moon Systems Node."}}
 
 
+def uranus_rings(src, out, colour_map, heights_km, normal_map):
+    """The Uranian narrow rings' equivalent depth and radial shape from the
+    Voyager 2 PPS beta Persei occultation (the lambda ring from sigma
+    Sagittarii), 1 km resolution (PDS Ring-Moon Systems Node, VG_2801;
+    fetch_rings.py). Columns (from the .LBL): 0 ring-plane radius km,
+    1 mean signal (0 where unconstrained), 3 normal opacity (99 opaque).
+
+    The geometry (radii, widths, eccentricities, inclinations, precession)
+    comes from French et al. 2024 (src/physics/rings.js), not from these
+    radius scales, which are offset by kilometres ring to ring. What is
+    taken here is resolution-free: the equivalent depth E = integral of
+    tau dr across the ring (km), averaged over ingress and egress, which the
+    scene spreads over the ring's width at each longitude (tau = E / W), and
+    for the rings resolved several times over (alpha, beta, epsilon: over
+    7 km wide at half depth) the shape of tau across the ring, normalised
+    to mean 1."""
+    import json
+    folder = src / "rings"
+    rings = {}
+    for key, name in [("6", "6"), ("5", "5"), ("4", "4"), ("A", "alpha"), ("B", "beta"), ("N", "eta"),
+                      ("G", "gamma"), ("D", "delta"), ("E", "epsilon"), ("L", "lambda")]:
+        es, shapes, widths = [], [], []
+        for side in "IE":
+            stem = f"PU1P01L{side}" if key == "L" else f"PU2P01{key}{side}"
+            a = np.loadtxt(folder / f"{stem}.TAB", delimiter=",")
+            r, signal, tau = a[:, 0], a[:, 1], a[:, 3].copy()
+            opaque = tau >= 99
+            tau[opaque] = 3.0          # only known to be well above 2; 3 leaves under 5 % of light
+            tau[signal == 0] = 0.0
+            smooth = np.convolve(tau, np.ones(3) / 3, "same")
+            peak = int(np.argmax(smooth))
+            lo = hi = peak
+            while lo > 0 and smooth[lo - 1] > 0.2 * smooth[peak]:
+                lo -= 1
+            while hi < len(r) - 1 and smooth[hi + 1] > 0.2 * smooth[peak]:
+                hi += 1
+            lo, hi = max(lo - 2, 0), min(hi + 2, len(r) - 1)
+            away = (np.abs(r - r[peak]) > (r[hi] - r[lo]) / 2 + 10) & (np.abs(r - r[peak]) < 150)
+            bg = float(np.median(tau[away]))
+            es.append(float(np.sum(tau[lo:hi + 1] - bg) * (r[1] - r[0])))
+            half = tau > 0.5 * smooth[peak]
+            idx = np.where(half[lo:hi + 1])[0] + lo
+            widths.append(float(r[idx[-1]] - r[idx[0]] + 1))
+            if widths[-1] >= 7:
+                u = np.linspace(r[idx[0]] - 0.5, r[idx[-1]] + 0.5, 32)
+                s = np.interp(u, r, tau) - bg
+                shapes.append(np.maximum(s, 0) / max(np.mean(np.maximum(s, 0)), 1e-9))
+            print(f"  {name:8s} {side}: E {es[-1]:6.2f} km, {opaque[lo:hi + 1].sum()} opaque bins, half-depth width {widths[-1]:.0f} km")
+        shape = None
+        if len(shapes) == 2:
+            shape = [round(float(v), 3) for v in (shapes[0] + shapes[1]) / 2]
+        rings[name] = {"equivalentDepthKm": round(float(np.mean(es)), 3),
+                       "ingressKm": round(es[0], 3), "egressKm": round(es[1], 3), "shape": shape}
+    p = out / "uranus" / "rings_pps.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"source": "Voyager 2 PPS, beta Per (lambda: sigma Sgr), VG_2801 KM001", "rings": rings}, indent=1) + "\n")
+    print(f"  wrote {p.relative_to(out.parent.parent)}")
+    return {"uranus": {"pps": "uranus/rings_pps.json",
+                       "credit": "Voyager 2 PPS occultation profiles (Esposito et al.): NASA PDS Ring-Moon Systems Node; "
+                                 "orbits from French et al. 2024."}}
+
+
 # ------------------------------------------------------------------ moons
 
 def gaps(a: np.ndarray, value: int, size: int) -> np.ndarray:
@@ -263,6 +325,7 @@ BODIES = {
     "uranus": giant("uranus", "sss_2k_uranus.jpg", 2048),
     "neptune": giant("neptune", "sss_2k_neptune.jpg", 2048),
     "rings": rings,
+    "uranus_rings": uranus_rings,
     **MOONS,
 }
 

@@ -84,6 +84,11 @@ asteroids and Artemis I fixtures are checked against it.
 **SBDB.** JPL's Small-Body Database, the source of the app's 135,353
 asteroids and comets. [Asteroids and comets](frontend/small-bodies.md)
 
+**Reconstructed and predicted trajectories.** A spacecraft's path as its
+navigation team fits it to tracking after the fact (reconstructed), or
+works it out ahead (predicted, which leaves out manoeuvres planned later).
+JPL Horizons joins the two. [Spacecraft beyond Earth orbit](frontend/spacecraft.md)
+
 **TLE, GP elements, OMM.** The orbits the US Space Force publishes for every
 object it tracks: "general perturbations" (GP) mean elements, fitted for
 SGP4. The two-line element set (TLE) is their old fixed-column form; the
@@ -95,6 +100,11 @@ app's Earth satellites come from them.
 **GM.** A body's mass times the gravitational constant, in km³/s². GM is
 known far more precisely than either factor alone, so the physics uses it
 directly.
+
+**Retrograde rotation.** A body turning against its own orbit: its spin
+axis more than 90° from its orbit's pole. Venus, Uranus and Pluto do; seen
+from above the ecliptic, Venus turns clockwise.
+[Gravity guides](physics/gravity-guides.md#spin-axes-and-direction)
 
 **IAU rotation model.** The International Astronomical Union's formulas for
 each body's pole direction and prime meridian over time. The app uses
@@ -148,6 +158,25 @@ Sun's tide. Its radius is $r \approx a\,(m/3M)^{1/3}$.
 station with two larger ones, turning with them. L4 and L5 lie 60° ahead
 of and behind the smaller body. Jupiter's trojans gather there.
 [Gravity guides](physics/gravity-guides.md)
+
+**Gravitational field.** The pull per unit mass at each point in space,
+the sum of every body's $GM/d^2$ toward it. Field lines run along it, as
+an electric field's do. Seen falling freely with a body, the Sun's
+near-uniform pull drops out and what is left is the body's own pull and
+the others' tides. [Gravity guides](physics/gravity-guides.md#the-field-of-every-body)
+
+**Effective potential, Jacobi constant.** In the frame turning with two
+bodies, gravity plus the centrifugal pull has a potential $\Phi$. The
+Lagrange points are where it is flat: L1–L3 are its saddles, L4 and L5
+its peaks. The Jacobi constant $C = -2\Phi$ (in the pair's units, less
+the speed squared) is conserved; the curves of equal $C$ through L1–L3,
+the zero-velocity curves, mark where a body of that energy can go.
+[Gravity guides](physics/gravity-guides.md#the-field-of-every-body)
+
+**Line-integral convolution (LIC).** Drawing a vector field by smearing
+noise along each point's field line, so the grain lines up with the
+field. Shifting the smearing's phase makes the grain flow.
+[Gravity guides](physics/gravity-guides.md#the-field-of-every-body)
 
 **SGP4, SDP4.** The analytical theory the US Space Force fits its element
 sets with (Simplified General Perturbations 4): the Earth's J2 and J4,
@@ -322,6 +351,17 @@ above $L \approx 3$ (the Van Allen belts); the inner belt dips nearest the
 ground over the South Atlantic, where the field is weakest.
 [Magnetic fields and auroras](physics/magnetic-fields.md#radiation-belts)
 
+**Lead angle.** How far a moon's auroral spot sits ahead of its moon's
+instantaneous field-line footprint, because the Alfvén wave the moon
+launches takes minutes to reach the planet: about 4° for Io, 12–13° for
+Ganymede.
+[Magnetic fields and auroras](physics/magnetic-fields.md#jupiter-and-saturn)
+
+**Crustal field.** Magnetism frozen into a planet's rocks when they
+cooled in an old field. Mars has no global field now, but its southern
+crust holds fields up to about 11,000 nT at the surface.
+[Magnetic fields and auroras](physics/magnetic-fields.md#marss-crust)
+
 **Kp.** A planetary index of geomagnetic disturbance every three hours,
 from 0 (quiet) to 9 (an extreme storm), in thirds (3−, 3o, 3+).
 
@@ -338,6 +378,28 @@ system's slope, it gives the brightness from anywhere.
 
 **Albedo.** The fraction of light a surface reflects. The app uses
 geometric albedo from NASA's fact sheets and Horizons.
+[Lighting](frontend/lighting.md)
+
+**Optical depth (τ).** How much a layer dims light passing through it: a
+beam is cut to $e^{-\tau}$. A ring's *normal* optical depth is measured
+straight through it; seen at an angle whose cosine is $\mu$, the path is
+$\tau/\mu$. Saturn's B ring is near-opaque (τ over 2), Uranus's ε ring
+0.5 to 2.3, Jupiter's main ring a few millionths. Stellar occultations
+measure it, as the star fades behind the ring.
+[The other planets' rings](frontend/rings.md)
+
+**Equivalent depth.** A narrow ring's optical depth summed across its
+width, $\int\tau\,dr$, in km: what an occultation measures best when the
+ring is barely resolved. [The other planets' rings](frontend/rings.md)
+
+**Forward scattering.** Light carried on nearly in the direction it was
+going. Dust grains a few microns across scatter mostly forward, so a dusty
+ring is brightest with the Sun behind it (at high phase angle), and nearly
+invisible lit from the front: Jupiter's rings were found and mapped that
+way. [The other planets' rings](frontend/rings.md)
+
+**Phase angle.** The angle at a body between the Sun and the observer: 0°
+fully lit from behind the observer, 180° lit from straight behind the body.
 [Lighting](frontend/lighting.md)
 
 **HDR, exposure, tone mapping.** The sky is computed in real brightness,

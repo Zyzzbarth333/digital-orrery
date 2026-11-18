@@ -29,7 +29,7 @@ export interface SurfaceEntry {
 }
 export interface Manifest {
   bodies: Partial<Record<BodyKey, SurfaceEntry>>;
-  rings?: { saturn?: { tau: string; innerKm: number; outerKm: number; credit: string } };
+  rings?: { saturn?: { tau: string; innerKm: number; outerKm: number; credit: string }; uranus?: { pps: string; credit: string } };
   stars?: { map: string; preview?: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; detail?: SkyDetailEntry; points?: string; pointCount?: number; credit: string };
 }
 

@@ -83,6 +83,8 @@ used in any fit ([Irregular moons](frontend/moons.md#the-irregular-moons)).
 | tables of `jup347`, `jup348`, `jup349`, `sat455`, `sat456`, `sat457`, `sat459`, `nep104`, all 381 (2000–2049) | Horizons, which serves those kernels | within 0.51 km (Hermippe); S/2023 S 38, fitted to 1,000 km for its e = 0.909 orbit, 0.3 km at these dates |
 | fallback outside 2000–2049: JPL's mean elements with fitted corrections | Horizons, every 10 days 2000–2050 for the fit; five other dates for the check | each within its fit's worst; median 46 % of the orbit's size for Jupiter's, 15 % for Saturn's, 26 % for Neptune's: the Sun's pull, which no precessing ellipse follows |
 | sense of motion | each moon's state now against its elements' inclination | 305 retrograde of 381, all agree |
+| sizes | NEOWISE (Grav et al. 2015, Table 3); Denk's table and formula ($p$ = 0.06, $M_\odot$ = −26.71) | 13 measured diameters as published; Denk's formula gives his 119 sizes from their $H$ to 4.8 % (rounding), and sizes the 146 from the circulars |
+| shapes and spins | Denk et al. 2018, Table 3; Porco et al. 2003; Pilcher et al. 2012 | 23 ellipsoids of their moon's volume with the published $a/b$ (Kiviuq 2.32, Himalia 75/60); 25 rotation periods as published |
 
 ## Barycentres (`barycentres.test.mjs`)
 
@@ -191,9 +193,9 @@ What this shows:
   $C_{22}$ ([kernel](physics/nbody-kernel.md#the-moons-own-fields)) moved the
   last row by 0.18 km (measured with the fixed-step integrator). At 1.4 Ganymede radii the field is
   $10^{-4}$ of Ganymede's pull.
-- **Jupiter's $J_4$ plays no part.** The kernel carries it
-  ($-586.6085\times10^{-6}$, from Juno's gravity science [2]); without it
-  the last row moves by 1 m, since Juno stays beyond 7.7 Jupiter radii.
+- **Jupiter's field beyond $J_2$ plays no part.** The kernel carries it to
+  $J_{12}$ (from Juno's gravity science [2]); without it the last row
+  moves by 1 m, since Juno stays beyond 7.7 Jupiter radii.
 - **Events behave.** The primary goes from Jupiter to Ganymede at its
   24,500 km sphere of influence and back.
 
@@ -201,49 +203,65 @@ What this shows:
 
 On its 57th perijove, on 30 December 2023, Juno flew 1,496 km over Io
 (closest approach 08:37:10 TDB, 3,317.1 km from the centre) at 30.09 km/s.
-Io's $J_2$ is 14 times Ganymede's, so its field matters here: at 1.8 Io
-radii its $J_2$ and $C_{22}$ are about $10^{-3}$ of its pull.
+Four hours later it passed 1.016 Jupiter radii from Jupiter's centre
+(12:40 TDB) at 59 km/s. The span flown tests both: Io's field, and
+Jupiter's.
 
 - **Reference:** Horizons vectors [1] (`fixtures/flyby_juno_io.json`), the
-  same reconstruction, from 02:30 to 09:40 TDB: six hours in and an hour
-  out. The span ends three hours before the perijove (12:40 TDB), where
-  Jupiter's higher harmonics take over; Juno is 11.4 to 4.7 Jupiter radii
-  out over it.
+  same reconstruction, from 02:30 to 14:40 TDB: six hours in to Io, then
+  on through the perijove and two hours out.
 - **Method and runs:** as at Ganymede, with Io where Juno's track has it
   (Horizons' Io is 9.8 km from that one, much as its Ganymede is 11 km
-  from Juno's). Beside it, the same run without Io's $J_2$ and $C_{22}$,
-  without Jupiter's $J_4$ [2], with the kernel's $J_4$ off and the same
-  term added as an outside force (written out again in the test), with
-  Io's Hermite nodes every 10 minutes, and at tolerances of $10^{-10}$ km
-  (Encke) and $10^{-9}$ km (Cowell) a step.
+  from Juno's). Beside it, the same run:
+  - without Io's $J_2$ and $C_{22}$;
+  - with Jupiter's field cut to $J_2$ alone, and to $J_2$ and $J_4$ [2];
+  - with $J_2$ in the kernel and $J_4$ written out again in the test as
+    an outside force;
+  - with Io's Hermite nodes every 10 minutes;
+  - at tolerances of $10^{-10}$ km (Encke) and $10^{-9}$ km (Cowell) a
+    step.
 
-| Moons in the kernel | 3 min after closest approach | 1 h after | Closest approach (Horizons: 3,317.09 km) |
+| Moons and field in the kernel | 1 h after the Io pass | At the perijove | 2 h after it |
 | --- | ---: | ---: | ---: |
-| none (system at its barycentre) | 46.8 km | 441 km | 3,315.6 km |
-| `moons.js` | 0.069 km | 1.091 km | 3,317.11 km |
-| Horizons' Galilean moons | 0.076 km | 1.098 km | 3,317.11 km |
-| Horizons', Io as Juno's track has it | 0.012 km | 0.040 km | 3,317.10 km |
-| the same, without Io's $J_2$ and $C_{22}$ | 0.010 km | 0.184 km | 3,317.10 km |
-| the same, without Jupiter's $J_4$ | 0.022 km | 0.051 km | 3,317.10 km |
-| the same, the kernel's $J_4$ off and added outside | 0.012 km | 0.040 km | 3,317.10 km |
-| the same, Io's nodes every 10 min | 0.012 km | 0.040 km | 3,317.10 km |
-| the same, tighter tolerances | 0.012 km | 0.040 km | 3,317.10 km |
+| none (system at its barycentre) | 441 km | 3,042 km | 6,967 km |
+| `moons.js` | 1.092 km | 9.97 km | 15.8 km |
+| Horizons' Galilean moons | 1.100 km | 10.08 km | 15.9 km |
+| Horizons', Io as Juno's track has it | **0.041 km** | **0.276 km** | **0.554 km** |
+| the same, without Io's $J_2$ and $C_{22}$ | 0.186 km | 0.855 km | 2.49 km |
+| the same, Jupiter's $J_2$ alone | 0.054 km | 22.5 km | 150 km |
+| the same, Jupiter's $J_2$ and $J_4$ | 0.041 km | 0.790 km | 5.04 km |
+| the same, $J_2$, and $J_4$ outside the kernel | 0.041 km | 0.790 km | 5.05 km |
+| the same, Io's nodes every 10 min | 0.042 km | 0.280 km | 0.558 km |
+| the same, tighter tolerances | 0.041 km | 0.276 km | 0.554 km |
+
+Closest approach to Io: 3,317.10 km in every run with the moons
+(Horizons: 3,317.09 km).
 
 - **The pass measures Io's field.** Io bends Juno by 0.12 km/s, 441 km an
-  hour on. Its $J_2$ and $C_{22}$ (Park et al. 2025, [kernel](physics/nbody-kernel.md#the-moons-own-fields))
-  take what is left from 0.184 km to 0.040 km: four fifths of it.
-- **Jupiter's $J_4$ is a fifth of the rest.** Without it, 0.051 km is
-  left. The kernel's term and the same term written out separately in the
-  test agree to 0.1 m.
-- **What is left, 0.040 km, is not the kernel's numerics.** Neither
-  finer nodes for Io nor tighter tolerances move it. It is the gap between
-  the two force models, which this check cannot split further: Jupiter's
-  field beyond $J_4$, Io's beyond degree 2, and Juno's own small forces
-  (sunlight on its arrays, for one), all in the reconstruction and not in
-  the kernel. The error grows after the pass, as a kick there would;
-  before it it is about 10 m.
+  hour on. Its $J_2$ and $C_{22}$ (Park et al. 2025,
+  [kernel](physics/nbody-kernel.md#the-moons-own-fields)) take what is
+  left from 0.186 km to 0.041 km.
+- **The perijove measures Jupiter's.** With $J_2$ alone Juno is 150 km off
+  two hours after the perijove. $J_4$ takes that to 5.0 km, and $J_6$ to
+  $J_{12}$ to 0.55 km ([kernel](physics/nbody-kernel.md#oblateness-j2)).
+  The kernel's $J_4$ and the same term written out separately agree to
+  0.2 m at the perijove.
+- **What is left is not the kernel's numerics.** Neither finer nodes for
+  Io nor tighter tolerances move it. Nor does Durante's own pole for
+  Jupiter in place of the IAU's (they are $7\times10^{-6}$ rad apart; 12 m
+  at the end). It is the gap between the two force models, which this
+  check cannot split further: Jupiter's tides and tesseral terms, the
+  field the reconstruction was fitted with, and Juno's own small forces (sunlight on its arrays, for
+  one).
+- **Jupiter's centre on hourly nodes** made this check a little worse,
+  not better. On 6-hour nodes the centre was 17 m off JPL's table here
+  and the runs read 0.22 km at the perijove and 0.44 km after it. On
+  hourly nodes it is within 0.1 m, and they read 0.28 and 0.55 km. The
+  old error was partly cancelling the gap above; the new figures are the
+  honest ones.
 - **The places of the moons set the rest.** With Horizons' Io (9.8 km
-  off Juno's) it is 1.1 km; `moons.js`'s Io matches that run to 7 m.
+  off Juno's) it is 1.1 km an hour on; `moons.js`'s Io matches that run to
+  8 m.
 
 ### Cassini at Titan
 
@@ -290,14 +308,14 @@ The same file checks:
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| each split system's planet centre and moons from the kernel's Hermite nodes, 20 days | `moons.js` and astronomy-engine directly | worst 104 m (Callisto) |
+| each split system's planet centre and moons from the kernel's Hermite nodes, 20 days | `moons.js` and astronomy-engine directly | worst 31 m (Rhea); Jupiter's system 12 m (104 m before its centre's nodes went from 6 hours to 1) |
 | 200 days of cruise from Earth | the moons' ephemerides | never evaluated; no system split |
 | split and fold of Jupiter at 1.3, 1.2, 1.4 and 1.6 times its sphere of influence | the thresholds | folded, split, split, folded (in at 1.25, out at 1.5) |
 | Pluto at 6 AU, 4 AU, 10⁶ km, 8 AU | its 5 AU reach | away, folded, split with Charon, away |
 | two craft, one near Jupiter, one far | their own views | 13 bodies and 9 |
 | a fall onto Ganymede at 3 km/s | impact event, found where the step crossed the surface | `impact` on `ganymede` 0.0 m from the surface at 3.94 km/s (it was found 46 km in, a 14 s step late) |
 | the moons' $J_2$ and $C_{22}$ acceleration, Ganymede's field about tilted axes | central differences of the potential | $7.6\times10^{-10}$ relative |
-| a giant's $J_2$ and $J_4$, Jupiter's field about tilted axes | central differences of the potential | $2.3\times10^{-10}$ relative ($J_4$ up to 1.7 % of $J_2$'s term at the points checked) |
+| Jupiter's zonal field to $J_{12}$, about tilted axes, 1.05 to 1.6 Jupiter radii out | central differences of the potential | $1.8\times10^{-9}$ relative ($J_5$ to $J_{12}$ up to 0.4 % of the field's pull there) |
 
 ## The largest asteroids (`asteroids.test.mjs`)
 
@@ -432,13 +450,17 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Windows, departure, capture, flyby, Lambert leg | Ex 8.1, 8.2, 8.4, 8.5, 8.6, 8.8, 8.9, 8.10 | to the book's figures (Ex 8.8 within 0.12 % on DE442) |
 | Restricted and optimal staging | Ex 13.4, 13.5 | to the book's figures |
 | Mariner 10, Earth to Mars, a lunar free return, a Moon round trip, flown | the plan | every periapsis within 17 km, home within 3 km |
-| Resonant returns: the 2:1 cone; Galileo's Earth to Earth on NASA's dates; Galileo's whole route flown | geometry; PDS mission catalogue | 2:1 chosen, back on 8 Dec 1992, Earth flybys 0 and 70 m/s; flown within 20 km at Venus and Earth, 1.4 % at Jupiter |
-| Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 60 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 47 m/s) |
-| Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,257 (1.4 %, within 3 %); lows a month apart; the best day priced 1,657, flown 1,666 |
-| Mars orbit to the Moon, flown: lunar orbit and a landing | the plan | 1.3 km off the planned periapsis; capture within 3 % of its price; down at 2.3 m/s |
-| The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's; the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % (within 0.25 %); to 0.1 m/s; the planned day 2,911 m/s, flown 3,043 (4.3 %); the wait 12.5 d, flown 11.5 (2,025 against 2,070 m/s); the parking orbit lamp's day 2,008, flown 2,086 on time |
+| The capture burn: from periapsis, steered into a circular orbit, then a Hohmann transfer on the mean radius; a year in Mars orbit, flown | Curtis eqs. (8.58), (4.52) and Sec. 6.2; the plan | near-impulsive to 10⁻⁴ of eq. (8.58); at 20 m/s² 0.5 % over the impulse (held retrograde, e 0.047); flown, e 0.0016 and the mean radius on the planned 3,789.9 km, the departure a year on 2,016 m/s against 2,000 (before: 2,070) |
+| Resonant returns: the 2:1 cone; Galileo's Earth to Earth on NASA's dates; Galileo's whole route flown | geometry; PDS mission catalogue | 2:1 chosen, back on 8 Dec 1992, Earth flybys 0 and 70 m/s; flown within 20 km at Venus and Earth, 0.6 % at Jupiter |
+| Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 56 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 39 m/s) |
+| Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,222 (0.2 % under, within 3 %); lows a month apart; the best day priced 1,657, flown 1,660 |
+| Mars orbit to the Moon, flown: lunar orbit and a landing | the plan | 1.3 km off the planned periapsis; capture within 3 % of its price; down at 2.2 m/s |
+| The planets' major moons, flown with their gravity: Earth orbit to Europa orbit and home; to a Europa landing; to Titan through the air; a Europa flyby | the plan, Europa and Titan reached and left via their planets | Europa 0.1 km off the planned periapsis (within 5 km), capture within 0.4 % of its price; left for 5,607 m/s against 5,557 (0.9 %, within 3 %), the first aim after it 1.3 m/s; down on Europa at 2.1 m/s; Titan's entry perigee 1,000.01 km for 1,000; the flyby 0.0 km off |
+| The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's, at Mars and at Jupiter (to J12); the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % at Mars and 0.03 % at Jupiter (within 0.25 %; J2 alone 2.5 % off there); to 0.1 m/s; the planned day 2,911 m/s, flown 2,983 (2.5 %); the wait 12.5 d, flown 11.6 (2,025 against 2,024 m/s); the parking orbit lamp's day 2,008, flown 2,063 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
-| Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 20-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 205 m/s of corrections against the direct arc's 679 |
+| Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 20-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 221 m/s of corrections against the direct arc's 730 |
+| Burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 0.8 km off |
+| Near 180°, the deep-space burn: Earth orbit to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026; lunar orbit to Mars, stays of 18 to 30 days | Lawden's conditions on the primer vector (Lawden 1963; Prussing 2010); the primer's jump as the cost's gradient (Lion and Handelsman 1968; Jezewski 1975); a blind 12-start search | p-dot continuous at $B$ to 3 %, $\lvert\mathbf p\rvert \le 1$ to 10⁻⁴, where the broken plane's jumps 128 % and passes 1; nothing cheaper found; never dearer than the direct arc or the broken plane; the excess speed's second difference 4.3 m/s; 20 days at the Moon flown with 198 m/s of corrections, Mars 1.0 km off |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
@@ -500,6 +522,48 @@ navigation's as-flown ephemeris (through JPL Horizons). See
 | Joins between NASA's navigation solutions | 67; velocity steps median 0.074 m/s, position median 49 m |
 | The app's mission file (`public/missions/artemis1.json`), flown as the app flies it: full environment and random vent, through the Craft model and kernel host | its 18 burns within 1 % of NASA's; with a fix every 12 h, never more than 275 km off, 6 km at the end, flybys 130.3 and 129.0 km; with no fixes and the burns aimed from the craft, never more than 238 km off, 0.9 km at the end, flybys 124.6 and 130.6 km, for 31.8 m/s more than the flown burns (blind: 712,000 km at the end) |
 
+## Real flight: Juno's Earth flyby (`missions.validate.mjs`)
+
+Juno from 25 August 2012 to 30 November 2013 against JPL's navigation
+reconstruction (through JPL Horizons). See
+[Juno 2012–13](validation/juno2013.md).
+
+| Check | Result |
+| --- | --- |
+| DSM-1 and DSM-2, found in the trajectory | 344.28 m/s in 1,780 s and 387.94 m/s in 1,770 s (NASA: about 344 m/s in 29 min 39 s, about 388 m/s in 30 min); DSM-2 lit at NASA's 22:30:00 UTC |
+| 10 coast arcs, 6–210 days, about the Sun | gravity alone rms 2,062 km at the ends; with sunlight on the arrays fitted (91 % of the craft as built), rms 139 km, worst 398 km (the 210-day arc); under 5 km for the first three weeks |
+| The Earth flyby | 561.1 km above the ellipsoid at 19:21:25 UTC (559 km, 19:21 published); the kernel through the pass ends 35 m and 1.8 mm/s off (J2 alone: 0.72 km, 36 mm/s); 125,531 to 139,377 km/h about the Sun (126,000 to 140,000) |
+| The flyby anomaly | Anderson's formula predicts 6.4 mm/s; the kernel's v∞ after the pass is 0.47 mm/s from the reconstruction's |
+| The app's file (`public/missions/juno2013.json`), flown as the app flies it | aimed: perigee 561.7 km (flown 561.8), 0.1 km off at the end, 157 km at worst, for 0.29 m/s more than the flown burns; blind, it hits the Earth |
+
+## Real flight: DART's impact on Dimorphos (`missions.validate.mjs`)
+
+DART from 20 August 2022 to its impact on 26 September against its
+navigation reconstruction and final solution (through JPL Horizons). See
+[DART](validation/dart.md).
+
+| Check | Result |
+| --- | --- |
+| SMART Nav's terminal guidance, found in the trajectory | toward Dimorphos 22:24:50 to 23:11:50 UTC (Daly et al.: from 50 minutes before the impact, 22:24:24, to 23:11:52), 0.586 m/s |
+| LICIACube's release | a 33 mm/s step at 23:13:50 on 11 September (published 23:14 UTC) |
+| 4 coast arcs, 4–19 days, about the Sun | gravity alone rms 179 km at the ends; with sunlight on the arrays fitted (72 % of a flat plate), rms 11.6 km, worst 20.4 km |
+| The impact, on the final solution | 23.6 m from Dimorphos's centre at 6.14478 km/s, the centre's closest point 14 ms after the impact (Daly et al.: 25 ± 1 m, 6.1449 ± 0.0003 km/s, 23:14:24.183 at the surface) |
+| The app's file (`public/missions/dart.json`), flown as the app flies it | aimed: 23 m from Dimorphos's centre, for 2.59 m/s more than the flown burns; blind, 180 km |
+
+## Real flight: LRO's lunar capture (`missions.validate.mjs`)
+
+LRO from 18 to 28 June 2009 against its final reconstruction (from the PDS,
+through JPL Horizons). See [LRO](validation/lro.md).
+
+| Check | Result |
+| --- | --- |
+| The mid-course correction and LOI-1 | 1.310 m/s (published 1.3); LOI-1 527.17 m/s, ending 10:26:30 UTC (published: completed 10:26:26, 40 minutes) |
+| LOI-2 to LOI-5, which the samples can't resolve, fitted steady | 104.8, 110.5, 94.9 and 35.7 m/s; each leaves 0.6–1.6 m/s half an hour on |
+| 6 coast arcs, 0.3–3.2 days | out to the Moon within 0.46 km; in lunar orbit 10–125 m with GRAIL to degree 50 (gravity alone: 6–10 km) |
+| The Moon's field, degree by degree, a day at 200 km | 4.2 km (J2), 1.48 (10), 0.074 (20), 0.020 (50), 0.020 km (100) |
+| The orbits | 207 by 3,082 km after LOI-1 (published 220 by 3,100); 34 by 199 km at the end (30 by 216) |
+| The app's file (`public/missions/lro.json`), with a fix every 6 h | 0.1 km off at the end, 25.5 km at worst (blind: 3,424 km) |
+
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 
 NASA's orbital check cases for 6-DOF simulations (NESC,
@@ -555,12 +619,21 @@ torque, and burns along the body axis to the kernel
 | A craft held prograde, two days at a day a second | its point-mass twin's frame | no attitude steps; no slower |
 | The thrusters' impulse for rest-to-rest turns of 10°, 90°, 120° and 170° | $2I\omega_\text{peak}/L$, the angular momentum given and taken back, over the thrusters' arm | within 0.17 % (tolerance 1 %): 169.9 N s against 170.2 N s for 90° in pitch, 59.8 g at 290 s |
 | The same through the craft: a 90° slew to prograde in a 400 km orbit | the same; the tank's loss against $J/(I_{sp}g_0)$ | 0.13 % (tolerance 1 %); the tank to 10⁻¹² kg |
-| Held prograde for 60 s | the gravity-gradient torque it holds against, $\sum_i \lvert\tau_i\rvert/L_i$ a second | to 10⁻⁸ (the clock's rounding) |
+| Held prograde for 60 s | the hold's limit cycle in closed form, each frame's | to 10⁻⁸ (the clock's rounding): 0.667 N s, 0.338 kg a day, against 1.5×10⁻⁵ N s for the gravity gradient alone |
+| The hold's limit cycle, centred, no disturbance, flown pulse by pulse (one 0.29 N s bit a thruster past the 0.5° deadband, sampled every 0.1 s), pitch and roll | Jackson et al.'s two-sided cycle, eqs. (1)–(2) (NTRS 20080000345) | to 0.5 % (tolerance 0.5 %): a firing every 97.80 s in pitch and 120.37 s in roll, both as eq. (1); the closed form without a disturbance 2/3 of eq. (2), exact |
+| The same from six random starts, disturbances of 0.003 to 0.1 and 0.9 to 5 times $R_2 L$ | the closed form: $\tfrac23 R_2$ two-sided, $\lvert\tau\rvert/L$ one-sided | within 5.0 % (tolerance 6 %) |
+| The same at 0.4 and 0.6 times $R_2 L$ | $3\lvert\tau\rvert/L$, two pulses to one | its own cycle within 0.35 % (tolerance 1 %); every random start between a third of it (one-sided for days first) and all of it |
+| The same at 0.15 and 0.2 times $R_2 L$, where the cycles mix | the closed form | within 30 % (tolerance 50 %) |
 | The tanks' inertia, 500 kg in two spheres of 0.37 m, 0.6 m fore and aft | $\tfrac25 mR^2$, plus $md^2$ across (parallel-axis theorem, Curtis ch. 9) | exact: 27.38 and 207.38 kg m²; full, the box's diag(1000, 1625, 1625) |
 | A 90° slew with 50 kg of propellant left | the controller's closed-form time for the inertia then ($I_{yy}$ 1,438 kg m²) | 33.52 s against 33.85 s (1.0 %, tolerance 6 %), faster than full (34.12 s) |
 | A node 20 m/s radial out an hour ahead, held prograde, at 1/4 s frames | the turn's lead $1.1\,t_\text{slew} + 5$ s; the point-mass craft with the same node | turn began 42.54 s ahead (as planned), locked 8.5 s before the node; 0° off the node's direction; 3 mm from the point mass after; back to prograde |
 | The same at 600 s frames | the same | turn began 41.54 s ahead (the orbital frame turns 2.7° in the lead); 46 mm from the point mass |
 | A node 10 s ahead | — | the log says it cannot settle in time |
+| The MISSION tab's craft, after ROCKET-tab stages got their own attitude | its spec as validated above | unchanged: the box, its tanks and its thrusters (with its hold's deadband and bit) |
+| A ROCKET-tab stage's tensor: Saturn V's S-IVB at cutoff, 59.7 t dry with the spacecraft and 107.1 t of propellant at 320 kg/m³, 10.1 m across | the thin-walled cylinder's $m R^2$, $m(R^2/2 + L^2/12)$ and the solid propellant cylinder's $mR^2/2$, $m(R^2/4 + h^2/12)$ (Curtis ch. 9), against both bodies summed point by point | within 3×10⁻⁵ (tolerance 10⁻⁴): full, diag(2.887, 2.612, 2.612)×10⁶ kg m²; the tank holds the load at its density to 10⁻¹² |
+| The stage's thrusters | the MISSION craft's angular acceleration, full | equal on every axis (1.146°/s² in roll, 1.410°/s² in pitch and yaw) |
+| The stage's impulse bits | its thrusters' thrust times the default's 14.5 ms (0.29 N s at 20 N), in the same 0.5° deadband | exact: 82.9 N s in roll, 65.3 N s in pitch and yaw; held without a disturbance at 70 %, 92.4 kg a day |
+| A 90° slew to prograde by that stage with 70 % of its propellant, through the kernel | the controller's closed-form time for its inertia; $2I\omega_\text{max}/L$ | 33.52 s against 33.89 s (1.1 %, tolerance 6 %); 34,573 N s against 34,633 N s (0.17 %, tolerance 1 %), 12.2 kg |
 
 ## Not yet validated
 
@@ -619,6 +692,23 @@ torque, and burns along the body axis to the kernel
 | Fall-off | steep inside 2 radii, then ρ^−2.5 | 0.5 % of the limb's at 2 radii; the ρ^−2.5 term alone by 6 |
 | In the scene | the disc's centre is 46,000/0.805 of white | 0.231 of white at the limb |
 
+## The other planets' rings (`rings.test.mjs`)
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Uranus's ten narrow rings: radius, eccentricity, inclination | Ring-Moon Systems Node table (γ's e read as 1.092×10⁻⁴, a slipped decimal) | within 2.6 km, 3 % and 0.0005° |
+| α, β, ε widths at periapse and apoapse | NSSDC: 4–10, 5–11, 20–96 km | 4.5–10.1, 5.3–11.7, 19.9–97.3 km |
+| ε optical depth from the Voyager PPS equivalent depth | tables: 0.5 to 2.3 | 0.47 to 2.30 |
+| Other rings' mean optical depth | tables' approximate values | within a factor of 2.2 (λ 0.09 for ~0.1, α 0.43 for ~0.4) |
+| Uranus's pole | French et al. 2024 | the IAU pole within 0.002° |
+| Ring 6's periapse a year on | its tabled rate, 2.762°/day: 28.80 km further out | 28.76 km |
+| Le Verrier, τ × width | Voyager PPS, 0.25 km | 0.30 km |
+| Fraternité's longitude | Voyager 1989; VLT 2007 (±0.6°); VLT 2016 (±0.3°) | at each, by construction of the interpolation |
+| Arcs' mean motion | 820.11213 °/day (1989–2007), 820.11178 (1989–2016) | 820.11204, 820.11168 |
+| The arcs' span and separations | 40°; 10.7°, 12°, 7.3° | 38.3°; as tabled |
+| Jupiter's gossamer rings' thickness from Amalthea's and Thebe's inclinations | ~2,300 and ~8,500 km | 2,532 and 8,520 km |
+| Dust phase function | averages 1; Throop et al. 2004: flat to 130°, few 10⁻⁶ I/F forward, ~10⁻⁷ back | 1.0000; 1.93×; 3.5×10⁻⁶ at 178°, 2.6×10⁻⁷ at 5° |
+
 ## How much of the Sun is in view (`discs.test.mjs`)
 
 | Check | Reference | Result |
@@ -676,7 +766,38 @@ references these are).
 | Starkov's oval, IGRF-14, CGM and Kp together | NOAA's OVATION Prime map, forecast 03:09 UTC 18 Nov 2026 (Kp 3−), night side | mean probability 19.6 % mid-oval vs 7.7 % 6° equatorward and 1.0 % 6° poleward (north); 15.2, 7.1 and 0.8 % (south) |
 | Neptune's auroral zone, L 3–20 | JWST: 30–60° S (Melin et al. 2025) | 24–48° S, mean 35° S |
 | Mercury's offset dipole | Anderson et al. 2012: 190 nT R_M³, 479 km north; libinternalfield's expansion | as published; expansion within 0.06 nT |
+| IGRF-14 after 2025 | NOAA's online Magnetic Field Calculator, 4 points 2025.4–2028.0, 0–400 km | X Y Z F within 0.049 nT, D and I within 0.00005° |
+| Europa's and Ganymede's footprints (JRM33 + con2020) | Connerney et al. 2022, Tables S2, S3 | within 1.07° and 1.89° of arc, rms 0.34° and 0.43° |
+| the moons' lead angles | Hue et al. 2023, Table 1 and its quoted means | means 4.26/4.14°, 5.75/7.06°, 12.33/13.02° (paper 4.3/4.1, 5.8/7.0, 12.3/13.0) |
+| Ganymede's dipole | Weber et al. 2022 against Kivelson et al. 2002 | 719 vs 713 nT, 0.8° apart |
+| Mars's crustal field | Langlais et al. 2019: Br −8,520 to 11,260 nT | −8,522 to 11,261 nT (0.25° grid), strongest at 47.9° S 174.6° E |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
+
+## Spacecraft beyond Earth orbit (`spacecraft.test.mjs`)
+
+Twenty-eight craft on JPL Horizons' trajectories for 2026 and 2027, held as
+states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraft.md#how-right-they-are)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the packed trajectories, every craft | Horizons states not kept, one a month a craft (522), from mid-interval [6] | within 2 km: worst 1.95 km (Mars Odyssey); L1/L2 and cruise within 1.3 km |
+| the joins between days | each day's last state and the next day's first | within 3.5 m over 8,081 joins |
+| the packing itself | every Horizons sample of every day (4 to 60 minutes apart) | within 2 km on every day |
+
+## The field of every body and spin directions (`gravityFlow.test.mjs`)
+
+[Gravity guides](physics/gravity-guides.md#the-field-of-every-body).
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| The summed pull of 54 bodies at six places, 100 km above Ganymede to the main belt | the kernel's force sum (`nbody.js`) | within 4.5 × 10⁻¹⁶ |
+| The same, falling with the Earth and with Jupiter | the kernel's sum, differenced | within 1.7 × 10⁻¹⁵ |
+| The sum in float32, as the GPU does it | the double-precision sum | within 2.3 × 10⁻⁷ |
+| The GPU's field read back in the app, 144 pixels in each of six views | the same sum in double precision | log₁₀\|a\| within 0.0076 (the half-float step), direction within 0.02° |
+| The rotating frame's stationary points, five pairs from Sun–Earth to Saturn–Titan | L1–L5 from `lagrangePoints` | within 1.2 × 10⁻¹⁰ of the separation; L1–L3 saddles, L4 and L5 peaks |
+| Earth–Moon Jacobi constants at L1–L4 | Koon, Lo, Marsden and Ross: 3.1883, 3.1722, 3.0121, 2.9880 | 3.1883, 3.1722, 3.0121, 2.9880 |
+| Spin sense of 61 bodies, from the app's orientation differenced | the sign of each IAU rate $W_1$ | all 61; size within 2 % (Phobos 0.65 %, its libration) |
+| Retrograde rotation | Venus 177°, Uranus 98°, Pluto 120° from their orbits' poles | exactly those three: 177.4°, 97.8°, 119.6° |
 
 ## References
 
@@ -689,3 +810,5 @@ references these are).
 [4] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
 
 [5] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[6] NASA JPL Solar System Dynamics, "Horizons system," spacecraft trajectories, fetched 18 Nov. 2026 by `npm run fetch:spacecraft`. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
