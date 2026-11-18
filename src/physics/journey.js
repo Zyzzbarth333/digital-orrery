@@ -26,6 +26,9 @@
 //                                flight would wait for
 //   applyOption(journey, k, o)   the journey re-timed to option o
 //   defaultArrival(...)          a first guess at a new waypoint's date
+//   legPhase(solution, k)        why leg k's window opens when it does: the
+//                                target's lead at departure against a
+//                                Hohmann transfer's, and the synodic period
 //   journeyPath(solution)        points along every arc, for drawing
 
 /** @typedef {{ id: number, ms: number, pro: number, nor: number, rad: number }} BurnNode */
@@ -1156,6 +1159,44 @@ function solveCraftLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, dsm = true }
   }
   if (!sol) return { ...base, ok: false, error: 'no Lambert arc from the craft between these dates' };
   return { ...base, arcs: [{ r1, v1: sol.v1, t1: depMs, t2: arrMs, mu }], vinfArr: sub(sol.v2, b.v), depDv: norm(sub(sol.v1, v0)), arrDv: arriveCost(Q, sub(sol.v2, b.v), B, mB), ok: true, revs: sol.revs, branch: sol.branch, endB: g.endB ?? Q.body };
+}
+
+// ---------------- why a window opens: the phase angle ----------------
+
+// For a leg between two bodies about one central body (two planets about
+// the Sun; a moon's leg to a planet, from its planet), where the target
+// stands against the body left on the day of departure, and where a
+// Hohmann transfer would want it [1, Sec. 8.3]: on circular coplanar
+// orbits of the bodies' mean distances, the transfer takes
+// t_H = pi sqrt(((a_A + a_B) / 2)^3 / mu), the target moves n_B t_H in
+// that time, and it must lead by phi_H = pi - n_B t_H to be there when the
+// craft arrives. The same lead comes round once a synodic period,
+// 1 / |1 / T_A - 1 / T_B|. A window opens near the day the real lead
+// passes phi_H. Angles are measured in the ecliptic, prograde (about +z),
+// in degrees, from -180 to 180; positive: the target ahead.
+// Returns null for a leg that has no such geometry (an orbit change, a
+// planet to its own moon, a resonant return, a craft's leg).
+export function legPhase(sol, k) {
+  const L = sol.legs[k];
+  if (!L?.ok || L.geometry !== 'between' || L.resonance || !L.endA || !L.endB || L.endA === L.endB) return null;
+  const A = bodyInfo(L.endA), B = bodyInfo(L.endB), mu = bodyInfo(L.central).mu;
+  if (!A.a || !B.a) return null;
+  const lon = (key, ms) => { const r = relState(key, L.central, ms).r; return Math.atan2(r[1], r[0]); };
+  const wrap = (x) => { let d = x % TWO_PI; if (d > Math.PI) d -= TWO_PI; if (d <= -Math.PI) d += TWO_PI; return d; };
+  const DEG = 180 / Math.PI;
+  const TA = TWO_PI * Math.sqrt(A.a ** 3 / mu), TB = TWO_PI * Math.sqrt(B.a ** 3 / mu);
+  const tH = Math.PI * Math.sqrt(((A.a + B.a) / 2) ** 3 / mu);
+  const leadDeg = wrap(lon(L.endB, L.depMs) - lon(L.endA, L.depMs)) * DEG;
+  const hohmannDeg = wrap(Math.PI - (TWO_PI / TB) * tH) * DEG;
+  const synodicDays = Math.abs(TA - TB) > 1 ? 1 / Math.abs(1 / TA - 1 / TB) / DAY : null;
+  return {
+    leg: k, from: L.endA, to: L.endB, central: L.central, depMs: L.depMs, arrMs: L.arrMs,
+    leadDeg, hohmannDeg, hohmannDays: tH / DAY, synodicDays,
+    // How far round the central body the target moves in the flight, and
+    // how far the craft goes (the transfer angle).
+    targetMovesDeg: (((lon(L.endB, L.arrMs) - lon(L.endB, L.depMs)) % TWO_PI + TWO_PI) % TWO_PI) * DEG,
+    transferDeg: L.transferDeg ?? null,
+  };
 }
 
 // ---------------- shaping a leg: burn nodes and an aimed flyby ----------------

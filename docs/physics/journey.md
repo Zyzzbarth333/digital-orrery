@@ -1381,6 +1381,16 @@ Its PLOT station has five parts:
   - What it shows: range rings, the visited bodies' orbits and their
     places on the time cursor's date, the arcs, the burns, the kernel's
     flown path, and the craft.
+  - Where the bodies are and will be: each visited body has a ghost ring
+    at its place on every date of the journey, tagged L (the launch) and
+    each waypoint's number. The ring is amber and larger where the craft
+    meets that body. Its path over the journey is drawn bright from the
+    departure to the time cursor and dashed on to the end, so moving the
+    cursor sweeps the planets round their orbits with the craft.
+  - Why the window opens: for the leg under the cursor, lines from the
+    centre to the body left and to the target on the departure day, with
+    the angle between them, and a dashed line to where the target will be
+    at the arrival. A note on the scope says it in words (below).
   - "Compressed" squeezes the radius (its square root about the centre),
     so the inner and outer planets fit together.
   - A click on an arc adds a burn node there, and dragging a node slides
@@ -1406,6 +1416,37 @@ Its PLOT station has five parts:
     leaves on it, at that date's best flight time;
   - the plan's legs, stays and burns;
   - the time cursor, which the scope follows.
+
+### Why a window opens: the phase angle
+
+A transfer leaves when the target stands at the right angle ahead of (or
+behind) the body left, so that it reaches the meeting point when the craft
+does. On circular coplanar orbits of radii $a_A$ and $a_B$ about a central
+body of $\mu$, a Hohmann transfer takes half an orbit, and the target must
+lead by the angle it does not cover in that time [1, Sec. 8.3]:
+$$t_H = \pi\sqrt{\frac{(a_A + a_B)^3}{8\mu}},\qquad
+\phi_H = \pi - n_B t_H,\qquad n_B = \sqrt{\mu / a_B^3}.$$
+The same angle comes round once a synodic period,
+$T_\text{syn} = 1 / \left|1/T_A - 1/T_B\right|$.
+- **Earth to Mars:** 259 days, with Mars 44.3° ahead, every 780 days.
+- **Earth to Venus:** 146 days, with Venus 54° behind, every 584 days.
+
+`journey.js legPhase` gives, for a leg between two bodies about one
+central body:
+- the target's real lead on the departure day, from the ephemeris (in
+  the ecliptic, prograde);
+- $\phi_H$ and $t_H$ from the bodies' mean distances;
+- the synodic period;
+- how far the target moves in the flight.
+
+The scope's note reads, for example: "On 2028-03-25 Venus is 43° behind
+Earth. A Hohmann transfer (146 d, half an orbit) wants it 54° behind
+Earth: 11° off, so the leg flies another arc, 231° round instead of 180°,
+and it costs more the further off it is."
+- **Near $\phi_H$:** the window is open, and the leg's strip on the timeline
+  is at its low.
+- **Far from it:** the leg costs more. On 1 Mar 2026 Mars is 160° ahead,
+  and the leg costs 22.3 km/s against 6.0 in November.
 
 ## STACK and GO
 
@@ -1599,6 +1640,8 @@ orbits, waits 454 days.
 | Moon orbit, then a landing there (an orbit change about the Moon), up, home, flown in the full model | the orbit's circular speed; the flight | the descent priced 1.634 km/s (it was 0); flown down at 2.3 m/s for 1,869 m/s; up for 1,759; home by entry |
 | A 400 km Earth orbit straight to a landing | a Hohmann transfer's first burn (Curtis 6.2) | one 81 m/s deorbit burn, no circularising burn; flown, the full model's drag brings it down before perigee, set down by entry |
 | Galileo's first two flybys: Venus (powered) and Earth (unpowered) | $2v_\infty\sin(\delta/2)$ [1, Sec. 8.9]; the arcs' heliocentric velocities | Earth +7.26 km/s free; Venus +3.49 for a 192 m/s burn, the arcs' velocity out less in to 10⁻⁶ km/s, credit 3.30; the total the burns alone |
+| The phase angle (`legPhase`): Earth to Mars and to Venus on mean circular orbits | the closed forms [1, Sec. 8.3] | Mars 44.35° ahead, every 779.9 d; Venus 54.03° behind, every 583.9 d |
+| The same, on the day (20 Nov and 1 Mar 2026 to Mars) | the ephemeris's longitudes | to 10⁻⁹°; 52.1° in the window (6.00 km/s), 160.0° out of it (22.28 km/s) |
 | What makes the full model's flight fall back | the rules above | an aim with no burn, a crash, a landing not made and a 400 km miss, each a reason |
 | Earth orbit, 23 days at the Moon, Mars on 20 Aug 2027: the leg at 180.4° | Abilleira [5]: a direct arc near 180° tilts steeply; a burn near halfway breaks the plane | direct 15.69 km/s on a plane tilted 20.1°; broken plane 4.572 km/s, its break at 47.0 % of the flight |
 | The broken plane's arcs and its break | geometry; two-body; Curtis eq. (6.20) on the horizontal speed; Napier's rule | first arc in the Earth's plane to 10⁻⁶°; the arcs join and reach Mars to 1 m; the break 60.869 m/s, the pure plane change to 10⁻³; the turn 0.1452° against Napier's 0.1452° (to 1 %) |
