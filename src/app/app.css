@@ -62,7 +62,8 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
 * { scrollbar-width: thin; scrollbar-color: var(--seam-strong) transparent; }
 
 .app {
-  position: fixed; inset: 0; overflow: hidden;
+  /* clip, not hidden: nothing (focus, scrollIntoView) can scroll it sideways. */
+  position: fixed; inset: 0; overflow: clip;
   display: grid;
   grid-template-rows: var(--band-h) minmax(0, 1fr);
   grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--plate-w);
@@ -638,9 +639,23 @@ details.section[open] > summary::after { content: '−'; }
 .flow-opts .sb-pick { margin: 0; padding: 0; gap: 2px; min-width: 0; }
 .flow-opts .sb-pick .input { height: 24px; font-size: 11px; padding-left: 6px; padding-right: 20px; }
 .small-bodies .lamp-sq { border: 1px solid; }
-/* The guides never scroll: six short rows, the body list gives way. */
-.body-list.guides { flex: none; overflow: visible; padding-bottom: var(--u); }
+.body-list.guides { padding-bottom: var(--u); }
 .body-list.guides .body-row { height: 26px; }
+/* Beside the sky, the rail scrolls as one: no list in it shrinks, so the
+   planets keep every row at a laptop's height and the foot (keys, how it
+   works, credits) is always reachable below them. */
+@media (min-width: 721px) {
+  .rail { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .rail .body-list { flex: none; overflow: visible; }
+}
+/* Phones: the rail and the plate each take a bounded share and scroll
+   inside it, so the sky keeps its rows when the data is shown. */
+@media (max-width: 720px) {
+  .rail { max-height: 24vh; overflow-y: auto; overscroll-behavior: contain; }
+  .rail .body-list { flex: none; }
+  .plate { max-height: 34vh; }
+  .console-dock { max-height: 36vh; }
+}
 
 /* ---------------- the journey planner (journey-panel.tsx) ---------------- */
 .journey { display: flex; flex-direction: column; }
