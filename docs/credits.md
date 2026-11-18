@@ -25,6 +25,11 @@ Every data source, map, font and library the app uses, with a link to where it c
 | --- | --- |
 | [NASA JPL](https://ssd.jpl.nasa.gov/planets/eph_export.html) and [NAIF SPICE](https://naif.jpl.nasa.gov/naif/data_generic.html): DE442, the satellite kernels (with [`jup347`–`jup349`, `sat455`–`sat459` and `nep104`](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/) for the irregular moons), `pck00011`, [`sb441-n16`](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/), Earth orientation kernels | the planets', moons', Sun's and asteroids' positions; body shapes and rotation; the Earth's UT1 and polar motion |
 | JPL Solar System Dynamics: [satellite mean elements](https://ssd.jpl.nasa.gov/sats/elem/); [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/); [satellite discovery circumstances](https://ssd.jpl.nasa.gov/sats/discovery.html); the [Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_query.html) | moons outside their tables' years, radii, GMs and albedos; the irregular moons' discoveries; the 135,353 asteroids and comets |
+| T. Grav et al., [*NEOWISE: Observations of the irregular satellites of Jupiter and Saturn*](https://doi.org/10.1088/0004-637X/809/1/3) (ApJ 809, 3, 2015) | 13 irregular moons' measured diameters and albedos |
+| T. Denk, [table of Saturn's irregular moons](https://tilmanndenk.de/outersaturnianmoons/); T. Denk et al., [*The irregular satellites of Saturn*](https://doi.org/10.2458/azu_uapress_9780816537075-ch020) (2018) | Saturn's irregular moons' sizes, shapes and rotation periods |
+| S. S. Sheppard, [moon tables](https://sites.google.com/carnegiescience.edu/sheppard/moons) (Carnegie Science) | Jupiter's and Neptune's irregular moons' sizes |
+| Minor Planet Center, [discovery circulars](https://minorplanetcenter.net/mpec/) (MPECs 2025-E153 to E155, 2026-F14, 2026-G68 to G75) | the newest Saturnian moons' absolute magnitudes |
+| C. C. Porco et al. 2003, [Cassini imaging at Jupiter](https://doi.org/10.1126/science.1079462); F. Pilcher et al. 2012, [Himalia's rotation](https://doi.org/10.1016/j.icarus.2012.03.021) | Himalia's shape and spin |
 | [astronomy-engine](https://github.com/cosinekitty/astronomy) (MIT) | positions outside 2000–2050, and the Galilean moons' fallback |
 | EGM2008 (NGA), via [GFZ ICGEM](https://icgem.gfz-potsdam.de/); GRAIL GL0660B (NASA/JPL), via the [PDS Geosciences Node](https://pds-geosciences.wustl.edu/missions/grail/default.htm) | the Earth's and the Moon's gravity fields |
 | [CelesTrak](https://celestrak.org/SpaceData/) (NOAA SWPC, GFZ) | space weather for the upper atmosphere's density; the Kp index for the auroras |
@@ -48,6 +53,7 @@ Every data source, map, font and library the app uses, with a link to where it c
 | NASA Ames Research Center, [Trajectory Browser](https://trajbrowser.arc.nasa.gov/) | transfer optima to compare against |
 | D. A. Vallado, P. Crawford, R. Hujsak and T. S. Kelso, [*Revisiting Spacetrack Report #3*](https://celestrak.org/publications/AIAA/2006-6753/) (AIAA 2006-6753): its verification set and TEME example | the SGP4 checks |
 | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/): the ISS (−125544) | the satellites' independent check |
+| [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/): spacecraft trajectories, each from its mission's navigation team (NASA, ESA, ISRO, KARI, MBRSC, JAXA) as Horizons credits them | the spacecraft beyond Earth orbit, 2026–2027 |
 | NASA SP-2000-4029, [*Apollo by the Numbers*](https://history.nasa.gov/SP-4029.pdf); SpaceX's [*Falcon User's Guide*](https://www.spacex.com/assets/media/falcon-users-guide-2025-05-09.pdf); Rocket Lab's [*Electron Payload User's Guide*](https://rocketlabusa.com/assets/Electron-Payload-User-Guide-7.0-v6.pdf); Crew Dragon Demo-1 webcast telemetry ([shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data), public domain) | the ROCKET tab's real launchers and their flights |
 
 **Fonts and software**

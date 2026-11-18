@@ -18,19 +18,27 @@
 // fraction of a second, and the reply timeout is left for a Worker that has
 // died. On this thread (no Worker, or after a fallback) a request still runs
 // to its end in one go, as Node's checks expect.
+//
+// The Worker loads its tables (deLoad.js, 3.2 MB) before its first answer,
+// and says when they are in ({ type: 'ready' }). Until then the wait is a
+// load, not a dead Worker, and has its own, longer timeout.
 
 import { createKernelHost } from './kernelHost.js';
 
 export class KernelClient {
   // budgetMs: the Worker's time per request. replyTimeoutMs: how long a
-  // Worker may stay silent with a request (and no aim) in flight before it
-  // is taken for dead; its first reply also waits for the DE442 table to
-  // load (kernel.worker.js). createWorker: makes the Worker (a stand-in in
-  // Node's checks); Vite bundles kernel.worker.js only from the literal
-  // new Worker(new URL(...)) below.
-  constructor({ useWorker = true, budgetMs = 200, replyTimeoutMs = 15000, createWorker = null } = {}) {
+  // Worker that has loaded its tables may stay silent with a request (and
+  // no aim) in flight before it is taken for dead, counted from its ready
+  // message at the earliest. loadTimeoutMs: how long the loading may take
+  // (a fetch that hangs), from the Worker's start. createWorker: makes the
+  // Worker (a stand-in in Node's checks); Vite bundles kernel.worker.js only
+  // from the literal new Worker(new URL(...)) below.
+  constructor({ useWorker = true, budgetMs = 200, replyTimeoutMs = 15000, loadTimeoutMs = 120000, createWorker = null } = {}) {
     this.busy = false;
     this.sentAt = 0;
+    this.startedAt = performance.now();
+    this.readyAt = null;         // when the Worker said its tables are in
+    this.loadTimeoutMs = loadTimeoutMs;
     this.budgetMs = budgetMs;
     this.replyTimeoutMs = replyTimeoutMs;
     this.inflight = new Map();
@@ -43,7 +51,12 @@ export class KernelClient {
     if (useWorker && (createWorker || typeof Worker !== 'undefined')) {
       try {
         this.worker = createWorker ? createWorker() : new Worker(new URL('./kernel.worker.js', import.meta.url), { type: 'module' });
-        this.worker.onmessage = (e) => (e.data && e.data.type === 'aimed' ? this.onAimed(e.data) : this.onReply(e.data));
+        this.worker.onmessage = (e) => {
+          const type = e.data && e.data.type;
+          if (type === 'ready') this.readyAt = performance.now();
+          else if (type === 'aimed') this.onAimed(e.data);
+          else this.onReply(e.data);
+        };
         this.worker.onerror = (e) => this.fallBack(`worker error: ${e.message || e}`);
         this.worker.onmessageerror = () => this.fallBack('worker reply could not be read');
         this.mode = 'worker';
@@ -77,7 +90,11 @@ export class KernelClient {
       // A Worker that never answers would otherwise freeze every craft. A
       // live one answers within its budget, so this is for a dead one (an
       // aim ahead of the step in its queue may take a while, so not then).
-      if (this.worker && !this.aiming.size && performance.now() - this.sentAt > this.replyTimeoutMs) {
+      const now = performance.now();
+      if (this.worker && this.readyAt === null) {
+        if (now - this.startedAt > this.loadTimeoutMs) this.fallBack(`worker tables not loaded in ${this.loadTimeoutMs / 1000} s`);
+        else return false;
+      } else if (this.worker && !this.aiming.size && now - Math.max(this.sentAt, this.readyAt) > this.replyTimeoutMs) {
         this.fallBack(`no reply in ${this.replyTimeoutMs} ms, the worker looks stuck`);
       } else {
         return false;
