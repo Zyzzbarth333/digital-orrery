@@ -156,6 +156,39 @@ export const TAG_INFO = {
     tex: [],
     source: 'the moon\'s JPL Horizons object page',
   },
+  // The Moon's landing sites (landingSites.js, landing-site-plate.tsx)
+  'site-landed': {
+    what: 'When the craft came down on the Moon, in UTC, as precisely as the source gives it: to the second for most, to the day or the month where that is all it gives. For a rover, when its lander landed.',
+    tex: [],
+    source: 'NASA NSSDCA\'s spacecraft pages; the LROC team\'s posts; NASA for Blue Ghost · docs/frontend/landing-sites.md',
+  },
+  'site-crew': {
+    what: 'The two astronauts who landed in the lunar module: the commander first, then the lunar module pilot. The third flew on in the command module, in orbit.',
+    tex: [],
+    source: 'NASA NSSDCA, the Apollo lunar modules\' spacecraft pages',
+  },
+  'site-coords': {
+    what: 'Where the craft is: planetocentric latitude and longitude in the Moon\'s mean-Earth/polar-axis frame, the frame of the LRO maps it is drawn on. Measured by the LROC team from Narrow Angle Camera images of the hardware, with the spacecraft\'s position from LOLA-corrected orbits and the GLD100 shape model for its height.',
+    tex: ['\hat{\mathbf n} = \cos\phi\cos\lambda\,\mathbf X + \cos\phi\sin\lambda\,\mathbf Y + \sin\phi\,\mathbf Z'],
+    where: 'φ latitude, λ east longitude; X, Y, Z the Moon\'s body axes now (to 0° longitude, 90° east and the north pole); drawn at 1,737.4 km, within 85 m of SPICE\'s MOON_ME',
+    source: 'Wagner et al., Icarus 283, 2017, and the LROC team\'s table of 28 July 2016; LROC\'s posts since · docs/frontend/landing-sites.md',
+  },
+  'site-estimate': {
+    what: 'Where the craft was thought to have come down at the time, from its tracking. It has not been found in LROC\'s images, so this may be kilometres out.',
+    tex: [],
+    source: 'NASA NSSDCA · docs/frontend/landing-sites.md',
+  },
+  'site-elevation': {
+    what: 'The ground\'s height at the craft, above a sphere of 1,737.4 km (the Moon\'s mean radius). The app draws the Moon as that sphere, its relief as shading, so the site is drawn at the sphere, not at this height.',
+    tex: ['h = r - 1737.4\ \text{km}'],
+    source: 'the LROC team (GLD100 and LOLA heights) · docs/frontend/landing-sites.md',
+  },
+  'site-sun': {
+    what: 'How high the Sun stands above the site\'s horizon now, from its centre: below zero, it is night there. A lunar day is 29.5 Earth days, so a site has about two weeks of each.',
+    tex: ['h_\odot = \arcsin\left(\hat{\mathbf n}\cdot\hat{\mathbf s}\right)'],
+    where: 'n̂ the site\'s vertical, ŝ the direction from the Moon to the Sun (DE442), both in J2000',
+    source: 'JPL DE442; the Moon\'s orientation (orientation.js) · docs/frontend/landing-sites.md',
+  },
   // The irregular moons (irregularMoons.js, irregular-moon-plate.tsx)
   'irr-position-table': {
     what: 'Where the moon is about its planet\'s centre in JPL\'s own integration of its orbit, with the Sun\'s and the planets\' pull: as its point is drawn.',
@@ -625,6 +658,19 @@ export const TAG_INFO = {
     tex: ['\\dot\\Omega = -\\frac{3}{2}\\,\\frac{\\sqrt{\\mu}\\,J_2 R^2}{(1-e^2)^2\\,a^{7/2}}\\cos i'],
     where: 'i: the orbit\'s inclination to the planet\'s equator; the rate scaled by the orbit flown ten turns in the J2 field (0.15 to 0.6 % faster at 400 km over Mars); the burn the cheapest single one from the circular orbit onto the way out',
     source: 'Curtis, 4th ed., §4.7, eq. 4.52 (Example 4.8) · docs/physics/journey.md#the-parking-orbits-plane',
+  },
+  // journey.js planeAt at the Moon, lunarPlane.js moonPlaneTrack
+  'journey-plane-moon': {
+    what: 'About the Moon J2 alone does not turn a low orbit\'s plane: the Moon\'s lumpy field and the Earth\'s pull do too. So the circular orbit\'s plane is flown through the stay, averaged over each turn: the field\'s even degrees at the orbit\'s pole, and the tides of the Earth and the Sun. Up to 30 days the capture is aimed for it; beyond, the plane is priced on the day, and the best day near it suggested.',
+    tex: ['\\frac{d\\hat{\\mathbf n}}{dt} = \\frac{1}{\\omega a^2}\\,\\hat{\\mathbf n}\\times\\nabla_{\\hat{\\mathbf n}}\\bar{U}', '\\bar{U}(\\hat{\\mathbf n}) = \\frac{\\mu}{a}\\sum_{n} P_n(0)\\left(\\frac{R}{a}\\right)^{n} \\sum_m \\bar{P}_{nm}(\\sin\\phi)\\,(C_{nm}\\cos m\\lambda + S_{nm}\\sin m\\lambda) - \\sum_{3} \\frac{\\mu_3 a^2}{4 d^3}\\left(3(\\hat{\\mathbf d}\\cdot\\hat{\\mathbf n})^2 - 1\\right)'],
+    where: 'n even; n̂: the orbit\'s normal, at latitude φ and longitude λ in the Moon\'s principal axes; GRAIL GL0660B to degree 30; the third bodies the Earth and the Sun; within a degree of the kernel\'s plane over 90 days 200 km up',
+    source: 'Tremaine, Touma & Namouni 2009, AJ 137, 3706, eq. 19 · Jackson, Classical Electrodynamics, 3rd ed., §3.6 · GRAIL GL0660B (Konopliv et al. 2013) · docs/physics/journey.md#the-plane-at-the-moon',
+  },
+  'journey-orbit-moon': {
+    what: 'A low lunar orbit does not stay circular: the field\'s odd degrees, the mascons near the equator above all, raise its eccentricity until the periapsis reaches the ground. Earth-to-Moon journeys arrive near the Moon\'s equator, where 100 km up it falls within weeks. So the orbit\'s mean eccentricity is flown through the stay on the plane\'s track, averaged over each turn, and the stay is flagged where it falls or its periapsis comes within 20 km of the ground.',
+    tex: ['\\frac{d\\mathbf e}{dt} = \\frac{1}{\\sqrt{\\mu a}}\\left(\\hat{\\mathbf n}\\times\\nabla_{\\mathbf e}\\bar{U} + \\mathbf e\\times\\nabla_{\\mathbf j}\\bar{U}\\right)', '\\nabla_{\\mathbf e}\\bar{U} = \\sum_{n} \\frac{(n-1)\\,P_n\'(0)}{n(n+1)}\\,\\nabla_S U_n(\\hat{\\mathbf n})'],
+    where: 'e: the eccentricity vector, its gradient at e = 0; n̂: the orbit\'s normal; n odd, from 3; U_n: the field\'s degree n on the circle\'s radius, its gradient over the sphere at n̂; GRAIL GL0660B to degree 50, J2\'s turn of the periapsis and the Earth\'s and the Sun\'s tides; falls within a day of the kernel\'s flights 100 km up',
+    source: 'Tremaine, Touma & Namouni 2009, AJ 137, 3706, eq. 16 · Jackson, Classical Electrodynamics, 3rd ed., §3.6 · GRAIL GL0660B (Konopliv et al. 2013) · docs/physics/journey.md#a-low-orbit-at-the-moon',
   },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',

@@ -7,10 +7,10 @@
 //                                  departure date from when it can first
 //                                  leave, each date's best flight time
 //   assess(journey, sol, opts)     the plotting table's lamps: window, phase,
-//                                  parking, wait, delta-v, no window, plane,
-//                                  miss, flyby
+//                                  parking, low orbit, wait, delta-v, no
+//                                  window, plane, miss, flyby
 
-import { solveJourney, solveLeg, legGeometry, bodyInfo, phaseOption, planeOption, planePricer, BROKEN_ALWAYS } from './journey.js';
+import { solveJourney, solveLeg, legGeometry, bodyInfo, phaseOption, planeOption, planePricer, BROKEN_ALWAYS, MOON_LOW_KM } from './journey.js';
 import { hohmannCircular } from './transfers.js';
 
 const DAY_MS = 86400e3;
@@ -137,6 +137,24 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
       const d = o.waitDays;
       lamps.push({ key: 'parking', level: 'caution', leg: L.index, text: `Leave ${name(L.from)} ${iso(o.ms)} for its orbit's plane: ${o.dv.toFixed(2)} km/s, not ${now.toFixed(2)} (${d === 0 ? 'the same day' : d > 0 ? `${d} d later` : `${-d} d earlier`}; ${off} as planned)`, bestMs: o.ms, waitDays: d });
     } else lamps.push({ key: 'parking', level: 'caution', leg: L.index, text: `Leaving ${name(L.from)}: ${off}, ${(pl.extraDv * 1000).toFixed(0)} m/s extra` });
+    break;
+  }
+
+  // Low orbit: a stay in lunar orbit whose eccentricity, raised by the
+  // field's odd degrees (journey.js moonStay), brings the orbit down within
+  // the stay (warn), or its mean periapsis within MOON_LOW_KM of the ground
+  // (caution). The first such stay.
+  for (const L of sol.legs) {
+    const o = L?.stayOrbit;
+    if (!o || (o.fallMs === null && o.lowKm >= MOON_LOW_KM)) continue;
+    const at = `${name(L.from)}: ${Math.round(o.altKm)} km up`, over = o.toDays < o.stayDays - 0.5 ? ` (its first ${Math.round(o.toDays)} d)` : '';
+    const higher = o.safeAltKm ? `orbit ${Math.round(o.safeAltKm)} km up` : 'orbit higher';
+    if (o.fallMs !== null) {
+      const d = Math.floor(o.fallDays);
+      lamps.push({ key: 'lowOrbit', level: 'warn', leg: L.index, text: `${at}, the field raises the orbit's eccentricity to ${o.eMax.toFixed(3)} and it falls ${d} d into the ${Math.round(o.stayDays)} d stay: stay under ${Math.max(0, d - 1)} d, or ${higher}`, bestMs: o.fallMs });
+    } else {
+      lamps.push({ key: 'lowOrbit', level: 'caution', leg: L.index, text: `${at}, the field raises the orbit's eccentricity to ${o.eMax.toFixed(3)}, its periapsis ${Math.round(o.lowKm)} km over the ground on ${iso(o.lowMs)}${over}; ${higher} for room` });
+    }
     break;
   }
 

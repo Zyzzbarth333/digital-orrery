@@ -22,8 +22,8 @@ import { MISSIONS as MISSION_DATA } from '../src/physics/missions.data.mjs';
 const JOURNEY = 'src/physics/journey.test.mjs';
 // The journey cases that fly for longest, in parts of their own (CASE 12's
 // three flights round the Sun, CASE 17's to Europa and Titan); the rest
-// together.
-const JOURNEY_PARTS = [['17'], ['12'], ['5'], ['15', '16', '8'], ['9', '10']];
+// together. CASE 21 takes CASE 20's flight, so they run in one part.
+const JOURNEY_PARTS = [['17'], ['12'], ['20', '21'], ['5'], ['15', '16', '8'], ['9', '10']];
 const MISSIONS = Object.keys(MISSION_DATA);
 
 const FILES = [
@@ -38,7 +38,7 @@ const FILES = [
   'src/physics/ork.test.mjs', 'src/physics/entry.test.mjs', 'src/physics/smallbodies.test.mjs',
   'src/physics/scintillation.test.mjs', 'src/physics/asteroids.test.mjs', 'src/physics/gravityGuides.test.mjs',
   'src/physics/gravityFlow.test.mjs', 'src/physics/magnetic.test.mjs', 'src/physics/aurora.test.mjs',
-  'src/physics/moons.test.mjs', 'src/physics/irregularMoons.test.mjs', 'src/physics/flyby.test.mjs',
+  'src/physics/moons.test.mjs', 'src/physics/landingSites.test.mjs', 'src/physics/irregularMoons.test.mjs', 'src/physics/flyby.test.mjs',
   'src/physics/kernelClient.test.mjs', 'src/physics/barycentres.test.mjs', 'src/physics/deTable.test.mjs',
   'src/physics/corona.test.mjs', 'src/physics/rings.test.mjs', 'src/physics/discs.test.mjs',
   'src/physics/satellites.test.mjs', 'src/physics/passes.test.mjs', 'src/physics/spacecraft.test.mjs',
@@ -49,7 +49,7 @@ const FILES = [
 // Seconds each took on its own (docs/performance.md), so the longest start
 // first and the short ones fill in around them; unlisted, a second.
 const SECONDS = {
-  [`${JOURNEY} 17`]: 58, [`${JOURNEY} 12`]: 58, 'src/physics/artemis1.validate.mjs': 43,
+  [`${JOURNEY} 17`]: 58, [`${JOURNEY} 12`]: 58, [`${JOURNEY} 20 21`]: 51, 'src/physics/artemis1.validate.mjs': 43,
   'src/physics/missions.validate.mjs messenger': 37, 'src/physics/artemis2.validate.mjs': 29,
   [`${JOURNEY} 5`]: 28, [`${JOURNEY} 15 16 8`]: 32, 'src/physics/entry.test.mjs': 24,
   'src/physics/missions.validate.mjs lro': 24, 'src/physics/attitude.test.mjs': 23,

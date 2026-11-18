@@ -141,6 +141,31 @@ export function lockHolders(locks, ino) {
   return out;
 }
 
+// The pids from pid up to init, from each /proc/<pid>/stat's parent field.
+// The command name in field 2 may hold spaces or brackets, so the fields
+// are read after its last ")".
+export function ancestry(pid, readStat = (p) => readText(`/proc/${p}/stat`)) {
+  const out = [];
+  for (let p = pid; p > 1 && out.length < 4096; ) {
+    out.push(p);
+    const stat = readStat(p);
+    const m = stat && /^\)\s+\S+\s+(\d+)/.exec(stat.slice(stat.lastIndexOf(')')));
+    if (!m) break;
+    p = Number(m[1]);
+  }
+  return out;
+}
+
+// The holder of the lock that is this process or one of its ancestors, if
+// any. A run started inside `flock gpu-bench.lock …` by hand would
+// otherwise wait for a lock its own parent holds, and never get it.
+function ancestorHolding() {
+  let holders;
+  try { holders = lockHolders(readText('/proc/locks'), statSync(LOCK).ino); } catch { return null; }
+  const mine = new Set(ancestry(process.pid));
+  return holders.find((p) => mine.has(p)) ?? null;
+}
+
 // Who holds the lock: one of these scripts by what it said it was, a run
 // wrapped in flock by hand by its folder and command line.
 function lockHolder() {
@@ -168,7 +193,10 @@ function lockHolder() {
 // memory available unless force. ORRERY_GPU_LOCK=0 skips the lock.
 export async function gpuLock({ log = (s) => console.error(s), force = false } = {}) {
   const none = { release: async () => {} };
-  const lock = process.env.ORRERY_GPU_LOCK === '0' ? none : await takeLock(log);
+  const skip = process.env.ORRERY_GPU_LOCK === '0';
+  const parent = skip ? null : ancestorHolding();
+  if (parent) log(`The GPU lock is already held by this run's own parent (pid ${parent}), so it goes on under that`);
+  const lock = skip || parent ? none : await takeLock(log);
   const cap = parseSize(browserMemory());
   const avail = memAvailable(readText('/proc/meminfo'));
   if (avail !== null && avail < cap + SPARE) {

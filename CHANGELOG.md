@@ -8,6 +8,7 @@ once it has releases. Until then, everything sits under Unreleased.
 
 ### The project
 - `npm test` takes 140 s instead of 551 s on a busy machine. It runs the check files four at a time, with the journey and mission validations in parts, and prints each file's output whole and in order. MESSENGER's blind replay stops a day past the Earth flyby, where it is already lost. Every check prints the same tolerance and value as before ([docs/performance.md](docs/performance.md#the-test-suite), this pull request).
+- A GPU benchmark or docs-clips run started inside `flock ~/.cache/digital-orrery/gpu-bench.lock …` no longer waits for ever on the lock its own wrapper holds: it sees the holder is its parent and goes on under it (this pull request).
 - A git worktree builds and tests without a `node_modules` of its own: `src/physics/sgp4.js` imports satellite.js by name, and a small Vite plugin keeps its WebAssembly build out of the bundles, which come out byte for byte as before (this pull request).
 - `npm run bench:frames` times the app's frames on the integrated and the discrete GPU, a build against main, and prints the table a pull request needs (this pull request).
 - The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
@@ -18,7 +19,10 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
-- A journey started from a craft's own state now takes a deep-space burn (or a broken plane) on its first leg when that leg runs nearly 180° round the Sun, as legs between bodies do, with the craft's own orbit as the plane. From a craft near the Earth to Mars, leaving on 18 Nov 2026, the leg cost 12.72 km/s direct and now 5.47; flown, its corrections fall from 687 to 112 m/s. The plane lamp and the leg's options show it (this pull request).
+- The plan now says when a low lunar orbit falls. The Moon's lumpy field raises a low orbit's eccentricity until its periapsis reaches the ground, quickest near the equator, where journeys from the Earth arrive: 100 km up, within weeks. The planner flies the orbit's mean eccentricity through the stay, averaged over each turn, and a new low-orbit lamp warns when it falls in the stay, how short a stay holds, and how high an orbit does; the leg's panel has an Orbit row. 75 days 100 km up, the plan has it fall on day 29.6 and the kernel's flight hits the Moon on day 29.3; 200 km up it holds (this pull request).
+- A flown journey's aims at a planet no longer cancel the planet's own pull. Each aim, flown without the planet, aims where the planned hyperbola would carry the craft by the arrival, not at the B-plane point, and the first measures the planet's pull up to the second with side runs. Corrections fall from 210 to 71 m/s on a year at Mars and home, from 1,131 to 460 on Galileo's route, and from 696 to 634 to Europa and home. Flybys now pass on the planned minute, where they came 40 minutes to an hour early (this pull request).
+- A stay of 30 to 120 days in lunar orbit now has its plane priced: the planner flies the orbit's plane through the stay in the Moon's whole gravity field and the Earth's and the Sun's pull, averaged over each turn, prices leaving out of it on the day, and suggests the day near it the plane holds the way out. The trims on the way in put the capture in the plan's plane. Before, the leg said "not priced" and charged the burn in the plane: after 75 days 200 km up, 831 m/s against the 908 flown; now 921, within 1.5 % (this pull request).
+- A journey started from a craft's own state now takes a deep-space burn (or a broken plane) on its first leg when that leg runs nearly 180° round the Sun, as legs between bodies do, with the craft's own orbit as the plane. From a craft near the Earth to Mars, leaving on 18 Nov 2026, the leg cost 12.72 km/s direct and now 5.47; flown, its corrections fall from 973 to 86 m/s. The plane lamp and the leg's options show it (this pull request).
 - Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 39 m/s an hour. The flight aims a swing-by that passes close to the planet early, before the pass (this pull request).
 - After a long stay in a planet's orbit, a flown journey now leaves for what the plan prices. The trims on the way in aim the parking orbit's node so it turns onto the plan's on the planned day, for under 1 m/s, and the planner prices the orbit's plane at the radius the capture flies, its mean radius. A year at Mars, the departure on the planned day was 3.5 % over the plan and is now 0.4 %; on the day the parking orbit lamp suggests, 4.3 % and now 0.2 %. The plan's estimate of the flight's wait for the plane now searches as the flight does (this pull request).
 - A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
@@ -138,6 +142,7 @@ once it has releases. Until then, everything sits under Unreleased.
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
   (#113).
+- Voyager 2's Uranus encounter is checked too, past Miranda and Uranus on 24 January 1986 against NAIF's reconstruction: 2.3 km off twelve hours on, and 0.30 km with the reconstruction's thruster firings put back. Craft near Uranus and Neptune now feel the fields those reconstructions were fitted with: Uranus's J2 to J6 and its five moons' GMs from URA182 (Oberon's 214.2 km³/s², not 205.3), Neptune's J2 to J6 and pole from nep097. Neptune's new pole takes Voyager 2 at Triton from 3.2 km off to 2.6 km; the J2 two sigma larger that had brought it to 1.6 km only made up for those firings (this pull request).
 - MESSENGER's cruise to Mercury, 2004 to 2011, flies in the app against
   JHU/APL's reconstruction (`?mission=messenger`): six flybys, every burn
   within 1.1 % and 1.7° of APL's record, and the sunlight it steered by
@@ -184,6 +189,7 @@ once it has releases. Until then, everything sits under Unreleased.
   and its rings, and Voyager 2 at Neptune and Triton (this pull request).
 
 ### The sky and its bodies
+- The Moon's landing sites, as a layer the rail's **Moon landings** section switches on: every soft landing from Luna 9 to Blue Ghost, where Lunokhod 1 and 2 and Yutu stopped, the landers that crashed and were found, and the early craft never found. Each is where the LROC team measured it in its images, to metres, and the rail flies to any one, framing it from low over the ground across the sunlight, the camera's up the site's own vertical. Its plate gives the mission, when it landed, the crew, the coordinates and their source, and the Sun's height there now. The sites are within 85 m of SPICE's MOON_ME (this pull request).
 - The planets' and moons' maps load GPU-compressed where the GPU can take
   them (KTX2 with Basis Universal, transcoded to BC7, ASTC or ETC2): a
   quarter of the video memory, so an 8k map takes 45 MB, not 179. Colour
@@ -249,7 +255,13 @@ once it has releases. Until then, everything sits under Unreleased.
   Ganymede's close inside Jupiter's field and open into it, and the Sun
   has field lines too, from the Wilcox Solar Observatory's model for the
   date's Carrington rotation: loops over the streamer belt and open lines
-  from the polar holes (this pull request).
+  from the polar holes (#118).
+- The Earth's magnetopause and bow shock are drawn for the solar wind
+  NOAA measured, when the clock is within the last week, and the Earth's
+  field lines end at the magnetopause. Jupiter's and Saturn's
+  magnetopauses and Jupiter's bow shock are drawn too. With the Sun
+  focused, its current sheet and Parker spiral reach out to 6 AU, in
+  amber and blue sectors (this pull request).
 - The gravity field of every body at once, as field lines flowing toward
   the masses in a plane through the focus: inertial, falling with the
   focus, less its own pull (Jupiter's moons' wells), or in the rotating
