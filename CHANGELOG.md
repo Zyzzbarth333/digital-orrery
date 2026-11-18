@@ -286,15 +286,27 @@ once it has releases. Until then, everything sits under Unreleased.
 - The Earth's sky costs less near the Earth: frames 40 % shorter on an
   integrated GPU with the Earth in view, and 23 % in low orbit at a day a
   second, with the same look (#122).
+- The Earth's air now scatters sunlight more than once, from Hillaire's
+  multiple-scattering table: the twilight band reaches further past the
+  terminator, bluer, the lit edge of a crescent Earth is bluer, and the
+  haze over the day side is a little stronger. While the clock is held and
+  the camera still (or only turning), the sky's table of view rays is no
+  longer marched again every frame (this pull request).
 - The faint belt's file is a quarter smaller, 17.4 MB instead of 23.1 MB,
   so the haze loads sooner on a slow link (this pull request).
 
 ### The console
+- The body rail keeps every planet in view at a laptop's height (1440×900, 1366×768): it scrolls as one, so no list in it is squashed to a row and its foot (keys, how it works, credits) is always reachable. On a phone the page no longer slides sideways (the guides row scrolls in its own strip, and opening the console no longer pans the app), and the sky keeps about 180 px when the data or the console is open, where it fell to about 20 px (this pull request).
 - Source tags open each value's equation and source, set in a bundled
   math font (#31, #36, #37). The app has an icon (#31).
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- A gravity field asked for past degree 85 no longer comes out wrong. At
+  degree 100 it was off by up to 0.07 % (Venus, 300 km up); now it is
+  within 7×10⁻¹⁵ of an independent oracle, over the Moon's pole too.
+  Mercury's and Venus's fields now go to degree 100, as the Moon's does,
+  and each call is 6 to 10 % faster (#140).
 - A craft's orbit line and flown trail run up to and through it from any
   distance. Followed from under a kilometre they used to stop a kilometre
   short, and from 10 km the orbit line passed about 500 m beside the craft
