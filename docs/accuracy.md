@@ -36,7 +36,7 @@ The following changes would push fidelity further, roughly in order of impact:
 - [ ] Add patched-conic sphere-of-influence transitions so trajectories hand off correctly between central bodies.
 - [x] Replace the fixed-step integrator with a higher-order integrator whose step follows the local dynamical time.
 - [x] Add error-controlled adaptive stepping, and a two-body fast path for weakly perturbed orbits: Dormand–Prince 5(4) for Cowell's method (#72), and Encke's method near a primary ([the n-body kernel](physics/nbody-kernel.md#integrators)).
-- [x] Validate propagated trajectories against flown missions: Artemis I and II against NASA's reconstructed trajectories, Juno's and Cassini's moon flybys against JPL's, and Juno's 2012–13 cruise and Earth flyby and DART's impact on Dimorphos against their navigators' ([validation](validation.md)).
+- [x] Validate propagated trajectories against flown missions: Artemis I and II against NASA's reconstructed trajectories, Juno's and Cassini's moon flybys against JPL's, and Juno's 2012–13 cruise and Earth flyby, DART's impact on Dimorphos and LRO's lunar capture against their navigators' ([validation](validation.md)).
 
 ## References
 

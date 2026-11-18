@@ -548,6 +548,20 @@ navigation reconstruction and final solution (through JPL Horizons). See
 | The impact, on the final solution | 23.6 m from Dimorphos's centre at 6.14478 km/s, the centre's closest point 14 ms after the impact (Daly et al.: 25 ± 1 m, 6.1449 ± 0.0003 km/s, 23:14:24.183 at the surface) |
 | The app's file (`public/missions/dart.json`), flown as the app flies it | aimed: 23 m from Dimorphos's centre, for 2.59 m/s more than the flown burns; blind, 180 km |
 
+## Real flight: LRO's lunar capture (`missions.validate.mjs`)
+
+LRO from 18 to 28 June 2009 against its final reconstruction (from the PDS,
+through JPL Horizons). See [LRO](validation/lro.md).
+
+| Check | Result |
+| --- | --- |
+| The mid-course correction and LOI-1 | 1.310 m/s (published 1.3); LOI-1 527.17 m/s, ending 10:26:30 UTC (published: completed 10:26:26, 40 minutes) |
+| LOI-2 to LOI-5, which the samples can't resolve, fitted steady | 104.8, 110.5, 94.9 and 35.7 m/s; each leaves 0.6–1.6 m/s half an hour on |
+| 6 coast arcs, 0.3–3.2 days | out to the Moon within 0.46 km; in lunar orbit 10–125 m with GRAIL to degree 50 (gravity alone: 6–10 km) |
+| The Moon's field, degree by degree, a day at 200 km | 4.2 km (J2), 1.48 (10), 0.074 (20), 0.020 (50), 0.020 km (100) |
+| The orbits | 207 by 3,082 km after LOI-1 (published 220 by 3,100); 34 by 199 km at the end (30 by 216) |
+| The app's file (`public/missions/lro.json`), with a fix every 6 h | 0.1 km off at the end, 25.5 km at worst (blind: 3,424 km) |
+
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 
 NASA's orbital check cases for 6-DOF simulations (NESC,
