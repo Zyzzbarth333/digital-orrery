@@ -25,6 +25,7 @@ export type MagneticKey = 'magnetic' | 'aurora' | 'belts';
 type Mag = typeof import('../physics/magnetic.js');
 type Aur = typeof import('../physics/aurora.js');
 type Belts = typeof import('../physics/belts.js');
+type RC = typeof import('../physics/ringCurrent.js');
 type Ovation = ReturnType<typeof import('../physics/ovation.js')['parseOvation']>;
 type Model = NonNullable<ReturnType<Mag['magneticModel']>>;
 type V3 = [number, number, number];
@@ -274,8 +275,8 @@ export class MagneticLayer {
   set(key: MagneticKey, on: boolean): void {
     this.on[key] = on;
     if (on && !this.loading) {
-      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js'), import('../physics/ovation.js')])
-        .then(([m, a, b, o]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; });
+      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js'), import('../physics/ovation.js'), import('../physics/ringCurrent.js')])
+        .then(([m, a, b, o, r]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; this.rc = r; });
     }
     if (key === 'aurora' && on && !this.kpLoaded) {
       this.kpLoaded = true;
@@ -290,7 +291,7 @@ export class MagneticLayer {
   }): void {
     this.tagCount = 0;
     const any = this.on.magnetic || this.on.aurora || this.on.belts;
-    if (!any || !this.mag || !this.aur || !this.belts || !this.ov) {
+    if (!any || !this.mag || !this.aur || !this.belts || !this.ov || !this.rc) {
       for (const g of this.groups.values()) g.visible = false;
       this.legend.hidden = true; this.legendFor = null;
       this.hideTags();
@@ -323,6 +324,12 @@ export class MagneticLayer {
           this.drop(k);
           this.ambient = amb;
         }
+      }
+      // Saturn's ring current is tabulated first (a third of a second, a few
+      // milliseconds a frame); its lines are traced through it.
+      if (k === 'saturn' && !this.lines.has(k)) {
+        this.rcTable ??= this.rc!.ringCurrentTable();
+        if (!this.rcTable.done && !this.rcTable.step(Math.max(0.5, spare()))) continue;
       }
       let L = this.lines.get(k);
       if (!L) L = this.start(k, f.date);
@@ -400,6 +407,8 @@ export class MagneticLayer {
   // ---- field lines ----
 
   private ambient: V3 | null = null;
+  private rc: RC | null = null;
+  private rcTable: ReturnType<RC['ringCurrentTable']> | null = null;
   // Jupiter's field (JRM33 + con2020) at a moon's place, in the moon's frame (nT).
   private jupiterFieldAt(moon: THREE.Mesh, meshes: Map<BodyKey, THREE.Mesh>, mats: Map<BodyKey, THREE.ShaderMaterial>, moonMat: THREE.ShaderMaterial): V3 | null {
     const jm = meshes.get('jupiter'), jmat = mats.get('jupiter');
@@ -415,6 +424,7 @@ export class MagneticLayer {
     const mag = this.mag!;
     let model = mag.magneticModel(k, date)!;
     if (k === 'ganymede' && this.ambient) model = mag.withAmbient(model, this.ambient);
+    if (k === 'saturn' && this.rcTable?.done) model = mag.withField(model, this.rcTable.field, 'with the Connerney et al. 1983 ring current');
     const [ra, , rc] = BODY_BY_KEY[k].radiiKm;
     const surface = { eq: ra / model.a, pol: rc / model.a };
     const lats = SEEDS[k];

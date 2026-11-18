@@ -16,11 +16,12 @@
 import fs from 'node:fs';
 import {
   harmonicField, northEastDown, igrfCoeffs, igrfGeodetic, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
-  eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002, withAmbient, vacuumOcbColatitude,
+  eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002, withAmbient, vacuumOcbColatitude, withField,
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
 import { radialFieldGrid, encodeBr, decodeBr } from './marsCrustal.js';
+import { SATURN_RC, ellipticKE, loopField, loopSumField, ringCurrentTable, totalCurrentMA, discMoment } from './ringCurrent.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -224,6 +225,56 @@ check(S.dipole.tilt === 0, `Cassini 11 dipole tilt ${S.dipole.tilt} deg (Cao et 
 // "the magnetic equator ... shifted northward ... ~2300 km (0.0382 R_S)":
 // the quadrupole's eccentric dipole sits that far north.
 check(Math.abs(S.dipole.centre[2] * 60268 - 2300) < 150, `Cassini 11 eccentric dipole ${(S.dipole.centre[2] * 60268).toFixed(0)} km north of the centre (Cao et al.: the magnetic equator about 2300 km north)`);
+// ---- Saturn's ring current ----
+console.log("Saturn's ring current (Connerney et al. 1983, as Bunce and Cowley 2003 give it)");
+{
+  // Elliptic integrals: K(1/2) = 1.8540746773, E(1/2) = 1.3506438810 (Abramowitz and Stegun, table 17.1).
+  const [K, E] = ellipticKE(0.5);
+  check(Math.abs(K - 1.8540746773) < 1e-9 && Math.abs(E - 1.3506438810) < 1e-9, `K(1/2) ${K.toFixed(10)}, E(1/2) ${E.toFixed(10)}`);
+  // A loop's field on its axis: mu0 I a^2 / 2 (a^2 + z^2)^(3/2).
+  const o = loopField(2, 10, 0, 1.5, [0, 0]);
+  check(Math.abs(o[1] - (10 * 4) / (2 * Math.pow(4 + 2.25, 1.5))) < 1e-12, `a loop's on-axis field ${o[1].toFixed(6)} nT, as the closed form`);
+  // mu0 I0 = 60.4 nT over 8-15.5 R_S and +-3 R_S is the 11.5 MA quoted for Voyager's ring current.
+  const I = totalCurrentMA(SATURN_RC, 60268);
+  check(Math.abs(I - 11.5) < 0.05, `total current ${I.toFixed(2)} MA (11.5 MA)`);
+  // The table against the direct sum, inside, on and beside the disc.
+  const T = ringCurrentTable();
+  T.step();
+  let worst = 0;
+  for (const [x, z] of [[4, 0], [10, 0], [10, 2.9], [12, 4.1], [20, 0], [5, 8], [14, -1.3], [18, 10]]) {
+    const d = loopSumField(SATURN_RC, x, z), f = T.field(x, 0, z, [0, 0, 0]);
+    worst = Math.max(worst, Math.abs(f[0] - d[0]), Math.abs(f[2] - d[1]));
+  }
+  check(worst < 0.3, `the tabulated field within ${worst.toFixed(3)} nT of the direct loop sum`);
+  // On the axis, the disc's field is the integral of loops' on-axis fields:
+  // the same physics by a different route (fine midpoint quadrature).
+  {
+    let bz = 0;
+    const n = 400;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const r = SATURN_RC.a + ((i + 0.5) * (SATURN_RC.b - SATURN_RC.a)) / n, zp = -SATURN_RC.D + ((j + 0.5) * 2 * SATURN_RC.D) / n;
+      const dI = (SATURN_RC.mu0I0 / r) * ((SATURN_RC.b - SATURN_RC.a) / n) * ((2 * SATURN_RC.D) / n);
+      bz += (dI * r * r) / (2 * Math.pow(r * r + (0 - zp) ** 2, 1.5));
+    }
+    const f = T.field(0.01, 0, 0, [0, 0, 0]);
+    check(Math.abs(f[2] - bz) < 0.05, `at the centre the disc gives ${f[2].toFixed(3)} nT northward; the on-axis integral ${bz.toFixed(3)}`);
+  }
+  // Far away it is a dipole of mu0 I0 2D (b^2 - a^2) / 8.
+  {
+    // (the disc's higher terms fall as (15.5 / r)^2: a few per cent at 60 R_S, under 1 % at 200)
+    const md = discMoment(SATURN_RC), d = loopSumField(SATURN_RC, 200, 0);
+    check(Math.abs(d[1] / (-md / 8e6) - 1) < 0.01, `at 200 R_S the disc is a dipole of ${md.toFixed(0)} nT R_S^3 (${(d[1] * 1e3).toFixed(4)} pT against ${(-md / 8e3).toFixed(4)})`);
+  }
+  // It stretches Saturn's outer field lines: the line from 76 deg, which
+  // reaches the ring, crosses the equator farther out.
+  {
+    const S = magneticModel('saturn'), SR = withField(S, T.field, 'ring current'), surf = { eq: 1, pol: 54364 / 60268 };
+    const apex = (m) => { const t = traceLine(m, [Math.cos(76 * DEG) * 1.001, 0, Math.sin(76 * DEG) * 0.903], surf); let r = 0; for (let i = 0; i < t.strength.length; i++) r = Math.max(r, Math.hypot(t.points[3 * i], t.points[3 * i + 1])); return r; };
+    const a0 = apex(S), a1 = apex(SR);
+    check(a1 > a0 * 1.1, `the field line from 76 N crosses the equator at ${a1.toFixed(2)} R_S with the ring current, ${a0.toFixed(2)} without`);
+  }
+}
+
 // ---- Uranus and Neptune: Voyager's offset tilted dipoles ----
 console.log('Uranus and Neptune: Voyager 2 (Ness et al. 1986, 1989)');
 for (const [k, want] of [['uranus', { M: 0.230, tilt: 60, off: 0.310 }], ['neptune', { M: 0.133, tilt: 46.8, off: 0.55 }]]) {

@@ -244,6 +244,13 @@ export function withAmbient(model, B0) {
     field(x, y, z, out) { f(x, y, z, out); out[0] += B0[0]; out[1] += B0[1]; out[2] += B0[2]; return out; } };
 }
 
+// A model with another source's field added (Saturn's ring current).
+export function withField(model, extra, source) {
+  const f = model.field, t = [0, 0, 0];
+  return { ...model, source: `${model.source}, ${source}`,
+    field(x, y, z, out) { f(x, y, z, out); extra(x, y, z, t); out[0] += t[0]; out[1] += t[1]; out[2] += t[2]; return out; } };
+}
+
 // For a dipole of equatorial surface field M with a uniform field B0 along
 // its axis, opposing the dipole's own field at the magnetic equator: the
 // neutral point sits at r_n = (M / B0)^(1/3), and the flux function
