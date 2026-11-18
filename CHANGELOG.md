@@ -49,7 +49,10 @@ once it has releases. Until then, everything sits under Unreleased.
   the day near the planned one when the plane holds the way out. After a
   year at Mars the plan's price for the departure is within 5 % of the
   flight's, and the flight's wait for the plane within a day. The Moon is
-  not priced: J2 alone does not turn a lunar orbit (this pull request).
+  not priced: J2 alone does not turn a lunar orbit (#94). At Jupiter and
+  the other giants the node's rate takes their zonal terms beyond J2 as the
+  kernel does (to J12 for Jupiter, 2.5 % faster than J2 alone 1.5 radii
+  out); since #98 it had fallen back to J2 alone (this pull request).
 - Journeys are flown in the full model, with the Earth's and the Moon's
   gravity fields (mascons included), drag and sunlight, and their craft
   no longer flies bare: a Moon landing comes down on its site. The bare

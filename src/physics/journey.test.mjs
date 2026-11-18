@@ -691,6 +691,44 @@ header("CASE 13: the parking orbit's plane over a stay (Curtis Sec. 4.7)");
   });
   for (const q of res) console.log(`  from ${q.u0} deg past the node: kernel ${(q.kernel * DAY / deg).toFixed(4)} deg/d, eq. (4.52) ${(q.first * DAY / deg).toFixed(4)} (${((q.kernel / q.first - 1) * 100).toFixed(2)} % off), flown in the J2 field ${(q.flown * DAY / deg).toFixed(4)} (${((q.flown / q.kernel - 1) * 100).toFixed(2)} % off)`);
   check('eq. (4.52) within 1 % of the kernel\'s node 400 km over Mars; the rate flown in the J2 field within 0.25 %', res.every((q) => rel(q.first, q.kernel) < 0.01 && rel(q.flown, q.kernel) < 0.0025));
+  // At Jupiter the kernel's field goes on to J12 (bodies.js ZONAL jn), and
+  // J4 and J6 turn the node too: 1.5 Jupiter radii out, 30 deg to its
+  // equator, with its moons, flown three days. The kernel's node is
+  // averaged over a whole turn at each end, so the terms within a turn
+  // cancel. The plan's rate, flown in the same zonal field, within 0.25 %;
+  // flown in J2 alone it is 2.5 % slow.
+  {
+    const jsys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS, keys: ['jupiter'] }), jms = D('2030-01-01T00:00:00Z'), jt0 = kernelSeconds(new Date(jms));
+    const Jc = (t) => { const b = jsys.bodyAt('jupiter', t), v = [0, 0, 0]; b.eph.velocity(t, v); return { r: b.r.slice(), v, mu: b.mu }; };
+    const zj = ZONAL.jupiter, J0 = Jc(jt0), jmu = J0.mu, ja = 1.5 * zj.rJ2, ji = 30 * deg, jvc = Math.sqrt(jmu / ja);
+    const jp = bodyAxesEqj('jupiter', new Date(jms))[2], f1 = un(cr(jp, [0, 0, 1])), f2 = cr(jp, f1), fq = f2.map((x, i) => Math.cos(ji) * x + Math.sin(ji) * jp[i]);
+    const jr = f1.map((x) => ja * x), jv = fq.map((x) => jvc * x);
+    const jnode = (r, v) => { const q = cr(jp, cr(r, v)); return Math.atan2(dt(q, f2), dt(q, f1)); };
+    const T = 2 * Math.PI * Math.sqrt(ja ** 3 / jmu), N = 24;
+    let st = { r: jr.map((x, i) => x + J0.r[i]), v: jv.map((x, i) => x + J0.v[i]), t: jt0 };
+    const go = (tEnd) => { const q = stepCraft(jsys, { id: 0, version: 0, r: st.r, v: st.v, t: st.t, tEnd, primary: null, burns: [], maxSteps: 5e6 }); st = { r: q.r, v: q.v, t: q.t }; };
+    const turn = () => { const xs = []; for (let k = 0; k < N; k++) { const B = Jc(st.t); xs.push(jnode(st.r.map((x, i) => x - B.r[i]), st.v.map((x, i) => x - B.v[i]))); go(st.t + T / N); } for (let k = 1; k < N; k++) xs[k] -= 2 * Math.PI * Math.round((xs[k] - xs[k - 1]) / (2 * Math.PI)); return xs.reduce((a, b) => a + b, 0) / N; };
+    const mA = turn(), tA = jt0 + (T * (N - 1)) / N / 2;
+    go(jt0 + 3 * DAY);
+    const tB = st.t + (T * (N - 1)) / N / 2;
+    let mB = turn();
+    const first = PP.nodeRate(jmu, zj.j2, zj.rJ2, ja, 0, ji);
+    mB += 2 * Math.PI * Math.round((first * (tB - tA) - (mB - mA)) / (2 * Math.PI));
+    const kernel = (mB - mA) / (tB - tA);
+    const full = PP.flownNodeRate({ mu: jmu, j2: zj.j2, jn: zj.jn, R: zj.rJ2, pole: jp, r: jr, v: jv }).rate, j2only = PP.flownNodeRate({ mu: jmu, j2: zj.j2, R: zj.rJ2, pole: jp, r: jr, v: jv }).rate;
+    console.log(`  Jupiter, 1.5 radii out at 30 deg: kernel ${(kernel * DAY / deg).toFixed(4)} deg/d; flown in its zonal field ${(full * DAY / deg).toFixed(4)} (${((full / kernel - 1) * 100).toFixed(2)} % off); in J2 alone ${(j2only * DAY / deg).toFixed(4)} (${((j2only / kernel - 1) * 100).toFixed(2)} %)`);
+    check('at Jupiter the node\'s rate is flown in the kernel\'s zonal field (to J12): within 0.25 % of the kernel\'s, where J2 alone is more than 1.5 % off', rel(full, kernel) < 0.0025 && rel(j2only, kernel) > 0.015);
+    // And the planner flies it in that field: a stay in a low Jupiter orbit
+    // (36,000 km up) priced with ZONAL's terms beyond J2, and without them.
+    const jt = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2030-01-01T00:00:00Z') }, waypoints: [
+      { id: 1, body: 'jupiter', kind: 'orbit', altKm: 36000, stayDays: 100, dateMs: D('2032-09-01T00:00:00Z') }, { id: 2, body: 'earth', kind: 'land', altKm: 120, dateMs: D('2035-09-01T00:00:00Z') }] };
+    const withJn = J.solveJourney(jt).legs[1].plane, jn = zj.jn;
+    let noJn;
+    try { delete zj.jn; noJn = J.solveJourney(jt).legs[1].plane; } finally { zj.jn = jn; }
+    const fr = (q) => q.rateDegDay / q.firstOrderDegDay;
+    console.log(`  a stay 36,000 km over Jupiter, the plan's node against eq. (4.52): x${fr(withJn).toFixed(4)} in its zonal field, x${fr(noJn).toFixed(4)} in J2 alone`);
+    check('the planner\'s node at Jupiter takes the field beyond J2 (more than 2 % faster than in J2 alone)', withJn.priced && fr(withJn) > fr(noJn) + 0.02);
+  }
 
   // Where it is priced. A stay of up to 30 days: the capture is aimed for
   // it (journeyFlight.js stayTurned), no extra; at the Moon beyond that, not

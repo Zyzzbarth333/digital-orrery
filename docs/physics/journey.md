@@ -311,8 +311,9 @@ plane may no longer hold the way out. `parkingPlane.js` and
   the kernel's node turns 0.15 to 0.6 % faster than eq. (4.52), and over a
   year that is 5 to 20° of node. So `flownNodeRate` flies the capture's
   orbit for ten turns in the planet's zonal field as the kernel has it
-  (`zonal.js` `addJ2`: J2, eq. (10.30) [1], and J4 for the giant planets,
-  which turns the node too; RK4, 240 steps a turn, about 10 ms). It reads
+  (`zonal.js` `addJ2`: J2, eq. (10.30) [1], and the giant planets' terms
+  beyond it as `bodies.js` `ZONAL` holds them, J4 and Jupiter's J6 to J12,
+  which turn the node too; RK4, 240 steps a turn, about 10 ms). It reads
   the node where the orbit crosses the equator going north, so the terms
   that come and go within a turn cancel. The plan's rate is eq. (4.52)
   scaled by that flight's rate over its own.
@@ -913,6 +914,8 @@ orbits, waits 454 days.
 | The same, leaving on the parking orbit lamp's day (6.5 d later) | the plan (on time, 5 %) | leaves 1 h late, 2,086 m/s against 2,008 (3.9 %); Mars 0.6 km, Earth 24 km |
 | The node's J2 regression, 280 by 400 km at 51.43° | Curtis Ex 4.8, eq. (4.52) | −1.0465 × 10⁻⁶ rad/s, 5.181° a day west |
 | The node 400 km over Mars at 150.6°, ten days in the kernel, from the node and 90° past it | the kernel | eq. (4.52) 0.58 and 0.15 % slow (within 1 %); flown ten turns in the J2 field, 0.06 and 0.04 % (within 0.25 %) |
+| The node 1.5 Jupiter radii out at 30°, three days in the kernel (its field to J12, its moons), averaged over a turn at each end | the kernel | flown in the same zonal field, 0.03 % (within 0.25 %); in J2 alone, 2.5 % slow |
+| A stay 36,000 km over Jupiter, priced with and without the terms beyond J2 | the plan's own rate | ×1.076 of eq. (4.52) in the full field, ×1.026 in J2 alone: the planner takes the field |
 | The burn from a circular orbit 400 km over Mars onto 2.48 km/s, 0 to 45° out of its plane | Curtis eq. (8.42); a scan of 7,200 points; burning at the planes' node | 2,000.4 m/s in the plane (eq. (8.42) to 1 mm/s); 2,057, 2,420, 2,931, 4,044 m/s at 5, 15, 25, 45°, the scan to 0.1 m/s, never over the node bound |
 | Where the plane is priced | the rules above | a month at Mars and 3 d at the Moon held; 40 d at the Moon and 30,000 km over Mars not priced, and why |
 | The strip leaving Mars after a year, and the parking orbit lamp | the leg solved there | every 2 days, each point with its plane; the lamp at the day the profile names |
