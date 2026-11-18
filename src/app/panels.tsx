@@ -25,6 +25,7 @@ import { SmallBodySearch, type SmallSearch } from './small-body-search';
 import type { Named } from '../scene/smallBodies';
 import { IrregularMoonPlate } from './irregular-moon-plate';
 import { IRREGULAR_MOONS, IRREGULAR_PLANETS, type IrregularMoon } from '../scene/irregularMoons';
+import { LANDING_SITES, type LandingSite } from '../physics/landingSites.js';
 import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
 import type { GuideKey } from '../scene/guides';
@@ -232,6 +233,41 @@ function IrregularMoonsRail({ on, onToggle, current, onFly }: IrregularRail) {
   );
 }
 
+// The Moon's landing sites (src/scene/landingSites.ts): a layer to show or
+// hide, off by default, and each site to fly to, in the order they landed.
+export interface SitesRail { on: boolean; onToggle: (on: boolean) => void; current: string | null; onFly: (key: string) => void }
+const SITE_ERAS: [string, (s: LandingSite) => boolean][] = [
+  ['1959–1976', (s) => s.landed < '1977'], ['Since 2013', (s) => s.landed >= '1977'],
+];
+function LandingSitesRail({ on, onToggle, current, onFly }: SitesRail) {
+  return (
+    <>
+      <h2 className="strip split"><span>Moon landings</span><span title="shown">On</span></h2>
+      <ul className="body-list small-bodies">
+        <li>
+          <button className="body-row" role="switch" aria-checked={on} onClick={() => onToggle(!on)}
+            title={`${LANDING_SITES.length} places on the Moon where spacecraft came down, from Luna 2 to RESILIENCE: shown near the Moon, from LROC's measured coordinates`}>
+            <span className="lamp-sq" style={{ background: on ? 'var(--phosphor)' : 'transparent', borderColor: 'var(--phosphor)' }} />
+            <span>Landing sites</span>
+            <span className="dist">{on ? 'on' : 'off'}</span>
+          </button>
+        </li>
+      </ul>
+      <label className="sb-pick">
+        <span className="engraved">Fly to</span>
+        <select className="input select" value={current ?? ''} onChange={(e) => { if (e.target.value) onFly(e.target.value); }}>
+          <option value="">a landing site…</option>
+          {SITE_ERAS.map(([era, inEra]) => (
+            <optgroup key={era} label={era}>
+              {LANDING_SITES.filter(inEra).map((s) => <option key={s.key} value={s.key}>{s.name} ({s.landed.slice(0, 4)}){s.kind === 'crash' || s.impact ? ', crashed' : s.kind === 'estimate' ? ', not found' : ''}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
+
 // The small-body populations the rail can show or hide (src/scene/smallBodies.ts).
 // The named small bodies' kinds, in the rail's list order.
 const SMALL_KINDS: [string, string][] = [
@@ -264,7 +300,7 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, satellites, irregular, flow, onFlow }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, satellites, irregular, sites, flow, onFlow }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -386,6 +422,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
         </>
       )}
       {irregular && <IrregularMoonsRail {...irregular} />}
+      {sites && <LandingSitesRail {...sites} />}
       {satellites}
       {guides && onGuides && (
         <>

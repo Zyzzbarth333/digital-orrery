@@ -68,3 +68,12 @@ add_executable(sb_cheb sb_cheb.c)
 target_include_directories(sb_cheb PRIVATE "${CSPICE_ROOT}/include")
 target_link_libraries(sb_cheb PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
 target_compile_options(sb_cheb PRIVATE -O2 -Wall -Wextra)
+
+# Ten of the Moon's landing sites in J2000 from MOON_ME, for
+# src/physics/landingSites.test.mjs (docs/frontend/landing-sites.md).
+add_executable(landing_sites_ref landing_sites_ref.c)
+target_include_directories(landing_sites_ref PRIVATE "${CSPICE_ROOT}/include")
+target_link_libraries(landing_sites_ref PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
+target_compile_options(landing_sites_ref PRIVATE -O2 -Wall -Wextra)
+target_compile_definitions(landing_sites_ref PRIVATE
+  ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")

@@ -72,6 +72,22 @@ used in any fit; the full tables, per moon, are in
 | body-frame pole (`bodyAxesEqj`, pck00011), Phobos, Io, Rhea, Ariel, Titania, Triton, Charon | WGCCRE 2015 poles, constant terms only (Triton's precessing series in full), 14 Nov 2026 | within 1.07° (Phobos, whose periodic terms the check leaves out), Triton 0.00°; right-handed |
 | moon surface maps, longitude and latitude (by eye, not in the test) | named features at their gazetteer positions, against their mirror images ([textures](frontend/textures.md#the-moons-maps)) | all 14 east-positive with the west edge at −180°, none flipped |
 
+## The Moon's landing sites (`landingSites.test.mjs`)
+
+Ten sites' published coordinates on the 1,737.4 km sphere, turned into
+J2000 by the app's lunar orientation (`bodyAxesEqj('moon')`), against
+CSPICE turning the same points out of MOON_ME
+(`fixtures/landing_sites_spice.json`, from `c/landing_sites_ref.c`), at
+Apollo 11's landing, J2000, Chang'e 4's landing and 18 Nov 2026
+([landing sites](frontend/landing-sites.md#how-right-they-are)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the sites in J2000: Apollo 11, 12, 15, 17, Surveyor 7, Luna 17, Chang'e 4 and 6 (far side), Chandrayaan-3, IM-2 (5° from the south pole) | CSPICE `latrec_c`, `pxform_c` MOON_ME → J2000 (`moon_pa_de440`) | worst 85 m (Surveyor 7 and Apollo 11), tolerance 250 m |
+| the body-fixed point | `latrec_c` | 10⁻¹² km |
+| the coordinates, typed separately in the C program | LROC's table and posts | the same |
+| the 38 sites | the table's own sanity | each sourced and dated, in landing order |
+
 ## Irregular moons (`irregularMoons.test.mjs`)
 
 The 381 irregular moons of Jupiter, Saturn and Neptune about their

@@ -823,6 +823,26 @@ details.section[open] > summary::after { content: '−'; }
   .go-row { grid-template-columns: 96px 76px minmax(0, 1fr); }
 }
 
+/* The Moon's landing sites (src/scene/landingSites.ts): a small upright
+   triangle standing on its point of ground, amber for a crew, pale for a
+   robot; smaller for where a rover stopped; struck through where a craft
+   crashed; a dashed ring where it was never found, dashed as a worked-out
+   value's tag is. */
+.body-marker.site { --site: rgba(236, 217, 176, 0.85); }
+.body-marker.site.crewed { --site: var(--phosphor); }
+.body-marker.site .dot { position: relative; width: 0; height: 0; border: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 7px solid var(--site); margin-top: 1px; }
+.body-marker.site.rover .dot { border-left-width: 3px; border-right-width: 3px; border-bottom-width: 5px; margin: 2px 1px 0; }
+.body-marker.site.crash .dot { width: 8px; height: 8px; border: 0; margin: 0; }
+.body-marker.site.crash .dot::before, .body-marker.site.crash .dot::after { content: ''; position: absolute; left: -1px; right: -1px; top: 3px; height: 1.5px; background: var(--site); transform: rotate(45deg); }
+.body-marker.site.crash .dot::after { transform: rotate(-45deg); }
+.body-marker.site.estimate .dot { width: 8px; height: 8px; border: 1px dashed var(--site); border-radius: 50%; margin: 0; }
+.body-marker.site .name { font-size: 10px; opacity: 0.85; }
+.body-marker.site.crewed .name { color: var(--phosphor); opacity: 1; }
+.body-marker.site.focused .dot { filter: drop-shadow(0 0 4px rgba(255, 178, 46, 0.8)); }
+.body-marker.site.focused .name { opacity: 1; color: var(--phosphor); }
+.plate-notes a { color: var(--ink); text-decoration-color: var(--seam-strong); }
+.plate-notes a:hover { color: var(--engrave); }
+
 /* Earth satellites (src/scene/satellites.ts): a small square with a bar
    through it for its panels, in its group's colour; dimmer in the Earth's
    shadow. The rail's source line and the Latest key under the search. */

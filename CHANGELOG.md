@@ -161,6 +161,7 @@ once it has releases. Until then, everything sits under Unreleased.
   and its rings, and Voyager 2 at Neptune and Triton (this pull request).
 
 ### The sky and its bodies
+- The Moon's landing sites, as a layer the rail's **Moon landings** section switches on: every soft landing from Luna 9 to Blue Ghost, where Lunokhod 1 and 2 and Yutu stopped, the landers that crashed and were found, and the early craft never found. Each is where the LROC team measured it in its images, to metres, and the rail flies to any one, framing it from low over the ground across the sunlight, the camera's up the site's own vertical. Its plate gives the mission, when it landed, the crew, the coordinates and their source, and the Sun's height there now. The sites are within 85 m of SPICE's MOON_ME (this pull request).
 - The planets' and moons' maps load GPU-compressed where the GPU can take
   them (KTX2 with Basis Universal, transcoded to BC7, ASTC or ETC2): a
   quarter of the video memory, so an 8k map takes 45 MB, not 179. Colour
