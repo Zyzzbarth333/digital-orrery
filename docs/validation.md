@@ -191,9 +191,9 @@ What this shows:
   $C_{22}$ ([kernel](physics/nbody-kernel.md#the-moons-own-fields)) moved the
   last row by 0.18 km (measured with the fixed-step integrator). At 1.4 Ganymede radii the field is
   $10^{-4}$ of Ganymede's pull.
-- **Jupiter's $J_4$ plays no part.** The kernel carries it
-  ($-586.6085\times10^{-6}$, from Juno's gravity science [2]); without it
-  the last row moves by 1 m, since Juno stays beyond 7.7 Jupiter radii.
+- **Jupiter's field beyond $J_2$ plays no part.** The kernel carries it to
+  $J_{12}$ (from Juno's gravity science [2]); without it the last row
+  moves by 1 m, since Juno stays beyond 7.7 Jupiter radii.
 - **Events behave.** The primary goes from Jupiter to Ganymede at its
   24,500 km sphere of influence and back.
 
@@ -201,49 +201,65 @@ What this shows:
 
 On its 57th perijove, on 30 December 2023, Juno flew 1,496 km over Io
 (closest approach 08:37:10 TDB, 3,317.1 km from the centre) at 30.09 km/s.
-Io's $J_2$ is 14 times Ganymede's, so its field matters here: at 1.8 Io
-radii its $J_2$ and $C_{22}$ are about $10^{-3}$ of its pull.
+Four hours later it passed 1.016 Jupiter radii from Jupiter's centre
+(12:40 TDB) at 59 km/s. The span flown tests both: Io's field, and
+Jupiter's.
 
 - **Reference:** Horizons vectors [1] (`fixtures/flyby_juno_io.json`), the
-  same reconstruction, from 02:30 to 09:40 TDB: six hours in and an hour
-  out. The span ends three hours before the perijove (12:40 TDB), where
-  Jupiter's higher harmonics take over; Juno is 11.4 to 4.7 Jupiter radii
-  out over it.
+  same reconstruction, from 02:30 to 14:40 TDB: six hours in to Io, then
+  on through the perijove and two hours out.
 - **Method and runs:** as at Ganymede, with Io where Juno's track has it
   (Horizons' Io is 9.8 km from that one, much as its Ganymede is 11 km
-  from Juno's). Beside it, the same run without Io's $J_2$ and $C_{22}$,
-  without Jupiter's $J_4$ [2], with the kernel's $J_4$ off and the same
-  term added as an outside force (written out again in the test), with
-  Io's Hermite nodes every 10 minutes, and at tolerances of $10^{-10}$ km
-  (Encke) and $10^{-9}$ km (Cowell) a step.
+  from Juno's). Beside it, the same run:
+  - without Io's $J_2$ and $C_{22}$;
+  - with Jupiter's field cut to $J_2$ alone, and to $J_2$ and $J_4$ [2];
+  - with $J_2$ in the kernel and $J_4$ written out again in the test as
+    an outside force;
+  - with Io's Hermite nodes every 10 minutes;
+  - at tolerances of $10^{-10}$ km (Encke) and $10^{-9}$ km (Cowell) a
+    step.
 
-| Moons in the kernel | 3 min after closest approach | 1 h after | Closest approach (Horizons: 3,317.09 km) |
+| Moons and field in the kernel | 1 h after the Io pass | At the perijove | 2 h after it |
 | --- | ---: | ---: | ---: |
-| none (system at its barycentre) | 46.8 km | 441 km | 3,315.6 km |
-| `moons.js` | 0.069 km | 1.091 km | 3,317.11 km |
-| Horizons' Galilean moons | 0.076 km | 1.098 km | 3,317.11 km |
-| Horizons', Io as Juno's track has it | 0.012 km | 0.040 km | 3,317.10 km |
-| the same, without Io's $J_2$ and $C_{22}$ | 0.010 km | 0.184 km | 3,317.10 km |
-| the same, without Jupiter's $J_4$ | 0.022 km | 0.051 km | 3,317.10 km |
-| the same, the kernel's $J_4$ off and added outside | 0.012 km | 0.040 km | 3,317.10 km |
-| the same, Io's nodes every 10 min | 0.012 km | 0.040 km | 3,317.10 km |
-| the same, tighter tolerances | 0.012 km | 0.040 km | 3,317.10 km |
+| none (system at its barycentre) | 441 km | 3,042 km | 6,967 km |
+| `moons.js` | 1.092 km | 9.97 km | 15.8 km |
+| Horizons' Galilean moons | 1.100 km | 10.08 km | 15.9 km |
+| Horizons', Io as Juno's track has it | **0.041 km** | **0.276 km** | **0.554 km** |
+| the same, without Io's $J_2$ and $C_{22}$ | 0.186 km | 0.855 km | 2.49 km |
+| the same, Jupiter's $J_2$ alone | 0.054 km | 22.5 km | 150 km |
+| the same, Jupiter's $J_2$ and $J_4$ | 0.041 km | 0.790 km | 5.04 km |
+| the same, $J_2$, and $J_4$ outside the kernel | 0.041 km | 0.790 km | 5.05 km |
+| the same, Io's nodes every 10 min | 0.042 km | 0.280 km | 0.558 km |
+| the same, tighter tolerances | 0.041 km | 0.276 km | 0.554 km |
+
+Closest approach to Io: 3,317.10 km in every run with the moons
+(Horizons: 3,317.09 km).
 
 - **The pass measures Io's field.** Io bends Juno by 0.12 km/s, 441 km an
-  hour on. Its $J_2$ and $C_{22}$ (Park et al. 2025, [kernel](physics/nbody-kernel.md#the-moons-own-fields))
-  take what is left from 0.184 km to 0.040 km: four fifths of it.
-- **Jupiter's $J_4$ is a fifth of the rest.** Without it, 0.051 km is
-  left. The kernel's term and the same term written out separately in the
-  test agree to 0.1 m.
-- **What is left, 0.040 km, is not the kernel's numerics.** Neither
-  finer nodes for Io nor tighter tolerances move it. It is the gap between
-  the two force models, which this check cannot split further: Jupiter's
-  field beyond $J_4$, Io's beyond degree 2, and Juno's own small forces
-  (sunlight on its arrays, for one), all in the reconstruction and not in
-  the kernel. The error grows after the pass, as a kick there would;
-  before it it is about 10 m.
+  hour on. Its $J_2$ and $C_{22}$ (Park et al. 2025,
+  [kernel](physics/nbody-kernel.md#the-moons-own-fields)) take what is
+  left from 0.186 km to 0.041 km.
+- **The perijove measures Jupiter's.** With $J_2$ alone Juno is 150 km off
+  two hours after the perijove. $J_4$ takes that to 5.0 km, and $J_6$ to
+  $J_{12}$ to 0.55 km ([kernel](physics/nbody-kernel.md#oblateness-j2)).
+  The kernel's $J_4$ and the same term written out separately agree to
+  0.2 m at the perijove.
+- **What is left is not the kernel's numerics.** Neither finer nodes for
+  Io nor tighter tolerances move it. Nor does Durante's own pole for
+  Jupiter in place of the IAU's (they are $7\times10^{-6}$ rad apart; 12 m
+  at the end). It is the gap between the two force models, which this
+  check cannot split further: Jupiter's tides and tesseral terms, the
+  field the reconstruction was fitted with, and Juno's own small forces (sunlight on its arrays, for
+  one).
+- **Jupiter's centre on hourly nodes** made this check a little worse,
+  not better. On 6-hour nodes the centre was 17 m off JPL's table here
+  and the runs read 0.22 km at the perijove and 0.44 km after it. On
+  hourly nodes it is within 0.1 m, and they read 0.28 and 0.55 km. The
+  old error was partly cancelling the gap above; the new figures are the
+  honest ones.
 - **The places of the moons set the rest.** With Horizons' Io (9.8 km
-  off Juno's) it is 1.1 km; `moons.js`'s Io matches that run to 7 m.
+  off Juno's) it is 1.1 km an hour on; `moons.js`'s Io matches that run to
+  8 m.
 
 ### Cassini at Titan
 
@@ -290,14 +306,14 @@ The same file checks:
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| each split system's planet centre and moons from the kernel's Hermite nodes, 20 days | `moons.js` and astronomy-engine directly | worst 104 m (Callisto) |
+| each split system's planet centre and moons from the kernel's Hermite nodes, 20 days | `moons.js` and astronomy-engine directly | worst 31 m (Rhea); Jupiter's system 12 m (104 m before its centre's nodes went from 6 hours to 1) |
 | 200 days of cruise from Earth | the moons' ephemerides | never evaluated; no system split |
 | split and fold of Jupiter at 1.3, 1.2, 1.4 and 1.6 times its sphere of influence | the thresholds | folded, split, split, folded (in at 1.25, out at 1.5) |
 | Pluto at 6 AU, 4 AU, 10⁶ km, 8 AU | its 5 AU reach | away, folded, split with Charon, away |
 | two craft, one near Jupiter, one far | their own views | 13 bodies and 9 |
 | a fall onto Ganymede at 3 km/s | impact event, found where the step crossed the surface | `impact` on `ganymede` 0.0 m from the surface at 3.94 km/s (it was found 46 km in, a 14 s step late) |
 | the moons' $J_2$ and $C_{22}$ acceleration, Ganymede's field about tilted axes | central differences of the potential | $7.6\times10^{-10}$ relative |
-| a giant's $J_2$ and $J_4$, Jupiter's field about tilted axes | central differences of the potential | $2.3\times10^{-10}$ relative ($J_4$ up to 1.7 % of $J_2$'s term at the points checked) |
+| Jupiter's zonal field to $J_{12}$, about tilted axes, 1.05 to 1.6 Jupiter radii out | central differences of the potential | $1.8\times10^{-9}$ relative ($J_5$ to $J_{12}$ up to 0.4 % of the field's pull there) |
 
 ## The largest asteroids (`asteroids.test.mjs`)
 
