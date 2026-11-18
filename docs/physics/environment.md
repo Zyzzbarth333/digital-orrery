@@ -35,11 +35,11 @@ acceleration on the craft alone:
   root of small integers, tabulated when the field is built.
   Unnormalised, as Montenbruck and Gill give it, the (n + m)! in the
   conversion overflows a double past about degree 85; normalised, the
-  terms stay near 1 at any degree, and a call of the environment close
-  in is 1.6 times faster than it was unnormalised (2.9 µs at degree 20,
-  23 µs at 50, 90 µs at 100). Fields to degree 100 match an independent
-  oracle within 7×10⁻¹⁵ ([below](#mercurys-and-venuss-gravity-fields)),
-  the pole included.
+  terms stay near 1 at any degree. With the ratios tabulated a call has
+  no divisions, and it is 6 to 10 % faster than the unnormalised one was
+  (2.2 µs at degree 20, 18 µs at 50, 72 µs at 100). Fields to degree 100
+  match an independent oracle within 7×10⁻¹⁵
+  ([below](#mercurys-and-venuss-gravity-fields)), the pole included.
 - **Earth rotation:** IAU 1976 precession, the full IAU 1980 nutation,
   and apparent sidereal time (`earthRotation.js`, checked to 1 cm against
   NASA's tools), with the day's UT1 − UTC, polar motion and nutation
@@ -311,8 +311,7 @@ environment adds the rest of its field, as it does the Moon's:
     10⁻⁶° of `orientation.js`).
 - **Cost:** none measurable more than ten radii away (1.1 µs a call of
   the whole environment, with or without them). 338 km over Venus a call
-  takes 2.9 µs at degree 20 (5 µs before the field was normalised
-  throughout), against 0.9 µs without.
+  takes 2.2 µs at degree 20, against 0.9 µs without.
 - **Tides:** JGMESS160A's degree 2 terms leave out Mercury's permanent
   tide (its label gives k2 = 0.53). The Sun's tide on Mercury isn't
   modelled. By the usual estimate, k2 times the Sun's tide-raising
