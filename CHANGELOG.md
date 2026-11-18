@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- A git worktree builds and tests without a `node_modules` of its own: `src/physics/sgp4.js` imports satellite.js by name, and a small Vite plugin keeps its WebAssembly build out of the bundles, which come out byte for byte as before (this pull request).
 - `npm run bench:frames` times the app's frames on the integrated and the discrete GPU, a build against main, and prints the table a pull request needs (this pull request).
 - The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
 - The clips are filmed again from the app as it is now, with three more: the Earth's satellites, its magnetic field and auroras, and Jupiter's irregular moons (this pull request).
@@ -16,6 +17,7 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- A journey started from a craft's own state now takes a deep-space burn (or a broken plane) on its first leg when that leg runs nearly 180° round the Sun, as legs between bodies do, with the craft's own orbit as the plane. From a craft near the Earth to Mars, leaving on 18 Nov 2026, the leg cost 12.72 km/s direct and now 5.47; flown, its corrections fall from 687 to 112 m/s. The plane lamp and the leg's options show it (this pull request).
 - Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 39 m/s an hour. The flight aims a swing-by that passes close to the planet early, before the pass (this pull request).
 - After a long stay in a planet's orbit, a flown journey now leaves for what the plan prices. The trims on the way in aim the parking orbit's node so it turns onto the plan's on the planned day, for under 1 m/s, and the planner prices the orbit's plane at the radius the capture flies, its mean radius. A year at Mars, the departure on the planned day was 3.5 % over the plan and is now 0.4 %; on the day the parking orbit lamp suggests, 4.3 % and now 0.2 %. The plan's estimate of the flight's wait for the plane now searches as the flight does (this pull request).
 - A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
@@ -84,8 +86,11 @@ once it has releases. Until then, everything sits under Unreleased.
   Europa, Titan is entered at its planned height, a moon flyby is aimed at
   the moon, not its planet, and leaving Europa for Earth is flown within
   1 % of the planner's price. Captures and departures burn near
-  impulsively, centred on the periapsis, as the plan prices them (this
-  pull request).
+  impulsively, as the plan prices them (#105). The parking orbit at such a
+  moon now holds the way out through its stay: its plane is set by the
+  last aim down the planet's well, two days out, allowing for the stay's
+  turn of it (ten degrees over six days at Europa), so leaving Europa for
+  Earth costs 0.3 % over its price, not 0.9 % (this pull request).
 - A leg that runs nearly 180 degrees round the Sun is planned on a broken
   plane: in the departure's orbit plane to about halfway, then a burn that
   turns the plane onto the target. Leaving lunar orbit for Mars after 23
@@ -131,7 +136,7 @@ once it has releases. Until then, everything sits under Unreleased.
   final reconstruction (`?mission=lro`), down to its 30 km commissioning
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
-  (#113).
+  (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
@@ -239,12 +244,7 @@ once it has releases. Until then, everything sits under Unreleased.
   L1–L3. The spin axes show which way each body turns, with Venus, Uranus
   and Pluto marked retrograde. Orbit lines fade where they pass close to
   the camera against their size, so a body's own orbit no longer cuts
-  across the view when zoomed in on it (#103).
-- The gravity field's rotating-frame contours are unbroken lines, worked
-  out at every pixel; a readout beside the cursor gives the field there
-  exactly. A followed craft's osculating conic fades close in as the
-  trails do. The rail fits a short window: the planets keep three rows,
-  the guides four, and the rail scrolls past that (this pull request).
+  across the view when zoomed in on it (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The

@@ -181,11 +181,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
 }
 
 /* ---------------- body rail ---------------- */
-.rail { grid-row: 2; grid-column: 1; border-right: var(--hair) solid var(--seam-strong); display: flex; flex-direction: column; min-height: 0; overflow-y: auto; scrollbar-width: none; }
-/* The planets keep three rows in view however many sections follow; past
-   what the window holds, the rail itself scrolls (a 900 px window with
-   every section open), its bar hidden so the rail keeps its width. */
-.rail > .body-list:not(.small-bodies) { min-height: 96px; }
+.rail { grid-row: 2; grid-column: 1; border-right: var(--hair) solid var(--seam-strong); display: flex; flex-direction: column; min-height: 0; }
 .rail .strip { margin: var(--u) 0 var(--u); }
 /* The wordmark heads the rail, so the header holds only instruments; the
    header's h1 stays for screen readers (on phones neither shows, to save a
@@ -471,7 +467,6 @@ details.section[open] > summary::after { content: '−'; }
   .rail-foot { padding: 4px 12px 8px; }
   .notice { width: 100%; }
   .body-list { display: flex; overflow-x: auto; padding: 0; }
-  .rail > .body-list:not(.small-bodies), .body-list.guides { min-height: 0; }
   .body-row { width: auto; white-space: nowrap; grid-template-columns: 10px auto; padding: 0 12px; }
   .body-row.child { padding-left: 12px; }
   .moon-grid { display: flex; padding: 0; margin: 0; }
@@ -639,14 +634,12 @@ details.section[open] > summary::after { content: '−'; }
 .field-legend.flow-legend .field-bar { background: linear-gradient(to right, #121110, #3d5a64 40%, #8fc8d8 80%, #fff7ea); }
 /* The flow's legend sits bottom right, clear of the surface and magnetic legends. */
 .field-legend.flow-legend { left: auto; right: calc(2 * var(--u)); }
-.guide-tag.flow-read { pointer-events: none; translate: 0 0; text-transform: none; letter-spacing: 0.04em; font: 10px var(--mono); color: #cfe6ee; }
 .flow-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px 0 6px 6px; }
 .flow-opts .sb-pick { margin: 0; padding: 0; gap: 2px; min-width: 0; }
 .flow-opts .sb-pick .input { height: 24px; font-size: 11px; padding-left: 6px; padding-right: 20px; }
 .small-bodies .lamp-sq { border: 1px solid; }
-/* The guides keep at least four rows in view and scroll past that, so on a
-   short window (900 px) the rail fits with every guide main has added. */
-.body-list.guides { flex: 0 1 auto; min-height: calc(4 * 26px + var(--u)); overflow-y: auto; padding-bottom: var(--u); }
+/* The guides never scroll: six short rows, the body list gives way. */
+.body-list.guides { flex: none; overflow: visible; padding-bottom: var(--u); }
 .body-list.guides .body-row { height: 26px; }
 
 /* ---------------- the journey planner (journey-panel.tsx) ---------------- */

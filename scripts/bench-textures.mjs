@@ -11,6 +11,7 @@
 //   --rounds N               rounds of each variant (3)
 //   --size WxH, --dpr N      the viewport (1920x1080, 1)
 //   --json FILE              every round's numbers as JSON
+//   --force                  start with less memory than the cap needs
 //   scenario … | all         sky, moon, mars (all by default)
 //
 // Each round opens each scenario afresh, with the browser's cache off, in
@@ -29,7 +30,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { GPUS, launch, pageApi, serve } from './lib/chromium.mjs';
+import { GPUS, gpuLock, launch, pageApi, serve } from './lib/chromium.mjs';
 
 const DATE = 't=2026-11-10T15:00Z';
 const SCENARIOS = {
@@ -149,7 +150,9 @@ const mib = (b) => (b / 2 ** 20).toFixed(0);
 function args() {
   const argv = process.argv.slice(2);
   const opt = (k, d = null) => { const i = argv.indexOf(k); return i < 0 ? d : argv.splice(i, 2)[1]; };
+  const flag = (k) => { const i = argv.indexOf(k); return i < 0 ? false : (argv.splice(i, 1), true); };
   const o = {
+    force: flag('--force'),
     url: opt('--url'), dist: opt('--dist', 'dist'), gpus: opt('--gpu', 'intel').split(','),
     rounds: Number(opt('--rounds', 3)), dpr: Number(opt('--dpr', 1)), size: opt('--size', '1920x1080'), json: opt('--json'),
   };
@@ -164,9 +167,12 @@ function args() {
 async function main() {
   const o = args();
   const results = {};
-  const server = o.url ? null : await serve(o.dist);
-  const base = o.url ?? server.url;
+  // One GPU run at a time, shared with bench:frames and docs:clips.
+  const lock = await gpuLock({ force: o.force });
+  let server = null;
   try {
+    server = o.url ? null : await serve(o.dist);
+    const base = o.url ?? server.url;
     for (const gpu of o.gpus) {
       results[gpu] = {};
       for (let r = 0; r < o.rounds; r++) {
@@ -196,6 +202,7 @@ async function main() {
     }
   } finally {
     await server?.stop();
+    await lock.release();
   }
   const cols = ['Download, MB', 'Maps in video memory, MiB', 'GPU process (driver), MiB', 'First sky, ms', 'Full sky, ms'];
   console.log(`| Scenario | GPU | ${cols.map((c) => `${c}`).join(' | ')} |`);
