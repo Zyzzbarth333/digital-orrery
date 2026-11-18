@@ -34,11 +34,15 @@ import { writeFileSync } from 'node:fs';
 import { GPUS, launch, pageApi, serve } from './lib/chromium.mjs';
 
 // ---- Scenarios ------------------------------------------------------------
-// A URL query (App.tsx's initialState documents it) and a camera distance
-// from what it shows, in km. A past date keeps the sky the same each run.
+// A URL query (App.tsx's initialState documents it), an expression to run
+// once the page is up (setup), and a camera distance from what it shows,
+// in km. A past date keeps the sky the same each run.
 
 const DATE = 't=2026-11-10T15:00Z';
 const CRAFT = 'orrery.focusCraftId !== null';
+// Earth satellites switched on (all 16,892 points), and the ISS followed.
+const SATS_ON = '(async () => { const L = orrery.satellites; L.setOn(true); while (!L.count) await new Promise((r) => setTimeout(r, 100)); return true; })()';
+const ISS = SATS_ON.replace('return true;', 'orrery.focusOnSatellite(25544); return true;');
 const SCENARIOS = {
   'overview': { label: 'Overview (the Sun)', query: `?focus=sun&${DATE}`, km: 1.6e9 },
   'earth': { label: 'Earth close-up', query: `?focus=earth&${DATE}`, km: 20000 },
@@ -47,6 +51,8 @@ const SCENARIOS = {
   'craft-far': { label: 'Craft in LEO (6-DOF)', query: `?craft=orbit,400,51.6&${DATE}`, km: 3000, ready: CRAFT },
   'point-near': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 0.4, ready: CRAFT },
   'point-far': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 3000, ready: CRAFT },
+  'sats': { label: 'Earth satellites, all on', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON },
+  'sat-near': { label: 'The ISS followed', query: `?focus=earth&${DATE}`, km: 0.1, setup: ISS },
 };
 const DEFAULTS = ['earth', 'belt', 'craft-near', 'craft-far', 'point-near', 'point-far'];
 const GPU_NAME = { intel: 'Intel', nvidia: 'NVIDIA' };
@@ -86,6 +92,7 @@ const RENDERER = `(() => {
 // One scenario in one variant: load, frame the camera, settle, time.
 async function measure(p, base, sc, opts) {
   await p.open(`${base}/${sc.query}`);
+  if (sc.setup) await p.eval(sc.setup);
   if (sc.ready) await p.waitFor(sc.ready);
   await p.waitFor('!orrery.flying');
   await p.zoomTo(sc.km);

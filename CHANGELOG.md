@@ -148,7 +148,11 @@ once it has releases. Until then, everything sits under Unreleased.
 - A craft's orbit line and flown trail run up to and through it from any
   distance. Followed from under a kilometre they used to stop a kilometre
   short, and from 10 km the orbit line passed about 500 m beside the craft
-  (this pull request).
+  (#96).
+- A followed Earth satellite's orbit line runs through it from any
+  distance. From closer than a tenth of its distance from the Earth (680
+  km for the ISS) the line about it is drawn from SGP4 every frame; before,
+  the ISS's line passed 0.5 to 1.4 km beside it (this pull request).
 - Artemis II at a day a second reads true: switched there straight from
   real time before the injection, its distance from the flown path no
   longer jumps to tens of thousands of km while the kernel catches up, and

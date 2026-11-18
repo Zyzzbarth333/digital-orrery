@@ -189,6 +189,26 @@ units away, to it.
   resampled once the clock has moved 0.3 of a period, so a low orbit's
   turning plane (the ISS's node moves 5° a day) stays under it. The
   constellations' outlines are fainter than the stations'.
+- **The focused one's orbit, close up.** The 129 samples leave each chord
+  of a low orbit 330 km long, bowed 2 km off the path, so from closer than
+  a few hundred kilometres the line would pass beside the satellite: 0.5
+  to 1.4 km off the ISS, followed from 100 m to 700 km. Float32 about the
+  Earth adds about a metre. Within a tenth of its distance from the Earth
+  of the camera (680 km for the ISS), the stretch of 12 samples either
+  side of it (a fifth of the orbit) is drawn every frame by SGP4 relative
+  to the satellite, which is a vertex, in 32 steps each way that grow as
+  the square of the step count. That keeps the chords' bow under 3 × 10⁻⁴
+  rad seen from the satellite all along it, under a pixel, and the far
+  line's 2 km bow outside the stretch is at least half the orbit's radius
+  from the camera. The stretch ends on samples of the far line (within a
+  metre), which leaves it to the stretch: the orbit shader's gap for a
+  line of its own, the segments blacked out of the line set for a
+  constellation's member. It is SGP4, not the osculating ellipse of the
+  satellite's state now, because the ellipse strays from SGP4's path by
+  the Earth's oblateness: 0.6 km a twentieth of an orbit on, 2 km at the
+  stretch's ends and 10 to 20 km half an orbit on, for the ISS and Hubble,
+  so it would not meet the far line. The 65 SGP4 calls take about 0.14 ms
+  a frame (2.1 µs each, in Node), and only for the focused one.
 
 ## Flying to one
 
