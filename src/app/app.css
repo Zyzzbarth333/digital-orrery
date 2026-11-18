@@ -610,6 +610,27 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .sb-hit-name { font: 12px var(--sans); color: var(--phosphor); }
 .sb-hit-kind { font: 10px var(--sans); color: var(--label-dim); }
 .sb-search-status { font-size: 11px; color: var(--ink-muted); min-height: 1em; }
+/* The marked match's kind in phosphor: the dim label reads only 5.3:1 on the lamp-dark row. */
+.sb-hits li[aria-selected='true'] .sb-hit-kind { color: var(--phosphor-dim); }
+
+/* FIND (find.tsx): the rail's one search, held at its top as the rail
+   scrolls; its matches hang on the screen, grouped by kind. */
+.rail .find { position: sticky; top: 0; z-index: 5; padding-bottom: 4px; background: var(--panel); box-shadow: 0 var(--hair) 0 var(--seam); }
+.sb-hits.find-hits { position: fixed; right: auto; top: auto; margin: 0; overflow-y: auto; overscroll-behavior: contain; }
+.find-hits ul { list-style: none; margin: 0; padding: 0; }
+.find-hits ul + ul { border-top: 1px solid var(--lamp-dark); margin-top: 2px; }
+.sb-hits li.find-group { padding: 6px 8px 2px; cursor: default; font: 10px/1.4 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--label-dim); }
+
+/* The ? sheet (key-sheet.tsx): the source tags' detail window, centred over everything. */
+.tag-pop.key-sheet { z-index: 60; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, calc(100vw - 32px)); max-height: calc(100vh - 32px); }
+.key-sheet .tag-pop-head { align-items: center; }
+.key-list { display: grid; gap: 6px; margin: 0; }
+.key-list div { display: grid; grid-template-columns: 76px 1fr; gap: var(--u); align-items: baseline; }
+.key-list dt { display: flex; gap: 3px; }
+.key-list dd { margin: 0; color: var(--phosphor-dim); }
+/* The rail foot's "? keys": a key legend that opens the sheet. */
+.foot-key { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.foot-key:hover { color: var(--ink); }
 
 /* ---------------- gravity guides (src/scene/guides.ts) ---------------- */
 .guide-tag {
@@ -665,6 +686,12 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 @media (max-width: 720px) {
   .rail { max-height: 24vh; overflow-y: auto; overscroll-behavior: contain; }
   .rail .body-list { flex: none; }
+  /* FIND on one row at the top of the strip; 16 px text, so a phone does
+     not zoom the page when it takes focus. */
+  .rail .find { grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--u); padding: 6px 12px 4px; }
+  .rail .find .input { height: 32px; font-size: 16px; }
+  .rail .find .sb-search-status { grid-column: 1 / -1; }
+  .rail .find .sb-search-status:empty { display: none; }
   .plate { max-height: 34vh; }
   .console-dock { max-height: 36vh; }
 }

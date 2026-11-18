@@ -119,7 +119,10 @@ loads the clock's month (and the next or last near its ends), 0.1 to
   the span (at most every 250 ms of real time, which at high rates keeps a
   low orbiter's path from being resampled every frame). A probe passing a planet draws only the stretch held about the
   day's centre.
-- **Flying to one:** from its marker or the rail's list. The camera flies
+- **Flying to one:** from its marker, the rail's list, or the rail's
+  FIND field ([`find.tsx`](../../src/app/find.tsx)), which fetches the
+  index (21 kB) when it first takes focus, lists the craft under **Beyond
+  Earth**, and switches the layer on if it is off ("Spacecraft shown"). The camera flies
   500 km out (or the distance last zoomed to), follows it and can come to
   within 20 m. A day without data hands the camera back to the body in view.
 - **The plate:** distance from its centre (and height over its mean

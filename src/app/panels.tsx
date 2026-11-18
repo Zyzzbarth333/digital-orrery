@@ -21,10 +21,11 @@ import { ROTATION } from '../physics/pck.data.js';
 import { helioStateEcl, fromDe442 } from '../physics/ephemeris.js';
 import { SourceTag, type TagInfoKey } from './source-tag';
 import { SmallBodyPlate } from './small-body-plate';
-import { SmallBodySearch, type SmallSearch } from './small-body-search';
+import { FindField, type FindApi } from './find';
+import { KEYS_TOGGLE } from './key-sheet';
 import type { Named } from '../scene/smallBodies';
 import { IrregularMoonPlate } from './irregular-moon-plate';
-import { IRREGULAR_MOONS, IRREGULAR_PLANETS, type IrregularMoon } from '../scene/irregularMoons';
+import { IRREGULAR_MOONS, type IrregularMoon } from '../scene/irregularMoons';
 import { LANDING_SITES, type LandingSite } from '../physics/landingSites.js';
 import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
@@ -201,10 +202,9 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
 }
 
 // The irregular moons (src/scene/irregularMoons.ts): a layer to show or
-// hide, off by default, and each one to fly to, by planet.
-export interface IrregularRail { on: boolean; onToggle: (on: boolean) => void; current: string | null; onFly: (key: string) => void }
-const PLANET_NAME = { jupiter: 'Jupiter', saturn: 'Saturn', neptune: 'Neptune' } as const;
-function IrregularMoonsRail({ on, onToggle, current, onFly }: IrregularRail) {
+// hide, off by default. Each one is flown to from the FIND field.
+export interface IrregularRail { on: boolean; onToggle: (on: boolean) => void }
+function IrregularMoonsRail({ on, onToggle }: IrregularRail) {
   return (
     <>
       <h2 className="strip split"><span>Irregular moons</span><span title="shown">On</span></h2>
@@ -218,17 +218,6 @@ function IrregularMoonsRail({ on, onToggle, current, onFly }: IrregularRail) {
           </button>
         </li>
       </ul>
-      <label className="sb-pick">
-        <span className="engraved">Fly to</span>
-        <select className="input select" value={current ?? ''} onChange={(e) => { if (e.target.value) onFly(e.target.value); }}>
-          <option value="">an irregular moon…</option>
-          {IRREGULAR_PLANETS.map((p) => (
-            <optgroup key={p} label={PLANET_NAME[p]}>
-              {IRREGULAR_MOONS.filter((m) => m.planet === p).sort((a, b) => a.a - b.a).map((m) => <option key={m.key} value={m.key}>{m.name}{m.retrograde ? ' · retrograde' : ''}</option>)}
-            </optgroup>
-          ))}
-        </select>
-      </label>
     </>
   );
 }
@@ -300,7 +289,7 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, satellites, irregular, sites, flow, onFlow }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find, onKeys, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides, satellites, irregular, sites, flow, onFlow }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; find?: FindApi; onKeys?: () => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -336,6 +325,8 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
     <nav className="rail screw" aria-labelledby="bodies-label">
       <span className="pnl" aria-hidden="true">L1</span>
       <p className="rail-mark" aria-hidden="true">digital-orrery</p>
+      {/* One search over every body, layer and craft (find.tsx): / focuses it. */}
+      {find && <FindField api={find} />}
       <h2 className="strip split" id="bodies-label"><span>Bodies</span>
         {onFrame
           ? <button className="frame-key" aria-pressed={frame === 'ssb'} onClick={() => onFrame(frame === 'sun' ? 'ssb' : 'sun')}
@@ -417,8 +408,6 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
               </select>
             </label>
           )}
-          {/* Any of them, by number, name or designation. */}
-          {named.length > 0 && smallSearch && <SmallBodySearch api={smallSearch} />}
         </>
       )}
       {irregular && <IrregularMoonsRail {...irregular} />}
@@ -464,9 +453,10 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
         </>
       )}
       <div className="rail-foot">
-        <p><kbd>Space</kbd> run/hold · <kbd>←</kbd><kbd>→</kbd> rate</p>
-        <p><kbd>↑</kbd><kbd>↓</kbd> body · <kbd>N</kbd> now</p>
-        <p><kbd>M</kbd> flight console · <kbd>Esc</kbd> stop</p>
+        <p>
+          {onKeys ? <button type="button" className="foot-key" {...{ [KEYS_TOGGLE]: '' }} onClick={onKeys} aria-keyshortcuts="?" title="Every keyboard shortcut (?)"><kbd>?</kbd> keys</button>
+            : <><kbd>?</kbd> keys</>} · <kbd>/</kbd> find
+        </p>
         <p>Choose a body to fly there; drag to turn, scroll to zoom.</p>
         <div className="foot-links">
           <a href="https://github.com/Zyzzbarth333/digital-orrery/blob/main/docs/README.md" target="_blank" rel="noreferrer">How it works</a>

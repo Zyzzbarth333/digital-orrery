@@ -4,7 +4,8 @@ Where spacecraft have come down on the Moon, as markers on its surface:
 every soft landing from Luna 9 to Blue Ghost, where three rovers stopped,
 the landers that crashed and were found, and the early craft that never
 were. The rail's **Moon landings** section switches the layer on (it is
-off until then) and flies to any site. A flight there frames the site
+off until then) and flies to any site; the rail's FIND field finds a site
+by name, and switches the layer on if it is off. A flight there frames the site
 from low over the ground, across the sunlight, and the data plate gives
 the mission, when it landed, its crew, where it is and whose measurement
 that is.

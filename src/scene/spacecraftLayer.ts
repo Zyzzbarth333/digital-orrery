@@ -96,6 +96,14 @@ export class SpacecraftLayer {
     if (!on) for (const [key, el] of this.markers) if (key !== this.focusKey) el.style.display = 'none';
   }
 
+  // The index (21 kB) without switching the layer on, for the rail's FIND
+  // field (find.tsx): the craft, or none if it fails. Markers stay hidden.
+  async loadIndex(): Promise<readonly Probe[]> {
+    this.loading ??= this.load();
+    await this.loading;
+    return this.craft;
+  }
+
   private async load(): Promise<void> {
     try {
       const r = await fetch(`${this.baseUrl}data/spacecraft/index.json`);

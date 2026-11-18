@@ -3,16 +3,15 @@
 // The rail's satellites section (src/scene/satellites.ts): a switch for
 // each set (the active satellites, the debris clouds, the rocket bodies
 // and the analyst objects), the named ones and the debris clouds to fly
-// to, a search over every loaded one by name, NORAD catalogue number or
-// international designator, and the key that asks CelesTrak for its latest
-// element sets for the active ones, and one to the ISS's passes over a
-// place (satellite-passes.tsx).
+// to, the key that asks CelesTrak for its latest element sets for the
+// active ones, and one to the ISS's passes over a place
+// (satellite-passes.tsx). Any loaded one is found by name, NORAD catalogue
+// number or international designator from the rail's FIND field (find.tsx).
 //
 // Each set loads its data the first time it is switched on: the active
 // satellites 2.5 MB (0.9 MB compressed), the rest 0.8 MB together.
 
 import { useState } from 'react';
-import { SmallBodySearch, type SmallSearch } from './small-body-search';
 import { SAT_GROUPS, SAT_LAYERS, layerColour, type NamedSat, type SatSource, type SatCloud, type SatLayerKey } from '../scene/satellites';
 
 export interface SatelliteApi {
@@ -25,7 +24,6 @@ export interface SatelliteApi {
   cloud: string | null;
   fly: (id: number) => void;
   flyCloud: (key: string) => void;
-  search: SmallSearch;
   latest: () => Promise<string>;
 }
 
@@ -36,7 +34,6 @@ const day = (iso: string) => iso.slice(0, 16).replace('T', ' ');
 export function SatelliteRail({ api }: { api: SatelliteApi }) {
   const [status, setStatus] = useState('');
   const [asking, setAsking] = useState(false);
-  const count = api.search.count;
   const any = SAT_LAYERS.some((l) => api.layers[l.key]);
   const pick = api.cloud !== null ? `cloud:${api.cloud}` : api.current ?? '';
   return (
@@ -77,7 +74,6 @@ export function SatelliteRail({ api }: { api: SatelliteApi }) {
               })}
             </select>
           </label>
-          <SmallBodySearch api={api.search} label={`Search all ${count.toLocaleString('en-AU')}`} placeholder="ISS, 25544, 1998-067A" />
           {api.layers.active && (
             <div className="sat-live">
               <button className="key small" disabled={asking} onClick={() => {
