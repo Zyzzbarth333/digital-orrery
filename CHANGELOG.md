@@ -161,6 +161,15 @@ once it has releases. Until then, everything sits under Unreleased.
   and its rings, and Voyager 2 at Neptune and Triton (this pull request).
 
 ### The sky and its bodies
+- The planets' and moons' maps load GPU-compressed where the GPU can take
+  them (KTX2 with Basis Universal, transcoded to BC7, ASTC or ETC2): a
+  quarter of the video memory, so an 8k map takes 45 MB, not 179. Colour
+  maps that look the same are ETC1S, about the WebP's size; the rest, and
+  the normal maps, are UASTC, 2.5 to 4 times larger to download (the
+  Moon's map 25 MB, not 5.5). The sky stays WebP, so the start downloads
+  no more than before. Other GPUs, and `?webp`, keep the WebP maps.
+  `npm run build:textures` rebuilds them, `npm run bench:textures`
+  measures them (this pull request).
 - Jupiter, Uranus and Neptune have their rings. Uranus's ten narrow rings run on their measured orbits (French et al. 2024), eccentric, tilted and precessing, with depths and shapes from Voyager's occultations; its dust bands, ν and μ are there too. Neptune's Adams arc sits where it was last measured, with Le Verrier, Lassell and Galle. Jupiter's main ring, halo and gossamer rings are dust: faint, and brightest from Jupiter's shadow. Rings narrower than a pixel stay one steady line. They are as faint as the real ones; `?exposure=N` lengthens the exposure, as ring photographs do ([rings](docs/frontend/rings.md); #110).
 - The rings are truer to the measurements: Uranus's rings carry all ten of their measured normal modes; Neptune's Adams ring has the 42 lobes Galatea forces on it, and its arcs are as bright and where they were at each date they were seen, so Liberté and Courage are gone since 2009; the ring particles are as dark as Voyager measured them (this pull request).
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons

@@ -314,6 +314,9 @@ and loading them used to freeze the page for up to two seconds. Now:
   and handed to three.js as an `ExternalTexture`. One `texImage2D` of an 8k
   map blocked for 0.41–0.55 s; a 128-row strip takes 2–3 ms, so the map goes
   up over about 32 frames.
+- **GPU-compressed copies** load instead where the GPU takes them, a
+  quarter of the memory and transcoded in workers, then uploaded the same
+  way ([below](#gpu-compressed-maps)).
 - **Earth's months**: only the current month's day map is kept; the
   previous one (78 MB) is freed when the month changes.
 - **A lost WebGL context** takes these textures with it, so on restore the
@@ -349,9 +352,128 @@ in view:
   λ and mixes in the tile by 1 − λ (all tile at λ ≤ 0, all base at λ ≥ 1).
   Where a tile has not arrived the base shows, slightly softer.
 
+## GPU-compressed maps
+
+Every body's map also ships as a KTX 2.0 file [24] of Basis Universal
+data [25], and the app loads that where the GPU can take it (`ktx2.ts`). A WebP
+decodes to 8-bit RGBA, so an 8192 × 4096 map with its mipmaps takes 179 MB
+of video memory. The KTX2 is transcoded in the browser, by three.js's
+`KTX2Loader` [27] in its workers, to a block-compressed format the GPU
+samples as it is, at one byte a texel: BC7 on desktop GPUs, ASTC or ETC2 on
+phones. The same map then takes 45 MB.
+
+**The sky stays WebP.** The Milky Way and its 16k tiles were encoded and
+measured too (below), but they ship as WebP only. In UASTC, the one codec
+that kept them looking the same, they took a quarter of the video memory
+(43 MiB, not 171, and the tiles' array 25 MB, not 101), but the 8k map
+went from 15 to 34 MB and the tiles from 59 to 97 MB. Every visitor
+downloads the sky at start, while the Milky Way costs about a millisecond
+a frame on the Intel GPU ([performance](../performance.md#the-belts-haze-and-the-load)),
+so the download won (the user's choice, 18 November 2026).
+`build_ktx2.py --sky` encodes them again, and the app takes them,
+tiles included, wherever the manifest lists them.
+
+**Two codecs.** Basis has two kinds of data:
+
+- **ETC1S** (supercompressed with BasisLZ). Files about the size of the
+  WebP, but the colour is coarse: each 4 × 4 block holds two shades of one
+  colour, from a shared codebook.
+- **UASTC** (with rate-distortion optimisation and Zstandard). Close to
+  BC7's own quality, but the files are 2.5 to 4 times the WebP's.
+
+**Which map gets which.** Each colour map was encoded as ETC1S at its
+highest quality (`--qlevel 255`) and compared with its lossless master,
+beside the WebP compared with the same master. ETC1S is kept where its luma
+SSIM is within 0.015 of the WebP's and its PSNR at least 35 dB; elsewhere
+the map is UASTC. The crops were looked at as well: the Moon passes the
+numbers but ETC1S puts blue blotches on its grey ground, so it is UASTC
+too. Normal maps are UASTC throughout: they are data, not colour, and
+ETC1S's shared colours would bend them. `build_ktx2.py` lists the UASTC
+maps in `UASTC`. The sky's 2048-wide preview has no KTX2: it is there to be
+on screen fast, a WebP of it is decoded before the transcoder has loaded,
+and it is freed a few seconds later, when the full map is up.
+
+![Crops at three times their size: the lossless master, the WebP, the KTX2 the app now loads, and ETC1S where it was turned down](../images/ktx2-crops.jpg)
+
+| Map | Size | Codec | Download, MB (WebP → KTX2) | PSNR, dB (WebP / KTX2) | SSIM (WebP / KTX2) | ETC1S tried |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| earth/day-01 … 12 | 5400 × 2700 | ETC1S | 1.10 → 1.26 each | 43.4–43.8 / 35.4–37.5 | 0.986–0.988 / 0.974–0.978 | |
+| earth/night | 8192 × 4096 | ETC1S | 0.68 → 0.64 | 46.9 / 43.6 | 0.997 / 0.998 |  |
+| earth/normal | 8192 × 4096 | UASTC | 0.35 → 4.92 | 49.0 / 52.7; normals 0.53° / 0.12° mean | 0.997 / 0.997 |  |
+| moon/day | 8192 × 4096 | UASTC | 5.51 → 24.87 | 39.4 / 42.3 | 0.946 / 0.969 | 36.8 dB, SSIM 0.931 |
+| moon/normal | 5760 × 2880 | UASTC | 2.81 → 11.73 | 36.7 / 39.2; normals 1.78° / 1.55° mean | 0.981 / 0.963 |  |
+| mars/day | 8192 × 4096 | UASTC | 7.84 → 29.53 | 39.6 / 40.4 | 0.973 / 0.976 | 31.9 dB, SSIM 0.928 |
+| mars/normal | 5760 × 2880 | UASTC | 0.97 → 8.17 | 42.8 / 45.3; normals 0.90° / 0.61° mean | 0.987 / 0.986 |  |
+| mercury/day | 8192 × 4096 | UASTC | 8.15 → 30.31 | 38.3 / 39.3 | 0.976 / 0.974 | 30.4 dB, SSIM 0.934 |
+| pluto/day | 8192 × 4096 | UASTC | 3.07 → 14.47 | 43.9 / 44.9 | 0.987 / 0.992 | 32.7 dB, SSIM 0.971 |
+| venus/day | 4096 × 2048 | ETC1S | 0.20 → 0.81 | 45.1 / 40.8 | 0.979 / 0.983 |  |
+| jupiter/day | 4096 × 2048 | ETC1S | 0.43 → 1.29 | 43.8 / 40.5 | 0.984 / 0.982 |  |
+| saturn/day | 4096 × 2048 | ETC1S | 0.14 → 0.53 | 46.2 / 42.2 | 0.992 / 0.992 |  |
+| uranus/day | 2048 × 1024 | ETC1S | 0.01 → 0.01 | 48.4 / 45.3 | 0.998 / 0.998 |  |
+| neptune/day | 2048 × 1024 | ETC1S | 0.02 → 0.10 | 46.9 / 42.8 | 0.992 / 0.993 |  |
+| phobos/day | 2048 × 1024 | UASTC | 0.41 → 1.77 | 40.7 / 41.5 | 0.973 / 0.982 | 35.5 dB, SSIM 0.939 |
+| deimos/day | 2048 × 1024 | ETC1S | 0.12 → 0.31 | 44.8 / 44.3 | 0.977 / 0.976 |  |
+| io/day | 4096 × 2048 | UASTC | 1.62 → 8.14 | 33.7 / 40.0 | 0.937 / 0.975 | 32.3 dB, SSIM 0.919 |
+| europa/day | 4096 × 2048 | UASTC | 1.53 → 6.32 | 41.5 / 42.1 | 0.981 / 0.988 | 34.0 dB, SSIM 0.939 |
+| ganymede/day | 4096 × 2048 | UASTC | 1.21 → 6.13 | 41.5 / 43.7 | 0.966 / 0.981 | 36.7 dB, SSIM 0.940 |
+| callisto/day | 4096 × 2048 | UASTC | 1.18 → 5.94 | 41.2 / 44.0 | 0.965 / 0.981 | 37.7 dB, SSIM 0.946 |
+| mimas/day | 2048 × 1024 | ETC1S | 0.23 → 0.40 | 42.2 / 37.6 | 0.984 / 0.972 |  |
+| enceladus/day | 2048 × 1024 | UASTC | 0.84 → 2.05 | 40.6 / 40.8 | 0.994 / 0.995 | 26.0 dB, SSIM 0.900 |
+| tethys/day | 2048 × 1024 | UASTC | 0.73 → 2.03 | 40.5 / 38.8 | 0.993 / 0.991 | 28.1 dB, SSIM 0.921 |
+| dione/day | 2048 × 1024 | UASTC | 0.81 → 2.06 | 40.5 / 39.3 | 0.994 / 0.993 | 26.4 dB, SSIM 0.918 |
+| rhea/day | 2048 × 1024 | UASTC | 0.54 → 1.89 | 40.7 / 40.4 | 0.983 / 0.988 | 32.6 dB, SSIM 0.928 |
+| iapetus/day | 2048 × 1024 | UASTC | 0.59 → 1.93 | 40.8 / 40.1 | 0.988 / 0.988 | 30.3 dB, SSIM 0.935 |
+| triton/day | 4096 × 2048 | ETC1S | 0.44 → 0.77 | 45.0 / 41.8 | 0.986 / 0.979 |  |
+| charon/day | 2048 × 1024 | ETC1S | 0.23 → 0.29 | 42.7 / 37.7 | 0.983 / 0.968 |  |
+| stars/milky-way-8k (not shipped) | 8192 × 4096 | UASTC | 14.99 → 34.00 | 39.7 / 39.1 | 0.992 / 0.987 | 30.1 dB, SSIM 0.869 |
+| stars/milky-way-16k, 128 tiles (not shipped) | 1028 × 1028 each | UASTC | 59.0 → 97.1 in all | 38.7 / 37.5 mean | 0.993 / 0.984 mean | two tiles: 27.2 and 32.4 dB, SSIM 0.892 and 0.937 |
+
+Measured on 18 November 2026 with `build_ktx2.py --measure`, each against
+the lossless master: PSNR over the three channels; SSIM of the Rec. 709
+luma, with an 11 × 11 Gaussian window (σ 1.5) [28]; for normal maps also the
+angle between the normals, the mean shown (99th percentiles 2.6° → 2.2°,
+7.6° → 7.2° and 4.9° → 3.7° for the Earth, the Moon and Mars). The KTX2
+side is level 0 decoded by KTX-Software's transcoder (`ktx extract
+--transcode rgb8`); the GPU's BC7 from the same data matches it closely. By
+these measures every UASTC map is about as close to its master as the WebP
+is, and most closer (the WebP smooths fine grain, which UASTC keeps). The
+ETC1S maps measure up to 8 dB below their WebP; at three times their size
+they look the same, the Earth's months (the largest gap) included.
+
+In the app, the sky through the Milky Way's core (from Pluto, at DPR 1 on
+the Intel GPU) differed from the WebP's by 41.9 dB in UASTC, which could not
+be told from it, and 36.5 dB in ETC1S, whose blotches of green and blue
+showed at three times the size.
+
+**Loading.** `TextureUploader` puts the transcoded levels up as it does a
+WebP's bitmap: an immutable texture (`texStorage2D` in the compressed
+format, sRGB for colour maps), filled in strips of whole block rows with
+`compressedTexSubImage2D`, 4 MB a frame, small levels together; there is no
+mipmapping to do, since the file carries its levels (box-filtered from the
+master). Levels larger than the GPU takes are skipped. The rows are stored
+from the south, as the WebP is flipped when it is decoded, so the shaders
+need no change. KTX2 sky tiles, where listed, go into a compressed texture
+array.
+
+**Falling back.** The WebP is loaded instead when the GPU takes none of
+these formats (without `WEBGL_compressed_texture_s3tc_srgb`, BC1 cannot be
+used for colour), when there are no workers or WebAssembly, when a KTX2
+file fails, or with `?webp` in the address, for comparing. On Linux,
+three.js leaves out ETC and ASTC, which Mesa drivers emulate in software.
+A WebGL extension works only on the context that enabled it, so each
+renderer enables them itself: React's StrictMode makes the scene twice in
+development, and the second renderer once drew Mars black.
+
+**Costs.** The KTX2 files take 183 MB of the repository (the WebP 128 MB),
+and the UASTC maps are larger downloads than their WebP: 25 MB for the
+Moon against 5.5, 29.5 MB for Mars against 7.8. The start, which loads only
+the sky, adds just the transcoder (0.8 MB). What this does to loading,
+memory and frame time is in [performance](../performance.md#gpu-compressed-maps).
+
 ## Rebuilding
 
 ```bash
+npm run build:textures                               # everything: WebP, masters, then KTX2
 python3 python/textures/build_textures.py            # all bodies
 python3 python/textures/build_textures.py --only moon,rings
 python3 python/textures/fetch_rings.py               # Uranus's ring profiles (0.8 MB, PDS)
@@ -363,7 +485,27 @@ python3 python/textures/build_textures.py --only io,europa,triton
 The sources live outside the repo in `~/.cache/digital-orrery/textures-src`
 (about 535 MB with the moons'). Converted textures go to `public/textures/` with
 `manifest.json`; without the manifest every body keeps its flat albedo
-colour.
+colour. Each WebP's lossless master goes to the source folder's
+`_work/masters` (680 MB, not committed).
+
+The KTX2 files are made from the masters by `build_ktx2.py`, which needs
+the `ktx` tool of KTX-Software [26] 4.4 or later (Apache 2.0; release
+4.4.2's Linux archive was used), on the `PATH` or named by `KTX=`. It
+encodes only what has changed, or was made with other settings (it reads
+the settings each file records), and writes the `ktx2` list into the
+manifest. The UASTC maps take most of the time: under an hour in all on
+this project's 32-thread machine. `build_ktx2.py --measure` prints the quality figures above, and
+`ktx2.test.mjs` (in `npm test`) checks every KTX2 against its WebP: size,
+whole blocks, levels, codec, sRGB or linear, and the row order.
+
+```bash
+python3 python/textures/build_ktx2.py --only moon/,stars/milky-way-8k
+python3 python/textures/build_ktx2.py --measure --report quality.json
+python3 python/textures/build_ktx2.py --sky        # the Milky Way and its tiles too (not shipped)
+```
+
+Each 8k map's comparison holds about 2 GB, so `--measure` runs two at a
+time.
 
 ## References
 
@@ -412,3 +554,13 @@ colour.
 [22] F. Ballesteros, "New insights into black bodies," *EPL*, vol. 97, no. 3, Art. no. 34008, 2012, doi: 10.1209/0295-5075/97/34008.
 
 [23] C. Wyman, P.-P. Sloan, and P. Shirley, "Simple analytic approximations to the CIE XYZ color matching functions," *J. Comput. Graph. Tech.*, vol. 2, no. 2, 2013. [Online]. Available: https://jcgt.org/published/0002/02/01/
+
+[24] The Khronos Group, "KTX file format specification," version 2.0.4. [Online]. Available: https://registry.khronos.org/KTX/specs/2.0/ktxspec.v2.html
+
+[25] Binomial LLC, "Basis Universal GPU texture codec." [Online]. Available: https://github.com/BinomialLLC/basis_universal
+
+[26] The Khronos Group, "KTX-Software," release 4.4.2, Oct. 2025. [Online]. Available: https://github.com/KhronosGroup/KTX-Software/releases/tag/v4.4.2
+
+[27] three.js authors, "KTX2Loader," three.js documentation. [Online]. Available: https://threejs.org/docs/#examples/en/loaders/KTX2Loader
+
+[28] Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli, "Image quality assessment: from error visibility to structural similarity," *IEEE Trans. Image Process.*, vol. 13, no. 4, pp. 600–612, Apr. 2004, doi: 10.1109/TIP.2003.819861.
