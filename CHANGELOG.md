@@ -112,6 +112,11 @@ once it has releases. Until then, everything sits under Unreleased.
   2026. Its price still runs smoothly as the dates change. "Broken plane"
   is listed beside it and can be chosen, and the plane lamp says where the
   burn is (this pull request).
+- Choosing the direct arc or the broken plane for a leg near 180 degrees
+  can be undone: the planner's deep-space burn stays in the leg's options,
+  where before only "Lambert, as scheduled" was left, priced as the direct
+  arc but giving the deep-space burn. A stay re-timed by an option shows
+  to a hundredth of a day, not as a long decimal (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
@@ -132,7 +137,19 @@ once it has releases. Until then, everything sits under Unreleased.
   final reconstruction (`?mission=lro`), down to its 30 km commissioning
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
-  (this pull request).
+  (#113).
+- MESSENGER's cruise to Mercury, 2004 to 2011, flies in the app against
+  JHU/APL's reconstruction (`?mission=messenger`): six flybys, every burn
+  within 1.1 % and 1.7° of APL's record, and the sunlight it steered by
+  fitted every 10 days, which brings 49 coast arcs within 5.4 km. A real
+  mission's flown path is now interpolated in TT seconds, so a leap
+  second no longer puts it 38 km off (this pull request).
+- Craft near Mercury and Venus feel their gravity fields, MESSENGER's
+  JGMESS160A and Magellan's MGNP180U, to degree 20 by default (`mercury:
+  { degree }` and `venus: { degree }`, as the Moon's). MESSENGER's pass
+  338 km over Venus now leaves 0.7 mm/s in the reconstruction's 10 s
+  steps instead of 105, and ends 0.6 km off half a day later instead of
+  4.0 (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
@@ -262,6 +279,16 @@ once it has releases. Until then, everything sits under Unreleased.
   distance. Followed from under a kilometre they used to stop a kilometre
   short, and from 10 km the orbit line passed about 500 m beside the craft
   (#96).
+- Satellite passes over a place: the satellite plate lists the next
+  three days' passes over a latitude, longitude and height (kept in the
+  browser; **Locate** asks the browser), each with its rise, peak and set,
+  their times, directions and ranges, and whether it can be seen: sunlit
+  with the Sun 6° below the horizon. The ground under the satellite can
+  be drawn on the Earth, its next pass brighter. The rail's **Passes** key
+  shows the ISS's. Checked against Heavens-Above's predictions for the
+  same element set: 90 passes over Greenwich and Sydney, within a second
+  and their whole degree, each marked visible or not as they mark it
+  (this pull request).
 - A followed Earth satellite's orbit line runs through it from any
   distance. From closer than a tenth of its distance from the Earth (680
   km for the ISS) the line about it is drawn from SGP4 every frame; before,

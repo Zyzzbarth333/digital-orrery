@@ -192,7 +192,8 @@ range and the source:
 | --- | --- | --- |
 | Earth | EGM2008 to degree and order 70 (Pavlis et al. 2012 [2]) | Less the WGS 84 ellipsoid's normal field (its even zonals to degree 10, NIMA TR8350.2 [3]), so what remains is the geology: −106 to +135 mGal at this degree |
 | Moon | GRAIL GL0660B to degree and order 100 (Konopliv et al. 2013 [4]) | About a sphere: the mascons of the nearside maria stand out (Serenitatis +274 mGal, Imbrium +240) |
-| Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune | J2 only (sources in `bodies.js`) | The oblateness alone, said so in the legend: the app holds no fuller field for them |
+| Mercury, Venus | J2 only (sources in `bodies.js`) | The oblateness alone, said so in the legend. Craft near them feel their full fields (JGMESS160A and MGNP180U, [the space environment](environment.md#mercurys-and-venuss-gravity-fields)), but the guide doesn't draw them yet |
+| Mars, Jupiter, Saturn, Uranus, Neptune | J2 only (sources in `bodies.js`) | The oblateness alone, said so in the legend: the app holds no fuller field for them |
 
 On a sphere of the reference radius $R$, in the spherical approximation,
 

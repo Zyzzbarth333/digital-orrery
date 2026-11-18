@@ -601,6 +601,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 21-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 154 m/s of corrections against the direct arc's 1,018 |
 | Burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 0.8 km off |
+| Near 180°, the options after a choice by hand (the direct arc, the broken plane) | the solver: each row priced as the leg it gives | all three listed each time, to 10⁻⁹ km/s; the planner's deep-space burn listed and restored |
 | Near 180°, the deep-space burn: Earth orbit to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026; lunar orbit to Mars, stays of 18 to 30 days | Lawden's conditions on the primer vector (Lawden 1963; Prussing 2010); the primer's jump as the cost's gradient (Lion and Handelsman 1968; Jezewski 1975); a blind 12-start search | p-dot continuous at $B$ to 3 %, $\lvert\mathbf p\rvert \le 1$ to 10⁻⁴, where the broken plane's jumps 128 % and passes 1; nothing cheaper found; never dearer than the direct arc or the broken plane; the excess speed's second difference 4.3 m/s; 20 days at the Moon flown with 198 m/s of corrections, Mars 1.0 km off |
 | Near 180° from a craft's own state: a craft near the Earth, its orbit tilted 1°, to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026 | Abilleira (ISSFD 2007); Lawden (1963); the craft's orbit plane; the full-model flight | direct 12.72 km/s tilted 14.3°, the deep-space burn 5.471; the broken plane's first arc in the craft's plane to 10⁻⁶°; never dearer than either, smooth; flown with 112 m/s of corrections, Mars 1.2 km off, against the direct arc's 687 |
 
@@ -633,6 +634,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Relativity: Mercury through the kernel | 42.98″ a century | 42.98″ a century |
 | Relativity: the Earth's Schwarzschild and Lense–Thirring terms, orbit-averaged | 3.2496″ a year at 12,270 km, e = 0.1 | 3.2496″ a year (0.1 %) |
 | The planets' J2: a Jupiter orbiter's node, 10 days | secular theory, 11.901° | 11.931° (0.25 %) |
+| Mercury's and Venus's fields (JGMESS160A, MGNP180U) at 18 points, 200 to 1,000 km up, to degrees 20, 50 and 80 | a direct Legendre sum of the PDS files at 50 digits (`planetFields.oracle.wls`) | within 4.5×10⁻¹⁵; Venus's frame the app's IAU one, Mercury's its label's (0.17° from the IAU's) |
 
 ## Entry (`entry.test.mjs`)
 
@@ -705,6 +707,20 @@ through JPL Horizons). See [LRO](validation/lro.md).
 | The Moon's field, degree by degree, a day at 200 km | 4.2 km (J2), 1.48 (10), 0.074 (20), 0.020 (50), 0.020 km (100) |
 | The orbits | 207 by 3,082 km after LOI-1 (published 220 by 3,100); 34 by 199 km at the end (30 by 216) |
 | The app's file (`public/missions/lro.json`), with a fix every 6 h | 0.1 km off at the end, 25.5 km at worst (blind: 3,424 km) |
+
+## Real flight: MESSENGER's cruise to Mercury (`missions.validate.mjs`)
+
+MESSENGER from 5 August 2004 to half a day into Mercury orbit on 18 March
+2011, against JHU/APL's reconstruction (through JPL Horizons) and APL's
+record of each burn. See [MESSENGER](validation/messenger.md).
+
+| Check | Result |
+| --- | --- |
+| 19 burns (parts summed) against APL's EME2000 vectors | each within 1.1 % and 1.7°; DSM-1 315.639 m/s (APL 315.633), MOI 861.614 m/s along its path (861.714), turned 30° |
+| 49 coast arcs, sunlight fitted every 10 days (radial, along-track, normal) | rms 0.72 km over 2,420 daily samples, worst 5.4 km (no sunlight: 4,686 km); Cr·A 3.5–18.6 m², tilted up to 24° (as built: 12.9 m²) |
+| 6 flybys: Earth, Venus twice, Mercury three times | each within 0.04 km and a second of APL's; the kernel through each within 9 m at closest approach at the Earth and Venus, 172 m at Mercury; half a day on, within 0.7 km at the Earth and Venus (the 338 km pass of Venus: 4.0 km with J2 alone), 2.2 to 8.0 km at Mercury |
+| The orbit MOI reached | 207.5 by 15,272 km, 12.076 h (published 206.77 km, 12.071 h) |
+| The app's file (`public/missions/messenger.json`), with a fix every 24 h | every flyby within 0.6 km of the flown; 12.7 km off at the end, 14.9 km at worst |
 
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 
@@ -892,6 +908,16 @@ shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are))
 | the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
 | the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
 
+Passes over a place (`passes.test.mjs`,
+[passes over a place](frontend/satellites.md#passes-over-a-place)):
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the ISS's passes above 10°, Greenwich and Sydney Observatory, 18–28 Nov 2026 | Heavens-Above [11], its own element set for the ISS | all 90 found, none extra; culminations within 0.70 s, peaks within their whole degree, 10° crossings within 1.3 s |
+| visible, daylight or in shadow (sunlit, Sun below −6°, rise to set) | the same | as they have it for all 90 |
+| seven passes in detail: rise, set, shadow edges, directions, ranges | the same | times within 1.2 s (rise and set within 0.85 s), directions within their rounding, ranges within 0.4 km, the Sun's altitude within 0.06° |
+| TEME to ITRF by GMST and polar motion | the app's J2000 path (TEME to J2000, then ITRF93) | within 1.3 m for the ISS over 10 days (the IERS nutation corrections) |
+
 ## Magnetic fields and auroras (`magnetic.test.mjs`, `aurora.test.mjs`)
 
 The planets' and the Sun's fields, the field-line tracer and the auroral ovals
@@ -975,3 +1001,5 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 [9] R. A. Jacobson, "The orbits of the Neptunian satellites and the orientation of the pole of Neptune," *Astron. J.*, vol. 137, no. 5, p. 4322, 2009, doi: 10.1088/0004-6256/137/5/4322. Table 5.
 
 [10] R. A. Jacobson, Voyager 2 Neptune encounter trajectory, NAIF SPK `vgr2_nep097.bsp`, JPL Solar System Dynamics, 2022; merged with DE440 and nep097 by NAIF, 30 Aug. 2022. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/
+
+[11] C. Peat, "Heavens-Above," Heavens-Above GmbH: ISS (25544) orbit, all passes and pass details over Greenwich and Sydney Observatory, 18–28 Nov. 2026, fetched 18 Nov. 2026. [Online]. Available: https://www.heavens-above.com/orbit.aspx?satid=25544

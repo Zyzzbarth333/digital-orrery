@@ -22,7 +22,7 @@ they come from, and how each part is checked.
 | [Magnetic fields and auroras](physics/magnetic-fields.md) | The planets' magnetic fields (IGRF-14 with Tsyganenko's T89 magnetosphere, JRM33 with the con2020 current sheet, Cassini 11 with its ring current, Voyager's offset tilted dipoles), MESSENGER's for Mercury, Ganymede's inside Jupiter's field and the Sun's from the Wilcox Solar Observatory, as traced field lines; the Earth's auroras from NOAA's live OVATION Prime map near now, and from Starkov's model and the day's Kp otherwise; Jupiter's and Saturn's main ovals, Io's footprint, Uranus's and Neptune's zones; the radiation belts along their L-shells |
 | [Gravity guides](physics/gravity-guides.md) | Spin axes, Earth's and the Moon's real gravity fields (EGM2008, GRAIL) as anomaly maps, spheres of influence and Hill spheres, Lagrange points, the strongest pulls on a body |
 | [A 6-DOF vehicle in Earth orbit](physics/sixdof.md) | Rigid-body attitude, the Earth's gravity field to any degree, Earth rotation (IAU 1976/1980), drag and thrust, NASA's 6-DOF check cases; the app's craft attitude, its controller and burns along the body axis |
-| [The space environment](physics/environment.md) | Forces beyond gravity's point masses and J2 on the app's craft: sunlight pressure with the Earth's and Moon's shadows, and the steps across a shadow's edge |
+| [The space environment](physics/environment.md) | Forces beyond gravity's point masses and J2 on the app's craft: the Earth's, the Moon's, Mercury's and Venus's gravity fields; sunlight pressure with the Earth's and Moon's shadows, and the steps across a shadow's edge |
 | [Rockets: stages, staging and the ascent](physics/rocket.md) | The ROCKET tab: stage performance, optimal staging (Curtis 13.6), delta-v budgets worked back from a job, a gravity-turn ascent from a pad into orbit; thrust curves and drag against Mach, checked against OpenRocket and RocketPy; OpenRocket design files flown in the app |
 | [Journeys: legs, transfers, flybys and the rocket](physics/journey.md) | A journey of any number of legs by patched conics, each leg's transfers compared (Hohmann, bi-elliptic, plane change, Lambert, the porkchop optimum, phasing, gravity assists and the B-plane), flown by the kernel to each waypoint, and the stack of stages it needs |
 | [Atmospheric entry](physics/entry.md) | Orion's lifting entry, its guidance to the splashdown point, and the parachutes |
@@ -56,8 +56,8 @@ they come from, and how each part is checked.
 [Validation](validation.md): every check, its reference and the measured
 result. The flown missions in detail: [Artemis I](validation/artemis1.md),
 [Artemis II](validation/artemis2.md),
-[Juno 2012–13](validation/juno2013.md), [DART](validation/dart.md) and
-[LRO](validation/lro.md). [Performance](performance.md): what each part costs and the plan
+[Juno 2012–13](validation/juno2013.md), [DART](validation/dart.md),
+[LRO](validation/lro.md) and [MESSENGER](validation/messenger.md). [Performance](performance.md): what each part costs and the plan
 for the slow parts.
 
 ## Background
