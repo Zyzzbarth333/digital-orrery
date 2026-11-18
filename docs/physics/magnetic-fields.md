@@ -6,9 +6,12 @@ Three switches in the rail's **Guides** section, all off until switched on:
   measured internal field, Ganymede's and the Sun's included. The lines
   are shaded by field strength, and the dipole's axis runs through the
   dipole's own centre. The Earth's lines are bent by its magnetosphere for
-  the day's Kp, Jupiter's and Saturn's by their current sheets, and
-  Ganymede's close inside Jupiter's field. Mars, which has no global
-  field, shows its magnetised crust.
+  the day's Kp and end at its magnetopause; Jupiter's and Saturn's are
+  bent by their current sheets; Ganymede's close inside Jupiter's field.
+  The Earth's, Jupiter's and Saturn's magnetopauses and the Earth's and
+  Jupiter's bow shocks are drawn round them. With the Sun focused, its
+  current sheet and Parker spiral reach out to 6 AU. Mars, which has no
+  global field, shows its magnetised crust.
 - **Auroras** draws:
   - the Earth's auroral ovals;
   - Jupiter's and Saturn's main ovals;
@@ -26,10 +29,15 @@ draw. Mercury's and Ganymede's are too small to hold stable belts.
 | --- | --- | --- |
 | ![The Earth's field lines from IGRF-14, tilted 9 degrees, shaded from sheen near the surface to orange far out, with the auroral oval as a green and red band on the night-side limb tagged Kp 3−, and the field legend](../images/magnetic-earth.jpg) | ![Jupiter's field lines from JRM33 and its current sheet, stretched outward beyond a few radii, with the main oval near the north pole and the legend giving 1.78 to 20.6 gauss at the surface](../images/magnetic-jupiter.jpg) | ![Uranus's field lines from Voyager's offset tilted dipole, crowded on one side where the dipole sits 0.31 radii off centre, tilted 60 degrees](../images/magnetic-uranus.jpg) |
 
+| The Earth's magnetosphere | The Sun's current sheet |
+| --- | --- |
+| ![The Earth's field lines bent by T89, closed on the day side and drawn out on the night side, inside faint rings and meridians of the magnetopause tagged MP 11.7 Earth radii and, farther out, the bow shock tagged BS 16.3, for NOAA's measured solar wind](../images/magnetic-magnetosphere.jpg) | ![The inner solar system seen from above with the Sun focused: twelve Parker spiral field lines in amber and blue sectors winding out past Jupiter, and the heliospheric current sheet as cream wavy rings every half AU rising and falling up to 63 degrees north](../images/magnetic-sun.jpg) |
+
 ![The Earth with its magnetic field lines and auroral oval switched on, as the camera goes round from the day side to the night side, where the oval glows over the pole](../clips/magnetic-field.webp)
 
 Code: `src/physics/magnetic.js` (the field models and the tracer),
 `src/physics/t89.js` (the Earth's magnetosphere),
+`src/physics/boundaries.js` (magnetopauses, bow shocks and the solar wind),
 `src/physics/ringCurrent.js` (Saturn's ring current),
 `src/physics/sunField.js` (the Sun's field),
 `src/physics/aurora.js` (the ovals and the moons' footprints),
@@ -266,10 +274,81 @@ has turned 7.5° under the Sun (half an hour) or Kp changes level. The last
 set stays up while the next is traced. The auroral ovals' CGM grid and the
 radiation belts stay on IGRF alone, as their definitions use it.
 
-T89 has no sharp magnetopause and no bow shock. Its field is a smooth fit,
-not a boundary, so lines on the day side past about 10 $R_E$ are not cut
-where the real magnetopause would end them. Lines are drawn out to 40
+T89 has no sharp magnetopause and no bow shock: its field is a smooth
+fit, not a boundary. So the lines end where they meet the magnetopause of
+the next section, drawn for the date's solar wind, and otherwise at 40
 $R_E$.
+
+### Magnetopauses and bow shocks
+
+The solar wind stops a planet's field at the magnetopause, where the
+field's pressure balances the wind's, and slows to below its own
+magnetosonic speed at the bow shock standing ahead of it.
+
+**The Earth.** Shue et al.'s magnetopause [54] is a surface of revolution
+about the Sun line, with $\theta$ the angle from it, $D_p$ the solar
+wind's dynamic pressure (nPa) and $B_z$ the interplanetary field's
+north-south component (nT, GSM):
+
+$$
+r = r_0 \left(\frac{2}{1 + \cos\theta}\right)^{\alpha}, \quad
+r_0 = \{10.22 + 1.29 \tanh[0.184 (B_z + 8.14)]\}\, D_p^{-1/6.6}, \quad
+\alpha = (0.58 - 0.007 B_z)[1 + 0.024 \ln D_p].
+$$
+
+It was fitted for $-18 < B_z < 15$ nT and $0.5 < D_p < 8.5$ nPa, and the
+app keeps to those ranges. $D_p$ counts the wind's helium, a factor 1.16
+at its usual 4% [54]. The bow shock stands off from the magnetopause's
+nose by Farris and Russell's relation [55], as Volpes and Bothmer give it
+[56]:
+
+$$
+\frac{\Delta}{R_c} = 0.81\, \frac{(\gamma - 1) M^2 + 2}{(\gamma + 1)(M^2 - 1)},
+\qquad R_c = 1.35\, r_0,
+$$
+
+with $\gamma = 5/3$ and $M$ the fast magnetosonic Mach number, so it runs
+off to infinity as $M \to 1$. Its shape is the app's own, not a fitted
+model: a hyperboloid with that nose, a radius of curvature $R_c + \Delta$
+there (concentric with the magnetopause's), and the Mach cone's
+half-angle $\arcsin(1/M)$ as its asymptote. Both are drawn in GSM axes,
+without the solar wind's 4° aberration.
+
+The wind is NOAA SWPC's propagated from L1 to the Earth [59], a row a
+minute for the last 7 days, averaged over 10 minutes about the clock's
+time. Otherwise the app takes a quiet wind: 5 cm⁻³ at 400 km/s, 10⁵ K,
+5 nT, $B_z$ = 0. That gives 1.55 nPa, Mach 5.8, the magnetopause at 10.7
+$R_E$ and the bow shock at 13.9.
+
+**Jupiter.** Rutala et al. fitted Jupiter's magnetopause and bow shock to
+the crossings of every spacecraft through Juno's prime mission [57]. With
+$\phi$ measured from the north (the spin axis) through dawn and $p$ the
+wind's dynamic pressure,
+
+$$
+r = r_0 p^{r_1} \left(\frac{2}{1 + \cos\theta}\right)^{a_0 + a_1 p} + \sin^2\frac{\theta}{2}\, r_{2|3} \sin^2\phi\, p^{r_1},
+$$
+
+$r_2$ on the dawn side and $r_3$ at dusk. The magnetopause has
+$r_0 = 33.5$, $r_1 = -0.25$, $r_2 = 12.9$, $r_3 = 25.8$, $a_0 = 0.19$,
+$a_1 = 1.27$; the bow shock 36.4, −0.25, 0.0, 9.9, 0.89, 0.88 (their
+Tables 2 and 4, as the preprint gives them). The magnetopause holds for
+$x > -90\ R_J$, where crossings constrain it.
+
+**Saturn.** Pilkington et al.'s magnetopause [58] is Shue's form with
+$r_0 = 10.5\, D_p^{-1/5.7}$ and exponent $K = 0.67 + 0.17 D_p$,
+squeezed 19% north-south. Saturn's bow shock is left out: Went et al.'s
+model could not be read to check its coefficients.
+
+Jupiter's and Saturn's are drawn for the quiet wind thinned to their
+distance from the Sun as $1/r^2$: about 0.055 nPa at Jupiter, which
+puts the magnetopause at 69 $R_J$, and 0.017 nPa at Saturn, 21 $R_S$.
+Their field lines, to 40 and 20 radii, stay inside.
+
+Each boundary is drawn as rings 30° apart round the Sun line and
+meridians every 45°, recomputed in the planet's frame as it turns under
+the Sun. They fade out as the camera comes inside the magnetopause's
+nose. Tags give the nose distances and, on hover, the wind used.
 
 ### The Sun's field
 
@@ -302,6 +381,31 @@ the streamer belt, open lines from the polar coronal holes. The lines are
 retraced when the rotation changes. Degree 9 is about 20° on the Sun: the
 large-scale field only, without active regions' detail.
 
+**The current sheet and the Parker spiral.** Past the source surface the
+field points outward on one side of the line where $B_r = 0$ there and
+inward on the other. The solar wind carries that neutral line out as the
+heliospheric current sheet. The wind leaves radially at speed $v$ while
+the Sun turns under it, so in the Sun's turning frame a field line from
+Carrington longitude $\phi_0$ lies at
+
+$$
+\phi(r) = \phi_0 - \frac{\Omega (r - R_s)}{v},
+$$
+
+the Parker spiral [60]. Here $\Omega$ is the Carrington system's sidereal
+rate, 360° in 25.38 days, and $v$ = 400 km/s. At 1 AU the field then lies
+47° from the radial.
+
+The app finds the neutral line by marching squares on a 1° × 2° grid of
+$B_r$ on the source surface, a few rows a frame, and sweeps it out along
+the spiral. It draws the sheet where it crosses spheres every half AU out
+to 6 AU, with twelve spiral field lines in the Sun's equator: amber where
+the field points outward, blue inward. A filled sheet, folded over itself
+many times, cost the integrated GPU 28 ms a frame; the rings cost about
+1.6 ms. They show while the Sun is focused, and the legend gives how far
+north and south the sheet reaches. The wind is taken as uniform, so the
+sheet is the model's, without the fast and slow streams that bend it.
+
 ### Mars's crust
 
 Mars has no global field now, but its ancient crust stayed magnetised,
@@ -332,9 +436,10 @@ centre:
 
 Each is traced both ways by RK4 along the unit field direction
 $d\mathbf x/ds = \pm \mathbf B/|\mathbf B|$, with steps 3% of the distance from the
-centre. A line stops at the surface (bisected to it), beyond 16 (Uranus,
-Neptune), 20 (Saturn) or 40 (Earth, Jupiter) radii, 3.5 for the Sun, or
-after 3,000 steps.
+centre. A line stops at the surface (bisected to it), at the Earth's
+magnetopause (bisected to it too), beyond 16 (Uranus, Neptune), 20
+(Saturn) or 40 (Earth, Jupiter) radii, 3.5 for the Sun, or after 3,000
+steps.
 
 The tracing happens 3 ms a frame, focused body first, until done: about
 100 lines a body, under a second. The lines are fixed in the body's frame,
@@ -346,11 +451,10 @@ and key orange, to engraving 1,000 times weaker. The lines are brighter
 where stronger. The legend gives the surface range, the dipole moment, tilt
 and offset, and the source.
 
-**What is left out:** the magnetopause and bow shock as boundaries.
-The Earth's T89 bends its lines into a compressed day side and a tail, but
-does not end them at the magnetopause. Jupiter has its current sheet and
-Saturn its ring current, but neither has a magnetopause or tail.
-Uranus's, Neptune's and Mercury's lines are their internal fields alone.
+**What is left out:** Jupiter's and Saturn's magnetopause currents and
+tails, whose fields would bend their outer lines as T89 bends the
+Earth's. Saturn's bow shock. Uranus's, Neptune's and Mercury's
+magnetospheres: their lines are their internal fields alone.
 
 ## Auroras
 
@@ -620,11 +724,37 @@ since from within, a belt is only a haze over the whole view.
     monopole a finite map leaves dropped.
   - The field at the source surface is radial, and between the
     photosphere and it the sum is curl- and divergence-free to $10^{-9}$.
-  - CR 1927 begins on 8 September 1997, as WSO's own example gives.
+  - CR 1927 begins on 8 September 1997, as WSO's own example gives, and
+    all 661 rotation start dates in WSO's table (CR 1642–2302, 1976–2025)
+    fall within 2.3 h of the app's numbering [61].
+  - The current sheet's farthest north and south, from the same
+    coefficients with WSO's 3.25 $R_\odot$ source surface, against WSO's
+    computed tilts for its radial model [61] at every fourth rotation
+    (70, values under 70°): median 1.43°, 80% within 3.27°. Over all 287
+    such rotations the median is 1.39° on a finer grid.
+  - A 400 km/s Parker spiral lies 46.98° from the radial at 1 AU.
   - The sign of the dipole term $g_1^0$ follows WSO's measured polar field
     [49] at all 739 dates from 2000 to 2026 when the poles' mean is past
     20 μT. The polar field reverses every solar cycle; the PFSS fit tracks
     each reversal.
+- **Magnetopauses and bow shocks** [54]–[58]:
+  - Below 7 nPa Shue's magnetopause stays outside geosynchronous orbit at
+    every $B_z$ in its range (nearest 6.70 $R_E$), as the paper says; at
+    8 nPa and $B_z = -18$ nT it is inside, 6.57.
+  - Farris and Russell's standoff tends to $\Delta/R_c = 0.2025$ at high
+    Mach number, and the shock runs out to 109 $R_E$ at Mach 1.05.
+  - The hyperboloid has the nose, nose radius and asymptotic Mach cone it
+    was built with (9.6° at Mach 6, 10.2° at $10^4$ $R_E$ downstream).
+  - Jupiter's magnetopause stands off 89.1 and 48.9 $R_J$ at 0.02 and
+    0.22 nPa (paper: 89 and 51, the posterior medians). At the median
+    0.071 nPa its polar flattening at $x = 0$ is 13.7% (13%), and its
+    dawn-to-dusk ratio 0.88 (0.93 ± 0.41).
+  - Saturn's drawn surface is the one lines are cut at, 19% flatter
+    north-south.
+  - The Earth's lines from the dayside cusp end on the magnetopause to
+    $10^{-10}$ $R_E$.
+  - NOAA's propagated wind parses, skipping empty rows, and averages over
+    ±5 minutes.
 - **Mercury** is MESSENGER's 190 nT $R_M^3$ dipole, 479 km north [8].
   Its harmonic expansion matches libinternalfield's terms to 0.06 nT, and
   their eccentric dipole sits 479 km north.
@@ -654,6 +784,14 @@ since from within, a belt is only a haze over the whole view.
 - **Saturn's oval** maps from 15° south to 13.3° north.
 - **Jupiter's main emission** lies poleward of Io's footprint: a mean
   73.3° against 66.2° magnetic latitude.
+- **Jupiter's main oval against Hubble's.** Bonfond et al.'s reference
+  ovals from Hubble centre on 74° N, 185° W (System III) in the north and
+  82° S, 32° W in the south [62], as Head et al. give them for their
+  Juno-UVS ovals [63]. The app's oval (25 $R_J$), its footprints' mean
+  direction, centres on 70.9° N, 178.6° W and 82.4° S, 29.8° W: 3.7° and
+  0.5° of arc away. The northern oval is kidney-shaped round the magnetic
+  anomaly, so its centre is the looser check. Juno-UVS's reference ovals
+  themselves are in the journal's supplement, which could not be read.
 - **Lead angles** [30]: the Table 1 fits average 4.26°/4.14° (Io,
   north/south), 5.75°/7.06° (Europa) and 12.33°/13.02° (Ganymede). The
   paper gives 4.3/4.1, 5.8/7.0 and 12.3/13.0. Io's stays between 1.8° and
@@ -779,3 +917,23 @@ since from within, a belt is only a haze over the whole view.
 [52] J. D. Jackson, *Classical Electrodynamics*, 3rd ed. New York, NY, USA: Wiley, 1999, sec. 5.5.
 
 [53] M. G. Kivelson *et al.*, "Ganymede's magnetosphere: Magnetometer overview," *J. Geophys. Res. Planets*, vol. 103, no. E9, pp. 19963–19972, 1998, doi: 10.1029/98JE00227. (Not opened; the vacuum-superposition picture as it is widely cited.)
+
+[54] J.-H. Shue *et al.*, "Magnetopause location under extreme solar wind conditions," *J. Geophys. Res. Space Phys.*, vol. 103, no. A8, pp. 17691–17700, 1998, doi: 10.1029/98JA01103. Eqs. 1, 10, 11. Author copy: https://faculty.epss.ucla.edu/~ctrussell/russell_bib.html/papers/mpause_extreme/
+
+[55] M. H. Farris and C. T. Russell, "Determining the standoff distance of the bow shock: Mach number dependence and use of models," *J. Geophys. Res. Space Phys.*, vol. 99, no. A9, pp. 17681–17689, 1994, doi: 10.1029/94JA01020. (Not opened; as [56] gives it.)
+
+[56] B. Volpes and V. Bothmer, "An application of the stereoscopic self-similar-expansion model to the determination of CME-driven shock parameters," *Sol. Phys.*, vol. 290, no. 10, pp. 3005–3022, 2015, doi: 10.1007/s11207-015-0775-z. Eqs. 7–9. Preprint: arXiv:1509.03181.
+
+[57] M. J. Rutala *et al.*, "New models of Jupiter's magnetopause and bow shock through the Juno prime mission: Probabilistic location, shape, and internally-driven variation," *J. Geophys. Res. Space Phys.*, vol. 130, no. 5, Art. no. e2025JA033842, 2025, doi: 10.1029/2025JA033842. Eq. 2, Tables 2 and 4, from the preprint arXiv:2502.09186v2.
+
+[58] N. M. Pilkington *et al.*, "Internally driven large-scale changes in the size of Saturn's magnetosphere," *J. Geophys. Res. Space Phys.*, vol. 120, no. 9, pp. 7289–7306, 2015, doi: 10.1002/2015JA021290. Eqs. 1–3, Table 1.
+
+[59] NOAA Space Weather Prediction Center, "Propagated solar wind" (geospace product, propagated-solar-wind.json, 7 days). [Online]. Available: https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind.json (read 18 Nov. 2026). US Government work.
+
+[60] E. N. Parker, "Dynamics of the interplanetary gas and magnetic fields," *Astrophys. J.*, vol. 128, p. 664, 1958, doi: 10.1086/146579.
+
+[61] Wilcox Solar Observatory, "Computed 'tilt angle' of the heliospheric current sheet" (tilts updated 23 Oct. 2025). [Online]. Available: http://wso.stanford.edu/Tilts.html (read 18 Nov. 2026).
+
+[62] B. Bonfond, D. Grodent, J.-C. Gérard, T. Stallard, J. T. Clarke, M. Yoneda, A. Radioti, and J. Gustin, "Auroral evidence of Io's control over the magnetosphere of Jupiter," *Geophys. Res. Lett.*, vol. 39, no. 1, Art. no. L01105, 2012, doi: 10.1029/2011GL050253. (Not opened; its reference ovals' centres as [63] gives them.)
+
+[63] L. A. Head *et al.*, "Effect of magnetospheric conditions on the morphology of Jupiter's ultraviolet main auroral emission as observed by Juno-UVS," *Astron. Astrophys.*, vol. 688, Art. no. A205, 2024, doi: 10.1051/0004-6361/202450253. Sec. 4.1. Preprint: arXiv:2404.04030.

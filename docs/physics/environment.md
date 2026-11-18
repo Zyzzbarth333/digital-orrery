@@ -31,7 +31,7 @@ acceleration on the craft alone:
   longitude and so has no singularity at the poles, carried out on fully
   normalised terms throughout. Their ratios are those of the standard
   forward recursion for normalised Legendre functions (Holmes and
-  Featherstone 2002 [20], their forward column method), each a square
+  Featherstone 2002 [22], their forward column method), each a square
   root of small integers, tabulated when the field is built.
   Unnormalised, as Montenbruck and Gill give it, the (n + m)! in the
   conversion overflows a double past about degree 85; normalised, the
@@ -264,18 +264,22 @@ only the Earth and the Moon. Each value is from the field's primary source
 | Mars | 1.9566×10⁻³ | | 3,396.0 km | MRO120D, PDS |
 | Jupiter | 14,696.5735×10⁻⁶ | −586.6085×10⁻⁶ (and J3, J5 to J12) | 71,492 km | Juno (Durante et al. 2020 [9]), PDS `GRV_JUGR_SHA_JUP_U_DUR2020` |
 | Saturn | 16,290.573×10⁻⁶ | −935.314×10⁻⁶ (and J3, J5 to J12) | 60,330 km | Cassini Grand Finale (Iess et al. 2019 [10]), Table 1 |
-| Uranus | 3,510.7×10⁻⁶ | −34.2×10⁻⁶ | 25,559 km | Jacobson 2014 [11], Table 12 |
-| Neptune | 3,408.43×10⁻⁶ | −33.40×10⁻⁶ | 25,225 km | Jacobson 2009 [12], Table 5 |
+| Uranus | 3,508.967×10⁻⁶ | −35.793×10⁻⁶ (and J6 = 0.575×10⁻⁶) | 25,559 km | URA182 (Jacobson and Park 2025 [20]), the constants in NAIF's `ura184` |
+| Neptune | 3,536.297×10⁻⁶ | −35.952×10⁻⁶ (and J6 = 0.546×10⁻⁶) | 24,764 km | NEP097 (Brozović et al. 2020 [21]), the constants in NAIF's `nep097` |
 
 Mercury's, Venus's and Mars's are their normalised C20 times −√5.
 Jupiter's J3 to J12 are the PDS table's C30 to C120 with their signs
 changed (J4 = −C40 = −586.6085×10⁻⁶, 3σ 2.4×10⁻⁹;
 J6 = 34.2007×10⁻⁶; J8 = −2.422×10⁻⁶; J10 = 0.181×10⁻⁶; J9, J11 and J12
 are within their own 3σ uncertainties); Saturn's J3 to J12 are the paper's Table 1 (J4 ±0.037×10⁻⁶, J6 = 86.340×10⁻⁶, J8 = −14.624×10⁻⁶, uncertainties 3× formal; J7 and J11 within them). Uranus's and
-Neptune's were read from the same tables as their J2, by a summary of the
-articles' pages rather than from the PDFs themselves, with the J2 beside
-them matching the kernel's to every digit. Each acts within 100 reference
-radii, about the body's pole of date ([the kernel](nbody-kernel.md#oblateness-j2)
+Neptune's are the solutions Voyager 2's reconstructed encounters were
+fitted with, read from the constants in NAIF's satellite kernels' comments
+(J702 to J706, J802 to J806, RADIUS). Neptune's J2 and J4 are Jacobson
+2009's [12] (3,408.43×10⁻⁶ and −33.40×10⁻⁶ at 25,225 km, Table 5) referred
+to the smaller radius, to 0.05 of their σ; Uranus's replace Jacobson
+2014's [11] (3,510.7×10⁻⁶ and −34.2×10⁻⁶, Table 12). Each acts within 100
+reference radii, about the body's pole of date (Neptune's is nep097's,
+0.056° from the IAU's in 1989, the one its field was fitted with) ([the kernel](nbody-kernel.md#oblateness-j2)
 has the terms beyond J2).
 
 **Check:** a circular orbit 3 Jupiter radii out, 30° to Jupiter's equator,
@@ -450,4 +454,8 @@ instead of 1,464, and 59 ms instead of 35.
 
 [19] F. Espenak, "Total solar eclipse of 2017 August 21," NASA GSFC, path table. [Online]. Available: https://eclipse.gsfc.nasa.gov/SEpath/SEpath2001/SE2017Aug21Tpath.html
 
-[20] S. A. Holmes and W. E. Featherstone, "A unified approach to the Clenshaw summation and the recursive computation of very high degree and order normalised associated Legendre functions," *J. Geodesy*, vol. 76, no. 5, pp. 279–299, 2002, doi: 10.1007/s00190-002-0216-2.
+[20] R. A. Jacobson and R. S. Park, "The orbits of Uranus, its satellites and rings, the gravity field of the Uranian system, and the orientation of the poles of Uranus and its satellites," *Astron. J.*, vol. 169, no. 2, Art. no. 65, 2025, doi: 10.3847/1538-3881/ad99d1. The URA182 solution, as the constants in NAIF's `ura184` give it.
+
+[21] M. Brozović, M. R. Showalter, R. A. Jacobson, R. S. French, J. J. Lissauer, and I. de Pater, "Orbits and resonances of the regular moons of Neptune," *Icarus*, vol. 338, Art. no. 113462, 2020, doi: 10.1016/j.icarus.2019.113462. The NEP097 solution, as the constants in NAIF's `nep097` give it.
+
+[22] S. A. Holmes and W. E. Featherstone, "A unified approach to the Clenshaw summation and the recursive computation of very high degree and order normalised associated Legendre functions," *J. Geodesy*, vol. 76, no. 5, pp. 279–299, 2002, doi: 10.1007/s00190-002-0216-2.
