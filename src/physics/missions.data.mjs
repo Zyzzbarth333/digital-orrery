@@ -138,5 +138,61 @@ export const MISSIONS = {
     // app's aimed DART from the centre (Dimorphos is 177 by 174 by 116 m).
     checks: { arcFittedKm: 25, arcGain: 10, crFitPct: 30, appEndKm: 1, appWorstKm: 100, appFlybyKm: 1, appAimedMps: 5, impactS: 0.015, impactOffsetM: 3, appImpactKm: 0.05 },
   },
+  lro: {
+    id: 'lro',
+    name: 'LRO · lunar capture',
+    label: 'LRO · capture at the Moon, June 2009',
+    craftName: 'LRO',
+    summary: 'The Lunar Reconnaissance Orbiter from the day after launch to its commissioning orbit, 18 to 28 June 2009: a four-and-a-half-day cruise, the 40-minute lunar orbit insertion burn, and four more burns down to a 30 by 216 km polar orbit, flown in the Moon\'s GRAIL field.',
+    source: 'LRO final reconstructed trajectory (from the PDS), via JPL Horizons (-85)',
+    horizons: '-85', centre: 'earth',
+    span: ['2009-06-18 23:00', '2009-06-28 00:00'],
+    // Every 10 minutes, flown in the full environment: in lunar orbit the
+    // Moon's field beyond J2 moves LRO by metres a minute.
+    step: '10m', threshold: 5e-6, coarseEnv: true, fine: 's10', finePadMs: 3600e3, minBurn: 0.1,
+    dense: [],
+    keep: { cruise: 600e3, near: [{ body: 'moon', km: 20000, every: 60e3 }] },
+    published: [
+      // Its 10 s samples ring (1.8 m/s of steps for 1.31 in sum), so its
+      // length can't be resolved; the trajectory puts it at 22:20, four
+      // minutes after the release's time.
+      { name: 'Mid-course correction', utc: '2009-06-19T22:16:00Z', seconds: 38, mps: 1.3, engine: 'hydrazine thrusters', lengthUnresolved: true, utcTolS: 300, utcNote: 'the trajectory has it four minutes after the release\'s time',
+        src: 'https://lroc.im-ldi.com/news/146', note: '"executed yesterday (June 19) at 6:16pm EDT", "fired for 38 seconds", "1.3 m/s"' },
+      { name: 'LOI-1', utc: null, day: '2009-06-23', seconds: 40 * 60, mps: null, engine: 'four 80 N insertion thrusters', endUtc: '2009-06-23T10:26:26Z',
+        src: 'https://lroc.im-ldi.com/news/147', note: '"completed a 40-minute Lunar Orbit Insertion (LOI) burn" at 6:26:26 a.m. EDT; no delta-v published' },
+      // "four more small burns would occur over the next five days" (the
+      // same release): named here after LOI-1, by day.
+      ...['2009-06-24', '2009-06-25', '2009-06-26', '2009-06-27'].map((day, k) => ({ name: `LOI-${k + 2}`, utc: null, day, seconds: null, mps: null, engine: 'four 80 N insertion thrusters',
+        src: 'https://lroc.im-ldi.com/news/147', note: 'one of "four more small burns ... over the next five days"; no time or delta-v published' })),
+    ],
+    // The orbits reached, about the Moon (heights above its mean radius).
+    orbits: [
+      { after: 'LOI-1', periKm: 220, apoKm: 3100, src: 'https://lroc.im-ldi.com/news/147', note: '"a 220 km by 3100 km (137 mile by 1926 mile) orbit"' },
+      { after: 'last', periKm: 30, apoKm: 216, src: 'https://lroc.im-ldi.com/news/147', note: '"30 km by 216 km ... (Commissioning Phase Orbit)"' },
+    ],
+    // The Moon's field by degree, on the coast in the commissioning orbit.
+    fieldDegrees: { body: 'moon', degrees: [2, 10, 20, 50, 100] },
+    flybys: [],
+    // The PDS catalog (LRO instrument host, insthost.cat): "less than 949 kg
+    // dry and 1846 kg fully fueled", "894 kg of hydrazine (~ 1300 m/sec
+    // delta-V capability)", four 80 N insertion thrusters, a 10.7 m^2 array.
+    // The Isp from those: 1300 m/s over ln(1846 / 952): 200 s. The launch
+    // load is kept; the cruise to the mid-course burn uses a few kg at most.
+    craft: { dryMass: 949, fuel: 894, area: 10.7, cr: 1.3, isp: 200, thrust: 320 },
+    craftSrc: 'https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/catalog/insthost.cat',
+    minArcH: 6,
+    // Flown with a tracking fix every 6 h: aimed a day ahead across twelve
+    // revolutions of a two-hour lunar orbit from tens of kilometres off, the
+    // aims find costly phasing answers; its navigators worked each burn
+    // from a fresh orbit determination.
+    fixHours: 6,
+    // Tolerances (docs/validation/lro.md): the arcs, under 6 h to 3 days,
+    // within 1 km with sunlight fitted; orbitPct, an osculating orbit at one
+    // instant against a published round figure, in the Moon's lumpy field;
+    // fieldKm, the day-long coast at 200 km with the field to degree 100;
+    // steadyOffMms, the velocity a burn fitted steady leaves at the sample
+    // half an hour on; app*, the file flown with a fix every 6 h.
+    checks: { arcFittedKm: 1, arcGain: 10, crFitPct: 20, appEndKm: 1, appWorstKm: 50, appFlybyKm: 1, appAimedMps: 1, orbitPct: 15, fieldKm: 0.05, steadyOffMms: 2000 },
+  },
 };
 export const FEET = FT, MILES = MILE;

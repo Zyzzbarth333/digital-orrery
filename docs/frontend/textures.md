@@ -36,6 +36,7 @@ attribution, with a link to the licence; the app's Credits list gives both.
 | Triton | Voyager 2 mosaic, 600 m/px (4096×2048, kept grey) | USGS map server (Paul Schenk, LPI) | NASA/JPL, USGS Astrogeology |
 | Charon | New Horizons LORRI/MVIC mosaic, 300 m/px (2048×1024 grey) | USGS map server | NASA/JHUAPL/SwRI, USGS Astrogeology |
 | Saturn's rings | Normal optical depth, 10 km bins | Cassini UVIS 126 Tau egress occultation (COUVIS_8001) | NASA PDS Ring-Moon Systems Node (Colwell et al.) |
+| Uranus's narrow rings | Equivalent depth and, for α, β and ε, the shape of τ across the ring | Voyager 2 PPS β Persei (λ: σ Sagittarii) occultations, 1 km (VG_2801) | NASA PDS Ring-Moon Systems Node; orbits from French et al. 2024 ([rings](rings.md)) |
 | Stars | The Hipparcos main catalogue: 83,392 stars to V 9 with V and B−V | ESA 1997 (SP-1200), via NASA HEASARC | ESA, *The Hipparcos and Tycho Catalogues* (1997) |
 | Milky Way | Map of the light between the stars (Hipparcos and Tycho stars removed), 8192×4096, refined to 16384×8192 in tiles where the screen can show it | Deep Star Maps 2020, Milky Way layer (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
 
@@ -237,6 +238,15 @@ Taking 1.9 literally would leave the B ring 14 % transparent face-on.
 The ring photometry, transparency and shadow on Saturn are in
 [lighting](lighting.md#saturns-rings).
 
+## The other planets' rings
+
+Jupiter's, Uranus's and Neptune's rings come from published ring tables
+and occultations, not maps: their sources, what is measured and what is
+modelled, and how they are drawn are in [rings](rings.md). The only file
+built for them is `uranus/rings_pps.json`, from 20 Voyager PPS profiles
+(0.8 MB) that `python/textures/fetch_rings.py` downloads into the source
+folder.
+
 ## Stars
 
 The sky is two layers, both downloaded with the user's approval on
@@ -344,6 +354,8 @@ in view:
 ```bash
 python3 python/textures/build_textures.py            # all bodies
 python3 python/textures/build_textures.py --only moon,rings
+python3 python/textures/fetch_rings.py               # Uranus's ring profiles (0.8 MB, PDS)
+python3 python/textures/build_textures.py --only uranus_rings
 python3 python/textures/fetch_moons.py               # the moons' sources (about 160 MB)
 python3 python/textures/build_textures.py --only io,europa,triton
 ```

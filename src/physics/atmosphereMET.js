@@ -73,14 +73,20 @@ export function exosphericTemperature({ f107, f107bar, ap, kp = false, latRad, d
 }
 
 // ---- temperature profile (TEMP) -------------------------------------------
+// T(z) for exospheric temperature Texo, and T.node(u, p, u3, u4): the same
+// at z = 125 + u from the powers of u a fixed quadrature node keeps
+// (u > 0: p = 1 + 4.5e-6 u^2.5; below, u^3 and u^4), as T(z) would work
+// them out, so the value is the same to the last bit.
 function profile(Texo) {
   const Tx = 444.3807 + 0.02385 * Texo - 392.8292 * Math.exp(-0.0021357 * Texo);
   const A2 = 2 * (Texo - Tx) / Math.PI, d = Tx - T0;
   const T1 = 1.9 * d / 35, T3 = -1.7 * d / 35 ** 3, T4 = -0.8 * d / 35 ** 4;
-  return (z) => {
+  const T = (z) => {
     const u = z - 125;
     return u > 0 ? Tx + A2 * Math.atan(T1 * u * (1 + 4.5e-6 * u ** 2.5) / A2) : Tx + T1 * u + T3 * u ** 3 + T4 * u ** 4;
   };
+  T.node = (u, p, u3, u4) => (u > 0 ? Tx + A2 * Math.atan(T1 * u * p / A2) : Tx + T1 * u + T3 * u3 + T4 * u4);
+  return T;
 }
 const molWt = (z) => {
   if (z > 105) return 1;
@@ -105,13 +111,40 @@ const GW = {
 };
 const ALTMIN = [90, 105, 125, 160, 200, 300, 500, 1500, 2500];
 const NG = [4, 5, 6, 6, 6, 6, 6, 6];
-function gauss(z1, z2, kmin, T) {         // integral of M g / T dz, z in km
+// The nodes of each whole sub-region, worked out once: height, the weight
+// times M g there, and the powers of u = z - 125 the profile takes. A
+// sub-region the integral ends inside has nodes that depend on where it
+// ends, and is worked out as it comes.
+const NODES = NG.map((n, k) => {
+  const a = ALTMIN[k], del = 0.5 * (ALTMIN[k + 1] - a);
+  return GX[n].map((x, i) => {
+    const z = del * (x + 1) + a, u = z - 125;
+    return { q: GW[n][i] * molWt(z) * gravity(z), u, p: 1 + 4.5e-6 * u ** 2.5, u3: u ** 3, u4: u ** 4 };
+  });
+});
+// One sub-region's share, del times the weighted sum (the whole region k, or
+// from its base to z2 when z2 is inside it).
+function region(k, z2, T) {
+  const a = ALTMIN[k], top = ALTMIN[k + 1], d = Math.min(z2, top), del = 0.5 * (d - a), n = NG[k];
+  let rr = 0;
+  if (d === top) {
+    const nodes = NODES[k];
+    for (let i = 0; i < n; i++) { const o = nodes[i]; rr += o.q / T.node(o.u, o.p, o.u3, o.u4); }
+  } else {
+    for (let i = 0; i < n; i++) { const z = del * (GX[n][i] + 1) + a; rr += GW[n][i] * molWt(z) * gravity(z) / T(z); }
+  }
+  return del * rr;
+}
+// share: an array (one slot per sub-region, NaN until worked out) that
+// calls with the same T share, so a region two integrals cover is summed
+// once.
+function gauss(z1, z2, kmin, T, share = null) {         // integral of M g / T dz, z in km
   let r = 0;
   for (let k = kmin; k < 8; k++) {
-    const a = ALTMIN[k], d = Math.min(z2, ALTMIN[k + 1]), del = 0.5 * (d - a), n = NG[k];
-    let rr = 0;
-    for (let i = 0; i < n; i++) { const z = del * (GX[n][i] + 1) + a; rr += GW[n][i] * molWt(z) * gravity(z) / T(z); }
-    r += del * rr;
+    const d = Math.min(z2, ALTMIN[k + 1]);
+    let x;
+    if (share) { x = share[k]; if (Number.isNaN(x)) x = share[k] = region(k, z2, T); } else x = region(k, z2, T);
+    r += x;
     if (d === z2) break;
   }
   return r;
@@ -132,11 +165,12 @@ export function jacchia(z, Texo) {
   if (z <= 105) {
     return { T: Tz, logRho: Math.log10(dens), logN: [...DI, 1].map((x, i) => (i === 5 ? 0 : Math.log10(x))), M: EM105 };
   }
-  R = gauss(105, z, 1, T);
+  const share = [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN];
+  R = gauss(105, z, 1, T, share);
   const DIT = DI.map((x, i) => { const v = x * (TD / Tz) ** (1 + ALPHA[i]) * Math.exp(-EI[i] * R / RGAS); return v <= 0 ? 1e-6 : v; });
   if (z > 500) {
     const S = T(500), ls = Math.log10(S);
-    const R5 = gauss(500, z, 6, T);
+    const R5 = gauss(500, z, 6, T, share);
     DIT.push(10 ** (73.13 - 39.4 * ls + 5.5 * ls * ls) * (S / Tz) * Math.exp(-EI[5] * R5 / RGAS));
   } else DIT.push(1);
   let rho = 0, ntot = 0;

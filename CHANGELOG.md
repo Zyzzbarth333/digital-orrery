@@ -16,6 +16,7 @@ once it has releases. Until then, everything sits under Unreleased.
 
 ### Planning and flying
 - Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 73 m/s an hour. The flight aims a swing-by early, before the pass turns its error into millions of kilometres (this pull request).
+- A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
 - Craft launched in the app carry an attitude (6-DOF). The MISSION tab
   points them prograde, retrograde, normal, radial, along the next node
   or holds them still, and they turn in the time their thrusters' torque
@@ -30,6 +31,12 @@ once it has releases. Until then, everything sits under Unreleased.
   time to settle before the node fires (AUTO NODE TURN), saying in the
   log when it can't. The node mode now holds the direction it burned
   along afterwards (this pull request).
+- A held attitude costs propellant as a real one does: the thrusters keep
+  it within a 0.5° deadband by pulses of their minimum impulse bit, and
+  the hold pays that limit cycle (about 0.34 kg a day for the app's
+  craft, where it paid almost nothing), or the disturbance it holds
+  against when that is larger. The ATTITUDE readout shows what holding
+  costs a day (this pull request).
 - A craft launched from the ROCKET tab turns as its own stage would: its
   inertia is a cylinder of the stack's diameter round a tank that holds
   its stages' propellant, and its thrusters are sized to turn it as
@@ -80,6 +87,14 @@ once it has releases. Until then, everything sits under Unreleased.
   and aiming a node before the break aims it at the break point. In
   flight, such a leg's departure, if it waits, is re-aimed at the break
   point, not straight at the target (this pull request).
+- Such a leg is now flown with a deep-space burn: the burn near halfway
+  can go anywhere, so it reshapes the transfer as well as turning its
+  plane. It is the optimum by Lawden's primer vector conditions, never
+  dearer than the direct arc or the broken plane, and up to 76 m/s
+  cheaper than the broken plane leaving Earth orbit for Mars in November
+  2026. Its price still runs smoothly as the dates change. "Broken plane"
+  is listed beside it and can be chosen, and the plane lamp says where the
+  burn is (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
@@ -95,7 +110,12 @@ once it has releases. Until then, everything sits under Unreleased.
   Dimorphos against its navigators' (`?mission=dart`): burns along their
   measured directions about the Sun, aims flown in the craft's own
   sunlight and as they are flown; Juno shows no flyby anomaly, and the
-  app's DART strikes 23 m from Dimorphos's centre (this pull request).
+  app's DART strikes 23 m from Dimorphos's centre (#97).
+- LRO's capture at the Moon in June 2009 flies in the app against its
+  final reconstruction (`?mission=lro`), down to its 30 km commissioning
+  orbit in the Moon's GRAIL field, checked degree by degree; burns the
+  reconstruction can't resolve are fitted as the engine would fly them
+  (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
@@ -125,6 +145,7 @@ once it has releases. Until then, everything sits under Unreleased.
   (this pull request).
 
 ### The sky and its bodies
+- Jupiter, Uranus and Neptune have their rings. Uranus's ten narrow rings run on their measured orbits (French et al. 2024), eccentric, tilted and precessing, with depths and shapes from Voyager's occultations; its dust bands, ν and μ are there too. Neptune's Adams arc sits where it was last measured, with Le Verrier, Lassell and Galle. Jupiter's main ring, halo and gossamer rings are dust: faint, and brightest from Jupiter's shadow. Rings narrower than a pixel stay one steady line. They are as faint as the real ones; `?exposure=N` lengthens the exposure, as ring photographs do ([rings](docs/frontend/rings.md); this pull request).
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
   come from JPL's satellite ephemerides to within a kilometre, 76 of them
   (#33, #56). The Earth turns on UT1 with polar motion (#50).
@@ -132,7 +153,10 @@ once it has releases. Until then, everything sits under Unreleased.
   rail switches on: points, labels and orbit lines, and each one to fly
   to with a plate of its orbit, sense, size, GM and discovery. From 2000
   to 2049 they come from JPL's satellite kernels for them, within 0.51 km
-  (this pull request).
+  (#80). Each has a real size, measured by NEOWISE for 13 and estimated
+  from its brightness for the rest, and the 23 whose shape is known are
+  drawn as ellipsoids turning at their measured periods (this pull
+  request).
 - Bodies are drawn as their IAU ellipsoids (#47). Fourteen moons have USGS
   surface maps (#42).
 - 135,353 asteroids and comets (#27), the faint main belt as a haze from

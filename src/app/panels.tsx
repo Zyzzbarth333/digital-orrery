@@ -469,7 +469,7 @@ function Credits() {
       used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</>
   );
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
-  items.push(['Flown missions', "Artemis I: NASA/JSC navigation's as-flown ephemeris, via JPL Horizons; Artemis II: NASA JSC/FOD/NAV's reconstruction, via NAIF; Juno: JPL navigation's reconstruction, via JPL Horizons; DART: its navigation's reconstruction and Dimorphos, via JPL Horizons, and Daly et al., Nature 616 (2023), CC BY 4.0"]);
+  items.push(['Flown missions', "Artemis I: NASA/JSC navigation's as-flown ephemeris, via JPL Horizons; Artemis II: NASA JSC/FOD/NAV's reconstruction, via NAIF; Juno: JPL navigation's reconstruction, via JPL Horizons; DART: its navigation's reconstruction and Dimorphos, via JPL Horizons, and Daly et al., Nature 616 (2023), CC BY 4.0; LRO: its final reconstruction from the PDS, via JPL Horizons"]);
   items.push(['Magnetic fields', 'IGRF-14 (IAGA V-MOD, via NOAA NCEI); JRM33 and con2020 (Connerney et al. 2022, 2020); Cassini 11 (Dougherty et al. 2018, Cao et al. 2020) via libinternalfield (MIT); Voyager 2 dipoles (Ness et al. 1986, 1989); MESSENGER (Anderson et al. 2012)']);
   items.push(['Auroras', 'NOAA SWPC OVATION Prime live aurora forecast (US Government work); Starkov 1994 oval as Sigernes et al. 2011 give it; Kp from GFZ Potsdam via CelesTrak; Badman et al. 2006 (Saturn); Clarke et al. 2004 (Jupiter); Melin et al. 2025 (Neptune)']);
   items.push(['Radiation belts', 'Reeves and Daglis 2016 (Earth); Roussos and Kollmann 2021, Roussos et al. 2018 (Jupiter, Saturn); Cooper and Stone 1991 (Uranus); Mauk et al. 1991 (Neptune)']);

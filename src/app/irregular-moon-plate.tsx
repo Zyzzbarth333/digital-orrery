@@ -42,13 +42,19 @@ export function IrregularMoonPlate({ clock, moon: m }: { clock: SimClock; moon: 
     { label: 'Eccentricity', value: m.e.toFixed(3), ...els },
     { label: 'Inclination', value: m.i.toFixed(1), unit: '°', alt: 'to the ecliptic', ...els },
     { label: 'Orbital period', value: years < 2 ? fmtGroup(m.P, 1) : years.toFixed(2), unit: years < 2 ? 'd' : 'yr', ...els },
-    m.radiusNote?.startsWith('not measured')
-      ? { label: 'Mean radius', value: 'not measured', alt: `drawn ${m.radiusKm} km`, src: 'nominal', derived: true, info: 'irr-radius', detail: m.radiusNote }
-      : { label: 'Mean radius', value: fmtGroup(m.radiusKm, m.radiusKm < 10 ? 1 : 0), unit: 'km', alt: m.radiusNote, src: 'Horizons', info: 'irr-radius' },
+    m.size.source === 'NEOWISE'
+      ? { label: 'Diameter', value: fmtGroup(m.size.diameterKm, 1), unit: 'km', alt: `± ${m.size.errKm} km, thermal infrared`, src: 'NEOWISE', info: 'irr-size' }
+      : { label: 'Diameter', value: `≈ ${fmtGroup(m.size.diameterKm, m.size.diameterKm < 10 ? 1 : 0)}`, unit: 'km', alt: 'estimated from its brightness', src: m.size.source, derived: true, info: 'irr-size', detail: m.size.note },
+    m.axesKm
+      ? { label: 'Shape', value: `${fmtGroup(2 * m.axesKm[0], 1)} × ${fmtGroup(2 * m.axesKm[1], 1)}`, unit: 'km', alt: `a/b ${(m.axesKm[0] / m.axesKm[1]).toFixed(2)}${m.name === 'Himalia' ? '' : ' at least'}`, src: m.name === 'Himalia' ? 'Cassini' : 'lightcurve', derived: true, info: 'irr-shape', detail: m.shapeNote }
+      : { label: 'Shape', value: 'not known', alt: 'drawn as a sphere', src: 'none', derived: true, info: 'irr-shape' },
+    ...(m.rotation ? [{ label: 'Rotation', value: m.rotation.periodH.toFixed(m.rotation.periodH < 10 ? 2 : 1), unit: 'h', alt: m.rotation.uncertain ? 'period not certain' : 'synodic', src: m.name === 'Himalia' ? 'Pilcher' : 'Denk', info: 'irr-rotation', detail: m.rotation.source } as Row] : []),
     m.gm === null
       ? { label: 'GM', value: 'not measured', src: 'Horizons', info: 'irr-gm' }
       : { label: 'GM', value: m.gm.toPrecision(3), unit: 'km³/s²', alt: 'no pull on craft', src: 'Horizons', info: 'irr-gm' },
-    ...(m.geometricAlbedo === null ? [] : [{ label: 'Geometric albedo', value: m.geometricAlbedo.toFixed(2), src: 'Horizons', info: 'moon-albedo' } as Row]),
+    ...(m.geometricAlbedo === null ? [] : [m.size.source === 'NEOWISE'
+      ? { label: 'Geometric albedo', value: m.geometricAlbedo.toFixed(3), alt: 'visible, from NEOWISE', src: 'NEOWISE', info: 'irr-size' } as Row
+      : { label: 'Geometric albedo', value: m.geometricAlbedo.toFixed(2), src: 'Horizons', info: 'moon-albedo' } as Row]),
     m.discovery
       ? { label: 'Discovered', value: m.discovery.year, alt: m.discovery.by, src: 'JPL SSD', info: 'irr-discovery', detail: m.discovery.ref }
       : { label: 'Discovered', value: 'not listed', src: 'JPL SSD', info: 'irr-discovery' },

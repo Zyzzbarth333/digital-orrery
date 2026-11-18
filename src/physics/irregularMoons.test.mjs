@@ -101,5 +101,42 @@ for (const p of ['jupiter', 'saturn', 'neptune']) {
 }
 check(IRREGULAR_KEYS.filter((k) => IRREGULAR_DATA[k].discovery).length >= IRREGULAR_KEYS.length - 2, `${IRREGULAR_KEYS.filter((k) => IRREGULAR_DATA[k].discovery).length} of ${IRREGULAR_KEYS.length} have a discovery row`);
 
+// Sizes, shapes and spins (irregularMoons.fetch.mjs; docs/frontend/moons.md),
+// each against its source.
+console.log('\nSizes and shapes:');
+{
+  const all = IRREGULAR_KEYS.map((k) => IRREGULAR_DATA[k]);
+  const by = {};
+  for (const m of all) by[m.size.source] = (by[m.size.source] ?? 0) + 1;
+  check(all.every((m) => m.size && m.size.diameterKm > 0 && Math.abs(m.radiusKm - m.size.diameterKm / 2) < 0.01),
+    `every moon has a diameter, its radius half of it: ${JSON.stringify(by)}`);
+  // Grav et al. (2015), Table 3, thermal-infrared diameters.
+  const neo = { himalia: 139.6, elara: 79.9, pasiphae: 57.8, carme: 46.7, siarnaq: 39.3, albiorix: 28.6, praxidike: 7.0 };
+  check(Object.entries(neo).every(([k, d]) => IRREGULAR_DATA[k].size.source === 'NEOWISE' && IRREGULAR_DATA[k].size.diameterKm === d),
+    `NEOWISE's measured diameters (Grav et al. 2015, Table 3): Himalia ${IRREGULAR_DATA.himalia.size.diameterKm} km, Siarnaq ${IRREGULAR_DATA.siarnaq.size.diameterKm} km, and ${by.NEOWISE - 2} more`);
+  // Denk's formula (his table's note 9), D = 1 au (2 / sqrt(p))
+  // 10^(-0.2 (H - M_sun)) with p = 0.06 and M_sun = -26.71, gives his own
+  // table's sizes from his H, to its rounding (H to 0.1 mag, 2.3 %; sizes to
+  // two figures, up to 3.6 %); the circulars' moons are sized the same way.
+  const D = (H) => 149597870.7 * (2 / Math.sqrt(0.06)) * 10 ** (-0.2 * (H + 26.71));
+  const denk = all.filter((m) => m.size.source === 'Denk');
+  const worst = Math.max(...denk.map((m) => Math.abs(D(m.size.H) / m.size.diameterKm - 1)));
+  check(worst < 0.06, `Denk's formula at albedo 0.06 gives his table's ${denk.length} sizes from their H to ${(100 * worst).toFixed(1)} % (his rounding); so the ${by.MPEC} from the circulars' H, e.g. S/2019 S 22 (H ${IRREGULAR_DATA.s2019s22.size.H}) ${IRREGULAR_DATA.s2019s22.size.diameterKm} km`);
+  check(all.filter((m) => m.size.source === 'MPEC').every((m) => Math.abs(m.size.diameterKm - D(m.size.H)) < 0.06), 'every circular-sized moon matches the formula');
+  // Shapes: a x b x b with the moon's volume, a/b as published.
+  const shaped = all.filter((m) => m.axesKm);
+  const vol = shaped.every((m) => Math.abs(Math.cbrt(m.axesKm[0] * m.axesKm[1] * m.axesKm[2]) / m.radiusKm - 1) < 0.002);
+  const ab = (k) => IRREGULAR_DATA[k].axesKm[0] / IRREGULAR_DATA[k].axesKm[1];
+  check(shaped.length === 23 && vol && Math.abs(ab('kiviuq') - 2.32) < 0.01 && Math.abs(ab('ymir') - 1.37) < 0.01 && Math.abs(ab('himalia') - 1.25) < 0.01,
+    `${shaped.length} ellipsoids of their moon's volume: Kiviuq a/b ${ab('kiviuq').toFixed(2)} (Denk et al. 2018: 2.32), Ymir ${ab('ymir').toFixed(2)} (1.37), Himalia ${ab('himalia').toFixed(2)} (Porco et al. 2003: 75/60)`);
+  const spun = all.filter((m) => m.rotation);
+  check(spun.length === 25 && IRREGULAR_DATA.himalia.rotation.periodH === 7.7819 && IRREGULAR_DATA.siarnaq.rotation.periodH === 10.18785,
+    `${spun.length} rotation periods: Himalia ${IRREGULAR_DATA.himalia.rotation.periodH} h (Pilcher et al. 2012), Siarnaq ${IRREGULAR_DATA.siarnaq.rotation.periodH} h (Denk et al. 2018)`);
+  // Where both exist, Sheppard's estimates against NEOWISE's measurements,
+  // as a measure of how far an estimate can be off (printed, not checked).
+  const shep = { himalia: 160, elara: 78, pasiphae: 58, sinope: 38, lysithea: 38, carme: 46, ananke: 28, leda: 18 };
+  console.log(`     estimates against measurement (Sheppard / NEOWISE): ${Object.entries(shep).map(([k, d]) => `${IRREGULAR_DATA[k].name} ${(d / IRREGULAR_DATA[k].size.diameterKm).toFixed(2)}`).join(', ')}`);
+}
+
 console.log(failed ? `\n${failed} FAILED` : '\nall irregular-moon checks passed');
 process.exit(failed ? 1 : 0);
