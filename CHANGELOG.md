@@ -54,9 +54,17 @@ once it has releases. Until then, everything sits under Unreleased.
   on DE442's path, as DE, GMAT and Orekit do (#64).
 - Impacts and touchdowns are found where the craft met the ground, not up
   to a step later and tens of kilometres below it, so a landing's speed is
-  its speed at the surface (this pull request). The moons' pull is checked
-  on Juno's pass over Io and Cassini's over Titan too, which measure
-  those moons' J2 and C22 (this pull request).
+  its speed at the surface (#77). The moons' pull is checked on Juno's
+  pass over Io and Cassini's over Titan too, which measure those moons'
+  J2 and C22 (#77).
+- At a day a second the kernel stays in its worker through Artemis II's
+  entry: each request has a time budget, so the entry is flown in pieces
+  rather than in one 4 s request that the page took for a dead worker,
+  after which every step ran on the page's thread (#82).
+- The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
+  to 10 m instead of 100 m, so a slow pass is followed more closely:
+  Cassini's over Titan to 4 m nine hours on, from 93 m (this pull
+  request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons

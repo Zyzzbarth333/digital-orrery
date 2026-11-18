@@ -5,7 +5,13 @@
 // Worker (kernel.worker.js) wraps it; the main thread uses it directly when a
 // Worker is not available. Pure: no three.js, no DOM.
 //
-// Request:  { type: 'step', crafts: [CraftRequest] }
+// Request:  { type: 'step', crafts: [CraftRequest], budgetMs? }
+//   budgetMs   wall time (ms) the batch may take, shared evenly between its
+//              crafts: a craft's advance stops when its share runs out, as
+//              it does when maxSteps does (complete: false, t short of
+//              tEnd), and the next request carries on from there. Without
+//              it a request runs to tEnd, however long that takes (an
+//              entry under guidance, about 1.5 ms a step, took 3 s).
 //   CraftRequest = { id, version, r, v, t, tEnd, primary, thrust, maxSteps? }
 //     r, v       heliocentric J2000 equatorial km, km/s at time t
 //     t, tEnd    seconds from KERNEL_EPOCH_MS
@@ -29,7 +35,7 @@
 //   CraftResult = { id, version, r, v, t, tEnd, primary, accel, events,
 //                   complete, steps }
 //     accel      km/s^2 at the returned state, gravity plus thrust
-//     complete   false if the step budget ran out (t < tEnd) or an impact
+//     complete   false if the step or time budget ran out (t < tEnd) or an impact
 //                stopped the advance
 //   A craft whose step throws (a bad state, a time outside the ephemeris)
 //   comes back as { id, version, error } instead, and the others still step.
@@ -69,7 +75,8 @@ export function kernelMs(t) {
 }
 
 // Advance one craft. sys is a body set from solarSystemBodies().
-export function stepCraft(sys, req) {
+// deadline: a performance.now() time (ms) to stop by (nbody.js advance).
+export function stepCraft(sys, req, deadline = null) {
   // NaN does not throw anywhere in the kernel: it would integrate quietly and
   // come back as a 'complete' NaN state. Refuse it here instead.
   const finite = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
@@ -166,7 +173,7 @@ export function stepCraft(sys, req) {
   const allBreaks = envEdges.length ? [...new Set([...(breakpoints ?? []), ...envEdges])].sort((x, y) => x - y) : breakpoints;
   const res = advance(state, req.tEnd, {
     bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, breakpoints: allBreaks, stepCap: env?.stepCap ?? null,
-    maxSteps: req.maxSteps ?? DEFAULT_MAX_STEPS,
+    maxSteps: req.maxSteps ?? DEFAULT_MAX_STEPS, deadline,
   });
   const accel = accelHeliocentric(state.r, sys.bodiesAt(state.t), sys.muSun);
   const thrustNow = thrustAt(state.t, state.t, [0, 0, 0], state.r, state.v);
@@ -252,10 +259,10 @@ export function createKernelHost() {
         }
       }
       if (!msg || msg.type !== 'step') return { type: 'error', error: `unknown message ${msg && msg.type}` };
-      const t0 = Date.now();
+      const t0 = Date.now(), share = msg.budgetMs > 0 ? msg.budgetMs / msg.crafts.length : null;
       const crafts = msg.crafts.map((req) => {
         try {
-          return stepCraft(sys, req);
+          return stepCraft(sys, req, share === null ? null : performance.now() + share);
         } catch (err) {
           return { id: req.id, version: req.version, error: String(err && err.message || err) };
         }
