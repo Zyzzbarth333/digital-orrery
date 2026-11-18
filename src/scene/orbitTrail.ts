@@ -85,22 +85,3 @@ export function reachOf(positions: ArrayLike<number>): number {
   for (let i = 0; i + 2 < positions.length; i += 3) r2 = Math.max(r2, positions[i] ** 2 + positions[i + 1] ** 2 + positions[i + 2] ** 2);
   return Math.sqrt(r2);
 }
-
-// The same fade close in for a plain line material (a craft's osculating
-// conic): its alpha falls where the line passes the camera at under 5 % of
-// `reach`, set through material.userData.reach.value (0: never fades).
-export function fadeCloseIn<M extends THREE.Material>(m: M): M {
-  const reach = { value: 0 };
-  m.userData.reach = reach;
-  m.onBeforeCompile = (shader) => {
-    shader.uniforms.reach = reach;
-    shader.vertexShader = shader.vertexShader
-      .replace('void main() {', 'varying vec3 vFadeView;\nvoid main() {')
-      .replace('#include <project_vertex>', '#include <project_vertex>\n  vFadeView = mvPosition.xyz;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('void main() {', 'uniform float reach;\nvarying vec3 vFadeView;\nvoid main() {')
-      .replace('#include <opaque_fragment>', 'if (reach > 0.0) diffuseColor.a *= smoothstep(0.003, 0.05, length(vFadeView) / reach);\n  #include <opaque_fragment>');
-  };
-  m.customProgramCacheKey = () => 'fade-close-in';
-  return m;
-}
