@@ -141,7 +141,7 @@ function Unknown({ pick }: { pick: GuidePick }) {
   const field = pick.cls.includes('mag-');
   const rows: Row[] = [{ label: 'Tag', value: pick.text, src: field ? 'model' : 'guide', info: field ? 'guide-field' : 'guide-axis' }];
   return <Head title={pick.text} kind={field ? 'Guide · magnetic field' : 'Guide'} rows={rows}
-    notes={[pick.title, 'Choose a body in the rail, or another tag, to leave it.']} />;
+    notes={[/[.!?]$/.test(pick.title) ? pick.title : `${pick.title}.`, 'Choose a body in the rail, or another tag, to leave it.']} />;
 }
 
 // The plate for an orbit line: the body's osculating orbit about its
