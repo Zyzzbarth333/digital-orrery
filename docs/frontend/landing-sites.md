@@ -229,16 +229,19 @@ kilometres away.
 
 Measured on 18 November 2026 with `npm run bench:frames`: main and this
 branch, production builds, interleaved, headless at 1920 × 1080 and DPR 1,
-the Moon from 20,000 km at real time. Median frame, ms:
+the Moon from 20,000 km at real time. Median frame, ms (Intel: four
+rounds; RTX: three):
 
 | Scene | Intel UHD | RTX 5070 Ti |
 | --- | ---: | ---: |
-| Moon, main → layer off | 19.4 → 20.3 | 8.0 → 8.1 |
-| Moon, main → layer on | 21.3 → 20.7 | 7.9 → 7.7 |
+| Moon, layer off: main → branch | 18.8 → 20.1 | 8.0 → 8.1 |
+| Moon, layer on: main → branch | 19.9 → 19.3 | 7.9 → 7.7 |
+| Apollo 11's site framed, 140 km | 20.5 | 7.5 |
 
-Every change is within the run-to-run noise on the busy machine (load 11
-to 15). [performance.md](../performance.md#the-moons-landing-sites) has
-the method and the low view.
+Every change is within the run-to-run noise of the loaded machine: the
+same build was faster with the layer on than off. The markers are 38
+positions a frame on the CPU and no GPU work.
+[performance.md](../performance.md#the-moons-landing-sites) has the rest.
 
 ## References
 

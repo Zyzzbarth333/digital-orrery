@@ -522,6 +522,30 @@ every frame, so a path is now resampled at most every 250 ms of real
 time. That leaves up to 2 ms on the RTX, where the app at that rate already
 takes 10 ms.
 
+### The Moon's landing sites
+
+Measured on 18 November 2026 with `npm run bench:frames`: main (`52a371f`,
+#130) against feat/moon-landing-sites, production builds,
+interleaved, headless at 1920 × 1080 and DPR 1, the Moon from 20,000 km at
+real time ([landing sites](frontend/landing-sites.md)). On main the layer
+does not exist, so "layer on" there is the Moon alone. The machine was
+loaded (load average 11 to 15). Median frame, ms, median over the rounds
+(Intel: four rounds, each in a fresh browser; RTX: three):
+
+| Scene | Intel UHD | RTX 5070 Ti |
+| --- | ---: | ---: |
+| Moon, layer off: main → branch | 18.8 → 20.1 | 8.0 → 8.1 |
+| Moon, layer on: main → branch | 19.9 → 19.3 | 7.9 → 7.7 |
+| Apollo 11's site framed, 140 km (branch) | 20.5 | 7.5 |
+| the Moon from 20,000 km in the same run (branch) | 18.6 | 6.7 |
+
+Within the noise: the same branch build timed faster with the layer on
+than off, and main's own samples of one view ranged from 18.2 to 21.3 ms on
+the Intel GPU. The markers are 38 positions a frame on the CPU and no GPU
+work; the one new per-frame call, the Moon's axes, takes 3 µs. The low
+view costs about 1 to 2 ms more than the distant one: that is the surface
+patch and the near ground ([camera](frontend/camera.md)), not the layer.
+
 ### The panels
 
 The panels read the clock through `useSyncExternalStore`, which re-renders
