@@ -55,6 +55,11 @@ const SCENARIOS = {
   'craft-far': { label: 'Craft in LEO (6-DOF)', query: `?craft=orbit,400,51.6&${DATE}`, km: 3000, ready: CRAFT },
   'point-near': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 0.4, ready: CRAFT },
   'point-far': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 3000, ready: CRAFT },
+  'saturn': { label: 'Saturn and its rings', query: `?focus=saturn&${DATE}`, km: 500000 },
+  'jupiter': { label: 'Jupiter and its rings', query: `?focus=jupiter&${DATE}`, km: 700000 },
+  'jupiter-in': { label: 'Inside Jupiter\'s rings', query: `?focus=jupiter&${DATE}`, km: 200000 },
+  'uranus': { label: 'Uranus and its rings', query: `?focus=uranus&${DATE}`, km: 200000 },
+  'neptune': { label: 'Neptune and its rings', query: `?focus=neptune&${DATE}`, km: 250000 },
 };
 const DEFAULTS = ['earth', 'belt', 'craft-near', 'craft-far', 'point-near', 'point-far'];
 const GPU_NAME = { intel: 'Intel', nvidia: 'NVIDIA' };

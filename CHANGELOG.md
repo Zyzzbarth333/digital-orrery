@@ -124,6 +124,7 @@ once it has releases. Until then, everything sits under Unreleased.
   (this pull request).
 
 ### The sky and its bodies
+- Jupiter, Uranus and Neptune have their rings. Uranus's ten narrow rings run on their measured orbits (French et al. 2024), eccentric, tilted and precessing, with depths and shapes from Voyager's occultations; its dust bands, ν and μ are there too. Neptune's Adams arc sits where it was last measured, with Le Verrier, Lassell and Galle. Jupiter's main ring, halo and gossamer rings are dust: faint, and brightest from Jupiter's shadow. Rings narrower than a pixel stay one steady line. They are as faint as the real ones; `?exposure=N` lengthens the exposure, as ring photographs do ([rings](docs/frontend/rings.md); this pull request).
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
   come from JPL's satellite ephemerides to within a kilometre, 76 of them
   (#33, #56). The Earth turns on UT1 with polar motion (#50).
