@@ -643,7 +643,7 @@ of 831 in the plane.
 | --- | --- | --- |
 | The plane on the planned day | 8.04° off the way out | 8.09° off |
 | The departure on the planned day | 921 m/s | 908 m/s (1.4 %) |
-| Re-timed a day earlier (planeOption) | 7.72° off, 912 m/s | on time, 7.80° off, 899 m/s (1.5 %) |
+| Re-timed a day earlier (planeOption) | 7.72° off, 913 m/s | on time, 7.80° off, 899 m/s (1.5 %) |
 
 Before, the plan said "not priced" and charged the burn in the plane,
 831 m/s: 9 % under the flight. What is left is the eccentricity: the
@@ -1355,7 +1355,7 @@ orbits, waits 454 days.
 | The plane at the Moon, averaged (`lunarPlane.js`): J2 alone; GRAIL's degree 2 as one tensor; the Earth's tide | Curtis eq. (4.52); the addition theorem's averaged field; the tide's torque summed round 3,600 points | the node to 10⁻⁹ (0.59947° a day at 60°, 100 km up), the inclination held; the tensor the field's gradient to 10⁻¹⁵; the tide to 10⁻¹⁴ |
 | The same, against the kernel: 100 km up at 60°, 30 days, both at degree 10 | the kernel (0.1°, a tenth of J2 alone's miss) | the plane moved 16.08°; the model 0.018° off, J2 alone 0.58° |
 | 75 days 200 km over the Moon from 5 Dec 2026, then home, flown | the full-model flight (the plane 0.5°, the burn 2 %) | the plan 8.04° off the way out on the planned day (J2 alone 8.40°), 921 m/s; flown 8.09°, 908 m/s (1.4 %); the capture's plane 0.05° off the plan's; Earth reached |
-| The same, leaving on the plan's day for the plane (1 d earlier) | the plan (on time, 0.5°, 2 %) | 7.72° off, 912 m/s; flown on time, 7.80°, 899 m/s (1.5 %) |
+| The same, leaving on the plan's day for the plane (1 d earlier) | the plan (on time, 0.5°, 2 %) | 7.72° off, 913 m/s; flown on time, 7.80°, 899 m/s (1.5 %) |
 | The node's J2 regression, 280 by 400 km at 51.43° | Curtis Ex 4.8, eq. (4.52) | −1.0465 × 10⁻⁶ rad/s, 5.181° a day west |
 | The node 400 km over Mars at 150.6°, ten days in the kernel, from the node and 90° past it | the kernel | eq. (4.52) 0.58 and 0.15 % slow (within 1 %); flown ten turns in the J2 field, 0.06 and 0.04 % (within 0.25 %) |
 | The same orbit, the trial at the mean radius, started 0 to 135° past the node | its mean semi-major axis; the starts tilted 0.03° | the mean semi-major axis the planned one to 1 m; node rates 0.06 % apart (within 0.1 %; started circular, 0.46 %); the rest the inclination's term within a turn (tilted, 0.001 %, within 0.005 %) |
