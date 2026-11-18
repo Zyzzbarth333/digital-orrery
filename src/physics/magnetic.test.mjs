@@ -16,11 +16,16 @@
 import fs from 'node:fs';
 import {
   harmonicField, northEastDown, igrfCoeffs, igrfGeodetic, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
-  eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002,
+  eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002, withAmbient, vacuumOcbColatitude, withField,
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
 import { radialFieldGrid, encodeBr, decodeBr } from './marsCrustal.js';
+import { pfssField, parseWso, carringtonRotation, SOURCE_SURFACE } from './sunField.js';
+import { t89, kpToIopt, gsmFrame, withT89 } from './t89.js';
+import { bodyAxesEqj } from './orientation.js';
+import * as Astronomy from 'astronomy-engine';
+import { SATURN_RC, ellipticKE, loopField, loopSumField, ringCurrentTable, totalCurrentMA, discMoment } from './ringCurrent.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -96,6 +101,46 @@ for (const r of noaa.rows.filter((x) => year(x.date) < 2015.01)) {
     worstDeg = Math.max(worstDeg, Math.abs(o.D - r.D), Math.abs(o.I - r.I));
   }
   check(worstNT < 0.1 && worstDeg < 0.0002, `IGRF-14 at NOAA's online calculator's 4 points (2025.4-2028.0, 0-400 km): X Y Z F within ${worstNT.toFixed(3)} nT (limit 0.1, its rounding), D and I within ${worstDeg.toFixed(5)} deg`);
+}
+
+// ---- the Earth's magnetosphere: T89 ----
+console.log("The Earth's magnetosphere: Tsyganenko's T89");
+{
+  // Tsyganenko's Fortran T89c, as geopack's tests record it: iopt 2, tilt
+  // -0.533585131 rad, GSM (-5.1, 0.3, 2.8) R_E -> (20.7721329,
+  // -0.646554828, -15.0716438) nT.
+  const b = t89(2, -0.533585131, -5.1, 0.3, 2.8);
+  const want = [20.7721329, -0.646554828, -15.0716438];
+  check(b.every((v, i) => Math.abs(v - want[i]) < 2e-6), `T89 (Kp 1) at GSM (-5.1, 0.3, 2.8): ${b.map((v) => v.toFixed(7)).join(', ')} nT (Fortran ${want.join(', ')})`);
+  check([0, 1 / 3, 2 / 3, 4 / 3, 5 / 3, 3, 17 / 3, 9].map(kpToIopt).join(' ') === '1 1 2 2 3 4 7 7', 'Kp 0, 0+ -> level 1; 1-, 1+ -> 2; 2- -> 3; 3o -> 4; 6- and 9 -> 7');
+  // The dipole tilt from IGRF and the Sun, against geopack's recalc for
+  // 2001-01-01 02:03:04 UT: -0.533585131 rad.
+  const t = new Date(Date.UTC(2001, 0, 1, 2, 3, 4)), E = magneticModel('earth', t);
+  const sun = Astronomy.GeoVector(Astronomy.Body.Sun, t, true), ax = bodyAxesEqj('earth', t);
+  const sb = ax.map((a) => a[0] * sun.x + a[1] * sun.y + a[2] * sun.z);
+  const ps = gsmFrame(E.dipole.m.map((v) => -v), sb).tilt;
+  check(Math.abs(ps + 0.533585131) < 0.002, `dipole tilt at 2001-01-01 02:03:04 UT ${ps.toFixed(5)} rad (geopack -0.53359)`);
+  // The night side is drawn out into the tail: the field line from 68 deg
+  // magnetic latitude at midnight reaches much farther with T89 than with
+  // IGRF alone, far more than its noon twin does, and farther when Kp is
+  // higher; and the external field points north just inside the sub-solar
+  // magnetopause (the compression).
+  const T = withT89(E, sb, 2);
+  // Seeds at 68 deg magnetic latitude in the noon and midnight meridians:
+  // d the dipole's north axis, e square to it toward the Sun.
+  const { X } = T.gsm, surf = { eq: 6378.137 / 6371.2, pol: 6356.752 / 6371.2 };
+  const d = E.dipole.m.map((v) => -v / E.dipole.moment), sd = d[0] * X[0] + d[1] * X[1] + d[2] * X[2];
+  const e0 = X.map((v, i) => v - sd * d[i]), en = Math.hypot(...e0), e = e0.map((v) => v / en);
+  const apex = (model, side) => {
+    const c = Math.cos(68 * DEG), s = Math.sin(68 * DEG), p = [0, 1, 2].map((i) => (side * c * e[i] + s * d[i]) * 1.02);
+    const tl = traceLine(model, p, surf, { rMax: 40, maxSteps: 6000 });
+    let r = 0; for (let i = 0; i < tl.strength.length; i++) r = Math.max(r, Math.hypot(tl.points[3 * i], tl.points[3 * i + 1], tl.points[3 * i + 2]));
+    return r;
+  };
+  const day = apex(T, 1), night = apex(T, -1), d0 = apex(E, 1), n0 = apex(E, -1), night5 = apex(withT89(E, sb, 5), -1);
+  check(night / n0 > 1.1 && Math.abs(day / d0 - 1) < 0.05 && night5 > night, `the 68 deg line reaches ${day.toFixed(1)} R_E at noon and ${night.toFixed(1)} at midnight with T89 at Kp 2 (IGRF alone ${d0.toFixed(1)} and ${n0.toFixed(1)}), ${night5.toFixed(1)} at midnight at Kp 5`);
+  const bs = t89(3, 0, 9, 0, 0);
+  check(bs[2] > 0, `T89's field at 9 R_E toward the Sun points north (${bs[2].toFixed(1)} nT): the compressed day side`);
 }
 
 // The eccentric dipole of IGRF-14 for 2025: the geomagnetic north pole is
@@ -224,6 +269,97 @@ check(S.dipole.tilt === 0, `Cassini 11 dipole tilt ${S.dipole.tilt} deg (Cao et 
 // "the magnetic equator ... shifted northward ... ~2300 km (0.0382 R_S)":
 // the quadrupole's eccentric dipole sits that far north.
 check(Math.abs(S.dipole.centre[2] * 60268 - 2300) < 150, `Cassini 11 eccentric dipole ${(S.dipole.centre[2] * 60268).toFixed(0)} km north of the centre (Cao et al.: the magnetic equator about 2300 km north)`);
+// ---- Saturn's ring current ----
+console.log("Saturn's ring current (Connerney et al. 1983, as Bunce and Cowley 2003 give it)");
+{
+  // Elliptic integrals: K(1/2) = 1.8540746773, E(1/2) = 1.3506438810 (Abramowitz and Stegun, table 17.1).
+  const [K, E] = ellipticKE(0.5);
+  check(Math.abs(K - 1.8540746773) < 1e-9 && Math.abs(E - 1.3506438810) < 1e-9, `K(1/2) ${K.toFixed(10)}, E(1/2) ${E.toFixed(10)}`);
+  // A loop's field on its axis: mu0 I a^2 / 2 (a^2 + z^2)^(3/2).
+  const o = loopField(2, 10, 0, 1.5, [0, 0]);
+  check(Math.abs(o[1] - (10 * 4) / (2 * Math.pow(4 + 2.25, 1.5))) < 1e-12, `a loop's on-axis field ${o[1].toFixed(6)} nT, as the closed form`);
+  // mu0 I0 = 60.4 nT over 8-15.5 R_S and +-3 R_S is the 11.5 MA quoted for Voyager's ring current.
+  const I = totalCurrentMA(SATURN_RC, 60268);
+  check(Math.abs(I - 11.5) < 0.05, `total current ${I.toFixed(2)} MA (11.5 MA)`);
+  // The table against the direct sum, inside, on and beside the disc.
+  const T = ringCurrentTable();
+  T.step();
+  let worst = 0;
+  for (const [x, z] of [[4, 0], [10, 0], [10, 2.9], [12, 4.1], [20, 0], [5, 8], [14, -1.3], [18, 10]]) {
+    const d = loopSumField(SATURN_RC, x, z), f = T.field(x, 0, z, [0, 0, 0]);
+    worst = Math.max(worst, Math.abs(f[0] - d[0]), Math.abs(f[2] - d[1]));
+  }
+  check(worst < 0.3, `the tabulated field within ${worst.toFixed(3)} nT of the direct loop sum`);
+  // On the axis, the disc's field is the integral of loops' on-axis fields:
+  // the same physics by a different route (fine midpoint quadrature).
+  {
+    let bz = 0;
+    const n = 400;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const r = SATURN_RC.a + ((i + 0.5) * (SATURN_RC.b - SATURN_RC.a)) / n, zp = -SATURN_RC.D + ((j + 0.5) * 2 * SATURN_RC.D) / n;
+      const dI = (SATURN_RC.mu0I0 / r) * ((SATURN_RC.b - SATURN_RC.a) / n) * ((2 * SATURN_RC.D) / n);
+      bz += (dI * r * r) / (2 * Math.pow(r * r + (0 - zp) ** 2, 1.5));
+    }
+    const f = T.field(0.01, 0, 0, [0, 0, 0]);
+    check(Math.abs(f[2] - bz) < 0.05, `at the centre the disc gives ${f[2].toFixed(3)} nT northward; the on-axis integral ${bz.toFixed(3)}`);
+  }
+  // Far away it is a dipole of mu0 I0 2D (b^2 - a^2) / 8.
+  {
+    // (the disc's higher terms fall as (15.5 / r)^2: a few per cent at 60 R_S, under 1 % at 200)
+    const md = discMoment(SATURN_RC), d = loopSumField(SATURN_RC, 200, 0);
+    check(Math.abs(d[1] / (-md / 8e6) - 1) < 0.01, `at 200 R_S the disc is a dipole of ${md.toFixed(0)} nT R_S^3 (${(d[1] * 1e3).toFixed(4)} pT against ${(-md / 8e3).toFixed(4)})`);
+  }
+  // It stretches Saturn's outer field lines: the line from 76 deg, which
+  // reaches the ring, crosses the equator farther out.
+  {
+    const S = magneticModel('saturn'), SR = withField(S, T.field, 'ring current'), surf = { eq: 1, pol: 54364 / 60268 };
+    const apex = (m) => { const t = traceLine(m, [Math.cos(76 * DEG) * 1.001, 0, Math.sin(76 * DEG) * 0.903], surf); let r = 0; for (let i = 0; i < t.strength.length; i++) r = Math.max(r, Math.hypot(t.points[3 * i], t.points[3 * i + 1])); return r; };
+    const a0 = apex(S), a1 = apex(SR);
+    check(a1 > a0 * 1.1, `the field line from 76 N crosses the equator at ${a1.toFixed(2)} R_S with the ring current, ${a0.toFixed(2)} without`);
+  }
+}
+
+// ---- the Sun: WSO's PFSS model ----
+console.log("The Sun: Wilcox Solar Observatory's PFSS coefficients");
+{
+  const sun = JSON.parse(fs.readFileSync(new URL('../../public/data/sun-pfss.json', import.meta.url), 'utf8'));
+  // A WSO file reads back as the shipped row (CR 2300's first lines, as WSO
+  // writes them).
+  const text = `0   0.327 \n1 -41.784  47.355 \t\t\tg's for Rotation beginning: CT2300:360\n2  11.963 -11.393 -22.026 \n\n0   0.000 \n1   0.000  69.771 \t\t\th's\n2   0.000  11.812  73.857 \n`;
+  const gh = parseWso(text, 2);
+  check(gh[0] === -41.784 && gh[1] === 47.355 && gh[2] === 69.771 && gh[3] === 11.963 && gh[7] === 73.857, 'a WSO file parses to g10 g11 h11 g20 ... (the monopole dropped)');
+  const row = sun.rows[2300 - sun.first];
+  check(Math.abs(row[0] + 41.78) < 0.006 && Math.abs(row[2] - 69.77) < 0.006, `the shipped CR 2300 holds g10 ${row[0]}, h11 ${row[2]} uT`);
+  // The model: radial at the source surface, the photospheric map at r = 1, and
+  // curl- and divergence-free between.
+  const f = pfssField(row);
+  const b = f(SOURCE_SURFACE * 0.6, SOURCE_SURFACE * 0.48, SOURCE_SURFACE * 0.64, [0, 0, 0]), rhat = [0.6, 0.48, 0.64];
+  const along = (b[0] * rhat[0] + b[1] * rhat[1] + b[2] * rhat[2]) / Math.hypot(...b);
+  check(Math.abs(Math.abs(along) - 1) < 1e-9, `the field at the source surface is radial (cosine ${along.toFixed(12)})`);
+  {
+    const h = 1e-5, p = [0.9, 0.7, 0.8], B = (x) => f(x[0], x[1], x[2], [0, 0, 0]);
+    const d = (i, j) => { const q1 = p.slice(), q2 = p.slice(); q1[j] += h; q2[j] -= h; return (B(q1)[i] - B(q2)[i]) / (2 * h); };
+    const div = d(0, 0) + d(1, 1) + d(2, 2), curl = Math.hypot(d(2, 1) - d(1, 2), d(0, 2) - d(2, 0), d(1, 0) - d(0, 1)), sc = Math.hypot(...B(p));
+    check(Math.abs(div) / sc < 1e-6 && curl / sc < 1e-6, `potential between the photosphere and the source surface: |div B| ${(Math.abs(div) / sc).toExponential(1)}, |curl B| ${(curl / sc).toExponential(1)}`);
+  }
+  // Carrington rotations: CR 1927 began on 8 Sep 1997 (WSO), 27.2753 days each.
+  check(Math.abs(carringtonRotation(Date.UTC(1997, 8, 8)) - 1927) < 1e-9 && Math.abs(carringtonRotation(Date.UTC(1997, 8, 8) + 27.2753 * 864e5) - 1928) < 1e-9, 'CR 1927 begins 8 Sep 1997 and each rotation lasts 27.2753 days');
+  // The dipole's sign against WSO's own polar-field record (line-of-sight
+  // fields near the poles, a different measurement): wherever the filtered
+  // average is clearly away from zero, g10 has its sign. North was
+  // negative through the 2000s, positive after the 2012-13 reversal, and
+  // negative again after 2024's.
+  const polar = fixture('wso_polar.json');
+  let agree = 0, n = 0;
+  for (const [date, , , avg] of polar.rows) {
+    if (Math.abs(avg) < 20) continue;
+    const r = sun.rows[Math.floor(carringtonRotation(Date.parse(date))) - sun.first];
+    if (!r) continue;
+    n++; if (Math.sign(r[0]) === Math.sign(avg)) agree++;
+  }
+  check(n > 400 && agree / n > 0.95, `g10's sign follows WSO's polar field at ${agree} of ${n} dates (|avg| > 20 uT, 2000-2026)`);
+}
+
 // ---- Uranus and Neptune: Voyager's offset tilted dipoles ----
 console.log('Uranus and Neptune: Voyager 2 (Ness et al. 1986, 1989)');
 for (const [k, want] of [['uranus', { M: 0.230, tilt: 60, off: 0.310 }], ['neptune', { M: 0.133, tilt: 46.8, off: 0.55 }]]) {
@@ -316,6 +452,30 @@ console.log("Mars: the crust's field (Langlais et al. 2019)");
   let worst = 0;
   for (let i = 0; i < g2.length; i += 37) worst = Math.max(worst, Math.abs(decodeBr(map[i]) - g2[i]) / (Math.abs(g2[i]) + 70));
   check(map.length === 720 * 360 && worst < 0.03 && encodeBr(0) === 0, `the app's 720 x 360 map holds Br to ${(worst * 100).toFixed(1)} % (of |Br| + 70 nT)`);
+}
+
+// ---- Ganymede inside Jupiter's field ----
+console.log("Ganymede in Jupiter's field: vacuum superposition");
+{
+  // Jupiter's field at Ganymede's orbit (15 R_J) from JRM33 + con2020:
+  // about 100 nT, southward in the equator (and radial off the tilted
+  // current sheet), the way Ganymede's own
+  // moment points, so the two oppose at Ganymede's magnetic equator.
+  const Jm = magneticModel('jupiter'), b = [0, 0, 0];
+  let lo = Infinity, hi = 0, minusZ = true;
+  for (let l = 0; l < 360; l += 15) {
+    Jm.field(15 * Math.cos(l * DEG), 15 * Math.sin(l * DEG), 0, b);
+    const B = Math.hypot(...b); lo = Math.min(lo, B); hi = Math.max(hi, B); minusZ &&= b[2] < -0.25 * B;
+  }
+  check(lo > 50 && hi < 200 && minusZ, `Jupiter's field at 15 R_J in its equator: ${lo.toFixed(0)}-${hi.toFixed(0)} nT, southward at every longitude (radial too, off the tilted current sheet)`);
+  // Traced through a 719 nT dipole in a uniform 100 nT field, the last
+  // closed line leaves the surface where the flux function says.
+  const M = 719, B0 = 100, model = withAmbient({ field: offsetDipole([0, 0, -M], [0, 0, 0]), dipole: { m: [0, 0, -M], centre: [0, 0, 0] }, rMax: 30, source: 'test' }, [0, 0, -B0]);
+  const closedAt = (colat) => traceLine(model, [Math.sin(colat * DEG) * 1.0001, 0, -Math.cos(colat * DEG) * 1.0001], { eq: 1, pol: 1 }, { rMax: 30, maxSteps: 6000 }).closed;
+  let lo2 = 1, hi2 = 89;            // open near the pole, closed near the equator
+  for (let i = 0; i < 30; i++) { const mid = (lo2 + hi2) / 2; if (closedAt(mid)) hi2 = mid; else lo2 = mid; }
+  const want = vacuumOcbColatitude(M, B0);
+  check(Math.abs(hi2 - want) < 0.3, `open/closed boundary traced at ${hi2.toFixed(2)} deg colatitude; the flux function gives ${want.toFixed(2)} (latitude ${(90 - want).toFixed(1)} deg)`);
 }
 
 // ---- radiation belts ----

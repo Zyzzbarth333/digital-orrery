@@ -397,8 +397,23 @@ plane may no longer hold the way out. `parkingPlane.js` and
   beyond it as `bodies.js` `ZONAL` holds them, J4 and Jupiter's J6 to J12,
   which turn the node too; RK4, 240 steps a turn, about 10 ms). It reads
   the node where the orbit crosses the equator going north, so the terms
-  that come and go within a turn cancel. The plan's rate is eq. (4.52)
-  scaled by that flight's rate over its own.
+  that come and go within a turn cancel.
+- **The trial orbit, at the mean radius.** The flight leaves the capture
+  circular at the planned *mean* radius (the osculating semi-major axis
+  averaged over a turn; [Flying it](#flying-it), step 4). A circular
+  start at the capture's periapsis point is not that orbit: its mean
+  semi-major axis is off the start by J2's terms within a turn, as where
+  it starts, and 400 km over Mars its node's rate is 0.2 % off with it.
+  So `flownNodeRate` also gives the mean semi-major axis over the turns it
+  flies, and the trial starts at the radius moved by its difference from
+  the planned one, flown again (twice: to 1 m). Started circular at 0 to
+  135° past the node, the rates were 0.46 % apart. Started so, they are
+  0.06 % apart (CASE 13). What is left is J2's term in the inclination
+  within a turn: the starts at the node and 90° past it, tilted 0.03°
+  either way, give the rate from 45° to 0.001 %. That is about 1° of node
+  over a year at Mars, and is not corrected. The plan's rate
+  is eq. (4.52) at the planned radius, scaled by that flight's rate over
+  it.
 - **The plane on the day.** The capture's plane (normal
   $\hat{\mathbf n}_0 \propto \mathbf v_{\infty,\text{in}} \times \mathbf v_{\infty,\text{out}}$)
   is turned about the pole by $\dot\Omega\,t_\text{stay}$. The angle off
@@ -421,8 +436,9 @@ plane may no longer hold the way out. `parkingPlane.js` and
   that day's way out). It is an option for the leg, a mark on the strip,
   and the **parking orbit lamp** when the planned day is dearer than 50 m/s and
   3 % of the leg. It also carries what the flight does as planned: from
-  the capture's plane, waiting while a day costs 2 % less than the best
-  before it, as the flight waits.
+  the capture's plane, waiting for the cheapest moment within 30 days (the
+  cheapest half day, refined by golden section within half a day either
+  side), where it saves more than 2 %, as the flight waits.
 - **The window strip** prices each date with the plane as a stay to that
   date would turn it. It steps every 2 days where the plane comes round
   in under two months (Mars's in 40 days), not every 8.
@@ -447,29 +463,31 @@ does not price it.
 
 The case in the tests is a year in Mars orbit, then home: 400 km up,
 arriving 7 Sep 2027, a 364-day stay. The orbit is 150.6° to Mars's
-equator, and its node turns 9.066° a day (eq. (4.52) alone gives 9.012).
-On the planned day its plane is 24.6° off the way out, and the departure
-costs 2,911 m/s instead of 2,000 in the plane. The lamp suggests leaving
-6.5 days later, for 2.01 km/s. As planned, the plan has the flight waiting
-12.5 days, for 2,025 m/s.
+equator, and its node turns 9.051° a day (eq. (4.52) alone gives 9.012).
+On the planned day its plane is 23.1° off the way out, and the departure
+costs 2,829 m/s instead of 2,000 in the plane. The lamp suggests leaving
+6 days later, for 2.01 km/s. As planned, the plan has the flight waiting
+13.2 days, for 2,027 m/s.
 
 | | The plan | Flown (full model) |
 | --- | --- | --- |
-| On the planned day | 24.6° off, 2,911 m/s | 3,012 m/s (3.5 %) |
-| The flight's wait for the plane | 12.5 d, 2,025 m/s | 11.2 d, 2,016 m/s (0.4 %) |
-| Re-timed 6.5 d later (a 370.5-day stay) | 0.9° off, 2,008 m/s | leaves 2 h late, 2,095 m/s (4.3 %) |
+| On the planned day | 23.1° off, 2,829 m/s | 2,840 m/s (0.4 %) |
+| The flight's wait for the plane | 13.24 d, 2,027 m/s | 13.23 d, 2,022 m/s (0.2 %) |
+| Re-timed 6 d later (a 370-day stay) | 0.9° off, 2,008 m/s | leaves on time, 2,004 m/s (0.2 %) |
 
-The flight's capture leaves the orbit circular at the planned mean radius
-(e 0.0016; [Flying it](#flying-it), step 4). Before it did, the capture
-left e 0.046, and the flight paid 2,070 m/s on the wait and 3,043 on the
-planned day. What is left is the plane. The flown plane holds the way out,
-as planned, but it is 0.5° steeper than the plan's (151.1° for 150.6°).
-The kernel's way in is not quite the patched conics', and the trims hold
-only the way out in the plane. So its node turns 0.3 % faster, 9.095° a
-day for 9.067, which is 11° over the year. The plane comes round 1.2 days
-early, and on a fixed day it is that far off. The rate itself is right:
-`flownNodeRate` from the flown orbit gives the kernel's rate over the year
-to 0.0001° a day.
+Three things brought the flight and the plan together. First, the capture
+leaves the orbit circular at the planned mean radius (e 0.0016;
+[Flying it](#flying-it), step 4). Before it did, the capture left e 0.046,
+and the flight paid 3,043 m/s on the planned day. Second, the plan's trial
+orbit is at that mean radius too. Started circular at the periapsis point,
+it gave 9.066° a day, 0.17 % fast. Third, the trims at the approach aim
+the node for the planned day (step 3). Before, they held only the way out
+in the plane. The kernel's way in is not quite the patched conics', so
+the plane through it and the way out was 0.5° steeper to the equator than
+the plan's (151.1° for 150.6°). Its node turned 0.3 % faster, 11° over the
+year, and the departures were 3.5 % (planned day) and 4.3 % (lamp's day)
+over the plan. The rate model itself was right: `flownNodeRate` from the
+flown orbit gives the kernel's rate over the year to 0.0001° a day.
 
 ## The options for a leg, compared
 
@@ -630,10 +648,32 @@ Each step, in time order:
      at the planned periapsis, in the kernel, to the departure. The way out
      is turned back by the rotation that took the plane from start to end.
      The plane that ends nearest is kept, of up to three tries.
+   - **The node, over a longer stay:** where the plan prices the plane
+     (more than 30 days at a planet, [above](#the-parking-orbits-plane)),
+     holding the way out is not enough. The kernel's way in is not the
+     patched conics', so the plane through it and the way out is turned
+     about the way out from the plan's plane. A year at Mars it was 0.5°
+     steeper to the equator, so its node turned about 0.5 % faster (as
+     $\cos i$), 16° over the year. No burn here can give the orbit the
+     plan's plane itself. The plane always holds the craft's position, and
+     two planes that both hold the way out meet only along it. So the trim turns the plane about the
+     position. Far out that is cheap, because the velocity across the
+     position is small (about 1 m/s a degree at 340,000 km over Mars). The
+     condition is that the node, turned at the orbit's own rate over the
+     planned stay, comes to the plan's on the planned day. That rate is
+     the plan's times $\cos i/\cos i_0$ [1, eq. (4.52)]. The plan's plane
+     $\hat{\mathbf n}_0$, the pole and the rate come with the approach
+     event. Over a year, the inclination's share of the node is 30° of
+     node a degree, so an inclination within a few hundredths of a degree
+     of the plan's does it. It is Newton on the same two components, for
+     the periapsis and the node. A year at Mars, the trims come to 0.44 m/s
+     (holding the way out, 0.59), and the node on the planned day is
+     within 0.001° of the plan's.
    - **Taken only if worth it:** the plane is changed only if that costs
-     less extra than the plane error would cost at the departure, about the
-     circular speed times the angle. (Newton can land on a far root: 150
-     m/s to fix 0.07°.)
+     less extra than the same turn of the circular orbit's plane would,
+     about the circular speed times the angle [1, eq. (6.20)] (holding the
+     way out, the angle off it). (Newton can land on a far root: 150 m/s
+     to fix 0.07°.)
 4. **Captures** (`landing.js designCapture`, `planCapture`):
    - **Where it starts:** at the predicted periapsis, worked out again from
      the craft's own state five minutes short of it. Not centred on it:
@@ -681,7 +721,7 @@ Each step, in time order:
    - **What it leaves:** the log and `captures` give the orbit's mean
      radius and its eccentricity from the radius over a turn,
      $(r_\text{max} - r_\text{min})/(r_\text{max} + r_\text{min})$.
-     A year at Mars: 2,038 m/s for an impulse of 2,028, the mean radius
+     A year at Mars: 2,038 m/s for an impulse of 2,027, the mean radius
      3,789.9 km for 3,789.9, e 0.0016, and still 0.0016 at the departure.
    - **The orbit's plane:** the arrival hyperbola's plane holds the next
      departure's excess velocity too, so the parking orbit already contains
@@ -1103,12 +1143,14 @@ orbits, waits 454 days.
 | Saturn V, Apollo 11's 45.7 t to 185 km and on to the Moon (TLI 3.13 km/s) | the flight | needs 12.03, gives 12.87 km/s: it can, with 0.84 to spare |
 | Falcon 9 expendable, 22.8 t to 200 km; Electron, 300 kg to 500 km | the user's guides | 8.88 needed, 9.43 given; Electron 0.02 km/s short with its kick stage carried as payload (it burns, in fact) |
 | The capture burn, two-body: 2,026 m/s 400 km over Mars at 20 m/s² | Curtis eq. (8.58) and Sec. 6.2; an independent integration of the retrograde burn | near-impulsive (2 km/s²) to 10⁻⁴ of eq. (8.58); held retrograde from the periapsis, e 0.047; steered, e 2 × 10⁻¹¹ at the radius, never more than 0.12 km below the periapsis, for 0.9 % over the impulse; the cheapest way in (circular 4 km up, then Hohmann) 0.5 % |
-| A year in Mars orbit, then home, flown | the plan | the capture 2,038 m/s for an impulse of 2,028, its mean radius 3,789.9 km for 3,789.9, e 0.0016 (held retrograde: 0.046); departs 11.2 d late for the turned plane, 2,016 m/s against 2,000 in the plane (before: 2,070); Mars 0.8 km, Earth 23 km; corrections 206 m/s |
-| The same: the plane on the planned day, priced and flown | the flight's departure (within 4 %) | 24.6° off, 2,911 m/s; flown 3,012 (3.5 %; 4.5 % before the capture was circular) |
-| The same: the flight's wait for the plane, planned and flown | the flight's departure (1.5 d, 2 %) | 12.5 d and 2,025 m/s; flown 11.2 d and 2,016 (0.4 %) |
-| The same, leaving on the parking orbit lamp's day (6.5 d later) | the plan (on time, 5 %) | leaves 2 h late, 2,095 m/s against 2,008 (4.3 %: the flown plane 0.5° steeper than the plan's, its node 0.3 % faster); Mars 0.6 km, Earth 24 km |
+| A year in Mars orbit, then home, flown | the plan | the capture 2,038 m/s for an impulse of 2,027, its mean radius 3,789.9 km for 3,789.9, e 0.0016 (held retrograde: 0.046); departs 13.2 d late for the turned plane, 2,022 m/s against 2,000 in the plane (held retrograde: 2,070); Mars 0.8 km, Earth 23 km; corrections 210 m/s |
+| The same: the trims at Mars aim the node for the planned day | the plan's node on the planned day (0.01°, under 1 m/s) | 0.000° off, for 0.44 m/s |
+| The same: the plane on the planned day, priced and flown | the flight's departure (within 1 %) | 23.1° off, 2,829 m/s; flown 2,840 (0.4 %; 3.5 % with the trims holding only the way out, 4.5 % before the capture was circular) |
+| The same: the flight's wait for the plane, planned and flown | the flight's departure (half a day, 1 %) | 13.24 d and 2,027 m/s; flown 13.23 d and 2,022 (0.2 %) |
+| The same, leaving on the parking orbit lamp's day (6 d later) | the plan (on time, 1 %) | leaves on time, 2,004 m/s against 2,008 (0.2 %; 4.3 % with the trims holding only the way out); Mars 0.6 km, Earth 24 km |
 | The node's J2 regression, 280 by 400 km at 51.43° | Curtis Ex 4.8, eq. (4.52) | −1.0465 × 10⁻⁶ rad/s, 5.181° a day west |
 | The node 400 km over Mars at 150.6°, ten days in the kernel, from the node and 90° past it | the kernel | eq. (4.52) 0.58 and 0.15 % slow (within 1 %); flown ten turns in the J2 field, 0.06 and 0.04 % (within 0.25 %) |
+| The same orbit, the trial at the mean radius, started 0 to 135° past the node | its mean semi-major axis; the starts tilted 0.03° | the mean semi-major axis the planned one to 1 m; node rates 0.06 % apart (within 0.1 %; started circular, 0.46 %); the rest the inclination's term within a turn (tilted, 0.001 %, within 0.005 %) |
 | The node 1.5 Jupiter radii out at 30°, three days in the kernel (its field to J12, its moons), averaged over a turn at each end | the kernel | flown in the same zonal field, 0.03 % (within 0.25 %); in J2 alone, 2.5 % slow |
 | A stay 36,000 km over Jupiter, priced with and without the terms beyond J2 | the plan's own rate | ×1.076 of eq. (4.52) in the full field, ×1.026 in J2 alone: the planner takes the field |
 | The burn from a circular orbit 400 km over Mars onto 2.48 km/s, 0 to 45° out of its plane | Curtis eq. (8.42); a scan of 7,200 points; burning at the planes' node | 2,000.4 m/s in the plane (eq. (8.42) to 1 mm/s); 2,057, 2,420, 2,931, 4,044 m/s at 5, 15, 25, 45°, the scan to 0.1 m/s, never over the node bound |
