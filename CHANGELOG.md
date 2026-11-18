@@ -200,7 +200,8 @@ once it has releases. Until then, everything sits under Unreleased.
   `npm run build:textures` rebuilds them, `npm run bench:textures`
   measures them (this pull request).
 - Jupiter, Uranus and Neptune have their rings. Uranus's ten narrow rings run on their measured orbits (French et al. 2024), eccentric, tilted and precessing, with depths and shapes from Voyager's occultations; its dust bands, ν and μ are there too. Neptune's Adams arc sits where it was last measured, with Le Verrier, Lassell and Galle. Jupiter's main ring, halo and gossamer rings are dust: faint, and brightest from Jupiter's shadow. Rings narrower than a pixel stay one steady line. They are as faint as the real ones; `?exposure=N` lengthens the exposure, as ring photographs do ([rings](docs/frontend/rings.md); #110).
-- The rings are truer to the measurements: Uranus's rings carry all ten of their measured normal modes; Neptune's Adams ring has the 42 lobes Galatea forces on it, and its arcs are as bright and where they were at each date they were seen, so Liberté and Courage are gone since 2009; the ring particles are as dark as Voyager measured them (this pull request).
+- The rings are truer to the measurements: Uranus's rings carry all ten of their measured normal modes; Neptune's Adams ring has the 42 lobes Galatea forces on it, and its arcs are as bright and where they were at each date they were seen, so Liberté and Courage are gone since 2009; the ring particles are as dark as Voyager measured them (#120).
+- Jupiter's main ring has its measured shape: brightest over its outer 1,000 km, at 1.7 times its mean, from 16 New Horizons LORRI images reduced to brightness against radius (this pull request).
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
   come from JPL's satellite ephemerides to within a kilometre, 76 of them
   (#33, #56). The Earth turns on UT1 with polar motion (#50).

@@ -231,8 +231,9 @@ export function fraterniteLongitude(jd) {
 // Systems, Table 6.1 (from Ockert-Bell et al. 1999, de Pater et al. 1999,
 // 2008): radial extent, vertical thickness, normal optical depth. The main
 // ring's depth is Throop et al. (2004, Icarus 172, 59): dust 4.7e-6 and
-// parent bodies 1.3e-6, the dust inside a bright ~800 km annulus at its
-// outer edge. The gossamer rings are dust on the inclined orbits of
+// parent bodies 1.3e-6; its radial shape (brightest over its outer ~1,000
+// km) is measured from New Horizons LORRI images (python/textures/lorri.py,
+// public/textures/jupiter/rings_lorri.json). The gossamer rings are dust on the inclined orbits of
 // Amalthea and Thebe, drifting inward (Burns et al. 1999, Science 284,
 // 1146), so each is as thick as its moon's orbit is tilted (moons.data.js:
 // 0.4 and 1.1 deg) and densest toward its top and bottom edges.

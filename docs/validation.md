@@ -984,6 +984,8 @@ torque, and burns along the body axis to the kernel
 | The arcs' depths by date | Égalité/Fraternité 1.17 (2002), 0.93 (2003), 0.8 (2007, 2009), 76/84 (2016); Liberté 30 % (2003); Liberté and Courage gone (2009) | as measured |
 | Voyager PPS crossing of the Adams ring, arc material | within 1.5° of Liberté | 1.43° past its leading edge |
 | The arcs' reflectivity | Voyager 0.055 ± 0.004 at 0.5 µm | 0.0550 |
+| Jupiter's main ring, measured by New Horizons LORRI (16 images, 11.7–15.3°) | its 14-shell shape; the model's normal I/F at 13.5° from Throop et al.'s depths | mean 1.0000, outer shells 1.70 against 0.82 inside; model 2.58×10⁻⁷, LORRI 2.53×10⁻⁷ |
+| The same at 151.5° (one frame, 1.6° from edge-on) | forward scattering brightens it | LORRI 1.08×, model 3.32× (the frame does not settle the difference) |
 | Dust phase function | averages 1; Throop et al. 2004: flat to 130°, few 10⁻⁶ I/F forward, ~10⁻⁷ back | 1.0000; 1.93×; 3.5×10⁻⁶ at 178°, 2.6×10⁻⁷ at 5° |
 
 ## How much of the Sun is in view (`discs.test.mjs`)

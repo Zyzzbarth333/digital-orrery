@@ -161,6 +161,10 @@
     "uranus": {
       "pps": "uranus/rings_pps.json",
       "credit": "Voyager 2 PPS occultation profiles (Esposito et al.): NASA PDS Ring-Moon Systems Node; orbits from French et al. 2024."
+    },
+    "jupiter": {
+      "lorri": "jupiter/rings_lorri.json",
+      "credit": "New Horizons LORRI (NASA/JHUAPL/SwRI): NASA PDS Ring-Moon Systems Node."
     }
   },
   "stars": {

@@ -239,6 +239,71 @@ def uranus_rings(src, out, colour_map, heights_km, normal_map):
                                  "orbits from French et al. 2024."}}
 
 
+def jupiter_rings(src, out, colour_map, heights_km, normal_map):
+    """Jupiter's main ring measured in New Horizons LORRI images (PDS
+    NHJULO_2001; fetch_jupiter_rings.py; lorri.py has the method): each
+    image becomes normal I/F against ring-plane radius, 250 km bins.
+
+    The 16 images of both ansae at 11.7 and 15.3 deg phase, seen 6.3-6.6 deg
+    from edge-on, give the ring's radial shape: their median profile,
+    averaged into 14 shells from 122,400 to 129,100 km and scaled to a mean
+    of 1, multiplies the ring's tabled optical depth. At that tilt the
+    ring's ~100 km thickness smears radius by about 900 km, so the shape is
+    good to about a kilometre-scale of 1,000 km. Each image's equivalent
+    width (normal I/F summed over 121,000-131,000 km, the smear included)
+    gives the ring's brightness at those phases, and the two 151 deg frames
+    that hold the whole ring one more point, seen 1.6 deg from edge-on in
+    Jupiter's glare. The 36.5 and 90.6 deg sets are dominated by scattered
+    light and ghosts, and their pointing cannot be refitted on the ring, so
+    they are not used."""
+    import json
+    sys_path = str(Path(__file__).resolve().parent)
+    import sys
+    if sys_path not in sys.path:
+        sys.path.insert(0, sys_path)
+    import lorri
+    folder = src / "jupiter_rings"
+    files = sorted(folder.glob("lor_*_sci.fit"))
+    if not files:
+        raise SystemExit("jupiter_rings: no images; run python/textures/fetch_jupiter_rings.py")
+    edges = np.arange(118000.0, 145001.0, 250.0)
+    mid = (edges[:-1] + edges[1:]) / 2
+    ring = (mid > 121000) & (mid < 131000)
+    images, low = [], []
+    for f in files:
+        o = lorri.reduce_image(f, edges)
+        p = o.pop("profile")
+        o["file"] = f.name
+        # A pointing fit on the search's edge has not found the ring: dropped.
+        o["fitOnEdge"] = max(abs(o["dx"]), abs(o["dy"])) >= lorri.SEARCH_SPAN
+        o["ewKm"] = float(np.nansum(p[ring]) * 250.0) if o["rMin"] < 121000 and not o["fitOnEdge"] else None
+        images.append({k: (round(v, 4) if isinstance(v, float) and k != "ewKm" else v) for k, v in o.items()})
+        if o["phase"] < 20 and not o["fitOnEdge"]:
+            low.append(p)
+        print(f"  {f.name}: phase {o['phase']:.1f}, B {o['B']:.2f}, pointing {o['dx']:+.0f},{o['dy']:+.0f} px, EW {o['ewKm']}")
+    med = np.nanmedian(np.array(low), axis=0)
+    inner, outer, n = 122400.0, 129100.0, 14
+    sh = np.linspace(inner, outer, n + 1)
+    depth = np.array([np.nanmean(med[(mid > sh[k]) & (mid < sh[k + 1])]) for k in range(n)])
+    depth /= depth.mean()
+    main = (mid > inner) & (mid < outer)
+    data = {
+        "source": "New Horizons LORRI, NHJULO_2001 (calibrated); method in python/textures/lorri.py",
+        "profile": {"innerKm": float(mid[0]), "stepKm": 250.0, "phaseDeg": [11.7, 15.3],
+                    "normalIF": [None if not np.isfinite(v) else float(f"{v:.4g}") for v in med]},
+        "shells": {"innerKm": inner, "outerKm": outer, "depth": [round(float(d), 4) for d in depth]},
+        "mainRingMeanNormalIF": float(f"{np.nanmean(med[main]):.4g}"),
+        "images": images,
+    }
+    p = out / "jupiter" / "rings_lorri.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=1) + "\n")
+    print(f"  main ring shells: {', '.join(f'{d:.2f}' for d in depth)}; mean normal I/F {data['mainRingMeanNormalIF']:.3g}")
+    print(f"  wrote {p.relative_to(out.parent.parent)}")
+    return {"jupiter": {"lorri": "jupiter/rings_lorri.json",
+                        "credit": "New Horizons LORRI (NASA/JHUAPL/SwRI): NASA PDS Ring-Moon Systems Node."}}
+
+
 # ------------------------------------------------------------------ moons
 
 def gaps(a: np.ndarray, value: int, size: int) -> np.ndarray:
@@ -328,6 +393,7 @@ BODIES = {
     "neptune": giant("neptune", "sss_2k_neptune.jpg", 2048),
     "rings": rings,
     "uranus_rings": uranus_rings,
+    "jupiter_rings": jupiter_rings,
     **MOONS,
 }
 

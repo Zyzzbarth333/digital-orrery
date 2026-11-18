@@ -15,11 +15,13 @@ photometry.
 | --- | --- | --- |
 | Uranus | every narrow ring's orbit: inner and outer edges, eccentricity, inclination, periapse and node and their precession, and all ten normal modes [1]; each ring's equivalent depth, and for α, β and ε the shape of its optical depth across it, from the Voyager 2 PPS occultation profiles [2]; the broad and dust rings' radii, widths and optical depths [3], [4], [5]; the particles' albedo [18] | the broad rings' edges (smoothed over a tenth of their width); the phase of γ's $m = 0$ mode's time term |
 | Neptune | the rings' radii, widths, optical depths and dust fractions [6], [7]; the Adams ring's radius and its 29.6 km, 42-lobed distortion [6], turning with Galatea at its measured longitude [9]; Fraternité's longitude at three epochs [8], [9], [10]; the arcs' separations and lengths [6], [7], [11], [12], and their brightness and positions in 1998, 2002, 2003, 2007, 2009 and 2016 [6], [8], [9]; the arcs' reflectivity [6] | the longitudes and brightnesses between and beyond the measured dates (straight lines between them); Égalité's split into two parts; the distortion's phase, from resonance theory [1], [19] |
-| Jupiter | each ring's radial extent, thickness and normal optical depth [13]; the main ring's split into dust and parent bodies, and the level of its phase curve [14]; the halo's power-law fall-off with height [13]; Amalthea's and Thebe's inclinations (JPL) | the main ring's bright outer annulus as a step (twice the depth over its outer 800 km); the gossamer rings' vertical profile from the dynamics that explains them [15]; the dust's phase function as a smooth curve fitted to the measured levels |
+| Jupiter | each ring's radial extent, thickness and normal optical depth [13]; the main ring's split into dust and parent bodies, and the level of its phase curve [14]; the main ring's radial shape, measured here from 16 New Horizons images [20], [21]; the halo's power-law fall-off with height [13]; Amalthea's and Thebe's inclinations (JPL) | the halo's and gossamer rings' radial shapes (uniform between their edges); the gossamer rings' vertical profile from the dynamics that explains them [15]; the dust's phase function as a smooth curve fitted to the measured levels |
 
-PDS has no tabulated radial profile of Jupiter's rings, only raw images
-(Galileo SSI, New Horizons LORRI, Juno), so its shapes come from the
-published fits above, and every level in them is a measured one.
+PDS has no tabulated radial profile of Jupiter's rings, only images, so
+the main ring's shape is measured here from New Horizons' calibrated LORRI
+images ([below](#the-main-ring-from-new-horizons)); the fainter rings'
+shapes come from the published fits above, and every level in them is a
+measured one.
 
 ## Uranus
 
@@ -166,8 +168,63 @@ by them unchanged in visible light.
 
 From de Pater et al.'s Table 6.1 [13] (from Ockert-Bell et al. [16] and
 de Pater et al.), with the main ring's split from Throop et al. [14]. The
-main ring has a bright ~800 km annulus at its outer edge [13], drawn as
-twice the depth there, keeping the mean.
+main ring has a bright annulus at its outer edge [13]; its shape is
+measured, below.
+
+### The main ring from New Horizons
+
+New Horizons' LORRI camera imaged the main ring from 12° to 151° phase
+during its Jupiter flyby in February 2007, and the calibrated images are on
+the PDS Ring-Moon Systems Node (volume NHJULO_2001) with Showalter's list
+of every ring image [21]. Each image is reduced to normal $I/F$ against
+ring-plane radius (`python/textures/lorri.py`):
+
+- **Brightness:** $I/F = (S/t_\text{exp}/R_\text{SOLAR})\,\pi r_h^2/F_\odot$,
+  with $R_\text{SOLAR} = 2.349\times10^5$ (DN/s/pixel per erg cm⁻² s⁻¹ Å⁻¹
+  sr⁻¹) and the solar flux at LORRI's 6076 Å pivot at 1 au,
+  $F_\odot$ = 176 erg cm⁻² s⁻¹ Å⁻¹ [20, Eqs. 8–10, Table 2]. (The 2017
+  files' headers carry an older $R_\text{SOLAR}$, 12 % higher.)
+- **Geometry:** each pixel's ray, from the spacecraft's position relative
+  to Jupiter along the camera's pointing (both in each image's header),
+  meets the plane of Jupiter's equator at radius $r$. LORRI's pixels are
+  4.9636 µrad [20].
+- **Pointing:** the reconstructed pointing is off by 3 to 26 pixels, so each
+  image's is refitted on the main ring's sharp outer edge at 129,100 km.
+  A fit that ends on the search's edge (54 pixels) has not found the ring,
+  and the image is dropped.
+- **Sky:** Jupiter's scattered light, a plane fitted to the pixels at
+  132,000–145,000 km, is taken off. Normal $I/F$ is $I/F$ times
+  $|\sin B|$, $B$ the spacecraft's elevation above the ring plane.
+
+The ring's shape comes from the 16 images of both ansae at 11.7° and 15.3°
+phase (RPHASE01 and RPHASE02, four repeats each), seen 6.3–6.6° above the
+ring plane. Their median profile, averaged into 14 shells of 479 km between
+the ring's edges and scaled to a mean of 1, multiplies the tabled depth:
+
+| From (km) | 122,400 | 122,879 | 123,357 | 123,836 | 124,314 | 124,793 | 125,271 | 125,750 | 126,229 | 126,707 | 127,186 | 127,664 | 128,143 | 128,621 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Depth | 0.85 | 0.86 | 0.86 | 0.83 | 0.79 | 0.79 | 0.77 | 0.80 | 0.87 | 0.97 | 1.06 | 1.13 | 1.68 | 1.72 |
+
+The bright part is the outer ~1,000 km, at 1.7 times the mean, after a
+gentle rise from 126,000 km. At 6.5° the ring's ~100 km thickness smears
+radius by about 900 km ($\Delta z/\tan B$), so finer structure is not
+resolved. The shape is the same for dust and parent bodies; two phases this
+close cannot separate them.
+
+The measured level checks the photometry independently: the ring's mean
+normal $I/F$ at these phases is $2.53\times10^{-7}$, and the model, from
+Throop et al.'s depths and the particle and dust albedos, gives
+$2.58\times10^{-7}$ at 13.5°. The two ansae's backgrounds differ, and the
+images range from $1.2$ to $4.4\times10^{-7}$.
+
+Not used: the 36.5° and 90.6° sets are dominated by scattered light and
+ghost reflections, and their pointing can't be refitted on the ring. At
+151° only one frame holds the whole ring, seen 1.6° from the plane through
+Jupiter's glare, where the ring's thickness smears radius by about
+3,700 km. It makes the ring 1.08 times brighter than at low phase, where the
+model's dust makes it 3.3 times. The model's forward lobe is held to
+Galileo's few $10^{-6}$ at 178° [13]; this frame does not settle the
+difference.
 
 The gossamer rings are dust from Amalthea and Thebe that keeps their
 inclined orbits as it drifts inward [15]. A grain on an orbit tilted by
@@ -185,10 +242,15 @@ softened at 50 km, and stops at the table's ±25,000 km.
 
 These rings are thick, so they are drawn as a volume: a cylinder about
 Jupiter bounds them, and each pixel's ray is integrated through it. The
-main ring, the halo and the extension are uniform in radius between their
-edges, so the column along a ray is exact: its stretches inside each
-cylindrical shell, times the vertical profile integrated in closed form
-between the heights where it enters and leaves. The gossamer rings are
+halo and the extension are uniform in radius between their edges, and the
+main ring is uniform within each of its 14 measured shells, so the column
+along a ray is exact: its stretches inside each cylindrical shell, times
+the vertical profile integrated in closed form between the heights where it
+enters and leaves. A ray crossing the main ring's plane at more than about
+3° meets the thin ring at one radius, so it takes the whole annulus's column
+times the measured depth there; only grazing rays add the 14 shells one by
+one (inside the ring system on the Intel GPU, that keeps the measured shape
+as cheap as the old two-step one). The gossamer rings are
 marched, 16 samples jittered per pixel. From afar the main ring (100 km
 thick) and the gossamer rings' bright edges are thinner than a pixel; their
 vertical profiles are widened to the pixel's footprint there, keeping
@@ -297,7 +359,10 @@ and independent ones:
 - Jupiter: the main ring's outer edge against NSSDC, the gossamer rings'
   ends at Amalthea's and Thebe's orbits, their thicknesses from the moons'
   inclinations against the table's (within 15 % and 5 %), the main ring's
-  depth against the tables'.
+  depth against the tables'; the measured shape's 14 shells, its mean and
+  its bright outer edge; the model's normal $I/F$ at 13.5° against
+  LORRI's (within 35 %; 2 % apart); and forward scattering brightening the
+  ring at 151° in both.
 - Dust: the phase function's normalisation, its flatness to 130°, and the
   main ring's normal $I/F$ at 178° and 5° phase.
 
@@ -310,7 +375,16 @@ python3 python/textures/build_textures.py --only uranus_rings
 
 This writes `public/textures/uranus/rings_pps.json` (each ring's
 equivalent depth, the ingress and egress values, and the resolved
-shapes). Everything else is in `src/physics/rings.js`.
+shapes). Jupiter's main ring:
+
+```bash
+python3 python/textures/fetch_jupiter_rings.py   # 18 LORRI images, about 190 MB, from PDS
+python3 python/textures/build_textures.py --only jupiter_rings
+```
+
+writes `public/textures/jupiter/rings_lorri.json` (the shells, the median
+profile and each image's geometry, pointing fit and equivalent width; about
+20 minutes). Everything else is in `src/physics/rings.js`.
 
 ## Not modelled
 
@@ -363,3 +437,7 @@ shapes). Everything else is in `src/physics/rings.js`.
 [18] T. Svitek and G. E. Danielson, "Azimuthal brightness variation and albedo measurements of the Uranian rings," *J. Geophys. Res.*, vol. 92, no. A13, pp. 14979–14986, 1987, doi: [10.1029/JA092iA13p14979](https://doi.org/10.1029/JA092iA13p14979).
 
 [19] C. D. Murray and S. F. Dermott, *Solar System Dynamics*. Cambridge, U.K.: Cambridge Univ. Press, 1999, doi: [10.1017/CBO9781139174817](https://doi.org/10.1017/CBO9781139174817).
+
+[20] H. A. Weaver *et al.*, "In-flight performance and calibration of the LOng Range Reconnaissance Imager (LORRI) for the New Horizons mission," *Publ. Astron. Soc. Pac.*, vol. 132, no. 1009, art. 035003, 2020, doi: [10.1088/1538-3873/ab67ec](https://doi.org/10.1088/1538-3873/ab67ec); arXiv: [2001.03524](https://arxiv.org/abs/2001.03524).
+
+[21] NASA PDS Ring-Moon Systems Node, "New Horizons LORRI Jupiter encounter, calibrated (NH-J-LORRI-3-JUPITER-V3.0)," volume NHJULO_2001, and M. R. Showalter, "LORRI Jupiter ring images" (lorri_jring_images.tab). [Online]. Available: https://pds-rings.seti.org/holdings/volumes/NHxxLO_xxxx/NHJULO_2001/, https://pds-rings.seti.org/newhorizons/

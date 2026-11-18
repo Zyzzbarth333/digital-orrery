@@ -11,7 +11,7 @@ import {
   PARTICLE_ALBEDO, edgeAt, ringPlaneAt, ringAxes, fraterniteLongitude, galateaLongitude, arcsAt, URANUS_EPOCH_JD,
 } from '../physics/rings.js';
 import { MOON_DATA } from '../physics/moons.data.js';
-import { makeFlatRings, makeDustRings, tauTexture, MAX_NARROW } from './rings';
+import { makeFlatRings, makeDustRings, setMainShape, tauTexture, MAX_NARROW } from './rings';
 
 type Vec3 = [number, number, number];
 const D = Math.PI / 180;
@@ -19,6 +19,7 @@ const TAU = 2 * Math.PI;
 const wrap = (x: number) => ((x % TAU) + TAU) % TAU;
 
 export interface PpsFile { rings: Record<string, { equivalentDepthKm: number; shape: number[] | null }> }
+export interface LorriFile { shells: { innerKm: number; outerKm: number; depth: number[] } }
 
 export interface RingFrame {
   planetPos: THREE.Vector3;            // render units, camera-relative
@@ -232,6 +233,11 @@ export class JupiterRings {
     const u = (this.mesh.material as THREE.ShaderMaterial).uniforms;
     this.H = u.slabH.value as number;
     this.R = u.outerR.value as number;
+  }
+
+  // The main ring's radial shape as New Horizons measured it (rings_lorri.json).
+  setMeasuredShape(file: LorriFile): void {
+    setMainShape(this.mesh, file.shells.depth);
   }
 
   update(f: RingFrame): void {

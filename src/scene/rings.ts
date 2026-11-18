@@ -349,10 +349,22 @@ function haloK(z: number): number {
   return a < HALO_Z1 ? (Math.pow(a, 0.4) - Math.pow(HALO_Z0, 0.4)) / 0.4 : k1 + 2 * HALO_C * (Math.pow(HALO_Z1, -0.5) - Math.pow(a, -0.5));
 }
 const HALO_TOTAL = 2 * haloK(HALO_ZMAX);
-const MAIN_SPLIT = J.main.outer - J.main.annulus;
-// The main ring's depth inside and in its bright outer annulus (twice as
-// deep), keeping the mean the table's.
+// The main ring's radial shape: MAIN_SHELLS equal shells between its edges,
+// each a multiple of the ring's mean depth. New Horizons LORRI measured it
+// (python/textures/lorri.py; setMainShape); until that file loads, and
+// without it, the shape is the bright outer annulus as a step, twice as
+// deep over the outer 800 km, keeping the mean the table's.
+export const MAIN_SHELLS = 14;
+const MAIN_STEP = (J.main.outer - J.main.inner) / MAIN_SHELLS;
 const MAIN_INNER = (J.main.outer - J.main.inner) / (J.main.outer - J.main.inner + J.main.annulus);
+function stepShape(): number[] {
+  const split = J.main.outer - J.main.annulus;
+  return Array.from({ length: MAIN_SHELLS }, (_, k) => {
+    const a = J.main.inner + k * MAIN_STEP, b = a + MAIN_STEP;
+    const inAnnulus = Math.max(0, Math.min(b, J.main.outer) - Math.max(a, split)) / MAIN_STEP;
+    return MAIN_INNER * (1 + inAnnulus);
+  });
+}
 const f = (x: number) => x.toExponential(6);
 
 // The column through each part along a view ray: the main ring, the halo
@@ -379,6 +391,7 @@ uniform float sinAm;          // sin of Amalthea's and Thebe's inclinations
 uniform float sinTh;
 uniform float U;              // render units per km
 uniform float pxAngle;        // a pixel's angular size, rad
+uniform float mainDepth[${MAIN_SHELLS}];   // the main ring's shells, multiples of its mean depth
 varying vec3 vWorld;
 varying vec2 vLocal;
 ${VISIBLE_FRACTION}
@@ -477,8 +490,22 @@ void main() {
   vec3 s = normalize(sunPos - vWorld);
   gO = o; gD = d; gRd = rd; gSA = planetAxes * s; gT0 = t0; gT1 = t1;
 
-  float mainCol = shell(${J.main.inner.toFixed(1)}, ${MAIN_SPLIT.toFixed(1)}, 0) * ${MAIN_INNER.toFixed(6)}
-                + shell(${MAIN_SPLIT.toFixed(1)}, ${J.main.outer.toFixed(1)}, 0) * ${(2 * MAIN_INNER).toFixed(6)};
+  // The main ring is thin: a ray that crosses its plane at more than about
+  // 3 deg meets it at one radius, so its column is the whole annulus's,
+  // times the measured depth there. Only grazing rays, which run along it
+  // through several shells, add the shells one by one.
+  float mainCol = 0.0;
+  if (abs(d.z) > 0.05) {
+    float tc = clamp(-o.z / d.z, t0, t1);
+    float rc = length((o + tc * d).xy);
+    int k = int(clamp(floor((rc - ${J.main.inner.toFixed(1)}) / ${MAIN_STEP.toFixed(4)}), 0.0, ${(MAIN_SHELLS - 1).toFixed(1)}));
+    mainCol = shell(${J.main.inner.toFixed(1)}, ${J.main.outer.toFixed(1)}, 0) * mainDepth[k];
+  } else {
+    for (int k = 0; k < ${MAIN_SHELLS}; k++) {
+      float ra = ${J.main.inner.toFixed(1)} + float(k) * ${MAIN_STEP.toFixed(4)};
+      mainCol += shell(ra, ra + ${MAIN_STEP.toFixed(4)}, 0) * mainDepth[k];
+    }
+  }
   vec2 col = vec2(mainCol * ${f(J.main.tauDust)}, mainCol * ${f(J.main.tauBodies)});
   col.x += shell(${J.halo.inner.toFixed(1)}, ${J.halo.outer.toFixed(1)}, 1) * ${f(J.halo.tau)};
   col.x += shell(${J.thebeExtension.inner.toFixed(1)}, ${J.thebeExtension.outer.toFixed(1)}, 2) * ${f(J.thebeExtension.tau)};
@@ -542,7 +569,15 @@ export function makeDustRings(unitKm: number, sinAmalthea: number, sinThebe: num
       sinTh: { value: sinThebe },
       U: { value: 1 / unitKm },
       pxAngle: { value: 1e-3 },
+      mainDepth: { value: stepShape() },
     },
   });
   return new THREE.Mesh(geom, mat);
+}
+
+// The main ring's measured shape (MAIN_SHELLS multiples of its mean depth,
+// inner to outer), from rings_lorri.json.
+export function setMainShape(mesh: THREE.Mesh, depth: number[]): void {
+  if (depth.length !== MAIN_SHELLS) throw new Error(`main ring: ${depth.length} shells, not ${MAIN_SHELLS}`);
+  (mesh.material as THREE.ShaderMaterial).uniforms.mainDepth.value = depth.slice();
 }
