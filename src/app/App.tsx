@@ -256,7 +256,7 @@ export function App() {
       <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={irregularMoonOn}
         sat={siteView ? <LandingSitePlate clock={clock} site={siteView} />
           : probeView && scene.current ? <SpacecraftPlate clock={clock} probe={probeView} layer={scene.current.spacecraft} />
-          : satView ? <SatellitePlate clock={clock} sat={satView} source={satNamed.source} /> : null} />
+          : satView ? <SatellitePlate clock={clock} sat={satView} source={satNamed.source} track={scene.current?.groundTrack ?? null} /> : null} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>
           <FlightConsole clock={clock} mission={mission} journey={journey} tab={tab} setTab={setTab} onClose={closeConsole}

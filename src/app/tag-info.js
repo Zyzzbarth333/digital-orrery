@@ -576,7 +576,7 @@ export const TAG_INFO = {
     what: 'How far the craft is from where the real one was at this time.',
     tex: ['d = |\\mathbf r(t) - \\mathbf r_\\text{flown}(t)|'],
     where: '𝐫_flown: the mission\'s reconstructed trajectory, interpolated between its points',
-    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno, DART and LRO: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
+    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno, DART, LRO and MESSENGER: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
   },
   'next-burn': {
     what: 'The real mission\'s next burn, as it was flown.',
@@ -798,6 +798,20 @@ export const TAG_INFO = {
     what: 'Whether the Sun lights the satellite or the Earth hides it: behind the Earth and within the Earth\'s radius of the line through the Earth\'s centre from the Sun.',
     tex: ['\\mathbf r\\cdot\\hat{\\mathbf s} < 0,\\quad |\\mathbf r - (\\mathbf r\\cdot\\hat{\\mathbf s})\\,\\hat{\\mathbf s}| < R_\\oplus'],
     where: 'ŝ: the Sun\'s direction from the Earth (DE442). A cylinder: the umbra\'s cone narrows by 0.27° of its own, and the penumbra is left out (a few seconds in low orbit)',
+    source: 'docs/frontend/satellites.md',
+  },
+  // passes.js findPasses, lookAngles
+  'sat-pass': {
+    what: 'Where the satellite is in the sky from the place: SGP4\'s position turned from TEME into the Earth\'s own frame, then seen from the place on the WGS-84 ellipsoid. Azimuth is clockwise from north, elevation above the horizon, without refraction.',
+    tex: ['\\mathbf r_\\text{ITRF} = W\\,R_3(\\theta_\\text{GMST})\\,\\mathbf r_\\text{TEME}', '\\sin h = \\hat{\\mathbf u}\\cdot\\frac{\\mathbf r_\\text{ITRF} - \\mathbf r_\\text{site}}{|\\mathbf r_\\text{ITRF} - \\mathbf r_\\text{site}|}'],
+    where: 'θ_GMST: IAU 1982, from UT1; W: polar motion; û: the ellipsoid\'s normal at the place. Rise and set at 0°, the peak by golden-section search, each to a millisecond. Within a second and their whole degree of Heavens-Above\'s 90 ISS passes for the same element set',
+    source: 'Vallado et al., AIAA 2006-6753, eq. (1); Heavens-Above (check) · docs/frontend/satellites.md',
+  },
+  // passes.js visibleWindow
+  'sat-visible': {
+    what: 'When it can be seen: sunlit (out of the Earth\'s shadow) while the Sun is 6° or more below the place\'s horizon, civil twilight\'s end, the sky dark enough for a sunlit satellite to show.',
+    tex: ['h_\\odot < -6°\\quad\\text{and}\\quad\\text{out of the shadow}'],
+    where: 'h⊙: the Sun\'s geometric elevation (DE442); the shadow a cylinder of the Earth\'s radius. Judged from rise to set, as Heavens-Above does; how bright it is is left out',
     source: 'docs/frontend/satellites.md',
   },
   // satellite-plate.tsx height

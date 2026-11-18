@@ -20,7 +20,9 @@ physics), [`src/scene/satellites.ts`](../../src/scene/satellites.ts) and
 [`satellites.worker.ts`](../../src/scene/satellites.worker.ts) (drawing),
 [`satellite-rail.tsx`](../../src/app/satellite-rail.tsx) and
 [`satellite-plate.tsx`](../../src/app/satellite-plate.tsx) (the rail and
-the data plate).
+the data plate); [`passes.js`](../../src/physics/passes.js) and
+[`satellite-passes.tsx`](../../src/app/satellite-passes.tsx) (passes over
+a place, [below](#passes-over-a-place)).
 
 ## The data
 
@@ -245,10 +247,103 @@ The one chosen joins the named ones, with a marker, an orbit and a plate.
 - its element set: the epoch and the clock's distance from it, perigee and
   apogee heights, period, eccentricity, the angles and B\*;
 - whether the elements are the snapshot or live, and when they were
-  fetched.
+  fetched;
+- its passes over a place ([below](#passes-over-a-place)).
 
 Each value has its source tag: CelesTrak for the elements, SGP4 for what
 is worked out from them.
+
+## Passes over a place
+
+The satellite plate lists the satellite's next passes over a place on the
+Earth for three days: when it rises, culminates and sets, where it is in
+the sky then, and whether it can be seen. The rail's **Passes** key shows
+the ISS's, or those of the satellite in view. The ground under the
+satellite can be drawn on the Earth, its next pass over the place brighter.
+
+| | |
+| --- | --- |
+| ![The Earth from 22,000 km at 18:23 UTC on 18 November 2026: the ISS's ground track in pale amber across the Atlantic and on round the Earth, the stretch of its pass over Greenwich in bright amber over Britain, just inside the night side](satellite-passes-track.jpg) | ![The plate's passes: the place's latitude, longitude and height, then each pass with a VISIBLE, DAYLIGHT or IN SHADOW lamp, its rise, peak and set with times, directions and ranges, and when it can be seen](satellite-passes-plate.jpg) |
+| The ISS over Greenwich, 18 Nov 2026 18:23 UTC: its ground track, the pass in bright amber | The plate's passes for the same evening |
+
+Code: [`src/physics/passes.js`](../../src/physics/passes.js) (the
+physics), [`passes.worker.ts`](../../src/app/passes.worker.ts) and
+[`satellite-passes.tsx`](../../src/app/satellite-passes.tsx) (the
+plate), [`groundTrack.ts`](../../src/scene/groundTrack.ts) (the line on
+the Earth).
+
+**The place.** Latitude (north positive), longitude (east positive) and
+height, on the WGS-84 ellipsoid [8]. **Locate** asks the browser for its
+position. The place is kept in this browser's `localStorage` and sent
+nowhere. Until one is given it is the Royal Observatory, Greenwich.
+
+**The frames.** SGP4's TEME turns into the Earth's own frame of the true
+pole (PEF) by the Greenwich mean sidereal time, as Vallado et al. do [4,
+eq. (1)]. Polar motion then turns it to the crust (ITRF):
+
+$$\mathbf r_\text{ITRF} = W\,R_3(\theta_\text{GMST})\,\mathbf r_\text{TEME},\qquad W = R_1(-y_p)\,R_2(-x_p)$$
+
+θ<sub>GMST</sub> is the IAU 1982 expression [4, eq. (2)] at UT1. UT1 − UTC,
+*x*<sub>p</sub> and *y*<sub>p</sub> are the day's Earth orientation
+parameters, those the Earth's own orientation uses
+([Body orientation](../physics/orientation.md)). This agrees with the
+app's J2000 path (TEME to J2000, then the Earth's J2000-to-ITRF93 matrix)
+within 1.3 m for the ISS. The rest is the IERS corrections to the 1980
+nutation, which the Earth's frame has and TEME does not.
+
+**Where in the sky.** From the place **r**<sub>s</sub>, with **ê**, **n̂**
+and **û** east, north and up (the ellipsoid's normal there):
+
+$$\boldsymbol\rho = \mathbf r_\text{ITRF} - \mathbf r_\text{s},\qquad \sin h = \frac{\boldsymbol\rho\cdot\hat{\mathbf u}}{|\boldsymbol\rho|},\qquad A = \operatorname{atan2}(\boldsymbol\rho\cdot\hat{\mathbf e},\ \boldsymbol\rho\cdot\hat{\mathbf n})$$
+
+The elevation *h* is geometric. Refraction, which lifts a satellite on the
+horizon by about 0.6°, is left out: its rise would come a few seconds
+earlier.
+
+**Finding the passes.** The search runs in a worker, from half a period
+before the clock to three days after it:
+
+- It samples the elevation every hundredth of a period (56 s for the ISS)
+  and takes each local maximum.
+- It refines each maximum by golden-section search to 1 ms.
+- A pass is a maximum of 10° or more. Lower, the ground and the haze
+  hide it, and Heavens-Above lists none.
+- Each pass gets its rise and set, where it crosses the horizon, and the
+  times it crosses 10°, each by bisection to 1 ms.
+- A satellite that stays up or down for half a period either side
+  (geostationary) has no passes. The plate says where it is in the sky.
+
+The search reruns when the clock enters a new six hours, and when the
+place, the satellite or its element set changes. Three days of the ISS
+take about 50 ms. The list shows the next six passes; **Visible only**
+keeps those that can be seen. **Go** sets the clock to a minute before a
+pass rises.
+
+**Visible.** A pass can be seen while both of these hold:
+
+- the satellite is sunlit, outside the Earth's shadow (the cylinder
+  above);
+- the Sun is 6° or more below the place's horizon, the end of civil
+  twilight [9], so the sky is dark enough for it to show.
+
+This is judged from rise to set, as Heavens-Above judges it. The
+satellite enters or leaves the shadow at most once in a pass, and the Sun
+crosses −6° at most once. So each state is checked at both ends, and its
+one change, if any, is found by bisection. A pass is marked **Visible**
+if the two overlap, **Daylight** if the Sun is above −6° at its peak, and
+**In shadow** otherwise. The plate gives the span it can be seen, and
+whether it fades into the shadow or comes out of it. How bright it is
+(its magnitude) is left out.
+
+**The ground track.** The point under the satellite, down the
+ellipsoid's normal, from a quarter of an orbit back to one ahead, in pale
+amber. The next pass, rise to set, is in bright amber, and the place is
+a small square. It is drawn in the Earth's frame, as a child of the
+Earth's mesh, and lifted 19 km so that the surface and the clouds don't
+cut it. The Earth hides the far side. SGP4 resamples it (241 points,
+about 2 ms) once the clock has moved a two-hundredth of a period, at most
+every 50 ms. The **Ground track** key switches it, remembered in the
+browser.
 
 ## How right they are
 
@@ -294,6 +389,41 @@ Starlink keeps station) jump to a new track with each new element set.
 - **The shadow test:** points on and off the axis, the edge at the Earth's
   radius, and the ISS in shadow for 39 % of an orbit at its epoch.
 
+**Pass checks** (`npm test`,
+[`passes.test.mjs`](../../src/physics/passes.test.mjs)), against
+Heavens-Above's predictions [10] for the same element set: the ISS's,
+epoch 17 November 2026 20:24:46 UTC, as Heavens-Above's orbit page gave
+it. The fixture holds every pass above 10° from 18 to 28 November 2026
+over two places: Greenwich (51.4769° N, 0.0005° W, 46 m, 47 passes) and
+Sydney Observatory (33.8597° S, 151.2048° E, 45 m, 43 passes). It also
+holds seven of those passes in detail.
+
+- **The passes:** all 90 found, none extra.
+- **Culminations:** within 0.70 s of the instant Heavens-Above's link
+  gives for each, which it rounds to the second on the page.
+- **Peak elevations:** within their whole degree (worst 0.51° from it).
+- **The 10° crossings:** within 1.3 s, for the 86 passes that peak at
+  11° or more. A pass that peaks within a degree of 10 crosses it at
+  times a hundredth of a degree moves by seconds. Heavens-Above's own
+  move by 4 s between its summary and its details.
+- **Directions** at 10°, the peak and 10° again: all in their 16-point
+  compass sector, within 0.23° (the peaks above 85°, where the azimuth
+  turns fast, are left out).
+- **Visible, daylight or in shadow:** as they have it for all 90. Four
+  passes over each place are sunlit only below 10°, and count as visible.
+- **The detailed passes** (rise, 10°, shadow edge, peak, 10°, set: 38
+  events):
+  - the times, shadow edges included, within 1.2 s;
+  - rises and sets at 0° within 0.85 s, so Heavens-Above's are geometric
+    too;
+  - azimuth and elevation at their times within their rounding (half a
+    degree each, plus the satellite's motion in a second);
+  - ranges within 0.4 km past a second's change;
+  - the Sun's altitude within 0.06° of theirs (worst 0.051°).
+- **The frames:** TEME to ITRF by GMST against the app's J2000 path, the
+  ISS over 10 days, within 1.3 m. WGS-84 places back from ITRF within
+  1 mm, from the pole to geostationary height.
+
 `npm run fetch:satellites-horizons`
 ([`satellites.horizons.mjs`](../../src/physics/satellites.horizons.mjs))
 rebuilds the Horizons fixture from the current snapshot's ISS.
@@ -306,6 +436,8 @@ and costs nothing then. The numbers, and the two fixes the first timing
 called for, are in [performance.md](../performance.md#earth-satellites).
 The focused one's close-up orbit costs nothing measurable on either GPU
 (the same section).
+Nor do the passes and the ground track
+([performance.md](../performance.md#satellite-passes-and-the-ground-track)).
 
 ## References
 
@@ -322,3 +454,9 @@ The focused one's close-up orbit costs nothing measurable on either GPU
 [6] S. Kandadai *et al.*, "satellite.js," v7.1.0, MIT licence, 2026. [Online]. Available: https://github.com/shashwatak/satellite-js
 
 [7] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544). [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[8] National Imagery and Mapping Agency, "Department of Defense World Geodetic System 1984: Its definition and relationships with local geodetic systems," Tech. Rep. TR8350.2.
+
+[9] US Naval Observatory, Astronomical Applications Dept., "Rise, set, and twilight definitions." [Online]. Available: https://aa.usno.navy.mil/faq/RST_defs
+
+[10] C. Peat, "Heavens-Above," Heavens-Above GmbH: ISS (25544) orbit, all passes and pass details over Greenwich and Sydney Observatory, 18–28 Nov. 2026, fetched 18 Nov. 2026. [Online]. Available: https://www.heavens-above.com/orbit.aspx?satid=25544

@@ -74,9 +74,11 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   (`craft-far` with the clock at a day a second), the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`),
   the Earth with all 16,892 satellites on (`sats`, 20,000 km) and the ISS
-  followed from 0.1 km (`sat-near`, its close-up orbit drawn) run by name,
-  and `all` runs every one; `--list` lists them. A scenario can run a
-  setup expression once the page is up (the satellites' switch).
+  followed from 0.1 km (`sat-near`, its close-up orbit drawn) and from
+  20,000 km with its passes and ground track (`sat-track`, and
+  `sat-track-warp` at an hour a second) run by name, and `all` runs every
+  one; `--list` lists them. A scenario can run a setup expression once the
+  page is up (the satellites' switch).
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
@@ -418,6 +420,28 @@ stays at 16.7 ms throughout, and the Earth close-up does not run the new
 code, so its differences are noise. In one page, with the close-up
 stretch switched on and off every 4.5 s six times on the Intel GPU, the
 frame was 31.6 ms on and 32.4 ms off, and `placeNear` took 0.1 ms.
+
+### Satellite passes and the ground track
+
+The passes run in a worker (about 50 ms for three days of the ISS, four
+times a day of clock). The ground track is two lines and a point on the
+Earth, resampled by SGP4 on the main thread (241 calls, about 2 ms) once
+the clock has moved a two-hundredth of a period, at most every 50 ms
+([satellites.md](frontend/satellites.md#passes-over-a-place)).
+`npm run bench:frames -- --gpu intel,nvidia sat-track sat-track-warp earth`
+on 18 November 2026, main (52a371f) against the branch, 3 rounds
+interleaved, load average 11–15, median frame, ms:
+
+| Scenario | Intel | RTX |
+| --- | ---: | ---: |
+| The ISS followed, its passes and ground track, 20,000 km | 30.3 → 22.2 | 7.8 → 6.7 |
+| The same at an hour a second | 27.1 → 24.8 | 9.6 → 9.4 |
+| Earth close-up (no satellites), 20,000 km | 26.8 → 22.8 | 7.4 → 7.5 |
+
+Every difference is the machine's load: the Earth close-up runs none of
+the new code and moved as much, and the Intel rounds swung 20–35 ms in
+both builds. The RTX's frame gap stayed at 16.7 ms throughout. The ground
+track costs nothing measurable.
 
 ### GPU-compressed maps
 

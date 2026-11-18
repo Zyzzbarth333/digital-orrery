@@ -144,7 +144,7 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
                 </label>
                 {w.kind !== 'flyby' && i < j.waypoints.length - 1 && (
                   <label className="num"><span className="engraved">Stay</span>
-                    <input className="input" type="number" min={0} step={1} value={w.stayDays ?? 0} onChange={(e) => store.edit(i, { stayDays: Math.max(0, Number(e.target.value)) })} /><span className="unit">d</span>
+                    <input className="input" type="number" min={0} step={1} value={Math.round((w.stayDays ?? 0) * 100) / 100} onChange={(e) => store.edit(i, { stayDays: Math.max(0, Number(e.target.value)) })} /><span className="unit">d</span>
                   </label>
                 )}
               </div>
