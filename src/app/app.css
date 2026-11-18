@@ -606,6 +606,7 @@ details.section[open] > summary::after { content: '−'; }
   translate: -50% -50%;
 }
 .guide-tag.axis-n { color: #c8c2b4; padding: 0 3px; translate: -50% -110%; }
+.guide-tag.axis-n.retro { color: #ff9a66; }
 .guide-tag.soi, .guide-tag.hill, .guide-tag.pull { text-transform: none; letter-spacing: 0.06em; font-size: 9px; }
 .guide-tag.soi { color: var(--phosphor); translate: -50% -100%; }
 .guide-tag.hill { color: #9fc9b8; translate: -50% -100%; }
@@ -630,8 +631,14 @@ details.section[open] > summary::after { content: '−'; }
 /* The magnetic field's legend sits above the gravity field's (src/scene/magnetic.ts). */
 .field-legend.mag-legend { bottom: calc(7 * var(--u) + 104px); }
 .field-legend .field-bar.mag-bar { background: linear-gradient(to right, #9a3216, #d9531f 33%, #ffb22e 67%, #f5f0e4); }
+.field-legend.flow-legend .field-bar { background: linear-gradient(to right, #121110, #3d5a64 40%, #8fc8d8 80%, #fff7ea); }
+/* The flow's legend sits bottom right, clear of the surface and magnetic legends. */
+.field-legend.flow-legend { left: auto; right: calc(2 * var(--u)); }
+.flow-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px 0 6px 6px; }
+.flow-opts .sb-pick { margin: 0; padding: 0; gap: 2px; min-width: 0; }
+.flow-opts .sb-pick .input { height: 24px; font-size: 11px; padding-left: 6px; padding-right: 20px; }
 .small-bodies .lamp-sq { border: 1px solid; }
-/* The guides never scroll: five short rows, the body list gives way. */
+/* The guides never scroll: six short rows, the body list gives way. */
 .body-list.guides { flex: none; overflow: visible; padding-bottom: var(--u); }
 .body-list.guides .body-row { height: 26px; }
 

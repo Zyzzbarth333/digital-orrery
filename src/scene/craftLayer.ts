@@ -24,7 +24,7 @@
 // An SVG overlay rather than lines in the scene, at a fixed size.
 
 import * as THREE from 'three';
-import { orbitTrailMaterial } from './orbitTrail';
+import { orbitTrailMaterial, reachOf } from './orbitTrail';
 import { conicAround } from './craftPaths';
 
 type V3 = [number, number, number];
@@ -104,6 +104,9 @@ function setPoints(line: THREE.Line, pts: V3[], unitKm: number): void {
   line.geometry.setAttribute('position', new THREE.BufferAttribute(arr, 3));
   line.geometry.setAttribute('u', new THREE.BufferAttribute(u, 1));
   line.geometry.setDrawRange(0, pts.length);
+  // A trail fades close in, against its size about the primary (orbitTrail.ts).
+  const m = line.material as THREE.ShaderMaterial;
+  if (m.uniforms?.reach) m.uniforms.reach.value = reachOf(arr);
 }
 
 // Points relative to the craft, written into a line's own buffer (grown

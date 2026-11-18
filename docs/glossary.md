@@ -101,6 +101,11 @@ app's Earth satellites come from them.
 known far more precisely than either factor alone, so the physics uses it
 directly.
 
+**Retrograde rotation.** A body turning against its own orbit: its spin
+axis more than 90° from its orbit's pole. Venus, Uranus and Pluto do; seen
+from above the ecliptic, Venus turns clockwise.
+[Gravity guides](physics/gravity-guides.md#spin-axes-and-direction)
+
 **IAU rotation model.** The International Astronomical Union's formulas for
 each body's pole direction and prime meridian over time. The app uses
 NAIF's `pck00011` edition.
@@ -153,6 +158,25 @@ Sun's tide. Its radius is $r \approx a\,(m/3M)^{1/3}$.
 station with two larger ones, turning with them. L4 and L5 lie 60° ahead
 of and behind the smaller body. Jupiter's trojans gather there.
 [Gravity guides](physics/gravity-guides.md)
+
+**Gravitational field.** The pull per unit mass at each point in space,
+the sum of every body's $GM/d^2$ toward it. Field lines run along it, as
+an electric field's do. Seen falling freely with a body, the Sun's
+near-uniform pull drops out and what is left is the body's own pull and
+the others' tides. [Gravity guides](physics/gravity-guides.md#the-field-of-every-body)
+
+**Effective potential, Jacobi constant.** In the frame turning with two
+bodies, gravity plus the centrifugal pull has a potential $\Phi$. The
+Lagrange points are where it is flat: L1–L3 are its saddles, L4 and L5
+its peaks. The Jacobi constant $C = -2\Phi$ (in the pair's units, less
+the speed squared) is conserved; the curves of equal $C$ through L1–L3,
+the zero-velocity curves, mark where a body of that energy can go.
+[Gravity guides](physics/gravity-guides.md#the-field-of-every-body)
+
+**Line-integral convolution (LIC).** Drawing a vector field by smearing
+noise along each point's field line, so the grain lines up with the
+field. Shifting the smearing's phase makes the grain flow.
+[Gravity guides](physics/gravity-guides.md#the-field-of-every-body)
 
 **SGP4, SDP4.** The analytical theory the US Space Force fits its element
 sets with (Simplified General Perturbations 4): the Earth's J2 and J4,
