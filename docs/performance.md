@@ -678,6 +678,33 @@ work; the one new per-frame call, the Moon's axes, takes 3 µs. The low
 view costs about 1 to 2 ms more than the distant one: that is the surface
 patch and the near ground ([camera](frontend/camera.md)), not the layer.
 
+### Eclipses, spin axes and field-line pulses
+
+The shadow casters are picked each frame (`pickOccluders`): 0.08 ms for
+all 86 bodies on the laptop's CPU. Most bodies now have no caster most of
+the time, where each kept four before, so the surface shader's eclipse
+loop does less. The spin axes are quads widened on screen
+(`screenLines.ts`) instead of GL lines, and the magnetic field's pulses
+are a few instructions a pixel of line, set by one uniform a frame. Frame
+cost against main, `npm run bench:frames` (medians, ms):
+
+| Scenario | Intel | NVIDIA |
+| --- | ---: | ---: |
+| Saturn and its rings, 500,000 km | 15.0 → 13.7 | 8.0 → 8.1 |
+| Earth close-up, 20,000 km | 16.9 → 16.1 | 2.8 → 6.8 * |
+| The Moon in the Earth's shadow, 2025-09-07 | 16.3 → 16.5 | 6.3 → 6.4 |
+| Spin axes on (Earth), 40,000 km | 16.3 → 16.3 | 6.3 → 6.6 |
+| Magnetic field on (Jupiter), pulses running | 15.3 → 16.2 | 6.1 → 6.0 |
+
+18 November 2026, 1920 × 1080 at DPR 1. Intel's Saturn and Earth rows are
+a second run of 5 rounds at load average 2–3; the rest 3 rounds at load
+1–8, where the Intel rows moved by up to 2 ms between rounds either way
+(a first Saturn run read 14.8 → 16.9, its rounds +2.4, −1.4, +3.3). The
+NVIDIA Earth scene (*) swings between about 3 and 7 ms from load to load
+in both builds: its rounds read 6.8, 2.8, 2.7 before and 7.0, 6.8, 2.9
+after, so its median moved with which loads came out low, not with the
+change. Within that noise, nothing here costs a frame.
+
 ### The panels
 
 The panels read the clock through `useSyncExternalStore`, which re-renders

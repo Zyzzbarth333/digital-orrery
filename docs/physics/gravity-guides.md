@@ -151,8 +151,16 @@ precession and nutation, and the synchronous moons' own.
 ![Venus with its spin arrow: an amber arc over the north pole turning clockwise seen from above, tagged N · retrograde](../images/spin-venus.jpg)
 
 Over the north pole, 1.2 radii from the centre, a curved arrow 0.45 radii
-across shows which way the body turns: an arc of 270° fading from its tail
-to an arrowhead, going round as the body does. The sense is the sign of the
+across shows which way the body turns: an arc of 270° fading in from its
+tail to a filled head, going round as the body does. The axis and the arc
+are strokes 1.5 CSS pixels wide whatever the distance, and the head 12
+pixels long and 8 across (or 30° of the arc on a small disc), drawn as
+quads widened on screen with their edges smoothed by each pixel's coverage
+(`screenLines.ts`), so they stay crisp and steady as the arrow turns.
+Until November 2026 they were 1-pixel GL lines with a two-stroke head,
+aliased and shimmering as the arc went round.
+
+![The Earth's spin axis and arrow, shown at twice size: before, aliased 1-pixel lines with a V-shaped head; after, smooth 1.5-pixel strokes with a filled head](../images/spin-axis-strokes.jpg) The sense is the sign of the
 IAU rate $W_1$ of the prime meridian angle $W = W_0 + W_1 d$ [1] (`spin.js`:
 the Sun, planets, Moon and Pluto from the 2015 report, the planets' moons
 from NAIF's pck00011), or, for a moon with no IAU model, which the app

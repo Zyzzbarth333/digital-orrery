@@ -14,6 +14,9 @@
 // - Eclipses: for each occluding ellipsoid, the fraction of the Sun's disc
 //   still visible from the surface point (overlap of two discs), worked in
 //   the occluder's own frame scaled to a unit sphere (ELLIPSOID_SHADOW).
+//   OrreryScene picks each frame the (up to four) bodies whose penumbra
+//   reaches this one. In the Earth's shadow, sunlight its air bends in
+//   (UMBRA_LIGHT, physics/umbra.js) gives the eclipsed Moon its colour.
 // - Surface maps (docs/frontend/textures.md) are looked up by body-fixed
 //   longitude and latitude, so they turn with the body's real rotation. All
 //   maps share one layout: equirectangular, u = 0 at -180 deg east longitude,
@@ -25,8 +28,55 @@
 
 import * as THREE from 'three';
 import { ATMO_FUNCS, ATMO_UNIFORMS, atmosphereUniforms, type AtmosphereParams } from './atmosphere';
+import { DEFLECTION_GROUND_RAD, REFRACTIVITY_SCALE_KM } from '../physics/umbra.js';
 
 export const MAX_OCCLUDERS = 4;
+export const UMBRA_N = 24;           // heights in the refracted light's table
+// The refracted light in a planet's shadow is about 1/3000 of sunlight at
+// the centre of the Earth's at the Moon (umbra.js), which a view exposed
+// for sunlit bodies would draw black; it is drawn this many times brighter,
+// a display level like the city lights', so its colour shows.
+export const UMBRA_GAIN = 200;
+
+// Sunlight refracted into an occluder's shadow (physics/umbra.js): at a
+// point L radii behind the planet and rho off the axis, rays from the near
+// limb bent by (1 - rho) / L and from the far one by (1 + rho) / L, each
+// T(h) H / (rho L delta) of direct sunlight, T from the table by the
+// tangent height h whose bend is delta. Worked in the occluder's unit
+// sphere frame, as ELLIPSOID_SHADOW is. Needs the umbra uniforms.
+export const UMBRA_LIGHT = /* glsl */ `
+#define UMBRA_N ${UMBRA_N}
+#define UMBRA_D0 ${DEFLECTION_GROUND_RAD.toFixed(7)}
+#define UMBRA_HKM ${REFRACTIVITY_SCALE_KM.toFixed(1)}
+uniform vec3 umbraT[UMBRA_N];  // transmittance of a grazing ray, 0 to umbraMaxKm
+uniform float umbraMaxKm;
+uniform float umbraRadiusKm;   // the occluder's mean radius
+vec3 umbraLookup(float hKm) {
+  float f = clamp(hKm / umbraMaxKm, 0.0, 1.0) * float(UMBRA_N - 1);
+  int i = int(floor(f));
+  int j = min(i + 1, UMBRA_N - 1);
+  return mix(umbraT[i], umbraT[j], f - float(i));
+}
+vec3 umbraLight(vec3 x, vec3 sunPos, float sunRadius, vec3 centre, mat3 A, float k) {
+  vec3 p = A * (x - centre);
+  vec3 toSun = A * (sunPos - centre) - p;
+  float dSun = length(toSun);
+  vec3 s = toSun / dSun;
+  float L = -dot(p, s);                     // behind the planet, along the shadow's axis
+  if (L <= 0.0) return vec3(0.0);
+  float rho = length(p + L * s);
+  float H = UMBRA_HKM / umbraRadiusKm;
+  float rhoEff = sqrt(rho * rho + L * L * (sunRadius * k / dSun) * (sunRadius * k / dSun));
+  vec3 sum = vec3(0.0);
+  for (int side = 0; side < 2; side++) {
+    float delta = (side == 0 ? 1.0 - rho : 1.0 + rho) / L;
+    if (delta <= 0.0 || delta > UMBRA_D0) continue;
+    float h = UMBRA_HKM * log(UMBRA_D0 / delta);
+    sum += umbraLookup(h) * min(1.0, H / (rhoEff * L * delta));
+  }
+  return sum;
+}
+`;
 
 // The shadow of an ellipsoid, as the fraction of the Sun's disc seen past
 // it. A maps render coordinates relative to its centre to its body frame
@@ -85,6 +135,8 @@ uniform vec3 sunPos;          // render units, camera-relative
 uniform float sunRadius;      // render units
 uniform vec4 occluders[MAX_OCC]; // xyz centre, w = k of ELLIPSOID_SHADOW (0: unused)
 uniform mat3 occAxes[MAX_OCC];   // A of ELLIPSOID_SHADOW
+uniform int umbraOcc;         // the occluder whose air bends light into its shadow, or -1
+uniform float umbraGain;
 
 uniform vec3 bodyCentre;      // render units, camera-relative
 uniform mat3 toBody;          // render -> body-fixed (rows: X, Y, Z axes)
@@ -113,6 +165,7 @@ float visibleFraction(float a, float b, float c) {
 
 ${ATMO_FUNCS}
 ${ELLIPSOID_SHADOW}
+${UMBRA_LIGHT}
 
 // Sample an equirectangular map without a seam at +-180 deg: take the
 // texture-coordinate derivatives from whichever of u or u + 0.5 (wrapped) is
@@ -173,12 +226,18 @@ void main() {
   float brdf = mix(lambert, lommelSeeliger, lommel);
 
   float shade = 1.0;
+  vec3 bent = vec3(0.0);        // sunlight refracted into an occluder's shadow
   if (mu0Geo > -0.02) {
+    float sU = 1.0;
     for (int i = 0; i < MAX_OCC; i++) {
       vec4 o = occluders[i];
       if (o.w <= 0.0) continue;
-      shade *= ellipsoidShadow(vWorld, sunPos, sunRadius, o.xyz, occAxes[i], o.w);
+      float sh = ellipsoidShadow(vWorld, sunPos, sunRadius, o.xyz, occAxes[i], o.w);
+      shade *= sh;
+      if (i == umbraOcc) sU = sh;
     }
+    if (umbraOcc >= 0 && sU < 1.0)
+      bent = umbraGain * (1.0 - sU) * umbraLight(vWorld, sunPos, sunRadius, occluders[umbraOcc].xyz, occAxes[umbraOcc], occluders[umbraOcc].w);
   }
 
   // The rings' shadow: follow the ray to the Sun to the ring plane (the
@@ -208,7 +267,7 @@ void main() {
     sunT = atmoSunTransmittance(pk, normalize(atmoShape * s));
   }
 
-  vec3 colour = refl * irradiance * brdf * shade * sunT;
+  vec3 colour = refl * irradiance * brdf * (shade + bent) * sunT;
   if (useNight > 0.5) {
     float dark = 1.0 - smoothstep(-0.12, 0.05, mu0Geo * shade);
     colour += sampleMap(nightMap, uv).rgb * nightLevel * dark * (1.0 - cloudCover) * invExposure;
@@ -234,6 +293,15 @@ export interface SurfaceMaps {
 // tops and fresh snow, about 0.9 (docs/frontend/textures.md#earth).
 const BRIGHT_REFLECTANCE = 0.9;
 
+const UMBRA_NONE = Array.from({ length: UMBRA_N }, () => new THREE.Vector3());
+
+// The refracted light's table for every material: one shared array, as only
+// the Earth's air bends light into a shadow the app draws.
+export function setUmbraTable(materials: Iterable<THREE.ShaderMaterial>, t: { table: Float32Array; n: number; maxKm: number }, radiusKm: number): void {
+  const v = Array.from({ length: UMBRA_N }, (_, i) => new THREE.Vector3(t.table[3 * i], t.table[3 * i + 1], t.table[3 * i + 2]));
+  for (const m of materials) { m.uniforms.umbraT.value = v; m.uniforms.umbraMaxKm.value = t.maxKm; m.uniforms.umbraRadiusKm.value = radiusKm; }
+}
+
 const blank = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
 blank.needsUpdate = true;
 
@@ -257,6 +325,8 @@ export function makeBodyMaterial(colour: number, geometricAlbedo: number, airles
       sunRadius: { value: 1 },
       occluders: { value: occ },
       occAxes: { value: occAxes },
+      umbraOcc: { value: -1 }, umbraGain: { value: UMBRA_GAIN },
+      umbraT: { value: UMBRA_NONE }, umbraMaxKm: { value: 60 }, umbraRadiusKm: { value: 6371 },
       bodyCentre: { value: new THREE.Vector3() },
       toBody: { value: new THREE.Matrix3() },
       dayMap: { value: blank }, useDay: { value: 0 },

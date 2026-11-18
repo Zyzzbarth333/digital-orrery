@@ -395,6 +395,55 @@ export function footprint(model, start, sign, surface = { eq: 1, pol: 1 }, opts 
   return h.end === 'surface' ? h.pts.slice(-3) : null;
 }
 
+// A trapped particle's bounce along a closed field line (points and
+// strength as traceLine gives them, foot to foot). Its magnetic moment is
+// kept, so it mirrors where B reaches Bm = B_eq / sin^2(alpha_eq), and
+// along the line it moves at v_par = v sqrt(1 - B / Bm) (Roederer and
+// Zhang 2014, ch. 3): fastest over the magnetic equator, stopping at the
+// mirror points. Bm is capped just under the weaker foot, so a particle
+// on a short line mirrors above the ground. Returns, per point, the time
+// coordinate x = int ds / sqrt(1 - B / Bm) from the southern mirror point
+// over its total (0 to 1 between the mirrors, continued beyond them by
+// arc length on the same scale), and that total in units of the line's
+// length unit: v times the half-bounce period. Null for an open line.
+export function bounceTrack(line, alphaEqDeg = 30) {
+  const { points, strength } = line, n = strength.length;
+  if (line.closed === false || n < 3) return null;
+  let k = 0;
+  for (let i = 1; i < n; i++) if (strength[i] < strength[k]) k = i;
+  const s = Math.sin(alphaEqDeg * DEG);
+  const Bm = Math.min(strength[k] / (s * s), 0.98 * Math.min(strength[0], strength[n - 1]));
+  // The stretch about the equator where the particle goes.
+  let i0 = k, i1 = k;
+  while (i0 > 0 && strength[i0 - 1] < Bm) i0--;
+  while (i1 < n - 1 && strength[i1 + 1] < Bm) i1++;
+  const seg = (i) => Math.hypot(points[3 * i + 3] - points[3 * i], points[3 * i + 4] - points[3 * i + 1], points[3 * i + 5] - points[3 * i + 2]);
+  // Each segment's share of the time, at its midpoint's field; where the
+  // segment crosses a mirror point, only the part inside it, by the
+  // integral of (1 - B/Bm)^-1/2 with B linear along it.
+  const dt = (i) => {
+    const b0 = 1 - strength[i] / Bm, b1 = 1 - strength[i + 1] / Bm, ds = seg(i);
+    if (b0 <= 0 && b1 <= 0) return 0;
+    if (b0 > 0 && b1 > 0) return Math.abs(b1 - b0) < 1e-9 ? ds / Math.sqrt(b0) : (2 * ds * (Math.sqrt(b1) - Math.sqrt(b0))) / (b1 - b0);
+    const hi = Math.max(b0, b1);
+    return (2 * ds * Math.sqrt(hi)) / Math.abs(b1 - b0);
+  };
+  const x = new Float64Array(n);
+  let total = 0;
+  for (let i = Math.max(i0 - 1, 0); i < Math.min(i1 + 1, n - 1); i++) total += dt(i);
+  if (!(total > 0)) return null;
+  // From the southern end: the mirror lies inside segment i0 - 1.
+  let acc = 0;
+  for (let i = i0; i <= i1; i++) {
+    if (i === i0) acc = i0 > 0 ? dt(i0 - 1) : 0;
+    else acc += dt(i - 1);
+    x[i] = acc / total;
+  }
+  for (let i = i0 - 1; i >= 0; i--) x[i] = x[i + 1] - seg(i) / total;
+  for (let i = i1 + 1; i < n; i++) x[i] = x[i - 1] + seg(i - 1) / total;
+  return { x, total, mirror: [i0, i1], Bm };
+}
+
 // The dipole frame: u along the moment, e1 and e2 across it.
 export function dipoleFrame(model) {
   const { m } = model.dipole;

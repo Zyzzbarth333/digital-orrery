@@ -451,6 +451,37 @@ and key orange, to engraving 1,000 times weaker. The lines are brighter
 where stronger. The legend gives the surface range, the dipole moment, tilt
 and offset, and the source.
 
+**Motion.** Field lines do not move: a static field's lines are fixed in
+the body's frame (they turn with it, and the Earth's T89 lines are
+retraced as it turns under the Sun and as the solar wind changes). What
+moves along them is charged particles. A particle trapped on a closed line
+keeps its magnetic moment, so it mirrors where the field reaches
+$B_m = B_\text{eq}/\sin^2\alpha_\text{eq}$ and moves along the line at
+
+$$
+v_\parallel = v\sqrt{1 - B/B_m}
+$$
+
+[64]: fastest over the magnetic equator, stopping at the mirror points.
+Each closed line carries a faint pulse doing this, for a 30° equatorial
+pitch angle, its mirror point capped just above the weaker foot
+(`bounceTrack` in `magnetic.js`, the shader's `bounce` attribute). Along a
+dipole line the bounce's path $\int ds/\sqrt{1 - B/B_m}$ matches the
+dipole's bounce integral, $2L\,T(\sin\alpha_\text{eq})$ (Hamlin et al.
+[65] give $T \approx 1.30 - 0.56 \sin\alpha_\text{eq}$), within 0.5 %
+(`magnetic.test.mjs`). Real bounces last a fraction of a second for an MeV
+electron to minutes for a slow ion, too fast or too slow to watch, so each
+takes $1.6\sqrt{\ell}$ seconds here, $\ell$ that path in the body's
+radii: longer lines slower, as in fact (for one energy the period grows as
+the path), but compressed so the outer lines still move. The pulses run on
+the wall clock while the sim clock runs, stop where they are while it is
+held, and are not drawn with reduced motion; they cost a few instructions a
+pixel of line and nothing a frame on the CPU. The particles' slower drift
+round the planet (electrons east, ions west) and the solar wind's flow are
+not shown.
+
+![The Earth's field lines: before, still; after, two frames 0.7 s apart, faint pulses moving along the closed lines](../images/magnetic-pulses.jpg)
+
 **What is left out:** Jupiter's and Saturn's magnetopause currents and
 tails, whose fields would bend their outer lines as T89 bends the
 Earth's. Saturn's bow shock. Uranus's, Neptune's and Mercury's
@@ -937,3 +968,7 @@ since from within, a belt is only a haze over the whole view.
 [62] B. Bonfond, D. Grodent, J.-C. Gérard, T. Stallard, J. T. Clarke, M. Yoneda, A. Radioti, and J. Gustin, "Auroral evidence of Io's control over the magnetosphere of Jupiter," *Geophys. Res. Lett.*, vol. 39, no. 1, Art. no. L01105, 2012, doi: 10.1029/2011GL050253. (Not opened; its reference ovals' centres as [63] gives them.)
 
 [63] L. A. Head *et al.*, "Effect of magnetospheric conditions on the morphology of Jupiter's ultraviolet main auroral emission as observed by Juno-UVS," *Astron. Astrophys.*, vol. 688, Art. no. A205, 2024, doi: 10.1051/0004-6361/202450253. Sec. 4.1. Preprint: arXiv:2404.04030.
+
+[64] J. G. Roederer and H. Zhang, *Dynamics of Magnetically Trapped Particles: Foundations of the Physics of Radiation Belts and Space Plasmas*, 2nd ed., Astrophysics and Space Science Library, vol. 403. Berlin, Germany: Springer, 2014, doi: 10.1007/978-3-642-41530-2.
+
+[65] D. A. Hamlin, R. Karplus, R. C. Vik, and K. M. Watson, "Mirror and azimuthal drift frequencies for geomagnetically trapped particles," *J. Geophys. Res.*, vol. 66, no. 1, pp. 1–4, 1961.
