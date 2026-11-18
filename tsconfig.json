@@ -14,5 +14,5 @@
     "resolveJsonModule": true,
     "types": ["vite/client"]
   },
-  "include": ["src/app", "src/scene"]
+  "include": ["src/app", "src/scene", "scripts/plates-worst.tsx"]
 }
