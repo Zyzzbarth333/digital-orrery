@@ -121,7 +121,7 @@ export interface SatCloudView extends SatCloud {
   epochs: { first: string; median: string };
 }
 export interface SatSource { label: string; fetched: string; live: boolean }
-export interface SatHit { j: number; des: string; label: string; kind: string }
+export interface SatHit { j: number; des: string; label: string; kind: string; layer: SatLayerKey }
 
 // The orbit's class, from its mean motion (rev/day) and eccentricity.
 export function orbitClass(o: Omm): string {
@@ -200,6 +200,9 @@ const isCrowd = (g: SatGroup) => g === 'gps' || g === 'galileo' || g === 'weathe
 // A constellation's outline, as a display level.
 const CROWD_OPACITY = 0.08;
 
+// satellites.json: the named ones, the snapshot's date and each set's.
+interface SatMeta { named: NamedSat[]; fetched: string; layers: Record<string, { fetched: string; clouds?: SatCloud[] }> }
+
 // One switch's points: its rows, in the worker's order, and the time the
 // worker's last ellipses are for.
 interface PointSet { rows: Omm[]; material: THREE.ShaderMaterial; points: THREE.Points; buffer: THREE.InterleavedBuffer; t0: number }
@@ -207,7 +210,7 @@ interface PointSet { rows: Omm[]; material: THREE.ShaderMaterial; points: THREE.
 export class SatelliteLayer {
   private layerOn: Record<SatLayerKey, boolean> = { active: false, debris: false, 'rocket-bodies': false, analyst: false };
   private loading = new Map<SatLayerKey, Promise<void>>();
-  private meta: Promise<{ named: NamedSat[]; fetched: string; layers: Record<string, { fetched: string; clouds?: SatCloud[] }> }> | null = null;
+  private meta: Promise<SatMeta> | null = null;
   private metaNamed: NamedSat[] = [];
   private sets = new Map<SatLayerKey, PointSet>();
   private worker: Worker | null = null;
@@ -294,12 +297,36 @@ export class SatelliteLayer {
     for (const n of this.named) if (!this.namedOn(n)) this.markers.get(n.id)!.style.display = 'none';
   }
 
+  // satellites.json (10 kB): the named ones and the debris clouds, fetched once.
+  private fetchMeta(): Promise<SatMeta> {
+    this.meta ??= fetch(`${this.baseUrl}data/satellites.json`).then((r) => { if (!r.ok) throw new Error(`satellites.json: HTTP ${r.status}`); return r.json(); });
+    return this.meta;
+  }
+
+  // The named ones and the debris clouds before any set has loaded, for
+  // the rail's FIND field (find.tsx); empty if satellites.json fails.
+  async catalogue(): Promise<{ named: readonly NamedSat[]; clouds: readonly SatCloud[] }> {
+    try {
+      const meta = await this.fetchMeta();
+      return { named: meta.named.map((n) => ({ ...n, layer: 'active' as const })), clouds: meta.layers.debris?.clouds ?? [] };
+    } catch (err) {
+      console.warn(`satellites.json not loaded: ${err}`);
+      this.meta = null;
+      return { named: [], clouds: [] };
+    }
+  }
+
+  // Whether a set's element sets have loaded; ready() waits for one
+  // switched on (true once it has loaded, false if it failed or is off).
+  loaded(k: SatLayerKey): boolean { return this.sets.has(k); }
+  async ready(k: SatLayerKey): Promise<boolean> { await this.loading.get(k); return this.sets.has(k); }
+
   private async load(k: SatLayerKey): Promise<void> {
     try {
-      this.meta ??= fetch(`${this.baseUrl}data/satellites.json`).then((r) => { if (!r.ok) throw new Error(`satellites.json: HTTP ${r.status}`); return r.json(); });
+      const meta$ = this.fetchMeta();
       const [csv, meta] = await Promise.all([
         fetch(`${this.baseUrl}data/${LAYER_OF[k].file}`).then((r) => { if (!r.ok) throw new Error(`${LAYER_OF[k].file}: HTTP ${r.status}`); return r.text(); }),
-        this.meta,
+        meta$,
       ]);
       if (this.disposed) return;
       if (!this.metaNamed.length) {
@@ -728,7 +755,7 @@ export class SatelliteLayer {
       const n = this.named.find((x) => x.id === r.NORAD_CAT_ID);
       const name = n && n.name.toUpperCase() !== r.OBJECT_NAME.toUpperCase() ? `${n.name} (${r.OBJECT_NAME})` : r.OBJECT_NAME;
       const layer = this.rowLayer[j];
-      return { j, des: String(r.NORAD_CAT_ID), label: `${name} · ${r.NORAD_CAT_ID}`, kind: layer === 'active' ? orbitClass(r) : `${LAYER_NOUN[layer]}, ${orbitClass(r)}` };
+      return { j, des: String(r.NORAD_CAT_ID), label: `${name} · ${r.NORAD_CAT_ID}`, kind: layer === 'active' ? orbitClass(r) : `${LAYER_NOUN[layer]}, ${orbitClass(r)}`, layer };
     });
   }
 
@@ -746,6 +773,12 @@ export class SatelliteLayer {
       this.onNamed(this.named, this.source);
     }
     return id;
+  }
+
+  // The same by NORAD id: rows move when another set loads.
+  adoptId(id: number): number | null {
+    const j = this.index.get(id);
+    return j === undefined ? null : this.adopt(j);
   }
 
   // ----- The live refresh -----

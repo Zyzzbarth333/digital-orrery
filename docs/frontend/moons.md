@@ -421,9 +421,11 @@ and Nereid are full moons, above.
 ![Jupiter's irregular moons at a month a second, seen from 50 million km: points with short trails go round on tilted orbits far outside the Galilean moons, most of them backwards](../clips/irregular-moons.webp)
 
 They are a layer, not bodies in the rail: off by default, switched on under
-**Irregular moons** in the rail, which also has a **Fly to** list of them by
-planet, nearest first, with (r) for the retrograde ones. Clicking one's
-label flies there too. The plate then gives where it is about its planet
+**Irregular moons** in the rail. Any of them is found by name in the rail's
+**FIND** field ([`find.tsx`](../../src/app/find.tsx), the `/` key), whose
+**Irregular moons** group gives each one's planet and says which go round
+backwards; choosing one switches the layer on if it is off ("Irregular
+moons shown") and flies there. Clicking one's label flies there too. The plate then gives where it is about its planet
 and from the Earth, its mean orbit (semi-major axis, eccentricity,
 inclination to the ecliptic, period), which way it goes round, its radius,
 GM, albedo where known, and when and by whom it was found [7], each with

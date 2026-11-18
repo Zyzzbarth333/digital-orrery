@@ -5,7 +5,7 @@ round the Earth, moved by SGP4 from their published element sets. The
 named ones carry a marker, a label and their orbit, and can be flown to.
 They are the ISS, Tiangong, Hubble, the GPS and Galileo constellations
 and the weather satellites in geostationary orbit, plus any found by
-search. Three more sets have switches of their own, each drawn dimmer and
+the rail's FIND field. Three more sets have switches of their own, each drawn dimmer and
 in its own colour: the tracked debris of the three breakups CelesTrak keeps
 as groups (2,679 pieces), the spent rocket bodies (2,194) and the analyst
 objects (573, tracked but not identified). The debris clouds can be flown
@@ -287,19 +287,22 @@ A plate gives:
   motion and eccentricity, as the satellite plate's do;
 - the epochs' median and the oldest.
 
-Choosing a body or a satellite leaves the cloud. Search finds its pieces
-one at a time.
+Choosing a body or a satellite leaves the cloud. FIND finds a cloud by
+its name ("Fengyun"), switching the debris on if it is off, and its
+pieces one at a time once the debris has loaded.
 
 **A satellite.**
 
-Choose a marker, the rail's **Fly to** list, or a search result. The
+Choose a marker, the rail's **Fly to** list, or a FIND result. The
 camera flies to the satellite, 200 km out (or the distance last zoomed
 to), and follows it as it does a craft: its anchor is SGP4's position each
 frame. It can come to within 20 m. Choosing a body in the rail leaves it.
 A satellite SGP4 stops placing (decayed, or its element set out of the
 theory's range) hands the camera back to the body in view.
 
-**Search.** The rail's search box looks through every satellite in the
+**Search.** The rail's **FIND** field
+([`find.tsx`](../../src/app/find.tsx), the `/` key) lists its first three
+satellites under **Satellites**, looking through every one in the
 catalogue in three ways:
 
 - by name (the app's own for the named ones: "Hubble" finds HST, and
@@ -308,8 +311,14 @@ catalogue in three ways:
   old TLE format can't hold);
 - by international designator ("1998-067A").
 
-The search covers every set that has loaded. A piece of debris, a rocket
-body or an analyst object says so in the results. Analyst objects have no
+The search covers every set that has loaded. Before the active set has
+loaded, FIND still finds its named ones (from `satellites.json`, 10 kB,
+fetched when the field first takes focus); choosing one switches **All
+active** on and flies there once its 2.5 MB have loaded. A set switched
+off keeps its loaded points, so they are still found; choosing one
+switches its set back on. The line under the field says so ("Satellites
+shown"). A piece of debris, a rocket body or an analyst object says so in
+the results. Analyst objects have no
 name in the catalogue ("UNKNOWN"), so one is named by its number. The one
 chosen joins the named ones, with a marker, an orbit and a plate; its marker
 shows while its set's switch is on.

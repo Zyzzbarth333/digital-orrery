@@ -325,10 +325,14 @@ rail, the arrow keys or following a craft leaves it.
 
 ### Any of them, by search
 
-The rail's search box finds any of the 135,353 drawn bodies by number
-("433", "(433)", "433 Eros"), name ("eros") or designation ("1997 AU24",
-"1P", "2026 P4" for C/2026 P4). The chosen one is flown to and given a
-plate as a named one is, and joins the Fly to list.
+The rail's **FIND** field ([`find.tsx`](../../src/app/find.tsx), the `/`
+key) finds any of the 135,353 drawn bodies by number ("433", "(433)",
+"433 Eros"), name ("eros") or designation ("1997 AU24", "1P", "2026 P4"
+for C/2026 P4), its first three matches listed as **Asteroids and comets**
+among FIND's other kinds. The chosen one is flown to and given a plate as
+a named one is, and joins the Fly to list. If its population is switched
+off (say the comets), FIND switches it on first, with the same state as its
+switch in the rail, and says so under the field ("Comets shown").
 
 - **The index:** `public/data/smallbodies-index.txt`, one line per body of
   `smallbodies.bin` in the same order, so line j names point j. Written by
@@ -341,7 +345,7 @@ plate as a named one is, and joins the Fly to list.
   - **Comets** carry their prefix: C/2026 P4. A numbered comet, 1P, has
     it already.
 - **Its size:** 1.22 MB (0.44 MB gzip-compressed). 19,118 names, 51,958
-  diameters. It is fetched only when the search box first takes focus.
+  diameters. It is fetched only when the FIND field first takes focus.
 - **Searching** runs over every line, 2 ms. A match ranks as:
   1. a number or designation, exactly;
   2. a name, exactly;

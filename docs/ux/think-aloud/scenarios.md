@@ -73,7 +73,7 @@ asteroids so that only the planets are showing.*
 
 - **Start:** `http://localhost:4173/`
 - **Path:** the rail's "Small bodies" section → "Fly to" ("a named one…")
-  → Ceres, or type "Ceres" in the "Search all 135,353" box under it and
+  → Ceres, or type "Ceres" in the FIND field at the top of the rail and
   pick it → the plate's "Orbital period"; then the "Main belt" (and other)
   switches off.
 - **Success:** says Ceres's period (about 4.6 years) and turns off at least

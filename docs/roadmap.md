@@ -61,7 +61,7 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 - [ ] Lamps lit only when they mean something, one orange key per flow, and the lit RUN key's label at 4.5:1 contrast.
 - [ ] A preview and confirm step before the MISSION tab's LAUNCH.
 - [ ] The ROCKET tab split into vehicle, job and launch.
-- [ ] One search over every body, moon, small body and craft, and a `?` sheet of the keyboard shortcuts.
+- [x] One search over every body, moon, small body and craft, and a `?` sheet of the keyboard shortcuts.
 - [ ] A name and a touch hint on phones, and in time a phone layout of its own: the sky full-screen, with the plate and console as sheets over it.
 - [ ] The rail's lower sections as groups that fold away.
 - [ ] Wrap or expand the plotting table's long lamps at phone width.

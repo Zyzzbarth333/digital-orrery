@@ -93,8 +93,8 @@ that.
 
 ## Flights
 
-Choosing a body (the rail, a marker in the sky, the arrow keys) or a craft
-flies the camera there instead of cutting.
+Choosing a body (the rail, its FIND field, a marker in the sky, the arrow
+keys) or a craft flies the camera there instead of cutting.
 
 ![A flight from the inner solar system to the Earth: the view pulls back a little, crosses to the Earth's marker and closes in, slowing as it arrives](../clips/overview-to-earth.webp)
 
