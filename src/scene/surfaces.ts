@@ -35,7 +35,7 @@ export interface SurfaceEntry {
 }
 export interface Manifest {
   bodies: Partial<Record<BodyKey, SurfaceEntry>>;
-  rings?: { saturn?: { tau: string; innerKm: number; outerKm: number; credit: string }; uranus?: { pps: string; credit: string } };
+  rings?: { saturn?: { tau: string; innerKm: number; outerKm: number; credit: string }; uranus?: { pps: string; credit: string }; jupiter?: { lorri: string; credit: string } };
   ktx2?: Record<string, string>;   // map path -> its KTX2 (python/textures/build_ktx2.py)
   stars?: { map: string; preview?: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; detail?: SkyDetailEntry; points?: string; pointCount?: number; credit: string };
 }

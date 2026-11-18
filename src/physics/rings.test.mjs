@@ -14,7 +14,7 @@ import {
   URANUS_NARROW, URANUS_BROAD, NEPTUNE_NARROW, NEPTUNE_BROAD, ADAMS_ARCS, FRATERNITE_FIXES, JUPITER,
   URANUS_EPOCH_JD, edgeAt, edgeRadius, ringWidth, ringPlaneAt, ringAxes, equatorNode,
   fraterniteLongitude, fraterniteRates, dustPhase, dustNormalIF, PARTICLE_ALBEDO,
-  modeOffset, arcsAt, galateaLongitude, ADAMS_WIGGLE, ringReflectivity, NEPTUNE_ARC_REFLECTIVITY, URANUS_LAMBERT_ALBEDO,
+  modeOffset, arcsAt, galateaLongitude, ADAMS_WIGGLE, ringReflectivity, NEPTUNE_ARC_REFLECTIVITY, URANUS_LAMBERT_ALBEDO, lambertPhase,
 } from './rings.js';
 import { moonPositionEqj } from './moons.js';
 import { bodyAxesEqj } from './orientation.js';
@@ -176,6 +176,33 @@ check(Math.abs(thick('amalthea') / 2300 - 1) < 0.15 && Math.abs(thick('thebe') /
   `gossamer rings ${thick('amalthea').toFixed(0)} and ${thick('thebe').toFixed(0)} km thick from the moons' inclinations (table ~2300 and ~8500)`);
 const tauMain = JUPITER.main.tauDust + JUPITER.main.tauBodies;
 check(tauMain < 8e-6 && tauMain > 3e-6, `main ring tau ${tauMain.toExponential(1)} (Ring-Moon Systems Node < 8e-6, NSSDC 5e-6)`);
+
+console.log('Jupiter: the main ring measured by New Horizons LORRI (public/textures/jupiter/rings_lorri.json)');
+const lorri = JSON.parse(readFileSync(new URL('../../public/textures/jupiter/rings_lorri.json', import.meta.url)));
+const depth = lorri.shells.depth;
+const meanDepth = depth.reduce((a, b) => a + b, 0) / depth.length;
+check(depth.length === 14 && Math.abs(meanDepth - 1) < 2e-3 && lorri.shells.innerKm === JUPITER.main.inner && lorri.shells.outerKm === JUPITER.main.outer,
+  `14 shells from ${lorri.shells.innerKm} to ${lorri.shells.outerKm} km, mean depth ${meanDepth.toFixed(4)}`);
+const outerTwo = (depth[12] + depth[13]) / 2, innerHalf = depth.slice(0, 7).reduce((a, b) => a + b, 0) / 7;
+check(outerTwo / innerHalf > 1.4 && outerTwo / innerHalf < 2.6,
+  `brightest at the outer edge: the outer two shells ${outerTwo.toFixed(2)} against ${innerHalf.toFixed(2)} inside (the tabled annulus, twice as deep)`);
+// The model's level, from Throop et al.'s depths and the photometry, against
+// what LORRI measured at 11.7-15.3 deg phase (median of 16 images; the two
+// ansae differ by up to two times in their backgrounds).
+const lowImgs = lorri.images.filter((o) => o.phase < 20 && o.ewKm !== null);
+const meanOf = (o) => o.ewKm / (131000 - 121000);
+const lo12 = Math.min(...lowImgs.map(meanOf)), hi12 = Math.max(...lowImgs.map(meanOf));
+const model12 = dustNormalIF(JUPITER.main.tauDust, 13.5) + PARTICLE_ALBEDO.jupiter * lambertPhase(13.5) * JUPITER.main.tauBodies;
+check(Math.abs(model12 / lorri.mainRingMeanNormalIF - 1) < 0.35,
+  `normal I/F at 13.5 deg phase: model ${model12.toExponential(2)}, LORRI ${lorri.mainRingMeanNormalIF.toExponential(2)} (within 35 %; images ${lo12.toExponential(1)}-${hi12.toExponential(1)} over 121,000-131,000 km)`);
+// At 151 deg the two frames that hold the whole ring see it 1.6 deg from
+// edge-on, in Jupiter's glare: forward scattering brightens it in both, by
+// less in the frames than in the model, whose lobe is set by Galileo at 178 deg.
+const hiImgs = lorri.images.filter((o) => o.phase > 150 && o.ewKm !== null && o.rMin < 121000);
+const ew = (a) => a.map((o) => o.ewKm).sort((x, y) => x - y)[Math.floor(a.length / 2)];
+const measuredRatio = ew(hiImgs) / ew(lowImgs);
+const modelRatio = (dustNormalIF(JUPITER.main.tauDust, 151.5) + PARTICLE_ALBEDO.jupiter * lambertPhase(151.5) * JUPITER.main.tauBodies) / model12;
+check(measuredRatio > 1 && modelRatio > 1, `brighter at 151.5 deg than at 13.5: LORRI ${measuredRatio.toFixed(2)} times, the model ${modelRatio.toFixed(2)} times`);
 
 console.log('Dust photometry');
 let sum = 0;
