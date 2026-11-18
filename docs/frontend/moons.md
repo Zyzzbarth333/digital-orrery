@@ -429,7 +429,7 @@ its source tag. None of them pulls on spacecraft: the largest, Himalia, has
 a GM of 0.152 km³/s² (Horizons), a twenty-thousandth of Europa's, and it is
 the only one with a measured GM.
 
-![Himalia flown to: an 85 km sphere, lit, with its plate](moons-irregular-himalia.jpg)
+![Himalia flown to: its NEOWISE size and Cassini's 1.25 elongation, lit, with its plate](moons-irregular-himalia.jpg)
 
 Code: `src/physics/irregularMoons.js` (positions),
 `src/physics/irregularMoons.data.js` (elements, sizes, GMs, discoveries and
@@ -511,16 +511,53 @@ Outside 2000–2049, then, a point marks the right orbit about the right
 planet and not much more; the plate's source tag says `elements`, and its
 note gives that moon's own residual.
 
-### Physical data
+### Sizes and shapes
 
-From each moon's Horizons object page [2]: a radius for Jupiter's eight
-classical irregulars (Himalia 85 km, Elara 40, Pasiphae 18, Carme 15,
-Sinope 14, Lysithea 12, Ananke 10, Leda 5), a GM for Himalia only, and a
-geometric albedo for two. Horizons gives no size or magnitude for the
-others, which have only been seen as points of light: they are drawn at a
-nominal 1.5 km radius (most are 1 to 4 km across), and the plate says so.
-Their discovery year, discoverers and announcement are from JPL's
-discovery table [7]; 169 of them were found in 2019 or later.
+**Sizes.** Each moon's diameter, from the best source that has it:
+
+| Source | Moons | How |
+| --- | ---: | --- |
+| NEOWISE, Grav et al. 2015, Table 3 [9] | 13 | measured, from the heat they give off in the infrared: Himalia 139.6 ± 1.7 km, Elara 79.9, Pasiphae 57.8, Carme 46.7, Lysithea 42.2, Siarnaq 39.3, Sinope 35.0, Ananke 29.1, Albiorix 28.6, Leda 21.5, Callirrhoe 9.6, Praxidike 7.0, Kalyke 6.9 |
+| T. Denk's table of Saturn's irregular moons [10] | 119 | estimated from the absolute magnitude $H$ for an albedo of 0.06 |
+| the Minor Planet Center's discovery circulars [11] | 146 | Saturn's announced in 2025 and 2026, from the $H$ in each circular, by Denk's formula and albedo |
+| S. S. Sheppard's tables of Jupiter's and Neptune's moons [12] | 103 | estimated from their brightness (the albedo is not stated) |
+
+Denk's formula is
+
+$$
+D = 1\ \text{au}\,\frac{2}{\sqrt p}\,10^{-0.2\,(H - M_\odot)},
+$$
+
+with $p$ = 0.06 and $M_\odot$ = −26.71, the Sun's apparent V magnitude: it
+gives his own table's 119 sizes from their $H$ to 4.8 %, the rounding of
+$H$ to 0.1 mag and of the sizes to two figures. An estimate depends on the
+albedo taken, so it is uncertain by a quarter or more: against NEOWISE's
+measurements, Sheppard's estimates are 0.84 to 1.15 times them. The NEOWISE
+albedos (2.9 to 6.2 %) replace Horizons' where they exist, and Horizons'
+older radii, which NEOWISE supersedes, are not used.
+
+**Shapes.** Only Himalia has been seen as more than a point: Cassini's
+images give radii of 75 ± 10 by 60 ± 10 km [13]. For 22 of Saturn's, the
+swing of their brightness as they turn gives the least the long axis can
+be over the short one, $a/b \ge 10^{0.4\,\Delta m}$ for a lightcurve
+amplitude $\Delta m$ near zero phase, and Denk et al. tabulate it [14]:
+Kiviuq at least 2.32, Erriapus 1.51, Bestla 1.47, Mundilfari 1.43, down to
+Loge 1.04. These 23 are drawn as ellipsoids $a \times b \times b$ of their
+moon's volume (the third axis is not constrained, so it is taken as $b$);
+the other 358 as spheres. The plate gives the shape, with "at least" where
+it is the lightcurve's minimum.
+
+![Kiviuq, at least 2.32 times as long as it is wide, 5.5 hours apart: a quarter of its 22-hour turn](moons-irregular-kiviuq.jpg)
+
+**Spins.** The same table gives 24 rotation periods (Hati 5.45 h to Tarqeq
+76.13 h, five marked uncertain), and Pilcher et al. give Himalia's,
+7.7819 ± 0.0005 h [15]. No pole or phase is known for any of them, so a
+shaped moon turns at its period about the pole of its orbit, from 0 at
+J2000.
+
+GMs and discoveries: Horizons gives a GM for Himalia only, 0.152 km³/s².
+Discovery year, discoverers and announcement are from JPL's discovery
+table [7]; 169 of the moons were found in 2019 or later.
 
 ### Drawing
 
@@ -537,8 +574,9 @@ discovery table [7]; 169 of them were found in 2019 or later.
   (S/2019 S 1 and the like) have none: Saturn's swarm of 267 lines is a
   blur, and on an integrated GPU each line across the view costs about
   0.05 ms.
-- **Flown to:** a lit sphere at the moon's radius, as a named asteroid's
-  ([small bodies](small-bodies.md)), with a dark default albedo of 0.04.
+- **Flown to:** a lit body at the moon's size, its ellipsoid turning where
+  it has a shape, as a named asteroid's ([small bodies](small-bodies.md)),
+  with its NEOWISE albedo or a dark 0.04.
 
 ![Saturn's irregular moons, 18 November 2026, about 43 million km out: 267 labelled points, the 42 numbered ones with their orbits](moons-irregular-saturn.jpg)
 
@@ -569,8 +607,8 @@ system in view.
   periapsis, and the tables' equal intervals spend that resolution all
   year. Saturn's Daphnis, Neptune's and Uranus's newest moons and the rest
   of Saturn's ring moons are in other kernels.
-- **The irregular moons' sizes**: estimates from their published absolute
-  magnitudes, at an assumed albedo, in place of the nominal 1.5 km.
+- **The irregular moons' poles**: none is known, so the shaped ones turn
+  about their orbit's pole; and the third axis of each shape.
 - **The moons' gravity fields beyond degree 2.** Io, Europa, Ganymede,
   Callisto and Titan carry their $J_2$ and $C_{22}$
   ([kernel](../physics/nbody-kernel.md#the-moons-own-fields)); the others
@@ -631,3 +669,17 @@ with `MOON_PARTS=irregular` ([c/README.md](../../c/README.md#the-moons-for-the-a
 [7] JPL Solar System Dynamics, "Planetary satellite discovery circumstances." [Online]. Available: https://ssd.jpl.nasa.gov/sats/discovery.html
 
 [8] D. Jewitt and N. Haghighipour, "Irregular satellites of the planets: Products of capture in the early solar system," *Annu. Rev. Astron. Astrophys.*, vol. 45, pp. 261–295, 2007, doi: 10.1146/annurev.astro.44.051905.092459.
+
+[9] T. Grav, J. M. Bauer, A. K. Mainzer, J. R. Masiero, C. R. Nugent, R. M. Cutri, S. Sonnett and E. Kramer, "NEOWISE: Observations of the irregular satellites of Jupiter and Saturn," *Astrophys. J.*, vol. 809, art. no. 3, 2015, doi: 10.1088/0004-637X/809/1/3.
+
+[10] T. Denk, "Irregular moons of Saturn: overview table," 20 May 2025. [Online]. Available: https://tilmanndenk.de/wp-content/uploads/OSM_7_Table.txt
+
+[11] Minor Planet Center, MPECs 2025-E153, 2025-E154, 2025-E155, 2026-F14 and 2026-G68 to G75. [Online]. Available: https://minorplanetcenter.net/mpec/
+
+[12] S. S. Sheppard, "Moons of Jupiter" and "Moons of Neptune," Carnegie Science. [Online]. Available: https://sites.google.com/carnegiescience.edu/sheppard/moons
+
+[13] C. C. Porco et al., "Cassini imaging of Jupiter's atmosphere, satellites, and rings," *Science*, vol. 299, pp. 1541–1547, 2003, doi: 10.1126/science.1079462.
+
+[14] T. Denk, S. Mottola, F. Tosi, W. F. Bottke and D. P. Hamilton, "The irregular satellites of Saturn," in *Enceladus and the Icy Moons of Saturn*, Univ. Arizona Press, 2018, Table 3, doi: 10.2458/azu_uapress_9780816537075-ch020.
+
+[15] F. Pilcher, S. Mottola and T. Denk, "Photometric lightcurve and rotation period of Himalia (Jupiter VI)," *Icarus*, vol. 219, pp. 741–742, 2012, doi: 10.1016/j.icarus.2012.03.021.

@@ -6,17 +6,18 @@
 //
 //   nodeRate(mu, j2, R, a, e, i)        the J2 secular rate of the node
 //                                       (Curtis eq. (4.52)), rad/s
-//   flownNodeRate({ mu, j2, j4, R, pole, r, v })
+//   flownNodeRate({ mu, j2, jn, R, pole, r, v })
 //                                       the node's rate of an orbit flown in
 //                                       the body's zonal field (the kernel's:
-//                                       J2, and J4 for the giant planets) for
-//                                       ten turns, rad/s
+//                                       J2, and for the giant planets the
+//                                       terms beyond it, bodies.js ZONAL jn)
+//                                       for ten turns, rad/s
 //   leaveCircularDv(n, r, mu, vinf)     the cheapest single burn from a
 //                                       circular orbit onto an asymptote
 //   turnPlane(n, pole, angle)           a plane's normal after its node turns
 
 import { asymptoteVelocities, rotate } from './transfers.js';
-import { addJ2 } from './zonal.js';
+import { addJ2, zonalTerms } from './zonal.js';
 
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const norm = (a) => Math.hypot(a[0], a[1], a[2]);
@@ -36,7 +37,9 @@ export function nodeRate(mu, j2, R, a, e, i) {
 
 // The node's rate as the orbit from (r, v) (about the body) has it in the
 // body's zonal field alone, as the kernel has it (zonal.js addJ2: J2, and
-// J4 for the giant planets, which adds its own share): flown for ten turns (RK4, 240 steps a turn) and the
+// the giant planets' terms beyond it, jn = { n: Jn } at radius R as
+// bodies.js ZONAL holds them, J4 adding its own share and Jupiter's J6
+// more): flown for ten turns (RK4, 240 steps a turn) and the
 // node read where the orbit crosses the equator northward, so the J2 terms
 // that come and go within a turn cancel. Eq. (4.52) is the mean rate of the
 // mean orbit; a circular orbit started at radius r is not quite that one
@@ -46,13 +49,13 @@ export function nodeRate(mu, j2, R, a, e, i) {
 // degrees of node. Returns { rate (rad/s), first (eq. (4.52) for the
 // starting orbit), ratio }, or null for an orbit too near the equator to
 // have a node.
-export function flownNodeRate({ mu, j2, j4 = 0, R, pole, r, v, turns = 10, steps = 240 }) {
+export function flownNodeRate({ mu, j2, jn = null, R, pole, r, v, turns = 10, steps = 240 }) {
   const p = unit(pole);
   const h0 = cross(r, v), i0 = Math.acos(Math.max(-1, Math.min(1, dot(unit(h0), p))));
   const a0 = 1 / (2 / norm(r) - dot(v, v) / mu), e0 = norm(sub(scale(r, dot(v, v) / mu - 1 / norm(r)), scale(v, dot(r, v) / mu)));
   const first = nodeRate(mu, j2, R, a0, e0, i0);
   if (Math.sin(i0) < 1e-3 || !(a0 > 0)) return null;
-  const body = { mu, j2, rJ2: R, pole: p, ...(j4 ? { j4 } : {}) };
+  const body = { mu, j2, rJ2: R, pole: p, ...(jn ? { zn: zonalTerms(jn, R) } : {}) };
   const acc = (x) => {
     // Point mass plus the zonal terms (J2: Curtis eq. (10.30), about the
     // pole p), as the kernel adds them.

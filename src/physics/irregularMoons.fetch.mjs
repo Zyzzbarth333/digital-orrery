@@ -11,6 +11,9 @@
 //   elements' mean anomaly, its rate, the periapsis and the node, fitted to
 //   Horizons vectors every 10 days from 2000 to 2050, as moons.fetch.mjs
 //   does for the other moons (docs/frontend/moons.md#the-irregular-moons);
+//   and its size, shape and spin, from NEOWISE, T. Denk's table and
+//   chapter, the Minor Planet Center's circulars and S. S. Sheppard's
+//   tables (below; docs/frontend/moons.md#sizes-and-shapes);
 // - fixtures/irregular_moons_horizons.json: Horizons planetocentric ICRF
 //   vectors of each moon at five dates from 2000 to 2049, not used in the
 //   fit, to check the model against (irregularMoons.test.mjs).
@@ -160,6 +163,128 @@ for (const g of got) {
 }
 console.log();
 
+// ----- Sizes, shapes and spins (docs/frontend/moons.md#sizes-and-shapes) -----
+// Each moon's diameter, best source first:
+//   1. measured: the thermal-infrared diameters of NEOWISE, Grav et al.
+//      (2015, ApJ 809, 3, Table 3), for 11 of Jupiter's and 2 of Saturn's;
+//   2. Saturn's: T. Denk's overview table of Saturn's irregular moons (its
+//      "Size" column, from H at an assumed albedo of 0.06), or, for those
+//      announced since, the absolute magnitude H in their Minor Planet
+//      Electronic Circular, by the same formula and albedo;
+//   3. Jupiter's and Neptune's: S. S. Sheppard's moon tables (their "Size"
+//      column; the albedo assumed is not stated).
+// Shapes: where a lightcurve gives the minimum ratio of the equatorial axes
+// a/b (Denk et al. 2018, Table 3, 22 of Saturn's) or the moon has been
+// resolved (Himalia, Porco et al. 2003: radii 75 x 60 km), an ellipsoid
+// a x b x b with that ratio and the moon's volume; the rest are spheres.
+// Spins: the rotation periods of the same table and Pilcher et al. (2012)
+// for Himalia.
+const SHEPPARD = 'https://sites.google.com/carnegiescience.edu/sheppard/moons/';
+const DENK_TABLE = 'https://tilmanndenk.de/wp-content/uploads/OSM_7_Table.txt';
+const MPEC = 'https://minorplanetcenter.net/mpec/';
+const DENK_ALBEDO = 0.06;
+// Denk's own formula (his table's note 9): D = 1 au (2 / sqrt(p))
+// 10^(-0.2 (H - M_sun)), with 1 au = 149,597,870.7 km and the Sun's
+// apparent V magnitude M_sun = -26.71: 1361 km / sqrt(p) 10^(-H/5).
+const AU_KM = 149597870.7, M_SUN = -26.71;
+const diameterFromH = (H, p) => AU_KM * (2 / Math.sqrt(p)) * 10 ** (-0.2 * (H - M_SUN));
+// Grav et al. (2015), Table 3: diameter (km), its error, visible albedo (%).
+const NEOWISE = {
+  Himalia: [139.6, 1.7, 5.7], Elara: [79.9, 1.7, 4.6], Pasiphae: [57.8, 0.8, 4.4], Sinope: [35.0, 0.6, 4.2], Lysithea: [42.2, 0.7, 3.6],
+  Carme: [46.7, 0.9, 3.5], Ananke: [29.1, 0.6, 3.8], Leda: [21.5, 1.7, 3.4], Callirrhoe: [9.6, 1.3, 5.2], Kalyke: [6.9, 1.3, 2.9],
+  Praxidike: [7.0, 0.7, 2.9], Albiorix: [28.6, 5.4, 6.2], Siarnaq: [39.3, 5.9, 5.0],
+};
+// Denk et al. (2018), Table 3: rotation period (h), (a/b)min (null where the
+// table gives none), and whether the period is marked uncertain.
+const DENK2018 = {
+  Kiviuq: [21.97, 2.32], Ijiraq: [13.03, 1.08], Paaliaq: [18.79, 1.05], Tarqeq: [76.13, 1.32], Siarnaq: [10.18785, 1.17],
+  Albiorix: [13.33, 1.34], Bebhionn: [16.33, 1.41], Erriapus: [28.15, 1.51], Tarvos: [10.691, 1.08], Narvi: [10.21, null],
+  Bestla: [14.6238, 1.47], Skathi: [11.10, 1.27], Skoll: [7.26, 1.14, true], Hyrrokkin: [12.76, 1.27], Greip: [12.75, 1.18, true],
+  Suttungr: [7.67, 1.18], Thrymr: [38.79, 1.21, true], Mundilfari: [6.74, 1.43], Hati: [5.45, 1.42], Bergelmir: [8.13, 1.13],
+  Kari: [7.70, null], Loge: [6.9, 1.04, true], Ymir: [11.92220, 1.37], Fornjot: [9.5, 1.11, true],
+};
+// Himalia: Porco et al. (2003), radii 75 +- 10 by 60 +- 10 km from Cassini's
+// images; Pilcher et al. (2012), synodic period 7.7819 +- 0.0005 h.
+const HIMALIA = { ab: 75 / 60, periodH: 7.7819 };
+// The circulars that announced the moons Denk's table does not have yet.
+const MPECS = ['K25/K25EF3', 'K25/K25EF4', 'K25/K25EF5', 'K26/K26F14', 'K26/K26G68', 'K26/K26G69', 'K26/K26G70',
+  'K26/K26G71', 'K26/K26G72', 'K26/K26G74', 'K26/K26G75'];
+
+// A page's text: its entities decoded (Sheppard's tables are escaped twice,
+// inside an attribute), then its tags dropped.
+function strip(h) {
+  for (let prev = null; prev !== h;) {
+    prev = h;
+    h = h.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n))).replace(/&amp;/g, '&');
+  }
+  return h.replace(/<[^>]+>/g, '');
+}
+// Sheppard's tables: designation or name, then a, i, e, peri, node, M,
+// period, R magnitude, diameter (km), year.
+const sheppard = {};
+for (const [planet, page] of [['jupiter', 'jupitermoons'], ['neptune', 'neptunemoons']]) {
+  const text = strip(await cached(`sheppard_${page}.html`, SHEPPARD + page));
+  for (const line of text.split('\n')) {
+    const m = line.match(/^\s*(?:[IVXLC]+\s+)?(.*?)\s+(\d{5,9})\s+([\d.]+\s+){7}([\d.]+)\s+(\d{4})\s*$/);
+    if (!m) continue;
+    const size = Number(m[4]);
+    const des = m[1].match(/S\/\d{4} ?[JN] ?\d+/);
+    for (const k of [m[1], ...m[1].split(/\s+/), des?.[0]]) if (k) sheppard[`${planet}:${norm(k)}`] = size;
+  }
+}
+// Denk's table (UTF-16): NAIF id, ..., H, R, size, lightcurve amplitude.
+const denk = {};
+{
+  const file = path.join(CACHE, 'denk_osm7.txt');
+  if (!fs.existsSync(file)) {
+    const buf = await (await fetch(DENK_TABLE, { headers: UA })).arrayBuffer();
+    fs.writeFileSync(file, new TextDecoder('utf-16le').decode(buf));
+  }
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    if (!/^\|\s*\d{3,5}\s/.test(line)) continue;
+    const cells = line.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+    const body = cells[2].split(/\s{2,}/);
+    denk[Number(cells[0].split(/\s+/)[0])] = { H: Number(body[0]), sizeKm: Number(body[2]) };
+  }
+}
+// The circulars' H, by designation.
+const mpecH = {};
+for (const id of MPECS) {
+  const text = strip(await cached(`mpec_${id.split('/')[1]}.html`, `${MPEC}${id}.html`));
+  const title = text.match(/MPEC \d{4}-[A-Z]\d+/)?.[0];
+  for (const m of text.matchAll(/\n\s*(S\/\d{4} [JSN] \d+)\s*\n([\s\S]*?)(?=\n\s*S\/\d{4} [JSN] \d+\s*\n|$)/g)) {
+    const h = m[2].match(/\bH\s+([\d.]+)/);
+    if (h) mpecH[m[1]] = { H: Number(h[1]), mpec: title };
+  }
+}
+let sizedBy = {};
+for (const m of Object.values(moons)) {
+  const n = NEOWISE[m.name], dk = denk[m.naif], sh = sheppard[`${m.planet}:${norm(m.name)}`], mp = mpecH[m.name];
+  let size;
+  if (n) size = { diameterKm: n[0], errKm: n[1], source: 'NEOWISE', note: 'measured in the thermal infrared (Grav et al. 2015)' };
+  else if (m.planet === 'saturn' && dk) size = { diameterKm: dk.sizeKm, H: dk.H, source: 'Denk', note: `from H ${dk.H} at an assumed albedo of ${DENK_ALBEDO} (Denk's table)` };
+  else if (m.planet === 'saturn' && mp) size = { diameterKm: Number(diameterFromH(mp.H, DENK_ALBEDO).toFixed(1)), H: mp.H, source: 'MPEC', note: `from H ${mp.H} (${mp.mpec}) at an assumed albedo of ${DENK_ALBEDO}` };
+  else if (sh) size = { diameterKm: sh, source: 'Sheppard', note: 'estimated from its brightness (Sheppard\'s table)' };
+  else throw new Error(`no size for ${m.name}`);
+  sizedBy[size.source] = (sizedBy[size.source] ?? 0) + 1;
+  m.size = size;
+  m.radiusKm = Number((size.diameterKm / 2).toFixed(2));
+  m.radiusNote = size.source === 'NEOWISE' ? undefined : `estimated: ${size.note}`;
+  if (n) m.geometricAlbedo = Number((n[2] / 100).toFixed(3));
+  // The shape, a x b x b with the moon's volume, and the spin.
+  const dk18 = DENK2018[m.name];
+  const ab = m.name === 'Himalia' ? HIMALIA.ab : dk18?.[1] ?? null;
+  if (ab) {
+    const b = m.radiusKm / Math.cbrt(ab);
+    m.axesKm = [Number((ab * b).toFixed(2)), Number(b.toFixed(2)), Number(b.toFixed(2))];
+    m.shapeNote = m.name === 'Himalia' ? 'a/b from Cassini\'s images (Porco et al. 2003), c taken as b'
+      : 'a/b the minimum from its lightcurve (Denk et al. 2018), c taken as b';
+  } else { m.axesKm = null; m.shapeNote = undefined; }
+  const per = m.name === 'Himalia' ? HIMALIA.periodH : dk18?.[0] ?? null;
+  m.rotation = per ? { periodH: per, source: m.name === 'Himalia' ? 'Pilcher et al. 2012' : 'Denk et al. 2018', uncertain: !!dk18?.[2] } : null;
+}
+console.log('sizes from', JSON.stringify(sizedBy));
+
 // The fit (as moons.fetch.mjs): the along-orbit angle by a line in t, then
 // dM, dn, dW and dNode by damped Gauss-Newton on the 10-day samples.
 const J2000_JD = 2451545.0;
@@ -242,10 +367,17 @@ fs.writeFileSync(new URL('./irregularMoons.data.js', import.meta.url), `// src/p
 // as given (2000-01-01.5 TDB; 2020-01-01.0 for Neptune's); a in km, angles
 // in degrees, P in days, P apsis and P node in years. kernel: the JPL
 // satellite ephemeris they are fitted to. retrograde: i over 90 degrees.
-// Radius, GM and geometric albedo: each moon's JPL Horizons object page,
-// fetched ${fetched}; a moon with no measured radius is drawn at a nominal
-// ${NOMINAL_RADIUS_KM} km. discovery: JPL's Planetary Satellite Discovery
-// Circumstances, ${DISC_URL}, fetched ${fetched}.
+// GM and geometric albedo: each moon's JPL Horizons object page, fetched
+// ${fetched} (the albedo NEOWISE's, Grav et al. 2015, where it has one).
+// size: the diameter (km) and where it is from: NEOWISE (measured, Grav et
+// al. 2015), Denk (T. Denk's table, ${DENK_TABLE}, from H at an albedo of
+// ${DENK_ALBEDO}), MPEC (the Minor Planet Electronic Circular's H, the same
+// way) or Sheppard (S. S. Sheppard's tables, ${SHEPPARD}); radiusKm is half
+// of it. axesKm: an ellipsoid a x b x b of the same volume where the
+// lightcurve (Denk et al. 2018, Table 3) or images (Himalia, Porco et al.
+// 2003) give a/b; rotation: the period (h) from the same, or Pilcher et al.
+// (2012) for Himalia. discovery: JPL's Planetary Satellite Discovery
+// Circumstances, ${DISC_URL}. All fetched ${fetched}.
 // fit: corrections fitted to Horizons every 10 days over 2000-2050, as for
 // the other moons (moons.data.js): M += dM + dn t, w += dW, node += dNode;
 // rmsKm and maxKm are what is left there, unfittedMaxKm the table's own.

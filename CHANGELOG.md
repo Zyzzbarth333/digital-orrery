@@ -29,6 +29,17 @@ once it has releases. Until then, everything sits under Unreleased.
   time to settle before the node fires (AUTO NODE TURN), saying in the
   log when it can't. The node mode now holds the direction it burned
   along afterwards (this pull request).
+- A held attitude costs propellant as a real one does: the thrusters keep
+  it within a 0.5° deadband by pulses of their minimum impulse bit, and
+  the hold pays that limit cycle (about 0.34 kg a day for the app's
+  craft, where it paid almost nothing), or the disturbance it holds
+  against when that is larger. The ATTITUDE readout shows what holding
+  costs a day (this pull request).
+- A craft launched from the ROCKET tab turns as its own stage would: its
+  inertia is a cylinder of the stack's diameter round a tank that holds
+  its stages' propellant, and its thrusters are sized to turn it as
+  briskly as the MISSION tab's craft, instead of both being the 1.5 t
+  box's. The MISSION tab's own craft is unchanged (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
@@ -49,7 +60,10 @@ once it has releases. Until then, everything sits under Unreleased.
   the day near the planned one when the plane holds the way out. After a
   year at Mars the plan's price for the departure is within 5 % of the
   flight's, and the flight's wait for the plane within a day. The Moon is
-  not priced: J2 alone does not turn a lunar orbit (this pull request).
+  not priced: J2 alone does not turn a lunar orbit (#94). At Jupiter and
+  the other giants the node's rate takes their zonal terms beyond J2 as the
+  kernel does (to J12 for Jupiter, 2.5 % faster than J2 alone 1.5 radii
+  out); since #98 it had fallen back to J2 alone (this pull request).
 - Journeys are flown in the full model, with the Earth's and the Moon's
   gravity fields (mascons included), drag and sunlight, and their craft
   no longer flies bare: a Moon landing comes down on its site. The bare
@@ -65,7 +79,20 @@ once it has releases. Until then, everything sits under Unreleased.
   days costs 4.57 km/s, not 15.69, and the price no longer leaps as the
   stay changes. The flight no longer pays hundreds of metres a second
   chasing a plane that won't hold. A plane lamp says where the plane breaks,
-  and the direct arc is listed beside it for comparison (this pull request).
+  and the direct arc is listed beside it for comparison (#89).
+- Burn nodes on a broken-plane or bi-elliptic leg no longer skip its burn
+  at the break: the leg keeps it, priced by what the nodes left it to do,
+  and aiming a node before the break aims it at the break point. In
+  flight, such a leg's departure, if it waits, is re-aimed at the break
+  point, not straight at the target (this pull request).
+- Such a leg is now flown with a deep-space burn: the burn near halfway
+  can go anywhere, so it reshapes the transfer as well as turning its
+  plane. It is the optimum by Lawden's primer vector conditions, never
+  dearer than the direct arc or the broken plane, and up to 76 m/s
+  cheaper than the broken plane leaving Earth orbit for Mars in November
+  2026. Its price still runs smoothly as the dates change. "Broken plane"
+  is listed beside it and can be chosen, and the plane lamp says where the
+  burn is (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
@@ -95,7 +122,9 @@ once it has releases. Until then, everything sits under Unreleased.
 - At a day a second the kernel stays in its worker through Artemis II's
   entry: each request has a time budget, so the entry is flown in pieces
   rather than in one 4 s request that the page took for a dead worker,
-  after which every step ran on the page's thread (#82).
+  after which every step ran on the page's thread (#82). On a slow
+  connection the worker's tables can take longer to load than that
+  timeout; the timeout now waits for them (this pull request).
 - The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
   to 10 m instead of 100 m, so a slow pass is followed more closely:
   Cassini's over Titan to 4 m nine hours on, from 93 m (#86).
@@ -109,6 +138,7 @@ once it has releases. Until then, everything sits under Unreleased.
   (this pull request).
 
 ### The sky and its bodies
+- Jupiter, Uranus and Neptune have their rings. Uranus's ten narrow rings run on their measured orbits (French et al. 2024), eccentric, tilted and precessing, with depths and shapes from Voyager's occultations; its dust bands, ν and μ are there too. Neptune's Adams arc sits where it was last measured, with Le Verrier, Lassell and Galle. Jupiter's main ring, halo and gossamer rings are dust: faint, and brightest from Jupiter's shadow. Rings narrower than a pixel stay one steady line. They are as faint as the real ones; `?exposure=N` lengthens the exposure, as ring photographs do ([rings](docs/frontend/rings.md); this pull request).
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
   come from JPL's satellite ephemerides to within a kilometre, 76 of them
   (#33, #56). The Earth turns on UT1 with polar motion (#50).
@@ -116,7 +146,10 @@ once it has releases. Until then, everything sits under Unreleased.
   rail switches on: points, labels and orbit lines, and each one to fly
   to with a plate of its orbit, sense, size, GM and discovery. From 2000
   to 2049 they come from JPL's satellite kernels for them, within 0.51 km
-  (this pull request).
+  (#80). Each has a real size, measured by NEOWISE for 13 and estimated
+  from its brightness for the rest, and the 23 whose shape is known are
+  drawn as ellipsoids turning at their measured periods (this pull
+  request).
 - Bodies are drawn as their IAU ellipsoids (#47). Fourteen moons have USGS
   surface maps (#42).
 - 135,353 asteroids and comets (#27), the faint main belt as a haze from
@@ -128,8 +161,13 @@ once it has releases. Until then, everything sits under Unreleased.
   in the Earth's shadow. The ISS, Tiangong, Hubble, GPS, Galileo and the
   geostationary weather satellites have their orbits. Any satellite can be
   found by name, NORAD number or designator and flown to, with a data
-  plate. A **Latest** key fetches CelesTrak's current elements (this pull
-  request).
+  plate. A **Latest** key fetches CelesTrak's current elements (#79).
+- Spacecraft beyond Earth orbit: the orbiters of Mercury, the Moon, Mars
+  and Jupiter, the observatories about the Sun-Earth L1 and L2 points (JWST,
+  Roman, Euclid and others) and the probes in cruise, on JPL Horizons'
+  trajectories for 2026 and 2027, with their paths, a fly-to list and a data
+  plate that says whether the clock is in a reconstruction or a prediction
+  (this pull request).
 - Guides for spin axes, real gravity fields, spheres of influence,
   Lagrange points and the strongest pulls (#43).
 - Magnetic fields and auroras, two new guides. Field lines traced through
@@ -142,8 +180,21 @@ once it has releases. Until then, everything sits under Unreleased.
   clock is near now, Starkov's oval otherwise. Uranus's and Neptune's
   auroral zones and Mercury's field join the guides, and a third guide
   draws the radiation belts of the Earth, Jupiter and Saturn along their
-  L-shells, the Earth's inner belt dipping over the South Atlantic (this
-  pull request).
+  L-shells, the Earth's inner belt dipping over the South Atlantic (#88).
+- Ganymede's own field and auroral ovals, Mars's magnetised crust and its
+  aurora, and Europa's, Ganymede's and Enceladus's auroral footprints
+  beside Io's, each placed ahead of its field line by the lead angle Juno
+  measured. Uranus and Neptune have radiation belts too, and the belts
+  cost an integrated GPU about a millisecond at Earth instead of eight
+  (this pull request).
+- The gravity field of every body at once, as field lines flowing toward
+  the masses in a plane through the focus: inertial, falling with the
+  focus, less its own pull (Jupiter's moons' wells), or in the rotating
+  frame of the focus and its parent, with the zero-velocity curves through
+  L1–L3. The spin axes show which way each body turns, with Venus, Uranus
+  and Pluto marked retrograde. Orbit lines fade where they pass close to
+  the camera against their size, so a body's own orbit no longer cuts
+  across the view when zoomed in on it (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
