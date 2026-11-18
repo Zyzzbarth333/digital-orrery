@@ -25,8 +25,21 @@ adds the rest of EGM2008 (NGA's Earth Gravitational Model 2008) [1], as an
 acceleration on the craft alone:
 - **Default:** degrees and orders 2 to 20, leaving out J2, which the zonal
   model already has from the same EGM2008.
-- **Method:** the field (`geopotential.js`, Cunningham's recursion) is
-  evaluated in the Earth-fixed frame and rotated back.
+- **Method:** the field (`geopotential.js`) is evaluated in the
+  Earth-fixed frame and rotated back. It is Cunningham's recursion
+  (Montenbruck and Gill §3.2.4 [18]), which needs no latitude or
+  longitude and so has no singularity at the poles, carried out on fully
+  normalised terms throughout. Their ratios are those of the standard
+  forward recursion for normalised Legendre functions (Holmes and
+  Featherstone 2002 [20], their forward column method), each a square
+  root of small integers, tabulated when the field is built.
+  Unnormalised, as Montenbruck and Gill give it, the (n + m)! in the
+  conversion overflows a double past about degree 85; normalised, the
+  terms stay near 1 at any degree, and a call of the environment close
+  in is 1.6 times faster than it was unnormalised (2.9 µs at degree 20,
+  23 µs at 50, 90 µs at 100). Fields to degree 100 match an independent
+  oracle within 7×10⁻¹⁵ ([below](#mercurys-and-venuss-gravity-fields)),
+  the pole included.
 - **Earth rotation:** IAU 1976 precession, the full IAU 1980 nutation,
   and apparent sidereal time (`earthRotation.js`, checked to 1 cm against
   NASA's tools), with the day's UT1 − UTC, polar motion and nutation
@@ -281,15 +294,13 @@ environment adds the rest of its field, as it does the Moon's:
 - **Default:** degrees 2 to 20, leaving out J2, which the zonal model
   already has from the same two fields. `mercury: { degree }` and
   `venus: { degree }` choose another (0 for none).
-- **Data:** the coefficients to degree 80 are in `jgmess160a.js` and
-  `mgnp180u.js`, built by `npm run fetch:environment` from the PDS
-  Geosciences Node [14], [15] (1.6 and 2.0 MB, cached in
+- **Data:** the coefficients to degree 100 are in `jgmess160a.js` and
+  `mgnp180u.js` (190 kB each), built by `npm run fetch:environment` from
+  the PDS Geosciences Node [14], [15] (1.6 and 2.0 MB, cached in
   `~/.cache/digital-orrery`), free for any use with credit under JPL's
-  data use policy for the PDS ([credits](../credits.md)). Degree 80, because `geopotential.js` runs on
-  unnormalised coefficients, and their (n + m)! overflows a double past
-  about degree 85. Against the oracle at degree 100 it is off by up to
-  7×10⁻⁴; GRAIL's file, kept to degree 100, has the same limit above its
-  default of 50.
+  data use policy for the PDS ([credits](../credits.md)). Degree 100, as
+  GRAIL's `grail.js`: `geopotential.js` has no limit of its own, and past
+  it the fields are mostly noise at the heights craft fly.
 - **Frames:** each field is evaluated in the frame it was solved in:
   - Mercury's is JGMESS160A's own (its PDS label: pole RA
     281.0138° − 0.0328° T, Dec 61.4161° − 0.0049° T, prime meridian
@@ -300,7 +311,8 @@ environment adds the rest of its field, as it does the Moon's:
     10⁻⁶° of `orientation.js`).
 - **Cost:** none measurable more than ten radii away (1.1 µs a call of
   the whole environment, with or without them). 338 km over Venus a call
-  takes 8.9 µs at degree 20, against 0.9 µs without.
+  takes 2.9 µs at degree 20 (5 µs before the field was normalised
+  throughout), against 0.9 µs without.
 - **Tides:** JGMESS160A's degree 2 terms leave out Mercury's permanent
   tide (its label gives k2 = 0.53). The Sun's tide on Mercury isn't
   modelled. By the usual estimate, k2 times the Sun's tide-raising
@@ -323,11 +335,16 @@ has the rest.
 Engine) reads each PDS file itself, sums the potential directly with
 Wolfram's fully normalised Legendre functions at 50 digits, and
 differentiates it. That is neither this reader nor Cunningham's
-recursion. At 18 points, from 200 to 1,000 km up, to degrees 20, 50 and
-80, `geopotential.js` matches it within 4.5×10⁻¹⁵, and so does the
+recursion. At 24 points, from 200 to 1,000 km up, to degrees 20, 50, 80
+and 100, `geopotential.js` matches it within 6.5×10⁻¹⁵, and so does the
 environment, which turns each into J2000 and back. The points include
 Mercury's northern plains, where MESSENGER flew lowest, and Venus's
-Maxwell Montes and Atla Regio. The fixture is
+Maxwell Montes and Atla Regio. Six more are GRAIL's field to degrees 50
+and 100: 30 km over Mare Serenitatis's mascon, 100 km over the farside,
+and 50 km over the north pole, 0.36 m off its axis (the oracle's
+longitude is undefined on it). On the axis itself the field is the mean
+of the field 0.36 m around it within 3×10⁻¹². Before the recursion was
+normalised it was off by up to 7×10⁻⁴ at degree 100. The fixture is
 `src/physics/fixtures/planet_fields.json`.
 
 ## Sunlight pressure
@@ -433,3 +450,5 @@ instead of 1,464, and 59 ms instead of 35.
 [18] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, §3.2 and §3.4.
 
 [19] F. Espenak, "Total solar eclipse of 2017 August 21," NASA GSFC, path table. [Online]. Available: https://eclipse.gsfc.nasa.gov/SEpath/SEpath2001/SE2017Aug21Tpath.html
+
+[20] S. A. Holmes and W. E. Featherstone, "A unified approach to the Clenshaw summation and the recursive computation of very high degree and order normalised associated Legendre functions," *J. Geodesy*, vol. 76, no. 5, pp. 279–299, 2002, doi: 10.1007/s00190-002-0216-2.
