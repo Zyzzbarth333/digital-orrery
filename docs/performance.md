@@ -345,6 +345,24 @@ The first timing had the layer at 4–6 ms on the Intel GPU at real time and
 At high rates the worker's results also went to the GPU every frame (0.7 MB
 each). They are now sent at most ten times a second.
 
+The focused satellite's close-up orbit ([satellites.md](frontend/satellites.md#drawing):
+65 SGP4 calls a frame within a tenth of its distance from the Earth)
+costs nothing measurable. `npm run bench:frames -- sats sat-near earth`
+on 18 November 2026, main (e271722) against the branch, 4 rounds
+interleaved, load average 2–6, median frame, ms:
+
+| Scenario | Intel | RTX |
+| --- | ---: | ---: |
+| The Earth, all 16,892 on, 20,000 km | 26.4 → 26.0 | 4.7 → 5.5 |
+| The ISS followed, 0.1 km | 30.3 → 30.4 | 5.3 → 4.9 |
+| Earth close-up (satellites off), 20,000 km | 22.0 → 21.7 | 4.9 → 6.2 |
+
+The RTX's rounds swing from 3.9 to 7.4 ms in both builds, its frame gap
+stays at 16.7 ms throughout, and the Earth close-up does not run the new
+code, so its differences are noise. In one page, with the close-up
+stretch switched on and off every 4.5 s six times on the Intel GPU, the
+frame was 31.6 ms on and 32.4 ms off, and `placeNear` took 0.1 ms.
+
 ### Spacecraft beyond Earth orbit
 
 Measured on 18 November 2026 on feat/deep-space-craft, a production

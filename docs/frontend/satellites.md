@@ -210,6 +210,10 @@ units away, to it.
   so it would not meet the far line. The 65 SGP4 calls take about 0.14 ms
   a frame (2.1 µs each, in Node), and only for the focused one.
 
+| Before | Now |
+| --- | --- |
+| ![The ISS followed from 400 m: its orbit line, a chord of the far line, passes 0.8 km beside the marker](satellite-close-up-before.jpg) | ![The same view now: the orbit line runs into the marker, its glowing trail behind the ISS and the faint outline ahead](satellite-close-up-after.jpg) |
+
 ## Flying to one
 
 Choose a marker, the rail's **Fly to** list, or a search result. The
@@ -298,6 +302,8 @@ The layer costs about 3.5 ms a frame on an integrated GPU with all 16,892
 on, and nothing measurable on a discrete one. It is off until switched on,
 and costs nothing then. The numbers, and the two fixes the first timing
 called for, are in [performance.md](../performance.md#earth-satellites).
+The focused one's close-up orbit costs nothing measurable on either GPU
+(the same section).
 
 ## References
 
