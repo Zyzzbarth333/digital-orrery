@@ -91,6 +91,9 @@ export function FindField({ api, inputId = 'find' }: { api: FindApi; inputId?: s
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<FindHit[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Set once the arrow keys or the pointer have marked a row: merged-in
+  // matches then keep that mark instead of re-picking the closest.
+  const steered = useRef(false);
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
   const [loads, setLoads] = useState(0);
@@ -108,6 +111,7 @@ export function FindField({ api, inputId = 'find' }: { api: FindApi; inputId?: s
   // when an index lands; a late answer to an older query is dropped.
   useEffect(() => {
     const q = query.trim();
+    steered.current = false;
     if (!q) { setHits([]); setOpen(false); return; }
     if (q === picked.current) return;
     const n = ++seq.current;
@@ -116,9 +120,22 @@ export function FindField({ api, inputId = 'find' }: { api: FindApi; inputId?: s
       // for the index rather than say "No match" first.
       // A new query marks its first match; the asteroids arriving after
       // leave the marked one marked.
+      // Enter's default is the closest match in any group (an exact name
+      // first: "ISS" is the station, not Larissa), the list keeping its
+      // group order; ties go to the earlier group.
+      const fq = fold(q);
+      const closest = (list: FindHit[]) => {
+        let top: FindHit | undefined, topRank = Infinity;
+        for (const h of list) {
+          // "433 Eros" ranks as Eros: a catalogue number before the name doesn't count.
+          const r = Math.min(...h.label.split(' · ').flatMap((n) => [n, n.replace(/^\d+\s+/, '')]).map((n) => { const x = rank(n, fq); return x < 0 ? Infinity : x; }));
+          if (r < topRank) { top = h; topRank = r; }
+        }
+        return (top ?? list[0])?.id ?? null;
+      };
       const show = (list: FindHit[], keep: boolean) => {
         setHits(list); setOpen(true);
-        setActiveId((a) => (keep && list.some((h) => h.id === a) ? a : list[0]?.id ?? null));
+        setActiveId((a) => (keep && steered.current && list.some((h) => h.id === a) ? a : closest(list)));
       };
       const now = inOrder(apiRef.current.now(q));
       if (now.length) show(now, false);
@@ -149,7 +166,7 @@ export function FindField({ api, inputId = 'find' }: { api: FindApi; inputId?: s
   };
   const shown = open && hits.length > 0;
   const active = Math.max(0, hits.findIndex((h) => h.id === activeId));
-  const move = (d: number) => setActiveId(hits[Math.max(0, Math.min(hits.length - 1, active + d))]?.id ?? null);
+  const move = (d: number) => { steered.current = true; setActiveId(hits[Math.max(0, Math.min(hits.length - 1, active + d))]?.id ?? null); };
 
   // Placed on the screen (position: fixed), so neither the rail's scroll
   // nor its strip on a phone clips it; kept there as panels scroll.
@@ -219,7 +236,7 @@ export function FindField({ api, inputId = 'find' }: { api: FindApi; inputId?: s
                   const k = hits.indexOf(h);
                   return (
                     <li key={h.id} id={`${id}-o${k}`} role="option" aria-selected={k === active}
-                      onMouseDown={(e) => { e.preventDefault(); choose(h); }} onMouseEnter={() => setActiveId(h.id)}>
+                      onMouseDown={(e) => { e.preventDefault(); choose(h); }} onMouseEnter={() => { steered.current = true; setActiveId(h.id); }}>
                       <span className="sb-hit-name">{h.label}</span>
                       <span className="sb-hit-kind">{h.kind}</span>
                     </li>
