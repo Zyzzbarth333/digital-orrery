@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
 - Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (this pull request).
 - Screenshots in the README, a glossary, an architecture diagram, and the credits as tables (this pull request).
 - CI, a contributing guide, a security policy, this changelog and a citation (#68).
@@ -21,6 +22,12 @@ once it has releases. Until then, everything sits under Unreleased.
   the craft's attitude at its marker. Real missions and journeys stay
   point masses. A followed craft's marker no longer vanishes when the
   camera is under a kilometre away (this pull request).
+- A 6-DOF craft's attitude thrusters burn propellant from its tank, shown
+  in the ATTITUDE readout; its inertia falls as the tank empties, so it
+  turns faster light; and it turns to each manoeuvre node by itself, in
+  time to settle before the node fires (AUTO NODE TURN), saying in the
+  log when it can't. The node mode now holds the direction it burned
+  along afterwards (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
@@ -32,12 +39,23 @@ once it has releases. Until then, everything sits under Unreleased.
   within 2 % of the flight's, not 26 % short. The window strips for such
   legs show the month's ripple a day at a time, and the planner suggests
   the best day in the stay: an option, a lamp and a mark on the strip
-  (this pull request).
+  (#81).
 - Journeys are flown in the full model, with the Earth's and the Moon's
   gravity fields (mascons included), drag and sunlight, and their craft
   no longer flies bare: a Moon landing comes down on its site. The bare
   model is kept as a fallback where the full model's aims can't converge,
-  and the craft's Model row says so (this pull request).
+  and the craft's Model row says so (#81).
+- A journey from another planet to the Moon is flown to the Moon, not into
+  the Earth: its aims are at the Moon itself, and a landing after a long
+  capture works its descent out from the orbit it is in (this pull
+  request).
+- A leg that runs nearly 180 degrees round the Sun is planned on a broken
+  plane: in the departure's orbit plane to about halfway, then a burn that
+  turns the plane onto the target. Leaving lunar orbit for Mars after 23
+  days costs 4.57 km/s, not 15.69, and the price no longer leaps as the
+  stay changes. The flight no longer pays hundreds of metres a second
+  chasing a plane that won't hold. A plane lamp says where the plane breaks,
+  and the direct arc is listed beside it for comparison (this pull request).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
@@ -50,9 +68,17 @@ once it has releases. Until then, everything sits under Unreleased.
   on DE442's path, as DE, GMAT and Orekit do (#64).
 - Impacts and touchdowns are found where the craft met the ground, not up
   to a step later and tens of kilometres below it, so a landing's speed is
-  its speed at the surface (this pull request). The moons' pull is checked
-  on Juno's pass over Io and Cassini's over Titan too, which measure
-  those moons' J2 and C22 (this pull request).
+  its speed at the surface (#77). The moons' pull is checked on Juno's
+  pass over Io and Cassini's over Titan too, which measure those moons'
+  J2 and C22 (#77).
+- At a day a second the kernel stays in its worker through Artemis II's
+  entry: each request has a time budget, so the entry is flown in pieces
+  rather than in one 4 s request that the page took for a dead worker,
+  after which every step ran on the page's thread (#82).
+- The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
+  to 10 m instead of 100 m, so a slow pass is followed more closely:
+  Cassini's over Titan to 4 m nine hours on, from 93 m (this pull
+  request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
@@ -78,7 +104,13 @@ once it has releases. Until then, everything sits under Unreleased.
   Saturn's (Cassini) and Uranus's and Neptune's (Voyager) measured fields,
   shaded by strength, with each dipole's tilt and offset. The Earth's
   auroral ovals for the day's Kp, green below red on the night side;
-  Jupiter's and Saturn's main ovals and Io's footprint (this pull request).
+  Jupiter's and Saturn's main ovals and Io's footprint (#84).
+- The Earth's aurora comes from NOAA's live OVATION Prime map when the
+  clock is near now, Starkov's oval otherwise. Uranus's and Neptune's
+  auroral zones and Mercury's field join the guides, and a third guide
+  draws the radiation belts of the Earth, Jupiter and Saturn along their
+  L-shells, the Earth's inner belt dipping over the South Atlantic (this
+  pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The

@@ -272,19 +272,20 @@ header("CASE 3c: Cassini's flyby of Titan, 31 July 2008 (T45), against JPL's rec
   // Nine hours either side of closest approach, 1,613 km up at 6.2 km/s,
   // 19 to 20 Saturn radii out. Titan bends Cassini by 22,000 km over the
   // nine hours. Horizons' Titan is within 0.04 km of the one Cassini's
-  // track has. With it, 0.09 km is left, and nearly all of it is the
-  // kernel's own Titan: its Hermite nodes, three hours apart (held to
-  // 100 m, bodies.js NODE_TOL), put it 27 m from the table at closest
-  // approach, and with nodes every 10 minutes 0.007 km is left. Titan's J2
-  // and C22 take the error from 0.43 km.
+  // track has. With it, 4 m is left. A pass this slow is sensitive to
+  // where Titan is: with its Hermite nodes three hours apart (bodies.js
+  // NODE_TOL at 100 m, before) they put it 27 m from the table at closest
+  // approach and Cassini 0.093 km off; two hours apart (10 m) 14 m and
+  // 0.004 km, and nodes every 10 minutes change nothing more. Titan's J2
+  // and C22 take the error from 0.37 km.
   const { runs: [none, ours, jpl, track, flat, nodes], hzCA } = flybyRuns('flyby_cassini_titan.json', 'saturn', {
     degree2: true, variants: { 'the same, its nodes every 10 min': fineNodes },
   });
   check(none.err.at(-1) > 10000, `without the moons Cassini is ${none.err.at(-1).toFixed(0)} km off 9 h after the pass`);
-  check(track.err.at(-1) < 0.15, `with JPL's moons and Titan as Cassini's track has it, ${track.err.at(-1).toFixed(3)} km off`);
-  check(nodes.err.at(-1) < 0.02, `the same with Titan's nodes every 10 minutes, ${nodes.err.at(-1).toFixed(3)} km: the rest was the kernel's interpolation of Titan`);
+  check(track.err.at(-1) < 0.02, `with JPL's moons and Titan as Cassini's track has it, ${track.err.at(-1).toFixed(3)} km off`);
+  check(Math.abs(nodes.err.at(-1) - track.err.at(-1)) < 0.01, `the same with Titan's nodes every 10 minutes, ${nodes.err.at(-1).toFixed(3)} km: the kernel's nodes no longer limit it`);
   check(flat.err.at(-1) > 3 * track.err.at(-1), `without Titan's J2 and C22, ${flat.err.at(-1).toFixed(3)} km off`);
-  check(jpl.err.at(-1) < 0.5 && ours.err.at(-1) < 1.5, `with Horizons' own moons ${jpl.err.at(-1).toFixed(3)} km off, with moons.js's ${ours.err.at(-1).toFixed(3)} km`);
+  check(jpl.err.at(-1) < 0.4 && ours.err.at(-1) < 1, `with Horizons' own moons ${jpl.err.at(-1).toFixed(3)} km off, with moons.js's ${ours.err.at(-1).toFixed(3)} km`);
   check(Math.abs(track.closest - hzCA) < 0.1, `closest approach ${track.closest.toFixed(2)} km from Titan's centre, Horizons ${hzCA.toFixed(2)} km`);
 }
 

@@ -22,31 +22,77 @@
 // - Air for the aerodynamic torque is the Earth's alone (as the
 //   environment's drag is), from atmosphere.js below 1,000 km, held for a
 //   second at a time.
+// - The attitude thrusters draw propellant from the craft's one tank, by
+//   their total impulse at their Isp (attitude.js rcsThrust), frame by
+//   frame after the engine's own draw (craft.js updateBurns). An empty tank
+//   switches control off and cuts the engine.
+// - The inertia follows the propellant: the dry craft's tensor plus the
+//   propellant's, two equal spherical tanks on the thrust axis either side
+//   of the centre of mass (propellantInertia), made again each frame the
+//   tank has changed.
+// - A manoeuvre node turns the craft to it by itself (autoNode, on by
+//   default): early enough, by slewTime, to settle before it fires, and
+//   back to the mode it had once the burn is done. The log says when it
+//   cannot settle in time.
 
-import { makeAttitude, advanceAttitude, setMode, thrustAxis, pointingError, referenceNow, alphaAbout, slewTime, attitudeError } from './attitude.js';
+import { makeAttitude, advanceAttitude, setMode, setInertia, thrustAxis, pointingError, referenceNow, alphaAbout, slewTime, attitudeError, orbitalFrame, vnbToInertial, pointing, referenceAt } from './attitude.js';
 import { propagate } from './orbital.js';
 import { density } from './atmosphere.js';
 import { bodyAxesEqj } from './orientation.js';
 import { EARTH_ROTATION } from './environment.js';
 
 const D2R = Math.PI / 180;
+const G0 = 9.80665;                      // m/s^2, standard gravity (as craft.js's)
 const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 // The app's own craft: 1.5 t (1,000 kg dry and 500 kg of propellant) in a
 // 2 by 2 by 3 m box, long along the thrust axis, so I = m (b^2 + c^2) / 12
-// about each axis: 1,000 kg m^2 about the long axis and 1,625 across it.
-// Reaction thrusters: 20 N m in roll and 40 N m in pitch and yaw (four
-// 22 N thrusters about a metre out, the class of an Apollo service
-// module's quads), a 3 deg/s rate limit, and the centre of pressure 0.3 m
-// behind the centre of mass, so it noses into the airflow.
+// about each axis: 1,000 kg m^2 about the long axis and 1,625 across it,
+// full (inertia, at `propellant` kg in the tanks).
+// Reaction thrusters: 20 N thrusters fired in pairs as couples, 0.5 m from
+// the roll axis and 1 m from the pitch and yaw axes (rcsArm), so 20 N m in
+// roll and 40 N m in pitch and yaw; bipropellant from the main tank at an
+// Isp of 290 s (the class of ArianeGroup's 10 N thruster, 292 s); a
+// 3 deg/s rate limit. The centre of pressure 0.3 m behind the centre of
+// mass, so it noses into the airflow.
+// Tanks: the propellant in two equal spheres of radius 0.37 m (250 kg of
+// MMH and NTO at about 1.2 t/m^3 each), centred 0.6 m fore and aft of the
+// centre of mass on the thrust axis.
 export const DEFAULT_ATTITUDE = {
   inertia: [[1000, 0, 0], [0, 1625, 0], [0, 0, 1625]],
+  propellant: 500,
   torqueMax: [20, 40, 40],
+  rcsArm: [0.5, 1, 1],
+  rcsIsp: 290,
   rateMax: 3 * D2R,
   cp: [-0.3, 0, 0],
+  tanks: { offset: 0.6, radius: 0.37 },
 };
+
+// The auto-turn's lead on a node: the controller's time for the turn, a
+// tenth more (the gyroscopic terms, the sampling and the reference's own
+// turning), and 5 s to settle.
+export const AUTO_MARGIN = 1.1;
+export const AUTO_PAD = 5;
+
+// The inertia (kg m^2, body axes) of m kg of propellant in the tanks:
+// each a solid sphere 2 m R^2 / 5 about its centre, moved offset along
+// body x by the parallel-axis theorem (m offset^2 about y and z). The
+// liquid is taken to turn with its tank.
+export function propellantInertia(m, { offset, radius }) {
+  const s = 0.4 * m * radius * radius, p = m * offset * offset;
+  return [[s, 0, 0], [0, s + p, 0], [0, 0, s + p]];
+}
+
+// The craft's inertia with fuel kg on board: the dry tensor (the full one
+// less the full tanks') plus the propellant's. Without tanks, fixed.
+export function inertiaFor(spec, fuel) {
+  if (!spec.tanks) return spec.inertia;
+  const full = propellantInertia(spec.propellant, spec.tanks), now = propellantInertia(Math.max(0, fuel), spec.tanks);
+  return spec.inertia.map((row, i) => row.map((x, j) => x - full[i][j] + now[i][j]));
+}
 
 export class CraftAttitude {
   // craft: the Craft; spec: DEFAULT_ATTITUDE's fields; mode: the start
@@ -54,7 +100,15 @@ export class CraftAttitude {
   constructor(craft, spec = {}, mode = 'prograde') {
     this.craft = craft;
     const s = { ...DEFAULT_ATTITUDE, ...spec };
-    this.A = makeAttitude({ ...s, cdA: s.cdA ?? craft.cd * craft.area, mode, t: craft.kState.t });
+    this.full = s;                   // the spec as given, its inertia full
+    this.rcsIsp = s.rcsIsp ?? null;  // s, or null: the thrusters draw nothing
+    this.A = makeAttitude({ ...s, inertia: inertiaFor(s, craft.fuel), cdA: s.cdA ?? craft.cd * craft.area, mode, t: craft.kState.t });
+    this.fuelAt = craft.fuel;        // kg, the fill the inertia is for
+    this.rcsCounted = 0;             // N s of A.rcsImpulse drawn from the tank
+    this.rcsSpent = 0;               // kg, the thrusters' propellant so far
+    this.autoNode = s.autoNode ?? true;
+    this.auto = null;                // { from (mode), node (id) } while turned for a node
+    this.lastNodeDir = null;         // the last node burn's direction, held after it
     this.spans = [];
     this.anchor = null;
     this.cache = new Map();
@@ -93,7 +147,7 @@ export class CraftAttitude {
       }
       return s;
     };
-    return { key: a.key, mu: a.mu * 1e9, at, air: a.key === 'earth' ? this.air() : null, target: () => this.target() };
+    return { key: a.key, mu: a.mu * 1e9, at, air: a.key === 'earth' ? this.air() : null, target: (t) => this.target(t) };
   }
 
   air() {
@@ -119,26 +173,46 @@ export class CraftAttitude {
     return this._air;
   }
 
-  // The node mode's aim: a node burning holds its own direction (as a
-  // point-mass craft's node burn does); else the next node's delta-v in the
-  // orbital frame of the moment ([prograde, in-plane, normal]; a node's dv
-  // is [radial, prograde, normal] with radial = velocity x normal); none,
-  // the attitude it had.
-  target() {
+  // The node mode's aim at t: a node burn on then holds its own direction
+  // (as a point-mass craft's node burn does), and so does one about to
+  // start; else the next node's delta-v in the orbital frame of the moment
+  // ([prograde, in-plane, normal]; a node's dv is [radial, prograde,
+  // normal] with radial = velocity x normal); else the direction the last
+  // node burned along; none, the attitude it had.
+  target(t = this.A.t) {
     const c = this.craft;
-    if (c.executing?.burn?.nodeDir) return { dir: c.executing.burn.nodeDir };
+    let on = null, next = null;
+    for (const b of c.burns) {
+      if (b.kind !== 'node' || !b.nodeDir) continue;
+      if (b.t0 <= t + 1e-9 && t < b.t1) on = b;
+      else if (b.t0 > t && (!next || b.t0 < next.t0)) next = b;
+    }
+    if (on) { this.lastNodeDir = on.nodeDir; return { dir: on.nodeDir }; }
+    if (next) return { dir: next.nodeDir };
     const n = c.nodes[0];
-    return n && norm(n.dv) > 0 ? { vnb: unit([n.dv[1], n.dv[0], n.dv[2]]) } : null;
+    if (n && norm(n.dv) > 0) return { vnb: unit([n.dv[1], n.dv[0], n.dv[2]]) };
+    const done = c.burns.filter((b) => b.kind === 'node' && b.nodeDir && b.t1 <= t).at(-1);
+    if (done) this.lastNodeDir = done.nodeDir;
+    return this.lastNodeDir ? { dir: this.lastNodeDir } : null;
   }
 
   setMode(mode) {
+    this.auto = null;
+    if (mode !== 'off' && !(this.craft.fuel > 0)) { mode = 'off'; this.craft.note('attitude: the tank is empty, the thrusters cannot fire'); }
     setMode(this.A, mode);
     this.craft.note(`attitude: ${mode === 'off' ? 'control off' : mode === 'inertial' ? 'holding inertial' : `turning to ${mode}`}`);
+  }
+
+  setAutoNode(on) {
+    this.autoNode = !!on;
+    this.craft.note(`attitude: ${on ? 'turns to each node by itself' : 'node turns left to you'}`);
   }
 
   // Each frame, after the clock: the attitude carried from where it was to
   // the clock, on the orbit from the state drawn where it was (the scene
   // drew it last frame, so that costs no carry), else from the kernel's.
+  // On the way, the node auto-turn's switches, each at its own time; then
+  // the thrusters' propellant drawn.
   step(jumped) {
     const c = this.craft, t1 = c.clockT;
     if (jumped) { this.A.t = t1; this.A.nextSample = -Infinity; this.spans = []; }
@@ -146,12 +220,139 @@ export class CraftAttitude {
     const drawn = c.shownAt(this.A.t);
     if (drawn) this.anchorAt(this.A.t, drawn.r, drawn.v);
     else this.anchorAt(c.kState.t, c.kState.r, c.kState.v);
-    const recording = c.burns.length > 0;
-    const steps = advanceAttitude(this.A, t1, this.env(), recording ? (s) => this.record(s) : null);
+    this.syncInertia();
+    const recording = c.burns.length > 0, env = this.env(), rec = recording ? (s) => this.record(s) : null;
+    let steps = 0;
+    for (let k = 0; k < 8; k++) {
+      const sw = this.nextSwitch(env, t1);
+      if (!sw) break;
+      if (sw.t > this.A.t) steps += advanceAttitude(this.A, sw.t, env, rec);
+      if (this.A.t < sw.t - 1e-9) break;           // out of steps this frame
+      sw.act();
+    }
+    steps += advanceAttitude(this.A, t1, env, rec);
     if (!recording) this.spans = [];
     const keep = Math.min(c.kState.t, this.A.t) - 1;
     if (this.spans.length && this.spans[0].t1 < keep) this.spans = this.spans.filter((s) => s.t1 >= keep);
+    this.drawPropellant();
     return steps;
+  }
+
+  // The inertia for the propellant on board, when it has changed.
+  syncInertia() {
+    const f = this.craft.fuel;
+    if (!this.full.tanks || Math.abs(f - this.fuelAt) < 1e-6) return;
+    setInertia(this.A, inertiaFor(this.full, f));
+    this.fuelAt = f;
+  }
+
+  // The thrusters' impulse since the last frame, as propellant from the
+  // tank: dm = dJ / (Isp g0).
+  drawPropellant() {
+    const c = this.craft, dJ = this.A.rcsImpulse - this.rcsCounted;
+    this.rcsCounted = this.A.rcsImpulse;
+    if (!this.rcsIsp || !(dJ > 0)) return;
+    const dm = Math.min(c.fuel, dJ / (this.rcsIsp * G0));
+    c.fuel -= dm;
+    this.rcsSpent += dm;
+    if (c.fuel > 1e-9) return;
+    c.fuel = 0;
+    if (c.burns.some((b) => b.t1 > this.A.t)) { c.cancelBurns(this.A.t); c.note('tank empty: engine cut', this.A.t); }
+    if (this.A.mode !== 'off') { this.auto = null; setMode(this.A, 'off'); c.note('tank empty: attitude thrusters off', this.A.t); }
+  }
+
+  // The next node the auto-turn would turn to, after A.t: a node burn
+  // about to start, or the next node. { id, t, x (its direction at time
+  // tt, from the orbit then) } or null.
+  nextNode(env) {
+    const c = this.craft, t = this.A.t;
+    let n = null;
+    for (const b of c.burns) if (b.kind === 'node' && b.nodeDir && b.t0 > t && (!n || b.t0 < n.t)) n = { id: b.nodeId, t: b.t0, dir: unit(b.nodeDir) };
+    const m = c.nodes.find((x) => x.t > t && norm(x.dv) > 0);
+    if (m && (!n || m.t < n.t)) n = { id: m.id, t: m.t, vnb: unit([m.dv[1], m.dv[0], m.dv[2]]) };
+    if (!n) return null;
+    return { ...n, q: (tt) => {
+      const s = env.at(tt), x = n.dir ?? vnbToInertial(n.vnb, s.r, s.v), { V, N } = orbitalFrame(s.r, s.v);
+      return pointing(x, Math.abs(dot(x, N)) < 0.9 ? N : V, V);
+    } };
+  }
+
+  // When to start turning for node n: AUTO_MARGIN slewTime + AUTO_PAD
+  // before it, the turn measured where the craft and the node's direction
+  // will be then (a locked craft on its reference, else as it is now; at
+  // high warp the orbital frame turns tens of degrees in a frame). A few
+  // passes from now: { t (s, not before A.t), theta, need }.
+  turnPlan(env, n) {
+    const A = this.A;
+    let tt = A.t, theta = 0, need = 0;
+    for (let k = 0; k < 4; k++) {
+      const qc = A.locked ? referenceAt(A, env, tt) ?? A.q : A.q, err = attitudeError(qc, n.q(tt));
+      theta = err.theta; need = slewTime(A.spec, theta, err.e);
+      const next = Math.min(n.t, Math.max(A.t, n.t - (AUTO_MARGIN * need + AUTO_PAD)));
+      if (Math.abs(next - tt) < 1e-3) { tt = next; break; }
+      tt = next;
+    }
+    return { t: tt, theta, need };
+  }
+
+  // The next switch in (A.t, t1]: { t, act } or null, the earliest of:
+  // - turned for a node, back to the mode it had once that node's burn is
+  //   over (or the node gone);
+  // - with autoNode on and propellant, the turn to the next node (turnPlan);
+  // - a node burn starting: the log says how far the axis is off its
+  //   direction, if more than a degree.
+  nextSwitch(env, t1) {
+    const c = this.craft, A = this.A, out = [];
+    for (const b of c.burns) {
+      if (b.kind === 'node' && b.nodeDir && !b.offNoted && b.t0 >= A.t - 1e-9 && b.t0 <= t1) out.push({ t: b.t0, act: () => this.noteOff(b) });
+    }
+    if (this.auto) {
+      const id = this.auto.node, b = c.burns.find((x) => x.nodeId === id);
+      if (b) { if (b.t1 <= t1) out.push({ t: Math.max(A.t, b.t1), act: () => this.endAuto() }); }
+      else if (!c.nodes.some((n) => n.id === id)) out.push({ t: A.t, act: () => this.endAuto() });
+    } else if (this.autoNode && A.mode !== 'node' && c.fuel > 0) {
+      const n = this.nextNode(env);
+      // (No turn takes longer than a half turn about the slowest axis.)
+      const most = Math.max(...[[1, 0, 0], [0, 1, 0], [0, 0, 1]].map((e) => slewTime(A.spec, Math.PI, e)));
+      if (n && n.t - (AUTO_MARGIN * most + AUTO_PAD) <= t1) {
+        const p = this.turnPlan(env, n);
+        if (p.t <= t1) out.push({ t: p.t, act: () => this.beginAuto(n, p.theta, p.need, p.t) });
+      }
+    }
+    return out.length ? out.reduce((a, b) => (b.t < a.t ? b : a)) : null;
+  }
+
+  noteOff(b) {
+    b.offNoted = true;
+    const off = Math.acos(Math.max(-1, Math.min(1, dot(unit(b.nodeDir), thrustAxis(this.A.q))))) / D2R;
+    if (off > 1) this.craft.note(`node burning along the body axis, ${off.toFixed(1)}° off the node's direction`, b.t0);
+  }
+
+  beginAuto(n, theta, need, t) {
+    const c = this.craft;
+    this.auto = { from: this.A.mode, node: n.id };
+    setMode(this.A, 'node');
+    const left = n.t - t;
+    c.note(`attitude: turning ${(theta / D2R).toFixed(1)}° to the node, ${need.toFixed(0)} s to settle, ${left.toFixed(0)} s before it`, t);
+    if (left < need) c.note(`attitude: too late to settle before the node: the turn needs ${need.toFixed(0)} s, it fires in ${left.toFixed(0)} s, still turning`, t);
+  }
+
+  endAuto() {
+    const from = this.auto?.from;
+    this.auto = null;
+    if (!from || this.A.mode !== 'node') return;
+    setMode(this.A, from);
+    this.craft.note(`attitude: node done, back to ${from === 'off' ? 'free' : from === 'inertial' ? 'the hold' : from}`, this.A.t);
+  }
+
+  // The auto-turn's plan, for the panel: { node, start (s from the clock),
+  // need (s) } while waiting, or null.
+  autoPlan() {
+    if (!this.autoNode || this.auto || this.A.mode === 'node') return null;
+    const env = this.env(), n = this.nextNode(env);
+    if (!n) return null;
+    const p = this.turnPlan(env, n);
+    return { start: p.t - this.A.t, need: p.need, theta: p.theta };
   }
 
   record(s) {
@@ -202,6 +403,8 @@ export class CraftAttitude {
       mode: this.A.mode, locked: this.A.locked, error: err, rate: norm(this.A.omega), disturbance: this.A.disturbance,
       turnLeft: turn ? slewTime(this.A.spec, turn.theta, turn.e) : 0,
       alpha: alphaAbout(this.A.spec, [0, 0, 1]), ref,
+      rcsSpent: this.rcsSpent, inertia: this.A.spec.inertia,
+      autoNode: this.autoNode, auto: !!this.auto, autoPlan: this.autoPlan(),
     };
   }
 }

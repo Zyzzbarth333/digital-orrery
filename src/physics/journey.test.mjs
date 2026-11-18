@@ -521,6 +521,33 @@ header('CASE 10: leaving a moon by where it is: the phase, the strips and the be
   check('a way out that swings in past the planet (falling inward, periapsis under half the moon\'s distance) is not taken while another is', any.rp < J.bodyInfo('earth').radius && !kept.swingby && kept.speed > any.speed && Math.abs(L10.moonDep.speed - kept.speed) < 1e-12);
 }
 
+header('CASE 12: reaching a moon via its planet: Mars orbit to the Moon, flown');
+{
+  // Mars orbit to lunar orbit, and to a landing, on the leg's porkchop
+  // optimum. The leg is solved about the Sun to the Earth; the flight aims
+  // at the Moon itself, with the B-plane point from the excess velocity
+  // about the Moon where it is on the day (journey.js moonArr). Aimed at the
+  // Earth's centre plus the Moon's periapsis offset, as it was, the craft
+  // hit the Earth.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const toMoon = (kind) => {
+    let j = { start: { body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2028-06-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'moon', kind, altKm: 100, stayDays: 3, dateMs: D('2029-02-06T00:00:00Z') }] };
+    j = J.applyOption(j, 0, J.legOptions(j, 0).options.find((x) => x.type === 'porkchop'));
+    const s = J.solveJourney(j), p = planFlight(s), f = flyJourney(sys, p);
+    return { s, p, f };
+  };
+  const o = toMoon('orbit'), L = o.s.legs[0];
+  const cap = Number(/capture at moon: (\d+) m\/s/.exec(o.f.log.join('\n'))?.[1] ?? NaN) / 1000;
+  console.log(`  Mars ${new Date(L.depMs).toISOString().slice(0, 10)} to the Moon ${new Date(L.arrMs).toISOString().slice(0, 10)}: ${L.moonArr.speed.toFixed(3)} km/s about the Moon; Moon ${o.f.arrivals[0].missKm.toFixed(1)} km off the planned periapsis; capture ${(cap * 1000).toFixed(0)} m/s against the plan's ${(L.arrDv * 1000).toFixed(0)}; corrections ${(o.f.correctionsDv * 1000).toFixed(0)} m/s`);
+  check('Mars orbit to lunar orbit, flown in the full model: aimed at the Moon, its periapsis within 20 km of plan, the capture within 5 % of its price, no trouble', o.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'moon') && o.f.arrivals[0].missKm < 20 && Math.abs(cap / L.arrDv - 1) < 0.05 && flightTrouble(o.p, o.f).length === 0);
+  // Landing: the long capture (2 km/s, against 0.8 from the Earth) leaves
+  // the parking orbit eccentric, so the descent orbit burn is worked out
+  // from the orbit the craft is in.
+  const l = toMoon('land'), down = l.f.landings[0];
+  console.log(`  and down on the Moon: ${l.f.log.find((x) => x.startsWith('landed')) ?? l.f.log.find((x) => x.startsWith('descent'))}`);
+  check('Mars orbit to a Moon landing, flown: down under 3 m/s, no trouble', down?.body === 'moon' && down.speed < 0.003 && flightTrouble(l.p, l.f).length === 0);
+}
+
 header('CASE 11: the full model, or the bare one as a fallback');
 {
   // flightTrouble: what keeps a flight from being taken in the full model.
@@ -529,6 +556,68 @@ header('CASE 11: the full model, or the bare one as a fallback');
   const bad = flightTrouble(plan, { trouble: ['the aim at Mars found no burn'], impact: { body: 'moon' }, landings: [], arrivals: [{ body: 'mars', missKm: 400, plannedRp: 3790 }] });
   console.log(`  trouble: ${bad.join('; ')}`);
   check('a flight with no trouble is taken in the full model; an aim with no burn, a crash, a landing not made and a 400 km miss are each reasons to fall back', ok.length === 0 && bad.length === 4);
+}
+
+header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira 2007)');
+{
+  // Earth orbit, lunar orbit, then Mars arriving 20 Aug 2027: as the stay
+  // at the Moon lengthens, the leg to Mars sweeps through 180 degrees round
+  // the Sun. There a direct arc must tilt steeply to reach Mars out of the
+  // ecliptic; a burn near halfway that breaks the plane keeps the transfer
+  // low (Abilleira, ISSFD 2007, Sec. I and Figs. 1-2). The plane's turn is
+  // a rotation of the horizontal velocity about the radius, 2 v_h sin(d/2)
+  // (Curtis eq. (6.20), on the horizontal speed: transfers.js
+  // planeChangeDv), and the turn that reaches a target an
+  // angle phi on from the break at a height beta above the plane is
+  // sin d = sin beta / sin phi (Napier's rules for the right spherical
+  // triangle).
+  const D = Date.parse, dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], unit = (a) => a.map((x) => x / norm(a));
+  const sub = (a, b) => a.map((x, i) => x - b[i]);
+  const scale3 = (a, k) => a.map((x) => x * k);
+  const mm = (stay, via) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: stay, dateMs: D('2026-10-24T00:00:00Z') },
+    { id: 2, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z'), ...(via ? { via } : {}) }] });
+  const j23 = mm(23), s23 = J.solveJourney(j23), L = s23.legs[1], bp = L.brokenPlane;
+  const dir = J.solveJourney(mm(23, 'direct')).legs[1];
+  console.log(`  23 d at the Moon: ${bp.angleDeg.toFixed(2)} deg round the Sun; direct ${(dir.depDv + dir.arrDv).toFixed(2)} km/s on a plane tilted ${bp.directIncDeg.toFixed(1)} deg; broken plane ${(L.depDv + L.midDv + L.arrDv).toFixed(3)} km/s with ${(L.midDv * 1000).toFixed(1)} m/s at the break`);
+  check('at 180.4 deg the direct arc tilts over 10 deg and costs over three times the broken plane, which the planner takes', Math.abs(bp.angleDeg - 180) < 1 && bp.directIncDeg > 10 && dir.depDv + dir.arrDv > 3 * (L.depDv + L.midDv + L.arrDv) && L.arcs.length === 2);
+  const [a1, a2] = L.arcs, e = J.relState('earth', 'sun', L.depMs), m = J.relState('mars', 'sun', L.arrMs), nE = unit(cross(e.r, e.v));
+  const tilt1 = Math.acos(Math.min(1, dot(nE, unit(cross(a1.r1, a1.v1))))) / deg;
+  const B = propagate(a1.r1, a1.v1, (a1.t2 - a1.t1) / 1000, a1.mu), end = propagate(a2.r1, a2.v1, (a2.t2 - a2.t1) / 1000, a2.mu);
+  const gapB = norm(sub(B.r, a2.r1)), gapM = norm(sub(end.r, m.r)), tau = (a1.t2 - a1.t1) / (a2.t2 - a1.t1);
+  console.log(`  first arc ${tilt1.toExponential(1)} deg off the Earth's plane; the break at ${(100 * tau).toFixed(1)} % of the flight (${new Date(bp.ms).toISOString().slice(0, 10)}); two-body gaps at the break ${gapB.toExponential(1)} km and at Mars ${gapM.toExponential(1)} km`);
+  check('the first arc lies in the Earth\'s orbit plane (to 1e-6 deg), the arcs join at the break and reach Mars (to 1 m, two-body), the break near halfway as Abilleira has it (40 to 60 %)', tilt1 < 1e-6 && gapB < 1e-3 && gapM < 1e-3 && tau > 0.4 && tau < 0.6);
+  const vh = norm(sub(B.v, scale3(a2.r1, dot(B.v, a2.r1) / dot(a2.r1, a2.r1)))), turn = bp.turnDeg * deg, pure = X.planeChangeDv(vh, turn);
+  const beta = Math.asin(dot(m.r, nE) / norm(m.r)), phi = Math.acos(dot(unit(a2.r1), unit(m.r))), napier = Math.asin(Math.sin(Math.abs(beta)) / Math.sin(phi));
+  console.log(`  the break: ${(L.midDv * 1000).toFixed(3)} m/s against 2 v_h sin(d/2) = ${(pure * 1000).toFixed(3)} (v_h ${vh.toFixed(2)} km/s); the turn ${bp.turnDeg.toFixed(4)} deg, Mars ${(beta / deg).toFixed(4)} deg off the plane and ${(phi / deg).toFixed(2)} deg on: Napier ${(napier / deg).toFixed(4)} deg`);
+  check('the burn at the break is the pure plane change (to 1e-3 of it), and its turn the one Napier\'s rule gives for Mars\'s height off the plane (to 1 %)', Math.abs(L.midDv / pure - 1) < 1e-3 && Math.abs(turn / napier - 1) < 0.01);
+
+  // The price by the stay: the excess speed leaving the Earth's sphere
+  // (the heliocentric part, before the Moon's phase is added) runs smoothly
+  // through 180 degrees; the direct arc's leaps.
+  const vd = [], vdDirect = [];
+  for (let stay = 18; stay <= 30; stay++) { vd.push(norm(J.solveJourney(mm(stay)).legs[1].vinfDep)); vdDirect.push(norm(J.solveJourney(mm(stay, 'direct')).legs[1].vinfDep)); }
+  // (Smooth: the change from one day's step to the next, the second
+  // difference.)
+  const bend = (a) => Math.max(...a.slice(2).map((x, i) => Math.abs(x - 2 * a[i + 1] + a[i])));
+  console.log(`  excess speed from the Earth, stays of 18 to 30 d: ${vd.map((x) => x.toFixed(2)).join(' ')} km/s (largest second difference ${(bend(vd) * 1000).toFixed(1)} m/s); direct ${vdDirect.map((x) => x.toFixed(2)).join(' ')} (${(bend(vdDirect) * 1000).toFixed(0)} m/s)`);
+  check('through 180 degrees the plan\'s excess speed runs smoothly (second difference under 20 m/s a day), where the direct arc\'s leaps by kilometres a second', bend(vd) < 0.02 && bend(vdDirect) > 1);
+
+  // The lamp, the options, and the strip.
+  const lamp = F.assess(j23, s23, {}).find((l) => l.key === 'plane'), lamp7 = F.assess(mm(7), J.solveJourney(mm(7)), {}).find((l) => l.key === 'plane');
+  const opts = J.legOptions(j23, 1, { search: false }).options;
+  console.log(`  the plane lamp: ${lamp?.text}; options ${opts.map((o) => `${o.name} ${o.dv.toFixed(2)}`).join(', ')}`);
+  check('the plane lamp says the plane breaks, and when; none at 196 deg; the direct arc is listed for comparison and dearer', lamp?.level === 'caution' && Math.abs(lamp.bestMs - bp.ms) < 1 && !lamp7 && opts.find((o) => o.type === 'direct')?.dv > opts.find((o) => o.type === 'lambert').dv);
+
+  // Flown in the full model, 20 days at the Moon (183.4 deg, where the
+  // direct arc is 12 m/s cheaper on paper): the broken plane's corrections
+  // are its planned break and the usual trims, the direct arc's the cost of
+  // following a plane that will not hold.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const s20 = J.solveJourney(mm(20)), f20 = flyJourney(sys, planFlight(s20)), d20 = flyJourney(sys, planFlight(J.solveJourney(mm(20, 'direct'))));
+  console.log(`  20 d at the Moon, flown: broken plane ${(f20.correctionsDv * 1000).toFixed(0)} m/s of corrections (${(s20.legs[1].midDv * 1000).toFixed(0)} of them the planned break), Mars ${f20.arrivals[1].missKm.toFixed(1)} km off; direct ${(d20.correctionsDv * 1000).toFixed(0)} m/s, Mars ${d20.arrivals[1].missKm.toFixed(1)} km off`);
+  check('inside 6 deg of 180 the planner takes the broken plane; flown, it corrects under 250 m/s and reaches Mars within 20 km, against over 500 m/s for the direct arc', !!s20.legs[1].brokenPlane && f20.correctionsDv < 0.25 && f20.arrivals[1].missKm < 20 && !f20.impact && d20.correctionsDv > 0.5);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
