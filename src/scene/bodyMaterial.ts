@@ -289,7 +289,7 @@ function setFlatColour(m: THREE.ShaderMaterial, colour: number): void {
 
 const NO_ATMOSPHERE: AtmosphereParams = {
   topKm: 1, rayleigh: [0, 0, 0], rayleighHKm: 1, mieScatter: [0, 0, 0], mieExtinct: [0, 0, 0],
-  mieHKm: 1, mieG: 0, ozone: [0, 0, 0], ozoneCentreKm: 0, ozoneHalfWidthKm: 1, source: '',
+  mieHKm: 1, mieG: 0, ozone: [0, 0, 0], ozoneCentreKm: 0, ozoneHalfWidthKm: 1, groundAlbedo: 0, source: '',
 };
 
 export function applyAtmosphere(m: THREE.ShaderMaterial, a: AtmosphereParams, groundKm: number): void {
