@@ -231,6 +231,9 @@ once it has releases. Until then, everything sits under Unreleased.
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
   Sun's corona shows when a body covers its disc (#63). The glare and the
   sky's dimming are checked from other planets and in transits (#67).
+- The Earth's sky costs less near the Earth: frames 40 % shorter on an
+  integrated GPU with the Earth in view, and 23 % in low orbit at a day a
+  second, with the same look (this pull request).
 
 ### The console
 - Source tags open each value's equation and source, set in a bundled
