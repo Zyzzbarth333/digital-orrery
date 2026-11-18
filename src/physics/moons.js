@@ -104,7 +104,7 @@ function epochDays(m) {
 
 // Position from mean elements m at t days TDB from J2000, EQJ km, and the
 // orbit's pole h (unit). fit = false leaves out the fitted corrections.
-function elementPosition(m, tJ2000, axes, fit) {
+export function elementPosition(m, tJ2000, axes, fit) {
   const t = tJ2000 - epochDays(m);
   const f = fit && m.fit ? m.fit : null;
   const yr = t / 365.25;

@@ -135,21 +135,31 @@ const differenced = (key, tt0) => (t) => {
 // (Jupiter's by 20 km with Io, Pluto's by 2,100 km with Charon): nodes every
 // 6 hours hold it to 0.04 km. Each moon about its planet gets the widest
 // spacing that divides this and keeps the cubic's error, a n^4 D^4 / 384
-// for orbit radius a and mean motion n, under NODE_TOL; Io, Europa,
-// Ganymede and Callisto share Io's, since JupiterMoons gives all four at
-// once. docs/physics/nbody-kernel.md#moons has the measured errors.
+// for orbit radius a and mean motion n, under NODE_TOL.
+//
+// NODE_TOL is 10 m. A slow pass is that sensitive to where the moon is: on
+// Cassini's T45 pass of Titan (6 km/s, 1,613 km up) Titan's nodes three
+// hours apart (100 m) put it 27 m off at closest approach, and Cassini 0.09
+// km off nine hours on; two hours apart (10 m), 0.004 km (flyby.test.mjs
+// case 3c). Io, Europa, Ganymede and Callisto share one spacing, Io's,
+// since JupiterMoons gives all four at once, held to GALILEAN_TOL (100 m):
+// that already holds Ganymede and Callisto under a metre, and at 10 m Io's
+// nodes would cost a third of a run among them while moving neither of
+// Juno's checked passes (cases 3 and 3b) by more than a metre.
+// docs/physics/nbody-kernel.md#moons has the measured errors.
 const CENTRE_SPACING = 6 * 3600;
-const NODE_TOL = 0.1;               // km
+const NODE_TOL = 0.01;              // km
+const GALILEAN_TOL = 0.1;           // km
 const DIVISORS = [];
 for (let d = 1; d <= CENTRE_SPACING; d++) if (CENTRE_SPACING % d === 0) DIVISORS.push(d);
-function moonSpacing(key) {
+function moonSpacing(key, tol = NODE_TOL) {
   const m = MOON_DATA[key], n = 2 * Math.PI / (m.P * 86400);
-  const D = (384 * NODE_TOL / m.a) ** 0.25 / n;
+  const D = (384 * tol / m.a) ** 0.25 / n;
   return DIVISORS.filter((d) => d <= D).pop();
 }
 const GALILEAN = ['io', 'europa', 'ganymede', 'callisto'];
 export const MOON_SPACING = Object.fromEntries(Object.keys(MOON_DATA).map((k) => [k, moonSpacing(k)]));
-for (const k of GALILEAN) MOON_SPACING[k] = Math.min(...GALILEAN.map(moonSpacing));
+for (const k of GALILEAN) MOON_SPACING[k] = Math.min(...GALILEAN.map((g) => moonSpacing(g, GALILEAN_TOL)));
 
 // A system is split inside EXPAND times its sphere of influence and folded
 // up again outside COLLAPSE times it. Inside the sphere a craft may be in
@@ -201,13 +211,17 @@ class SumEphemeris {
 //            R = 3396.0 km (permanent tide excluded).
 //   Jupiter: Juno (Durante et al. 2020, GRL 47, e2019GL086572), PDS table
 //            GRV_JUGR_SHA_JUP_U_DUR2020: J2 = 14696.5735e-6 unnormalised,
-//            R = 71492 km.
+//            J4 = -586.6085e-6 (C40 = +5.866085e-4), R = 71492 km.
 //   Saturn:  Cassini's Grand Finale (Iess et al. 2019, Science 364,
-//            eaat2965): J2 = 16290.573e-6, R = 60330 km.
+//            eaat2965): J2 = 16290.573e-6, J4 = -935.314e-6, R = 60330 km.
 //   Uranus:  Jacobson 2014, AJ 148, 76, Table 12: J2 = 3510.7e-6,
-//            R = 25559 km.
+//            J4 = -34.2e-6, R = 25559 km.
 //   Neptune: Jacobson 2009, AJ 137, 4322, Table 5: J2 = 3408.43e-6,
-//            R = 25225 km.
+//            J4 = -33.40e-6, R = 25225 km.
+// The giants' J4 is from the same solution as their J2 and referred to the
+// same radius (zonal.js). The rocky bodies' J4 is left out: about 1e-3 of
+// the Earth's J2 and 1e-2 of Mars's, and the app's craft carry the Earth's
+// and the Moon's full fields (environment.js).
 // Pluto and the moons have none here. A split system's J2 stays with the
 // planet's centre.
 // The pole is the body's spin axis of date (orientation.js), refreshed once a
@@ -218,10 +232,10 @@ export const ZONAL = {
   earth: { j2: 4.84165143790815e-4 * Math.sqrt(5), rJ2: 6378.1363 },
   moon: { j2: 9.088083466222001e-5 * Math.sqrt(5), rJ2: 1738.0 },
   mars: { j2: 8.750220924537e-4 * Math.sqrt(5), rJ2: 3396.0 },
-  jupiter: { j2: 14696.5735e-6, rJ2: 71492 },
-  saturn: { j2: 16290.573e-6, rJ2: 60330 },
-  uranus: { j2: 3510.7e-6, rJ2: 25559 },
-  neptune: { j2: 3408.43e-6, rJ2: 25225 },
+  jupiter: { j2: 14696.5735e-6, j4: -586.6085e-6, rJ2: 71492 },
+  saturn: { j2: 16290.573e-6, j4: -935.314e-6, rJ2: 60330 },
+  uranus: { j2: 3510.7e-6, j4: -34.2e-6, rJ2: 25559 },
+  neptune: { j2: 3408.43e-6, j4: -33.40e-6, rJ2: 25225 },
 };
 // The large moons' degree-2 fields, unnormalised, with the reference radius
 // they are referred to (docs/physics/nbody-kernel.md#moons has the sources):
@@ -289,7 +303,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
   const sunEph = new HermiteEphemeris((t) => sunAboutSsbAtTt(tt0 + t), SUN_SPACING);
   const withJ2 = (b) => {
     const z = zonal && ZONAL[b.key];
-    if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN });
+    if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN, ...(z.j4 ? { j4: z.j4 } : {}) });
     if (z && SURFACE[b.key]) b.surface = SURFACE[b.key];
     return b;
   };

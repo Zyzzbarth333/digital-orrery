@@ -165,7 +165,7 @@ export function planFlight(sol) {
       // plane: the moon's phase prices every day differently, and the plan
       // has chosen the day.)
       if (leg.vinfDep && KERNEL.has(P.body)) events.push(departEv = { kind: 'depart', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep), rp: bodyInfo(P.body).radius + P.altKm, via, ...(via ? { waitDays: 0 } : {}),
-        reaim: leg.geometry === 'between' && !leg.resonance ? { central: leg.central, from: leg.endA ?? P.body, to: leg.endB ?? Q.body, arrMs: leg.arrMs } : null });
+        reaim: leg.geometry === 'between' && !leg.resonance ? (leg.brokenPlane ? { central: leg.central, from: leg.endA ?? P.body, toEqj: ecl(leg.mid.r), arrMs: leg.mid.ms } : { central: leg.central, from: leg.endA ?? P.body, to: leg.endB ?? Q.body, arrMs: leg.arrMs }) : null });
       else if (leg.ringDep) events.push({ kind: 'depart-ring', ms: leg.depMs, body: P.body, dv: leg.depDv, dirEqj: ecl(unit(leg.ringDep)) });
       else if (leg.vinfDep) events.push({ kind: 'impulse-rel', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep) });
     }
@@ -202,7 +202,8 @@ export function planFlight(sol) {
     // at a moon so deep in its planet's well (Europa's sphere is 1.4 % of
     // its distance from Jupiter, and Europa's velocity turns 1.6 degrees
     // while the craft crosses it), 0.8 km/s off in the excess about Jupiter.
-    if (departEv?.via && MOON_IN_KERNEL.has(P.body)) Object.assign(departEv, { aimPlanet: 3 * DAY, aimAt: target });
+    // (On a broken plane, aimed at its break point, as the first aim is.)
+    if (departEv?.via && MOON_IN_KERNEL.has(P.body)) Object.assign(departEv, { aimPlanet: 3 * DAY, aimAt: leg.brokenPlane ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null } : target });
     const dur = leg.arrMs - leg.depMs;
     // When: the first once the craft is clear of the body it left (half
     // again its sphere of influence at the leg's excess speed; a flyby's
@@ -226,6 +227,9 @@ export function planFlight(sol) {
     // a quarter of the way round.
     const back = (leg.endB ?? Q.body) === (leg.endA ?? P.body);
     const first = Math.max(afterNodes, leg.mid ? leg.mid.ms : leg.depMs + (back ? 0.25 * dur : Math.min(clearP, 0.3 * dur)));
+    // A broken plane: aimed at its break point first, while the craft is
+    // near the departure (from there the target is near 180 degrees away).
+    if (leg.brokenPlane) events.push({ kind: 'aim', ms: leg.depMs + Math.min(clearP, 0.3 * (leg.mid.ms - leg.depMs)), body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central });
     const aims = [{ kind: 'aim', ms: first, ...target }];
     // Reaching a moon via its planet, the way in falls through the planet's
     // well, where a miss grows fast: more aims on the way down, at a few
@@ -497,7 +501,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
     if (e.reaim && Math.abs(tt - kernelSeconds(new Date(e.ms))) >= 3600) {
       const T = kernelSeconds(new Date(e.reaim.arrMs));
       const C = e.reaim.central === 'sun' ? { r: [0, 0, 0], v: [0, 0, 0] } : bodyState(e.reaim.central, tt), CT = e.reaim.central === 'sun' ? [0, 0, 0] : posAt(sys, e.reaim.central, T);
-      const P0 = bodyState(e.reaim.from ?? e.body, tt), to = sub(posAt(sys, e.reaim.to, T), CT);
+      const P0 = bodyState(e.reaim.from ?? e.body, tt), to = e.reaim.toEqj ?? sub(posAt(sys, e.reaim.to, T), CT);
       const muC = e.reaim.central === 'sun' ? sys.muSun : bodyInfo(e.reaim.central).mu;
       const arc = lambert(sub(P0.r, C.r), to, T - tt, muC, true);
       if (arc) want = sub(arc.v1, sub(P0.v, C.v));
@@ -622,6 +626,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       // the wait chosen is flown.
       const t0 = s.t;
       let best = cheapest(), bestAt = s.t, st = { ...s };
+      const onDay = best?.m;
       for (let h = 0.5; h <= (e.waitDays ?? 30) && best; h += 0.5) {
         const res = stepCraft(sys, { id: 0, version: 0, r: st.r, v: st.v, t: st.t, tEnd: t0 + h * DAY, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env: searchEnv } : {}) });
         if (!res.complete || res.events.some((q) => q.type === 'impact')) break;
@@ -676,7 +681,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       let tb = s.t + best.dt;
       if (tb - (best.m * 1000) / accel / 2 < s.t) tb += best.T;
       burn(tb, best.d, best.m, null, null, accel);
-      out.log.push(`depart ${e.body}: ${(best.m * 1000).toFixed(0)} m/s${accel > PLAN_ACCEL ? ` (at ${accel.toFixed(0)} m/s^2)` : ''}, ${((tb - kernelSeconds(new Date(e.ms))) / 3600).toFixed(1)} h after the planned time${best.offMs !== undefined ? ` (the excess about ${bodyInfo(e.via).name} first matched to ${best.offMs.toFixed(1)} m/s${best.aimedKm !== undefined ? `, then aimed to ${best.aimedKm.toFixed(0)} km` : ''})` : ''}`);
+      out.log.push(`depart ${e.body}: ${(best.m * 1000).toFixed(0)} m/s${accel > PLAN_ACCEL ? ` (at ${accel.toFixed(0)} m/s^2)` : ''}, ${((tb - kernelSeconds(new Date(e.ms))) / 3600).toFixed(1)} h after the planned time${best.offMs !== undefined ? ` (the excess about ${bodyInfo(e.via).name} first matched to ${best.offMs.toFixed(1)} m/s${best.aimedKm !== undefined ? `, then aimed to ${best.aimedKm.toFixed(0)} km` : ''})` : ''}${bestAt !== t0 && onDay ? ` (${(onDay * 1000).toFixed(0)} m/s on the planned day)` : ''}`);
       continue;
     }
     if (e.kind === 'depart-ring') {

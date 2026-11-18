@@ -123,10 +123,12 @@ The ROCKET tab:
 - **Vehicle:** each stage's numbers, and the stack's delta-v, burn times
   and thrust-to-weight. Starting points: four real launchers
   ([below](#real-launchers)), a generic two-stage launcher sized for 22 t to
-  low orbit, and Curtis's Example 13.3 rocket.
-- **The job:** an orbit, a geostationary transfer, the Moon, or the
-  PLANNER's window. It shows what the job needs against what the stack
-  has, and sizes the stack for it.
+  low orbit, Curtis's Example 13.3 rocket, and the journey's own stack as
+  the plotting table's STACK station sizes it ([below](#the-journeys-stack)).
+- **The job:** an orbit, a geostationary transfer, the Moon, the
+  PLANNER's window, or the journey (its every burn from its parking orbit
+  on, as the planner sums them). It shows what the job needs against what
+  the stack has, and sizes the stack for it.
 - **Launch:** from one of five pads (approximate public coordinates), at
   the inclination asked for, lifting off at the clock. The ascent is
   drawn (altitude stretched), with the orbit it reaches and its losses.
@@ -214,6 +216,58 @@ The ROCKET tab starts from four real launchers (`src/physics/launchers.js`).
   burned 31 s longer than the model's.
 - **Saturn V's centre engines.** The real S-IC and S-II cut their centre
   engines early, which the model also leaves out.
+
+## The journey's stack
+
+The plotting table's STACK station sizes a stack for the journey by the
+rocket equation (`staging.js sizeLauncher`,
+[journeys](journey.md#the-rocket-it-needs)): each stage's propellant, dry
+mass and vacuum Isp. The ROCKET tab offers it as "Journey's stack", after
+the presets, for a journey from the pad (one that starts in orbit is sized
+with no climb). Choosing it sets the job to the journey, and the pad nearest
+the journey's latitude, due east.
+
+To fly an ascent, a stack needs what sizing leaves out
+(`staging.js stackAsLauncher`). It takes those from the real launchers
+above (`typicalLauncher`), as the medians over Saturn V, Falcon 9
+(expendable) and Electron:
+
+| Figure | The three launchers | Median, used |
+| --- | --- | --- |
+| Stage 1's sea-level thrust-to-weight at liftoff | 1.17, 1.38, 1.76 | 1.38 (Falcon 9's) |
+| Stage 1's sea-level Isp over its vacuum Isp | 0.865, 0.907, 0.932 | 0.907 (Merlin's 282 over 311 s) |
+| An upper stage's thrust-to-weight at ignition | 0.80, 0.63; 0.74; 1.03 | 0.77 |
+| Stage 1's own delta-v (ideal, vacuum Isp) | 3.4 to 4.6 km/s | 3.9 km/s |
+| Diameter over the cube root of the liftoff mass | 0.71, 0.44, 0.51 m per t^(1/3) | 0.51 |
+| Drag coefficient | 0.5, 0.3, 0.3 | 0.3 |
+
+- **Isp:** the upper stages fire high, so their sea-level Isp is their
+  vacuum one.
+- **Thrust:** stage 1's comes from the liftoff thrust-to-weight. An upper
+  stage that lights before the stack has given stage 1's typical 3.9 km/s
+  is still climbing, as a first stage is, so it takes the liftoff figure
+  too.
+  - A storable booster under hydrolox stages is sized short, about 1.5
+    km/s.
+  - With an upper stage's 0.77 above that, no gravity turn reaches orbit.
+- **Shown as estimates:** these figures are dashed in the tab, like a
+  maker's unpublished ones, and the hint says where they come from. As
+  with the presets, changing any figure makes the design the user's own.
+
+Flown from Kennedy due east into a 200 km orbit, two journeys' stacks
+reach orbit. Each payload is a tonne, on a storable booster with hydrolox
+above. What they keep comes within 5 % of the journey's delta-v:
+
+| Journey | Sized | Into orbit | Kept for the journey |
+| --- | --- | --- | --- |
+| Earth to Mars orbit (5.6 km/s from orbit) | 14.48 km/s, 3 stages, 80 t | 148 km, 461 s; gravity and drag 0.98 km/s | 5.39 km/s, 3.8 % short |
+| The Moon, landed, and home (7.6 km/s) | 16.48 km/s, 3 stages, 181 t | 149 km, 366 s; 0.85 km/s | 7.57 km/s, 0.3 % short |
+
+STACK sizes the climb with this page's 1.5 km/s allowance for losses.
+These ascents cost a little more than that in all, though their gravity
+and drag losses are less: the first stage's lower Isp at sea level, and
+the climb's end. The tab shows what is left against the job once the
+ascent is flown.
 
 ## Checks (`rocket.test.mjs`)
 

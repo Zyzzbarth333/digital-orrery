@@ -128,10 +128,31 @@ table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
+**The giants' $J_4$.** Jupiter, Saturn, Uranus and Neptune also carry
+their $J_4$, from the same solutions as their $J_2$ and referred to the
+same radius. With $s = z/d$ and $P_4(s) = (35s^4 - 30s^2 + 3)/8$, its
+potential is $-\mu J_4 R^4 P_4(s)/d^5$, and
+
+$$
+\mathbf a_{J_4} = -\mu J_4 R^4\left[\frac{P_4'(s)}{d^6}\,\hat{\mathbf p}
+- \frac{s\,P_4'(s) + 5P_4(s)}{d^7}\,\mathbf d\right],
+\qquad P_4'(s) = \frac{140s^3 - 60s}{8}.
+$$
+
+`flyby.test.mjs` case 5 checks it against the potential's gradient
+($2\times10^{-10}$ relative). At five Jupiter radii it is $5\times10^{-7}$
+of Jupiter's pull. On Juno's pass of Io, 4.7 to 11 Jupiter radii out, it
+takes the error an hour on from 0.051 km to 0.040 km, and the kernel's
+term matches the same term written out separately as an outside force to
+0.1 m (case 3b). The rocky planets' $J_4$ is left out: about $10^{-3}$ of
+the Earth's $J_2$ and $10^{-2}$ of Mars's, and the app's craft carry the
+Earth's and the Moon's full fields.
+
 The forces beyond these (the Earth's and Moon's higher harmonics, the
 Earth's tides, drag, sunlight pressure, venting and relativity) come from
 [the space environment](environment.md), through the `extraAccel` hook. Not
-yet modelled: the planets' harmonics beyond $J_2$, the moons' fields beyond
+yet modelled: the planets' harmonics beyond $J_2$ (beyond $J_4$ for the
+giants), the moons' fields beyond
 degree 2 ([moons](#the-moons-own-fields)), and the asteroids.
 
 ## Integrators
@@ -280,10 +301,11 @@ while $\mathbf r$ kept drifting).
 ### Step budget
 
 Each call has a step budget (200,000 in the kernel, 20,000 per frame in the
-app). Steps are never stretched to meet it: a stretched step near a planet can
-pass straight through it. When the budget runs out the advance stops short
-and reports `complete: false`; the app carries on from there next frame and
-shows that physics is behind the clock.
+app), and may have a time budget (`deadline`, a `performance.now()` time).
+Steps are never stretched to meet either: a stretched step near a planet can
+pass straight through it. When a budget runs out the advance stops short,
+after at least one step, and reports `complete: false`; the app carries on
+from there next frame and shows that physics is behind the clock.
 
 ## Encke's method
 
@@ -591,26 +613,38 @@ Everywhere else it would only add a tenth to every force sum.
 **Nodes.** A planet's centre is interpolated on 6-hour nodes, built on the
 barycentre's own cubic plus the moons' offset. Each moon about its planet
 is a cubic of its own, whose spacing divides 6 hours and keeps
-$(\Delta n)^4 a/384$ under 100 m. Io, Europa, Ganymede and Callisto share
-Io's spacing, because `JupiterMoons` gives all four at once. A moon's
-heliocentric ephemeris is the sum of the two cubics (its nodes are the
-moon's, which Encke's steps end on). Measured against the models directly
-over 20 days (`flyby.test.mjs` case 1):
+$(\Delta n)^4 a/384$ under 10 m. Io, Europa, Ganymede and Callisto share
+Io's spacing, because `JupiterMoons` gives all four at once, held to
+100 m: that holds the other three under a metre, and at 10 m Io's nodes
+would cost a third of a run among them without moving either of Juno's
+checked passes by more than a metre. A moon's heliocentric ephemeris is
+the sum of the two cubics (its nodes are the moon's, which Encke's steps
+end on). Measured against `moons.js` directly over 20 days from 12
+November 2026, from the satellite-ephemeris tables (`flyby.test.mjs`
+case 1):
 
 | Body | Node spacing | Worst error |
 | --- | ---: | ---: |
-| Mars's centre; Phobos, Deimos | 6 h; 18, 45 min | 0.2 m; 101 m, 36 m |
-| Jupiter's centre; Io, Europa, Ganymede, Callisto | 6 h; 36 min | 34 m (Io's 20 km swing of the centre); 69 m (Io), 34–38 m |
-| Saturn's centre; Mimas to Rhea; Titan; Iapetus | 6 h; 24–90 min; 3 h; 6 h | 1 m; 54–90 m; 24 m; 2 m |
-| Uranus's centre; Miranda to Oberon | 6 h; 40 min–3 h | 2 m; 19–80 m |
-| Neptune's centre; Triton | 6 h; 2 h | 1 m; 58 m |
-| Pluto's centre; Charon | 6 h; 3 h | 20 m (Charon's 2,100 km swing); 20 m |
+| Mars's centre; Phobos, Deimos | 6 h; 10, 30 min | 0 m; 10 m, 7 m |
+| Jupiter's centre; Io, Europa, Ganymede, Callisto | 6 h; 36 min | 98 m; 71 m (Io), 102–104 m |
+| Saturn's centre; Mimas to Rhea; Titan; Iapetus | 6 h; 14–45 min; 2 h; 6 h | 29 m; 26–31 m; 28 m; 1 m |
+| Uranus's centre; Miranda to Oberon | 6 h; 22 min–2 h | 1 m; 5–22 m |
+| Neptune's centre; Triton | 6 h; 72 min | 1 m; 7 m |
+| Pluto's centre; Charon | 6 h; 2 h | 20 m (Charon's 2,100 km swing); 18 m |
 
-Those were measured with the moons from their mean elements. From the
-satellite-ephemeris tables (2000–2049) the worst over all of them is 104 m
-(Callisto): each interval of a table is pinned to the SPK at its ends, but
-its velocity there is a few cm/s off, which a cubic over a 36-minute node
-spacing turns into tens of metres.
+Where an error is well over 10 m, the cubics are not what sets it. Each
+interval of a satellite table is pinned to the SPK at its ends, but its
+velocity there is a few cm/s off, which a cubic over a node spacing turns
+into tens of metres: Jupiter's centre and its moons carry about 100 m of
+that, Saturn's about 30 m.
+
+The spacing matters most on a slow pass. On Cassini's T45 pass over Titan
+(below), Titan's nodes three hours apart (100 m, before November 2026)
+put it 27 m from JPL's table at closest approach and Cassini 0.093 km off
+nine hours on; two hours apart, 14 m and 0.004 km. It costs more nodes:
+at Saturn 336 a simulated day instead of 192, at 4.5 µs each about 6 % of
+a run among Saturn's moons (about 10 % among Mars's); Jupiter's are
+unchanged.
 
 `moons.js` knows the moons themselves to within 1 km from 2000 to 2049
 (JPL's satellite ephemerides as tables) and, outside that, to 130 to 650 km
@@ -621,12 +655,9 @@ over Ganymede the kernel follows JPL's trajectory to 0.09 km after nine
 hours with JPL's moons (Ganymede where Juno's own track puts it), 22.7 km
 with `moons.js`'s (22.9 km with the Ganymede Horizons serves; 323 km with
 the fallback's), and 9,300 km with no moons. Juno's pass 1,496 km over
-Io on 30 December 2023 is followed to 0.051 km an hour on, and Io's $J_2$
-and $C_{22}$ take that from 0.198 km; a fifth of what is left is Jupiter's
-$J_4$, which the kernel leaves out. Cassini's T45 pass 1,613 km over Titan
-is followed to 0.093 km nine hours on, nearly all of it the kernel's own
-Titan: its nodes three hours apart place it 27 m from the table at
-closest approach, and with nodes every 10 minutes 7 m is left
+Io on 30 December 2023 is followed to 0.040 km an hour on; Io's $J_2$
+and $C_{22}$ take that from 0.184 km, and Jupiter's $J_4$ from 0.051 km. Cassini's T45 pass 1,613 km over Titan
+is followed to 4 m nine hours on, with Titan's nodes two hours apart
 ([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
 
 **Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never
@@ -707,6 +738,24 @@ advance to and its burns; one batch is in flight at a time, and a busy Worker
 means the next request covers a longer span. Every result carries the craft's
 state version; a burn or a clock jump on the main thread bumps the version,
 and a result computed from the old state is dropped.
+
+Each batch sent to the Worker has a time budget of 200 ms (`budgetMs`,
+shared between its crafts, each taking an even share of what is left).
+Most batches take a few milliseconds and never meet it. Artemis II's entry
+does: from separation to splashdown under the guidance its steps cost about
+1.5 ms each, 20 ms early on, where each guidance cycle predicts the landing
+several times, and at a day a second the whole entry came in one request of
+3–4 s. The client took a Worker silent for 2 s for a dead one and moved the
+kernel onto the page's thread for good. Now the entry is flown in about 17
+requests, each answered in under 250 ms, and the client's timeout (15 s) is
+only for a Worker that has stopped answering. Where the pieces end moves
+the landing, as frames ending them at lower warp always have: each piece
+restarts the integrator, and the guidance samples its cycles at other
+instants. Cut by step counts from 5 to 500 and by budgets from 25 to
+400 ms, it lands 0–1.4 km and within 2.2 s from where the one-request
+entry lands, under half Orion's 2.1 nmi (3.9 km) miss from its target on
+Artemis I [16]. On the page's thread (no Worker, or after a fallback) requests
+still run to their end. Checked by `src/physics/kernelClient.test.mjs`.
 
 Results arrive a frame or so late, so a craft is drawn at its last exact state
 $(\mathbf r_0, \mathbf v_0, t_0)$ carried forward to the sim clock: along a
@@ -819,9 +868,9 @@ relative).
 - **Not modelled:** the moons' fields beyond degree 2, and their tides.
 - **Effect:** small on most flybys, measurable on the close ones. On
   Juno's pass 1,046 km over Ganymede it moves the kernel's Juno by 0.2 km
-  after nine hours. Over Io (1,496 km up) it is 0.15 km an hour on, and
-  over Titan (1,613 km) 0.34 km nine hours on; with it, both passes are
-  followed three to four times more closely (`flyby.test.mjs` cases 3b
+  after nine hours. Over Io (1,496 km up) it is 0.14 km an hour on, and
+  over Titan (1,613 km) 0.36 km nine hours on; with it, the Io pass is
+  followed five times more closely and the Titan pass seventy times (`flyby.test.mjs` cases 3b
   and 3c). For a craft orbiting a moon it is what turns the orbit.
 
 ## References
@@ -855,3 +904,5 @@ relative).
 [14] E. Hairer, S. P. Nørsett, and G. Wanner, *Solving Ordinary Differential Equations I: Nonstiff Problems*, 2nd rev. ed. Berlin, Germany: Springer, 1993, doi: 10.1007/978-3-540-78862-1. Section II.6, dense output: the continuous extension of DOPRI5.
 
 [15] NASA, "Artemis II flight day 9: crew prepares to come home," NASA Artemis blog, Apr. 9, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/09/artemis-ii-flight-day-9-crew-prepares-to-come-home/
+
+[16] J. Rea, L. McNamara, and M. Kane, "Orion Artemis I entry performance," in *Proc. 46th Annu. AAS Guidance, Navigation and Control Conf.*, Feb. 2024, Paper AAS 24-174. NTRS 20240001314 (slides) and 20240000024 (paper). Table 4: splashdown 2.1 nmi from the target.

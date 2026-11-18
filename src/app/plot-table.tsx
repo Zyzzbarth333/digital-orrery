@@ -35,7 +35,7 @@ const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
 const nameOf = (k: string) => { try { return bodyInfo(k).name as string; } catch { return k; } };
 interface Lamp { key: string; level: 'off' | 'go' | 'caution' | 'warn'; text: string; leg?: number }
-const LAMP_NAME: Record<string, string> = { window: 'Window', phase: 'Phase', wait: 'Wait', dv: 'Delta-v', nowindow: 'No window', miss: 'Miss', flyby: 'Flyby', kernel: 'Kernel' };
+const LAMP_NAME: Record<string, string> = { window: 'Window', phase: 'Phase', wait: 'Wait', dv: 'Delta-v', nowindow: 'No window', plane: 'Plane', parking: 'Parking orbit', miss: 'Miss', flyby: 'Flyby', kernel: 'Kernel' };
 
 // Delta-v a pulled tab adds each second: its square, so a small pull is
 // fine work (up to 240 m/s a second at the stalk's full length).
@@ -424,6 +424,11 @@ function Timeline({ store, cursor, setCursor }: { store: JourneyStore; cursor: n
               {p.phase && <g className="tl-phase">
                 <path d={`M${x(p.phase.ms)} ${y + 18} l-4 6 h8 z`} data-k={k} onClick={() => { store.set(applyOption(store.journey, k, { type: 'phase', depMs: p.phase!.ms, arrMs: p.phase!.arrMs, dv: p.phase!.dv } as never)); store.check(); }}>
                   <title>{`The best day in the stay for ${nameOf(sol.legs[k]?.from ?? '')}'s phase: leave ${iso(p.phase.ms)}, ${fmt(p.phase.dv, 2)} km/s${p.phase.angleDeg !== null ? `, its velocity ${fmt(p.phase.angleDeg, 0)}° off the way out` : ''}. Click to leave then.`}</title>
+                </path>
+              </g>}
+              {p.plane && !p.plane.aimed && <g className="tl-phase">
+                <path d={`M${x(p.plane.ms)} ${y + 18} l-4 6 h8 z`} data-k={k} onClick={() => { store.set(applyOption(store.journey, k, { type: 'plane', depMs: p.plane!.ms, arrMs: p.plane!.arrMs, dv: p.plane!.dv } as never)); store.check(); }}>
+                  <title>{`The best day near the planned one for ${nameOf(sol.legs[k]?.from ?? '')}'s parking orbit's plane: leave ${iso(p.plane.ms)}, ${fmt(p.plane.dv, 2)} km/s, the plane ${fmt(p.plane.angleDeg, 1)}° off the way out. Click to leave then.`}</title>
                 </path>
               </g>}
             </g>

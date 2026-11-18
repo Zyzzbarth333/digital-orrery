@@ -20,7 +20,10 @@ export interface Leg {
   depDv: number; arrDv: number; midDv: number; ok: boolean; error?: string; revs?: number; vinfDep: number[] | null; vinfArr: number[] | null;
   resonance?: { N: number; M: number; theta: number; phi: number; vinf: number; missKm: number };
   shaped?: boolean; missKm?: number; reaches?: boolean; nodes?: { id: number; ms: number; dv: number }[];
+  plane?: LegPlane;
 }
+// The parking orbit's plane on the day the leg leaves (journey.js planeAt).
+export interface LegPlane { priced: boolean; why?: string; body?: string; aimed?: boolean; stayDays?: number; iDeg?: number | null; rateDegDay?: number | null; firstOrderDegDay?: number | null; angleDeg?: number; inPlaneDv?: number; dv?: number; extraDv?: number }
 export interface Flyby { byHand?: boolean; body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
 export interface Burn { ms: number; body: string; dv: number; kind: string; label: string; leg: number }
 export interface JourneySolution { stops: Stop[]; legs: Leg[]; flybys: (Flyby | undefined)[]; burns: Burn[]; totalDv: number; startMs: number; endMs: number; durationDays: number; ok: boolean; error?: string }

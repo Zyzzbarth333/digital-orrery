@@ -6,7 +6,8 @@
 // (docs/physics/rocket.md#real-launchers).
 
 import { LAUNCHERS, F9_ASCENT_PROP } from './launchers.js';
-import { levelAscent, launchAzimuth, rotationBonus, stackPerformance, surfaceSpeed, EARTH } from './rocket.js';
+import { levelAscent, launchAzimuth, rotationBonus, stackPerformance, surfaceSpeed, EARTH, G0 } from './rocket.js';
+import { sizeLauncher, launchBudget, stackAsLauncher, typicalLauncher, STAGE_TECH } from './staging.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
@@ -71,6 +72,43 @@ header('Beside the real flights');
   const seco = f9.flown.events[2], o = at(res, Math.min(seco.t, res.burnout.t));
   console.log(`  second stage: in orbit at ${res.burnout.t.toFixed(0)} s, ${(res.burnout.h / 1000).toFixed(0)} km, ${(surfaceSpeed(res.history.at(-1), rotation) / 1000).toFixed(3)} km/s over the ground; Demo-1 ${seco.t} s, ${seco.h} km, ${seco.v} km/s`);
   check('Falcon 9 (landing): reaches orbit with the second stage\'s propellant nearly spent (under 5 t left), as Demo-1\'s', !!o && (!res.remaining || res.remaining.prop < 5000));
+}
+
+header('A journey\'s stack as a launcher (staging.js stackAsLauncher)');
+{
+  // What sizing leaves out, from the real launchers: medians over Saturn V,
+  // Falcon 9 (expendable) and Electron. Falcon 9's sea-level thrust (7,686
+  // kN, the user's guide) over its liftoff weight is the middle one.
+  const T = typicalLauncher(), fx = by['falcon-9'];
+  const m0 = fx.payload + fx.stages.reduce((a, x) => a + x.dry + x.prop, 0), twF9 = 7686 / (m0 * G0);
+  console.log(`  typical: liftoff T/W ${T.twr1.toFixed(3)} at sea level (Falcon 9 ${twF9.toFixed(3)}), sea-level Isp ${T.ispSl.toFixed(3)} of vacuum (Merlin 282/311 = ${(282 / 311).toFixed(3)}), upper T/W ${T.twrUp.toFixed(3)}, ${T.size.toFixed(3)} m per t^(1/3), Cd ${T.cd}`);
+  check('the typical launcher is the real launchers\' middle: Falcon 9\'s liftoff T/W and Merlin\'s Isp ratio, from their published figures', Math.abs(T.twr1 - twF9) < 1e-9 && Math.abs(T.ispSl - 282 / 311) < 1e-9);
+  // Two journeys' jobs from the pad at Kennedy, due east into 200 km: Earth
+  // to Mars orbit (5.6 km/s from the parking orbit), and down to the Moon
+  // and home (7.6), each for a tonne, storable booster and hydrolox above.
+  for (const [name, journeyDv] of [['Earth to Mars orbit', 5600], ['the Moon, landed, and home', 7600]]) {
+    const dv = launchBudget({ journeyDv, h: 200e3, lat: 28.5, az: 90 }).total;
+    const z = sizeLauncher({ dv, payload: 1000, booster: STAGE_TECH.storable, upper: STAGE_TECH.hydrolox });
+    const L = stackAsLauncher(z.pick, { payload: 1000 });
+    const st = si(L), perf = stackPerformance(st, 1000);
+    const twSl = (st[0].thrust * st[0].ispSl / st[0].isp) / (perf.liftoff * G0);
+    console.log(`  ${name}: ${(dv / 1000).toFixed(3)} km/s, ${z.pick.n} stages, ${L.liftoff.toFixed(1)} t, ${L.diameter.toFixed(2)} m; the rocket equation on the converted stack ${(perf.dv / 1000).toFixed(6)} km/s; liftoff T/W ${twSl.toFixed(3)} at sea level`);
+    check(`${name}: the converted stack gives the delta-v it was sized for (to 1e-9), at the typical liftoff T/W, every estimate marked`, Math.abs(perf.dv / dv - 1) < 1e-9 && Math.abs(twSl - T.twr1) < 1e-9 && L.stages.every((x) => x.est.includes('thrust')) && L.est.diameter && L.est.cd);
+    // Flown up the ascent from Kennedy, due east: into orbit, and what is
+    // left (the stage burning at cutoff, its propellant, the stages above)
+    // gives the journey's delta-v to within 5 %. STACK sizes the climb with
+    // rocket.js's 1.5 km/s allowance for losses; these stacks' ascents cost
+    // a little more than that in all, though their gravity and drag losses
+    // are less (the first stage's lower Isp at sea level, and the climb's
+    // end), and the ROCKET tab shows the shortfall once the ascent is flown.
+    const lat = 28.627, az = launchAzimuth(28.627, lat), rotation = rotationBonus(lat, az);
+    const res = levelAscent({ stages: st, payload: 1000, pitchAlt: 500, cd: L.cd, diameter: L.diameter, rotation, mu: EARTH.mu, R: EARTH.R, dt: 0.1, sample: 1, toOrbit: true });
+    const k = res?.remaining ? res.remaining.stage : st.length;
+    const rest = res?.remaining ? [{ ...st[k], prop: res.remaining.prop }, ...st.slice(k + 1)] : st.slice(k);
+    const left = rest.length ? stackPerformance(rest, 1000).dv : 0;
+    console.log(`  flown: in orbit at ${res ? (res.burnout.h / 1000).toFixed(0) : '—'} km after ${res ? res.burnout.t.toFixed(0) : '—'} s, gravity and drag losses ${res ? ((res.losses.gravity + res.losses.drag) / 1000).toFixed(3) : '—'} km/s; ${(left / 1000).toFixed(3)} km/s left for the journey's ${(journeyDv / 1000).toFixed(3)} (${(100 * (left / journeyDv - 1)).toFixed(1)} %)`);
+    check(`${name}: the converted stack flies the ascent into orbit and keeps the journey's delta-v to within 5 %`, !!res && res.burnout.h > 120e3 && left >= 0.95 * journeyDv);
+  }
 }
 
 console.log('='.repeat(60));

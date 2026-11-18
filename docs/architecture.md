@@ -71,6 +71,25 @@ flowchart LR
 
 The page stays responsive while all three run.
 
+**The folders:**
+
+```
+digital-orrery/
+├── src/
+│   ├── app/                 # React: the console, panels, planner, rocket, clock, styles
+│   ├── scene/               # three.js: bodies, sky, orbits, small bodies, guides, camera
+│   ├── physics/             # orbital core, n-body kernel and Worker, ephemerides, moons,
+│   │   │                    #   orientation, environment, rocket, journeys, and their tests
+│   │   └── fixtures/        # reference data the tests check against (CSPICE, Horizons, NASA)
+│   └── utils/constants.js
+├── public/                  # surface maps, star map, ephemeris and small-body tables
+├── c/                       # CSPICE programs that write fixtures and the moon tables
+├── python/                  # SPICE metakernel, kernels (downloaded, not in git), offline checks
+├── tools/                   # outside oracles (OpenRocket, RocketPy)
+├── docs/                    # the physics and the front end, with the maths, and validation
+└── .github/                 # CI, issue and pull request templates
+```
+
 **Where to start reading:**
 
 | To understand | Read |

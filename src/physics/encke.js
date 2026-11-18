@@ -170,8 +170,16 @@ function conicStep(r0, v0, dt, mu, rOut, vOut) {
   for (let i = 0; i < 3; i++) { rOut[i] = s.r[i]; vOut[i] = s.v[i]; }
 }
 
+// A budget in wall time as well as in steps: deadline is a performance.now()
+// time (ms) after which an advance stops before its next step, as it does
+// when maxSteps runs out. At least one step is always taken, so a run of
+// short budgets still gets on.
+export function outOfTime(deadline, steps) {
+  return deadline != null && steps > 0 && performance.now() >= deadline;
+}
+
 // opts: bodiesAt, muSun, tolKm (default 1e-7 km per step), hMax, eta
-// (other-body step fraction, default 0.01), maxSteps, breakpoints,
+// (other-body step fraction, default 0.01), maxSteps, deadline, breakpoints,
 // extraAccel(t, r, out, mid), sunRadius, primaryOf, tidal (default true:
 // the tidal perturbation above; false for the ephemeris form).
 // Returns { steps, events, complete, left }: left is true when the craft
@@ -216,7 +224,7 @@ export function advanceEncke(state, tEnd, opts) {
     if (list !== sList) {
       sList = list;
       sCopies = list.map((b) => ({ key: b.key, mu: b.mu, radius: b.radius, parent: b.parent, r: [0, 0, 0],
-        j2: b.j2, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
+        j2: b.j2, j4: b.j4, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
       sP = list.findIndex((b) => b.key === key);
       sEnds = new Float64Array(list.length * 12);    // r0 v0 r1 v1 for each body
       sT0 = NaN;
@@ -332,7 +340,7 @@ export function advanceEncke(state, tEnd, opts) {
   };
 
   while (dir * (tEnd - state.t) > 0) {
-    if (steps >= maxSteps) return { steps, events, complete: false, left: false };
+    if (steps >= maxSteps || outOfTime(opts.deadline, steps)) return { steps, events, complete: false, left: false };
     const bodies = bodiesAt(state.t);
     let cap = hMax;
     for (const b of bodies) {

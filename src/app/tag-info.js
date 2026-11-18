@@ -156,6 +156,44 @@ export const TAG_INFO = {
     tex: [],
     source: 'the moon\'s JPL Horizons object page',
   },
+  // The irregular moons (irregularMoons.js, irregular-moon-plate.tsx)
+  'irr-position-table': {
+    what: 'Where the moon is about its planet\'s centre in JPL\'s own integration of its orbit, with the Sun\'s and the planets\' pull: as its point is drawn.',
+    tex: ['\\mathbf r = \\mathbf r_\\text{moon} - \\mathbf r_\\text{planet}'],
+    where: 'both about the system barycentre, from Chebyshev series within 0.5 km of the satellite ephemeris (1000 km for S/2023 S 38, whose e = 0.909 orbit dives to 1.1 million km), 2000 to 2049, loaded a system and a year at a time while the layer is shown',
+    source: 'JPL satellite ephemerides jup347, jup348, jup349, sat455, sat456, sat457, sat459, nep104 (NAIF) · docs/frontend/moons.md',
+  },
+  'irr-position-elements': {
+    what: 'Where the moon is about its planet, on a precessing ellipse in the ecliptic from JPL\'s mean elements, with corrections fitted to JPL Horizons. The Sun pulls an irregular moon about far more than this allows: a rough place only.',
+    tex: ['M = M_0 + \\frac{360°\\,t}{P} + \\delta M + \\delta n\\,t', '\\omega = \\omega_0 + \\delta\\omega + \\frac{360°\\,t}{P_\\omega}', '\\Omega = \\Omega_0 + \\delta\\Omega \\mp \\frac{360°\\,t}{P_\\Omega}'],
+    where: 't days from the epoch; its fitted residual over 2000–2050 is in the plate\'s note',
+    source: 'JPL SSD planetary satellite mean elements; JPL Horizons · docs/frontend/moons.md',
+  },
+  'irr-elements': {
+    what: 'The moon\'s mean orbit about its planet, referred to the J2000 ecliptic: an average over the Sun\'s pull, which swings the real orbit about it.',
+    tex: [],
+    source: 'JPL SSD planetary satellite mean elements (ssd.jpl.nasa.gov/sats/elem) · docs/frontend/moons.md',
+  },
+  'irr-sense': {
+    what: 'Which way the moon goes round: prograde with its planet\'s orbit (inclination under 90° to the ecliptic) or retrograde, against it. Most irregular moons are retrograde, a sign that they were captured.',
+    tex: ['\\text{retrograde:}\\; i > 90°'],
+    source: 'JPL SSD planetary satellite mean elements · docs/frontend/moons.md',
+  },
+  'irr-radius': {
+    what: 'The moon\'s mean radius where it has been measured, or estimated from its brightness; most of the small ones have only been seen as points of light, and are drawn at a nominal size.',
+    tex: [],
+    source: 'the moon\'s JPL Horizons object page',
+  },
+  'irr-gm': {
+    what: 'G times the moon\'s mass, where it has been measured (Himalia\'s from its pull on other moons and on spacecraft). The irregular moons do not pull on spacecraft in the app: the largest, Himalia, has a twenty-thousandth of Europa\'s GM.',
+    tex: ['\\mu = GM'],
+    source: 'the moon\'s JPL Horizons object page',
+  },
+  'irr-discovery': {
+    what: 'When the moon was found, and by whom.',
+    tex: [],
+    source: 'JPL SSD Planetary Satellite Discovery Circumstances (ssd.jpl.nasa.gov/sats/discovery.html)',
+  },
   'moon-rotation': {
     what: 'Time for one turn against the stars. Tides have locked the moon: it turns once each orbit, keeping one face to its planet, rocking a little about it (its libration).',
     tex: ['P_\\text{rot} = \\frac{360°}{|W_1|}', 'W = W_0 + W_1 d + \\sum_j w_j \\sin\\theta_j'],
@@ -429,31 +467,52 @@ export const TAG_INFO = {
   attitude: {
     what: 'The craft\'s attitude: a quaternion turned by its thrusters toward the chosen direction, the thrust along its body x axis. Held there, it is the reference itself.',
     tex: [
-      '\dot{\mathbf q} = \tfrac{1}{2}\,\mathbf q \otimes (0, \boldsymbol\omega)',
-      '\boldsymbol\omega_\text{cmd} = \hat{\mathbf e}\,\min\left(\omega_\text{max}, \sqrt{2\alpha_b\theta + c^2} - c\right) + \boldsymbol\omega_\text{ref}',
+      '\\dot{\\mathbf q} = \\tfrac{1}{2}\\,\\mathbf q \\otimes (0, \\boldsymbol\\omega)',
+      '\\boldsymbol\\omega_\\text{cmd} = \\hat{\\mathbf e}\\,\\min\\left(\\omega_\\text{max}, \\sqrt{2\\alpha_b\\theta + c^2} - c\\right) + \\boldsymbol\\omega_\\text{ref}',
     ],
     where: 'θ, ê: the angle and axis from the body to the reference; α_b: 80 % of the turning acceleration the torque limit allows; c = α_b T_p, T_p = 0.4 s',
     source: 'eigenaxis rotation; docs/physics/sixdof.md',
   },
   'attitude-rate': {
     what: 'How fast the craft is turning, in its own axes: the body rates of Euler\'s equations.',
-    tex: ['\mathbf I\,\dot{\boldsymbol\omega} = \boldsymbol\tau - \boldsymbol\omega \times \mathbf I\boldsymbol\omega'],
+    tex: ['\\mathbf I\\,\\dot{\\boldsymbol\\omega} = \\boldsymbol\\tau - \\boldsymbol\\omega \\times \\mathbf I\\boldsymbol\\omega'],
     where: 'I: the inertia tensor; τ: the thrusters\' torque, the gravity gradient and the air\'s',
     source: 'sixdof.js, checked against NASA\'s 6-DOF check cases · docs/physics/sixdof.md',
   },
   'attitude-turn': {
     what: 'The time the controller takes for the turn still to go, from rest, by its torque limit.',
-    tex: ['t_\text{min} = \frac{\theta}{\omega_\text{max}} + \frac{\omega_\text{max}}{\alpha}'],
+    tex: ['t_\\text{min} = \\frac{\\theta}{\\omega_\\text{max}} + \\frac{\\omega_\\text{max}}{\\alpha}'],
     where: 'the bang-coast-bang least time, when the rate limit is reached; the controller brakes at 80 % of α, so it takes a few per cent longer',
     source: 'docs/physics/sixdof.md',
   },
   'attitude-torque': {
     what: 'The torques on the craft beyond its thrusters: the gravity gradient, and drag acting behind the centre of mass low in the air.',
     tex: [
-      '\boldsymbol\tau_\text{gg} = \frac{3\mu}{r^3}\,\hat{\mathbf r}_b \times \mathbf I\,\hat{\mathbf r}_b',
-      '\boldsymbol\tau_\text{aero} = \mathbf r_\text{cp} \times \left(-\tfrac{1}{2}\rho\,|\mathbf v_b|\,\mathbf v_b\,C_D A\right)',
+      '\\boldsymbol\\tau_\\text{gg} = \\frac{3\\mu}{r^3}\\,\\hat{\\mathbf r}_b \\times \\mathbf I\\,\\hat{\\mathbf r}_b',
+      '\\boldsymbol\\tau_\\text{aero} = \\mathbf r_\\text{cp} \\times \\left(-\\tfrac{1}{2}\\rho\\,|\\mathbf v_b|\\,\\mathbf v_b\\,C_D A\\right)',
     ],
     where: 'r̂_b: toward the craft from the primary, in body axes; r_cp: the centre of pressure, 0.3 m behind the centre of mass; v_b: the air\'s velocity in body axes',
+    source: 'docs/physics/sixdof.md',
+  },
+  // craftAttitude.js drawPropellant; attitude.js rcsThrust
+  'attitude-rcs': {
+    what: 'The propellant the attitude thrusters have burned: pairs fired as couples, so a torque takes its size over the arm in thrust, drawn from the engine\'s tank at their specific impulse.',
+    tex: ['m = \\frac{1}{I_{sp}\\,g_0}\\int \\sum_i \\frac{|\\tau_i|}{L_i}\\,dt'],
+    where: 'τ_i: the torque about body axis i (held against the disturbance while locked); L_i: the thrusters\' arm about it; I_sp = 290 s; g₀ = 9.80665 m/s²',
+    source: 'Curtis, 4th ed., §13.3; ArianeGroup 10 N bipropellant thruster (292 s) · docs/physics/sixdof.md',
+  },
+  // craftAttitude.js propellantInertia, inertiaFor
+  'attitude-inertia': {
+    what: 'The craft\'s moments of inertia now: the dry craft\'s, and the propellant\'s in two spherical tanks fore and aft of the centre of mass, so it turns faster as the tank empties.',
+    tex: ['I_{xx} = I^\\text{dry}_{xx} + \\tfrac{2}{5} m R^2', 'I_{yy} = I_{zz} = I^\\text{dry}_{yy} + \\tfrac{2}{5} m R^2 + m d^2'],
+    where: 'm: the propellant on board; R = 0.37 m: each tank\'s radius; d = 0.6 m: the tanks\' distance from the centre of mass (parallel-axis theorem)',
+    source: 'Curtis, 4th ed., ch. 9 · docs/physics/sixdof.md',
+  },
+  // craftAttitude.js turnPlan
+  'attitude-auto': {
+    what: 'When the craft will start turning to the next manoeuvre node by itself: early enough to settle before it fires. After the burn it goes back to the mode it had.',
+    tex: ['t_\\text{turn} = t_\\text{node} - (1.1\\,t_\\text{slew} + 5\\ \\text{s})'],
+    where: 't_slew: the controller\'s own time for the turn, measured where the craft and the node\'s direction will be then',
     source: 'docs/physics/sixdof.md',
   },
   // mission.ts distanceFromFlown
@@ -536,6 +595,13 @@ export const TAG_INFO = {
     tex: ['\\Delta\\mathbf v = \\Delta v_P\\,\\hat{\\mathbf T} + \\Delta v_N\\,\\hat{\\mathbf N} + \\Delta v_R\\,\\hat{\\mathbf R}', '\\hat{\\mathbf T} = \\frac{\\mathbf v}{v},\\quad \\hat{\\mathbf N} = \\frac{\\mathbf r \\times \\mathbf v}{|\\mathbf r \\times \\mathbf v|},\\quad \\hat{\\mathbf R} = \\hat{\\mathbf T} \\times \\hat{\\mathbf N}'],
     where: 'about the leg\'s central body, at the node\'s place; the miss counts as reached inside the target\'s sphere of influence',
     source: 'journey.js shapeLeg · docs/physics/journey.md#shaping-it-by-hand',
+  },
+  // journey.js planeAt, parkingPlane.js nodeRate, flownNodeRate, leaveCircularDv
+  'journey-plane': {
+    what: 'A stay in a planet\'s orbit turns the orbit\'s plane: the planet\'s J2 regresses its node about the pole, so after the stay the plane may no longer hold the way out, and the departure burns out of it. Up to 30 days the capture is aimed for it; beyond, the plane is priced on the day, and the best day near it suggested.',
+    tex: ['\\dot\\Omega = -\\frac{3}{2}\\,\\frac{\\sqrt{\\mu}\\,J_2 R^2}{(1-e^2)^2\\,a^{7/2}}\\cos i'],
+    where: 'i: the orbit\'s inclination to the planet\'s equator; the rate scaled by the orbit flown ten turns in the J2 field (0.15 to 0.6 % faster at 400 km over Mars); the burn the cheapest single one from the circular orbit onto the way out',
+    source: 'Curtis, 4th ed., §4.7, eq. 4.52 (Example 4.8) · docs/physics/journey.md#the-parking-orbits-plane',
   },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
