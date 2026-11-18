@@ -1,0 +1,438 @@
+{
+ "source": "CelesTrak GP element sets (celestrak.org), from the US Space Force via Space-Track.org",
+ "query": "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=csv",
+ "fetched": "2026-11-17T16:56:53.691Z",
+ "count": 16892,
+ "epochs": {
+  "first": "2026-10-22T01:23:03.723Z",
+  "median": "2026-11-17T06:00:02.000Z",
+  "last": "2026-11-18T22:21:58.567Z"
+ },
+ "named": [
+  {
+   "id": 25544,
+   "name": "ISS",
+   "group": "station"
+  },
+  {
+   "id": 48274,
+   "name": "Tiangong",
+   "group": "station"
+  },
+  {
+   "id": 20580,
+   "name": "Hubble",
+   "group": "science"
+  },
+  {
+   "id": 26407,
+   "name": "GPS BIIR-5 (PRN 22)",
+   "group": "gps"
+  },
+  {
+   "id": 27663,
+   "name": "GPS BIIR-8 (PRN 16)",
+   "group": "gps"
+  },
+  {
+   "id": 28190,
+   "name": "GPS BIIR-11 (PRN 19)",
+   "group": "gps"
+  },
+  {
+   "id": 28474,
+   "name": "GPS BIIR-13 (PRN 02)",
+   "group": "gps"
+  },
+  {
+   "id": 28874,
+   "name": "GPS BIIRM-1 (PRN 17)",
+   "group": "gps"
+  },
+  {
+   "id": 29486,
+   "name": "GPS BIIRM-2 (PRN 31)",
+   "group": "gps"
+  },
+  {
+   "id": 29601,
+   "name": "GPS BIIRM-3 (PRN 12)",
+   "group": "gps"
+  },
+  {
+   "id": 32260,
+   "name": "GPS BIIRM-4 (PRN 15)",
+   "group": "gps"
+  },
+  {
+   "id": 32384,
+   "name": "GPS BIIRM-5 (PRN 29)",
+   "group": "gps"
+  },
+  {
+   "id": 32711,
+   "name": "GPS BIIRM-6 (PRN 07)",
+   "group": "gps"
+  },
+  {
+   "id": 35752,
+   "name": "GPS BIIRM-8 (PRN 05)",
+   "group": "gps"
+  },
+  {
+   "id": 36585,
+   "name": "GPS BIIF-1 (PRN 25)",
+   "group": "gps"
+  },
+  {
+   "id": 38833,
+   "name": "GPS BIIF-3 (PRN 24)",
+   "group": "gps"
+  },
+  {
+   "id": 39166,
+   "name": "GPS BIIF-4 (PRN 27)",
+   "group": "gps"
+  },
+  {
+   "id": 39533,
+   "name": "GPS BIIF-5 (PRN 30)",
+   "group": "gps"
+  },
+  {
+   "id": 39741,
+   "name": "GPS BIIF-6 (PRN 06)",
+   "group": "gps"
+  },
+  {
+   "id": 40105,
+   "name": "GPS BIIF-7 (PRN 09)",
+   "group": "gps"
+  },
+  {
+   "id": 40294,
+   "name": "GPS BIIF-8 (PRN 03)",
+   "group": "gps"
+  },
+  {
+   "id": 40534,
+   "name": "GPS BIIF-9 (PRN 26)",
+   "group": "gps"
+  },
+  {
+   "id": 40730,
+   "name": "GPS BIIF-10 (PRN 08)",
+   "group": "gps"
+  },
+  {
+   "id": 41019,
+   "name": "GPS BIIF-11 (PRN 10)",
+   "group": "gps"
+  },
+  {
+   "id": 41328,
+   "name": "GPS BIIF-12 (PRN 32)",
+   "group": "gps"
+  },
+  {
+   "id": 43873,
+   "name": "GPS BIII-1 (PRN 04)",
+   "group": "gps"
+  },
+  {
+   "id": 44506,
+   "name": "GPS BIII-2 (PRN 18)",
+   "group": "gps"
+  },
+  {
+   "id": 45854,
+   "name": "GPS BIII-3 (PRN 23)",
+   "group": "gps"
+  },
+  {
+   "id": 46826,
+   "name": "GPS BIII-4 (PRN 14)",
+   "group": "gps"
+  },
+  {
+   "id": 48859,
+   "name": "GPS BIII-5 (PRN 11)",
+   "group": "gps"
+  },
+  {
+   "id": 55268,
+   "name": "GPS BIII-6 (PRN 28)",
+   "group": "gps"
+  },
+  {
+   "id": 62339,
+   "name": "GPS BIII-7 (PRN 01)",
+   "group": "gps"
+  },
+  {
+   "id": 64202,
+   "name": "GPS BIII-8 (PRN 21)",
+   "group": "gps"
+  },
+  {
+   "id": 67588,
+   "name": "GPS BIII-9 (PRN 20)",
+   "group": "gps"
+  },
+  {
+   "id": 68791,
+   "name": "GPS BIII-10 (PRN 13)",
+   "group": "gps"
+  },
+  {
+   "id": 37846,
+   "name": "GSAT0101 (GALILEO-PFM)",
+   "group": "galileo"
+  },
+  {
+   "id": 37847,
+   "name": "GSAT0102 (GALILEO-FM2)",
+   "group": "galileo"
+  },
+  {
+   "id": 38857,
+   "name": "GSAT0103 (GALILEO-FM3)",
+   "group": "galileo"
+  },
+  {
+   "id": 40128,
+   "name": "GSAT0201 (GALILEO 5)",
+   "group": "galileo"
+  },
+  {
+   "id": 40129,
+   "name": "GSAT0202 (GALILEO 6)",
+   "group": "galileo"
+  },
+  {
+   "id": 40544,
+   "name": "GSAT0203 (GALILEO 7)",
+   "group": "galileo"
+  },
+  {
+   "id": 40545,
+   "name": "GSAT0204 (GALILEO 8)",
+   "group": "galileo"
+  },
+  {
+   "id": 40890,
+   "name": "GSAT0206 (GALILEO 10)",
+   "group": "galileo"
+  },
+  {
+   "id": 41174,
+   "name": "GSAT0209 (GALILEO 12)",
+   "group": "galileo"
+  },
+  {
+   "id": 41175,
+   "name": "GSAT0208 (GALILEO 11)",
+   "group": "galileo"
+  },
+  {
+   "id": 41549,
+   "name": "GSAT0211 (GALILEO 14)",
+   "group": "galileo"
+  },
+  {
+   "id": 41550,
+   "name": "GSAT0210 (GALILEO 13)",
+   "group": "galileo"
+  },
+  {
+   "id": 41859,
+   "name": "GSAT0207 (GALILEO 15)",
+   "group": "galileo"
+  },
+  {
+   "id": 41860,
+   "name": "GSAT0212 (GALILEO 16)",
+   "group": "galileo"
+  },
+  {
+   "id": 41861,
+   "name": "GSAT0213 (GALILEO 17)",
+   "group": "galileo"
+  },
+  {
+   "id": 41862,
+   "name": "GSAT0214 (GALILEO 18)",
+   "group": "galileo"
+  },
+  {
+   "id": 43055,
+   "name": "GSAT0215 (GALILEO 19)",
+   "group": "galileo"
+  },
+  {
+   "id": 43056,
+   "name": "GSAT0216 (GALILEO 20)",
+   "group": "galileo"
+  },
+  {
+   "id": 43057,
+   "name": "GSAT0217 (GALILEO 21)",
+   "group": "galileo"
+  },
+  {
+   "id": 43058,
+   "name": "GSAT0218 (GALILEO 22)",
+   "group": "galileo"
+  },
+  {
+   "id": 43564,
+   "name": "GSAT0221 (GALILEO 25)",
+   "group": "galileo"
+  },
+  {
+   "id": 43565,
+   "name": "GSAT0222 (GALILEO 26)",
+   "group": "galileo"
+  },
+  {
+   "id": 43566,
+   "name": "GSAT0219 (GALILEO 23)",
+   "group": "galileo"
+  },
+  {
+   "id": 43567,
+   "name": "GSAT0220 (GALILEO 24)",
+   "group": "galileo"
+  },
+  {
+   "id": 49809,
+   "name": "GSAT0223 (GALILEO 27)",
+   "group": "galileo"
+  },
+  {
+   "id": 49810,
+   "name": "GSAT0224 (GALILEO 28)",
+   "group": "galileo"
+  },
+  {
+   "id": 59598,
+   "name": "GSAT0225 (GALILEO 29)",
+   "group": "galileo"
+  },
+  {
+   "id": 59600,
+   "name": "GSAT0227 (GALILEO 30)",
+   "group": "galileo"
+  },
+  {
+   "id": 61182,
+   "name": "GSAT0232 (GALILEO 32)",
+   "group": "galileo"
+  },
+  {
+   "id": 61183,
+   "name": "GSAT0226 (GALILEO 31)",
+   "group": "galileo"
+  },
+  {
+   "id": 67160,
+   "name": "GSAT0233 (GALILEO 33)",
+   "group": "galileo"
+  },
+  {
+   "id": 67162,
+   "name": "GSAT0234 (GALILEO 34)",
+   "group": "galileo"
+  },
+  {
+   "id": 35491,
+   "name": "EWS-G3 (GOES 14)",
+   "group": "weather"
+  },
+  {
+   "id": 36411,
+   "name": "EWS-G2 (GOES 15)",
+   "group": "weather"
+  },
+  {
+   "id": 39216,
+   "name": "INSAT-3D",
+   "group": "weather"
+  },
+  {
+   "id": 40267,
+   "name": "HIMAWARI-8",
+   "group": "weather"
+  },
+  {
+   "id": 40732,
+   "name": "METEOSAT-11 (MSG-4)",
+   "group": "weather"
+  },
+  {
+   "id": 41752,
+   "name": "INSAT-3DR",
+   "group": "weather"
+  },
+  {
+   "id": 41836,
+   "name": "HIMAWARI-9",
+   "group": "weather"
+  },
+  {
+   "id": 41866,
+   "name": "GOES 16",
+   "group": "weather"
+  },
+  {
+   "id": 41882,
+   "name": "FENGYUN 4A",
+   "group": "weather"
+  },
+  {
+   "id": 43226,
+   "name": "GOES 17",
+   "group": "weather"
+  },
+  {
+   "id": 43491,
+   "name": "FENGYUN 2H",
+   "group": "weather"
+  },
+  {
+   "id": 43823,
+   "name": "GEO-KOMPSAT-2A",
+   "group": "weather"
+  },
+  {
+   "id": 51850,
+   "name": "GOES 18",
+   "group": "weather"
+  },
+  {
+   "id": 54743,
+   "name": "METEOSAT-12 (MTG-I1)",
+   "group": "weather"
+  },
+  {
+   "id": 58990,
+   "name": "INSAT-3DS",
+   "group": "weather"
+  },
+  {
+   "id": 60133,
+   "name": "GOES 19",
+   "group": "weather"
+  },
+  {
+   "id": 64723,
+   "name": "MTG-S1",
+   "group": "weather"
+  },
+  {
+   "id": 100530,
+   "name": "MTG-I2",
+   "group": "weather"
+  }
+ ]
+}

@@ -53,6 +53,13 @@ once it has releases. Until then, everything sits under Unreleased.
   1.45 million orbits (#32). Any of them can be found and flown to (#52,
   #62).
 - Every barycentre can be flown to, with orbits about the SSB (#38).
+- Earth satellites: the 16,892 active satellites CelesTrak lists, moved by
+  SGP4 from their GP element sets and turned from TEME into J2000, dimmer
+  in the Earth's shadow. The ISS, Tiangong, Hubble, GPS, Galileo and the
+  geostationary weather satellites have their orbits. Any satellite can be
+  found by name, NORAD number or designator and flown to, with a data
+  plate. A **Latest** key fetches CelesTrak's current elements (this pull
+  request).
 - Guides for spin axes, real gravity fields, spheres of influence,
   Lagrange points and the strongest pulls (#43).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
