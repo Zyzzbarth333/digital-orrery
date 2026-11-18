@@ -40,7 +40,7 @@ const FILES = [
   'src/physics/gravityFlow.test.mjs', 'src/physics/magnetic.test.mjs', 'src/physics/aurora.test.mjs',
   'src/physics/moons.test.mjs', 'src/physics/landingSites.test.mjs', 'src/physics/irregularMoons.test.mjs', 'src/physics/flyby.test.mjs',
   'src/physics/kernelClient.test.mjs', 'src/physics/barycentres.test.mjs', 'src/physics/deTable.test.mjs',
-  'src/physics/corona.test.mjs', 'src/physics/rings.test.mjs', 'src/physics/discs.test.mjs',
+  'src/physics/corona.test.mjs', 'src/physics/rings.test.mjs', 'src/physics/discs.test.mjs', 'src/physics/umbra.test.mjs',
   'src/physics/satellites.test.mjs', 'src/physics/passes.test.mjs', 'src/physics/spacecraft.test.mjs',
   'src/physics/artemis2.validate.mjs', 'src/physics/artemis1.validate.mjs',
   ...MISSIONS.map((id) => `src/physics/missions.validate.mjs ${id}`),
