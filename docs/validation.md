@@ -72,6 +72,18 @@ used in any fit; the full tables, per moon, are in
 | body-frame pole (`bodyAxesEqj`, pck00011), Phobos, Io, Rhea, Ariel, Titania, Triton, Charon | WGCCRE 2015 poles, constant terms only (Triton's precessing series in full), 14 Nov 2026 | within 1.07° (Phobos, whose periodic terms the check leaves out), Triton 0.00°; right-handed |
 | moon surface maps, longitude and latitude (by eye, not in the test) | named features at their gazetteer positions, against their mirror images ([textures](frontend/textures.md#the-moons-maps)) | all 14 east-positive with the west edge at −180°, none flipped |
 
+## Irregular moons (`irregularMoons.test.mjs`)
+
+The 381 irregular moons of Jupiter, Saturn and Neptune about their
+planet's centre, against JPL Horizons vectors at five dates, 2000–2049, not
+used in any fit ([Irregular moons](frontend/moons.md#the-irregular-moons)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| tables of `jup347`, `jup348`, `jup349`, `sat455`, `sat456`, `sat457`, `sat459`, `nep104`, all 381 (2000–2049) | Horizons, which serves those kernels | within 0.51 km (Hermippe); S/2023 S 38, fitted to 1,000 km for its e = 0.909 orbit, 0.3 km at these dates |
+| fallback outside 2000–2049: JPL's mean elements with fitted corrections | Horizons, every 10 days 2000–2050 for the fit; five other dates for the check | each within its fit's worst; median 46 % of the orbit's size for Jupiter's, 15 % for Saturn's, 26 % for Neptune's: the Sun's pull, which no precessing ellipse follows |
+| sense of motion | each moon's state now against its elements' inclination | 305 retrograde of 381, all agree |
+
 ## Barycentres (`barycentres.test.mjs`)
 
 | Model | Reference | Result |
@@ -434,6 +446,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Optimal staging, three stages, 5,000 kg to 10 km/s | Curtis Example 13.7 | η and mass ratios to the book's four figures; stage masses and total within 0.1 % |
 | Gravity-turn ascent with drag | Curtis Example 13.3 | burnout speed, altitude and downrange within 0.1 %, flight-path angle within 0.02°; losses within 5 m/s |
 | Launch into a 51.6° orbit from Florida, cutoff at orbital speed | | inclination within 0.01°; level to 0.01°; circular to 10⁻³ |
+| A journey's stack as the ROCKET tab's vehicle (`launchers.test.mjs`): Earth to Mars orbit, and the Moon landed and home, sized by STACK and flown up the ascent | the rocket equation on the sized stack; the real launchers' medians; the job's delta-v | the sized delta-v to 10⁻⁹; liftoff T/W 1.381 (Falcon 9's); into orbit, keeping the journey's delta-v to within 5 % (3.8 % and 0.3 % short) ([details](physics/rocket.md#the-journeys-stack)) |
 | OpenRocket design files read and flown (`ork.test.mjs`): our own two-stage flight saved and read back; OpenRocket's examples' seven saved simulations | the flight that was saved; OpenRocket's own apogee | apogee within 0.1 % (0.3 % at OpenRocket's four saved figures); within 0.72 % of OpenRocket in a 2 m/s wind ([details](physics/rocket.md#openrocket-designs-in-the-rocket-tab)) |
 | A model rocket and a two-stage high-power rocket, OpenRocket's example designs, flown straight up (`rocket.xcheck.test.mjs`) | OpenRocket 24.12 and RocketPy 1.13 (3-DOF) on the same thrust curves, masses and drag | apogee, time to apogee and top speed within 0.03 % of both; the height within 0.10 m of OpenRocket's all the way up ([details](physics/rocket.md#checked-against-openrocket-and-rocketpy-rocketxchecktestmjs)) |
 
