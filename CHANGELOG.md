@@ -234,7 +234,12 @@ once it has releases. Until then, everything sits under Unreleased.
   L1–L3. The spin axes show which way each body turns, with Venus, Uranus
   and Pluto marked retrograde. Orbit lines fade where they pass close to
   the camera against their size, so a body's own orbit no longer cuts
-  across the view when zoomed in on it (this pull request).
+  across the view when zoomed in on it (#103).
+- The gravity field's rotating-frame contours are unbroken lines, worked
+  out at every pixel; a readout beside the cursor gives the field there
+  exactly. A followed craft's osculating conic fades close in as the
+  trails do. The rail fits a short window: the planets keep three rows,
+  the guides four, and the rail scrolls past that (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The

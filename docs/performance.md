@@ -74,9 +74,12 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   (`craft-far` with the clock at a day a second), the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`),
   the Earth with all 16,892 satellites on (`sats`, 20,000 km) and the ISS
-  followed from 0.1 km (`sat-near`, its close-up orbit drawn) run by name,
-  and `all` runs every one; `--list` lists them. A scenario can run a
-  setup expression once the page is up (the satellites' switch).
+  followed from 0.1 km (`sat-near`, its close-up orbit drawn), and the
+  gravity guides' field (`field-jupiter`, `field-rotating`, `field-belt`)
+  beside the same views without it (`jupiter-far`, `earth-moon`, `belt`)
+  run by name, and `all` runs every one; `--list` lists them. A scenario
+  can run a setup expression once the page is up (the satellites' switch,
+  the field's).
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
