@@ -21,7 +21,7 @@ import {
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
 import { radialFieldGrid, encodeBr, decodeBr } from './marsCrustal.js';
-import { pfssField, parseWso, carringtonRotation, SOURCE_SURFACE } from './sunField.js';
+import { pfssField, parseWso, carringtonRotation, SOURCE_SURFACE, sourceSurfaceGrid, neutralSegments, sheetTilt, spiralAngle, spiralLongitude, AU_KM, OMEGA_SUN, SUN_RADIUS_KM } from './sunField.js';
 import { t89, kpToIopt, gsmFrame, withT89 } from './t89.js';
 import { bodyAxesEqj } from './orientation.js';
 import * as Astronomy from 'astronomy-engine';
@@ -359,6 +359,41 @@ console.log("The Sun: Wilcox Solar Observatory's PFSS coefficients");
     n++; if (Math.sign(r[0]) === Math.sign(avg)) agree++;
   }
   check(n > 400 && agree / n > 0.95, `g10's sign follows WSO's polar field at ${agree} of ${n} dates (|avg| > 20 uT, 2000-2026)`);
+  // WSO's own table of rotations: every start date 1976-2025 falls within
+  // a few hours of the app's numbering.
+  const tilts = fixture('wso_tilts.json');
+  let worstH = 0;
+  for (const [cr, start] of tilts.rows) worstH = Math.max(worstH, Math.abs(carringtonRotation(Date.parse(start)) - cr) * 27.2753 * 24);
+  check(tilts.rows.length > 600 && worstH < 3, `${tilts.rows.length} Carrington rotation starts in WSO's table (CR 1642-2302) within ${worstH.toFixed(1)} h of the app's numbering`);
+  // The current sheet's reach against WSO's computed tilts (its radial
+  // model, source surface 3.25 R_sun, values under 70 deg), every fourth
+  // rotation: the neutral line of the same coefficients on a 1 x 2 deg grid.
+  const dev = [];
+  for (const [cr, , , rn, rs] of tilts.rows) {
+    const r = sun.rows[cr - sun.first];
+    if (!r || cr % 4 || Math.abs(rn) >= 70 || Math.abs(rs) >= 70) continue;
+    const G = sourceSurfaceGrid(pfssField(r, 9, 3.25), 3.25, { dLat: 1, dLon: 2 }); G.step();
+    const t = sheetTilt(neutralSegments(G));
+    dev.push(Math.abs(t.north - rn), Math.abs(t.south - rs));
+  }
+  dev.sort((a, b) => a - b);
+  const med = dev[dev.length >> 1], p80 = dev[Math.floor(0.8 * dev.length)];
+  check(dev.length > 120 && med < 2 && p80 < 4.5, `the current sheet's farthest north and south against WSO's tilts at ${dev.length / 2} rotations: median ${med.toFixed(2)} deg, 80 % within ${p80.toFixed(2)} deg`);
+  // The neutral line is where Br changes sign on the source surface.
+  const G0 = sourceSurfaceGrid(pfssField(sun.rows[2300 - sun.first]), SOURCE_SURFACE, { dLat: 1, dLon: 2 }); G0.step();
+  const segs = neutralSegments(G0), f0 = pfssField(sun.rows[2300 - sun.first]), b0 = [0, 0, 0];
+  let worstBr = 0, peak = 0;
+  for (const v of G0.br) peak = Math.max(peak, Math.abs(v));
+  for (const [a] of segs) {
+    const la = a[0] * DEG, lo = a[1] * DEG, x = Math.cos(la) * Math.cos(lo), y = Math.cos(la) * Math.sin(lo), z = Math.sin(la), r = SOURCE_SURFACE * (1 - 1e-9);
+    f0(r * x, r * y, r * z, b0); worstBr = Math.max(worstBr, Math.abs(b0[0] * x + b0[1] * y + b0[2] * z));
+  }
+  check(segs.length > 100 && worstBr < 0.03 * peak, `CR 2300's neutral line: ${segs.length} segments, |Br| on them under ${(100 * worstBr / peak).toFixed(1)} % of the surface's peak`);
+  // Parker's spiral: at 1 AU a 400 km/s wind's field lies about 45 deg
+  // from the radial (47.0 for the Carrington sidereal rate), and a line
+  // turns 360 deg back from its foot in a sidereal period's travel.
+  const psi = spiralAngle(AU_KM, 400) / DEG, turn = spiralLongitude(0, SOURCE_SURFACE + (400 * 25.38 * 86400) / SUN_RADIUS_KM, 400) / DEG;
+  check(Math.abs(psi - 47) < 0.2 && Math.abs(turn + 360) < 1e-9 && Math.abs(OMEGA_SUN * 86400 / DEG - 14.184) < 0.001, `Parker spiral at 1 AU: ${psi.toFixed(2)} deg from radial at 400 km/s; Carrington sidereal rate ${(OMEGA_SUN * 86400 / DEG).toFixed(3)} deg/day`);
 }
 
 // ---- Uranus and Neptune: Voyager's offset tilted dipoles ----

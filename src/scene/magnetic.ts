@@ -78,6 +78,31 @@ void main() {
 `;
 
 // Auroral emission: a colour per vertex, faded on the day side for Earth.
+// The Sun's current sheet and spiral lines: a colour per vertex, scaled
+// by the display level like the field lines.
+const tintVertex = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_vertex>
+attribute vec3 tint;
+varying vec3 vT;
+void main() {
+  vT = tint;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  #include <logdepthbuf_vertex>
+}
+`;
+const tintFragment = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
+uniform float level;
+uniform float opacity;
+varying vec3 vT;
+void main() {
+  #include <logdepthbuf_fragment>
+  gl_FragColor = vec4(vT * opacity * level, opacity);
+}
+`;
+
 const auroraVertex = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_vertex>
@@ -224,6 +249,8 @@ const EXTERNAL: Partial<Record<BodyKey, string>> = {
 const COS_RETRACE = Math.cos((7.5 * Math.PI) / 180);
 // Sun-fixed boundaries are redrawn after the body turns a quarter degree.
 const COS_BND = Math.cos((0.25 * Math.PI) / 180);
+
+const t2 = (deg: number) => `${deg.toFixed(0)}°`;
 
 const fmtGauss = (nT: number) => {
   const G = nT / 1e5;
@@ -419,6 +446,7 @@ export class MagneticLayer {
     this.lineMat.uniforms.level.value = f.level;
     this.axisMat.uniforms.level.value = f.level;
     for (const b of this.bnds.values()) (b.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+    this.sun?.hcs?.children.forEach((o) => { ((o as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.level.value = f.level; });
     // Auroras give their own light: the display level may dim them near the
     // Sun but never brightens them past their emission far from it.
     const glow = Math.min(f.level, 1);
@@ -435,7 +463,7 @@ export class MagneticLayer {
 
     // The legend: the focused body's, else none.
     if (f.focus === 'sun' && this.on.magnetic && this.sun?.mesh) {
-      const key = `sun ${this.sun.cr}`;
+      const key = `sun ${this.sun.cr} ${this.sun.tilt ? 'hcs' : ''}`;
       if (this.legendFor !== key) { this.legendFor = key; this.legend.hidden = false; this.drawSunLegend(); }
       this.hideTags();
       return;
@@ -586,7 +614,8 @@ export class MagneticLayer {
   // The Sun's field lines: WSO's coefficients (loaded once), the rotation
   // they are for, the seeds still to trace and the lines' mesh.
   private sun: { data: { first: number; rows: (number[] | null)[] } | null; asked: boolean; cr: number; jobs: (() => void)[]; pos: number[]; str: number[]; idx: number[];
-    bRef: number; mesh: THREE.LineSegments | null; group: THREE.Group; axesAt: number; m: THREE.Matrix3 } | null = null;
+    bRef: number; mesh: THREE.LineSegments | null; group: THREE.Group; axesAt: number; m: THREE.Matrix3;
+    hcs: THREE.Group | null; tilt: { north: number; south: number } | null } | null = null;
   private rcTable: ReturnType<RC['ringCurrentTable']> | null = null;
   // Jupiter's field (JRM33 + con2020) at a moon's place, in the moon's frame (nT).
   private jupiterFieldAt(moon: THREE.Mesh, meshes: Map<BodyKey, THREE.Mesh>, mats: Map<BodyKey, THREE.ShaderMaterial>, moonMat: THREE.ShaderMaterial): V3 | null {
@@ -1099,11 +1128,15 @@ export class MagneticLayer {
   // lines from the polar holes. Retraced when the rotation changes.
   private sunLines(f: { camera: THREE.PerspectiveCamera; meshes: Map<BodyKey, THREE.Mesh>; focus: BodyKey | null; height: number; date: Date }, spare: () => number): void {
     const mesh = f.meshes.get('sun');
-    if (!this.sun) { if (!this.on.magnetic || !mesh) return; const group = new THREE.Group(); group.matrixAutoUpdate = false; this.scene.add(group); this.sun = { data: null, asked: false, cr: NaN, jobs: [], pos: [], str: [], idx: [], bRef: 1, mesh: null, group, axesAt: NaN, m: new THREE.Matrix3() }; }
+    if (!this.sun) { if (!this.on.magnetic || !mesh) return; const group = new THREE.Group(); group.matrixAutoUpdate = false; this.scene.add(group); this.sun = { data: null, asked: false, cr: NaN, jobs: [], pos: [], str: [], idx: [], bRef: 1, mesh: null, group, axesAt: NaN, m: new THREE.Matrix3(), hcs: null, tilt: null }; }
     const S = this.sun, sf = this.sf!;
     const px = mesh ? ((BODY_BY_KEY.sun.radiusKm / UNIT_KM / mesh.position.length()) * f.height) / (2 * Math.tan((f.camera.fov * Math.PI) / 360)) : 0;
-    S.group.visible = this.on.magnetic && !!mesh && px > 1.5;
+    // The lines once the Sun is more than a dot; the current sheet and the
+    // spiral out to 6 AU whenever the Sun is focused.
+    S.group.visible = this.on.magnetic && !!mesh && (px > 1.5 || f.focus === 'sun');
     if (!S.group.visible || !mesh) return;
+    if (S.mesh) S.mesh.visible = px > 1.5;
+    if (S.hcs) S.hcs.visible = f.focus === 'sun';
     if (!S.asked) {
       S.asked = true;
       void fetch(`${this.baseUrl}data/sun-pfss.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((j) => { S.data = j; }).catch((e) => console.warn('sun-pfss.json:', e));
@@ -1117,6 +1150,7 @@ export class MagneticLayer {
     if (row && cr !== S.cr) {
       S.cr = cr;
       if (S.mesh) { S.group.remove(S.mesh); S.mesh.geometry.dispose(); S.mesh = null; }
+      if (S.hcs) { S.group.remove(S.hcs); S.hcs.traverse((o) => { const m = o as THREE.Mesh; if (m.geometry) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); } }); S.hcs = null; S.tilt = null; }
       const field = sf.pfssField(row), model = { field, rMax: 3.5, dipole: { m: [0, 0, 1], centre: [0, 0, 0] } } as unknown as Model;
       S.pos = []; S.str = []; S.idx = [];
       const N = 300, golden = Math.PI * (3 - Math.sqrt(5)), b: V3 = [0, 0, 0];
@@ -1143,6 +1177,11 @@ export class MagneticLayer {
         S.mesh.renderOrder = 3;
         S.group.add(S.mesh);
       });
+      // The current sheet: Br on the source surface a few rows a frame,
+      // then its neutral line swept out along the Parker spiral.
+      const grid = sf.sourceSurfaceGrid(field, sf.SOURCE_SURFACE, { dLat: 1, dLon: 2 });
+      const gridJob = (): void => { if (!grid.step(Math.max(0.5, spare()))) S.jobs.unshift(gridJob); };
+      S.jobs.push(gridJob, () => { const h = this.currentSheet(grid); S.hcs = h.group; S.tilt = h.tilt; S.group.add(h.group); this.legendFor = null; });
     }
     while (S.jobs.length && spare() > 0) S.jobs.shift()!();
     // The Sun's axes, refreshed every simulated minute.
@@ -1150,6 +1189,48 @@ export class MagneticLayer {
     const e = S.m.elements, sc = SUN_KM / UNIT_KM;
     S.group.matrix.set(e[0] * sc, e[3] * sc, e[6] * sc, mesh.position.x, e[1] * sc, e[4] * sc, e[7] * sc, mesh.position.y, e[2] * sc, e[5] * sc, e[8] * sc, mesh.position.z, 0, 0, 0, 1);
     S.group.matrixWorldNeedsUpdate = true;
+  }
+
+  // The sheet as its neutral line swept out along 400 km/s spirals and
+  // drawn where it crosses spheres every half AU out to 6 AU (a filled
+  // sheet, folded over itself many times, cost the integrated GPU 28 ms a
+  // frame), and 12 spiral field lines in the Sun's equator coloured by
+  // their polarity (amber outward, blue inward).
+  private currentSheet(grid: ReturnType<SunMod['sourceSurfaceGrid']>): { group: THREE.Group; tilt: { north: number; south: number } } {
+    const sf = this.sf!, D = Math.PI / 180, Rs = sf.SOURCE_SURFACE, rOut = (6 * sf.AU_KM) / sf.SUN_RADIUS_KM;
+    const segs = sf.neutralSegments(grid), tilt = sf.sheetTilt(segs);
+    const rs: number[] = [Rs * 2]; for (let au = 0.5; au <= 6 + 1e-9; au += 0.5) rs.push((au * sf.AU_KM) / sf.SUN_RADIUS_KM);
+    const P = (lat: number, lon: number, r: number): V3 => { const ph = sf.spiralLongitude(lon * D, r), c = Math.cos(lat * D); return [r * c * Math.cos(ph), r * c * Math.sin(ph), r * Math.sin(lat * D)]; };
+    const pos: number[] = [], idx: number[] = [];
+    for (const [a, b] of segs) for (const r of rs) { const k = pos.length / 3; pos.push(...P(a[0], a[1], r), ...P(b[0], b[1], r)); idx.push(k, k + 1); }
+    const group = new THREE.Group();
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('tint', new THREE.Float32BufferAttribute(new Array(pos.length).fill(0).map((_, i) => [0.925, 0.851, 0.69][i % 3]), 3));
+    geo.setIndex(idx);
+    const tint = (opacity: number, side: THREE.Side) => new THREE.ShaderMaterial({ vertexShader: tintVertex, fragmentShader: tintFragment, transparent: true, depthWrite: false, toneMapped: false, side, blending: THREE.AdditiveBlending, uniforms: { level: { value: 1 }, opacity: { value: opacity } } });
+    const sheet = new THREE.LineSegments(geo, tint(0.35, THREE.FrontSide));
+    sheet.frustumCulled = false; sheet.renderOrder = 2;
+    group.add(sheet);
+    // Spirals: the sign of Br at the source surface in the Sun's equator.
+    const row = grid.lats.indexOf(0), W = grid.lons.length, lp: number[] = [], lc: number[] = [];
+    for (let lon = 0; lon < 360; lon += 30) {
+      const j = Math.round(lon / (grid.lons[1] - grid.lons[0])), out = grid.br[row * W + j] > 0;
+      const c = out ? [1.0, 0.698, 0.18] : [0.184, 0.561, 0.69];
+      let prev: V3 | null = null;
+      for (let i = 0; i <= 400; i++) {
+        const r = Rs * (rOut / Rs) ** (i / 400), q = P(0, lon, r);
+        if (prev) { lp.push(...prev, ...q); lc.push(...c, ...c); }
+        prev = q;
+      }
+    }
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3));
+    lg.setAttribute('tint', new THREE.Float32BufferAttribute(lc, 3));
+    const spirals = new THREE.LineSegments(lg, tint(0.5, THREE.FrontSide));
+    spirals.frustumCulled = false; spirals.renderOrder = 3;
+    group.add(spirals);
+    return { group, tilt };
   }
 
   private drawSunLegend(): void {
@@ -1162,7 +1243,8 @@ export class MagneticLayer {
     lo.textContent = fmtGauss(S.bRef / 10 ** DECADES); hi.textContent = fmtGauss(S.bRef);
     ticks.append(lo, hi);
     const unit = document.createElement('p'); unit.className = 'field-unit';
-    unit.textContent = `Carrington rotation ${S.cr}: closed loops and the open field of the polar holes, radial past the source surface at 2.5 solar radii`;
+    const t = S.tilt ? `; the current sheet reaches ${t2(S.tilt.north)} N and ${t2(-S.tilt.south)} S, swept out along a 400 km/s Parker spiral (amber outward, blue inward)` : '';
+    unit.textContent = `Carrington rotation ${S.cr}: closed loops and the open field of the polar holes, radial past the source surface at 2.5 solar radii${t}`;
     const src = document.createElement('p'); src.className = 'field-source';
     src.textContent = "Wilcox Solar Observatory's PFSS model from its magnetograms, degree 9. Large scale only: no active-region detail.";
     this.legend.append(h, bar, ticks, unit, src);

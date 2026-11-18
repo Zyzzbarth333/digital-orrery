@@ -107,3 +107,84 @@ export function pfssField(gh, N = 9, Rs = SOURCE_SURFACE) {
 // 8 Sep 1997 (WSO's request form gives that as its example).
 const CR1927 = Date.UTC(1997, 8, 8);
 export const carringtonRotation = (ms) => 1927 + (ms - CR1927) / (27.2753 * 864e5);
+
+// ---- the heliospheric current sheet and the Parker spiral ----
+//
+// Past the source surface the field is radial, outward on one side of the
+// line where Br = 0 there and inward on the other. Carried out by the
+// solar wind, that neutral line becomes the heliospheric current sheet.
+// The wind leaves radially at v while the Sun turns under it, so a field
+// line from Carrington longitude phi0 lies, in the Sun's turning frame, at
+//   phi(r) = phi0 - Omega (r - Rs) / v
+// (Parker 1958), Omega the Sun's sidereal rotation in the Carrington
+// system, 360 deg in 25.38 days. The sheet is the neutral line swept along
+// those spirals.
+
+export const CARRINGTON_SIDEREAL_DAYS = 25.38;
+export const OMEGA_SUN = (2 * Math.PI) / (CARRINGTON_SIDEREAL_DAYS * 86400);   // rad/s
+export const AU_KM = 149597870.7;
+
+// Br on the source surface (just inside it) on a grid: rows of latitude
+// lat0..lat1 step dLat, columns of longitude 0..360 step dLon (deg), filled
+// a few rows a call.
+export function sourceSurfaceGrid(field, Rs = SOURCE_SURFACE, { dLat = 1, dLon = 2, latMax = 89 } = {}) {
+  const lats = [], lons = [];
+  for (let l = -latMax; l <= latMax + 1e-9; l += dLat) lats.push(l);
+  for (let l = 0; l <= 360 + 1e-9; l += dLon) lons.push(l);
+  const br = new Float64Array(lats.length * lons.length), b = [0, 0, 0], r = Rs * (1 - 1e-9), D = Math.PI / 180;
+  let row = 0;
+  const G = {
+    lats, lons, br, done: false,
+    step(ms = Infinity) {
+      const t0 = performance.now();
+      while (row < lats.length && performance.now() - t0 < ms) {
+        const cl = Math.cos(lats[row] * D), sl = Math.sin(lats[row] * D);
+        for (let j = 0; j < lons.length; j++) {
+          const x = cl * Math.cos(lons[j] * D), y = cl * Math.sin(lons[j] * D);
+          field(r * x, r * y, r * sl, b);
+          br[row * lons.length + j] = b[0] * x + b[1] * y + b[2] * sl;
+        }
+        row++;
+      }
+      G.done = row >= lats.length;
+      return G.done;
+    },
+  };
+  return G;
+}
+
+// The neutral line's segments by marching squares: [[lat, lon], [lat, lon]]
+// pairs (deg), each crossing placed by linear interpolation.
+export function neutralSegments(G) {
+  const { lats, lons, br } = G, W = lons.length, out = [];
+  const at = (i, j) => br[i * W + j];
+  const cross = (a, b, pa, pb) => { const t = a / (a - b); return [pa[0] + t * (pb[0] - pa[0]), pa[1] + t * (pb[1] - pa[1])]; };
+  for (let i = 0; i + 1 < lats.length; i++) for (let j = 0; j + 1 < W; j++) {
+    const c = [[i, j], [i, j + 1], [i + 1, j + 1], [i + 1, j]], v = c.map(([a, b]) => at(a, b)), p = c.map(([a, b]) => [lats[a], lons[b]]);
+    const pts = [];
+    for (let k = 0; k < 4; k++) { const k2 = (k + 1) % 4; if ((v[k] > 0) !== (v[k2] > 0)) pts.push(cross(v[k], v[k2], p[k], p[k2])); }
+    if (pts.length === 2) out.push(pts);
+    else if (pts.length === 4) {
+      // A saddle: pair by the centre's sign.
+      const mid = (v[0] + v[1] + v[2] + v[3]) / 4;
+      if ((mid > 0) === (v[0] > 0)) out.push([pts[0], pts[3]], [pts[1], pts[2]]);
+      else out.push([pts[0], pts[1]], [pts[2], pts[3]]);
+    }
+  }
+  return out;
+}
+
+// The sheet's reach in latitude, as WSO tabulates it: its farthest north
+// and south (deg).
+export function sheetTilt(segments) {
+  let n = -90, s = 90;
+  for (const seg of segments) for (const [lat] of seg) { n = Math.max(n, lat); s = Math.min(s, lat); }
+  return { north: n, south: s };
+}
+
+// A spiral field line's Carrington longitude (rad) at r (solar radii) for
+// a wind of v km/s, leaving the source surface at phi0.
+export const spiralLongitude = (phi0, r, v = 400, Rs = SOURCE_SURFACE) => phi0 - (OMEGA_SUN * (r - Rs) * SUN_RADIUS_KM) / v;
+// The angle between the field and the radial direction in the Sun's
+// equator at r: tan psi = Omega r / v.
+export const spiralAngle = (rKm, v = 400) => Math.atan((OMEGA_SUN * rKm) / v);
