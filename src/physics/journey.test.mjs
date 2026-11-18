@@ -1021,6 +1021,13 @@ header('CASE 17: the planets\' major moons, flown with their gravity: Europa, Ti
   const aimsOut = rt.f.log.slice(rt.f.log.findIndex((l) => l.startsWith('depart europa'))).filter((l) => l.startsWith('aim at')).map((l) => Number(/: ([\d.]+) m\/s/.exec(l)[1]));
   console.log(`  leaving Europa ${new Date(L1.depMs).toISOString().slice(0, 16)}: ${rt.f.log.find((l) => l.startsWith('depart europa'))}; the plan's ${(L1.depDv * 1000).toFixed(0)} for ${L1.moonDep.speed.toFixed(3)} km/s about Europa: ${(100 * (dep / L1.depDv - 1)).toFixed(1)} % (tolerance 3 %); the aims after it ${aimsOut.map((x) => x.toFixed(1)).join(', ')} m/s; Earth ${home.missKm.toFixed(1)} km off (tolerance 20 km)`);
   check('leaving Europa for Earth via Jupiter: the burn flown within 3 % of the plan\'s price (by Europa\'s real place), the first aim after it under 10 m/s, Earth within 20 km of plan, no trouble', Math.abs(dep / L1.depDv - 1) < 0.03 && aimsOut[0] < 10 && home.missKm < 20 && rt.trouble.length === 0);
+  // The parking orbit's plane: set by the last aim down Jupiter's well, two
+  // days out, to hold the way out as the six-day stay turns it (ten degrees:
+  // left to the trims inside Europa's sphere, it stayed ten degrees off, and
+  // the departure cost 0.9 % over its price).
+  const planeOff = Number(/trim at europa: .*?the plane (-?[\d.]+) to (-?[\d.]+) deg off/.exec(rt.f.log.join('\n'))?.[2] ?? NaN);
+  console.log(`  Europa's parking orbit: its plane ${planeOff.toFixed(2)} deg off the way out at the trims (tolerance 0.5 deg); the departure ${(100 * (dep / L1.depDv - 1)).toFixed(1)} % over its price (tolerance 1 %)`);
+  check('the parking orbit at Europa holds the way out (as the stay turns it) to 0.5 deg, so leaving costs within 1 % of the price', Math.abs(planeOff) < 0.5 && Math.abs(dep / L1.depDv - 1) < 0.01);
 
   // Down on Europa, from the low orbit.
   const ld = fly([{ id: 1, body: 'europa', kind: 'land', altKm: 300, stayDays: 3, dateMs: D('2030-01-01T00:00:00Z') }]);
