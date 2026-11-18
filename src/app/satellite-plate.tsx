@@ -69,7 +69,7 @@ export function SatellitePlate({ clock, sat, source, track = null }: { clock: Si
     { label: 'Node', value: o.nodeDeg.toFixed(4), unit: '°', alt: 'right ascension of the ascending node', src: 'CelesTrak', info: 'sat-elements' },
     { label: 'Perigee argument', value: o.periDeg.toFixed(4), unit: '°', src: 'CelesTrak', info: 'sat-elements' },
     { label: 'Mean anomaly', value: o.MDeg.toFixed(4), unit: '°', alt: 'at epoch', src: 'CelesTrak', info: 'sat-elements' },
-    { label: 'Drag term', value: o.bstar.toExponential(4), unit: '/R⊕', alt: 'B*', src: 'CelesTrak', info: 'sat-elements' },
+    { label: 'Drag term', value: o.bstar === 0 ? '0' : o.bstar.toExponential(4), unit: '/R⊕', alt: 'B*', src: 'CelesTrak', info: 'sat-elements' },
   );
   if (source) rows.push({ label: 'Element sets', value: source.live ? 'live' : 'snapshot', alt: `fetched ${source.fetched.slice(0, 16).replace('T', ' ')} UTC`, src: 'CelesTrak', info: 'sat-elements', detail: source.label });
   return (

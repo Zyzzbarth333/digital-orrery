@@ -79,6 +79,10 @@ export function best<T>(items: readonly T[], query: string, names: (t: T) => (st
   return scored.sort((a, b) => a[0] - b[0] || a[1] - b[1]).slice(0, limit).map((s) => s[2]);
 }
 
+// A provisional designation held on one line ("C/1955 N1", "2014 FE72",
+// "S/2023 S 38"), so a long name wraps before it, not inside it.
+export const keepDesignation = (s: string) => s.replace(/\b((?:[CPDXIS]\/)?\d{4}) ([A-Z]{1,2}\d*)(?: (\d+))?\b/g, (_, y, l, n) => `${y} ${l}${n ? ` ${n}` : ''}`);
+
 const ORDER = Object.fromEntries(FIND_GROUPS.map((g, k) => [g.key, k])) as Record<FindGroup, number>;
 const inOrder = (hits: FindHit[]) => hits.map((h, k) => [h, k] as const).sort((a, b) => ORDER[a[0].group] - ORDER[b[0].group] || a[1] - b[1]).map((x) => x[0]);
 
@@ -238,7 +242,7 @@ export function FindField({ api, inputId = 'find' }: { api: FindApi; inputId?: s
                   return (
                     <li key={h.id} id={`${id}-o${k}`} role="option" aria-selected={k === active}
                       onMouseDown={(e) => { e.preventDefault(); choose(h); }} onMouseEnter={() => { steered.current = true; setActiveId(h.id); }}>
-                      <span className="sb-hit-name">{h.label}</span>
+                      <span className="sb-hit-name">{keepDesignation(h.label)}</span>
                       <span className="sb-hit-kind">{h.kind}</span>
                     </li>
                   );
