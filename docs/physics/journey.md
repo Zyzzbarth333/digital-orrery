@@ -67,10 +67,11 @@ The burns:
   entry and parachutes are not costed). On an airless body, the capture
   plus the orbit's circular speed, an ideal descent with no losses. Lifting
   off again costs the same, again with no losses.
-- **A moon of another planet:** its GM and radius are Horizons'. In the
-  kernel only Earth's Moon pulls, so at the others the flight aims at the
-  moon itself and its capture is flown as a rendezvous. Titan's atmosphere
-  takes a landing, as the planets' do.
+- **A moon of another planet:** its GM and radius are Horizons'. Titan's
+  atmosphere takes a landing, as the planets' do. The flight still treats
+  these moons as having no gravity (an aim at the moon and a rendezvous),
+  though the kernel has pulled with them since #39. So a flight to one
+  comes in too low and hits it (below, Limits).
 - **A small body:** its gravity is a guess, a sphere of its diameter at
   2,000 kg/m³. That is tiny either way, so a capture is a rendezvous, about
   $v_\infty$.
@@ -139,6 +140,15 @@ Arriving at a moon from another planet is priced the same way, with time
 reversed: the state $(\mathbf r, -\mathbf v)$ leaves along
 $-\mathbf v_{\infty,P}$. The ideal options (Hohmann and the others) keep the
 best phase, as they keep circular coplanar orbits.
+
+The flight aims such an arrival at the moon itself: at its B-plane point,
+from the excess velocity about the moon where it is on the day (`moonArr`).
+The planet's own pull on the way in is in every trial run. (It used to aim
+at the planet's centre plus the moon's periapsis offset, and the craft hit
+the Earth.) Mars orbit to lunar orbit, leaving 11 Aug 2028:
+- the Moon 1.3 km off the planned periapsis, for 65 m/s of aims;
+- the capture 2,061 m/s, against the plan's 2,123;
+- landing instead: down at 2.3 m/s.
 
 ### Resonant returns
 
@@ -395,7 +405,10 @@ Each step, in time order:
    - **On an airless body**, from the low orbit the capture left:
      - **The descent orbit:** retrograde, onto the ellipse down to 15 km,
        the first burn of a Hohmann transfer (17 m/s from 100 km over the
-       Moon).
+       Moon). It is worked out from the orbit the craft is really in: a
+       long capture (2 km/s, arriving from Mars) leaves it eccentric. So
+       the burn is the one that puts the two-body periapsis 15 km up, by
+       bisection.
      - **The braking burn:** from that periapsis, steered against the
        velocity. Its thrust is found by bisection so that the speed is gone
        1.5 km up, on a two-body run from the craft's own state two minutes
@@ -462,7 +475,7 @@ plan's 2,227. On the suggested day, 26 Oct, it pays 1,666 against 1,657.
 
 **The descent and the ascent flown cost more than the plan's ideal**
 (the low orbit's circular speed), by the gravity losses a real descent
-pays: over the Moon from 100 km, 1,852 m/s down and 1,759 up, against
+pays: over the Moon from 100 km, 1,859 m/s down and 1,759 up, against
 1,634 (in the full model).
 
 What the flight costs beyond the plan is its corrections. Most of them
@@ -724,10 +737,11 @@ orbits, waits 454 days.
 | The descent orbit burn, 100 to 15 km over the Moon | a Hohmann transfer's first burn (Curtis 6.2) | equal to 10⁻¹² |
 | An entry periapsis at 3 km/s over Mars | geometry (h = R v_R cos γ) | the hyperbola meets the ground at 12° to 10⁻⁹ |
 | Braking from 15 km over the Moon; the ascent to 100 km (two-body) | stops where asked; more than the speed taken off or given | 1.5 km up, 1,762 m/s for 1,692; 1,763 m/s for 1,634 |
-| Earth orbit, down to the Moon for 3 days, up, home through the air, flown in the full model (GRAIL to degree 50) | the plan | no fallback; down at 2.2 m/s, 1,852 m/s for the descent; up for 1,759; home 1.7 km from the aimed point, the entry perigee 118 km for 120 |
+| Earth orbit, down to the Moon for 3 days, up, home through the air, flown in the full model (GRAIL to degree 50) | the plan | no fallback; down at 2.2 m/s, 1,859 m/s for the descent; up for 1,759; home 1.7 km from the aimed point, the entry perigee 118 km for 120 |
 | The same, flown live by the app's Craft in the full model | the headless flight | down on the Moon 60 m from the headless site, held, up, down at Earth, never crashed |
 | The same journey's bare-model burns, flown live in the full model | why the craft no longer flies bare | hits the Moon at 47 m/s |
 | A Craft meeting the Moon at 1 km/s near a planned touchdown; one still in orbit at it | the 10 m/s limit | a crash, not a landing; the landing missed, flying on |
+| Mars orbit to lunar orbit, and to a landing, flown (porkchop optimum, 11 Aug 2028 to 23 Jul 2029) | the plan, the Moon reached via the Earth | aimed at the Moon: 1.3 km off the planned periapsis; capture 2,061 m/s against 2,123 (within 5 %); landed at 2.3 m/s |
 | Earth orbit, a week in lunar orbit, then Mars, flown in the full model | the plan, priced by where the Moon is | leaves the Moon for 2,257 m/s against the plan's 2,227 (1.4 %, within 3 %; the best-phase price was 1,652); Mars 1.4 km off; corrections 165 m/s |
 | The hyperbolas from a point onto a given excess velocity, 500 random states | the asymptote from the eccentricity vector [1, Sec. 2.5] | both leave along it to 1.2 × 10⁻¹³ |
 | The same journey's strip leaving the Moon | the Moon's month | a point a day; 3.71 to 5.42 km/s; its lows on days 2 and 28 |
@@ -749,6 +763,12 @@ orbits, waits 454 days.
   sets a craft entering an atmosphere down beneath its perigee without
   flying the entry. Terrain is a sphere (the Earth's, the WGS-84
   ellipsoid).
+- **Another planet's moon** (Europa, Titan and the rest): not yet flown
+  right. The flight takes them as having no gravity, and the kernel gives
+  them theirs. Earth orbit to Europa orbit comes in 200 km low, hits
+  Europa, and its departure would burn the planet's excess velocity. A
+  moon flyby reached via its planet is aimed at the planet, as arrivals
+  were.
 - **A moon left for a planet:** three levels of patched conics at the
   moon's place. The moon's own pull on the way out of the planet's sphere
   is the flight's (its aims take it up), and a way out that passes close
