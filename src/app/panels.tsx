@@ -224,7 +224,7 @@ function IrregularMoonsRail({ on, onToggle, current, onFly }: IrregularRail) {
           <option value="">an irregular moon…</option>
           {IRREGULAR_PLANETS.map((p) => (
             <optgroup key={p} label={PLANET_NAME[p]}>
-              {IRREGULAR_MOONS.filter((m) => m.planet === p).sort((a, b) => a.a - b.a).map((m) => <option key={m.key} value={m.key}>{m.name}{m.retrograde ? ' (r)' : ''}</option>)}
+              {IRREGULAR_MOONS.filter((m) => m.planet === p).sort((a, b) => a.a - b.a).map((m) => <option key={m.key} value={m.key}>{m.name}{m.retrograde ? ' · retrograde' : ''}</option>)}
             </optgroup>
           ))}
         </select>

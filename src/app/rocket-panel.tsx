@@ -228,6 +228,12 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
               {presets.map((p, i) => <option key={p.label} value={i}>{custom && i === preset ? `Custom, from ${p.label}` : p.label}</option>)}
             </select>
           </label>
+          {journeyPreset && !P0.fromJourney && (
+            <p className="hint wide preset-src">
+              The journey in the plotting table flies its own stack, sized in STACK: {stack.chosen?.n} stages, {((stack.chosen?.liftoff ?? 0) / 1000).toLocaleString('en-AU', { maximumFractionDigits: 1 })} t at liftoff. This tab shows {P0.label} instead.
+              <button className="key small" onClick={() => usePreset(presets.length - 1)}>Fly the journey's stack</button>
+            </p>
+          )}
           {P0.fromJourney && (
             <p className="hint wide preset-src">
               {published

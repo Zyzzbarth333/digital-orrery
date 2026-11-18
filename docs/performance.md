@@ -488,6 +488,29 @@ The first timing had the layer at 4–6 ms on the Intel GPU at real time and
 At high rates the worker's results also went to the GPU every frame (0.7 MB
 each). They are now sent at most ten times a second.
 
+**The debris, rocket bodies and analyst objects** (#147) add 5,446 points
+in three more draw calls, and 0.2 MB a refresh. Measured on 18 November
+2026 with `npm run bench:frames` (scenarios `sats`, `sats-hour`, `sats-all`
+and `sats-all-hour`): the Earth from 20,000 km on 10 November 2026, main
+before #147 (40e236b) against its branch (82937fc), production builds,
+1920 × 1080 at DPR 1, three rounds. On the Intel GPU each sample had a
+browser of its own, one page load; on the RTX, one browser a run. Median
+frame, ms (the Intel range over the rounds in brackets):
+
+| Scene | Intel | RTX |
+| --- | ---: | ---: |
+| the active satellites, main | 20.1 (19.4–23.6) | 3.9 |
+| the active satellites, the branch | 20.7 (19.2–24.6) | 3.2 |
+| every set on | 20.6 (20.3–21.7) | 3.5 |
+| the active satellites at an hour a second, main | 21.7 (20.9–25.7) | 7.2 |
+| the same, the branch | 22.8 (19.7–23.1) | 7.7 |
+| every set on at an hour a second | 21.2 (21.0–21.4) | 6.5 |
+
+Every set on costs no more than the active satellites alone, within the
+noise of the rounds (the spread between rounds is several times the
+difference), so nothing scaled that needed fixing. The RTX held 60 frames a
+second throughout; its frame cost there is mostly the CPU's.
+
 The focused satellite's close-up orbit ([satellites.md](frontend/satellites.md#drawing):
 65 SGP4 calls a frame within a tenth of its distance from the Earth)
 costs nothing measurable. `npm run bench:frames -- sats sat-near earth`
