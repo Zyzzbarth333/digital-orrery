@@ -91,6 +91,10 @@ once it has releases. Until then, everything sits under Unreleased.
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- A craft's orbit line and flown trail run up to and through it from any
+  distance. Followed from under a kilometre they used to stop a kilometre
+  short, and from 10 km the orbit line passed about 500 m beside the craft
+  (this pull request).
 - Artemis II at a day a second reads true: switched there straight from
   real time before the injection, its distance from the flown path no
   longer jumps to tens of thousands of km while the kernel catches up, and

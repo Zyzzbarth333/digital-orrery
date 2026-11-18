@@ -90,7 +90,7 @@ export class Mission {
   private lastNotify = 0;
   private lastJumps = 0;
   private count = 0;
-  private paths = new Map<number, { trail: Trail; conic: V3[]; at: number; version: number }>();
+  private paths = new Map<number, { trail: Trail; conic: V3[]; at: number; version: number; rMax: number }>();
   private plans = new Map<number, { target: string; name: string; arrivalMs: number; closest: number }>();
   private real = new Map<number, RealRun>();
   ascents: Ascent[] = [];
@@ -416,13 +416,14 @@ export class Mission {
       const vP: number[] = P ? P.eph.velocity(c.clockT) : [0, 0, 0];
       const rel = [s.r[0] - rP[0], s.r[1] - rP[1], s.r[2] - rP[2]];
       let path = this.paths.get(c.id);
-      if (!path) { path = { trail: new Trail(), conic: [], at: 0, version: 0 }; this.paths.set(c.id, path); }
+      if (!path) { path = { trail: new Trail(), conic: [], at: 0, version: 0, rMax: 0 }; this.paths.set(c.id, path); }
       const before = path.trail.points.length + (path.trail.key === key ? 0 : -1);
       if (!c.crashed) path.trail.push(key, eqjToEclFast(rel));
       let changed = path.trail.points.length !== before;
       if (now - path.at > 200) {
         const mu = P ? P.mu : this.sys.muSun;
         const rMax = P ? Math.hypot(rP[0], rP[1], rP[2]) * Math.pow(mu / this.sys.muSun, 0.4) : 50 * 1.496e8;
+        path.rMax = rMax;
         const relV = [s.v[0] - vP[0], s.v[1] - vP[1], s.v[2] - vP[2]];
         path.conic = c.crashed ? [] : conicPoints(rel, relV, mu, rMax).map(eqjToEclFast);
         path.at = now;
@@ -443,6 +444,7 @@ export class Mission {
       return {
         id: c.id, name: c.name, rEcl: eqjToEclFast(s.r), primaryEcl: eqjToEclFast(rP),
         conicEcl: path.conic, trailEcl: path.trail.points, pathVersion: path.version,
+        orbit: c.crashed ? undefined : { r: eqjToEclFast(rel), v: eqjToEclFast([s.v[0] - vP[0], s.v[1] - vP[1], s.v[2] - vP[2]]), mu: P ? P.mu : this.sys.muSun, rMax: path.rMax },
         thrusting: c.thrusting(), crashed: c.crashed, selected: c.id === this.snap.selected,
         flown: R && E ? { pointsEcl: R.refEcl, originEcl: eqjToEclFast(E.eph.position(c.clockT)) } : undefined,
         attitude,
