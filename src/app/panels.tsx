@@ -8,7 +8,7 @@
 // times a second, and the header and rail redraw only when what they show
 // changes.
 
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { useClock, useClockValue, type SimClock } from './clock';
 import type { Mission } from './mission';
@@ -315,14 +315,44 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
   );
   const baryOf = (k: BodyKey) => BARYS.find((b) => b.of === k)?.key;
   const list = useRef<HTMLUListElement>(null);
+  const rail = useRef<HTMLElement>(null);
+  // Choosing a planet below an open moon grid closed that grid, and the row
+  // just chosen jumped up from under the pointer (by up to 360 px, leaving a
+  // moon or a switch there for the next click). So while the mouse is over
+  // the rail, a grid that was open stays open until the mouse leaves; and a
+  // row chosen by touch or a key is kept where it was by scrolling the list
+  // by as much as it moved (docs/frontend/camera.md#the-rail-holds-still).
+  const hovered = useRef(false);
+  const [kept, setKept] = useState<{ open: string | null; linger: string[] }>({ open, linger: [] });
+  if (kept.open !== open) {
+    setKept({ open, linger: hovered.current && kept.open ? [...kept.linger, kept.open].filter((k) => k !== open) : [] });
+  }
+  const shown = (k: string) => k === open || kept.linger.includes(k);
+  const chosen = useRef<{ el: Element; x: number; y: number } | null>(null);
+  const noteChoice = (e: ReactMouseEvent) => {
+    const el = (e.target as Element).closest('.body-row');
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    chosen.current = { el, x: r.x, y: r.y };
+  };
+  useLayoutEffect(() => {
+    const c = chosen.current;
+    chosen.current = null;
+    if (!c || !c.el.isConnected) return;
+    const r = c.el.getBoundingClientRect();
+    if (rail.current) rail.current.scrollTop += r.y - c.y;
+    if (list.current) list.current.scrollLeft += r.x - c.x;      // a phone's row of bodies
+  }, [focus, kept]);
   // After layout, so a grid that has just opened is measured.
   useEffect(() => {
-    const id = requestAnimationFrame(() => list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' }));
+    const id = requestAnimationFrame(() => list.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
     return () => cancelAnimationFrame(id);
   }, [focus]);
   const lamp = (c: number) => <span className="lamp-sq" style={{ background: `#${c.toString(16).padStart(6, '0')}` }} />;
   return (
-    <nav className="rail screw" aria-labelledby="bodies-label">
+    <nav className="rail screw" aria-labelledby="bodies-label" ref={rail}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') hovered.current = true; }}
+      onPointerLeave={(e) => { if (e.pointerType !== 'mouse') return; hovered.current = false; if (kept.linger.length) setKept((k) => ({ ...k, linger: [] })); }}>
       <span className="pnl" aria-hidden="true">L1</span>
       <p className="rail-mark" aria-hidden="true">digital-orrery</p>
       {/* One search over every body, layer and craft (find.tsx): / focuses it. */}
@@ -334,13 +364,13 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
             AU · {frame === 'sun' ? 'Sun' : 'SSB'}</button>
           : <span title="distance from the Sun">AU</span>}
       </h2>
-      <ul className="body-list" ref={list}>
+      <ul className="body-list" ref={list} onClickCapture={noteChoice}>
         {BODIES.map((b, i) => {
           if (isPlanetMoon(b.key)) return null;
           const child = b.parent !== null && b.parent !== 'sun';
           const r = (b.key === 'sun' && frame === 'sun') || child ? null : Number(dists[i]);
           const moons = MOON_COUNT[b.key];
-          const shut = moons !== undefined && open !== b.key;
+          const shut = moons !== undefined && !shown(b.key);
           return [
             <li key={b.key}>
               <button className={`body-row${child ? ' child' : ''}`} aria-current={b.key === focus}
@@ -353,8 +383,8 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
               </button>
             </li>,
             // The Sun's and Earth's barycentres (after the Moon) as rows.
-            b.key === 'sun' && open === 'sun' && baryRow('ssb', false),
-            b.key === 'moon' && open === 'earth' && baryRow('emb', false),
+            b.key === 'sun' && shown('sun') && baryRow('ssb', false),
+            b.key === 'moon' && shown('earth') && baryRow('emb', false),
             moons !== undefined && !shut && (
               <li key={`${b.key}-moons`}>
                 <ul className="moon-grid" aria-label={`Moons and barycentre of ${b.name}`}>
