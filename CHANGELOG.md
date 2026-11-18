@@ -90,14 +90,14 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth's (IGRF-14), Jupiter's (JRM33 with its current sheet),
   Saturn's (Cassini) and Uranus's and Neptune's (Voyager) measured fields,
   shaded by strength, with each dipole's tilt and offset. The Earth's
-  auroral ovals, green below red on the night side: NOAA's live OVATION
-  Prime map when the clock is near now, Starkov's oval for the day's Kp
-  otherwise;
-  Jupiter's and Saturn's main ovals and Io's footprint, Uranus's and
-  Neptune's auroral zones, and Mercury's field from MESSENGER. A third
-  guide draws the radiation belts of the Earth, Jupiter and Saturn along
-  their L-shells, the Earth's inner belt dipping over the South Atlantic
-  (this pull request).
+  auroral ovals for the day's Kp, green below red on the night side;
+  Jupiter's and Saturn's main ovals and Io's footprint (#84).
+- The Earth's aurora comes from NOAA's live OVATION Prime map when the
+  clock is near now, Starkov's oval otherwise. Uranus's and Neptune's
+  auroral zones and Mercury's field join the guides, and a third guide
+  draws the radiation belts of the Earth, Jupiter and Saturn along their
+  L-shells, the Earth's inner belt dipping over the South Atlantic (this
+  pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
