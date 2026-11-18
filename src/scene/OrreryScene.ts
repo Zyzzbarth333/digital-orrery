@@ -51,8 +51,8 @@ import { SatelliteLayer } from './satellites';
 import { GroundTrack } from './groundTrack';
 import { SpacecraftLayer } from './spacecraftLayer';
 import { GuideLayer } from './guides';
-import { LandingSiteLayer, axesToEcl, siteFrame } from './landingSites';
-import { SITE_BY_KEY } from '../physics/landingSites.js';
+import { LandingSiteLayer, axesToEcl, siteFrame, type SitePlace } from './landingSites';
+import { SITE_BY_KEY, siteBody, onSmallBody } from '../physics/landingSites.js';
 import { MagneticLayer } from './magnetic';
 import { orbitTrailMaterial, reachOf } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, renderViewTable, type AtmosphereParams } from './atmosphere';
@@ -67,6 +67,8 @@ const UNIT_KM = 1000;                 // one render unit = 1000 km
 // (rad), with the Sun to one side (focusOnSite); the camera keeps at
 // least SITE_EL_MIN above it while turned about it.
 const SITE_DIST_KM = 140, SITE_EL = 0.35, SITE_EL_MIN = 0.02;
+// A click this near an orbit line on screen (px) picks it.
+const ORBIT_PICK_PX = 6;
 // The near plane (render units): a tenth of the camera's distance from its
 // pivot, from 1 m to 1 km (fitNear).
 const NEAR_SHARE = 0.1, NEAR_MIN = 1e-6, NEAR_MAX = 1e-3;
@@ -278,6 +280,11 @@ export class OrreryScene {
   private sunViewPhase = 0.35;
 
   onFocusChange: (key: FocusKey) => void = () => {};
+  // A guide's tag clicked (a pole, a sphere, a Lagrange point, a pull, a
+  // field's tag: guides.ts, magnetic.ts), with the body in view; an orbit
+  // line clicked, by its body (guide-plate.tsx gives each a plate).
+  onGuidePick: (pick: { cls: string; text: string; title: string; focus: FocusKey }) => void = () => {};
+  onOrbitPick: (key: BodyKey) => void = () => {};
   // Spacecraft: the mission steps on each frame (after the clock), the scene
   // draws what craftSource returns, and the camera can follow one craft.
   onFrame: (timeMs: number, jumps: number) => void = () => {};
@@ -352,14 +359,16 @@ export class OrreryScene {
 
   private smallAnchor(pdes: string): Anchor {
     if (pdes.startsWith('site:')) {
-      const key = pdes.slice(5);
-      return { id: `small:${pdes}`, pos: () => this.sites.positionKm(key, this.states.moon.r, this.moonAxes()), minDist: 0.06 };
+      const key = pdes.slice(5), sb = this.siteSmallBody(key);
+      // A small body's site is its body: flown to and framed as the body is.
+      if (sb) return { id: `small:${pdes}`, pos: () => this.smallBodies.positionKm(sb, this.clock.snapshot.timeMs), minDist: this.smallBodies.radiusKm(sb) * 1.2 };
+      return { id: `small:${pdes}`, pos: () => this.sites.positionKm(key, this.sitePlace), minDist: 0.06 };
     }
     const irr = pdes.startsWith('irr:') ? pdes.slice(4) : null;
     return { id: `small:${pdes}`, pos: () => (irr ? this.irregulars.positionKm(irr) : this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs)), minDist: this.smallRadius(pdes) * 1.2 };
   }
   private smallRadius(pdes: string): number {
-    if (pdes.startsWith('site:')) return 0.05;
+    if (pdes.startsWith('site:')) { const sb = this.siteSmallBody(pdes.slice(5)); return sb ? this.smallBodies.radiusKm(sb) : 0.05; }
     return pdes.startsWith('irr:') ? this.irregulars.radiusKm(pdes.slice(4)) : this.smallBodies.radiusKm(pdes);
   }
 
@@ -380,27 +389,66 @@ export class OrreryScene {
     this.onFlight(this.rig.flying);
     this.onSmallPick(pdes);
   }
-  // The Moon's body axes in the ecliptic now.
-  private moonAxes(): Vec3[] { return axesToEcl(bodyAxesEqj('moon', new Date(this.clock.snapshot.timeMs))); }
+  // Where a site's body is now and how it is turned (ecliptic), for the
+  // landing-site layer: its axes worked out once a frame, when asked for.
+  private placeCache = new Map<string, { r: Vec3; axes: Vec3[] } | null>();
+  private placeAt = NaN;
+  private sitePlace: SitePlace = (body) => {
+    const t = this.clock.snapshot.timeMs;
+    if (t !== this.placeAt) { this.placeCache.clear(); this.placeAt = t; }
+    if (!this.placeCache.has(body)) {
+      const st = this.states[body as BodyKey];
+      this.placeCache.set(body, st ? { r: st.r as Vec3, axes: axesToEcl(bodyAxesEqj(body, new Date(t))) } : null);
+    }
+    return this.placeCache.get(body)!;
+  };
   private siteKey(): string | null { return this.focusSmall?.startsWith('site:') ? this.focusSmall.slice(5) : null; }
+  // A site on a small body: the body's designation (it must be among the
+  // named ones, smallBodies.ts), else null.
+  private siteSmallBody(key: string): string | null {
+    const s = SITE_BY_KEY[key];
+    return s && onSmallBody(s) ? siteBody(s).slice(3) : null;
+  }
+  // The site the camera turns about in the site's own frame: one drawn on
+  // a planet or moon (a small body's is turned about as the body is).
+  private drawnSiteKey(): string | null {
+    const k = this.siteKey();
+    return k && !this.siteSmallBody(k) ? k : null;
+  }
 
   // Fly to a landing site (landingSites.ts): framed from SITE_DIST_KM,
   // SITE_EL above its horizon, looking across the sunlight so the relief
-  // casts its shadows sideways (docs/frontend/landing-sites.md). The Moon
-  // becomes the focus, so its maps load and its plate's facts apply.
+  // casts its shadows sideways (docs/frontend/landing-sites.md). Its body
+  // becomes the focus, so its maps load and its plate's facts apply. A
+  // site on a small body is flown to as that body (framed at eight radii),
+  // which must be among the named ones.
   focusOnSite(key: string): void {
     const site = SITE_BY_KEY[key];
     if (!site) return;
     const id = `site:${key}`;
     if (this.rig.flying && this.rig.destination.id === `small:${id}`) return;
+    const sb = this.siteSmallBody(key);
+    if (sb && !this.smallBodies.body(sb)) return;
     this.focusCraftId = null;
     this.clearSat();
     if (this.focusSmall !== null && !this.siteKey()) { this.smallBodies.setFocus(null); this.irregulars.setFocus(null); }
+    if (this.drawnSiteKey() && sb) this.leaveSite();
     this.focusSmall = id;
     this.sites.setFocus(key);
-    if (this.focus !== 'moon') { this.focus = 'moon'; this.onFocusChange('moon'); }
-    this.loadSurfaces('moon');
-    const fr = siteFrame(site, this.states.moon.r, this.moonAxes());
+    if (sb) {
+      this.smallBodies.setFocus(sb);
+      this.siteFrom = null;
+      this.rig.flyTo(this.smallAnchor(id), Math.max(this.smallBodies.radiusKm(sb) * 8, 1));
+      this.onFlight(this.rig.flying);
+      this.onSmallPick(id);
+      return;
+    }
+    this.smallBodies.setFocus(null);
+    const body = siteBody(site) as BodyKey;
+    if (this.focus !== body) { this.focus = body; this.onFocusChange(body); }
+    this.loadSurfaces(body);
+    const at = this.sitePlace(body)!;
+    const fr = siteFrame(site, at.r, at.axes);
     const toSun = fr.P.map((x) => -x) as Vec3;
     this.rig.az = Math.atan2(toSun[0] * fr.N[0] + toSun[1] * fr.N[1] + toSun[2] * fr.N[2],
       toSun[0] * fr.E[0] + toSun[1] * fr.E[1] + toSun[2] * fr.E[2]) + Math.PI / 2;
@@ -415,6 +463,8 @@ export class OrreryScene {
   // frame, goes back to the ecliptic one from where the camera is now.
   private leaveSite(): void {
     if (!this.siteKey()) return;
+    this.sites.setFocus(null);
+    if (!this.drawnSiteKey()) return;
     const d = this.offsetDir;
     this.rig.az = Math.atan2(d[1], d[0]);
     this.rig.el = Math.asin(Math.max(-1, Math.min(1, d[2])));
@@ -762,7 +812,7 @@ export class OrreryScene {
     this.onFocusChange(v.focus);
     this.restoreOn = null;
     if (v.on && this.restoreSmall(v.on, v.cam)) return;
-    if (v.on && !v.on.startsWith('irr:') && !v.on.startsWith('site:')) this.restoreOn = { on: v.on, cam: v.cam, until: performance.now() + 30e3 };
+    if (v.on && !v.on.startsWith('irr:') && !(v.on.startsWith('site:') && !this.siteSmallBody(v.on.slice(5)))) this.restoreOn = { on: v.on, cam: v.cam, until: performance.now() + 30e3 };
     const a = this.bodyAnchor(v.focus);
     if (v.cam) { this.rig.restore(a, v.cam); this.rememberZoom(v.cam.dist); }
     else this.rig.jumpTo(a, this.arrivalDist(v.focus, false));
@@ -772,13 +822,16 @@ export class OrreryScene {
     const irr = on.startsWith('irr:') ? on.slice(4) : null, site = on.startsWith('site:') ? on.slice(5) : null;
     if (irr ? !this.irregulars.has(irr) : site ? !SITE_BY_KEY[site] : !this.smallBodies.body(on)) return false;
     this.focusSmall = on;
-    this.smallBodies.setFocus(irr || site ? null : on);
+    const sb = site ? this.siteSmallBody(site) : null;
+    if (sb && !this.smallBodies.body(sb)) return false;
+    this.smallBodies.setFocus(irr || (site && !sb) ? null : sb ?? on);
     this.irregulars.setFocus(irr);
     this.sites.setFocus(site);
-    if (site && this.focus !== 'moon') { this.focus = 'moon'; this.loadSurfaces('moon'); this.onFocusChange('moon'); }
+    const body = site && !sb ? siteBody(SITE_BY_KEY[site]) as BodyKey : null;
+    if (body && this.focus !== body) { this.focus = body; this.loadSurfaces(body); this.onFocusChange(body); }
     const a = this.smallAnchor(on);
     if (cam) this.rig.restore(a, cam);
-    else this.rig.jumpTo(a, site ? SITE_DIST_KM : Math.max(this.smallRadius(on) * 8, 1));
+    else this.rig.jumpTo(a, body ? SITE_DIST_KM : Math.max(this.smallRadius(on) * 8, 1));
     this.onSmallPick(on);
     return true;
   }
@@ -794,7 +847,45 @@ export class OrreryScene {
     return this.states[key];
   }
 
+  // The orbit line nearest a click (client px), within ORBIT_PICK_PX of
+  // it: each drawn line's vertices projected as the last frame drew them,
+  // and the distance to each segment on screen. The Sun's path about the
+  // SSB is left out.
+  private pickOrbit(clientX: number, clientY: number): BodyKey | null {
+    const box = this.renderer.domElement.getBoundingClientRect();
+    const x = clientX - box.left, y = clientY - box.top, w = box.width, h = box.height;
+    const a = new THREE.Vector3();
+    let best: BodyKey | null = null, bestD = ORBIT_PICK_PX;
+    const lines: [BodyKey, THREE.Line][] = [...[...this.orbits].map(([k, o]): [BodyKey, THREE.Line] => [k, o.line]), ...[...this.nearOrbits].map(([k, n]): [BodyKey, THREE.Line] => [k, n.line])];
+    const toScreen = (v: THREE.Vector3, m: THREE.Matrix4) => {
+      v.applyMatrix4(m).project(this.camera);
+      return v.z > 1 || v.z < -1 ? null : [((v.x + 1) / 2) * w, ((1 - v.y) / 2) * h] as const;
+    };
+    for (const [key, line] of lines) {
+      if (key === 'sun' || !line.visible) continue;
+      const pos = line.geometry.getAttribute('position') as THREE.BufferAttribute;
+      let prev: readonly [number, number] | null = null;
+      for (let i = 0; i < pos.count; i++) {
+        const p = toScreen(a.fromBufferAttribute(pos, i), line.matrixWorld);
+        if (p && prev) {
+          const dx = p[0] - prev[0], dy = p[1] - prev[1], l2 = dx * dx + dy * dy;
+          const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - prev[0]) * dx + (y - prev[1]) * dy) / l2)) : 0;
+          const d = Math.hypot(prev[0] + t * dx - x, prev[1] + t * dy - y);
+          if (d < bestD) { bestD = d; best = key; }
+        }
+        prev = p;
+      }
+    }
+    return best;
+  }
+
   private attachControls(): void {
+    // A guide's tag (pooled in the overlay by guides.ts and magnetic.ts):
+    // its plate, from what it shows.
+    this.overlay.addEventListener('click', (e) => {
+      const el = (e.target as HTMLElement).closest('.guide-tag') as HTMLElement | null;
+      if (el) this.onGuidePick({ cls: el.className, text: el.textContent ?? '', title: el.title, focus: this.focus });
+    });
     const el = this.renderer.domElement;
     // A drag turns the camera about its pivot; a right-drag, a middle-drag
     // or a Shift-drag pans it, moving the pivot off the body
@@ -830,7 +921,10 @@ export class OrreryScene {
       down.delete(e.pointerId);
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
       if (down.size === 1) { [lx, ly] = mid(); mode = 'turn'; return; }   // one finger left: it turns
-      if (e.type === 'pointerup' && travel < 4 && button === 0) this.journeyLayer.click(sx, sy);
+      if (e.type === 'pointerup' && travel < 4 && button === 0 && !this.journeyLayer.click(sx, sy)) {
+        const key = this.pickOrbit(sx, sy);
+        if (key) this.onOrbitPick(key);
+      }
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
@@ -1146,7 +1240,7 @@ export class OrreryScene {
     if (this.restoreOn) {
       const r = this.restoreOn;
       if (performance.now() > r.until || this.rig.target.id !== `body:${this.focus}` || this.rig.flying) this.restoreOn = null;
-      else if (this.smallBodies.body(r.on)) { this.restoreOn = null; this.restoreSmall(r.on, r.cam); }
+      else if (this.smallBodies.body(r.on.startsWith('site:') ? this.siteSmallBody(r.on.slice(5)) ?? '' : r.on)) { this.restoreOn = null; this.restoreSmall(r.on, r.cam); }
     }
     if (this.sunViewPending && this.focus !== 'sun') {
       const b = this.states[this.focus].r;
@@ -1166,14 +1260,14 @@ export class OrreryScene {
     }
     this.notifyPan();                   // a flight clears a pan
     const f = this.rig.pivot;
-    const moonAxes = axesToEcl(bodyAxesEqj('moon', date));
     // About a landing site the camera turns in the site's own frame (east,
     // north, up), so it stays over the ground as the Moon turns; flying
     // there, its direction turns onto that framing as the flight goes.
-    const siteKey = this.siteKey();
+    const siteKey = this.drawnSiteKey();
+    const sitePlace = siteKey ? this.sitePlace(siteBody(SITE_BY_KEY[siteKey])) : null;
     let offset: Vec3, upGoal: Vec3 = [0, 0, 1];
-    if (siteKey) {
-      const fr = siteFrame(SITE_BY_KEY[siteKey], this.states.moon.r, moonAxes);
+    if (siteKey && sitePlace) {
+      const fr = siteFrame(SITE_BY_KEY[siteKey], sitePlace.r, sitePlace.axes);
       // A flight there that ended or was stopped (Escape, a drag): the
       // turn about the site carries on from where the camera is.
       if (this.siteFrom && !this.rig.flying) {
@@ -1258,6 +1352,7 @@ export class OrreryScene {
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
     this.irregulars.update(tMs, cam, (p: IrregularPlanet) => this.states[p].r, 1 / this.renderer.toneMappingExposure,
       this.focusCraftId === null ? systemOf(this.focus) : null);
+    this.satellites.setView(this.container.clientHeight / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
     this.satellites.update(tMs, cam, this.states.earth.r, 1 / this.renderer.toneMappingExposure, this.adapt);
     this.groundTrack.update(tMs, this.meshes.get('earth'), 1 / this.renderer.toneMappingExposure);
     this.spacecraft.update(tMs, cam, 1 / this.renderer.toneMappingExposure);
@@ -1278,7 +1373,7 @@ export class OrreryScene {
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
     this.spacecraft.label(this.camera, this.container.clientWidth, this.container.clientHeight);
-    this.sites.update(cam, this.states.moon.r, moonAxes, this.camera, this.container.clientWidth, this.container.clientHeight);
+    this.sites.update(cam, (b) => (this.states[b as BodyKey]?.r as Vec3 | undefined) ?? null, this.sitePlace, this.camera, this.container.clientWidth, this.container.clientHeight);
     this.journeyLayer.label(this.journeyCentral, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
   };
 

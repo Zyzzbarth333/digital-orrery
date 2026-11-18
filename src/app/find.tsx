@@ -34,7 +34,7 @@ export const FIND_GROUPS: { key: FindGroup; label: string }[] = [
   { key: 'small', label: 'Asteroids and comets' },
   { key: 'satellites', label: 'Satellites' },
   { key: 'spacecraft', label: 'Beyond Earth' },
-  { key: 'sites', label: 'Moon landings' },
+  { key: 'sites', label: 'Landing sites' },
 ];
 // How many of each kind the list shows.
 export const PER_GROUP = 3;

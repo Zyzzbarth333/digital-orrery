@@ -156,11 +156,11 @@ export const TAG_INFO = {
     tex: [],
     source: 'the moon\'s JPL Horizons object page',
   },
-  // The Moon's landing sites (landingSites.js, landing-site-plate.tsx)
+  // The landing sites (landingSites.js, landing-site-plate.tsx)
   'site-landed': {
-    what: 'When the craft came down on the Moon, in UTC, as precisely as the source gives it: to the second for most, to the day or the month where that is all it gives. For a rover, when its lander landed.',
+    what: 'When the craft came down, struck or went in, in UTC, as precisely as the source gives it: to the second for most, to the day or the month where that is all it gives. For a rover, when its lander landed.',
     tex: [],
-    source: 'NASA NSSDCA\'s spacecraft pages; the LROC team\'s posts; NASA for Blue Ghost · docs/frontend/landing-sites.md',
+    source: 'NASA NSSDCA\'s spacecraft pages; the LROC team\'s posts; the missions\' own pages and papers · docs/frontend/landing-sites.md',
   },
   'site-crew': {
     what: 'The two astronauts who landed in the lunar module: the commander first, then the lunar module pilot. The third flew on in the command module, in orbit.',
@@ -169,25 +169,78 @@ export const TAG_INFO = {
   },
   'site-coords': {
     what: 'Where the craft is: planetocentric latitude and longitude in the Moon\'s mean-Earth/polar-axis frame, the frame of the LRO maps it is drawn on. Measured by the LROC team from Narrow Angle Camera images of the hardware, with the spacecraft\'s position from LOLA-corrected orbits and the GLD100 shape model for its height.',
-    tex: ['\hat{\mathbf n} = \cos\phi\cos\lambda\,\mathbf X + \cos\phi\sin\lambda\,\mathbf Y + \sin\phi\,\mathbf Z'],
+    tex: ['\\hat{\\mathbf n} = \\cos\\phi\\cos\\lambda\\,\\mathbf X + \\cos\\phi\\sin\\lambda\\,\\mathbf Y + \\sin\\phi\\,\\mathbf Z'],
     where: 'φ latitude, λ east longitude; X, Y, Z the Moon\'s body axes now (to 0° longitude, 90° east and the north pole); drawn at 1,737.4 km, within 85 m of SPICE\'s MOON_ME',
     source: 'Wagner et al., Icarus 283, 2017, and the LROC team\'s table of 28 July 2016; LROC\'s posts since · docs/frontend/landing-sites.md',
   },
-  'site-estimate': {
-    what: 'Where the craft was thought to have come down at the time, from its tracking. It has not been found in LROC\'s images, so this may be kilometres out.',
+  'site-coords-body': {
+    what: 'Where the craft came down: latitude and east longitude in the body\'s IAU frame, the one it is drawn turned with, as the source gives them (a west longitude turned to east). Placed on the body\'s reference ellipsoid along that direction.',
+    tex: ['\\mathbf p = r\\,\\hat{\\mathbf u},\\ \\ \\hat{\\mathbf u} = (\\cos\\phi\\cos\\lambda,\\ \\cos\\phi\\sin\\lambda,\\ \\sin\\phi)', 'r = \\left(\\frac{u_x^2}{a^2} + \\frac{u_y^2}{b^2} + \\frac{u_z^2}{c^2}\\right)^{-1/2}'],
+    where: 'φ planetocentric latitude, λ east longitude; a, b, c the body\'s radii (NAIF pck00011). A planetographic latitude would differ on a flattened planet: by up to 0.3° on Mars, 3.6° on Jupiter',
+    source: 'the sources on the plate; Archinal et al., Celest. Mech. Dyn. Astr. 130, 2018 (IAU WGCCRE 2015) · docs/frontend/landing-sites.md',
+  },
+  'site-small-body': {
+    what: 'Where on the small body the craft touched or landed, in the shape model\'s own frame. The app draws the body as a sphere of its size with no rotation model, so the site is not marked on it: the camera goes to the body.',
     tex: [],
-    source: 'NASA NSSDCA · docs/frontend/landing-sites.md',
+    source: 'the mission\'s papers and pages · docs/frontend/landing-sites.md',
+  },
+  'site-estimate': {
+    what: 'Where the craft was thought to have come down at the time, from its tracking. It has not been found in orbital images, so this may be kilometres out, or more.',
+    tex: [],
+    source: 'NASA NSSDCA; the missions\' pages · docs/frontend/landing-sites.md',
   },
   'site-elevation': {
-    what: 'The ground\'s height at the craft, above a sphere of 1,737.4 km (the Moon\'s mean radius). The app draws the Moon as that sphere, its relief as shading, so the site is drawn at the sphere, not at this height.',
-    tex: ['h = r - 1737.4\ \text{km}'],
-    source: 'the LROC team (GLD100 and LOLA heights) · docs/frontend/landing-sites.md',
+    what: 'The ground\'s height at the craft above the body\'s reference surface (for the Moon a sphere of 1,737.4 km, its mean radius; for Mars the MOLA areoid). The app draws the body as its reference sphere or ellipsoid, its relief as shading, so the site is drawn there, not at this height.',
+    tex: ['h = r - r_\\text{ref}'],
+    source: 'the LROC team (GLD100 and LOLA heights); the missions\' papers · docs/frontend/landing-sites.md',
   },
   'site-sun': {
-    what: 'How high the Sun stands above the site\'s horizon now, from its centre: below zero, it is night there. A lunar day is 29.5 Earth days, so a site has about two weeks of each.',
-    tex: ['h_\odot = \arcsin\left(\hat{\mathbf n}\cdot\hat{\mathbf s}\right)'],
-    where: 'n̂ the site\'s vertical, ŝ the direction from the Moon to the Sun (DE442), both in J2000',
-    source: 'JPL DE442; the Moon\'s orientation (orientation.js) · docs/frontend/landing-sites.md',
+    what: 'How high the Sun stands above the site\'s horizon now, from the body\'s centre: below zero, it is night there. A lunar day is 29.5 Earth days, a Martian one 24 h 40 min, a Venusian one 117 Earth days.',
+    tex: ['h_\\odot = \\arcsin\\left(\\hat{\\mathbf n}\\cdot\\hat{\\mathbf s}\\right)'],
+    where: 'n̂ the site\'s vertical (the ellipsoid\'s normal), ŝ the direction from the body to the Sun (DE442), both in J2000',
+    source: 'JPL DE442; the body\'s orientation (orientation.js) · docs/frontend/landing-sites.md',
+  },
+  // Guides and orbit lines (guide-plate.tsx)
+  'guide-axis': {
+    what: 'The body\'s spin axis: its north pole (IAU: the pole on the north side of the solar system\'s invariable plane) in J2000 right ascension and declination now, how long it takes to turn once against the stars, and how far the axis leans from its orbit\'s pole.',
+    tex: ['\\hat{\\mathbf z} = (\\cos\\delta_0\\cos\\alpha_0,\\ \\cos\\delta_0\\sin\\alpha_0,\\ \\sin\\delta_0)', 'P = 360° / |W_1|', '\\varepsilon = \\arccos\\left(\\hat{\\mathbf z}\\cdot\\hat{\\mathbf h}\\right)'],
+    where: 'α0, δ0 the pole and W1 the prime meridian\'s rate (degrees a day) of the IAU model; ĥ the pole of the body\'s orbit about its parent now, r × v from DE442. A moon with no IAU model turns with its orbit',
+    source: 'Archinal et al., Celest. Mech. Dyn. Astr. 130, 2018 (IAU WGCCRE 2015), as NAIF pck00011; JPL DE442 · docs/physics/gravity-guides.md',
+  },
+  'guide-soi': {
+    what: 'The sphere of influence (Laplace\'s): inside it the body\'s pull, taken as the main one with its parent\'s as a disturbance, describes a craft\'s path better than the other way round. Patched-conic trajectories switch from one to the other there.',
+    tex: ['r_\\text{SOI} = a\\left(\\frac{m}{M}\\right)^{2/5}'],
+    where: 'a the semi-major axis of the body\'s osculating orbit about its parent now; m/M the ratio of their GMs (DE442)',
+    source: 'H. D. Curtis, Orbital Mechanics for Engineering Students, "Sphere of influence"; JPL DE442 · docs/physics/gravity-guides.md',
+  },
+  'guide-hill': {
+    what: 'The Hill sphere: the region where the body can hold a satellite against its parent\'s tide, to first order the distance to its L1 and L2. Taken at its closest to its parent, where it is smallest.',
+    tex: ['r_\\text{H} = a(1-e)\\left(\\frac{m}{3M}\\right)^{1/3}'],
+    where: 'a, e the body\'s osculating orbit about its parent now; m/M the ratio of their GMs (DE442)',
+    source: 'D. P. Hamilton and J. A. Burns, Icarus 96, 1992; JPL DE442 · docs/physics/gravity-guides.md',
+  },
+  'guide-lagrange': {
+    what: 'A Lagrange point of the pair: where a small body keeps its place with the two, in the circular restricted three-body problem, placed along their line and in their plane now. L1, L2 and L3 lie on the line and are unstable; L4 and L5 lead and trail the smaller by 60° and are stable when the mass ratio is under 0.0385.',
+    tex: ['\\mu = \\frac{m_2}{m_1 + m_2}', 'x - \\frac{(1-\\mu)(x+\\mu)}{|x+\\mu|^3} - \\frac{\\mu(x-1+\\mu)}{|x-1+\\mu|^3} = 0'],
+    where: 'x along the line from the barycentre, in units of the pair\'s separation, solved by Newton\'s method for L1 to L3; L4 and L5 at (1/2 - μ, ±√3/2)',
+    source: 'V. Szebehely, Theory of Orbits, 1967, ch. 4; JPL DE442 · docs/physics/gravity-guides.md',
+  },
+  'guide-pull': {
+    what: 'The pull of one body on another, as a point mass: its GM over the square of the distance between their centres, now.',
+    tex: ['a = \\frac{GM}{d^2}'],
+    where: 'GM from DE442 (NAIF); d from the ephemeris. The Sun\'s pull on the body is given for scale',
+    source: 'JPL DE442 · docs/physics/gravity-guides.md',
+  },
+  'guide-field': {
+    what: 'A tag of the magnetic-field layer: a magnetopause or bow shock\'s standoff toward the Sun, a dipole\'s tilt, or an auroral oval\'s model. Its title names the model it is drawn from.',
+    tex: [],
+    source: 'the models named on the tag · docs/physics/magnetic-fields.md',
+  },
+  'orbit-osculating': {
+    what: 'The orbit the body would follow about its parent if nothing else pulled it: the ellipse through its position and velocity now (the osculating orbit), from the ephemeris state about its parent.',
+    tex: ['a = \\left(\\frac{2}{r} - \\frac{v^2}{\\mu}\\right)^{-1}', 'e = \\left|\\frac{\\mathbf v\\times\\mathbf h}{\\mu} - \\hat{\\mathbf r}\\right|', 'P = 2\\pi\\sqrt{a^3/\\mu}'],
+    where: 'r, v the body\'s state about its parent (JPL DE442, or the moons\' own ephemerides), h = r × v, μ the GM of the two together. The inclination is to the ecliptic of J2000',
+    source: 'JPL DE442; H. D. Curtis, Orbital Mechanics for Engineering Students, ch. 4 · docs/physics/two-body.md',
   },
   // The irregular moons (irregularMoons.js, irregular-moon-plate.tsx)
   'irr-position-table': {
@@ -847,6 +900,12 @@ export const TAG_INFO = {
     source: 'docs/frontend/satellites.md',
   },
   // satellite-plate.tsx height
+  'sat-ground-speed': {
+    what: 'The satellite\'s speed against the turning Earth, from SGP4\'s velocity in TEME (whose pole is the true pole of date, the axis the Earth turns about), and the speed of the point beneath it across the ground.',
+    tex: ['\\mathbf v_\\text{g} = \\mathbf v_\\text{TEME} - \\boldsymbol\\omega_\\oplus \\times \\mathbf r_\\text{TEME}', 'v_\\text{track} = \\frac{R_\\oplus}{|\\mathbf r|}\\,\\left|\\mathbf v_\\text{g} - (\\mathbf v_\\text{g}\\cdot\\hat{\\mathbf r})\\,\\hat{\\mathbf r}\\right|'],
+    where: 'ω⊕ = 7.292115 × 10⁻⁵ rad/s about TEME\'s z axis (WGS-84); R⊕ = 6,371.0 km, the mean radius. Polar motion is left out (under 0.1 m/s). The ISS moves at about 7.66 km/s inertially and about 7.3 km/s over the ground, its track about 6.9 km/s; a geostationary satellite hardly moves over the ground at all',
+    source: 'WGS-84 (NIMA TR8350.2); Vallado et al., AIAA 2006-6753 · satellites.test.mjs checks it against the Earth-fixed frame differenced over a second · docs/frontend/satellites.md',
+  },
   'sat-height': {
     what: 'Height above the WGS-84 ellipsoid, at the satellite\'s geocentric latitude.',
     tex: ['h = |\\mathbf r| - \\frac{ab}{\\sqrt{b^2\\cos^2\\phi + a^2\\sin^2\\phi}}'],

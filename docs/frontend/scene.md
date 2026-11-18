@@ -186,6 +186,37 @@ label when it sits on its planet's marker. Names that would overprint keep
 the focused body's first, then the larger body's; the smaller body keeps its
 marker and shows its name on hover.
 
+## What a click shows
+
+Everything in the scene that can be clicked opens a plate on the right
+with its facts, each with its source tag, worked out afresh as the clock
+runs. Audited 18 November 2026:
+
+| Clicked | Plate | Was |
+| --- | --- | --- |
+| A planet, moon or the Sun (its marker or the rail) | the body's: distance, speed, size, GM, rotation, albedo | as before |
+| A barycentre, the Earth–Moon one among them (its marker or the rail) | where it is, what it is the centre of, its GM, its offset | as before |
+| An irregular moon, a named asteroid or comet | its orbit, size and discovery ([moons](moons.md), [small bodies](small-bodies.md)) | as before |
+| An Earth satellite, a debris cloud | SGP4's place and speeds, the element set, passes ([satellites](satellites.md)) | now with ground speed |
+| A spacecraft beyond Earth orbit | its Horizons state and legs ([spacecraft](spacecraft.md)) | as before |
+| A craft of the mission | the flight console's mission tab, and the camera follows it ([mission](mission.md)) | as before |
+| A landing site, on any body | the landing, its place and source, the Sun there ([landing sites](landing-sites.md)) | the Moon's only |
+| A guide's tag: a spin axis's pole, an SOI or Hill sphere, a Lagrange point, a pull | the guide's own plate: the pole's RA and Dec, the turn and the tilt; the sphere's radius and the orbit it comes from; the point's distances, mass ratio and stability; the pull and its distance | a hover title only |
+| A magnetic field's tag (magnetopause, bow shock, dipole, auroral oval) | what the tag marks and the model it is drawn from | a hover title only |
+| An orbit line | the body's osculating orbit about its parent now: a, e, the apsides, inclination, period, where it is | nothing |
+| A journey's arc or burn node | the planner's handles ([mission](mission.md)) | as before |
+
+The guide and orbit plates ([`guide-plate.tsx`](../../src/app/guide-plate.tsx))
+show until the view changes or a body is chosen. An orbit line is picked
+within 6 px of a click, from its vertices projected as the last frame
+drew them (`pickOrbit`); a tag is the pooled element the guides layer
+drew, read for what it shows. The Sun's path about the barycentre is
+not picked.
+
+| | |
+| --- | --- |
+| ![The Earth from 3.5 million km with the Lagrange guides on: the Earth–Moon points about the Earth and the Sun–Earth L1 and L2 farther out; the plate for Sun–Earth L1 gives 1,474,527 km from the Earth, the mass ratio 3.0035e-6 and unstable](plate-lagrange-point.jpg) | ![Mars with Phobos's and Deimos's orbits; the plate for Deimos's orbit line gives a = 23,459 km, e 0.000275, inclination 24.1° to the ecliptic and a period of 30.302 h](plate-orbit-line.jpg) |
+
 ## Lighting
 
 Sunlight falls off as $1/d^2$, the exposure is metered at the camera's

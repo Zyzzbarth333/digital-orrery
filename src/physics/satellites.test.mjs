@@ -16,7 +16,8 @@
 //   (npm run fetch:satellites): each placed above the ground.
 
 import { readFileSync } from 'node:fs';
-import { ommFromTle, satrecOf, stateTeme, stateEqj, temeToEqj, apply, parseGpCsv, epochMs, inShadow, meanOrbit, R_EARTH_KM } from './satellites.js';
+import { ommFromTle, satrecOf, stateTeme, stateEqj, temeToEqj, apply, parseGpCsv, epochMs, inShadow, meanOrbit, groundSpeeds, R_EARTH_KM } from './satellites.js';
+import { earthFixedMatrix } from './earthRotation.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -135,6 +136,19 @@ console.log('The snapshot (public/data/satellites.csv, satellites.json)');
   // The ISS's orbit from its elements: about 415 km up, 92.9 minutes.
   const iss = meanOrbit(satrecOf(rows.find((r) => r.NORAD_CAT_ID === 25544)));
   check(iss.perigeeKm > 350 && iss.apogeeKm < 450 && Math.abs(iss.periodMin - 92.8) < 1.5, `ISS ${iss.perigeeKm.toFixed(0)} x ${iss.apogeeKm.toFixed(0)} km, ${iss.periodMin.toFixed(2)} min`);
+  // Ground speed (the plate's): against the Earth-fixed frame differenced
+  // over a second (earthFixedMatrix, from J2000), within 2 m/s for the ISS
+  // and a geostationary one, and the track speed under the speed itself.
+  const fixedSpeed = (sat) => {
+    const at = (ms) => apply(earthFixedMatrix(ms).M, stateEqj(sat, ms).r);
+    const a = at(t - 500), b = at(t + 500);
+    return Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  };
+  for (const [id, what] of [[25544, 'ISS'], [rows.find((r) => r.MEAN_MOTION > 1.0 && r.MEAN_MOTION < 1.005 && r.ECCENTRICITY < 0.001 && r.INCLINATION < 1)?.NORAD_CAT_ID, 'geostationary']]) {
+    const sat = satrecOf(rows.find((r) => r.NORAD_CAT_ID === id));
+    const g = groundSpeeds(stateTeme(sat, t)), want = fixedSpeed(sat);
+    check(Math.abs(g.relative - want) < 2e-3 && g.track <= g.relative, `${what} ${id}: ${g.relative.toFixed(4)} km/s over the ground (differenced ${want.toFixed(4)}), track ${g.track.toFixed(4)} km/s`);
+  }
 }
 
 // ----- The debris, rocket bodies and analyst objects -----
