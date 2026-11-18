@@ -13,6 +13,9 @@
 //   moonPlaneRate(n, a, scene, { degree })
 //       dn/dt (rad/s) in a scene (moonScene: the Moon's axes, the Earth
 //       and the Sun at a time)
+//   moonEccentricityTrack({ track, a, toMs })
+//       the mean eccentricity vector over a plane track, and when the
+//       orbit falls (below)
 //
 // About a planet, J2 alone turns a low orbit's plane (parkingPlane.js). At
 // the Moon it does not: the Moon's J2 is a tenth of the Earth's, its C22 is
@@ -49,8 +52,9 @@
 // The Moon's frame is the kernel's (environment.js): GRAIL GL0660B in its
 // principal axes, PA_TO_ME from the mean-Earth axes of orientation.js.
 // What it leaves out: the eccentricity the odd degrees raise (to a few
-// hundredths at 100 km over a month), and what that couples into the
-// plane, and the field's terms in the turn's own period, which come and go.
+// hundredths at 100 km over a month; moonEccentricityTrack below flies it,
+// for whether the orbit falls), what that couples into the plane, and the
+// field's terms in the turn's own period, which come and go.
 
 import { GRAIL, PA_TO_ME } from './grail.js';
 import { geopotential, normFactor } from './geopotential.js';
@@ -179,5 +183,154 @@ export function moonPlaneTrack({ n0, a, fromMs, toMs, degree = 30, stepH = 12 })
     return unit([p[0] + u * (r[0] - p[0]), p[1] + u * (r[1] - p[1]), p[2] + u * (r[2] - p[2])]);
   };
   at.normals = track; at.dt = dt; at.fromMs = fromMs; at.toMs = fromMs + steps * dt;
+  return at;
+}
+
+// ---------------- the eccentricity the field raises ----------------
+//
+//   moonEccentricityTrack({ track, a, e0, degree })
+//       the mean eccentricity vector over a plane track, from e0 (circular
+//       by default), as a function of the time; at.fall the first time its
+//       mean periapsis reaches the ground
+//   moonEccentricityRate(e, n, a, sc, { field })
+//       de/dt (1/s) in a scene
+//
+// The circular orbit's eccentricity vector e (Laplace-Runge-Lenz over mu),
+// orbit-averaged, to first order in e (Tremaine, Touma and Namouni 2009,
+// eq. (16), Milankovitch's; there with the potential energy, here with W
+// = -it, the force function averaged over a turn, and j = sqrt(1 - e^2) n):
+//   de/dt = (1 / sqrt(mu a)) (j x grad_e W + e x grad_j W)
+// Three parts:
+//
+// - The forcing, from e = 0: grad_e W there. For an orbit of small e the
+//   position is a ((cos E - e) p + sin E q) and dM = (1 - e cos E) dE, so
+//     grad_e W = -(1/2 pi) int (a grad U + U r^) dE      (in the plane)
+//   round the circle. For the degree-n part U_n = (mu/a)(R/a)^n Y_n of the
+//   field, the radial and the along-track parts sum, by parts, to
+//   (n - 1)/(2 pi) int U_n r^ dE, and the first Fourier harmonic of a
+//   degree-n harmonic round a great circle is P_n'(0) / P_n'(1) times its
+//   gradient over the sphere at the circle's pole (the addition theorem
+//   again, Jackson Sec. 3.6, now for order 1 about the pole; P_n'(1) =
+//   n (n + 1) / 2). So
+//     grad_e W = sum_n (n - 1) P_n'(0) / (n (n + 1)) grad_S U_n (n)
+//   the gradient over the sphere, at the orbit's normal, of the field with
+//   its even degrees gone (P_n'(0) = 0) and each odd one weighed so:
+//   geopotential.js's acceleration at radius R along n, times R^2 / a.
+//   J3's part is the frozen-orbit theory's; near the equator the
+//   tesserals rule.
+// - J2 turns e about the normal at w (3/4) J2 (R/a)^2 (3 cos^2 i - 1): the
+//   argument of periapsis' rate (Curtis eq. (4.53)) and the node's part
+//   about the normal, cos i times eq. (4.52) (Curtis).
+// - The Earth's and the Sun's tides, the quadrupole T of moonScene:
+//   averaged over a turn W = (a^2 / 2) ((5/2) e.T e - (1/2) j.T j), so
+//     de/dt = (a^2 / (2 sqrt(mu a))) (5 n x T e - e x T n)
+//   (from the same paper's averages, eqs. (7) and (9); its eq. (19)).
+// The vector is kept in the plane the plane track flies. Left out: the rest
+// of the field's degree 2 and its higher even degrees, which turn e a
+// little faster or slower, and the terms of second order in e, which grow
+// as the orbit comes down (its periapsis passes over the lumps at a third
+// lower height when e is a twentieth). Against the kernel (full model,
+// GRAIL to degree 50), 100 km up the model's e is within 0.002 of the
+// flown one's mean to the day it falls.
+
+// P_n'(0): 0 for even n, (-1)^((n-1)/2) n!! / (n-1)!! for odd n.
+function legendreSlopeAtZero(n) {
+  if (n % 2 === 0) return 0;
+  let p = 1;
+  for (let k = 3; k <= n; k += 2) p *= -k / (k - 1);
+  return p;
+}
+
+// The field whose gradient at the orbit's normal forces its eccentricity:
+// the odd degrees from 3 weighed by (n - 1) P_n'(0) / (n (n + 1)) (R/a)^n.
+const eFields = new Map();
+export function eccentricField(a, degree, F = GRAIL) {
+  const key = `${a.toFixed(3)}:${degree}`;
+  let f = F === GRAIL ? eFields.get(key) : null;
+  if (f) return f;
+  const C = [], S = [];
+  for (let n = 0; n <= degree; n++) {
+    const k = n >= 3 ? ((n - 1) * legendreSlopeAtZero(n)) / (n * (n + 1)) * (F.radius / a) ** n : 0;
+    C.push(F.C[n].slice(0, n + 1).map((c) => c * k));
+    S.push(F.S[n].slice(0, n + 1).map((s) => s * k));
+  }
+  f = geopotential({ mu: F.gm, radius: F.radius, n: degree, C, S, central: false });
+  if (F !== GRAIL) return f;
+  if (eFields.size > 16) eFields.clear();
+  eFields.set(key, f);
+  return f;
+}
+
+const J2_MOON = -GRAIL.C[2][0] * Math.sqrt(5);
+
+// The forcing of e (1/s, EQJ) for the circular orbit of radius a and unit
+// normal n in the scene sc, from the field `field` (eccentricField).
+function eForcing(n, a, sc, field) {
+  const mu = GRAIL.gm, R = GRAIL.radius, M = sc.M;
+  const np = [dot(M[0], n), dot(M[1], n), dot(M[2], n)], g = field.accel([R * np[0], R * np[1], R * np[2]]);
+  const gq = [M[0][0] * g[0] + M[1][0] * g[1] + M[2][0] * g[2], M[0][1] * g[0] + M[1][1] * g[1] + M[2][1] * g[2], M[0][2] * g[0] + M[1][2] * g[1] + M[2][2] * g[2]];
+  const k = (R * R) / (a * Math.sqrt(mu * a)), c = cross(n, gq);
+  return [k * c[0], k * c[1], k * c[2]];
+}
+
+// The part of de/dt linear in e: J2's turn about the normal, and the tides.
+function eLinear(e, n, a, sc, j2 = J2_MOON) {
+  const mu = GRAIL.gm, R = GRAIL.radius, w = Math.sqrt(mu / a ** 3), ci = dot(n, sc.M[2]);
+  const kj = 0.75 * w * j2 * (R / a) ** 2 * (3 * ci * ci - 1), ne = cross(n, e);
+  const T = sc.qt, Te = [0, 1, 2].map((i) => T[3 * i] * e[0] + T[3 * i + 1] * e[1] + T[3 * i + 2] * e[2]);
+  const Tn = [0, 1, 2].map((i) => T[3 * i] * n[0] + T[3 * i + 1] * n[1] + T[3 * i + 2] * n[2]);
+  const kt = (a * a) / (2 * Math.sqrt(mu * a)), x = cross(n, Te), y = cross(e, Tn);
+  return [0, 1, 2].map((i) => kj * ne[i] + kt * (5 * x[i] - y[i]));
+}
+
+export function moonEccentricityRate(e, n, a, sc, { degree = 50, field = eccentricField(a, degree), j2 = J2_MOON } = {}) {
+  const b = eForcing(n, a, sc, field), l = eLinear(e, n, a, sc, j2);
+  return [b[0] + l[0], b[1] + l[1], b[2] + l[2]];
+}
+
+// The mean eccentricity vector (EQJ) over a plane track (moonPlaneTrack),
+// from e0: RK4 on the track's grid (the forcing at its steps and half
+// steps, the normal there from the track), the vector kept in the plane.
+// To toMs (the track's end by default). Returns at(ms) with at.es (|e| at
+// each step), at.fall (the first time the mean periapsis a (1 - e) is
+// under the ground, a sphere of radius `ground` as the kernel's impacts
+// have it, ms, or null) and at.low ({ km, ms }: the lowest mean periapsis'
+// height over the ground, and when, to the fall).
+export function moonEccentricityTrack({ track, a, e0 = [0, 0, 0], degree = 50, toMs = track.toMs, ground = bodyConstants('moon').radius }) {
+  const field = eccentricField(a, degree), dt = track.dt, s = dt / 1000, from = track.fromMs;
+  const N = Math.max(1, Math.min(track.normals.length - 1, Math.ceil((toMs - from) / dt - 1e-9)));
+  const at2 = [];
+  for (let k = 0; k <= 2 * N; k++) {
+    const ms = from + (k * dt) / 2, n = track(ms), sc = moonScene(ms);
+    at2.push({ n, sc, b: eForcing(n, a, sc, field) });
+  }
+  const f = (e, k) => { const q = at2[k], l = eLinear(e, q.n, a, q.sc); return [q.b[0] + l[0], q.b[1] + l[1], q.b[2] + l[2]]; };
+  const flat = (e, n) => { const d = dot(e, n); return [e[0] - d * n[0], e[1] - d * n[1], e[2] - d * n[2]]; };
+  let e = flat(e0, track.normals[0]);
+  const list = [e];
+  for (let i = 0; i < N; i++) {
+    const k1 = f(e, 2 * i), k2 = f(e.map((x, j) => x + 0.5 * s * k1[j]), 2 * i + 1);
+    const k3 = f(e.map((x, j) => x + 0.5 * s * k2[j]), 2 * i + 1), k4 = f(e.map((x, j) => x + s * k3[j]), 2 * i + 2);
+    e = flat(e.map((x, j) => x + (s / 6) * (k1[j] + 2 * k2[j] + 2 * k3[j] + k4[j])), track.normals[i + 1]);
+    list.push(e);
+  }
+  const at = (ms) => {
+    const q = Math.max(0, Math.min(N, (ms - from) / dt)), i = Math.min(N - 1, Math.floor(q)), u = q - i;
+    return list[i].map((x, j) => x + u * (list[i + 1][j] - x));
+  };
+  const es = list.map(norm), R = ground;
+  // The first step whose mean periapsis is under the ground, the time in
+  // the step where it crosses (linear in |e|).
+  let fall = null, low = { km: a - R, ms: from };
+  for (let i = 0; i <= N; i++) {
+    const km = a * (1 - es[i]) - R;
+    if (km < low.km) low = { km, ms: from + i * dt };
+    if (km <= 0 && fall === null) {
+      const k0 = a * (1 - es[i - 1]) - R;
+      fall = from + (i - 1 + k0 / (k0 - km)) * dt;
+      break;
+    }
+  }
+  at.es = es; at.list = list; at.dt = dt; at.fromMs = from; at.toMs = from + N * dt; at.fall = fall; at.low = low;
   return at;
 }

@@ -53,6 +53,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 - **Planning:**
   - a journey of any number of legs, each leg's transfers compared (a deep-space burn where a leg runs nearly 180° round the Sun, from a body or from a craft's own state), shaped by hand on a plotting table;
   - a long stay in a planet's orbit turns the orbit's plane (the planet's $J_2$; at the Moon its whole field and the Earth's pull): the planner prices leaving out of it and suggests the day it holds the way out ([journeys](docs/physics/journey.md#the-parking-orbits-plane));
+  - a low lunar orbit's eccentricity grows until it falls (the Moon's mascons): the planner flies it through a stay and warns when the orbit would come down ([journeys](docs/physics/journey.md#a-low-orbit-at-the-moon));
   - flown by the kernel, with the rocket it needs; the planets' major moons (Europa, Titan and the rest) with their own gravity, reached through their planet's well, captured, landed on (Titan through its air) and left.
 - **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, from the stack the planner sized for your journey, or from an OpenRocket design, and fly it from a real pad into orbit.
 

@@ -40,7 +40,7 @@ import { MOON_DATA } from './moons.data.js';
 import { bodyConstants, MU_SUN, ZONAL } from './bodies.js';
 import { bodyAxesEqj } from './orientation.js';
 import { nodeRate, flownNodeRate, turnPlane, leaveCircularDv, planeAngle } from './parkingPlane.js';
-import { moonPlaneTrack } from './lunarPlane.js';
+import { moonPlaneTrack, moonEccentricityTrack } from './lunarPlane.js';
 import { PLANETS } from '../utils/constants.js';
 import { nelderMead } from './trajsearch.js';
 import * as X from './transfers.js';
@@ -327,6 +327,53 @@ function moonPlaneContext(P, L, inLeg) {
     return { n1: unit(eqjToEcl(t(ms))), track: t };
   };
   return { moon: true, body: 'moon', B, z: ZONAL.moon, rp, vin, pole, arrMs: P.arrMs, n0: unit(h), wayOut: moonWayOut, via: !!L.moonDep, turned };
+}
+
+// A stay in a low lunar orbit can end on the ground: the field's odd
+// degrees raise the orbit's eccentricity (lunarPlane.js
+// moonEccentricityTrack), near the equator by about 0.004 a day 100 km up,
+// and Earth-to-Moon journeys arrive near it. So the stay's mean
+// eccentricity is flown on the plane's track from the capture (circular)
+// to the departure, or to MOON_STAY_MAX_DAYS. Returns { altKm, stayDays,
+// toDays, iDeg, eMax, lowKm, lowMs, fallMs, fallDays, safeAltKm }: the
+// highest mean e, the lowest mean periapsis over the ground and when, the
+// day the mean periapsis reaches the ground (null if it does not in the
+// stay), and where it falls or comes low, the lowest orbit 50 km higher
+// at a time (up to 400 km more) that holds the stay with MOON_LOW_KM to
+// spare (null if none does).
+export const MOON_STAY_MAX_DAYS = 365;
+// The model's mean e is within 0.007 of the kernel's 100 km up (13 km of
+// periapsis), so a stay whose mean periapsis comes within 20 km of the
+// ground is flagged.
+export const MOON_LOW_KM = 20;
+const stays = new Map();
+function moonStayAt(n0, pole, rp, R, arrMs, toMs, track) {
+  const key = `${n0.map((x) => x.toFixed(9)).join(',')}:${rp}:${arrMs}:${toMs}`;
+  let st = stays.get(key);
+  if (st) return st;
+  track ??= moonPlaneTrack({ n0: eclToEqj(n0), a: rp, fromMs: arrMs, toMs, degree: MOON_PLANE_DEGREE });
+  const et = moonEccentricityTrack({ track, a: rp, toMs, ground: R });
+  const fallMs = et.fall !== null && et.fall <= toMs ? et.fall : null;
+  const n = Math.min(et.es.length - 1, Math.ceil(((fallMs ?? toMs) - arrMs) / et.dt));
+  st = { altKm: rp - R, iDeg: Math.acos(clamp1(dot(n0, pole))) * RAD, eMax: Math.max(...et.es.slice(0, n + 1)), lowKm: Math.max(0, et.low.km), lowMs: et.low.ms,
+    fallMs, fallDays: fallMs === null ? null : (fallMs - arrMs) / DAY_MS };
+  if (stays.size > 200) stays.clear();
+  stays.set(key, st);
+  return st;
+}
+function moonStay(ctx, depMs) {
+  const toMs = Math.min(depMs, ctx.arrMs + MOON_STAY_MAX_DAYS * DAY_MS), R = ctx.B.radius;
+  if (!(toMs > ctx.arrMs + DAY_MS / 4)) return null;
+  const st = moonStayAt(ctx.n0, ctx.pole, ctx.rp, R, ctx.arrMs, toMs, ctx.turned(ctx.n0, toMs).track);
+  let safeAltKm;
+  if (st.fallMs !== null || st.lowKm < MOON_LOW_KM) {
+    safeAltKm = null;
+    for (let alt = Math.ceil(st.altKm / 50 + 1e-9) * 50; alt <= st.altKm + 400; alt += 50) {
+      const q = moonStayAt(ctx.n0, ctx.pole, R + alt, R, ctx.arrMs, toMs);
+      if (q.fallMs === null && q.lowKm >= MOON_LOW_KM) { safeAltKm = alt; break; }
+    }
+  }
+  return { ...st, stayDays: (depMs - ctx.arrMs) / DAY_MS, toDays: (toMs - ctx.arrMs) / DAY_MS, ...(safeAltKm !== undefined ? { safeAltKm } : {}) };
 }
 
 // The node of the plane n about the pole, rad, and its mean rate over a
@@ -948,6 +995,7 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     if (!ctx) continue;
     const stayDays = (L.depMs - S[k].arrMs) / DAY_MS;
     if (ctx.why) { L.plane = { priced: false, why: ctx.why, stayDays }; continue; }
+    if (ctx.moon) L.stayOrbit = moonStay(ctx, L.depMs);
     if (ctx.moon && stayDays > MOON_PLANE_MAX_DAYS) { L.plane = { priced: false, why: `over ${MOON_PLANE_MAX_DAYS} days in lunar orbit the eccentricity the Moon's field raises turns the plane too, and a low orbit may fall`, stayDays }; continue; }
     const w = ctx.moon ? ctx.wayOut(L) : L.vinfDep, p = w ? planeAt(ctx, L.depMs, w) : null;
     if (!p) continue;

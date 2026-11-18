@@ -24,6 +24,7 @@ import * as F from './feasibility.js';
 import * as PP from './parkingPlane.js';
 import * as LP from './lunarPlane.js';
 import { ZONAL } from './bodies.js';
+import { geopotential } from './geopotential.js';
 import { bodyAxesEqj } from './orientation.js';
 import { stepCraft } from './kernelHost.js';
 import { nelderMead } from './trajsearch.js';
@@ -1130,6 +1131,8 @@ header('CASE 19: near 180 degrees, a choice by hand can be undone');
   }
 }
 
+// The 75-day stay 200 km up, as CASE 20 flies it, for CASE 21.
+let moon200 = null;
 header('CASE 20: a long stay in lunar orbit: the plane flown in the Moon\'s field (lunarPlane.js)');
 {
   // The averaged model, by itself. With the field's J2 alone it is Curtis
@@ -1208,6 +1211,7 @@ header('CASE 20: a long stay in lunar orbit: the plane flown in the Moon\'s fiel
   };
   const j2Off = (() => { const ctxN = PP.turnPlane(lp.normal, lp.pole, lp.firstOrderDegDay * deg / DAY * lp.stayDays * DAY), wv = ls.legs[1].vinfDep; return PP.planeAngle(ctxN, wv) / deg; })();
   const lf = flyMoon(ls);
+  moon200 = { journey: lunar, sol: ls, flown: lf.f };
   console.log(`  75 d at the Moon: the plan ${lp.iDeg.toFixed(1)} to ${lp.iEndDeg.toFixed(1)} deg to the equator, the node ${lp.rateDegDay.toFixed(3)} deg/d (J2 alone ${lp.firstOrderDegDay.toFixed(3)}); on the planned day ${lp.angleDeg.toFixed(2)} deg off the way out (J2 alone ${j2Off.toFixed(2)}), ${(lp.dv * 1000).toFixed(0)} m/s for ${(lp.inPlaneDv * 1000).toFixed(0)} in the plane`);
   console.log(`  flown: ${lf.held}; ${lf.d}`);
   check('a 75-day stay 200 km over the Moon, flown: the plan\'s plane on the planned day within 0.5 deg of the flown one\'s angle off the way out, its burn within 2 %, the Earth reached within 50 km', Math.abs(lf.off - lp.angleDeg) < 0.5 && rel(lp.dv, lf.dv) < 0.02 && lf.f.arrivals[1].missKm < 50 && !lf.f.impact);
@@ -1215,6 +1219,78 @@ header('CASE 20: a long stay in lunar orbit: the plane flown in the Moon\'s fiel
   const ls2 = J.solveJourney(J.applyOption(lunar, 1, lo)), lf2 = flyMoon(ls2);
   console.log(`  flown on that day: ${lf2.d}`);
   check('and on the plan\'s day for the plane: it leaves within a day, the plane within 0.5 deg of the plan\'s, its burn within 2 %', Math.abs(lf2.hours) < 24 && Math.abs(lf2.off - ls2.legs[1].plane.angleDeg) < 0.5 && rel(ls2.legs[1].depDv, lf2.dv) < 0.02);
+}
+
+header('CASE 21: a long stay in a low lunar orbit: the eccentricity the field raises (lunarPlane.js)');
+{
+  // The forcing (e = 0): the addition theorem's gradient of the odd
+  // degrees at the normal, against Gauss's equations for the eccentricity
+  // vector, de/dt = (F x h + v x (r x F)) / mu (Curtis eq. (2.40) [1],
+  // differentiated), averaged over 3,600 points round the circle, with
+  // GRAIL to degree 50 (the even degrees in it too: they average to zero).
+  const G = LP.GRAIL_FIELD, mu = G.gm, I = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], far = [1e12, 0, 0], sc = LP.makeScene(I, far, far);
+  const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const full = geopotential({ mu, radius: G.radius, n: 50, C: G.C.slice(0, 51).map((r, n) => r.slice(0, n + 1).map((c) => (n >= 2 ? c : 0))), S: G.S.slice(0, 51).map((r, n) => r.slice(0, n + 1)), central: false });
+  let worst = 0;
+  for (const a of [1837.4, 1937.4]) for (const v of [[0.1, 0.05, 0.99], [0.5, -0.3, 0.8], [0.2, 0.1, -0.97]]) {
+    const n = v.map((x) => x / norm(v)), p = cr(n, [0, 0, 1]).map((x, _, w) => x / norm(w)), q = cr(n, p), vc = Math.sqrt(mu / a), h = n.map((x) => x * Math.sqrt(mu * a)), sum = [0, 0, 0];
+    for (let k = 0; k < 3600; k++) {
+      const u = (2 * Math.PI * k) / 3600, r = p.map((x, m) => a * (Math.cos(u) * x + Math.sin(u) * q[m])), vel = p.map((x, m) => vc * (-Math.sin(u) * x + Math.cos(u) * q[m]));
+      const F = full.accel(r), d1 = cr(F, h), d2 = cr(vel, cr(r, F));
+      for (let m = 0; m < 3; m++) sum[m] += (d1[m] + d2[m]) / mu / 3600;
+    }
+    const b = LP.moonEccentricityRate([0, 0, 0], n, a, sc, { degree: 50, j2: 0 });
+    // (The tide's part is zero at e = 0.)
+    worst = Math.max(worst, norm(b.map((x, m) => x - sum[m])) / norm(sum));
+  }
+  console.log(`  the forcing at e = 0, by the addition theorem against Gauss's equations round the circle (6 orbits, degree 50): ${worst.toExponential(1)}`);
+  check('the eccentricity\'s forcing by the addition theorem is Gauss\'s equations averaged round the circle, to 1e-9', worst < 1e-9);
+
+  // Against the kernel: a circular orbit 100 km over the Moon at 7 deg to
+  // its equator from 10 Jan 2027, flown in the full model (GRAIL to degree
+  // 50), its eccentricity vector averaged over a turn at the end of each
+  // day, until it hits the Moon. The model's mean e each day within 0.003
+  // of the flown one's, and its fall within a day of the impact.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), R = J.bodyInfo('moon').radius, a = R + 100, i0 = 7 * deg;
+  const ms0 = D('2027-01-10T00:00:00Z'), t0 = kernelSeconds(new Date(ms0)), M = LP.moonScene(ms0).M;
+  const toEqj = (b) => [0, 1, 2].map((k) => b[0] * M[0][k] + b[1] * M[1][k] + b[2] * M[2][k]);
+  const nb = toEqj([0, -Math.sin(i0), Math.cos(i0)]), xb = toEqj([1, 0, 0]), along = cr(nb, xb);
+  const moonOf = (t) => { const B = sys.bodiesAt(t).find((x) => x.key === 'moon'), v = [0, 0, 0]; B.eph.velocity(t, v); return { r: B.r.slice(), v }; };
+  const env = { ...JOURNEY_ENV }, T = 2 * Math.PI * Math.sqrt(a ** 3 / mu), M0 = moonOf(t0);
+  let st = { r: M0.r.map((x, k) => x + a * xb[k]), v: M0.v.map((x, k) => x + Math.sqrt(mu / a) * along[k]), t: t0 }, hitDay = null, eWorst = 0, eLast = 0;
+  const tr = LP.moonPlaneTrack({ n0: nb, a, fromMs: ms0, toMs: ms0 + 20 * DAY_MS, degree: 30 }), et = LP.moonEccentricityTrack({ track: tr, a, ground: R });
+  for (let d = 1; d <= 20 && hitDay === null; d++) {
+    const res = stepCraft(sys, { id: 0, version: 0, r: st.r, v: st.v, t: st.t, tEnd: t0 + d * DAY, primary: null, burns: [], maxSteps: 5e6, env });
+    st = res;
+    if (res.events.some((e) => e.type === 'impact')) { hitDay = (res.t - t0) / DAY; break; }
+    const em = [0, 0, 0];
+    for (let k = 0; k < 8; k++) {
+      const Mo = moonOf(st.t), r = st.r.map((x, j) => x - Mo.r[j]), v = st.v.map((x, j) => x - Mo.v[j]), h = cr(r, v), e = cr(v, h).map((x, j) => x / mu - r[j] / norm(r));
+      for (let j = 0; j < 3; j++) em[j] += e[j] / 8;
+      st = stepCraft(sys, { id: 0, version: 0, r: st.r, v: st.v, t: st.t, tEnd: st.t + T / 8, primary: null, burns: [], maxSteps: 5e6, env });
+    }
+    eLast = norm(em);
+    eWorst = Math.max(eWorst, Math.abs(norm(et(ms0 + d * DAY_MS)) - eLast));
+  }
+  const fallDay = et.fall === null ? null : (et.fall - ms0) / DAY_MS;
+  console.log(`  100 km up at 7 deg: the kernel's mean e ${eLast.toFixed(4)} the day before it hits the Moon on day ${hitDay?.toFixed(2)}; the model within ${eWorst.toFixed(4)} each day, its periapsis on the ground on day ${fallDay?.toFixed(2)}`);
+  check('a near-equatorial orbit 100 km up, against the kernel: the mean eccentricity within 0.003 each day, and the fall within a day of the impact', hitDay !== null && fallDay !== null && eWorst < 0.003 && Math.abs(fallDay - hitDay) < 1);
+
+  // The journeys: Earth to the Moon, 75 days in lunar orbit, and home
+  // (CASE 20's), 100 km up and 200 km up. 100 km up the plan has the orbit
+  // fall in the stay and lights the low-orbit lamp, and the flight hits the
+  // Moon within a day of the day the plan gives; 200 km up the plan has it
+  // hold, no lamp, and the flight (CASE 20's) comes home.
+  const low = { ...moon200.journey, waypoints: moon200.journey.waypoints.map((w) => (w.body === 'moon' ? { ...w, altKm: 100 } : w)) };
+  const sLow = J.solveJourney(low), oLow = sLow.legs[1].stayOrbit, oHigh = moon200.sol.legs[1].stayOrbit;
+  const lampOf = (j, s) => F.assess(j, s).find((l) => l.key === 'lowOrbit');
+  const lLow = lampOf(low, sLow), lHigh = lampOf(moon200.journey, moon200.sol);
+  const fLow = flyJourney(sys, planFlight(sLow)), hit = fLow.impact, hitMs = hit ? KERNEL_EPOCH_MS + hit.t * 1000 : null, arr = sLow.stops[1].arrMs;
+  console.log(`  100 km up, ${oLow.iDeg.toFixed(1)} deg to the equator: the plan's orbit falls on day ${oLow.fallDays?.toFixed(2)} of 75 (e ${oLow.eMax.toFixed(3)}; ${oLow.safeAltKm} km holds); the lamp: ${lLow ? `${lLow.level}: ${lLow.text}` : 'none'}`);
+  console.log(`  flown: ${hit ? `hits the ${hit.body} on day ${((hitMs - arr) / DAY_MS).toFixed(2)}` : 'no impact'}`);
+  console.log(`  200 km up: the plan's orbit holds, e up to ${oHigh.eMax.toFixed(3)}, its periapsis down to ${oHigh.lowKm.toFixed(0)} km; the lamp: ${lHigh ? lHigh.text : 'none'}; flown (CASE 20): ${moon200.flown.impact ? 'impact' : 'home'}`);
+  check('75 days 100 km over the Moon: the plan has the orbit fall in the stay and warns, and the flight hits the Moon within a day of the plan\'s day', oLow.fallDays !== null && oLow.fallDays < 75 && lLow?.level === 'warn' && hit?.body === 'moon' && Math.abs((hitMs - oLow.fallMs) / DAY_MS) < 1);
+  check('75 days 200 km over the Moon: the plan has the orbit hold, 20 km to spare, and no lamp; the flight comes home', oHigh.fallDays === null && oHigh.lowKm >= 20 && !lHigh && !moon200.flown.impact);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
