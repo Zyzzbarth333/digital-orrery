@@ -260,7 +260,7 @@ function planeContext(S, legs, k) {
   const n0 = unit(h), uin = unit(vin), uout = X.rotate(uin, n0, X.turnAngle(rp, norm(vin), B.mu));
   const d = unit(sub(uin, uout));
   const pole = unit(eqjToEcl(bodyAxesEqj(P.body, new Date(P.arrMs))[2]));
-  const flown = flownNodeRate({ mu: B.mu, j2: z.j2, j4: z.j4 ?? 0, R: z.rJ2, pole, r: scale(d, rp), v: scale(unit(cross(n0, d)), Math.sqrt(B.mu / rp)) });
+  const flown = flownNodeRate({ mu: B.mu, j2: z.j2, jn: z.jn ?? null, R: z.rJ2, pole, r: scale(d, rp), v: scale(unit(cross(n0, d)), Math.sqrt(B.mu / rp)) });
   return { body: P.body, B, z, rp, vin, pole, arrMs: P.arrMs, n0, factor: flown ? flown.ratio : 1 };
 }
 
@@ -817,10 +817,14 @@ export function nodeFrame(r, v) {
 // A leg flown free instead of by Lambert's arc: from its departure (the
 // planned arc's velocity, or, after a flyby aimed by hand, the flyby's own
 // outgoing velocity), two-body about the central body, with each node's
-// burn (prograde, normal, radial km/s) at its time. It arrives where it
-// arrives: the miss from the target at the arrival date is kept, and the
-// arrival is costed with the velocity it has. Returns the new leg, and the
-// aimed flyby (its turn, periapsis and aim) when there is one.
+// burn (prograde, normal, radial km/s) at its time. A leg of two arcs (a
+// broken plane, or a bi-elliptic leg) keeps its burn at the break: there
+// the craft is put on the planned second arc's velocity, whatever it came
+// in with, so the burn costs what the nodes before it left it to do. It
+// arrives where it arrives: the miss from the target at the arrival date
+// is kept, and the arrival is costed with the velocity it has. Returns the
+// new leg, and the aimed flyby (its turn, periapsis and aim) when there is
+// one.
 export function shapeLeg(leg, Q, nodes, from = null) {
   const mu = bodyInfo(leg.central).mu;
   const out = { ...leg, arcs: [], nodes: [] };
@@ -833,11 +837,20 @@ export function shapeLeg(leg, Q, nodes, from = null) {
     flyby = { delta: f.delta, rp: f.rp, dv: 0, periapsisDv: 0, steerDv: 0, gain: norm(sub(f.vinfOut, from.vinfIn)), bT: from.aim.bT, bR: from.aim.bR, aim: Math.hypot(from.aim.bT, from.aim.bR), byHand: true, tooTight: f.rp < P.radius };
   }
   const list = nodes.filter((n) => n.ms > leg.depMs && n.ms < leg.arrMs).sort((a, b) => a.ms - b.ms);
-  for (const n of list) {
-    const x = propagate(r, v, (n.ms - t) / 1000, mu);
+  const brk = leg.mid && leg.arcs.length === 2 ? { ms: leg.arcs[1].t1, v: leg.arcs[1].v1 } : null;
+  let midDv = leg.midDv ?? 0;
+  const steps = [...list.map((n) => ({ ms: n.ms, n })), ...(brk ? [{ ms: brk.ms, brk }] : [])].sort((a, b) => a.ms - b.ms || (a.brk ? -1 : 1));
+  for (const st of steps) {
+    const x = propagate(r, v, (st.ms - t) / 1000, mu);
     if (!x) return { leg: { ...leg, ok: false, error: 'a node\'s arc could not be flown' }, flyby };
-    out.arcs.push({ r1: r, v1: v, t1: t, t2: n.ms, mu });
-    const F = nodeFrame(x.r, x.v), dv = [0, 1, 2].map((i) => F.T[i] * n.pro + F.N[i] * n.nor + F.R[i] * n.rad);
+    out.arcs.push({ r1: r, v1: v, t1: t, t2: st.ms, mu });
+    if (st.brk) {
+      midDv = norm(sub(st.brk.v, x.v));
+      out.mid = { ...leg.mid, r: x.r };
+      r = x.r; v = st.brk.v; t = st.ms;
+      continue;
+    }
+    const n = st.n, F = nodeFrame(x.r, x.v), dv = [0, 1, 2].map((i) => F.T[i] * n.pro + F.N[i] * n.nor + F.R[i] * n.rad);
     out.nodes.push({ id: n.id, ms: n.ms, r: x.r, v: x.v, frame: F, dv: norm(dv), dvVec: dv });
     r = x.r; v = add(x.v, dv); t = n.ms;
   }
@@ -850,7 +863,8 @@ export function shapeLeg(leg, Q, nodes, from = null) {
   out.vinfArr = sub(end.v, leg.ringArr ? [0, 0, 0] : atEnd.v);
   const B = bodyInfo(leg.to), g = legGeometry(leg.from, leg.to, leg.from === leg.to);
   out.arrDv = leg.ringArr ? leg.arrDv : arriveCost(Q, out.vinfArr, B, moonAt(g.viaB, leg.to, leg.arrMs));
-  out.midDv = (leg.midDv ?? 0);
+  out.midDv = midDv;
+  if (out.brokenPlane) out.brokenPlane = { ...out.brokenPlane, dv: midDv };
   out.reaches = out.missKm < (leg.ringArr ? 0.05 * norm(target) : Math.max(sphereOfInfluence(leg.endB ?? leg.to), B.radius * 2));
   out.shaped = true;
   return { leg: out, flyby };
@@ -864,8 +878,12 @@ export function aimNode(journey, k, id) {
   const sol = solveJourney(journey), leg = sol.legs[k];
   const n = leg?.nodes?.find((x) => x.id === id);
   if (!n) return journey;
-  const atEnd = relState(leg.endB ?? leg.to, leg.central, leg.arrMs), target = leg.ringArr ?? atEnd.r;
-  const s = lambert(n.r, target, (leg.arrMs - n.ms) / 1000, bodyInfo(leg.central).mu, true);
+  // (On a leg of two arcs, a node before the break aims at the break point,
+  // from where the burn there takes the craft on.)
+  const brk = !!leg.mid && n.ms < leg.mid.ms;
+  const plan = brk ? solveJourney({ ...journey, waypoints: journey.waypoints.map((x, i) => (i === k ? { ...x, nodes: [] } : x)) }).legs[k] : null;
+  const atEnd = relState(leg.endB ?? leg.to, leg.central, leg.arrMs), target = brk ? plan.mid.r : leg.ringArr ?? atEnd.r;
+  const s = lambert(n.r, target, ((brk ? plan.mid.ms : leg.arrMs) - n.ms) / 1000, bodyInfo(leg.central).mu, true);
   if (!s) return journey;
   const d = sub(s.v1, n.v);
   const w = journey.waypoints[k];

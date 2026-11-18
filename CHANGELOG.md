@@ -60,7 +60,10 @@ once it has releases. Until then, everything sits under Unreleased.
   the day near the planned one when the plane holds the way out. After a
   year at Mars the plan's price for the departure is within 5 % of the
   flight's, and the flight's wait for the plane within a day. The Moon is
-  not priced: J2 alone does not turn a lunar orbit (this pull request).
+  not priced: J2 alone does not turn a lunar orbit (#94). At Jupiter and
+  the other giants the node's rate takes their zonal terms beyond J2 as the
+  kernel does (to J12 for Jupiter, 2.5 % faster than J2 alone 1.5 radii
+  out); since #98 it had fallen back to J2 alone (this pull request).
 - Journeys are flown in the full model, with the Earth's and the Moon's
   gravity fields (mascons included), drag and sunlight, and their craft
   no longer flies bare: a Moon landing comes down on its site. The bare
@@ -76,7 +79,12 @@ once it has releases. Until then, everything sits under Unreleased.
   days costs 4.57 km/s, not 15.69, and the price no longer leaps as the
   stay changes. The flight no longer pays hundreds of metres a second
   chasing a plane that won't hold. A plane lamp says where the plane breaks,
-  and the direct arc is listed beside it for comparison (this pull request).
+  and the direct arc is listed beside it for comparison (#89).
+- Burn nodes on a broken-plane or bi-elliptic leg no longer skip its burn
+  at the break: the leg keeps it, priced by what the nodes left it to do,
+  and aiming a node before the break aims it at the break point. In
+  flight, such a leg's departure, if it waits, is re-aimed at the break
+  point, not straight at the target (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
@@ -160,6 +168,14 @@ once it has releases. Until then, everything sits under Unreleased.
   measured. Uranus and Neptune have radiation belts too, and the belts
   cost an integrated GPU about a millisecond at Earth instead of eight
   (this pull request).
+- The gravity field of every body at once, as field lines flowing toward
+  the masses in a plane through the focus: inertial, falling with the
+  focus, less its own pull (Jupiter's moons' wells), or in the rotating
+  frame of the focus and its parent, with the zero-velocity curves through
+  L1–L3. The spin axes show which way each body turns, with Venus, Uranus
+  and Pluto marked retrograde. Orbit lines fade where they pass close to
+  the camera against their size, so a body's own orbit no longer cuts
+  across the view when zoomed in on it (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The

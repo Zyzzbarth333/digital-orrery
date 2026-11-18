@@ -311,8 +311,9 @@ plane may no longer hold the way out. `parkingPlane.js` and
   the kernel's node turns 0.15 to 0.6 % faster than eq. (4.52), and over a
   year that is 5 to 20° of node. So `flownNodeRate` flies the capture's
   orbit for ten turns in the planet's zonal field as the kernel has it
-  (`zonal.js` `addJ2`: J2, eq. (10.30) [1], and J4 for the giant planets,
-  which turns the node too; RK4, 240 steps a turn, about 10 ms). It reads
+  (`zonal.js` `addJ2`: J2, eq. (10.30) [1], and the giant planets' terms
+  beyond it as `bodies.js` `ZONAL` holds them, J4 and Jupiter's J6 to J12,
+  which turn the node too; RK4, 240 steps a turn, about 10 ms). It reads
   the node where the orbit crosses the equator going north, so the terms
   that come and go within a turn cancel. The plan's rate is eq. (4.52)
   scaled by that flight's rate over its own.
@@ -720,6 +721,17 @@ the pointer is let go.
   A node with no burn leaves the leg as it was. **Aim last node** sets the
   last node's burn to the Lambert arc from its place to the waypoint, so
   the leg reaches it again.
+- **A leg of two arcs** (a broken plane, or bi-elliptic) keeps its burn at
+  the break under nodes:
+  - at the break the craft is put on the planned second arc's velocity,
+    whatever it comes in with, so that burn costs what the nodes before it
+    left it to do;
+  - a node before the break is aimed at the break point, not the waypoint,
+    and the burn there takes the craft on;
+  - in flight, a node before a broken plane's break also drops the early
+    aim at the break point, which would undo it. A two-arc leg's
+    departure, if it waits for the parking orbit's plane, is re-aimed at
+    its break point, not the waypoint.
 - **A flyby's aim:** selecting a flyby's mark shows a ring on a stalk out
   from the planet, toward its B vector.
   - Dragging the ring out or in scales $|B|$ (doubling over a stalk's
@@ -900,6 +912,9 @@ orbits, waits 454 days.
 | A 200 m/s node halfway to Mars, then aimed | Lambert from the node | misses by 3.28 million km; aimed, on target to 1 m |
 | Mariner 10's Venus aim set by hand to the plan's B point | the planned flyby | the same periapsis, unpowered; Mercury missed by 194,000 km without its 29 m/s |
 | An aimed node on the way to Mars, flown | the plan | Mars 1.4 km off the planned periapsis |
+| A node with no burn on a broken plane (before and after the break) and on a bi-elliptic leg | Lambert's arcs, as planned | on target to 1 m (the bi-elliptic leg 54 m in 1,821 d, within 1 km); the break burn the same to 10⁻⁹ km/s (bi-elliptic 10⁻⁶) |
+| A 50 m/s node before the break, then aimed | the break point by Lambert | misses by 855,000 km and the break grows from 60.9 to 83.4 m/s; aimed, on target to 1 m and the plan's delta-v to 10⁻⁶ km/s |
+| A broken plane with a 20 m/s node before the break, flown | the plan | no early aim at the break; Mars 1.1 km off the planned periapsis |
 | The 2:1 resonance cone at 8.9 km/s about a circular 1 AU orbit | geometry | a = 2^(2/3) AU, 61.98°, back in two years; every clock angle on the cone and back to the start (two-body) |
 | Galileo's Earth to Earth (8 Dec 1990 to 8 Dec 1992) | NASA's dates: PDS mission catalogue [4] | 2:1 chosen, back within a day of 8 Dec 1992, 8.871 out and 8.864 km/s back; Earth flybys 0 and 70 m/s |
 | Galileo's whole route flown by the kernel | the plan | Venus 2.0, Earth 0.9 and 14.5 km off; Jupiter 3,100 km off a 270,000 km periapsis (1.1 %); corrections 1.1 km/s over six years |
@@ -913,6 +928,8 @@ orbits, waits 454 days.
 | The same, leaving on the parking orbit lamp's day (6.5 d later) | the plan (on time, 5 %) | leaves 1 h late, 2,086 m/s against 2,008 (3.9 %); Mars 0.6 km, Earth 24 km |
 | The node's J2 regression, 280 by 400 km at 51.43° | Curtis Ex 4.8, eq. (4.52) | −1.0465 × 10⁻⁶ rad/s, 5.181° a day west |
 | The node 400 km over Mars at 150.6°, ten days in the kernel, from the node and 90° past it | the kernel | eq. (4.52) 0.58 and 0.15 % slow (within 1 %); flown ten turns in the J2 field, 0.06 and 0.04 % (within 0.25 %) |
+| The node 1.5 Jupiter radii out at 30°, three days in the kernel (its field to J12, its moons), averaged over a turn at each end | the kernel | flown in the same zonal field, 0.03 % (within 0.25 %); in J2 alone, 2.5 % slow |
+| A stay 36,000 km over Jupiter, priced with and without the terms beyond J2 | the plan's own rate | ×1.076 of eq. (4.52) in the full field, ×1.026 in J2 alone: the planner takes the field |
 | The burn from a circular orbit 400 km over Mars onto 2.48 km/s, 0 to 45° out of its plane | Curtis eq. (8.42); a scan of 7,200 points; burning at the planes' node | 2,000.4 m/s in the plane (eq. (8.42) to 1 mm/s); 2,057, 2,420, 2,931, 4,044 m/s at 5, 15, 25, 45°, the scan to 0.1 m/s, never over the node bound |
 | Where the plane is priced | the rules above | a month at Mars and 3 d at the Moon held; 40 d at the Moon and 30,000 km over Mars not priced, and why |
 | The strip leaving Mars after a year, and the parking orbit lamp | the leg solved there | every 2 days, each point with its plane; the lamp at the day the profile names |
@@ -964,9 +981,8 @@ orbits, waits 454 days.
 - **The broken plane:** its first arc keeps to the departure body's
   orbit plane, and its break is placed by when it comes, not searched in
   three dimensions. A deep-space burn that also reshapes the orbit can
-  cost less, and isn't sought. It is a two-arc leg, so burn nodes dragged
-  onto it fly free past the break, as they do on a bi-elliptic leg. A
-  craft's first leg (from its own state) is always direct.
+  cost less, and isn't sought. A craft's first leg (from its own
+  state) is always direct.
 - **The full model:** the flight is slower in it (seconds, not tenths).
   Looking ahead uses lower degrees of the fields, though every burn kept
   is worked out at full degree. A journey whose full-model flight has

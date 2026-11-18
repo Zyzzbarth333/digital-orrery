@@ -452,9 +452,10 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 60 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 47 m/s) |
 | Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,257 (1.4 %, within 3 %); lows a month apart; the best day priced 1,657, flown 1,666 |
 | Mars orbit to the Moon, flown: lunar orbit and a landing | the plan | 1.3 km off the planned periapsis; capture within 3 % of its price; down at 2.3 m/s |
-| The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's; the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % (within 0.25 %); to 0.1 m/s; the planned day 2,911 m/s, flown 3,043 (4.3 %); the wait 12.5 d, flown 11.5 (2,025 against 2,070 m/s); the parking orbit lamp's day 2,008, flown 2,086 on time |
+| The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's, at Mars and at Jupiter (to J12); the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % at Mars and 0.03 % at Jupiter (within 0.25 %; J2 alone 2.5 % off there); to 0.1 m/s; the planned day 2,911 m/s, flown 3,043 (4.3 %); the wait 12.5 d, flown 11.5 (2,025 against 2,070 m/s); the parking orbit lamp's day 2,008, flown 2,086 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 20-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 205 m/s of corrections against the direct arc's 679 |
+| Burn nodes on a leg of two arcs (a broken plane, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 1.1 km off |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
@@ -735,6 +736,21 @@ references these are).
 | Ganymede's dipole | Weber et al. 2022 against Kivelson et al. 2002 | 719 vs 713 nT, 0.8° apart |
 | Mars's crustal field | Langlais et al. 2019: Br −8,520 to 11,260 nT | −8,522 to 11,261 nT (0.25° grid), strongest at 47.9° S 174.6° E |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
+
+## The field of every body and spin directions (`gravityFlow.test.mjs`)
+
+[Gravity guides](physics/gravity-guides.md#the-field-of-every-body).
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| The summed pull of 54 bodies at six places, 100 km above Ganymede to the main belt | the kernel's force sum (`nbody.js`) | within 4.5 × 10⁻¹⁶ |
+| The same, falling with the Earth and with Jupiter | the kernel's sum, differenced | within 1.7 × 10⁻¹⁵ |
+| The sum in float32, as the GPU does it | the double-precision sum | within 2.3 × 10⁻⁷ |
+| The GPU's field read back in the app, 144 pixels in each of six views | the same sum in double precision | log₁₀\|a\| within 0.0076 (the half-float step), direction within 0.02° |
+| The rotating frame's stationary points, five pairs from Sun–Earth to Saturn–Titan | L1–L5 from `lagrangePoints` | within 1.2 × 10⁻¹⁰ of the separation; L1–L3 saddles, L4 and L5 peaks |
+| Earth–Moon Jacobi constants at L1–L4 | Koon, Lo, Marsden and Ross: 3.1883, 3.1722, 3.0121, 2.9880 | 3.1883, 3.1722, 3.0121, 2.9880 |
+| Spin sense of 61 bodies, from the app's orientation differenced | the sign of each IAU rate $W_1$ | all 61; size within 2 % (Phobos 0.65 %, its libration) |
+| Retrograde rotation | Venus 177°, Uranus 98°, Pluto 120° from their orbits' poles | exactly those three: 177.4°, 97.8°, 119.6° |
 
 ## References
 
