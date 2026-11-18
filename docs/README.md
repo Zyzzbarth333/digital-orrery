@@ -39,9 +39,11 @@ they come from, and how each part is checked.
 | [Moons](frontend/moons.md) | Seventy-six moons of Mars to Pluto: JPL's satellite ephemerides as per-year Chebyshev tables (2000–2049, within 1 km), loaded lazily; astronomy-engine and JPL's mean elements outside; planets drawn at their centres; the errors against Horizons; the 381 irregular moons of Jupiter, Saturn and Neptune as a layer |
 | [Barycentres and the SSB frame](frontend/barycentres.md) | The solar system's, Earth-Moon and each planet system's barycentre to fly to, orbits and distances about the SSB, checked against Horizons |
 | [Asteroids and comets](frontend/small-bodies.md) | 135,353 small bodies from JPL's SBDB drawn by the GPU, the named ones, how right they are |
+| [Spacecraft beyond Earth orbit](frontend/spacecraft.md) | Orbiters of Mercury, the Moon, Mars and Jupiter, L1 and L2 observatories and probes in cruise from JPL Horizons, held within 2 km by blended Kepler arcs; reconstructed or predicted; checked against held-out Horizons states |
 | [Earth satellites](frontend/satellites.md) | 16,892 active satellites from CelesTrak's GP elements, SGP4 via satellite.js, TEME to J2000, the GPU's points, the named ones' orbits, search and data plate; checked against Vallado's verification set and Horizons |
 | [Atmospheres](frontend/atmospheres.md) | Rayleigh, Mie and ozone single scattering along the view ray, sunlight reddening on the ground, checks |
 | [Surface maps, rings, stars and daily Earth](frontend/textures.md) | Every source and its credit, map layout, relief from elevation, night lights, GIBS daily imagery, the Cassini ring profile, the star map |
+| [The other planets' rings](frontend/rings.md) | Jupiter's, Uranus's and Neptune's rings from occultations and ring tables: orbits, arcs, dust and forward scattering, and drawing rings narrower than a pixel |
 
 ## Usability
 
@@ -54,7 +56,8 @@ they come from, and how each part is checked.
 [Validation](validation.md): every check, its reference and the measured
 result. The flown missions in detail: [Artemis I](validation/artemis1.md),
 [Artemis II](validation/artemis2.md),
-[Juno 2012–13](validation/juno2013.md) and [DART](validation/dart.md). [Performance](performance.md): what each part costs and the plan
+[Juno 2012–13](validation/juno2013.md), [DART](validation/dart.md) and
+[LRO](validation/lro.md). [Performance](performance.md): what each part costs and the plan
 for the slow parts.
 
 ## Background

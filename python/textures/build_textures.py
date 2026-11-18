@@ -155,7 +155,9 @@ def main() -> int:
             continue
         print(key)
         entry = build(args.src, OUT, colour_map, heights_km, normal_map)
-        if key in ("rings", "stars"):
+        if key == "uranus_rings":
+            manifest["rings"] = {**manifest.get("rings", {}), **entry}
+        elif key in ("rings", "stars"):
             # Replaced, not merged: a field a newer build drops must not linger.
             manifest[key] = {**manifest.get(key, {}), **entry} if key == "rings" else entry
         else:

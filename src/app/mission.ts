@@ -16,8 +16,10 @@
 //
 // Craft launched here carry an attitude by default (sixdof: craftAttitude.js,
 // docs/physics/sixdof.md#attitude-in-the-app): they point, turn under a
-// torque limit and burn along their body axis. Real missions and journeys
-// stay point masses, so their validations are untouched.
+// torque limit and burn along their body axis. The MISSION tab's own craft
+// is the 1.5 t box (DEFAULT_ATTITUDE); a ROCKET-tab launch's attitude is
+// sized to its stage (stageAttitude). Real missions and journeys stay point
+// masses, so their validations are untouched.
 //
 // Real missions (public/missions/*.json, src/physics/realMission.js): the
 // craft starts from its flown state, its burns are scripted as flown (all of
@@ -39,6 +41,7 @@ import { RealMission } from '../physics/realMission.js';
 import { ORION_CRAFT, ORION_ENTRIES, orionFor } from '../physics/orion.js';
 import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
 import { quatToMatrix } from '../physics/rigidbody.js';
+import { stageAttitude } from '../physics/craftAttitude.js';
 import type { CraftView } from '../scene/craftLayer';
 
 const MU_EARTH = 398600.4355;
@@ -49,7 +52,12 @@ export const R_EARTH_EQ = 6378.137;
 export function altitudeRadius(key: string, meanRadiusKm: number): number { return key === 'earth' ? R_EARTH_EQ : meanRadiusKm; }
 type V3 = [number, number, number];
 
-export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number }
+// A launch's craft (the ROCKET tab's: the stage left at cutoff, any above it
+// and the payload): its masses (kg), its engine, its drag and sunlit area
+// (m^2), and for its attitude its diameter (m; else from the area, a
+// circle's) and the full propellant load of its stages (capacity, kg; else
+// the fuel), which size its tank (craftAttitude.js stageAttitude).
+export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number; diameter?: number; capacity?: number }
 export type DepartureDirection = 'prograde' | 'retrograde' | 'outward' | 'inward';
 
 export interface MissionSnapshot { version: number; selected: number | null }
@@ -74,6 +82,7 @@ export const REAL_MISSIONS = [
   { id: 'artemis2-plan', label: 'Artemis II · our own plan' },
   { id: 'juno2013', label: 'Juno · Earth flyby, 2012–13' },
   { id: 'dart', label: 'DART · impact on Dimorphos, Sep 2022' },
+  { id: 'lro', label: 'LRO · capture at the Moon, June 2009' },
 ];
 // Orion as the app flies a real mission: its mass falling burn by burn,
 // its sunlit area and its venting (ORION_CRAFT in src/physics/orion.js).
@@ -180,7 +189,10 @@ export class Mission {
   private stateCraft(timeMs: number, rGeo: number[], vGeo: number[], name: string, props: LaunchProps): Craft {
     const E = helioStateEqj('earth', new Date(timeMs));
     const r = [0, 1, 2].map((i) => rGeo[i] + E.r[i]) as V3, v = [0, 1, 2].map((i) => vGeo[i] + E.v[i]) as V3;
-    return new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, attitude: this.attitude(), ...props });
+    const { diameter, capacity, ...craft } = props;
+    const d = diameter ?? Math.sqrt(4 * props.area / Math.PI);
+    const attitude = this.sixdof ? stageAttitude({ dryMass: props.dryMass, fuel: props.fuel, capacity, diameter: d, isp: props.isp }) : null;
+    return new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, attitude, ...craft });
   }
 
   // The same launch flown from the pad: the craft climbs along track
@@ -291,7 +303,11 @@ export class Mission {
     c.note(burns === 'all' ? `${m.burns.length} burns scripted as flown` : `${keep[0].name} scripted as flown; the corrections are yours`, s.t);
     const refEcl = m.flown.map((p: number[]) => eqjToEclFast([p[1], p[2], p[3]]));
     const entryId = m.id && (ORION_ENTRIES as Record<string, unknown>)[m.id] ? m.id : null;
-    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom, aimed: burns === 'all' && !m.data.flownFrom, aimNext: 0, aimedDv: 0, entryId, separated: false });
+    // A file may fly with tracking fixes by default instead of aimed burns
+    // (LRO's every 6 h, as its navigators worked each burn from a fresh
+    // orbit determination: aimed a day across twelve lunar orbits, the aims
+    // find costly phasing answers).
+    this.real.set(c.id, { m, fixHours: m.data.fixHours ?? null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom, aimed: burns === 'all' && !m.data.flownFrom && !m.data.fixHours, aimNext: 0, aimedDv: 0, entryId, separated: false });
     this.crafts.push(c);
     this.select(c.id);
     return c;

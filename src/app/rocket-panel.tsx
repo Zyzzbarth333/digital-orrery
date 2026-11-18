@@ -182,14 +182,16 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
   // The craft that reaches orbit: the payload, the stage that was burning at
   // cutoff (with what propellant it kept) and any stages above it. Its
   // engine is that stage's, so the next burns (a departure, say) are flown
-  // with it from the MISSION tab.
+  // with it from the MISSION tab. Its attitude is sized to it: the stack's
+  // diameter, and the full load of the stages left for its tank.
   const reached = () => {
     const res = flight!.res!;
     const k = res.remaining ? res.remaining.stage : si.length - 1;
     const left = res.remaining ? res.remaining.prop : 0;
     const fuel = left + si.slice(k + 1).reduce((a, x) => a + x.prop, 0);
     const dryMass = payload * 1000 + si.slice(k).reduce((a, x) => a + x.dry, 0);
-    return { name: `${custom && P0.source ? 'Custom ' : ''}${P0.label.split(' (')[0]} from ${flight!.pad.name.split(',')[0]}`, props: { dryMass, fuel, area: Math.PI * diameter * diameter / 4, thrust: si[k].thrust, isp: si[k].isp } };
+    const capacity = si.slice(k).reduce((a, x) => a + x.prop, 0);
+    return { name: `${custom && P0.source ? 'Custom ' : ''}${P0.label.split(' (')[0]} from ${flight!.pad.name.split(',')[0]}`, props: { dryMass, fuel, area: Math.PI * diameter * diameter / 4, diameter, capacity, thrust: si[k].thrust, isp: si[k].isp } };
   };
   const insert = () => {
     if (!flight?.res || !orbit) return;
