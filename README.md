@@ -37,9 +37,10 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 - **The sky:**
   - the Sun, planets, 76 moons and 135,353 asteroids and comets, at their real positions for any date, at true scale;
   - 16,892 Earth satellites from CelesTrak's element sets, moved by SGP4, with the ISS, Tiangong, Hubble, GPS, Galileo and the weather satellites' orbits;
+  - the spacecraft at Mercury, the Moon, Mars and Jupiter, about the Sun-Earth L1 and L2 points and in cruise, on JPL Horizons' trajectories for 2026 and 2027;
   - real surface maps and relief, Saturn's rings from Cassini measurements, Earth's clouds as satellites saw them that day under a physically based atmosphere;
   - the real star field and Milky Way.
-- **Bodies to visit:** fly the camera to any planet, moon, barycentre, small body or Earth satellite, with a data plate whose values open their equation and source.
+- **Bodies to visit:** fly the camera to any planet, moon, barycentre, small body, Earth satellite or spacecraft, with a data plate whose values open their equation and source.
 - **Guides:** spin axes, Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls; the planets' magnetic fields as traced field lines (IGRF-14, JRM33, Cassini, Voyager), and the auroras: the Earth's ovals for the day's Kp, Jupiter's and Saturn's main ovals and Io's footprint.
 - **Missions:**
   - spacecraft fly under an n-body kernel in a Web Worker, with finite burns, the Earth's and Moon's gravity fields, drag and sunlight pressure;
@@ -208,6 +209,7 @@ Every data source, with what the app uses it for. Each map's details are in [doc
 | NASA Ames Research Center, [Trajectory Browser](https://trajbrowser.arc.nasa.gov/) | transfer optima to compare against |
 | D. A. Vallado, P. Crawford, R. Hujsak and T. S. Kelso, [*Revisiting Spacetrack Report #3*](https://celestrak.org/publications/AIAA/2006-6753/) (AIAA 2006-6753): its verification set and TEME example | the SGP4 checks |
 | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/): the ISS (−125544) | the satellites' independent check |
+| [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/): spacecraft trajectories, each from its mission's navigation team (NASA, ESA, ISRO, KARI, MBRSC, JAXA) as Horizons credits them | the spacecraft beyond Earth orbit, 2026–2027 |
 | NASA SP-2000-4029, [*Apollo by the Numbers*](https://history.nasa.gov/SP-4029.pdf); SpaceX's [*Falcon User's Guide*](https://www.spacex.com/assets/media/falcon-users-guide-2025-05-09.pdf); Rocket Lab's [*Electron Payload User's Guide*](https://rocketlabusa.com/assets/Electron-Payload-User-Guide-7.0-v6.pdf); Crew Dragon Demo-1 webcast telemetry ([shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data), public domain) | the ROCKET tab's real launchers and their flights |
 
 **Fonts and software**

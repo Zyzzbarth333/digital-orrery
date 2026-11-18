@@ -69,8 +69,13 @@ once it has releases. Until then, everything sits under Unreleased.
   in the Earth's shadow. The ISS, Tiangong, Hubble, GPS, Galileo and the
   geostationary weather satellites have their orbits. Any satellite can be
   found by name, NORAD number or designator and flown to, with a data
-  plate. A **Latest** key fetches CelesTrak's current elements (this pull
-  request).
+  plate. A **Latest** key fetches CelesTrak's current elements (#79).
+- Spacecraft beyond Earth orbit: the orbiters of Mercury, the Moon, Mars
+  and Jupiter, the observatories about the Sun-Earth L1 and L2 points (JWST,
+  Roman, Euclid and others) and the probes in cruise, on JPL Horizons'
+  trajectories for 2026 and 2027, with their paths, a fly-to list and a data
+  plate that says whether the clock is in a reconstruction or a prediction
+  (this pull request).
 - Guides for spin axes, real gravity fields, spheres of influence,
   Lagrange points and the strongest pulls (#43).
 - Magnetic fields and auroras, two new guides. Field lines traced through
