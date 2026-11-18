@@ -34,12 +34,15 @@
 // still printed, the missing samples are listed under it, and the script
 // exits with status 1. The load average at each sample is printed too.
 //
-// The render scale is held (?scale=fixed). Run one benchmark at a time:
-// two browsers share the GPU and time each other.
+// Each sample gets a fresh browser: one browser on the Intel GPU grows
+// past 8 GB over a run's page loads (its textures are system memory). The
+// run holds the GPU lock that sessions share, so benchmarks queue rather
+// than time each other, and each browser has a memory cap
+// (scripts/lib/chromium.mjs). The render scale is held (?scale=fixed).
 
 import { writeFileSync } from 'node:fs';
 import { loadavg } from 'node:os';
-import { GPUS, launch, pageApi, serve } from './lib/chromium.mjs';
+import { GPUS, browserMemory, gpuLock, launch, pageApi, serve } from './lib/chromium.mjs';
 
 // ---- Scenarios ------------------------------------------------------------
 // A URL query (App.tsx's initialState documents it), an expression to run
@@ -69,6 +72,16 @@ const SCENARIOS = {
   'jupiter-in': { label: 'Inside Jupiter\'s rings', query: `?focus=jupiter&${DATE}`, km: 200000 },
   'uranus': { label: 'Uranus and its rings', query: `?focus=uranus&${DATE}`, km: 200000 },
   'neptune': { label: 'Neptune and its rings', query: `?focus=neptune&${DATE}`, km: 250000 },
+  // The gravity guides' field of every body (docs/physics/gravity-guides.md),
+  // each beside the same view with the guides off.
+  'jupiter-far': { label: 'Jupiter\'s moons', query: `?focus=jupiter&${DATE}`, km: 6e6 },
+  'field-jupiter': { label: 'Jupiter\'s moons, gravity field (falling) and spin arrows', query: `?focus=jupiter&${DATE}`, km: 6e6,
+    setup: "orrery.guides.set('flow', true); orrery.guides.set('axes', true); orrery.guides.setFlow('falling', 'orbit')" },
+  'earth-moon': { label: 'The Earth and the Moon', query: `?focus=moon&${DATE}`, km: 1.3e6 },
+  'field-rotating': { label: 'The Earth and the Moon, gravity field (rotating)', query: `?focus=moon&${DATE}`, km: 1.3e6,
+    setup: "orrery.guides.set('flow', true); orrery.guides.setFlow('rotating', 'orbit')" },
+  'field-belt': { label: 'The asteroid belt, gravity field (inertial)', query: `?focus=sun&${DATE}`, km: 9e8,
+    setup: "orrery.guides.set('flow', true); orrery.guides.setFlow('inertial', 'orbit')" },
 };
 const DEFAULTS = ['earth', 'belt', 'craft-near', 'craft-far', 'point-near', 'point-far'];
 const GPU_NAME = { intel: 'Intel', nvidia: 'NVIDIA' };
@@ -129,6 +142,38 @@ async function measure(p, base, sc, opts) {
   } catch (e) {
     const n = await p.eval(RECENT).catch(() => null);
     throw new Error(`${e.message}${n === null ? '' : ` (${n} frames drawn in the last 5 s)`}`);
+  }
+}
+
+// One sample in a browser of its own, closed after it. The first sample on
+// each GPU reads the renderer's name, and stops the run if an NVIDIA run
+// is drawn on another GPU.
+async function sample(gpu, base, sc, opts, renderers, log) {
+  const browser = await launch({ gpu, ...opts.view });
+  try {
+    const { cdp } = browser;
+    const p = pageApi(cdp);
+    await cdp.send('Page.enable');
+    await cdp.send('Runtime.enable');
+    // The page's own errors, which explain a sample that fails.
+    cdp.on('Runtime.exceptionThrown', ({ exceptionDetails: x }) => log(`  page: ${(x.exception?.description ?? x.text).split('\n').slice(0, 3).join(' | ')}`));
+    cdp.on('Runtime.consoleAPICalled', ({ type, args }) => { if (type === 'error') log(`  page console: ${args.map((a) => a.value ?? a.description).join(' ').slice(0, 300)}`); });
+    cdp.on('Inspector.targetCrashed', () => log('  page: the renderer crashed'));
+    await cdp.send('Emulation.setDeviceMetricsOverride', { ...opts.view, deviceScaleFactor: opts.dpr, mobile: false });
+    await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+    const s = await measure(p, base, sc, opts);
+    if (!renderers[gpu]) {
+      renderers[gpu] = await p.eval(RENDERER);
+      log(`${gpu}: ${renderers[gpu]}, canvas ${s.canvas}`);
+      if (gpu === 'nvidia' && !/nvidia/i.test(renderers[gpu])) throw Object.assign(new Error(`--gpu nvidia, but the page renders on ${renderers[gpu]}`), { fatal: true });
+    }
+    return s;
+  } catch (e) {
+    // The cap kills the page or GPU process, which closes the socket.
+    if (/socket closed/.test(e.message)) e.message += `: a browser process died (over its ${browserMemory()} memory cap?)`;
+    throw e;
+  } finally {
+    await browser.close();
   }
 }
 
@@ -219,6 +264,7 @@ async function main() {
   const loads = [];
   const log = (s) => console.error(s);
   const started = new Date();
+  const lock = await gpuLock({ log });
   try {
     for (const v of variants) {
       if (v.dist) { v.server = await serve(v.dist); v.base = v.server.url; } else v.base = v.url.replace(/\/$/, '');
@@ -226,49 +272,31 @@ async function main() {
     }
     for (const gpu of o.gpus) {
       results[gpu] = Object.fromEntries(o.names.map((n) => [n, Object.fromEntries(variants.map((v) => [v.label, []]))]));
-      const browser = await launch({ gpu, ...o.view });
-      try {
-        const { cdp } = browser;
-        const p = pageApi(cdp);
-        await cdp.send('Page.enable');
-        await cdp.send('Runtime.enable');
-        // The page's own errors, which explain a sample that fails.
-        cdp.on('Runtime.exceptionThrown', ({ exceptionDetails: x }) => log(`  page: ${(x.exception?.description ?? x.text).split('\n').slice(0, 3).join(' | ')}`));
-        cdp.on('Runtime.consoleAPICalled', ({ type, args }) => { if (type === 'error') log(`  page console: ${args.map((a) => a.value ?? a.description).join(' ').slice(0, 300)}`); });
-        cdp.on('Inspector.targetCrashed', () => log('  page: the renderer crashed'));
-        await cdp.send('Emulation.setDeviceMetricsOverride', { ...o.view, deviceScaleFactor: o.dpr, mobile: false });
-        await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
-        for (let r = 0; r < o.rounds; r++) {
-          for (const n of o.names) {
-            const order = r % 2 ? variants.slice().reverse() : variants;
-            for (const v of order) {
-              const where = `${gpu}, round ${r + 1}, ${n}, ${v.label}`;
-              let s = null;
-              for (let a = 0; a <= o.retries && !s; a++) {
-                s = await measure(p, v.base, SCENARIOS[n], o).catch((e) => {
-                  log(`${where}: ${e.message}, load average ${loadavg()[0].toFixed(0)}${a < o.retries ? '; loading it again' : '; left out'}`);
-                  if (a === o.retries) failed.push(`${where}: ${e.message}`);
-                  return null;
-                });
-              }
-              if (!s) continue;
-              loads.push(loadavg()[0]);
-              if (!renderers[gpu]) {
-                renderers[gpu] = await p.eval(RENDERER);
-                log(`${gpu}: ${renderers[gpu]}, canvas ${s.canvas}`);
-                if (gpu === 'nvidia' && !/nvidia/i.test(renderers[gpu])) throw new Error(`--gpu nvidia, but the page renders on ${renderers[gpu]}`);
-              }
-              results[gpu][n][v.label].push(s);
-              log(`${gpu} r${r + 1} ${n.padEnd(10)} ${v.label.padEnd(10)} frame ${ms(s.cost)} ms (p90 ${ms(s.p90)}, worst ${ms(s.worst)}), gap ${ms(s.gap)} ms, ${s.frames} frames, camera ${kmText(+s.km.toPrecision(3))}, load ${loads.at(-1).toFixed(0)}`);
+      for (let r = 0; r < o.rounds; r++) {
+        for (const n of o.names) {
+          const order = r % 2 ? variants.slice().reverse() : variants;
+          for (const v of order) {
+            const where = `${gpu}, round ${r + 1}, ${n}, ${v.label}`;
+            let s = null;
+            for (let a = 0; a <= o.retries && !s; a++) {
+              s = await sample(gpu, v.base, SCENARIOS[n], o, renderers, log).catch((e) => {
+                if (e.fatal) throw e;
+                log(`${where}: ${e.message}, load average ${loadavg()[0].toFixed(0)}${a < o.retries ? '; loading it again' : '; left out'}`);
+                if (a === o.retries) failed.push(`${where}: ${e.message}`);
+                return null;
+              });
             }
+            if (!s) continue;
+            loads.push(loadavg()[0]);
+            results[gpu][n][v.label].push(s);
+            log(`${gpu} r${r + 1} ${n.padEnd(10)} ${v.label.padEnd(10)} frame ${ms(s.cost)} ms (p90 ${ms(s.p90)}, worst ${ms(s.worst)}), gap ${ms(s.gap)} ms, ${s.frames} frames, camera ${kmText(+s.km.toPrecision(3))}, load ${loads.at(-1).toFixed(0)}`);
           }
         }
-      } finally {
-        await browser.close();
       }
     }
   } finally {
     for (const v of variants) await v.server?.stop();
+    await lock.release();
   }
 
   const day = started.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
