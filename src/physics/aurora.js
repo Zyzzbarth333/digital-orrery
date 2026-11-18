@@ -198,6 +198,10 @@ export const JUPITER_MAIN = { r: [20, 30] };
 // southern oval at ~14 and ~16 deg colatitude.
 export const SATURN_MAIN = { colat: [14, 16] };
 export const IO_ORBIT_RJ = 5.9;
+// Feldman et al. 2000 (HST/STIS): Ganymede's oxygen aurora is confined to
+// latitudes above +-40 deg, along the boundary of its open field lines; the
+// ovals are drawn from 40 to 48 deg in each hemisphere.
+export const GANYMEDE_OVAL = { lat: [40, 48] };
 // Melin et al. 2025: Neptune's southern H3+ aurora maps to L from under 3
 // to 20 R_N (the northern to 3-5).
 export const ICE_GIANT_AURORA = { L: [3, 20] };

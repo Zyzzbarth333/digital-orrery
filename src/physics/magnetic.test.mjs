@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import {
   harmonicField, northEastDown, igrfCoeffs, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
-  eccentricDipole, dipoleAngles, coeffIndex, OTD,
+  eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002,
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
@@ -268,6 +268,16 @@ console.log("Mercury: MESSENGER (Anderson et al. 2012)");
   const c = new Array(24).fill(0);
   want.forEach((g, i) => { c[coeffIndex(i + 1, 0)] = g; });
   check(Math.abs(eccentricDipole(c).centre[2] * 2440 - 479) < 1, `the eccentric dipole of those terms sits ${(eccentricDipole(c).centre[2] * 2440).toFixed(0)} km north`);
+}
+
+// ---- Ganymede ----
+console.log('Ganymede: Juno and Galileo (Weber et al. 2022; Kivelson et al. 2002)');
+{
+  const G = magneticModel('ganymede'), d = G.dipole;
+  const k = [GANYMEDE_KIVELSON2002[1], GANYMEDE_KIVELSON2002[2], GANYMEDE_KIVELSON2002[0]], kM = Math.hypot(...k);
+  const angle = Math.acos((k[0] * d.m[0] + k[1] * d.m[1] + k[2] * d.m[2]) / (kM * d.moment)) / DEG;
+  check(Math.abs(d.moment / kM - 1) < 0.02 && angle < 1.5, `Ganymede's dipole ${d.moment.toFixed(1)} nT at the equator, tilt ${d.tilt.toFixed(2)} deg; Galileo-only fit (Kivelson 2002) ${kM.toFixed(1)} nT, ${angle.toFixed(2)} deg apart`);
+  check(d.m[2] < 0, "its moment points south, against Jupiter's: so their fields reconnect where they meet");
 }
 
 // ---- radiation belts ----

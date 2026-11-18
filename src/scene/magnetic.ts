@@ -30,11 +30,12 @@ type Model = NonNullable<ReturnType<Mag['magneticModel']>>;
 type V3 = [number, number, number];
 
 const UNIT_KM = 1000;
-const BODIES: BodyKey[] = ['mercury', 'earth', 'jupiter', 'saturn', 'uranus', 'neptune'];
+const DEG_R = Math.PI / 180;
+const BODIES: BodyKey[] = ['mercury', 'earth', 'jupiter', 'saturn', 'uranus', 'neptune', 'ganymede'];
 const BUDGET_MS = 3;                       // tracing per frame
 // Seed latitudes (magnetic, toward the end field lines leave) per body.
 const SEEDS: Record<string, number[]> = {
-  mercury: [20, 35, 45, 55, 62, 68], earth: [20, 35, 45, 55, 62, 68], jupiter: [15, 30, 45, 55, 62, 68, 74], saturn: [20, 35, 45, 55, 62, 68],
+  mercury: [20, 35, 45, 55, 62, 68], ganymede: [15, 30, 40, 50, 60, 68], earth: [20, 35, 45, 55, 62, 68], jupiter: [15, 30, 45, 55, 62, 68, 74], saturn: [20, 35, 45, 55, 62, 68],
   uranus: [15, 30, 45, 55, 62, 68], neptune: [15, 30, 45, 55, 62, 68],
 };
 const N_LON = 12;
@@ -537,7 +538,15 @@ export class MagneticLayer {
       // The band's two edges, as footprints worked out a longitude at a time.
       const edges: { north: (V3 | null)[]; south: (V3 | null)[] }[] = [{ north: [], south: [] }, { north: [], south: [] }];
       const jobs: (() => void)[] = [];
-      if (k !== 'saturn') {
+      if (k === 'ganymede') {
+        // Rings at the ovals' edges, both hemispheres, on Ganymede's sphere.
+        aur.GANYMEDE_OVAL.lat.forEach((lat, j) => jobs.push(() => {
+          for (let lon = 0; lon < 360; lon += dLon) {
+            const c = Math.cos(lat * DEG_R), sn = Math.sin(lat * DEG_R), x = c * Math.cos(lon * DEG_R), y = c * Math.sin(lon * DEG_R);
+            edges[j].north.push([x, y, sn]); edges[j].south.push([x, y, -sn]);
+          }
+        }));
+      } else if (k !== 'saturn') {
         // Jupiter's main emission from 20-30 R_J; the ice giants' zones from L 3-20.
         const fr = aur.magneticEquatorFrame(L.model);
         (k === 'jupiter' ? aur.JUPITER_MAIN.r : aur.ICE_GIANT_AURORA.L).forEach((r, j) => {
@@ -555,7 +564,7 @@ export class MagneticLayer {
           });
         });
       }
-      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 1 : k === 'saturn' ? 0.9 : 0.16); g.add(gi!.mesh); });
+      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 1 : k === 'saturn' ? 0.9 : k === 'ganymede' ? 0.45 : 0.16); g.add(gi!.mesh); });
       gi = { mesh: null, jobs, done: false };
       this.giant.set(k, gi);
     }
