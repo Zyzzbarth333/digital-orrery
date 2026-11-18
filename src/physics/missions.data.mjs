@@ -16,17 +16,65 @@
 //   fine       the step each event's window is fetched at, to resolve it
 //   minBurn    m/s: events smaller than this are left as joins between the
 //              navigation solutions, not burns
+//   burnFloor  km/s in a 10 s step: every run of steps over it is a burn of
+//              its own (MESSENGER's burns in parts), instead of a share of
+//              the window's largest step
+//   jumpKm     a step this far in position from the kernel's is an event,
+//              whatever its velocity (MESSENGER's joins)
+//   sunlightPieceDays  sunlight fitted along each coast arc in pieces this
+//              long (MESSENGER's solar sailing)
+//   fixHours   the app flies the file with a tracking fix this often;
+//              fixesOnly: the validation doesn't fly it aimed as well
 //   dense      windows fetched more finely: [{ from, to, step, about (the
 //              body they are fetched about: the flyby's) }]
 //   keep       the mission file's flown samples: { cruise (ms), near:
 //              [{ body, km, every (ms) }] }
 //   published  the burns as published: { name, utc (ignition, or null),
-//              seconds, mps, engine, src (URL), note }
+//              seconds, mps, engine, src (URL), note; eme: the change as a
+//              J2000 vector, m/s; part: one part of a burn in parts }
 //   flybys     { body, utc, altitudeKm, geodetic?, src, note }
 //   craft      the app's craft: dryMass, fuel (kg at the start), area (m^2,
 //              sunlit), cr, isp (s, for the mass falling at the burns)
 
 const FT = 0.3048, MILE = 1.609344;
+
+// MESSENGER's cruise burns, from APL's Mission Design page (its DSM and TCM
+// tables and each burn's details): [name, start (UTC), seconds, engine,
+// [x, y, z] m/s in EME2000, note]. TCM-4, 7, 8, 14 and 17 were contingency
+// burns "never implemented"; DSM-n is TCM-9, 18, 23, 29A and B, 35.
+const MD = 'https://messenger.jhuapl.edu/About/Mission-Design.html';
+const FLYBY_SRC = 'https://messenger.jhuapl.edu/Resources/Flyby-Information.html';
+const LVA = 'main engine (LVA)', SMALL = 'small thrusters';
+const MESSENGER_BURNS = [
+  ['TCM-1', '2004-08-24T21:00:07Z', 203.004, SMALL, [-7.82785, -15.06373, -5.67884], '17.9 m/s, "correct most inaccuracies resulting from launch"'],
+  ['TCM-2', '2004-09-24T18:00:00Z', 62.86, SMALL, [0.08617, -4.18716, -1.8749], '4.6 m/s'],
+  ['TCM-3', '2004-11-18T19:30:00Z', 48.86, SMALL, [2.2448, -2.18609, -0.85246], '3.2 m/s, "target the Earth flyby"'],
+  ['TCM-5', '2005-06-23T14:30:00Z', 171.22, SMALL, [-0.5613, -0.94712, 0.0721], '1.1 m/s'],
+  ['TCM-6', '2005-07-21T18:00:01Z', 22.46, SMALL, [-0.03712, -0.14553, 0.00918], '0.2 m/s in the table'],
+  ['DSM-1', '2005-12-12T11:30:00Z', 553.00, LVA, [-250.24835, -190.46892, -26.86624], '315.6 m/s, "target the first Venus flyby"'],
+  ['TCM-10', '2006-02-22T16:00:00Z', 135.00, SMALL, [-1.22761, 0.30129, 0.20595], '1.3 m/s'],
+  ['TCM-11A', '2006-09-12T23:00:00Z', 54.88, SMALL, [-0.61577, -0.41682, -0.38011], 'TCM-11, 1.7 m/s, a "component maneuver"'],
+  ['TCM-11B', '2006-09-12T23:10:00Z', 236.08, SMALL, [0.8496, -1.15986, -0.13865], ''],
+  ['TCM-12', '2006-10-05T22:30:00Z', 64.60, SMALL, [-0.02321, -0.1242, -0.48526], '0.5 m/s'],
+  ['TCM-13A', '2006-12-02T21:00:00Z', 1713.00, SMALL, [-2.7416, -6.0599, -3.6594], 'TCM-13, 25.6 m/s, a "component maneuver"; the reconstruction starts it 200 s early', null, 240],
+  ['TCM-13B', '2006-12-02T22:00:00Z', 98.00, LVA, [18.276, -8.6036, 1.4328], ''],
+  ['TCM-13C', '2006-12-03T03:00:00Z', 1599.00, SMALL, [-2.848, -6.1908, -3.9318], ''],
+  ['TCM-15', '2007-04-25T17:30:00Z', 140.00, SMALL, [-0.4207, 0.0307, -0.387], '0.6 m/s'],
+  ['TCM-16', '2007-05-25T16:00:00Z', 36.00, SMALL, [-0.0384, 0.2051, 0.0398], '0.2 m/s'],
+  ['DSM-2A', '2007-10-17T22:00:00Z', 385.18, LVA, [-82.4506, 190.5891, 89.1642], 'DSM-2, 227.4 m/s, "target the first Mercury flyby", a "component maneuver"'],
+  ['DSM-2B', '2007-10-17T22:30:00Z', 132.70, SMALL, [-0.4543, 1.2252, 0.5571], ''],
+  ['TCM-19', '2007-12-19T22:00:00Z', 110.52, SMALL, [0.8635, -0.0392, 0.686], '1.1 m/s; the last TCM: after it, sunlight on the sunshade and arrays trimmed the course ("solar sailing")'],
+  ['DSM-3', '2008-03-19T19:30:00Z', 151.00, LVA, [56.313, -44.0509, -10.2819], '72.2 m/s, "test spacecraft rotation during a maneuver as required for Mercury orbit insertion"'],
+  // The page has 19:30; the trajectory has it at 20:30, an hour on, at
+  // DSM-4B's time of day four days later: matched by its day.
+  ['DSM-4A', null, 314.86, LVA, [188.21243, -97.0268, -66.90804], 'DSM-4 part 1, 222.1 m/s; the page gives 19:30:00 UTC, the trajectory 20:30', '2008-12-04'],
+  ['DSM-4B', '2008-12-08T20:30:00Z', 71.80, LVA, [21.69828, -9.7764, -6.42], 'DSM-4 part 2, 24.7 m/s, a test of the turn during MOI'],
+  ['DSM-5', '2009-11-24T21:45:00Z', 276.80, LVA, [172.87912, -11.97811, -39.69162], '177.75 m/s, "target Mercury arrival for orbit insertion"'],
+  ['MOI', '2011-03-18T00:45:15Z', 885.04, LVA, [638.153, -198.322, 544.041], '861.7 m/s, "insert spacecraft into orbit around Mercury"; turned as it fired'],
+].map(([name, utc, seconds, engine, eme, note, day, startTolS]) => ({
+  name, utc, ...(day ? { day } : {}), ...(startTolS ? { startTolS } : {}), seconds, mps: Math.round(Math.hypot(...eme) * 1000) / 1000, eme, engine, src: MD, note,
+  ...(/^(TCM-1[13]|DSM-2)[A-C]$/.test(name) ? { part: true } : {}),
+}));
 
 export const MISSIONS = {
   juno2013: {
@@ -193,6 +241,66 @@ export const MISSIONS = {
     // steadyOffMms, the velocity a burn fitted steady leaves at the sample
     // half an hour on; app*, the file flown with a fix every 6 h.
     checks: { arcFittedKm: 1, arcGain: 10, crFitPct: 20, appEndKm: 1, appWorstKm: 50, appFlybyKm: 1, appAimedMps: 1, orbitPct: 15, fieldKm: 0.05, steadyOffMms: 2000 },
+  },
+  messenger: {
+    id: 'messenger',
+    name: 'MESSENGER · cruise to Mercury',
+    label: 'MESSENGER · cruise to Mercury, 2004–11',
+    craftName: 'MESSENGER',
+    summary: 'MESSENGER\'s six and a half years from the Earth to Mercury orbit: flybys of the Earth, Venus twice and Mercury three times, five deep-space burns on its main engine, and the 15-minute burn that put it into orbit about Mercury on 18 March 2011. Starts two days after launch; every burn is flown as MESSENGER flew it.',
+    source: 'JHU/APL MESSENGER reconstruction msgr_20040803_20150501_od423sc_0, via JPL Horizons (-236)',
+    horizons: '-236', centre: 'sun',
+    span: ['2004-08-05 00:00', '2011-03-18 12:00'],
+    step: '1h', threshold: 5e-6, coarseEnv: true, fine: 's10', finePadMs: 3600e3, minBurn: 0.1, burnFloor: 1e-5, jumpKm: 0.5,
+    dense: [
+      { from: '2005-08-02 07:00', to: '2005-08-03 07:00', step: '1m', about: 'earth' },
+      { from: '2006-10-23 20:00', to: '2006-10-24 20:00', step: '1m', about: 'venus' },
+      { from: '2007-06-05 11:00', to: '2007-06-06 11:00', step: '1m', about: 'venus' },
+      { from: '2008-01-14 07:00', to: '2008-01-15 07:00', step: '1m', about: 'mercury' },
+      { from: '2008-10-05 20:00', to: '2008-10-06 20:00', step: '1m', about: 'mercury' },
+      { from: '2009-09-29 10:00', to: '2009-09-30 10:00', step: '1m', about: 'mercury' },
+      // The approach to Mercury, MOI and the first orbit.
+      { from: '2011-03-17 12:00', to: '2011-03-18 12:00', step: '1m', about: 'mercury' },
+    ],
+    keep: { cruise: 6 * 3600e3, near: [{ body: 'earth', km: 3e6, every: 600e3 }, { body: 'earth', km: 2e5, every: 60e3 }, { body: 'venus', km: 1e6, every: 600e3 }, { body: 'venus', km: 2e5, every: 60e3 }, { body: 'mercury', km: 5e5, every: 600e3 }, { body: 'mercury', km: 1e5, every: 60e3 }] },
+    // APL's Mission Design page (MD) gives every burn's start, length,
+    // effective thrust and Isp, masses, and its change as a vector in
+    // EME2000 (J2000 equatorial, as these states): `eme`, m/s. A vector's
+    // length is the change along the path (MOI's 861.716 m/s, which the
+    // rocket equation gives from its masses), so a burn is compared by its
+    // change along its path, and by direction. Its start times are the
+    // commanded ones, on the quarter hour. Components of one burn (DSM-2's
+    // main-engine 2A and its 2B on the small thrusters half an hour later)
+    // are each their own entry (part: matched within ten minutes).
+    published: MESSENGER_BURNS,
+    flybys: [
+      // APL's Flyby Information page: closest approach and its altitude;
+      // its distances from the centre less the altitudes give 2439.4 km for
+      // Mercury and 6051.8 for Venus (spheres), and 6366.7 at the Earth,
+      // the WGS-84 ellipsoid's radius at the 46 degrees north of the pass
+      // ("over central Mongolia", Horizons' notes).
+      { body: 'earth', utc: '2005-08-02T19:13:08Z', altitudeKm: 2347.5, src: FLYBY_SRC, note: '"August 2, 2005, 19:13:08 UTC", "Altitude: 2347.5 km"' },
+      { body: 'venus', utc: '2006-10-24T08:34:00Z', altitudeKm: 2987.3, src: FLYBY_SRC, note: '"October 24, 2006, 8:34:00 UTC", "Altitude: 2987.3 km"' },
+      { body: 'venus', utc: '2007-06-05T23:08:19Z', altitudeKm: 338.3, src: FLYBY_SRC, note: '"June 5, 2007, 23:08:19 UTC", "Altitude: 338.3 km"' },
+      { body: 'mercury', utc: '2008-01-14T19:04:39Z', altitudeKm: 201.7, src: FLYBY_SRC, note: '"January 14, 2008, 19:04:39 UTC", "Altitude: 201.7 km" (the MOI press kit: 201.4 km)' },
+      { body: 'mercury', utc: '2008-10-06T08:40:22Z', altitudeKm: 199.5, src: FLYBY_SRC, note: '"October 6, 2008, 8:40:22 UTC", "Altitude: 199.5 km" (the press kit: 199.2)' },
+      { body: 'mercury', utc: '2009-09-29T21:54:56Z', altitudeKm: 227.8, src: FLYBY_SRC, note: '"September 29, 2009, 21:54:56 UTC", "Altitude: 227.8 km" (the press kit: 227.5)' },
+    ],
+    // The orbit MOI reached: APL Technical Digest 34(1), Table 10 (the
+    // result: a 12.071 h orbit, 206.77 km at its lowest, inclined 82.522
+    // degrees; targeted 11.999 h, 200 km, 82.5).
+    orbits: [{ after: 'MOI', body: 'mercury', periKm: 206.77, periodH: 12.071, src: 'https://jhuapl.edu/sites/default/files/2024-09/34-01-McAdams.pdf', note: 'Table 10: "Result 12.071 206.77 82.522"' }],
+    // The MOI press kit: "Approximately 1,107 kilograms" at launch, "599.4
+    // kilograms of propellant" and "507.6 kilograms of 'dry' spacecraft"; a
+    // 2.5 m by 2 m sunshade (APL's spacecraft page) and two arrays "each
+    // about 1.5 meters by 1.65 meters": 9.95 m^2 facing the Sun. The main
+    // engine (LVA, a Leros-1b) as MD has it at MOI: 646 N effective, Isp
+    // 314 s (the burns on the small thrusters ran at 95 to 230 s).
+    craft: { dryMass: 507.6, fuel: 599.4, area: 2.5 * 2 + 2 * 1.5 * 1.65, cr: 1.3, isp: 314, thrust: 646 },
+    craftSrc: 'https://www.nasa.gov/pdf/525164main_MercuryMOI_PK.pdf',
+    sunlightPieceDays: 10,
+    fixHours: 24, fixesOnly: true,
+    checks: { burnPct: 1, burnMms: 10, burnDeg: 2, startS: 60, arcGain: 10, crFitPct: 30, piecesKm: 10, crAPct: 75, tiltDeg: 30, orbitPct: 5, flybyKm: 3, flybyKernelM: 200, flybyEndKm: 5, appEndKm: 15, appWorstKm: 500, appFlybyKm: 5, appAimedMps: 5 },
   },
 };
 export const FEET = FT, MILES = MILE;

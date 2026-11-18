@@ -57,7 +57,7 @@ const coarse = await fetchRows(M.span[0], M.span[1], M.step);
 // (coarseEnv: LRO's lunar orbit).
 const env = makeEnvironment(sys, { mass: M.craft.dryMass + M.craft.fuel, area: M.craft.area, cr: M.craft.cr });
 const steps = stepResiduals(coarse, M.centre, M.coarseEnv ? env : null);
-const events = findEvents(steps, M.threshold);
+const events = findEvents(steps, M.threshold, 3, M.jumpKm);
 console.log(`${coarse.length} samples every ${M.step}; ${events.length} events over ${(M.threshold * 1e6).toFixed(1)} mm/s`);
 
 // 2. Each event every `fine`, flown step by step in the full environment.
@@ -73,6 +73,34 @@ for (const e of events) {
   const rows = recentre(own, aboutKey, M.centre);
   const s = stepResiduals(own, aboutKey, env);
   const sum = (list) => list.reduce((acc, x) => [acc[0] + x.dv[0], acc[1] + x.dv[1], acc[2] + x.dv[2]], [0, 0, 0]);
+  if (M.burnFloor) {
+    // Every push in the window, each its own burn (M.burnFloor, km/s in a
+    // step): MESSENGER fired a burn's parts minutes apart, a main-engine
+    // burn and a long one on the small thrusters (DSM-2's 2A and 2B), which
+    // a share of the window's largest step would miss. Runs of steps over
+    // the floor, a few steps apart at most; a run of one step, or under
+    // minBurn, is a join. Near a planet the field the kernel leaves out
+    // (Mercury's and Venus's beyond J2: 2 to 3 mm/s a step at 200 to 340 km
+    // up) stays under the floor, and the pass is a join.
+    // A jump in position (M.jumpKm) is a join's step too.
+    const runs = [];
+    s.forEach((x, i) => { if (norm(x.dv) <= M.burnFloor && !(norm(x.dr) > M.jumpKm)) return; const r = runs.at(-1); if (r && i - r[1] <= 3) r[1] = i; else runs.push([i, i]); });
+    const pass = M.flybys.find((f) => { const t = Date.parse(f.utc); return t >= own[0].ms && t <= own.at(-1).ms; });
+    if (!runs.length) {
+      const all = sum(s);
+      fineEvents.push({ kind: 'join', rows, own, mps: norm(all) * 1000, about: aboutKey, onFrom: own[0].ms, onTo: own.at(-1).ms, fineSteps: s.length, ...(pass ? { pass: pass.body } : {}) });
+      console.log(`  join ${iso(own[0].ms)} to ${iso(own.at(-1).ms)}  ${(norm(all) * 1000).toFixed(4).padStart(10)} m/s  in sum, no step over the floor${pass ? `: the pass of ${pass.body}` : ''}, about ${aboutKey}`);
+    }
+    for (const [p, q] of runs) {
+      const run = s.slice(p, q + 1), mps = norm(sum(run)) * 1000;
+      const kind = q > p && mps >= M.minBurn ? 'burn' : 'join';
+      const i0 = Math.max(0, p - 1), i1 = Math.min(own.length - 1, q + 2);
+      const jumpKm = Math.max(...run.map((x) => norm(x.dr)));
+      fineEvents.push({ kind, rows, own, mps, about: aboutKey, onFrom: run[0].ms, onTo: run.at(-1).ms + run.at(-1).sec * 1000, fineSteps: run.length, burnRange: [own[i0].ms, own[i1].ms], ...(kind === 'join' ? { jumpKm } : {}) });
+      console.log(`  ${kind.padEnd(4)} ${iso(run[0].ms)} to ${iso(run.at(-1).ms + run.at(-1).sec * 1000)}  ${mps.toFixed(4).padStart(10)} m/s  over ${run.length} steps${kind === 'join' ? `, a jump of ${jumpKm.toFixed(2)} km` : ''}, about ${aboutKey}`);
+    }
+    continue;
+  }
   // Ringing across a join is set apart (each region its own join); the
   // thrust is the rest's steps over a twentieth of its largest.
   // Ringing: over 1 m/s of steps that add to under half that.
@@ -136,7 +164,8 @@ const ve = M.craft.isp * 9.80665 / 1000;
 const craftEnv = { mass: M.craft.dryMass + M.craft.fuel, area: M.craft.area, cr: M.craft.cr };
 
 // Each burn named: the published one it matches (by its day, or within an
-// hour of its ignition), or "Correction, <date>".
+// hour of its ignition; a part of a burn, within ten minutes), or
+// "Correction, <date>".
 const used = new Set();
 const burns = fineEvents.filter((e) => e.kind === 'burn').map((e) => {
   // About the Sun, along fixed J2000 directions (realMission.js script()).
@@ -152,19 +181,22 @@ const burns = fineEvents.filter((e) => e.kind === 'burn').map((e) => {
     e.fit = fit;
     console.log(`  ${new Date(fit.t0).toISOString().slice(0, 19)}: fitted steady over ${((fit.t1 - fit.t0) / 1000).toFixed(0)} s, ${(norm(fit.dv) * 1000).toFixed(3)} m/s (the samples' sum ${e.mps.toFixed(3)}); at the sample after, ${(fit.missKm * 1000).toFixed(0)} m and ${fit.offMms.toFixed(0)} mm/s off`);
     b = steadyBurn(fit.t0, fit.t1, fit.dv, null, e.about, true);
-  } else b = burnFromSamples(inRange(e.own), e.about, e.about, env, eqj);
+  } else b = burnFromSamples(inRange(e.own), e.about, e.about, env, eqj, M.burnFloor);
   // A long, gentle push (DART's 19 hours on 12-13 September) is resolved
   // by the minute: by the 10 s it would be thousands of intervals.
   massNow *= Math.exp(-norm(b.dv) / ve);
   if (!e.steady && b.intervals.length > 600) {
     const minute = (rows) => rows.filter((p) => p.ms % 60e3 === 0);
     e.own = minute(e.own); e.rows = minute(e.rows);
-    b = burnFromSamples(inRange(e.own), e.about, e.about, env, eqj);
+    b = burnFromSamples(inRange(e.own), e.about, e.about, env, eqj, M.burnFloor);
   }
   const day = new Date(b.ignitionMs).toISOString().slice(0, 10);
-  const pub = M.published.find((p) => !used.has(p) && (p.endUtc && !p.towardMs ? Math.abs(Date.parse(p.endUtc) - b.cutoffMs) < 600e3 : p.utc ? Math.abs(Date.parse(p.utc) - b.ignitionMs) < 3600e3 : p.day ? p.day === day : p.mps && Math.abs(norm(b.dv) * 1000 - p.mps) < 0.02 * p.mps));
+  const pub = M.published.find((p) => !used.has(p) && (p.part ? Math.abs(Date.parse(p.utc) - b.ignitionMs) < 600e3 : p.endUtc && !p.towardMs ? Math.abs(Date.parse(p.endUtc) - b.cutoffMs) < 600e3 : p.utc ? Math.abs(Date.parse(p.utc) - b.ignitionMs) < 3600e3 : p.day ? p.day === day : p.mps && Math.abs(norm(b.dv) * 1000 - p.mps) < 0.02 * p.mps));
   if (pub) used.add(pub);
-  const mps = norm(b.dv) * 1000;
+  // Against a published vector (MESSENGER's, whose length is the change
+  // along the path), the change along its path (b.along: over |dv| for a
+  // burn steered as it fires).
+  const mps = (pub?.eme && b.along ? b.along : norm(b.dv)) * 1000;
   return { ...b, e, pub, mps, name: pub?.name ?? `Correction, ${day}` };
 });
 
@@ -209,7 +241,7 @@ const fixture = {
     // (A burn fitted steady keeps 40 minutes either side: its fit flies
     // from ten before to half an hour after.)
     const pad = e.steady ? 2400e3 : e.kind === 'burn' ? 600e3 : 60e3;
-    return { kind: e.kind, mps: Math.round(e.mps * 1e4) / 1e4, about: e.about, ...(e.burnRange ? { burnRange: e.burnRange } : {}), ...(e.ring ? { ring: e.ring, steady: !!e.steady } : {}), ...(e.fit ? { fit: [e.fit.t0, e.fit.t1], fitCentreMs: e.fit.centreMs } : {}), rows: e.own.filter((p) => p.ms >= e.onFrom - pad && p.ms <= e.onTo + pad).map(state) };
+    return { kind: e.kind, mps: Math.round(e.mps * 1e4) / 1e4, about: e.about, ...(e.jumpKm ? { jumpKm: Math.round(e.jumpKm * 1000) / 1000 } : {}), ...(e.pass ? { pass: e.pass } : {}), ...(e.burnRange ? { burnRange: e.burnRange } : {}), ...(e.ring ? { ring: e.ring, steady: !!e.steady } : {}), ...(e.fit ? { fit: [e.fit.t0, e.fit.t1], fitCentreMs: e.fit.centreMs } : {}), rows: e.own.filter((p) => p.ms >= e.onFrom - pad && p.ms <= e.onTo + pad).map(state) };
   }),
   daily: daily.map(state),
   last: state(lastRow),
@@ -241,7 +273,8 @@ const start = flown[0];
 const closest = M.flybys.map((f) => {
   const t = Date.parse(f.utc);
   let best = null;
-  for (const p of dense) { const d = distanceTo(f.body, p, M.centre); if (!best || d < best.d) best = { d, ms: p.ms }; }
+  // Within two days of the published time (MESSENGER passes Venus twice).
+  for (const p of dense) { if (Math.abs(p.ms - t) > 2 * 864e5) continue; const d = distanceTo(f.body, p, M.centre); if (!best || d < best.d) best = { d, ms: p.ms }; }
   return { body: f.body, utc: new Date(best.ms).toISOString().slice(0, 19) + 'Z', distanceKm: Math.round(best.d * 10) / 10, nearMs: t };
 });
 const out = {
@@ -266,7 +299,7 @@ const out = {
   burns: burns.map((b) => ({
     key: b.name, name: b.name, about: b.e.about, ...(b.e.about === 'sun' || b.e.steady ? { frame: 'eqj' } : {}), mps: Math.round(b.mps * 1e3) / 1e3,
     // What NASA published, as the MISSION tab shows it beside ours.
-    ...(b.pub ? { nasa: `${b.pub.mps ? `${b.pub.mps} m/s` : 'no delta-v published'}${b.pub.seconds ? ` over ${b.pub.seconds} s` : ''} on the ${b.pub.engine}` } : {}),
+    ...(b.pub ? { nasa: `${b.pub.mps ? `${b.pub.mps} m/s` : b.pub.of ? `part of ${b.pub.of}, ${b.pub.ofMps} m/s in all` : 'no delta-v published'}${b.pub.seconds ? ` over ${b.pub.seconds} s` : ''} on the ${b.pub.engine}` } : {}),
     intervals: b.intervals,
   })),
   // [ms, x, y, z, vx, vy, vz]

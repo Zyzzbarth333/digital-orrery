@@ -108,6 +108,15 @@ real pad ([rocket](../physics/rocket.md#in-the-app)).
   ahead across twelve lunar orbits, the aims find costly phasing answers.
   Its four burns after insertion, which the reconstruction's samples can't
   resolve, are each one steady push fitted to the samples either side.
+- **MESSENGER** (2004 to 2011), from two days after launch through six
+  flybys to half a day into Mercury orbit. Its file,
+  `public/missions/messenger.json`, is built the same way
+  ([MESSENGER](../validation/messenger.md)). It flies with a tracking fix
+  every 24 h by default: the app's one sunlight strength can't follow
+  MESSENGER's solar sailing, and aims across Mercury's flybys can't make
+  up for the field beyond J2 that the app leaves out. A burn in parts
+  (DSM-2's main-engine burn and its trim half an hour later) is two burns
+  in the file.
 
 The app reads them all with `src/physics/realMission.js`. A file's states
 are about its `centre` (the Earth, or the Sun for Juno), and it may carry
@@ -403,6 +412,8 @@ How the data gets in:
 | `?mission=juno2013&t=2013-10-09T13:00:00Z` | starts six hours before Juno's Earth flyby |
 | `?mission=dart&t=2022-09-26T22:00:00Z` | starts DART 74 minutes before its impact on Dimorphos, with SMART Nav steering |
 | `?mission=lro&t=2009-06-23T09:30:00Z` | starts LRO 17 minutes before its lunar orbit insertion |
+| `?mission=messenger&t=2008-01-14T18:00:00Z` | starts MESSENGER an hour before its first Mercury flyby |
+| `?mission=messenger&t=2011-03-18T00:30:00Z` | starts MESSENGER 15 minutes before its Mercury orbit insertion |
 
 ## References
 

@@ -562,6 +562,20 @@ through JPL Horizons). See [LRO](validation/lro.md).
 | The orbits | 207 by 3,082 km after LOI-1 (published 220 by 3,100); 34 by 199 km at the end (30 by 216) |
 | The app's file (`public/missions/lro.json`), with a fix every 6 h | 0.1 km off at the end, 25.5 km at worst (blind: 3,424 km) |
 
+## Real flight: MESSENGER's cruise to Mercury (`missions.validate.mjs`)
+
+MESSENGER from 5 August 2004 to half a day into Mercury orbit on 18 March
+2011, against JHU/APL's reconstruction (through JPL Horizons) and APL's
+record of each burn. See [MESSENGER](validation/messenger.md).
+
+| Check | Result |
+| --- | --- |
+| 19 burns (parts summed) against APL's EME2000 vectors | each within 1.1 % and 1.7°; DSM-1 315.639 m/s (APL 315.633), MOI 861.614 m/s along its path (861.714), turned 30° |
+| 49 coast arcs, sunlight fitted every 10 days (radial, along-track, normal) | rms 0.72 km over 2,420 daily samples, worst 5.4 km (no sunlight: 4,686 km); Cr·A 3.5–18.6 m², tilted up to 24° (as built: 12.9 m²) |
+| 6 flybys: Earth, Venus twice, Mercury three times | each within 0.04 km and a second of APL's; the kernel through each within 163 m at closest approach |
+| The orbit MOI reached | 207.5 by 15,272 km, 12.076 h (published 206.77 km, 12.071 h) |
+| The app's file (`public/missions/messenger.json`), with a fix every 24 h | every flyby within 0.6 km of the flown; 9.6 km off at the end, 14.9 km at worst |
+
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 
 NASA's orbital check cases for 6-DOF simulations (NESC,
