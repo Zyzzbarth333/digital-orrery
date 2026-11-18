@@ -13,6 +13,8 @@ off until then, and its data loads the first time.
 | ![The Earth from 51,000 km with the satellites on: a dense shell of low-orbit points close round it, Hubble's marker, and the faint orbits of the GPS, Galileo and geostationary weather satellites crossing the view](satellites-earth.jpg) | ![Further out: the GPS and Galileo shells as rings of orbits about the Earth, and the geostationary ring in green](satellites-shells.jpg) |
 | The Earth with all 16,892 on, 17 Nov 2026 12:00 UTC | Further out: the GPS and Galileo shells and the geostationary ring |
 
+![Every active satellite round the Earth at a minute a second and then an hour a second: the low-orbit shell sweeps round under the camera as it turns, with the GPS and Galileo orbits and the geostationary ring further out](../clips/satellites.webp)
+
 Code: [`src/physics/satellites.js`](../../src/physics/satellites.js) (the
 physics), [`src/scene/satellites.ts`](../../src/scene/satellites.ts) and
 [`satellites.worker.ts`](../../src/scene/satellites.worker.ts) (drawing),

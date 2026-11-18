@@ -14,7 +14,9 @@ import {
   URANUS_NARROW, URANUS_BROAD, NEPTUNE_NARROW, NEPTUNE_BROAD, ADAMS_ARCS, FRATERNITE_FIXES, JUPITER,
   URANUS_EPOCH_JD, edgeAt, edgeRadius, ringWidth, ringPlaneAt, ringAxes, equatorNode,
   fraterniteLongitude, fraterniteRates, dustPhase, dustNormalIF, PARTICLE_ALBEDO,
+  modeOffset, arcsAt, galateaLongitude, ADAMS_WIGGLE, ringReflectivity, NEPTUNE_ARC_REFLECTIVITY, URANUS_LAMBERT_ALBEDO,
 } from './rings.js';
+import { moonPositionEqj } from './moons.js';
 import { bodyAxesEqj } from './orientation.js';
 import { MOON_DATA } from './moons.data.js';
 
@@ -82,6 +84,20 @@ const dr = edgeRadius(r6, 'cor', c6.varpi, URANUS_EPOCH_JD + yr) - edgeRadius(r6
 const want = c6.a * c6.e * (1 - Math.cos(((2.7619579 * yr) % 360) * D));
 check(Math.abs(dr - want) < 0.05, `ring 6 at its 1986 periapse longitude is ${dr.toFixed(2)} km further out a year on (${want.toFixed(2)} from the table's rate)`);
 
+console.log('Uranus: normal modes (French et al. 2024, Table 6)');
+const nModes = URANUS_NARROW.reduce((n, r) => n + (r.modes?.length ?? 0), 0);
+check(nModes === 10 && ring('gamma').modes.length === 5, `all ${nModes} modes fitted at the rings' centres are drawn (gamma 5, delta 2, epsilon 2, eta 1)`);
+const dm = ring('delta').modes[0];
+check(Math.abs(modeOffset(dm, dm[2], URANUS_EPOCH_JD) - dm[1]) < 1e-12,
+  `delta's m = 2 mode pulls the ring in by its ${dm[1]} km at delta_m, a radial minimum, as Eqs. (5)-(6) define it`);
+const gW = [0, 90, 180, 270].map((l) => ringWidth(ring('gamma'), l, URANUS_EPOCH_JD));
+check(gW.every((w) => w > 2 && w < 5), `gamma's width round the ring ${gW.map((w) => w.toFixed(2)).join(', ')} km (table 1-4 km)`);
+
+console.log('Uranus: particle albedo and depth against Voyager photometry (Svitek and Danielson 1987)');
+check(Math.abs(PARTICLE_ALBEDO.uranus - (2 / 3) * URANUS_LAMBERT_ALBEDO) < 1e-12 && Math.abs(URANUS_LAMBERT_ALBEDO - 0.039) < 1e-12,
+  `geometric albedo ${PARTICLE_ALBEDO.uranus.toFixed(3)}: 2/3 of the epsilon ring's Lambert albedo, 3.9 +/- 0.6 %`);
+check(Math.abs(tA - 0.40) < 0.08, `epsilon's depth at apoapse from the PPS, ${tA.toFixed(2)}, against their 0.40 +/- 0.05 (within 0.08)`);
+
 console.log('Neptune: radii and depths against NSSDC and the PPS occultation');
 const nep = { 'Le Verrier': 53200, Adams: 62933 };
 for (const r of NEPTUNE_NARROW) check(Math.abs(r.a - nep[r.name]) < 1, `${r.name} at ${r.a} km (NSSDC ${nep[r.name]})`);
@@ -89,6 +105,49 @@ check(Math.abs(NEPTUNE_BROAD[0][1] - 41900) < 200, `Galle at ${NEPTUNE_BROAD[0][
 const lv = NEPTUNE_NARROW[0];
 // Voyager PPS sigma Sgr (VG_2801 PN1P0105, 1 km): 0.25 km equivalent depth at Le Verrier.
 check(Math.abs(lv.tau * lv.width - 0.25) < 0.1, `Le Verrier tau x width ${(lv.tau * lv.width).toFixed(2)} km (PPS 0.25 km)`);
+
+console.log('Neptune: the Adams ring\'s shape (Porco 1991, via de Pater et al. 2018)');
+const adams = NEPTUNE_NARROW.find((r) => r.name === 'Adams');
+check(Math.abs(adams.a - 62932.37) < 0.02, `semimajor axis ${adams.a} km (62,932.37 +/- 0.02)`);
+check(ADAMS_WIGGLE.m === 42 && Math.abs(ADAMS_WIGGLE.amplitudeKm - adams.a * 4.7e-4) < 1.5,
+  `42 lobes of ${ADAMS_WIGGLE.amplitudeKm} km: a times the forced eccentricity 4.7e-4 is ${(adams.a * 4.7e-4).toFixed(1)} km`);
+// Galatea, which the lobes turn with: Souami et al.'s longitude and mean
+// motion against JPL's ephemeris (the app's fitted elements, 0.14 deg rms),
+// in the ring frame (from the ascending node of Neptune's equator on J2000).
+for (const iso of ['2016-08-23T00:25:00Z', '2026-11-10T15:00:00Z']) {
+  const date = new Date(iso);
+  const jd = date.getTime() / 86400000 + 2440587.5 + 69.184 / 86400;
+  const npole = bodyAxesEqj('neptune', date)[2];
+  const { N: nN, Q: nQ } = equatorNode(npole);
+  const g = moonPositionEqj('galatea', date);
+  const lonJpl = (Math.atan2(dot(g, nQ), dot(g, nN)) / D + 360) % 360;
+  const dG = ((galateaLongitude(jd) - lonJpl + 540) % 360) - 180;
+  // Souami et al.'s +/- 0.30 deg and the elements' up to 0.26 deg from Horizons: within 0.7.
+  check(Math.abs(dG) < 0.7, `Galatea on ${iso.slice(0, 10)}: ${galateaLongitude(jd).toFixed(2)} deg from Souami et al., ${lonJpl.toFixed(2)} from JPL's ephemeris (within 0.7)`);
+}
+
+console.log('Neptune: the arcs over time');
+const at = (y, m, d) => Date.UTC(y, m - 1, d, 12) / 86400000 + 2440587.5;
+const arcs = (jd) => Object.fromEntries(arcsAt(jd).map((a) => [a.name, a]));
+const a02 = arcs(at(2002, 7, 25)), a03 = arcs(at(2003, 10, 3)), a07 = arcs(at(2007, 8, 31)), a09 = arcs(at(2009, 7, 15)), a16 = arcs(at(2016, 8, 23));
+const ratio = (x) => x['Egalite 1'].tau / x.Fraternite.tau;
+check(Math.abs(ratio(a02) - 1.17) < 1e-9 && Math.abs(ratio(a03) - 0.93) < 1e-9 && Math.abs(ratio(a07) - 0.8) < 1e-9 && Math.abs(ratio(a16) - 76 / 84) < 1e-9,
+  'Egalite against Fraternite: 1.17 (2002), 0.93 (2003), 0.80 (2007), 76/84 (2016)');
+check(Math.abs(a03.Fraternite.tau / 0.1 - 0.75) < 1e-9 && Math.abs(a03.Liberte.tau / 0.1 - 0.3) < 1e-9 && Math.abs(a03.Courage.offset - 32.5 - 8) < 1e-9,
+  'Oct 2003: Fraternite 25 % below Voyager, Liberte at 30 %, Courage 8 deg ahead');
+check(a09.Liberte.tau === 0 && a09.Courage.tau === 0 && a16.Liberte.tau === 0, 'Liberte and Courage gone by July 2009, and since');
+// Voyager's PPS crossed the Adams ring on 1989 Aug 24 at 23:24:30.6 UTC
+// (84,270.6 s), at ring longitude 191.569 deg (VG_2801 GEOMETRY/PN1G01.TAB),
+// and measured arc material there (equivalent depth 0.85 km).
+const jdPps = 2447762.5 + 84270.6 / 86400 + 56.184 / 86400;
+const ahead = ((191.569 - fraterniteLongitude(jdPps)) % 360 + 360) % 360;
+const lib = arcsAt(jdPps).find((a) => a.name === 'Liberte');
+const edge = lib.offset + lib.length / 2;
+check(ahead - edge < 1.5, `PPS crossing ${ahead.toFixed(2)} deg ahead of Fraternite, ${(ahead - edge).toFixed(2)} deg past Liberte's leading edge (the published layouts differ by about a degree)`);
+
+console.log('Neptune: brightness against Voyager (de Pater et al. 2018, Table 5.3)');
+const refl = ringReflectivity(PARTICLE_ALBEDO.neptune, 0.5, NEPTUNE_ARC_REFLECTIVITY.phaseDeg);
+check(Math.abs(refl - 0.055) <= NEPTUNE_ARC_REFLECTIVITY.sigma, `the arcs' reflectivity at 8 deg phase ${refl.toFixed(4)} (Voyager 0.055 +/- 0.004); particle albedo ${PARTICLE_ALBEDO.neptune.toFixed(3)}`);
 
 console.log('Neptune: the Adams arcs');
 for (const f of FRATERNITE_FIXES) {

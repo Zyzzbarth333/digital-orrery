@@ -7,8 +7,8 @@
 
 import * as THREE from 'three';
 import {
-  URANUS_NARROW, URANUS_BROAD, URANUS_DUST, NEPTUNE_NARROW, NEPTUNE_BROAD, ADAMS_ARCS, ADAMS_ARC_TAU, ADAMS_ARC_DUST,
-  PARTICLE_ALBEDO, edgeAt, ringPlaneAt, ringAxes, fraterniteLongitude, URANUS_EPOCH_JD,
+  URANUS_NARROW, URANUS_BROAD, URANUS_DUST, NEPTUNE_NARROW, NEPTUNE_BROAD, ADAMS_ARC_DUST, ADAMS_WIGGLE,
+  PARTICLE_ALBEDO, edgeAt, ringPlaneAt, ringAxes, fraterniteLongitude, galateaLongitude, arcsAt, URANUS_EPOCH_JD,
 } from '../physics/rings.js';
 import { MOON_DATA } from '../physics/moons.data.js';
 import { makeFlatRings, makeDustRings, tauTexture, MAX_NARROW } from './rings';
@@ -37,7 +37,7 @@ interface Narrow {
   ier: { a: number; e: number; varpi: number };
   oer: { a: number; e: number; varpi: number };
   i: number; node: number;             // deg
-  mode: [number, number, number] | null;  // m, A km, phase (deg) at jd, before the node
+  modes: [number, number, number][];   // m, A km, phase (deg) at jd: r -= A cos(m lambda - phase)
   E: number;                           // equivalent depth, km
   dust: number;
   row: number;                         // profile row, -1 none
@@ -78,32 +78,40 @@ function profileTexture(rows: number[][]): THREE.DataTexture {
   return t;
 }
 
-// The Adams arcs over 360 deg of longitude from Fraternite's centre: r the
-// optical depth as a multiple of the ring's own, g the dust fraction.
-function arcTexture(baseTau: number, baseDust: number): THREE.DataTexture {
-  const n = 2048, data = new Uint16Array(2 * n), ramp = 0.3;
-  for (let i = 0; i < n; i++) {
-    const lon = ((i + 0.5) / n) * 360;
-    let inArc = 0;
-    for (const a of ADAMS_ARCS) {
-      const d = Math.abs(((lon - a.offset + 540) % 360) - 180) - a.length / 2;
-      inArc = Math.max(inArc, Math.min(1, Math.max(0, 0.5 - d / ramp)));
-    }
-    data[2 * i] = THREE.DataUtils.toHalfFloat(1 + inArc * (ADAMS_ARC_TAU / baseTau - 1));
-    data[2 * i + 1] = THREE.DataUtils.toHalfFloat(baseDust + inArc * (ADAMS_ARC_DUST - baseDust));
-  }
-  const t = new THREE.DataTexture(data, n, 1, THREE.RGFormat, THREE.HalfFloatType);
+// The Adams arcs over 360 deg of longitude from Fraternite's centre, as
+// they were at a date (rings.js, arcsAt): r the optical depth as a multiple
+// of the ring's own, g the dust fraction. Refilled as the date moves.
+const ARC_TEXELS = 2048;
+function arcTexture(): THREE.DataTexture {
+  const t = new THREE.DataTexture(new Uint16Array(2 * ARC_TEXELS), ARC_TEXELS, 1, THREE.RGFormat, THREE.HalfFloatType);
   t.magFilter = t.minFilter = THREE.LinearFilter;
   t.wrapS = THREE.RepeatWrapping;
-  t.needsUpdate = true;
   return t;
+}
+function fillArcs(t: THREE.DataTexture, jd: number, baseTau: number, baseDust: number): void {
+  const data = t.image.data as Uint16Array, ramp = 0.3, arcs = arcsAt(jd);
+  for (let i = 0; i < ARC_TEXELS; i++) {
+    const lon = ((i + 0.5) / ARC_TEXELS) * 360;
+    let tau = baseTau, dust = baseDust;
+    for (const a of arcs) {
+      const d = Math.abs(((lon - a.offset + 540) % 360) - 180) - a.length / 2;
+      const w = Math.min(1, Math.max(0, 0.5 - d / ramp));
+      if (w > 0 && a.tau > baseTau) {
+        tau = Math.max(tau, baseTau + w * (a.tau - baseTau));
+        dust = baseDust + w * (ADAMS_ARC_DUST - baseDust);
+      }
+    }
+    data[2 * i] = THREE.DataUtils.toHalfFloat(tau / baseTau);
+    data[2 * i + 1] = THREE.DataUtils.toHalfFloat(dust);
+  }
+  t.needsUpdate = true;
 }
 
 class FlatSystem {
   readonly mesh: THREE.Mesh;
   private axes: { X: THREE.Vector3; Y: THREE.Vector3; n: THREE.Vector3 }[] = [];
   constructor(mesh: THREE.Mesh, private readonly narrow: (jd: number) => Narrow[], private readonly retrograde: boolean,
-              private readonly unitKm: number) {
+              private readonly unitKm: number, private readonly onDate: (jd: number) => void = () => {}) {
     this.mesh = mesh;
   }
 
@@ -118,33 +126,41 @@ class FlatSystem {
     (u.normal.value as THREE.Vector3).copy(poleR);
     setShadow(u, f);
     const U = this.unitKm;
+    this.onDate(f.jd);
     const rings = this.narrow(f.jd);
     // The band the narrow rings lie in, with room for their tilt (ring 6 is
     // 45 km off the equator at most) and modes.
     let lo = Infinity, hi = 0;
     for (const r of rings) {
-      const A = r.mode ? Math.abs(r.mode[1]) : 0;
+      const A = r.modes.reduce((s, m) => s + Math.abs(m[1]), 0);
       lo = Math.min(lo, r.ier.a * (1 - r.ier.e) - A - 60);
       hi = Math.max(hi, r.oer.a * (1 + r.oer.e) + A + 60);
     }
     (u.narrowBand.value as THREE.Vector2).set(lo / U, hi / U);
+    const modes = u.modes.value as THREE.Vector4[];
+    let next = 0;
     rings.forEach((r, k) => {
       const ax = ringAxes(pole, r.i, r.node);
       (u.ringX.value as THREE.Vector3[])[k].copy(f.toRender(ax.X as Vec3).normalize());
       (u.ringY.value as THREE.Vector3[])[k].copy(f.toRender(ax.Y as Vec3).normalize());
       (u.ringN.value as THREE.Vector3[])[k].copy(f.toRender(ax.n as Vec3).normalize());
       const node = r.node * D;
-      (u.g0.value as THREE.Vector4[])[k].set(r.ier.a / U, r.ier.e, wrap(r.ier.varpi * D - node), 0);
-      (u.g1.value as THREE.Vector4[])[k].set(r.oer.a / U, r.oer.e, wrap(r.oer.varpi * D - node), 0);
-      const m = r.mode;
-      (u.g2.value as THREE.Vector4[])[k].set(m ? m[0] : 0, m ? m[1] / U : 0, m ? wrap(m[2] * D - m[0] * node) : 0, 0);
+      (u.g0.value as THREE.Vector4[])[k].set(r.ier.a / U, r.ier.e, wrap(r.ier.varpi * D - node), next);
+      (u.g1.value as THREE.Vector4[])[k].set(r.oer.a / U, r.oer.e, wrap(r.oer.varpi * D - node), r.modes.length);
+      let sum = 0;
+      for (const [m, A, phase] of r.modes) {
+        // In the shader psi is measured from the ring's node: m lambda - phase = m psi - (phase - m node).
+        modes[next++].set(m, A / U, wrap(phase * D - m * node), 0);
+        sum += Math.abs(A);
+      }
+      (u.g2.value as THREE.Vector4[])[k].set(sum / U, 0, 0, 0);
       (u.g3.value as THREE.Vector4[])[k].set(r.E / U, r.dust, r.row, r.arc < 0 ? -1 : wrap(r.arc * D - node));
     });
   }
 }
 
 const circular = (a: number, width: number, E: number, dust: number, row = -1, arc = -1): Narrow => ({
-  ier: { a: a - width / 2, e: 0, varpi: 0 }, oer: { a: a + width / 2, e: 0, varpi: 0 }, i: 0, node: 0, mode: null, E, dust, row, arc,
+  ier: { a: a - width / 2, e: 0, varpi: 0 }, oer: { a: a + width / 2, e: 0, varpi: 0 }, i: 0, node: 0, modes: [], E, dust, row, arc,
 });
 
 export function makeUranusRings(pps: PpsFile, unitKm: number): FlatSystem {
@@ -154,11 +170,12 @@ export function makeUranusRings(pps: PpsFile, unitKm: number): FlatSystem {
   const bands = URANUS_BROAD.filter((b) => (b[2] as number) < 100) as [string, number, number, number][];
   const wide = URANUS_BROAD.filter((b) => (b[2] as number) >= 100);
   const count = URANUS_NARROW.length + bands.length;
+  const modeCount = URANUS_NARROW.reduce((n, r) => n + (r.modes?.length ?? 0), 0);
   if (count > MAX_NARROW) throw new Error('too many narrow rings');
   const prof = broadProfile(wide, 26000, 107000, 20);
   const mesh = makeFlatRings({
     tau: tauTexture(prof), profileInnerKm: prof.innerKm, profileOuterKm: prof.innerKm + prof.stepKm * (prof.tau.length - 1),
-    meshInnerKm: 26000, meshOuterKm: 107000, narrow: count,
+    meshInnerKm: 26000, meshOuterKm: 107000, narrow: count, modes: modeCount,
     profileMap: profileTexture(shaped.map((r) => pps.rings[r.name].shape!)), profileRows: Math.max(shaped.length, 1),
     tint: new THREE.Color(1, 1, 1), A: PARTICLE_ALBEDO.uranus, lambert: true,
   }, unitKm);
@@ -166,13 +183,11 @@ export function makeUranusRings(pps: PpsFile, unitKm: number): FlatSystem {
     ...URANUS_NARROW.map((r): Narrow => {
       const plane = r.cor[4] ? ringPlaneAt(r, jd) : { i: 0, node: 0 };
       const t = jd - URANUS_EPOCH_JD;
-      let mode: Narrow['mode'] = null;
-      if (r.mode) {
-        const [m, A, delta, Op] = r.mode;
-        mode = [m, A, m === 0 ? Op * t + delta : m * (delta + Op * t)];
-      }
+      // r -= A cos(m (lambda - delta - Omega_p t)); for m = 0, A cos(Omega_p t + delta).
+      const modes = (r.modes ?? []).map(([m, A, delta, Op]): [number, number, number] =>
+        [m, A, m === 0 ? -(Op * t + delta) : m * (delta + Op * t)]);
       return {
-        ier: edgeAt(r.ier, jd), oer: edgeAt(r.oer, jd), i: plane.i, node: plane.node, mode,
+        ier: edgeAt(r.ier, jd), oer: edgeAt(r.oer, jd), i: plane.i, node: plane.node, modes,
         E: pps.rings[r.name]?.equivalentDepthKm ?? 0, dust: (URANUS_DUST as Record<string, number>)[r.name] ?? 0,
         row: rowOf.get(r.name) ?? -1, arc: -1,
       };
@@ -185,15 +200,27 @@ export function makeUranusRings(pps: PpsFile, unitKm: number): FlatSystem {
 export function makeNeptuneRings(unitKm: number): FlatSystem {
   const prof = broadProfile(NEPTUNE_BROAD, 40000, 64500, 20);
   const adams = NEPTUNE_NARROW.find((r) => r.name === 'Adams')!;
+  const arcs = arcTexture();
+  let filled = NaN;
+  const onDate = (jd: number) => {
+    if (Math.abs(jd - filled) < 1) return;   // the arcs change over years: refill a day at a time
+    fillArcs(arcs, jd, adams.tau, adams.dust);
+    filled = jd;
+  };
   const mesh = makeFlatRings({
     tau: tauTexture(prof), profileInnerKm: prof.innerKm, profileOuterKm: prof.innerKm + prof.stepKm * (prof.tau.length - 1),
-    meshInnerKm: 40000, meshOuterKm: 64500, narrow: NEPTUNE_NARROW.length,
-    arcMap: arcTexture(adams.tau, adams.dust),
+    meshInnerKm: 40000, meshOuterKm: 64500, narrow: NEPTUNE_NARROW.length, modes: 1,
+    arcMap: arcs,
     tint: new THREE.Color(1, 1, 1), A: PARTICLE_ALBEDO.neptune, lambert: true,
   }, unitKm);
-  const narrow = (jd: number): Narrow[] => NEPTUNE_NARROW.map((r) =>
-    circular(r.a, r.width, r.tau * r.width, r.dust, -1, r.name === 'Adams' ? fraterniteLongitude(jd) : -1));
-  return new FlatSystem(mesh, narrow, false, unitKm);
+  const narrow = (jd: number): Narrow[] => NEPTUNE_NARROW.map((r) => {
+    if (r.name !== 'Adams') return circular(r.a, r.width, r.tau * r.width, r.dust);
+    const ring = circular(r.a, r.width, r.tau * r.width, r.dust, -1, fraterniteLongitude(jd));
+    // Galatea's 42 lobes, furthest out at its longitude: r += A cos(42 (lambda - lambda_G)).
+    ring.modes = [[ADAMS_WIGGLE.m, -ADAMS_WIGGLE.amplitudeKm, ADAMS_WIGGLE.m * galateaLongitude(jd)]];
+    return ring;
+  });
+  return new FlatSystem(mesh, narrow, false, unitKm, onDate);
 }
 
 export class JupiterRings {

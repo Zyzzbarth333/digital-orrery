@@ -198,11 +198,13 @@ export function pageApi(cdp) {
       if (r.errorText) throw new Error(`${full}: ${r.errorText}`);
       await p.waitFor(`!!document.querySelector('canvas') && !!window.orrery`);
     },
-    // The centre of the first element matching the selector (and holding the text).
+    // The centre of the first element matching the selector (and whose text
+    // starts with the string, or matches the RegExp).
     async centre(sel, text) {
       const r = await evaluate(`(() => {
         const els = [...document.querySelectorAll(${JSON.stringify(sel)})];
-        const el = ${text ? `els.find((e) => e.textContent.trim().startsWith(${JSON.stringify(text)}))` : 'els[0]'};
+        const el = ${text instanceof RegExp ? `els.find((e) => new RegExp(${JSON.stringify(text.source)}).test(e.textContent.trim()))`
+          : text ? `els.find((e) => e.textContent.trim().startsWith(${JSON.stringify(text)}))` : 'els[0]'};
         if (!el) return null;
         el.scrollIntoView({ block: 'nearest' });
         const b = el.getBoundingClientRect();

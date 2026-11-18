@@ -43,8 +43,9 @@ import { GPUS, launch, pageApi, serve } from './lib/chromium.mjs';
 
 // ---- Scenarios ------------------------------------------------------------
 // A URL query (App.tsx's initialState documents it), an expression to run
-// once the page is up (setup), and a camera distance from what it shows,
-// in km. A past date keeps the sky the same each run.
+// once the page is up (setup), a camera distance from what it shows, in
+// km, and a clock rate (sim seconds a second) if not real time. A past
+// date keeps the sky the same each run.
 
 const DATE = 't=2026-11-10T15:00Z';
 const CRAFT = 'orrery.focusCraftId !== null';
@@ -54,9 +55,11 @@ const ISS = SATS_ON.replace('return true;', 'orrery.focusOnSatellite(25544); ret
 const SCENARIOS = {
   'overview': { label: 'Overview (the Sun)', query: `?focus=sun&${DATE}`, km: 1.6e9 },
   'earth': { label: 'Earth close-up', query: `?focus=earth&${DATE}`, km: 20000 },
+  'earth-fill': { label: 'Earth filling the view', query: `?focus=earth&${DATE}`, km: 9000 },
   'belt': { label: 'The asteroid belt', query: `?focus=sun&${DATE}`, km: 9e8 },
   'craft-near': { label: 'Craft in LEO (6-DOF)', query: `?craft=orbit,400,51.6&${DATE}`, km: 0.4, ready: CRAFT },
   'craft-far': { label: 'Craft in LEO (6-DOF)', query: `?craft=orbit,400,51.6&${DATE}`, km: 3000, ready: CRAFT },
+  'craft-warp': { label: 'Craft in LEO (6-DOF) at 1 d/s', query: `?craft=orbit,400,51.6&${DATE}`, km: 3000, ready: CRAFT, rate: 86400 },
   'point-near': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 0.4, ready: CRAFT },
   'point-far': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 3000, ready: CRAFT },
   'sats': { label: 'Earth satellites, all on', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON },
@@ -116,6 +119,7 @@ async function measure(p, base, sc, opts) {
     await p.waitFor('!orrery.flying');
     await p.zoomTo(sc.km);
     await p.waitFor(`Math.abs(Math.log(orrery.rig.dist / ${sc.km})) < 0.02`, 15000);
+    if (sc.rate) await p.setRate(sc.rate);
     await p.wait(opts.settle * 1000);
     await p.eval(RESET);
     await p.wait(opts.seconds * 1000);

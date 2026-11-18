@@ -105,14 +105,17 @@ uniform vec3 planetPos;
 uniform mat3 planetAxes;      // A of ELLIPSOID_SHADOW
 uniform float planetK;        // k of ELLIPSOID_SHADOW
 #if NARROW > 0
-// Ring k: g0 = (a, e, varpi - node) of its inner edge, node (unused here);
-// g1 = the same for its outer edge; g2 = normal mode (m, A, phase - m node);
-// g3 = (equivalent depth, dust fraction, profile row or -1, arc offset or -1).
-// Lengths in render units, angles in radians, from the ring's node.
+// Ring k: g0 = (a, e, varpi - node) of its inner edge, and the index of its
+// first normal mode; g1 = the same for its outer edge, and how many modes;
+// g2.x = the modes' amplitudes summed; g3 = (equivalent depth, dust
+// fraction, profile row or -1, arc offset or -1). A mode is (m, A, phase):
+// both edges move by -A cos(m psi - phase). Lengths in render units, angles
+// in radians, from the ring's node.
 uniform vec4 g0[NARROW];
 uniform vec4 g1[NARROW];
 uniform vec4 g2[NARROW];
 uniform vec4 g3[NARROW];
+uniform vec4 modes[MODES];
 uniform vec3 ringX[NARROW];   // the ring's node on the equator
 uniform vec3 ringY[NARROW];   // 90 deg ahead, in the ring's plane
 uniform vec3 ringN[NARROW];   // its normal
@@ -175,9 +178,15 @@ void main() {
       vec3 rel = rd * t - planetPos;
       float r = length(rel);
       // Outside the ring at every longitude: skip the rest.
-      if (r < a0.x * (1.0 - a0.y) - abs(m.y) - F || r > a1.x * (1.0 + a1.y) + abs(m.y) + F) continue;
+      if (r < a0.x * (1.0 - a0.y) - m.x - F || r > a1.x * (1.0 + a1.y) + m.x + F) continue;
       float psi = atan(dot(rel, ringY[k]), dot(rel, ringX[k]));
-      float mode = m.y * cos(m.x * psi - m.z);
+      float mode = 0.0;
+      int first = int(a0.w), count = int(a1.w);
+      for (int j = 0; j < MODES; j++) {
+        if (j >= count) break;
+        vec4 md = modes[first + j];
+        mode += md.y * cos(md.x * psi - md.z);
+      }
       float rIn = a0.x * (1.0 - a0.y * a0.y) / (1.0 + a0.y * cos(psi - a0.z)) - mode;
       float rOut = a1.x * (1.0 - a1.y * a1.y) / (1.0 + a1.y * cos(psi - a1.z)) - mode;
       float W = max(rOut - rIn, 1e-6);
@@ -267,6 +276,7 @@ export interface FlatRingOptions {
   meshInnerKm: number;
   meshOuterKm: number;
   narrow?: number;                      // how many narrow rings
+  modes?: number;                       // how many normal modes among them
   profileMap?: THREE.Texture;
   profileRows?: number;
   arcMap?: THREE.Texture;
@@ -284,7 +294,7 @@ export function makeFlatRings(o: FlatRingOptions, unitKm: number): THREE.Mesh {
   const mat = new THREE.ShaderMaterial({
     vertexShader: vertex,
     fragmentShader: flatFragment,
-    defines: { NARROW: n },
+    defines: { NARROW: n, MODES: Math.max(o.modes ?? 0, 1) },
     side: THREE.DoubleSide,
     ...premultiplied,
     uniforms: {
@@ -299,6 +309,7 @@ export function makeFlatRings(o: FlatRingOptions, unitKm: number): THREE.Mesh {
       ...dustUniforms(),
       ...shadowUniforms(),
       g0: { value: vec4s() }, g1: { value: vec4s() }, g2: { value: vec4s() }, g3: { value: vec4s() },
+      modes: { value: Array.from({ length: Math.max(o.modes ?? 0, 1) }, () => new THREE.Vector4()) },
       ringX: { value: vec3s() }, ringY: { value: vec3s() }, ringN: { value: vec3s() },
       profileMap: { value: o.profileMap ?? blank },
       profileRows: { value: o.profileRows ?? 1 },
