@@ -1428,7 +1428,8 @@ The lamps (`assess`), each lit only when it means something:
   on the warning.
 - **Wait** (caution): the longest stay over 30 days.
 - **Delta-v:** the total against the budget, with the margin, or by how
-  much it is over.
+  much it is over. It stays dark until the journey has a waypoint: with
+  nothing to price, a green lamp would claim a go for nothing.
 - **No window** (warning): a leg with no date in its profile under what
   the budget leaves it (the budget less every other burn).
 - **Plane** (caution): a leg near 180° round its central body, flown with

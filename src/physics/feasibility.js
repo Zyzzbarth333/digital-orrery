@@ -163,8 +163,9 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
   sol.stops.forEach((s, i) => { if (i > 0 && s.kind !== 'flyby' && s.depMs - s.arrMs > 30 * DAY_MS && (!stay || s.depMs - s.arrMs > stay.d)) stay = { d: s.depMs - s.arrMs, s }; });
   if (stay) lamps.push({ key: 'wait', level: 'caution', text: `${Math.round(stay.d / DAY_MS)} d at ${name(stay.s.body)}` });
 
-  // Delta-v against the budget.
-  if (Number.isFinite(budget)) {
+  // Delta-v against the budget: lit only once there is a journey to price
+  // (a lamp reports a result; with no waypoint there is none).
+  if (Number.isFinite(budget) && journey.waypoints.length) {
     const over = sol.totalDv - budget;
     lamps.push(over > 0 ? { key: 'dv', level: 'warn', text: `Over the budget by ${over.toFixed(2)} km/s` } : { key: 'dv', level: 'go', text: `Margin ${(-over).toFixed(2)} km/s` });
   }
