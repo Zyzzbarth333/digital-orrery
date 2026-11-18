@@ -14,7 +14,7 @@
 import fs from 'node:fs';
 import {
   STARKOV, alFromKp, starkovCoefficients, ovalLatitude, installKp, kpAt, kpLabel, cgmFrame, cgmToGeo, cgmGrid,
-  centredDipolePoint, dipoleLongitude, mlt, magneticEquatorFrame, equatorFootprints, ioFootprint, saturnOval, JUPITER_MAIN,
+  centredDipolePoint, dipoleLongitude, mlt, magneticEquatorFrame, equatorFootprints, ioFootprint, saturnOval, JUPITER_MAIN, ICE_GIANT_AURORA,
 } from './aurora.js';
 import { magneticModel, offsetDipole } from './magnetic.js';
 
@@ -130,6 +130,21 @@ console.log('Saturn and Jupiter');
   const mainLat = [...main.north, ...main.south].filter(Boolean).map(ang);
   const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
   check(mainLat.length === 24 && mean(mainLat) > mean(io) + 3, `main oval (20 R_J) at a mean ${mean(mainLat).toFixed(1)} deg magnetic latitude, all 24 footprints found; Io's footprints at ${mean(io).toFixed(1)}`);
+}
+
+{
+  // Neptune: JWST found the southern H3+ aurora between 30 and 60 deg S
+  // and 200 and 280 deg W (Melin et al. 2025), mapping to L 3-20. The
+  // zone's footprints through Voyager's dipole fall at those latitudes;
+  // their longitudes rest on the Voyager-to-IAU convention (docs).
+  const N = magneticModel('neptune'), fr = magneticEquatorFrame(N), surf = { eq: 1, pol: 24341 / 24765 };
+  const lats = [], lons = [];
+  for (const L of ICE_GIANT_AURORA.L) for (const q of equatorFootprints(N, L, 30, surf, fr).south) {
+    lats.push(Math.asin(q[2] / Math.hypot(...q)) / DEG);
+    lons.push((((-Math.atan2(q[1], q[0])) / DEG) % 360 + 360) % 360);
+  }
+  const mean = lats.reduce((a, b) => a + b, 0) / lats.length;
+  check(mean < -30 && mean > -60 && Math.min(...lats) > -60, `Neptune's southern zone (L 3-20) at ${Math.max(...lats).toFixed(0)} to ${Math.min(...lats).toFixed(0)} deg, mean ${mean.toFixed(0)} (JWST: 30-60 S); ${Math.min(...lons).toFixed(0)}-${Math.max(...lons).toFixed(0)} W (JWST: 200-280 W)`);
 }
 
 if (failed) { console.log(`\n${failed} check(s) failed`); process.exit(1); }

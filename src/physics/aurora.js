@@ -15,6 +15,9 @@
 //   Saturn    the main oval at 14 to 16 deg colatitude from the southern pole
 //             (Badman et al. 2006's medians), and its conjugate in the north
 //             along Cassini 11's field lines.
+//   Uranus,   the auroral zones at the footprints of field lines from 3 to 20
+//   Neptune   planet radii in the magnetic equator, where JWST found
+//             Neptune's (Melin et al. 2025); Uranus's drawn the same way.
 //
 // Starkov's model (Sigernes et al. 2011, eqs. 1-3, Table 1):
 //
@@ -195,16 +198,20 @@ export const JUPITER_MAIN = { r: [20, 30] };
 // southern oval at ~14 and ~16 deg colatitude.
 export const SATURN_MAIN = { colat: [14, 16] };
 export const IO_ORBIT_RJ = 5.9;
+// Melin et al. 2025: Neptune's southern H3+ aurora maps to L from under 3
+// to 20 R_N (the northern to 3-5).
+export const ICE_GIANT_AURORA = { L: [3, 20] };
 
 // Footprints of field lines from points in the magnetic equator at radius
-// r (units of a), every dLon deg of magnetic longitude, in both
-// hemispheres: { north: [[x, y, z] | null, ...], south: [...] }.
+// r (units of a) from the dipole's centre, every dLon deg of magnetic
+// longitude, in both hemispheres: { north: [[x, y, z] | null, ...], south: [...] }.
 export function equatorFootprints(model, r, dLon, surface, frame) {
-  const out = { north: [], south: [] };
+  const out = { north: [], south: [] }, c = model.dipole.centre ?? [0, 0, 0];
   for (let lon = 0; lon < 360; lon += dLon) {
-    const ph = lon * DEG, p = [0, 1, 2].map((i) => r * (Math.cos(ph) * frame.e1[i] + Math.sin(ph) * frame.e2[i]));
+    const ph = lon * DEG, p = [0, 1, 2].map((i) => c[i] + r * (Math.cos(ph) * frame.e1[i] + Math.sin(ph) * frame.e2[i]));
     const a = footprint(model, p, 1, surface, { rMax: r * 3 }), b = footprint(model, p, -1, surface, { rMax: r * 3 });
-    const up = (q) => q && q[2] > 0;
+    // North and south of the magnetic equator, along the dipole axis.
+    const up = (q) => q && (q[0] - c[0]) * frame.u[0] + (q[1] - c[1]) * frame.u[1] + (q[2] - c[2]) * frame.u[2] > 0 === frame.u[2] > 0;
     out.north.push(up(a) ? a : up(b) ? b : null);
     out.south.push(a && !up(a) ? a : b && !up(b) ? b : null);
   }
