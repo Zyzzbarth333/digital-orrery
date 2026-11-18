@@ -732,6 +732,17 @@ references these are).
 | Mars's crustal field | Langlais et al. 2019: Br −8,520 to 11,260 nT | −8,522 to 11,261 nT (0.25° grid), strongest at 47.9° S 174.6° E |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
 
+## Spacecraft beyond Earth orbit (`spacecraft.test.mjs`)
+
+Twenty-eight craft on JPL Horizons' trajectories for 2026 and 2027, held as
+states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraft.md#how-right-they-are)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the packed trajectories, every craft | Horizons states not kept, one a month a craft (522), from mid-interval [6] | within 2 km: worst 1.95 km (Mars Odyssey); L1/L2 and cruise within 1.3 km |
+| the joins between days | each day's last state and the next day's first | within 3.5 m over 8,081 joins |
+| the packing itself | every Horizons sample of every day (4 to 60 minutes apart) | within 2 km on every day |
+
 ## The field of every body and spin directions (`gravityFlow.test.mjs`)
 
 [Gravity guides](physics/gravity-guides.md#the-field-of-every-body).
@@ -758,3 +769,5 @@ references these are).
 [4] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
 
 [5] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[6] NASA JPL Solar System Dynamics, "Horizons system," spacecraft trajectories, fetched 18 Nov. 2026 by `npm run fetch:spacecraft`. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/

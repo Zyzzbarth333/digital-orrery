@@ -751,4 +751,22 @@ export const TAG_INFO = {
     where: 'a = 6,378.137 km, b = 6,356.752 km; φ: geocentric latitude, from the equator of J2000 (the pole of date is 0.3° from it: under a kilometre of height)',
     source: 'WGS-84 (NIMA TR8350.2)',
   },
+  // spacecraft.js stateIn
+  'probe-position': {
+    what: 'Where the spacecraft is: JPL Horizons\' trajectory, held as states about a centre body and filled in between them.',
+    tex: ['\\mathbf r(t) = (1 - w)\\,K(\\mathbf s_a, t - t_a) + w\\,K(\\mathbf s_b, t - t_b)', 'w = 3u^2 - 2u^3,\\quad u = \\frac{t - t_a}{t_b - t_a}'],
+    where: 'K: each state carried along its own two-body orbit about the centre; or, where the path bends slowly, the cubic through both states. Within 2 km of every Horizons sample checked',
+    source: 'JPL Horizons · docs/frontend/spacecraft.md',
+  },
+  'probe-legs': {
+    what: 'Which of JPL\'s trajectories for this craft the clock is in: reconstructed from tracking after the fact, or predicted ahead by its flight team.',
+    tex: [],
+    where: 'the names and spans are Horizons\' own; a prediction leaves out manoeuvres planned since it was made',
+    source: 'JPL Horizons (ssd.jpl.nasa.gov/horizons), the craft\'s trajectory notes',
+  },
+  'probe-packing': {
+    what: 'How the app holds the trajectory: a state every few minutes for a low orbiter, up to one a day in cruise, the fewest that keep every Horizons sample within the tolerance.',
+    tex: [],
+    source: 'npm run fetch:spacecraft · docs/frontend/spacecraft.md',
+  },
 };
