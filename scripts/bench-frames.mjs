@@ -56,6 +56,9 @@ const CRAFT = 'orrery.focusCraftId !== null';
 // Earth satellites switched on (all 16,892 points), and the ISS followed.
 const SATS_ON = '(async () => { const L = orrery.satellites; L.setOn(true); while (!L.count) await new Promise((r) => setTimeout(r, 100)); return true; })()';
 const ISS = SATS_ON.replace('return true;', 'orrery.focusOnSatellite(25544); return true;');
+// The Moon's landing sites switched on, and Apollo 11's flown to.
+const SITES_ON = '(orrery.sites?.setOn(true), true)';
+const SITE_NEAR = "(orrery.sites.setOn(true), orrery.focusOnSite('apollo11'), true)";
 const SCENARIOS = {
   'overview': { label: 'Overview (the Sun)', query: `?focus=sun&${DATE}`, km: 1.6e9 },
   'earth': { label: 'Earth close-up', query: `?focus=earth&${DATE}`, km: 20000 },
@@ -75,6 +78,11 @@ const SCENARIOS = {
   'jupiter-in': { label: 'Inside Jupiter\'s rings', query: `?focus=jupiter&${DATE}`, km: 200000 },
   'uranus': { label: 'Uranus and its rings', query: `?focus=uranus&${DATE}`, km: 200000 },
   'neptune': { label: 'Neptune and its rings', query: `?focus=neptune&${DATE}`, km: 250000 },
+  'moon': { label: 'Moon close-up', query: `?focus=moon&${DATE}`, km: 20000 },
+  // The landing sites' layer on (a build without it times the Moon alone),
+  // and Apollo 11's site framed from low over it.
+  'moon-sites': { label: 'Moon, landing sites on', query: `?focus=moon&${DATE}`, km: 20000, setup: SITES_ON },
+  'site-near': { label: 'Apollo 11\'s site framed', query: `?focus=moon&${DATE}`, km: 140, setup: SITE_NEAR, ready: '!!orrery.focusSmall' },
 };
 const DEFAULTS = ['earth', 'belt', 'craft-near', 'craft-far', 'point-near', 'point-far'];
 const GPU_NAME = { intel: 'Intel', nvidia: 'NVIDIA' };
