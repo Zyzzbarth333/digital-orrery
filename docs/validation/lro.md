@@ -25,7 +25,7 @@ degree, which Artemis's flybys at 130 km only touch.
 
 ## The reference
 
-- **Trajectory:** LRO's final reconstructed trajectory, from the PDS [4],
+- **Trajectory:** LRO's final reconstructed trajectory, from the PDS,
   through [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/),
   object −85, from 22:16 TDB on 18 June 2009.
 - **Sampling:** `npm run build:missions -- lro` fetches LRO every 10
@@ -155,12 +155,20 @@ default (`fixHours` in the file).
   the app flies it with a fix every 6 h instead, and the burns as flown.
 - **Checks:** with fixes, within 1 km at the end and 50 km throughout.
 
-## References
+## Sources
 
-[1] Lunar Reconnaissance Orbiter Camera (Arizona State University), "News 146," Jun. 20, 2009. [Online]. Available: https://lroc.im-ldi.com/news/146 (mirror of https://www.lroc.asu.edu/news/146)
-
-[2] Lunar Reconnaissance Orbiter Camera (Arizona State University), "LRO in lunar orbit!," News 147, Jun. 23, 2009. [Online]. Available: https://lroc.im-ldi.com/news/147
-
-[3] NASA Planetary Data System Geosciences Node, "LRO instrument host description," `insthost.cat`, LOLA RDR archive (pre-launch figures). [Online]. Available: https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/catalog/insthost.cat
-
-[4] LRO final reconstructed trajectory (from the PDS), via JPL Horizons, object −85. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+1. LROC (Arizona State University), *News 146* (20 June 2009): the
+   mid-course correction "executed yesterday (June 19) at 6:16pm EDT", "38
+   seconds", "1.3 m/s"; LOI-1 scheduled for 09:47 UTC.
+   <https://lroc.im-ldi.com/news/146> (mirror of
+   <https://www.lroc.asu.edu/news/146>)
+2. LROC, *LRO in lunar orbit!* (23 June 2009): "At 6:26:26am EDT today the
+   Lunar Reconnaissance Orbiter completed a 40-minute Lunar Orbit Insertion
+   (LOI) burn"; "a 220 km by 3100 km ... orbit"; "four more small burns";
+   the "30 km by 216 km ... (Commissioning Phase Orbit)".
+   <https://lroc.im-ldi.com/news/147>
+3. NASA PDS Geosciences Node, LRO instrument host description
+   (`insthost.cat`, LOLA archive): "less than 949 kg dry and 1846 kg fully
+   fueled"; "894 kg of hydrazine (~ 1300 m/sec delta-V capability)"; four
+   80 N insertion thrusters; a 10.7 m² solar array. (Pre-launch figures.)
+   <https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/catalog/insthost.cat>

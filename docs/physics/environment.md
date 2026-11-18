@@ -247,12 +247,12 @@ only the Earth and the Moon. Each value is from the field's primary source
 | Body | J2 (unnormalised) | J4 (unnormalised) | Reference radius | Source |
 | --- | --- | --- | --- | --- |
 | Mercury | 5.0317×10⁻⁵ | | 2,440.0 km | MESSENGER, JGMESS160A (Konopliv et al. 2020 [8]), PDS |
-| Venus | 4.4044×10⁻⁶ | | 6,051.0 km | Magellan, MGNP180U (Konopliv et al. 1999), PDS |
+| Venus | 4.4044×10⁻⁶ | | 6,051.0 km | Magellan, MGNP180U (Konopliv et al. 1999 [13]), PDS |
 | Mars | 1.9566×10⁻³ | | 3,396.0 km | MRO120D, PDS |
 | Jupiter | 14,696.5735×10⁻⁶ | −586.6085×10⁻⁶ (and J3, J5 to J12) | 71,492 km | Juno (Durante et al. 2020 [9]), PDS `GRV_JUGR_SHA_JUP_U_DUR2020` |
 | Saturn | 16,290.573×10⁻⁶ | −935.314×10⁻⁶ (and J3, J5 to J12) | 60,330 km | Cassini Grand Finale (Iess et al. 2019 [10]), Table 1 |
-| Uranus | 3,508.967×10⁻⁶ | −35.793×10⁻⁶ (and J6 = 0.575×10⁻⁶) | 25,559 km | URA182 (Jacobson and Park 2025 [16]), the constants in NAIF's `ura184` |
-| Neptune | 3,536.297×10⁻⁶ | −35.952×10⁻⁶ (and J6 = 0.546×10⁻⁶) | 24,764 km | NEP097 (Brozović et al. 2020 [17]), the constants in NAIF's `nep097` |
+| Uranus | 3,508.967×10⁻⁶ | −35.793×10⁻⁶ (and J6 = 0.575×10⁻⁶) | 25,559 km | URA182 (Jacobson and Park 2025 [20]), the constants in NAIF's `ura184` |
+| Neptune | 3,536.297×10⁻⁶ | −35.952×10⁻⁶ (and J6 = 0.546×10⁻⁶) | 24,764 km | NEP097 (Brozović et al. 2020 [21]), the constants in NAIF's `nep097` |
 
 Mercury's, Venus's and Mars's are their normalised C20 times −√5.
 Jupiter's J3 to J12 are the PDS table's C30 to C120 with their signs
@@ -274,9 +274,69 @@ flown for 10 days: the node turns 11.931°, against 11.901° from the
 secular rate −(3/2) n J2 (R/a)² cos i (0.25 %, the size of the J2² terms the
 secular rate leaves out).
 
+## Mercury's and Venus's gravity fields
+
+The kernel's Mercury and Venus have J2. Within ten radii of each, the
+environment adds the rest of its field, as it does the Moon's:
+- **Mercury:** JGMESS160A, JPL's field from MESSENGER's four years in
+  orbit, to degree 160 (Konopliv et al. 2020 [8]).
+- **Venus:** MGNP180U, JPL's field from Magellan's and Pioneer Venus
+  Orbiter's tracking, to degree 180 (Konopliv et al. 1999 [13]).
+- **Default:** degrees 2 to 20, leaving out J2, which the zonal model
+  already has from the same two fields. `mercury: { degree }` and
+  `venus: { degree }` choose another (0 for none).
+- **Data:** the coefficients to degree 80 are in `jgmess160a.js` and
+  `mgnp180u.js`, built by `npm run fetch:environment` from the PDS
+  Geosciences Node [14], [15] (1.6 and 2.0 MB, cached in
+  `~/.cache/digital-orrery`), free for any use with credit under JPL's
+  data use policy for the PDS ([credits](../credits.md)). Degree 80, because `geopotential.js` runs on
+  unnormalised coefficients, and their (n + m)! overflows a double past
+  about degree 85. Against the oracle at degree 100 it is off by up to
+  7×10⁻⁴; GRAIL's file, kept to degree 100, has the same limit above its
+  default of 50.
+- **Frames:** each field is evaluated in the frame it was solved in:
+  - Mercury's is JGMESS160A's own (its PDS label: pole RA
+    281.0138° − 0.0328° T, Dec 61.4161° − 0.0049° T, prime meridian
+    W = 329.75° + 6.138514° d). That is 0.004° from the IAU's pole [16]
+    and 0.15° from its W, and the app draws Mercury in the IAU's.
+  - MGNP180U's label names no frame. It is flown in the IAU's Venus frame
+    [16], which is how the app turns Venus (`planetFrame`, within
+    10⁻⁶° of `orientation.js`).
+- **Cost:** none measurable more than ten radii away (1.1 µs a call of
+  the whole environment, with or without them). 338 km over Venus a call
+  takes 8.9 µs at degree 20, against 0.9 µs without.
+- **Tides:** JGMESS160A's degree 2 terms leave out Mercury's permanent
+  tide (its label gives k2 = 0.53). The Sun's tide on Mercury isn't
+  modelled. By the usual estimate, k2 times the Sun's tide-raising
+  potential, it is about 1 % of C20.
+
+**Why degree 20.** At MESSENGER's pass 338 km over Venus, what the field
+leaves in the reconstruction's 10 s steps falls to 0.7 mm/s at degree 20,
+against 105 mm/s with J2 alone, and rises again above it:
+
+| Degree | J2 only | 10 | 15 | 20 | 25 | 30 | 40 | 50 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Left in the steps (mm/s) | 105 | 12.1 | 2.7 | 0.7 | 2.2 | 3.4 | 3.2 | 3.2 |
+
+So APL's reconstruction seems to have been flown with MGNP180U to about
+degree 20. At Mercury, degrees past 20 change nothing in MESSENGER's
+passes. [MESSENGER](../validation/messenger.md#the-joins-and-the-passes)
+has the rest.
+
+**Check: an independent oracle.** `planetFields.oracle.wls` (the Wolfram
+Engine) reads each PDS file itself, sums the potential directly with
+Wolfram's fully normalised Legendre functions at 50 digits, and
+differentiates it. That is neither this reader nor Cunningham's
+recursion. At 18 points, from 200 to 1,000 km up, to degrees 20, 50 and
+80, `geopotential.js` matches it within 4.5×10⁻¹⁵, and so does the
+environment, which turns each into J2000 and back. The points include
+Mercury's northern plains, where MESSENGER flew lowest, and Venus's
+Maxwell Montes and Atla Regio. The fixture is
+`src/physics/fixtures/planet_fields.json`.
+
 ## Sunlight pressure
 
-Sunlight pushes a craft away from the Sun (nominal irradiance 1361 W/m², IAU 2015 Resolution B3 [13]). As a flat "cannonball":
+Sunlight pushes a craft away from the Sun (nominal irradiance 1361 W/m², IAU 2015 Resolution B3 [17]). As a flat "cannonball":
 
 $$
 \mathbf a = \nu\, C_r\, P \left(\frac{1\,\text{AU}}{d}\right)^2 \frac{A}{m}\, \hat{\mathbf s},
@@ -290,7 +350,7 @@ $$
 - $\nu$ is the fraction of the Sun's disc the craft can see.
 
 **Shadows.** The Earth and the Moon are spheres that can cover part or all
-of the Sun's disc (Montenbruck and Gill, *Satellite Orbits*, §3.4.2 [14]):
+of the Sun's disc (Montenbruck and Gill, *Satellite Orbits*, §3.4.2 [18]):
 - **The overlap:** from the craft, the Sun has apparent radius $a$, the
   body $b$, and their centres are $c$ apart. The visible fraction is 1 when
   $c \ge a + b$, and 0 when the body covers the Sun ($c \le b - a$).
@@ -319,7 +379,7 @@ instead of 1,464, and 59 ms instead of 35.
 | Check | Reference | Result |
 | --- | --- | --- |
 | 1 m² per tonne at 1 AU, C_r = 1 | P/1000 | exact, away from the Sun, falling as 1/d² |
-| The Moon's shadow on the Earth, 21 August 2017 | NASA's eclipse tables (F. Espenak, GSFC [15]): central line and limits at 17:20 UT, greatest eclipse at 18:25:31.8 UT | total on the central line and at greatest eclipse; both edges of the path within 10 km of NASA's limits |
+| The Moon's shadow on the Earth, 21 August 2017 | NASA's eclipse tables (F. Espenak, GSFC [19]): central line and limits at 17:20 UT, greatest eclipse at 18:25:31.8 UT | total on the central line and at greatest eclipse; both edges of the path within 10 km of NASA's limits |
 | Totality on the central line in Oregon | NASA: 2 min 02.6 s | 122.5 s with NASA's eclipse radii (Moon 0.272281 Earth radii, Sun 959.63″); 126.5 s with the app's mean radii, whose umbra is about 1.5 km wider |
 | Artemis I's 77 coast arcs | NASA's as-flown ephemeris | rms 22.5 m with gravity alone; 7.8 m with Orion's sunlight pressure (C_r A/m = 4.0×10⁻³ m²/kg at the start, its mass falling); 5.3 m with the full environment |
 | The Earth's field through the kernel: NESC case 3B, 8×8 GEM-T1, 8 hours | NASA's simulations | 4 mm from sim B |
@@ -335,6 +395,8 @@ instead of 1,464, and 59 ms instead of 35.
 | Relativity: Mercury through the kernel, 10 orbits | 42.98″ a century | 42.98″ a century |
 | Relativity: the Earth's terms on a 12,270 km orbit | Schwarzschild less Lense–Thirring, 3.2496″ a year | 3.2496″ a year (0.1 %) |
 | Jupiter's J2: a node at 3 Jupiter radii, 10 days | secular theory, 11.901° | 11.931° (0.25 %) |
+| Mercury's and Venus's fields (JGMESS160A, MGNP180U) at 18 points, to degrees 20, 50 and 80 | a direct Legendre sum of the PDS files at 50 digits | within 4.5×10⁻¹⁵ |
+| MESSENGER over Venus, 338 km: the reconstruction's 10 s steps | what the field leaves | 0.7 mm/s (J2 alone: 105); 0.6 km off half a day later (J2 alone: 4.0) |
 
 ## References
 
@@ -362,12 +424,20 @@ instead of 1,464, and 59 ms instead of 35.
 
 [12] R. A. Jacobson, "The orbits of the Neptunian satellites and the orientation of the pole of Neptune," *Astron. J.*, vol. 137, no. 5, pp. 4322–4329, 2009, doi: 10.1088/0004-6256/137/5/4322.
 
-[13] International Astronomical Union, "Resolution B3 on recommended nominal conversion constants for selected solar and planetary properties," 2015. Nominal solar irradiance 1361 W/m² and radius 695,700 km.
+[13] A. S. Konopliv, W. B. Banerdt, and W. L. Sjogren, "Venus gravity: 180th degree and order model," *Icarus*, vol. 139, no. 1, pp. 3–18, 1999, doi: 10.1006/icar.1999.6086.
 
-[14] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, §3.2 and §3.4.
+[14] A. S. Konopliv, "MESSENGER radio science SHADR: JGMESS_160A_SHA," NASA PDS Geosciences Node, data set MESS-H-RSS/MLA-5-SDP-V1.0, 2019. [Online]. Available: https://pds-geosciences.wustl.edu/messenger/mess-h-rss_mla-5-sdp-v1/messrs_1001/data/shadr/
 
-[15] F. Espenak, "Total solar eclipse of 2017 August 21," NASA GSFC, path table. [Online]. Available: https://eclipse.gsfc.nasa.gov/SEpath/SEpath2001/SE2017Aug21Tpath.html
+[15] W. L. Sjogren, "Magellan gravity and spherical harmonic data: shgj180u.a01 (MGNP180U)," NASA PDS Geosciences Node, data set MGN-V-RSS-5-GRAVITY-L2-V1.0, 1997. [Online]. Available: https://pds-geosciences.wustl.edu/mgn/mgn-v-rss-5-gravity-l2-v1/mg_5201/gravity/
 
-[16] R. A. Jacobson and R. S. Park, "The orbits of Uranus, its satellites and rings, the gravity field of the Uranian system, and the orientation of the poles of Uranus and its satellites," *Astron. J.*, vol. 169, no. 2, Art. no. 65, 2025, doi: 10.3847/1538-3881/ad99d1. The URA182 solution, as the constants in NAIF's `ura184` give it.
+[16] B. A. Archinal *et al.*, "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015," *Celest. Mech. Dyn. Astron.*, vol. 130, no. 3, Art. no. 22, 2018, doi: 10.1007/s10569-017-9805-5. Mercury's and Venus's poles and prime meridians, as NAIF's `pck00011` has them.
 
-[17] M. Brozović, M. R. Showalter, R. A. Jacobson, R. S. French, J. J. Lissauer, and I. de Pater, "Orbits and resonances of the regular moons of Neptune," *Icarus*, vol. 338, Art. no. 113462, 2020, doi: 10.1016/j.icarus.2019.113462. The NEP097 solution, as the constants in NAIF's `nep097` give it.
+[17] International Astronomical Union, "Resolution B3 on recommended nominal conversion constants for selected solar and planetary properties," 2015. Nominal solar irradiance 1361 W/m² and radius 695,700 km.
+
+[18] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, §3.2 and §3.4.
+
+[19] F. Espenak, "Total solar eclipse of 2017 August 21," NASA GSFC, path table. [Online]. Available: https://eclipse.gsfc.nasa.gov/SEpath/SEpath2001/SE2017Aug21Tpath.html
+
+[20] R. A. Jacobson and R. S. Park, "The orbits of Uranus, its satellites and rings, the gravity field of the Uranian system, and the orientation of the poles of Uranus and its satellites," *Astron. J.*, vol. 169, no. 2, Art. no. 65, 2025, doi: 10.3847/1538-3881/ad99d1. The URA182 solution, as the constants in NAIF's `ura184` give it.
+
+[21] M. Brozović, M. R. Showalter, R. A. Jacobson, R. S. French, J. J. Lissauer, and I. de Pater, "Orbits and resonances of the regular moons of Neptune," *Icarus*, vol. 338, Art. no. 113462, 2020, doi: 10.1016/j.icarus.2019.113462. The NEP097 solution, as the constants in NAIF's `nep097` give it.
