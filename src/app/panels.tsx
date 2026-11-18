@@ -518,7 +518,7 @@ function Credits() {
     if (m.rings?.saturn) items.push(["Saturn's rings", m.rings.saturn.credit]);
     if (m.stars) items.push(['Sky', m.stars.credit]);
   }
-  items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance']);
+  items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance; GOES-East and GOES-West ABI GeoColor (NOAA, via NASA SPoRT)']);
   items.push(['Moon orbits', "JPL's satellite ephemerides (mar099s, jup365, sat441, sat415, ura184, nep098, plu060) for 2000–2049; outside that, JPL Solar System Dynamics' planetary satellite mean elements fitted to JPL Horizons, and astronomy-engine for the Galilean moons"]);
   // CC BY 4.0 asks for a link to the licence and, where practical, to the
   // material; the maps' own credit lines name it.
@@ -575,7 +575,7 @@ export const HINTS: Record<string, string> = {
   'Axial tilt': 'Angle between the spin axis and the orbit\'s axis (obliquity)',
   'Mean density': 'Mass over volume',
   'Escape speed': 'Speed needed at the surface to leave for good, without further push',
-  'Clouds': 'The weather drawn on the Earth: NASA satellites\' daily true-colour image, the newest pass each place has. One look a day, not live',
+  'Clouds': 'The weather drawn on the Earth: GOES\'s view of the Americas and the Pacific every 10 minutes, about an hour behind, and NASA\'s daily true-colour image everywhere else',
   'At the equator': 'The Sun is gas: its equator turns faster than its poles',
   'Near the poles': 'The Sun is gas: its poles turn slower than its equator',
   'From the barycentre': 'How far the solar system\'s centre of mass is from the Sun\'s centre: the Sun wanders round it as the giant planets go round',
@@ -708,17 +708,26 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
       ? { label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(2), src: 'JPL', info: 'moon-albedo', detail: `NAIF ${pm.naif}` }
       : { label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(3), src: 'NSSDCA', info: 'albedo' });
   }
-  // The weather drawn on the Earth: the day (or days) of GIBS's mosaic.
+  // The weather drawn on the Earth: GOES's frame where it reaches, and the
+  // day (or days) of GIBS's mosaic under it.
   if (focus === 'earth' && clouds) {
     const [newest, ...older] = clouds.days;
     const pct = (x: number) => `${Math.round(x * 100)} %`;
     const sat = clouds.layer.replace(/_CorrectedReflectance_TrueColor$/, '').replace(/_/g, ' ').replace('NOAA', 'NOAA-').replace('SNPP', 'Suomi NPP');
-    rows.push({
-      label: 'Clouds', value: newest.day, src: 'GIBS', info: 'clouds',
-      alt: older.length ? `newest pass; ${older.map((d) => d.day.slice(5)).join(', ')} under it` : 'that day, not live',
-      detail: `${sat}, about ${sat.startsWith('MODIS Terra') ? '10:30' : '13:30'} local time at each place`
-        + (older.length && Number.isFinite(newest.share) ? `. ${clouds.days.map((d) => `${d.day} ${pct(d.share)}`).join(', ')} of the globe; the rest shows the Blue Marble (polar night, gaps between passes)` : ''),
-    });
+    const geo = clouds.geo;
+    const daily = `${sat}, about ${sat.startsWith('MODIS Terra') ? '10:30' : '13:30'} local time at each place`
+      + (Number.isFinite(newest.share) && (older.length || geo) ? `: ${clouds.days.map((d) => `${d.day} ${pct(d.share)}`).join(', ')} of the globe` : '');
+    rows.push(geo
+      ? {
+        label: 'Clouds', value: `${geo.time.slice(11, 16)} UTC`, src: 'GIBS', info: 'clouds',
+        alt: `${geo.time.slice(0, 10)}, GOES; elsewhere ${newest.day.slice(5)}${older.length ? ' and before' : ''}`,
+        detail: `${geo.parts.map((g) => `${g.name} ${pct(g.share)}`).join(', ')} of the globe: GeoColor at that minute, where the Sun was up and within 70° of the satellite. Elsewhere ${daily}. The rest shows the Blue Marble (night, gaps between passes)`,
+      }
+      : {
+        label: 'Clouds', value: newest.day, src: 'GIBS', info: 'clouds',
+        alt: older.length ? `newest pass; ${older.map((d) => d.day.slice(5)).join(', ')} under it` : 'that day, not live',
+        detail: daily + (older.length ? '; the rest shows the Blue Marble (polar night, gaps between passes)' : ''),
+      });
   }
   if (focus !== 'sun' && (b.gm || pm)) {
     // The period of the osculating orbit at this instant, from the state:

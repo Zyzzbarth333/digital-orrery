@@ -206,7 +206,7 @@ let decoder: Worker | null = null;
 let nextId = 1;
 const waiting = new Map<number, { resolve: (r: { bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] }) => void; reject: (e: Error) => void }>();
 
-export function decodeImage(url: string, opts: { premultiply: boolean; brightLuminance?: boolean; maxSize?: number; under?: string[] }): Promise<{ bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] }> {
+export function decodeImage(url: string, opts: { premultiply: boolean; brightLuminance?: boolean; maxSize?: number; under?: string[]; masks?: DecodeRequest['masks'] }): Promise<{ bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] }> {
   if (!decoder) {
     decoder = new Worker(new URL('./decode.worker.ts', import.meta.url), { type: 'module' });
     decoder.onmessage = (e: MessageEvent<DecodeReply>) => {

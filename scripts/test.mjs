@@ -27,7 +27,7 @@ const JOURNEY_PARTS = [['17'], ['12'], ['20', '21'], ['5'], ['15', '16', '8'], [
 const MISSIONS = Object.keys(MISSION_DATA);
 
 const FILES = [
-  'src/app/tex.test.mjs', 'src/scene/ktx2.test.mjs', 'src/app/craft-state.test.mjs', 'src/app/remember.test.mjs',
+  'src/app/tex.test.mjs', 'src/scene/ktx2.test.mjs', 'src/scene/layerComposite.test.mjs', 'src/app/craft-state.test.mjs', 'src/app/remember.test.mjs',
   'src/physics/orbital.test.mjs', 'src/physics/porkchop.test.mjs', 'src/physics/nbody.test.mjs',
   'src/physics/orientation.test.mjs', 'src/physics/surfaceClamp.test.mjs', 'src/physics/bodyfacts.test.mjs',
   'src/physics/craft.test.mjs', 'src/physics/warp.test.mjs', 'src/physics/trajsearch.test.mjs',
