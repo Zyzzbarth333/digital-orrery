@@ -40,6 +40,10 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
   const overlayRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<OrreryScene | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  // A first-visit hint for touch (shown on phones only, by the stylesheet):
+  // it goes at the first touch of the sky and stays gone for this browser.
+  const [hint, setHint] = useState(() => { try { return localStorage.getItem('orrery.touchHint') !== 'seen'; } catch { return true; } });
+  const seen = () => { if (!hint) return; setHint(false); try { localStorage.setItem('orrery.touchHint', 'seen'); } catch { /* private window */ } };
   const [lost, setLost] = useState(false);
 
   useEffect(() => {
@@ -81,8 +85,9 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
   useEffect(() => { sceneRef.current?.setFrame(frame); }, [frame]);
 
   return (
-    <div className="scene-host" ref={hostRef}>
+    <div className="scene-host" ref={hostRef} onPointerDown={seen}>
       <div className="scene-overlay" ref={overlayRef} />
+      {hint && !failed && <p className="touch-hint">Tap a body's name to fly there · drag to turn · pinch to zoom</p>}
       {!failed && <ViewPlate view={view} flying={flying} />}
       {lost && !failed && (
         <div className="scene-error caution" role="alert">
