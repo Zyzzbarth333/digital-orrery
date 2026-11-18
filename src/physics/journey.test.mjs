@@ -584,8 +584,8 @@ header('CASE 10: leaving a moon by where it is: the phase, the strips and the be
   // swing-by under half the Moon's distance unless both were) jumped. With
   // the excess velocity held (the 21-day leg's) and the Moon moved an hour
   // at a time, the price now moves only as the Moon does; its steepest
-  // stretch is near day 22, when the Moon passes within 3 degrees of the
-  // line opposite the way out and the two hyperbolas swap.
+  // stretch is near day 22, when the Moon passes nearly opposite the way
+  // out and the two hyperbolas swap.
   const L21 = J.solveJourney(mm(21)).legs[1];
   const hourly = (rule) => { let worst = 0, at = 0, prev = null; for (let h = 0; h <= 12 * 24; h++) { const ms = D('2026-10-24T00:00:00Z') + (18 * 24 + h) * 3600e3, m = J.relState('moon', 'earth', ms); const c = rule(m); if (prev !== null && Math.abs(c - prev) > worst) { worst = Math.abs(c - prev); at = 18 + h / 24; } prev = c; } return { worst, at }; };
   const nowRule = hourly((m) => X.moonExcess({ rm: m.r, vm: m.v, vinf: L21.vinfDep, mu: muE, rPlanet: RE }).cost);
@@ -624,6 +624,60 @@ header('CASE 12: reaching a moon via its planet: Mars orbit to the Moon, flown')
   const l = toMoon('land'), down = l.f.landings[0];
   console.log(`  and down on the Moon: ${l.f.log.find((x) => x.startsWith('landed')) ?? l.f.log.find((x) => x.startsWith('descent'))}`);
   check('Mars orbit to a Moon landing, flown: down under 3 m/s, no trouble', down?.body === 'moon' && down.speed < 0.003 && flightTrouble(l.p, l.f).length === 0);
+}
+
+header('CASE 15: the planets\' major moons, flown with their gravity: Europa, Titan');
+{
+  // The kernel pulls with the planets' major moons (bodies.js splits a
+  // planet's system near it), so the flight treats them as it does the
+  // Moon: aims without the moon's pull, approach trims, a capture, a
+  // descent or an entry, and a departure onto the moon's own excess
+  // velocity. Before, a moon had no gravity in the flight: one aim, a
+  // rendezvous, and Earth orbit to Europa orbit came in 300 km low and hit
+  // Europa. Each journey from Earth orbit on 1 January 2027, on the
+  // planner's porkchop option (and the best phase, leaving Europa).
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const fly = (waypoints, phase = false) => {
+    let j = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2027-01-01T00:00:00Z') }, waypoints };
+    j = J.applyOption(j, 0, J.legOptions(j, 0).options.find((x) => x.type === 'porkchop'));
+    if (phase) j = J.applyOption(j, 1, J.legOptions(j, 1).options.find((x) => x.type === 'phase'));
+    const s = J.solveJourney(j), p = planFlight(s), f = flyJourney(sys, p);
+    return { s, p, f, trouble: flightTrouble(p, f) };
+  };
+  const num = (re, log) => Number(re.exec(log.join('\n'))?.[1] ?? NaN) / 1000;
+
+  // Earth orbit to Europa orbit and home, leaving on the best day of a
+  // 30-day stay.
+  const rt = fly([{ id: 1, body: 'europa', kind: 'orbit', altKm: 300, stayDays: 30, dateMs: D('2030-01-01T00:00:00Z') },
+    { id: 2, body: 'earth', kind: 'orbit', altKm: 300, dateMs: D('2034-01-01T00:00:00Z') }], true);
+  const L0 = rt.s.legs[0], L1 = rt.s.legs[1], eu = rt.f.arrivals[0], home = rt.f.arrivals[1];
+  const cap = num(/capture at europa: (\d+) m\/s/, rt.f.log), dep = num(/depart europa: (\d+) m\/s/, rt.f.log);
+  // (A leg of two arcs, a deep-space burn's, aims first at its break point,
+  // about the Sun.)
+  const aimsIn = rt.p.events.filter((e) => e.kind === 'aim' && e.ms < L0.arrMs && e.body !== L0.central);
+  console.log(`  Earth ${new Date(L0.depMs).toISOString().slice(0, 10)} to Europa ${new Date(L0.arrMs).toISOString().slice(0, 10)}: ${L0.moonArr.speed.toFixed(3)} km/s about Europa, ${aimsIn.length} aims; Europa ${eu.missKm.toFixed(1)} km off the planned periapsis (tolerance 5 km); capture ${(cap * 1000).toFixed(0)} m/s against the plan's ${(L0.arrDv * 1000).toFixed(0)}, ${(100 * (cap / L0.arrDv - 1)).toFixed(1)} % (tolerance 3 %)`);
+  check('Earth orbit to Europa orbit, flown in the full model: every aim at Europa, its periapsis within 5 km of plan, the capture within 3 % of its price, the orbit held through the stay', aimsIn.every((e) => e.body === 'europa') && eu.missKm < 5 && Math.abs(cap / L0.arrDv - 1) < 0.03 && !rt.f.impact);
+  const aimsOut = rt.f.log.slice(rt.f.log.findIndex((l) => l.startsWith('depart europa'))).filter((l) => l.startsWith('aim at')).map((l) => Number(/: ([\d.]+) m\/s/.exec(l)[1]));
+  console.log(`  leaving Europa ${new Date(L1.depMs).toISOString().slice(0, 16)}: ${rt.f.log.find((l) => l.startsWith('depart europa'))}; the plan's ${(L1.depDv * 1000).toFixed(0)} for ${L1.moonDep.speed.toFixed(3)} km/s about Europa: ${(100 * (dep / L1.depDv - 1)).toFixed(1)} % (tolerance 3 %); the aims after it ${aimsOut.map((x) => x.toFixed(1)).join(', ')} m/s; Earth ${home.missKm.toFixed(1)} km off (tolerance 20 km)`);
+  check('leaving Europa for Earth via Jupiter: the burn flown within 3 % of the plan\'s price (by Europa\'s real place), the first aim after it under 10 m/s, Earth within 20 km of plan, no trouble', Math.abs(dep / L1.depDv - 1) < 0.03 && aimsOut[0] < 10 && home.missKm < 20 && rt.trouble.length === 0);
+
+  // Down on Europa, from the low orbit.
+  const ld = fly([{ id: 1, body: 'europa', kind: 'land', altKm: 300, stayDays: 3, dateMs: D('2030-01-01T00:00:00Z') }]);
+  const down = ld.f.landings[0];
+  console.log(`  down on Europa: ${ld.f.log.find((x) => x.startsWith('landed')) ?? ld.f.log.find((x) => x.startsWith('descent'))} (tolerance 3 m/s)`);
+  check('Earth orbit to a Europa landing, flown: a descent, down under 3 m/s, no trouble', down?.body === 'europa' && down.how === 'descent' && down.speed < 0.003 && ld.trouble.length === 0);
+
+  // Titan: through its atmosphere, the entry at the planned height.
+  const ti = fly([{ id: 1, body: 'titan', kind: 'land', altKm: 1000, stayDays: 3, dateMs: D('2030-01-01T00:00:00Z') }]);
+  const entry = ti.f.landings[0];
+  console.log(`  Titan entry ${new Date(ti.s.legs[0].arrMs).toISOString().slice(0, 10)}: ${ti.s.legs[0].moonArr.speed.toFixed(3)} km/s about Titan; perigee ${entry?.entryKm?.toFixed(2)} km up against 1000 planned (tolerance 5 km)`);
+  check('Earth orbit to Titan, flown: aimed at Titan, an entry at the planned height within 5 km, no trouble', ti.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'titan') && entry?.how === 'entry' && Math.abs(entry.entryKm - 1000) < 5 && ti.trouble.length === 0);
+
+  // A flyby of Europa reached via Jupiter: aimed at Europa (by the excess
+  // velocity about it, journey.js moonArr), not at Jupiter.
+  const fb = fly([{ id: 1, body: 'europa', kind: 'flyby', altKm: 500, dateMs: D('2030-01-01T00:00:00Z') }]);
+  console.log(`  Europa flyby: ${fb.p.events.filter((e) => e.kind === 'aim').map((e) => e.body).join(', ')}; closest ${fb.f.arrivals[0].closest.toFixed(1)} km from Europa's centre, planned ${fb.f.arrivals[0].plannedRp.toFixed(1)} (tolerance 5 km)`);
+  check('a flyby of Europa via Jupiter is aimed at Europa and passes within 5 km of the planned periapsis, no trouble', fb.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'europa') && fb.f.arrivals[0].missKm < 5 && fb.trouble.length === 0);
 }
 
 header('CASE 11: the full model, or the bare one as a fallback');
@@ -691,16 +745,18 @@ header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira 200
   console.log(`  the plane lamp: ${lamp?.text}; options ${opts.map((o) => `${o.name} ${o.dv.toFixed(3)}`).join(', ')}`);
   check('the plane lamp says where the deep-space burn is, and when; none at 196 deg; the broken plane and the direct arc are listed for comparison, both dearer', lamp?.level === 'caution' && Math.abs(lamp.bestMs - ds.ms) < 1 && !lamp7 && opts.find((o) => o.type === 'direct')?.dv > opts.find((o) => o.type === 'lambert').dv && opts.find((o) => o.type === 'brokenplane')?.dv > opts.find((o) => o.type === 'lambert').dv);
 
-  // Flown in the full model, 20 days at the Moon (183.4 deg, where the
-  // direct arc is 12 m/s cheaper on paper than the broken plane): the
-  // broken plane's and the deep-space burn's corrections are their planned
-  // burn and the usual trims, the direct arc's the cost of following a
-  // plane that will not hold.
+  // Flown in the full model, 21 days at the Moon (182.4 deg): the broken
+  // plane's and the deep-space burn's corrections are their planned burn
+  // and the usual trims, the direct arc's the cost of following a plane
+  // that will not hold. (It flew 20 days, where the direct arc was 12 m/s
+  // cheaper on paper, until the Moon's cheaper hyperbola was taken there,
+  // a swing-by of the Earth: on it the broken plane's parking orbit, held
+  // in the plane of the way out, decays onto the Moon in the stay.)
   const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
-  const s20 = J.solveJourney(mm(20)), b20 = J.solveJourney(mm(20, 'brokenplane'));
-  const f20 = flyJourney(sys, planFlight(s20)), g20 = flyJourney(sys, planFlight(b20)), d20 = flyJourney(sys, planFlight(J.solveJourney(mm(20, 'direct'))));
-  console.log(`  20 d at the Moon, flown: deep-space burn ${(f20.correctionsDv * 1000).toFixed(0)} m/s of corrections (${(s20.legs[1].midDv * 1000).toFixed(0)} of them the planned burn), Mars ${f20.arrivals[1].missKm.toFixed(1)} km off; broken plane ${(g20.correctionsDv * 1000).toFixed(0)} (${(b20.legs[1].midDv * 1000).toFixed(0)} planned), Mars ${g20.arrivals[1].missKm.toFixed(1)} km off; direct ${(d20.correctionsDv * 1000).toFixed(0)} m/s, Mars ${d20.arrivals[1].missKm.toFixed(1)} km off`);
-  check('inside 6 deg of 180 the planner takes the deep-space burn; flown, it and the broken plane each correct under 250 m/s and reach Mars within 20 km, against over 500 m/s for the direct arc', !!s20.legs[1].deepSpace && [f20, g20].every((f) => f.correctionsDv < 0.25 && f.arrivals[1].missKm < 20 && !f.impact) && d20.correctionsDv > 0.5);
+  const s21 = J.solveJourney(mm(21)), b21 = J.solveJourney(mm(21, 'brokenplane'));
+  const f21 = flyJourney(sys, planFlight(s21)), g21 = flyJourney(sys, planFlight(b21)), d21 = flyJourney(sys, planFlight(J.solveJourney(mm(21, 'direct'))));
+  console.log(`  21 d at the Moon, flown: deep-space burn ${(f21.correctionsDv * 1000).toFixed(0)} m/s of corrections (${(s21.legs[1].midDv * 1000).toFixed(0)} of them the planned burn), Mars ${f21.arrivals[1].missKm.toFixed(1)} km off; broken plane ${(g21.correctionsDv * 1000).toFixed(0)} (${(b21.legs[1].midDv * 1000).toFixed(0)} planned), Mars ${g21.arrivals[1].missKm.toFixed(1)} km off; direct ${(d21.correctionsDv * 1000).toFixed(0)} m/s, Mars ${d21.arrivals[1].missKm.toFixed(1)} km off`);
+  check('inside 6 deg of 180 the planner takes the deep-space burn; flown, it and the broken plane each correct under 250 m/s and reach Mars within 20 km, against over 500 m/s for the direct arc', !!s21.legs[1].deepSpace && [f21, g21].every((f) => f.correctionsDv < 0.25 && f.arrivals[1].missKm < 20 && !f.impact) && d21.correctionsDv > 0.5);
 }
 
 header('CASE 13: the deep-space burn, against primer vector theory (Lawden 1963)');

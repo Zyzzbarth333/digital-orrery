@@ -15,7 +15,7 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
-- Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 73 m/s an hour. The flight aims a swing-by early, before the pass turns its error into millions of kilometres (this pull request).
+- Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 39 m/s an hour. The flight aims a swing-by that passes close to the planet early, before the pass (this pull request).
 - A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
 - Craft launched in the app carry an attitude (6-DOF). The MISSION tab
   points them prograde, retrograde, normal, radial, along the next node
@@ -75,6 +75,15 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth: its aims are at the Moon itself, and a landing after a long
   capture works its descent out from the orbit it is in (this pull
   request).
+- Journeys to and from the planets' major moons (Europa, Ganymede, Titan
+  and the rest) are flown with those moons' gravity, as the kernel gives
+  it. Earth orbit to Europa orbit is captured 0.1 km off its planned
+  periapsis, where it came in 300 km low and hit Europa. A descent lands on
+  Europa, Titan is entered at its planned height, a moon flyby is aimed at
+  the moon, not its planet, and leaving Europa for Earth is flown within
+  1 % of the planner's price. Captures and departures burn near
+  impulsively, centred on the periapsis, as the plan prices them (this
+  pull request).
 - A leg that runs nearly 180 degrees round the Sun is planned on a broken
   plane: in the departure's orbit plane to about halfway, then a burn that
   turns the plane onto the target. Leaving lunar orbit for Mars after 23

@@ -293,7 +293,10 @@ export const MU_SUN = GM.sun;
 // false leaves out the sixteen asteroids (they are in only when SB441's
 // table is installed: deNode.js, deLoad.js); an array of their keys takes
 // just those. asteroidReach: Infinity keeps them in the list everywhere.
-export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true, moons = true, satellites = null, asteroids = true, asteroidReach = ASTEROID_REACH }) {
+// omit: major moons left out of their split systems' lists (their planet
+// still moves about the barycentre with them, and bodyAt still finds them),
+// for a craft flown without one moon's pull (journeyFlight.js's aims).
+export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true, moons = true, satellites = null, asteroids = true, asteroidReach = ASTEROID_REACH, omit = [] }) {
   const muSun = GM.sun;
   // t: TT seconds from epochMs (kernelHost.kernelSeconds), so uniform
   // through leap seconds; msAt and secondsAt convert to and from UTC.
@@ -341,7 +344,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
         if (z) Object.assign(m, { j2: z.j2, c22: z.c22, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], axisX: [1, 0, 0], axisY: [0, 1, 0], orbitEph: about });
         byKey.set(k, m);
         return m;
-      });
+      }).filter((m) => !omit.includes(m.key));
     }
     groups.push(G);
     return G;
