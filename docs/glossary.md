@@ -322,6 +322,17 @@ above $L \approx 3$ (the Van Allen belts); the inner belt dips nearest the
 ground over the South Atlantic, where the field is weakest.
 [Magnetic fields and auroras](physics/magnetic-fields.md#radiation-belts)
 
+**Lead angle.** How far a moon's auroral spot sits ahead of its moon's
+instantaneous field-line footprint, because the Alfvén wave the moon
+launches takes minutes to reach the planet: about 4° for Io, 12–13° for
+Ganymede.
+[Magnetic fields and auroras](physics/magnetic-fields.md#jupiter-and-saturn)
+
+**Crustal field.** Magnetism frozen into a planet's rocks when they
+cooled in an old field. Mars has no global field now, but its southern
+crust holds fields up to about 11,000 nT at the surface.
+[Magnetic fields and auroras](physics/magnetic-fields.md#marss-crust)
+
 **Kp.** A planetary index of geomagnetic disturbance every three hours,
 from 0 (quiet) to 9 (an extreme storm), in thirds (3−, 3o, 3+).
 

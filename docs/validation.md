@@ -455,6 +455,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's; the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % (within 0.25 %); to 0.1 m/s; the planned day 2,911 m/s, flown 3,043 (4.3 %); the wait 12.5 d, flown 11.5 (2,025 against 2,070 m/s); the parking orbit lamp's day 2,008, flown 2,086 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 20-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 205 m/s of corrections against the direct arc's 679 |
+| Burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 0.7 km off |
 | Near 180°, the deep-space burn: Earth orbit to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026; lunar orbit to Mars, stays of 18 to 30 days | Lawden's conditions on the primer vector (Lawden 1963; Prussing 2010); the primer's jump as the cost's gradient (Lion and Handelsman 1968; Jezewski 1975); a blind 12-start search | p-dot continuous at $B$ to 3 %, $\lvert\mathbf p\rvert \le 1$ to 10⁻⁴, where the broken plane's jumps 128 % and passes 1; nothing cheaper found; never dearer than the direct arc or the broken plane; the excess speed's second difference 4.3 m/s; 20 days at the Moon flown with 180 m/s of corrections, Mars 1.6 km off |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
@@ -606,6 +607,10 @@ torque, and burns along the body axis to the kernel
 | A node 20 m/s radial out an hour ahead, held prograde, at 1/4 s frames | the turn's lead $1.1\,t_\text{slew} + 5$ s; the point-mass craft with the same node | turn began 42.54 s ahead (as planned), locked 8.5 s before the node; 0° off the node's direction; 3 mm from the point mass after; back to prograde |
 | The same at 600 s frames | the same | turn began 41.54 s ahead (the orbital frame turns 2.7° in the lead); 46 mm from the point mass |
 | A node 10 s ahead | — | the log says it cannot settle in time |
+| The MISSION tab's craft, after ROCKET-tab stages got their own attitude | its spec as validated above | unchanged: the box, its tanks and its thrusters |
+| A ROCKET-tab stage's tensor: Saturn V's S-IVB at cutoff, 59.7 t dry with the spacecraft and 107.1 t of propellant at 320 kg/m³, 10.1 m across | the thin-walled cylinder's $m R^2$, $m(R^2/2 + L^2/12)$ and the solid propellant cylinder's $mR^2/2$, $m(R^2/4 + h^2/12)$ (Curtis ch. 9), against both bodies summed point by point | within 3×10⁻⁵ (tolerance 10⁻⁴): full, diag(2.887, 2.612, 2.612)×10⁶ kg m²; the tank holds the load at its density to 10⁻¹² |
+| The stage's thrusters | the MISSION craft's angular acceleration, full | equal on every axis (1.146°/s² in roll, 1.410°/s² in pitch and yaw) |
+| A 90° slew to prograde by that stage with 70 % of its propellant, through the kernel | the controller's closed-form time for its inertia; $2I\omega_\text{max}/L$ | 33.52 s against 33.89 s (1.1 %, tolerance 6 %); 34,573 N s against 34,633 N s (0.17 %, tolerance 1 %), 12.2 kg |
 
 ## Not yet validated
 
@@ -721,6 +726,11 @@ references these are).
 | Starkov's oval, IGRF-14, CGM and Kp together | NOAA's OVATION Prime map, forecast 03:09 UTC 18 Nov 2026 (Kp 3−), night side | mean probability 19.6 % mid-oval vs 7.7 % 6° equatorward and 1.0 % 6° poleward (north); 15.2, 7.1 and 0.8 % (south) |
 | Neptune's auroral zone, L 3–20 | JWST: 30–60° S (Melin et al. 2025) | 24–48° S, mean 35° S |
 | Mercury's offset dipole | Anderson et al. 2012: 190 nT R_M³, 479 km north; libinternalfield's expansion | as published; expansion within 0.06 nT |
+| IGRF-14 after 2025 | NOAA's online Magnetic Field Calculator, 4 points 2025.4–2028.0, 0–400 km | X Y Z F within 0.049 nT, D and I within 0.00005° |
+| Europa's and Ganymede's footprints (JRM33 + con2020) | Connerney et al. 2022, Tables S2, S3 | within 1.07° and 1.89° of arc, rms 0.34° and 0.43° |
+| the moons' lead angles | Hue et al. 2023, Table 1 and its quoted means | means 4.26/4.14°, 5.75/7.06°, 12.33/13.02° (paper 4.3/4.1, 5.8/7.0, 12.3/13.0) |
+| Ganymede's dipole | Weber et al. 2022 against Kivelson et al. 2002 | 719 vs 713 nT, 0.8° apart |
+| Mars's crustal field | Langlais et al. 2019: Br −8,520 to 11,260 nT | −8,522 to 11,261 nT (0.25° grid), strongest at 47.9° S 174.6° E |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
 
 ## References

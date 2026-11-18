@@ -788,6 +788,17 @@ the pointer is let go.
   A node with no burn leaves the leg as it was. **Aim last node** sets the
   last node's burn to the Lambert arc from its place to the waypoint, so
   the leg reaches it again.
+- **A leg of two arcs** (a deep-space burn, a broken plane, or bi-elliptic)
+  keeps its burn at the break under nodes:
+  - at the break the craft is put on the planned second arc's velocity,
+    whatever it comes in with, so that burn costs what the nodes before it
+    left it to do;
+  - a node before the break is aimed at the break point, not the waypoint,
+    and the burn there takes the craft on;
+  - in flight, a node before a deep-space burn's or a broken plane's break
+    also drops the early aim at the break point, which would undo it. A
+    two-arc leg's departure, if it waits for the parking orbit's plane, is
+    re-aimed at its break point, not the waypoint.
 - **A flyby's aim:** selecting a flyby's mark shows a ring on a stalk out
   from the planet, toward its B vector.
   - Dragging the ring out or in scales $|B|$ (doubling over a stalk's
@@ -969,6 +980,9 @@ orbits, waits 454 days.
 | A 200 m/s node halfway to Mars, then aimed | Lambert from the node | misses by 3.28 million km; aimed, on target to 1 m |
 | Mariner 10's Venus aim set by hand to the plan's B point | the planned flyby | the same periapsis, unpowered; Mercury missed by 194,000 km without its 29 m/s |
 | An aimed node on the way to Mars, flown | the plan | Mars 1.4 km off the planned periapsis |
+| A node with no burn on a deep-space burn's leg (before and after the break) and on a bi-elliptic leg | Lambert's arcs, as planned | on target to 1 m (the bi-elliptic leg 54 m in 1,821 d, within 1 km); the break burn the same to 10⁻⁹ km/s (bi-elliptic 10⁻⁶) |
+| A 50 m/s node before the break, then aimed | the break point by Lambert | misses by 855,000 km and the break grows from 60.9 to 83.4 m/s; aimed, on target to 1 m and the plan's delta-v to 10⁻⁶ km/s |
+| A deep-space burn's leg with a 20 m/s node before the break, flown | the plan | no early aim at the break; Mars 0.7 km off the planned periapsis |
 | The 2:1 resonance cone at 8.9 km/s about a circular 1 AU orbit | geometry | a = 2^(2/3) AU, 61.98°, back in two years; every clock angle on the cone and back to the start (two-body) |
 | Galileo's Earth to Earth (8 Dec 1990 to 8 Dec 1992) | NASA's dates: PDS mission catalogue [4] | 2:1 chosen, back within a day of 8 Dec 1992, 8.871 out and 8.864 km/s back; Earth flybys 0 and 70 m/s |
 | Galileo's whole route flown by the kernel | the plan | Venus 2.0, Earth 0.9 and 14.5 km off; Jupiter 3,100 km off a 270,000 km periapsis (1.1 %); corrections 1.1 km/s over six years |
@@ -1039,10 +1053,8 @@ orbits, waits 454 days.
   with the moons at their mean phase, so it does not use the day's phase
   (see above), and the Moon's departure price itself still jumps where
   its hyperbolas swap. It is a local search from the broken plane: it
-  finds the family the broken plane belongs to, not one far from it. It
-  is a two-arc leg, so burn nodes dragged onto it fly free past $B$, as
-  they do on a bi-elliptic leg. A craft's first leg (from its own state)
-  is always direct.
+  finds the family the broken plane belongs to, not one far from it. A
+  craft's first leg (from its own state) is always direct.
 - **The full model:** the flight is slower in it (seconds, not tenths).
   Looking ahead uses lower degrees of the fields, though every burn kept
   is worked out at full degree. A journey whose full-model flight has

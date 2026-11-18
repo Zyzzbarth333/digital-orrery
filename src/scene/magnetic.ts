@@ -30,11 +30,12 @@ type Model = NonNullable<ReturnType<Mag['magneticModel']>>;
 type V3 = [number, number, number];
 
 const UNIT_KM = 1000;
-const BODIES: BodyKey[] = ['mercury', 'earth', 'jupiter', 'saturn', 'uranus', 'neptune'];
+const DEG_R = Math.PI / 180;
+const BODIES: BodyKey[] = ['mercury', 'earth', 'jupiter', 'saturn', 'uranus', 'neptune', 'ganymede'];
 const BUDGET_MS = 3;                       // tracing per frame
 // Seed latitudes (magnetic, toward the end field lines leave) per body.
 const SEEDS: Record<string, number[]> = {
-  mercury: [20, 35, 45, 55, 62, 68], earth: [20, 35, 45, 55, 62, 68], jupiter: [15, 30, 45, 55, 62, 68, 74], saturn: [20, 35, 45, 55, 62, 68],
+  mercury: [20, 35, 45, 55, 62, 68], ganymede: [15, 30, 40, 50, 60, 68], earth: [20, 35, 45, 55, 62, 68], jupiter: [15, 30, 45, 55, 62, 68, 74], saturn: [20, 35, 45, 55, 62, 68],
   uranus: [15, 30, 45, 55, 62, 68], neptune: [15, 30, 45, 55, 62, 68],
 };
 const N_LON = 12;
@@ -121,19 +122,67 @@ const beltFragment = /* glsl */ `
 #include <logdepthbuf_pars_fragment>
 uniform vec3 colour;
 uniform float level;
+uniform float fade;         // 0 as the camera comes inside this shell
 varying float vW;
 varying vec3 vN;
 varying vec3 vV;
 void main() {
   #include <logdepthbuf_fragment>
   float edge = 1.0 - abs(dot(normalize(vN), normalize(vV)));
-  float a = vW * (0.05 + 0.3 * edge * edge);
+  float a = fade * vW * (0.05 + 0.3 * edge * edge);
+  if (a < 0.004) discard;   // no blending for what cannot be seen
   gl_FragColor = vec4(colour * a * level, a);
 }
 `;
 const BELT_COLOUR = new THREE.Color(0x7fb8c9);
 const BELT_SHELLS = 3, BELT_LON = 36, BELT_SAMPLES = 40;
 const BELT_LAT = 50;        // shells stop this far (deg) from the magnetic equator, where they have faded
+
+// Mars's crust: the radial field from a byte map (marsCrustal.js's asinh
+// scale), blue inward, amber outward, on a shell just above the surface;
+// and, with the auroras on, a violet glow on the night side over the
+// strongest fields, where Mars's discrete aurora is seen.
+const marsVertex = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_vertex>
+varying vec3 vP;
+void main() {
+  vP = normalize(position);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  #include <logdepthbuf_vertex>
+}
+`;
+const marsFragment = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
+uniform sampler2D map;
+uniform vec3 sunDir;
+uniform float showField;
+uniform float showAurora;
+uniform float level;
+varying vec3 vP;
+void main() {
+  #include <logdepthbuf_fragment>
+  float lat = asin(clamp(vP.z, -1.0, 1.0)), lon = atan(vP.y, vP.x);
+  vec2 uv = vec2(fract(lon / (2.0 * PI)), (0.5 * PI - lat) / PI);
+  float t = (texture2D(map, uv).r * 255.0 - 128.0) / 127.0;   // -1..1 on the asinh scale
+  float a = 0.0;
+  vec3 c = vec3(0.0);
+  if (showField > 0.5) {
+    float m = pow(abs(t), 0.8);
+    c = mix(vec3(0.0), t < 0.0 ? vec3(0.184, 0.561, 0.69) : vec3(1.0, 0.698, 0.18), m);
+    a = 0.85 * m;
+  }
+  if (showAurora > 0.5) {
+    float night = smoothstep(0.05, -0.15, dot(vP, sunDir));
+    float e = night * smoothstep(0.45, 0.8, abs(t));
+    c += vec3(0.42, 0.34, 1.0) * e * 0.8;
+    a = max(a, e * 0.8);
+  }
+  if (a < 0.01) discard;
+  gl_FragColor = vec4(c * level, a);
+}
+`;
 
 // Emission colours: 557.7 nm and 630.0 nm as sRGB, and the giants' false colour.
 const GREEN = new THREE.Color(0.32, 1.0, 0.45), RED = new THREE.Color(1.0, 0.16, 0.1), UV = new THREE.Color(0.42, 0.34, 1.0);
@@ -163,7 +212,7 @@ const fmtGauss = (nT: number) => {
 export class MagneticLayer {
   readonly on: Record<MagneticKey, boolean> = { magnetic: false, aurora: false, belts: false };
   private belts: Belts | null = null;
-  private beltMeshes = new Map<BodyKey, { jobs: (() => void)[]; mesh: THREE.Mesh | null }>();
+  private beltMeshes = new Map<BodyKey, { jobs: (() => void)[]; shells: { mesh: THREE.Mesh; L: number }[] }>();
   private mag: Mag | null = null;
   private aur: Aur | null = null;
   private loading: Promise<void> | null = null;
@@ -186,6 +235,8 @@ export class MagneticLayer {
   private m4 = new THREE.Matrix4();
   private v = new THREE.Vector3();
   private sunB = new THREE.Vector3();
+  // Mars's crust: the map, loaded the first time it is wanted, and its shell.
+  private mars: { asked: boolean; tex: THREE.DataTexture | null; mesh: THREE.Mesh | null; group: THREE.Group } | null = null;
   private w = new THREE.Vector3();
   // Auroras.
   private kpLoaded = false;
@@ -201,7 +252,8 @@ export class MagneticLayer {
   private earthAurora: THREE.Mesh | null = null;
   private earthKey = '';
   private giant = new Map<BodyKey, { mesh: THREE.Mesh | null; jobs: (() => void)[]; done: boolean }>();
-  private io: { table: { north: (V3 | null)[]; south: (V3 | null)[] } | null; next: number; mesh: THREE.Mesh | null } = { table: null, next: 0, mesh: null };
+  // The moons' footprint spots: a table of footprints every 5 deg of the moon's longitude, and the mesh.
+  private spots = new Map<string, { table: { north: (V3 | null)[]; south: (V3 | null)[] }; next: number; mesh: THREE.Mesh | null; key: number }>();
   private kpNow: { kp: number; source: string } = { kp: 2, source: 'assumed' };
 
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, private baseUrl: string) {
@@ -286,11 +338,19 @@ export class MagneticLayer {
       }
       if (this.on.belts && k in this.belts!.BELTS) this.beltShells(k, L, g, spare);
       const bm = this.beltMeshes.get(k);
-      if (bm?.mesh) bm.mesh.visible = this.on.belts;
+      if (bm?.shells.length) {
+        const camL = this.on.belts ? this.cameraL(L, mesh, mat) : 0;
+        for (const sh of bm.shells) {
+          // Fades out as the camera's L comes down to the shell's.
+          const t = Math.min(Math.max((camL / sh.L - 0.9) / 0.3, 0), 1), f = t * t * (3 - 2 * t);
+          sh.mesh.visible = this.on.belts && f > 0;
+          (sh.mesh.material as THREE.ShaderMaterial).uniforms.fade.value = f;
+        }
+      }
       if (k === 'earth' && !this.on.aurora) { if (this.earthAurora) this.earthAurora.visible = false; if (this.ovationMesh) this.ovationMesh.visible = false; }
       const gi = this.giant.get(k);
       if (gi?.mesh) gi.mesh.visible = this.on.aurora;
-      if (this.io.mesh && k === 'jupiter') this.io.mesh.visible = this.on.aurora;
+      for (const [m, sp] of this.spots) if (sp.mesh && this.aur!.FOOTPRINT_MOONS[m as keyof typeof this.aur.FOOTPRINT_MOONS].planet === k) sp.mesh.visible = this.on.aurora;
 
       // A tag at the dipole's end for the focused body.
       if (k === f.focus && px > 10 && this.on.magnetic) this.poleTag(k, L, g, f.camera, f.width, f.height);
@@ -305,11 +365,18 @@ export class MagneticLayer {
       const m = k === 'earth' ? this.earthAurora : this.giant.get(k)?.mesh;
       if (m) (m.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     }
-    if (this.io.mesh) (this.io.mesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
+    for (const sp of this.spots.values()) if (sp.mesh) (sp.mesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     if (this.ovationMesh) (this.ovationMesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
-    for (const b of this.beltMeshes.values()) if (b.mesh) (b.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+    for (const b of this.beltMeshes.values()) for (const sh of b.shells) (sh.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+
+    this.marsCrust(f);
 
     // The legend: the focused body's, else none.
+    if (f.focus === 'mars' && this.on.magnetic && this.mars?.mesh) {
+      if (this.legendFor !== 'mars') { this.legendFor = 'mars'; this.legend.hidden = false; this.drawMarsLegend(); }
+      this.hideTags();
+      return;
+    }
     const lk = f.focus && this.lines.has(f.focus) && this.on.magnetic ? f.focus : null;
     const key = lk ? `${lk} ${this.lines.get(lk)!.mesh ? 'done' : 'tracing'} ${this.lines.get(lk)!.model.source}` : null;
     if (key !== this.legendFor) {
@@ -382,7 +449,7 @@ export class MagneticLayer {
     for (const o of [L.mesh, L.axis]) if (o) { o.parent?.remove(o); o.geometry.dispose(); }
     this.lines.delete(k);
     const bm = this.beltMeshes.get(k);
-    if (bm) { if (bm.mesh) { bm.mesh.parent?.remove(bm.mesh); bm.mesh.geometry.dispose(); (bm.mesh.material as THREE.Material).dispose(); } this.beltMeshes.delete(k); }
+    if (bm) { for (const sh of bm.shells) { sh.mesh.parent?.remove(sh.mesh); sh.mesh.geometry.dispose(); (sh.mesh.material as THREE.Material).dispose(); } this.beltMeshes.delete(k); }
     if (k === 'earth' && this.earthAurora) { this.earthAurora.parent?.remove(this.earthAurora); this.earthAurora.geometry.dispose(); (this.earthAurora.material as THREE.Material).dispose(); this.earthAurora = null; }
   }
 
@@ -526,7 +593,15 @@ export class MagneticLayer {
       // The band's two edges, as footprints worked out a longitude at a time.
       const edges: { north: (V3 | null)[]; south: (V3 | null)[] }[] = [{ north: [], south: [] }, { north: [], south: [] }];
       const jobs: (() => void)[] = [];
-      if (k !== 'saturn') {
+      if (k === 'ganymede') {
+        // Rings at the ovals' edges, both hemispheres, on Ganymede's sphere.
+        aur.GANYMEDE_OVAL.lat.forEach((lat, j) => jobs.push(() => {
+          for (let lon = 0; lon < 360; lon += dLon) {
+            const c = Math.cos(lat * DEG_R), sn = Math.sin(lat * DEG_R), x = c * Math.cos(lon * DEG_R), y = c * Math.sin(lon * DEG_R);
+            edges[j].north.push([x, y, sn]); edges[j].south.push([x, y, -sn]);
+          }
+        }));
+      } else if (k !== 'saturn') {
         // Jupiter's main emission from 20-30 R_J; the ice giants' zones from L 3-20.
         const fr = aur.magneticEquatorFrame(L.model);
         (k === 'jupiter' ? aur.JUPITER_MAIN.r : aur.ICE_GIANT_AURORA.L).forEach((r, j) => {
@@ -544,27 +619,30 @@ export class MagneticLayer {
           });
         });
       }
-      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 1 : k === 'saturn' ? 0.9 : 0.16); g.add(gi!.mesh); });
+      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 1 : k === 'saturn' ? 0.9 : k === 'ganymede' ? 0.25 : 0.16); g.add(gi!.mesh); });
       gi = { mesh: null, jobs, done: false };
       this.giant.set(k, gi);
     }
     while (gi.jobs.length && spare() > 0) gi.jobs.shift()!();
-    if (k !== 'jupiter' || !gi.mesh) return;
-    // Io's footprint table, every 5 deg of Io's System III longitude.
-    if (!this.io.table) this.io.table = { north: [], south: [] };
-    const tbl = this.io.table;
-    while (this.io.next < 72 && spare() > 0) {
-      const f = aur.ioFootprint(L.model, this.io.next * 5, L.surface);
-      tbl.north.push(f.north as V3 | null); tbl.south.push(f.south as V3 | null);
-      this.io.next++;
+    if (!gi.mesh) return;
+    // The moons' footprint spots, each from a table of its footprints every
+    // 5 deg of its System III longitude, filled a few traces a frame.
+    for (const [moon, info] of Object.entries(aur.FOOTPRINT_MOONS)) {
+      if (info.planet !== k) continue;
+      let sp = this.spots.get(moon);
+      if (!sp) { sp = { table: { north: [], south: [] }, next: 0, mesh: null, key: NaN }; this.spots.set(moon, sp); }
+      while (sp.next < 72 && spare() > 0) {
+        const f = aur.moonFootprint(L.model, sp.next * 5, L.surface, info.r);
+        sp.table.north.push(f.north as V3 | null); sp.table.south.push(f.south as V3 | null);
+        sp.next++;
+      }
+      if (sp.next < 72) continue;
+      // The moon's longitude now, in the planet's frame.
+      const mm = meshes.get(moon as BodyKey), pm = meshes.get(k)!;
+      if (!mm) continue;
+      const rel = this.w.copy(mm.position).sub(pm.position).applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3);
+      this.moonSpot(moon, sp, ((Math.atan2(rel.y, rel.x) * 180) / Math.PI + 360) % 360, g);
     }
-    if (this.io.next < 72) return;
-    // Io's longitude now, in Jupiter's frame.
-    const ioMesh = meshes.get('io' as BodyKey), jm = meshes.get('jupiter')!;
-    if (!ioMesh) return;
-    const rel = this.w.copy(ioMesh.position).sub(jm.position).applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3);
-    const lon = ((Math.atan2(rel.y, rel.x) * 180) / Math.PI + 360) % 360;
-    this.ioSpot(tbl, lon, g);
   }
 
   private bandMesh(edges: { north: (V3 | null)[]; south: (V3 | null)[] }[], intensity: number): THREE.Mesh {
@@ -606,59 +684,64 @@ export class MagneticLayer {
     return mesh;
   }
 
-  // Io's spot and its tail: the footprints of Io's last 60 deg of System
-  // III longitude (Jupiter turns faster than Io orbits, so Io's longitude
-  // falls; the plasma it has disturbed lies at the larger longitudes).
-  private ioKey = -1;
-  private ioSpot(tbl: { north: (V3 | null)[]; south: (V3 | null)[] }, lon: number, g: THREE.Group): void {
+  // A moon's spot and its tail. The spot sits downstream of the moon's
+  // instantaneous footprint by Hue et al.'s lead angle; the tail runs on
+  // from it over the footprints of the moon's earlier longitudes (the planet
+  // turns faster than the moon orbits, so the moon's east longitude falls and
+  // the plasma it disturbed lies at larger ones): 60 deg for Io's long tail,
+  // 20 for the others'.
+  private moonSpot(moon: string, sp: { table: { north: (V3 | null)[]; south: (V3 | null)[] }; mesh: THREE.Mesh | null; key: number }, lon: number, g: THREE.Group): void {
     const key = Math.round(lon * 4);
-    if (key === this.ioKey && this.io.mesh) return;
-    this.ioKey = key;
+    if (key === sp.key && sp.mesh) return;
+    sp.key = key;
+    const tbl = sp.table, aur = this.aur!;
     const at = (h: 'north' | 'south', L: number): V3 | null => {
       const f = (((L % 360) + 360) % 360) / 5, i = Math.floor(f), u = f - i, a = tbl[h][i % 72], b = tbl[h][(i + 1) % 72];
       if (!a || !b) return a ?? b;
       const p: V3 = [a[0] + u * (b[0] - a[0]), a[1] + u * (b[1] - a[1]), a[2] + u * (b[2] - a[2])], r = Math.hypot(...p);
       return [(p[0] / r) * 1.006, (p[1] / r) * 1.006, (p[2] / r) * 1.006];
     };
+    const bright = moon === 'io' ? 1.6 : moon === 'enceladus' ? 0.6 : 1, tail = moon === 'io' ? 60 : 20;
+    const SPOT = moon === 'io' ? 0.006 : 0.004, STEPS = 24;
     const pos: number[] = [], em: number[] = [], idx: number[] = [];
-    const SPOT = 0.006, STEPS = 24;
     for (const h of ['north', 'south'] as const) {
-      // The spot: a small diamond facing out.
-      const c = at(h, lon);
+      const lead = aur.leadAngle(moon, h, (360 - lon) % 360), lon0 = lon + lead;
+      // The spot: a small disc facing out.
+      const c = at(h, lon0);
       if (!c) continue;
       const n = new THREE.Vector3(...c).normalize(), t1 = new THREE.Vector3(0, 0, 1).cross(n).normalize(), t2 = n.clone().cross(t1);
       const base = pos.length / 3;
       pos.push(...c);
-      em.push(UV.r * 1.6, UV.g * 1.6, UV.b * 1.6);
+      em.push(UV.r * bright, UV.g * bright, UV.b * bright);
       for (let j = 0; j < 8; j++) {
         const a = (j / 8) * 2 * Math.PI;
         pos.push(c[0] + SPOT * (Math.cos(a) * t1.x + Math.sin(a) * t2.x), c[1] + SPOT * (Math.cos(a) * t1.y + Math.sin(a) * t2.y), c[2] + SPOT * (Math.cos(a) * t1.z + Math.sin(a) * t2.z));
         em.push(0, 0, 0);
       }
       for (let j = 0; j < 8; j++) idx.push(base, base + 1 + j, base + 1 + ((j + 1) % 8));
-      // The tail, a ribbon fading over 60 deg.
+      // The tail, a ribbon fading downstream.
       const tb = pos.length / 3;
-      for (let s = 0; s <= STEPS; s++) {
-        const p = at(h, lon + (60 * s) / STEPS);
+      for (let st = 0; st <= STEPS; st++) {
+        const p = at(h, lon0 + (tail * st) / STEPS);
         if (!p) continue;
-        const q = new THREE.Vector3(...p), w = 0.8 * (1 - s / STEPS) ** 1.5, side = new THREE.Vector3(0, 0, 1).cross(q).normalize().multiplyScalar(SPOT * 0.35);
+        const q = new THREE.Vector3(...p), w = 0.5 * bright * (1 - st / STEPS) ** 1.5, side = new THREE.Vector3(0, 0, 1).cross(q).normalize().multiplyScalar(SPOT * 0.35);
         pos.push(q.x - side.x, q.y - side.y, q.z - side.z, q.x + side.x, q.y + side.y, q.z + side.z);
         em.push(UV.r * w, UV.g * w, UV.b * w, UV.r * w, UV.g * w, UV.b * w);
       }
       const nT = (pos.length / 3 - tb) / 2;
-      for (let s = 0; s < nT - 1; s++) { const i0 = tb + 2 * s; idx.push(i0, i0 + 2, i0 + 1, i0 + 1, i0 + 2, i0 + 3); }
+      for (let st = 0; st < nT - 1; st++) { const i0 = tb + 2 * st; idx.push(i0, i0 + 2, i0 + 1, i0 + 1, i0 + 2, i0 + 3); }
     }
-    if (!this.io.mesh) {
-      this.io.mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.ShaderMaterial({
+    if (!sp.mesh) {
+      sp.mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.ShaderMaterial({
         vertexShader: auroraVertex, fragmentShader: auroraFragment, transparent: true, depthWrite: false, toneMapped: false,
         blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
         uniforms: { level: { value: 1 }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, dayFade: { value: 0 } },
       }));
-      this.io.mesh.frustumCulled = false;
-      this.io.mesh.renderOrder = 4;
-      g.add(this.io.mesh);
+      sp.mesh.frustumCulled = false;
+      sp.mesh.renderOrder = 4;
+      g.add(sp.mesh);
     }
-    const geo = this.io.mesh.geometry;
+    const geo = sp.mesh.geometry;
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('emission', new THREE.Float32BufferAttribute(em, 3));
     geo.setIndex(idx);
@@ -672,13 +755,13 @@ export class MagneticLayer {
     const B = this.belts!;
     let st = this.beltMeshes.get(k);
     if (!st) {
-      const pos: number[] = [], wt: number[] = [], idx: number[] = [];
-      const jobs: (() => void)[] = [];
+      const jobs: (() => void)[] = [], shells: { mesh: THREE.Mesh; L: number }[] = [];
       for (const belt of B.BELTS[k as keyof typeof B.BELTS]) {
         for (let i = 0; i < BELT_SHELLS; i++) {
           const Ls = belt.L[0] + ((belt.L[1] - belt.L[0]) * (i + 0.5)) / BELT_SHELLS, w = B.beltWeight(belt, Ls);
+          // One mesh a shell, so a shell around the camera can be left out.
           jobs.push(() => {
-            const base = pos.length / 3;
+            const pos: number[] = [], wt: number[] = [], idx: number[] = [];
             const lines = B.traceShell(L.model, Ls, BELT_LON, L.surface);
             for (let j = 0; j <= BELT_LON; j++) {
               const r = B.resample(lines[j % BELT_LON].points, BELT_SAMPLES, L.model);
@@ -689,33 +772,44 @@ export class MagneticLayer {
               }
             }
             for (let j = 0; j < BELT_LON; j++) for (let sIdx = 0; sIdx < BELT_SAMPLES - 1; sIdx++) {
-              const i0 = base + j * BELT_SAMPLES + sIdx, i1 = i0 + BELT_SAMPLES;
+              const i0 = j * BELT_SAMPLES + sIdx, i1 = i0 + BELT_SAMPLES;
               // No triangles where the shell has faded out (fill is the cost on an integrated GPU).
               if (wt[i0] < 0.03 && wt[i0 + 1] < 0.03 && wt[i1] < 0.03 && wt[i1 + 1] < 0.03) continue;
               idx.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
             }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            geo.setAttribute('weight', new THREE.Float32BufferAttribute(wt, 1));
+            geo.setIndex(idx);
+            geo.computeVertexNormals();
+            const mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+              vertexShader: beltVertex, fragmentShader: beltFragment, transparent: true, depthWrite: false, toneMapped: false,
+              blending: THREE.AdditiveBlending, side: THREE.FrontSide,
+              uniforms: { colour: { value: BELT_COLOUR }, level: { value: 1 }, fade: { value: 1 } },
+            }));
+            mesh.frustumCulled = false;
+            mesh.renderOrder = 3;
+            mesh.visible = this.on.belts;
+            g.add(mesh);
+            shells.push({ mesh, L: Ls });
           });
         }
       }
-      jobs.push(() => {
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-        geo.setAttribute('weight', new THREE.Float32BufferAttribute(wt, 1));
-        geo.setIndex(idx);
-        geo.computeVertexNormals();
-        const mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({
-          vertexShader: beltVertex, fragmentShader: beltFragment, transparent: true, depthWrite: false, toneMapped: false,
-          blending: THREE.AdditiveBlending, side: THREE.FrontSide, uniforms: { colour: { value: BELT_COLOUR }, level: { value: 1 } },
-        }));
-        mesh.frustumCulled = false;
-        mesh.renderOrder = 3;
-        g.add(mesh);
-        st!.mesh = mesh;
-      });
-      st = { jobs, mesh: null };
+      st = { jobs, shells };
       this.beltMeshes.set(k, st);
     }
     while (st.jobs.length && spare() > 0) st.jobs.shift()!();
+  }
+
+  // The camera's own L (r / cos^2 of its magnetic latitude, from the
+  // dipole's centre, in the body's radii): a shell of larger L encloses it,
+  // and from inside a belt is only a haze over the whole view.
+  private cameraL(L: BodyLines, mesh: THREE.Mesh, mat: THREE.ShaderMaterial): number {
+    const p = this.w.copy(mesh.position).negate().applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3).multiplyScalar(UNIT_KM / L.model.a);
+    const c = L.model.dipole.centre, m = L.model.dipole.m, M = Math.hypot(m[0], m[1], m[2]);
+    const d = [p.x - c[0], p.y - c[1], p.z - c[2]], r = Math.hypot(d[0], d[1], d[2]);
+    const sinLat = (d[0] * m[0] + d[1] * m[1] + d[2] * m[2]) / (M * r);
+    return r / Math.max(1 - sinLat * sinLat, 1e-6);
   }
 
   // ---- labels ----
@@ -781,11 +875,66 @@ export class MagneticLayer {
     this.legend.append(h, bar, ticks, unit, src);
   }
 
+  // ---- Mars's crust ----
+
+  private marsCrust(f: { meshes: Map<BodyKey, THREE.Mesh>; materials: Map<BodyKey, THREE.ShaderMaterial>; level: number }): void {
+    const want = this.on.magnetic || this.on.aurora, mesh = f.meshes.get('mars'), mat = f.materials.get('mars');
+    if (!this.mars) { if (!want) return; const group = new THREE.Group(); group.matrixAutoUpdate = false; this.scene.add(group); this.mars = { asked: false, tex: null, mesh: null, group }; }
+    const M = this.mars;
+    M.group.visible = want && !!mesh && !!mat;
+    if (!M.group.visible || !mesh || !mat) return;
+    if (!M.asked) {
+      M.asked = true;
+      void fetch(`${this.baseUrl}data/mars-crustal-br.bin`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((buf) => {
+        const s8 = new Int8Array(buf), u8 = new Uint8Array(s8.length);
+        for (let i = 0; i < s8.length; i++) u8[i] = s8[i] + 128;
+        const tex = new THREE.DataTexture(u8, 720, 360, THREE.RedFormat, THREE.UnsignedByteType);
+        tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter; tex.wrapS = THREE.RepeatWrapping;
+        tex.needsUpdate = true;
+        M.tex = tex;
+        const r = (BODY_BY_KEY.mars.radiiKm[0] / UNIT_KM) * 1.003;
+        M.mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 192, 96), new THREE.ShaderMaterial({
+          vertexShader: marsVertex, fragmentShader: marsFragment, transparent: true, depthWrite: false, toneMapped: false,
+          uniforms: { map: { value: tex }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, showField: { value: 0 }, showAurora: { value: 0 }, level: { value: 1 } },
+        }));
+        M.mesh.frustumCulled = false;
+        M.mesh.renderOrder = 4;
+        M.group.add(M.mesh);
+      }).catch((e) => console.warn('mars-crustal-br.bin:', e));
+    }
+    if (!M.mesh) return;
+    // Body-fixed to render, as for the planets' field lines (here in km / 1000).
+    const e = this.m3.copy(mat.uniforms.toBody.value as THREE.Matrix3).transpose().elements;
+    M.group.matrix.set(e[0], e[3], e[6], mesh.position.x, e[1], e[4], e[7], mesh.position.y, e[2], e[5], e[8], mesh.position.z, 0, 0, 0, 1);
+    M.group.matrixWorldNeedsUpdate = true;
+    const u = (M.mesh.material as THREE.ShaderMaterial).uniforms, sun = f.meshes.get('sun')?.position;
+    u.showField.value = this.on.magnetic ? 1 : 0;
+    u.showAurora.value = this.on.aurora ? 1 : 0;
+    u.level.value = Math.min(f.level, 1);
+    if (sun) (u.sunDir.value as THREE.Vector3).copy(sun).sub(mesh.position).applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3).normalize();
+  }
+
+  private drawMarsLegend(): void {
+    this.legend.innerHTML = '';
+    const h = document.createElement('p'); h.className = 'field-title'; h.textContent = "Mars's crustal field";
+    const bar = document.createElement('div'); bar.className = 'field-bar';
+    const ticks = document.createElement('p'); ticks.className = 'field-ticks';
+    const lo = document.createElement('span'), mid = document.createElement('span'), hi = document.createElement('span');
+    lo.textContent = '−12,000 nT'; mid.textContent = '0'; hi.textContent = '+12,000 nT';
+    ticks.append(lo, mid, hi);
+    const unit = document.createElement('p'); unit.className = 'field-unit';
+    unit.textContent = 'Br at the surface, inward blue, outward amber (asinh scale): −8,520 to 11,260 nT, strongest over Terra Cimmeria';
+    const src = document.createElement('p'); src.className = 'field-source';
+    src.textContent = 'Langlais et al. 2019 (MGS and MAVEN), degree 134. Mars has no global field now; this is its magnetised ancient crust.';
+    this.legend.append(h, bar, ticks, unit, src);
+  }
+
   dispose(): void {
+    if (this.mars) { this.scene.remove(this.mars.group); this.mars.tex?.dispose(); if (this.mars.mesh) { this.mars.mesh.geometry.dispose(); (this.mars.mesh.material as THREE.Material).dispose(); } }
     for (const k of [...this.lines.keys()]) this.drop(k);
     for (const gi of this.giant.values()) if (gi.mesh) { gi.mesh.geometry.dispose(); (gi.mesh.material as THREE.Material).dispose(); }
-    if (this.io.mesh) { this.io.mesh.geometry.dispose(); (this.io.mesh.material as THREE.Material).dispose(); }
-    for (const b of this.beltMeshes.values()) if (b.mesh) { b.mesh.geometry.dispose(); (b.mesh.material as THREE.Material).dispose(); }
+    for (const sp of this.spots.values()) if (sp.mesh) { sp.mesh.geometry.dispose(); (sp.mesh.material as THREE.Material).dispose(); }
+    for (const b of this.beltMeshes.values()) for (const sh of b.shells) { sh.mesh.geometry.dispose(); (sh.mesh.material as THREE.Material).dispose(); }
     if (this.ovationMesh) { this.ovationMesh.geometry.dispose(); (this.ovationMesh.material as THREE.Material).dispose(); }
     for (const g of this.groups.values()) this.scene.remove(g);
     this.lineMat.dispose(); this.axisMat.dispose();
