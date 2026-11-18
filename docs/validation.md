@@ -602,15 +602,20 @@ torque, and burns along the body axis to the kernel
 | A craft held prograde, two days at a day a second | its point-mass twin's frame | no attitude steps; no slower |
 | The thrusters' impulse for rest-to-rest turns of 10°, 90°, 120° and 170° | $2I\omega_\text{peak}/L$, the angular momentum given and taken back, over the thrusters' arm | within 0.17 % (tolerance 1 %): 169.9 N s against 170.2 N s for 90° in pitch, 59.8 g at 290 s |
 | The same through the craft: a 90° slew to prograde in a 400 km orbit | the same; the tank's loss against $J/(I_{sp}g_0)$ | 0.13 % (tolerance 1 %); the tank to 10⁻¹² kg |
-| Held prograde for 60 s | the gravity-gradient torque it holds against, $\sum_i \lvert\tau_i\rvert/L_i$ a second | to 10⁻⁸ (the clock's rounding) |
+| Held prograde for 60 s | the hold's limit cycle in closed form, each frame's | to 10⁻⁸ (the clock's rounding): 0.667 N s, 0.338 kg a day, against 1.5×10⁻⁵ N s for the gravity gradient alone |
+| The hold's limit cycle, centred, no disturbance, flown pulse by pulse (one 0.29 N s bit a thruster past the 0.5° deadband, sampled every 0.1 s), pitch and roll | Jackson et al.'s two-sided cycle, eqs. (1)–(2) (NTRS 20080000345) | to 0.5 % (tolerance 0.5 %): a firing every 97.80 s in pitch and 120.37 s in roll, both as eq. (1); the closed form without a disturbance 2/3 of eq. (2), exact |
+| The same from six random starts, disturbances of 0.003 to 0.1 and 0.9 to 5 times $R_2 L$ | the closed form: $\tfrac23 R_2$ two-sided, $\lvert\tau\rvert/L$ one-sided | within 5.0 % (tolerance 6 %) |
+| The same at 0.4 and 0.6 times $R_2 L$ | $3\lvert\tau\rvert/L$, two pulses to one | its own cycle within 0.35 % (tolerance 1 %); every random start between a third of it (one-sided for days first) and all of it |
+| The same at 0.15 and 0.2 times $R_2 L$, where the cycles mix | the closed form | within 30 % (tolerance 50 %) |
 | The tanks' inertia, 500 kg in two spheres of 0.37 m, 0.6 m fore and aft | $\tfrac25 mR^2$, plus $md^2$ across (parallel-axis theorem, Curtis ch. 9) | exact: 27.38 and 207.38 kg m²; full, the box's diag(1000, 1625, 1625) |
 | A 90° slew with 50 kg of propellant left | the controller's closed-form time for the inertia then ($I_{yy}$ 1,438 kg m²) | 33.52 s against 33.85 s (1.0 %, tolerance 6 %), faster than full (34.12 s) |
 | A node 20 m/s radial out an hour ahead, held prograde, at 1/4 s frames | the turn's lead $1.1\,t_\text{slew} + 5$ s; the point-mass craft with the same node | turn began 42.54 s ahead (as planned), locked 8.5 s before the node; 0° off the node's direction; 3 mm from the point mass after; back to prograde |
 | The same at 600 s frames | the same | turn began 41.54 s ahead (the orbital frame turns 2.7° in the lead); 46 mm from the point mass |
 | A node 10 s ahead | — | the log says it cannot settle in time |
-| The MISSION tab's craft, after ROCKET-tab stages got their own attitude | its spec as validated above | unchanged: the box, its tanks and its thrusters |
+| The MISSION tab's craft, after ROCKET-tab stages got their own attitude | its spec as validated above | unchanged: the box, its tanks and its thrusters (with its hold's deadband and bit) |
 | A ROCKET-tab stage's tensor: Saturn V's S-IVB at cutoff, 59.7 t dry with the spacecraft and 107.1 t of propellant at 320 kg/m³, 10.1 m across | the thin-walled cylinder's $m R^2$, $m(R^2/2 + L^2/12)$ and the solid propellant cylinder's $mR^2/2$, $m(R^2/4 + h^2/12)$ (Curtis ch. 9), against both bodies summed point by point | within 3×10⁻⁵ (tolerance 10⁻⁴): full, diag(2.887, 2.612, 2.612)×10⁶ kg m²; the tank holds the load at its density to 10⁻¹² |
 | The stage's thrusters | the MISSION craft's angular acceleration, full | equal on every axis (1.146°/s² in roll, 1.410°/s² in pitch and yaw) |
+| The stage's impulse bits | its thrusters' thrust times the default's 14.5 ms (0.29 N s at 20 N), in the same 0.5° deadband | exact: 82.9 N s in roll, 65.3 N s in pitch and yaw; held without a disturbance at 70 %, 92.4 kg a day |
 | A 90° slew to prograde by that stage with 70 % of its propellant, through the kernel | the controller's closed-form time for its inertia; $2I\omega_\text{max}/L$ | 33.52 s against 33.89 s (1.1 %, tolerance 6 %); 34,573 N s against 34,633 N s (0.17 %, tolerance 1 %), 12.2 kg |
 
 ## Not yet validated
