@@ -148,7 +148,7 @@ export function planFlight(sol) {
       // plane: the moon's phase prices every day differently, and the plan
       // has chosen the day.)
       if (leg.vinfDep && KERNEL.has(P.body)) events.push({ kind: 'depart', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep), rp: bodyInfo(P.body).radius + P.altKm, via, ...(via ? { waitDays: 0 } : {}),
-        reaim: leg.geometry === 'between' && !leg.resonance ? { central: leg.central, from: leg.endA ?? P.body, to: leg.endB ?? Q.body, arrMs: leg.arrMs } : null });
+        reaim: leg.geometry === 'between' && !leg.resonance ? (leg.brokenPlane ? { central: leg.central, from: leg.endA ?? P.body, toEqj: ecl(leg.mid.r), arrMs: leg.mid.ms } : { central: leg.central, from: leg.endA ?? P.body, to: leg.endB ?? Q.body, arrMs: leg.arrMs }) : null });
       else if (leg.ringDep) events.push({ kind: 'depart-ring', ms: leg.depMs, body: P.body, dv: leg.depDv, dirEqj: ecl(unit(leg.ringDep)) });
       else if (leg.vinfDep) events.push({ kind: 'impulse-rel', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep) });
     }
@@ -198,6 +198,9 @@ export function planFlight(sol) {
     // a quarter of the way round.
     const back = (leg.endB ?? Q.body) === (leg.endA ?? P.body);
     const first = Math.max(afterNodes, leg.mid ? leg.mid.ms : leg.depMs + (back ? 0.25 * dur : Math.min(clearP, 0.3 * dur)));
+    // A broken plane: aimed at its break point first, while the craft is
+    // near the departure (from there the target is near 180 degrees away).
+    if (leg.brokenPlane) events.push({ kind: 'aim', ms: leg.depMs + Math.min(clearP, 0.3 * (leg.mid.ms - leg.depMs)), body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central });
     events.push({ kind: 'aim', ms: first, ...target });
     const second = Math.max(first + 0.25 * (leg.arrMs - first), leg.arrMs - 3 * tIn);
     if (second < leg.arrMs - 0.6 * tIn && leg.arrMs - first > 2 * DAY * 1000) events.push({ kind: 'aim', ms: second, ...target });
@@ -424,7 +427,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
     if (e.reaim && Math.abs(tt - kernelSeconds(new Date(e.ms))) >= 3600) {
       const T = kernelSeconds(new Date(e.reaim.arrMs));
       const C = e.reaim.central === 'sun' ? { r: [0, 0, 0], v: [0, 0, 0] } : bodyState(e.reaim.central, tt), CT = e.reaim.central === 'sun' ? [0, 0, 0] : posAt(sys, e.reaim.central, T);
-      const P0 = bodyState(e.reaim.from ?? e.body, tt), to = sub(posAt(sys, e.reaim.to, T), CT);
+      const P0 = bodyState(e.reaim.from ?? e.body, tt), to = e.reaim.toEqj ?? sub(posAt(sys, e.reaim.to, T), CT);
       const muC = e.reaim.central === 'sun' ? sys.muSun : bodyInfo(e.reaim.central).mu;
       const arc = lambert(sub(P0.r, C.r), to, T - tt, muC, true);
       if (arc) want = sub(arc.v1, sub(P0.v, C.v));
