@@ -68,10 +68,9 @@ The burns:
   plus the orbit's circular speed, an ideal descent with no losses. Lifting
   off again costs the same, again with no losses.
 - **A moon of another planet:** its GM and radius are Horizons'. Titan's
-  atmosphere takes a landing, as the planets' do. The flight still treats
-  these moons as having no gravity (an aim at the moon and a rendezvous),
-  though the kernel has pulled with them since #39. So a flight to one
-  comes in too low and hits it (below, Limits).
+  atmosphere takes a landing, as the planets' do. The kernel pulls with
+  the major ones, and the flight treats them as it does the Moon (below,
+  Flying it).
 - **A small body:** its gravity is a guess, a sphere of its diameter at
   2,000 kg/m³. That is tiny either way, so a capture is a rendezvous, about
   $v_\infty$.
@@ -118,7 +117,7 @@ Three levels of patched conics join it to the moon
 Leaving lunar orbit for Mars on 31 Oct 2026, the Moon's velocity is 66°
 off the way out: 2,227 m/s. The old price took the moon as moving the way
 out, its best phase (the speed needed at its distance, less its own, as
-scalars): 1,652 m/s. The flight, in the full model, pays 2,257: 1.4 % more.
+scalars): 1,652 m/s. The flight, in the full model, pays 2,222: 0.2 % less.
 
 The window strips step a day at a time for these legs, not every 8 days,
 so the month's ripple shows. Two days into that week's stay, the departure
@@ -134,7 +133,7 @@ is 1,647 m/s; sixteen days in, 3,381. The planner suggests the best day
   then, and as the phase lamp when it saves more than 50 m/s and 3 %.
 - **On the week's stay:** it is 26 Oct, 2.4 days in. The leg costs 3.71
   km/s, against 4.34 as scheduled; the departure is planned at 1,657 m/s
-  and flown at 1,666.
+  and flown at 1,660.
 
 Arriving at a moon from another planet is priced the same way, with time
 reversed: the state $(\mathbf r, -\mathbf v)$ leaves along
@@ -147,8 +146,23 @@ The planet's own pull on the way in is in every trial run. (It used to aim
 at the planet's centre plus the moon's periapsis offset, and the craft hit
 the Earth.) Mars orbit to lunar orbit, leaving 11 Aug 2028:
 - the Moon 1.3 km off the planned periapsis, for 65 m/s of aims;
-- the capture 2,061 m/s, against the plan's 2,123;
-- landing instead: down at 2.3 m/s.
+- the capture 2,072 m/s, against the plan's 2,123;
+- landing instead: down at 2.2 m/s.
+
+The planets' major moons are reached the same way, through their planet's
+well (Flying it, step 2). Earth orbit to Europa orbit, on the porkchop
+option from 1 Jan 2027 (29 Nov 2027 to 10 Feb 2031, with a deep-space
+burn):
+- Europa 0.1 km off the planned periapsis, 6.85 km/s about it;
+- the capture 5,810 m/s, against the plan's 5,787 (0.4 %);
+- landing instead: down at 2.1 m/s, for 1,681 m/s of descent;
+- before, with the moon taken as having no gravity: 300 km low, into
+  Europa.
+
+A flyby of such a moon is aimed at it too, by its excess velocity about the
+moon (`moonArr` is worked out for a flyby as well, though nothing is priced
+from it there): Europa passed 0.0 km off a planned 2,061 km periapsis,
+where it was aimed at Jupiter before.
 
 ### Near 180 degrees: the broken plane
 
@@ -165,7 +179,7 @@ Figs. 1–2]. Leaving lunar orbit for Mars, arriving on 20 Aug 2027, after a
   day of stay.
 - Flown, an arc a few degrees off 180° is no better. The kernel's aims,
   re-solved from where the craft is, chase a plane that turns with every
-  kilometre the craft is off it. A 20-day stay (183.4°) flies with 679 m/s
+  kilometre the craft is off it. A 20-day stay (183.4°) flies with 730 m/s
   of corrections, where nearby stays need about 150.
 
 **The broken plane** (`journey.js brokenPlane`) is the way round it
@@ -193,9 +207,9 @@ tries the broken plane within 15° of 180°, and from it the deep-space burn
 than the direct arc. Within 6° it takes it even where the direct arc is a
 little cheaper on paper, since the direct arc doesn't fly as planned
 there. At 183.4° the direct arc is 12 m/s cheaper than the broken plane.
-Flown, the deep-space burn takes 180 m/s of corrections, 39 of them its
-planned burn, and the broken plane 205, 61 of them its break; the direct
-arc takes 679 m/s.
+Flown, the deep-space burn takes 198 m/s of corrections, 39 of them its
+planned burn, and the broken plane 221, 61 of them its break; the direct
+arc takes 730 m/s.
 
 ### The deep-space burn
 
@@ -532,12 +546,13 @@ the mass the environment sees stays the same headless and live.
 **Why it matters.** A descent is flown open loop in the app, its burns
 worked out headless. Worked out in the bare model (point masses and zonal
 terms alone) and flown live with the mascons on, the Moon landing below
-hits the ground at 47 m/s. Worked out in the full model, the live Craft
-comes down 60 m from the headless flight's site.
+hits the ground at 39 m/s. Worked out in the full model, the live Craft
+comes down 56 m from the headless flight's site.
 
 **The fallback** (`flyPlanned`). A flight with trouble falls back to the
 bare model. Trouble is any of these:
-- an aim with no burn, or one that ends more than 50 km from its point;
+- an aim with no burn, or a leg's last aim ending more than 50 km from its
+  point;
 - a departure, descent or ascent it could not work out;
 - a crash, or a landing not made;
 - a waypoint missed by more than 50 km or 2 % of its periapsis;
@@ -575,6 +590,27 @@ Each step, in time order:
      at the planned arrival. The target's pull is the hyperbola, not an
      error to cancel; aiming at the periapsis point itself, with the pull,
      fails, because the craft reaches periapsis early, pulled in.
+   - **Without one moon:** for a planet's major moon, that is the kernel's
+     bodies with that moon left out of its planet's split system
+     (`bodies.js`, `omit`). The planet still moves about the barycentre
+     with it.
+   - **Down a planet's well to its moon** (Europa, Titan and the rest): a
+     miss grows fast in the planet's well, so the aims are at 3, 0.5, 0.1
+     and 0.02 of the planet's sphere-crossing time out ($r_\text{SOI}/v_\infty$,
+     99 days at Jupiter from Earth), in place of the second. The last, two
+     days out at Jupiter, is at the planned periapsis point itself, with
+     the moon's pull. A small moon bends the way in for days before its
+     sphere (Europa's, 10,000 km across, is 25 minutes out), and the
+     planet's tide moves the periapsis that an aim without the moon puts
+     there. Aimed without it from 70 minutes out, as for a planet, Europa's
+     last aim cost 53 m/s. Aimed at the point, it costs 2 m/s, and the
+     trims 2 more. (Not the Moon: its sphere is a sixth of its distance from
+     the Earth, and a point aim with its pull from a day and a half out
+     does not converge.)
+   - **Trouble:** an aim that ends more than 50 km from its point is
+     trouble only if it is the leg's last. The aims after it correct what
+     it leaves: Earth to Europa's first aim, four years out, comes within
+     370 km.
    - **Newton's start:** the two-body Lambert arc to that point gives the
      first guess, and a step that misses by more is halved.
    - **In the full model:** the trial runs are flown with the environment,
@@ -609,6 +645,14 @@ Each step, in time order:
      circular and falls after. The orbit ends at e 0.047, and a year
      on the departure from it cost 3.8 % more than the plan's, which
      prices a circular orbit.
+   - **Near impulsive, as the plan prices it:** the burn sweeps no more
+     than 10° of the orbit. Where 20 m/s² would sweep more, it burns
+     harder, steered as above. On the first Europa trip measured (arriving
+     16 Oct 2031), a 5.8 km/s capture 300 km over Europa swept 65° at
+     20 m/s², and held retrograde it left the periapsis 400 km under the
+     ground; at 128 m/s² it left a 288 by 313 km orbit. The planets' and
+     the Moon's captures sweep 12° at most (2 km/s at the Moon from Mars,
+     burned at 24 m/s²).
    - **The burn:** two halves, each held at its own pitch from retrograde
      in the orbit's plane. Newton on the two pitches and the length puts
      the two-body orbit at its end on a circle (e = 0, three conditions,
@@ -648,7 +692,8 @@ Each step, in time order:
    - **The burn:** at each of 72 points round the orbit, the two
      hyperbolas through it that leave along the excess velocity (exact, as
      above). The cheaper burn is refined by golden section about the best
-     point, and its full vector is burned.
+     point, and its full vector is burned, sweeping no more than 10° of the
+     orbit (as a capture; 5.7 km/s from 300 km over Europa, at 122 m/s²).
    - **Waiting for the plane:** a long stay turns the orbit's plane (a
      planet's J2 precesses the node, about 9° a day at 400 km over Mars;
      the plan prices it, [above](#the-parking-orbits-plane)).
@@ -700,8 +745,8 @@ Each step, in time order:
        crossed the ground. Faster than 10 m/s over the ground is a crash
        (`landing.js TOUCHDOWN_SPEED`; the flown descents touch down under
        3).
-   - **On a body without the kernel's gravity** (a small body, a moon other
-     than ours): set down from the rendezvous.
+   - **On a body without the kernel's gravity** (a small body): set down
+     from the rendezvous.
    - **The stay:** the craft is held at the body-fixed site, turning with
      the body (`orientation.js` axes), and its path follows the site.
    - **In the app** (`Craft.addLandings`): the craft flies the planned
@@ -730,11 +775,32 @@ Each step, in time order:
      departure from that orbit is step 5.
 9. **Leaving a moon for another planet:** the plan's excess velocity is
    the planet's. The flight takes the excess velocity about the moon as
-   the plan does (`moonExcess`, at the moon's place when it leaves), and
-   step 5 flies it. The first aim waits until
-   the craft is clear of the planet.
+   the plan does (`moonExcess`, at the moon's place at each trial burn
+   time), and step 5 flies it. The burn point is looked for from half a
+   turn of the parking orbit before the planned time to half a turn after:
+   Europa moves 10° round Jupiter in one turn, and the price with it (3 %).
+   The first aim waits until the craft is clear of the planet.
+   - **A planet's major moon:** three levels of patched conics are rough so
+     deep in the planet's well. Europa's sphere is 1.4 % of its distance
+     from Jupiter, and its velocity turns 1.6° while the craft crosses it.
+     The burn from `moonExcess` left Europa 0.76 km/s off the planned excess
+     about Jupiter, and the first aim, months on, cost 830 m/s. So the burn
+     is set on side runs in the kernel. First, Newton on it until the
+     osculating asymptote about the planet three days on, past its outer
+     major moons, is the planned excess. Then it is aimed (`aimTo`, three
+     rounds from there) at the leg's aim point, for what is left: the
+     Sun's pull over the months out of the planet's sphere. That is
+     cheapest in the burn itself. An aim half a day on cost 120 m/s;
+     folded into the burn, 5.
+   - **Europa to Earth** (the best phase in a 30-day stay, 16 Feb 2031,
+     with a deep-space burn): flown at 5,607 m/s against the plan's 5,557
+     (0.9 %). On a leg of two arcs the burn is aimed at the break point, as
+     the leg's first aim is; the aim after it is 1.3 m/s, then the
+     deep-space burn (179 m/s planned, 348 flown as the aim from there) and
+     the last aim at the Earth; the Earth 3.1 km off.
 
-The burns are finite, at 20 m/s² (3 km/s in two and a half minutes). The
+The burns are finite, at 20 m/s² (3 km/s in two and a half minutes), or
+harder for a capture or a departure that would sweep more than 10°. The
 closest approach to each waypoint is watched over a window about its date.
 The osculating conic between samples gives the periapsis itself.
 
@@ -742,19 +808,19 @@ What the kernel does not yet fly: a plane change between two orbits about
 one body (planned, not flown).
 
 **The phase of a moon left for a planet** is priced now (above). Leaving
-lunar orbit for Mars on 31 Oct 2026, the flight pays 2,257 m/s against the
-plan's 2,227. On the suggested day, 26 Oct, it pays 1,666 against 1,657.
+lunar orbit for Mars on 31 Oct 2026, the flight pays 2,222 m/s against the
+plan's 2,227. On the suggested day, 26 Oct, it pays 1,660 against 1,657.
 
 **The descent and the ascent flown cost more than the plan's ideal**
 (the low orbit's circular speed), by the gravity losses a real descent
-pays: over the Moon from 100 km, 1,859 m/s down and 1,759 up, against
+pays: over the Moon from 100 km, 1,867 m/s down and 1,758 up, against
 1,634 (in the full model).
 
 What the flight costs beyond the plan is its corrections. Most of them
 are on long legs home to a planet: the cruise aims fly without the
 target's own gravity (its pull near arrival is the hyperbola), so they
 leave out its far-field tug too, and the last aim takes it up. On the Mars
-round trip that is about 115 m/s of its 185.
+round trip that is 111 m/s of its 227.
 
 ## The rocket it needs
 
@@ -1019,19 +1085,19 @@ orbits, waits 454 days.
 | Legs chained, stays, orbit changes, options, choosing one | the journey's own rules | all hold |
 | Jupiter's orbit to Europa, then to Ganymede | geometry; Europa at 671,100 km and 13.74 km/s | legs about Jupiter; within 1 % and 2 % |
 | Mariner 10, flown by the kernel (NASA's dates) | the plan | Venus 0.4 km, Mercury 0.1 km off the planned periapsis |
-| Earth to Mars, captured | the plan | 1.4 km |
+| Earth to Mars, captured | the plan | 0.9 km |
 | Round the Moon and home | the plan | Moon 17 km; home 3 km from the aimed point |
-| Earth orbit, Moon orbit for 3 days, home | the plan | Moon 0.9 km; home 0.3 km |
+| Earth orbit, Moon orbit for 3 days, home | the plan | Moon 2.4 km; home 0.2 km |
 | A burn node with no burn; a node's frame | Lambert's arc; geometry | on target to 1 m, the same delta-v; orthonormal, radial out |
 | A 200 m/s node halfway to Mars, then aimed | Lambert from the node | misses by 3.28 million km; aimed, on target to 1 m |
 | Mariner 10's Venus aim set by hand to the plan's B point | the planned flyby | the same periapsis, unpowered; Mercury missed by 194,000 km without its 29 m/s |
-| An aimed node on the way to Mars, flown | the plan | Mars 1.4 km off the planned periapsis |
+| An aimed node on the way to Mars, flown | the plan | Mars 0.9 km off the planned periapsis |
 | A node with no burn on a deep-space burn's leg (before and after the break) and on a bi-elliptic leg | Lambert's arcs, as planned | on target to 1 m (the bi-elliptic leg 54 m in 1,821 d, within 1 km); the break burn the same to 10⁻⁹ km/s (bi-elliptic 10⁻⁶) |
 | A 50 m/s node before the break, then aimed | the break point by Lambert | misses by 855,000 km and the break grows from 60.9 to 83.4 m/s; aimed, on target to 1 m and the plan's delta-v to 10⁻⁶ km/s |
-| A deep-space burn's leg with a 20 m/s node before the break, flown | the plan | no early aim at the break; Mars 0.7 km off the planned periapsis |
+| A deep-space burn's leg with a 20 m/s node before the break, flown | the plan | no early aim at the break; Mars 0.8 km off the planned periapsis |
 | The 2:1 resonance cone at 8.9 km/s about a circular 1 AU orbit | geometry | a = 2^(2/3) AU, 61.98°, back in two years; every clock angle on the cone and back to the start (two-body) |
 | Galileo's Earth to Earth (8 Dec 1990 to 8 Dec 1992) | NASA's dates: PDS mission catalogue [4] | 2:1 chosen, back within a day of 8 Dec 1992, 8.871 out and 8.864 km/s back; Earth flybys 0 and 70 m/s |
-| Galileo's whole route flown by the kernel | the plan | Venus 2.0, Earth 0.9 and 14.5 km off; Jupiter 3,100 km off a 270,000 km periapsis (1.1 %); corrections 1.1 km/s over six years |
+| Galileo's whole route flown by the kernel | the plan | Venus 2.0, Earth 0.9 and 13.6 km off; Jupiter 1,683 km off a 270,000 km periapsis (0.6 %); corrections 1.1 km/s over six years |
 | The return window from Mars (arrive 7 Sep 2027) | Curtis Ex 8.2 (454 d on circular orbits) | 9 Sep 2028, 368 d later, 2.00 km/s; each profile point is the leg solved there |
 | The lamps: leaving Mars after 30 days, at 8 and 5 km/s; leaving at the window | the rules above | window and delta-v lamps lit, then no window; at the window, green with a 368-day wait |
 | Saturn V, Apollo 11's 45.7 t to 185 km and on to the Moon (TLI 3.13 km/s) | the flight | needs 12.03, gives 12.87 km/s: it can, with 0.84 to spare |
@@ -1051,23 +1117,27 @@ orbits, waits 454 days.
 | The descent orbit burn, 100 to 15 km over the Moon | a Hohmann transfer's first burn (Curtis 6.2) | equal to 10⁻¹² |
 | An entry periapsis at 3 km/s over Mars | geometry (h = R v_R cos γ) | the hyperbola meets the ground at 12° to 10⁻⁹ |
 | Braking from 15 km over the Moon; the ascent to 100 km (two-body) | stops where asked; more than the speed taken off or given | 1.5 km up, 1,762 m/s for 1,692; 1,763 m/s for 1,634 |
-| Earth orbit, down to the Moon for 3 days, up, home through the air, flown in the full model (GRAIL to degree 50) | the plan | no fallback; down at 2.2 m/s, 1,859 m/s for the descent; up for 1,759; home 1.7 km from the aimed point, the entry perigee 118 km for 120 |
-| The same, flown live by the app's Craft in the full model | the headless flight | down on the Moon 60 m from the headless site, held, up, down at Earth, never crashed |
-| The same journey's bare-model burns, flown live in the full model | why the craft no longer flies bare | hits the Moon at 47 m/s |
+| Earth orbit, down to the Moon for 3 days, up, home through the air, flown in the full model (GRAIL to degree 50) | the plan | no fallback; down at 2.2 m/s, 1,867 m/s for the descent; up for 1,758; home 1.7 km from the aimed point, the entry perigee 118 km for 120 |
+| The same, flown live by the app's Craft in the full model | the headless flight | down on the Moon 56 m from the headless site, held, up, down at Earth, never crashed |
+| The same journey's bare-model burns, flown live in the full model | why the craft no longer flies bare | hits the Moon at 39 m/s |
 | A Craft meeting the Moon at 1 km/s near a planned touchdown; one still in orbit at it | the 10 m/s limit | a crash, not a landing; the landing missed, flying on |
-| Mars orbit to lunar orbit, and to a landing, flown (porkchop optimum, 11 Aug 2028 to 23 Jul 2029) | the plan, the Moon reached via the Earth | aimed at the Moon: 1.3 km off the planned periapsis; capture 2,061 m/s against 2,123 (within 5 %); landed at 2.3 m/s |
-| Earth orbit, a week in lunar orbit, then Mars, flown in the full model | the plan, priced by where the Moon is | leaves the Moon for 2,257 m/s against the plan's 2,227 (1.4 %, within 3 %; the best-phase price was 1,652); Mars 1.4 km off; corrections 165 m/s |
+| Mars orbit to lunar orbit, and to a landing, flown (porkchop optimum, 11 Aug 2028 to 23 Jul 2029) | the plan, the Moon reached via the Earth | aimed at the Moon: 1.3 km off the planned periapsis; capture 2,072 m/s against 2,123 (within 5 %); landed at 2.2 m/s |
+| Earth orbit, a week in lunar orbit, then Mars, flown in the full model | the plan, priced by where the Moon is | leaves the Moon for 2,222 m/s against the plan's 2,227 (0.2 % under, within 3 %; the best-phase price was 1,652); Mars 0.9 km off; corrections 181 m/s |
 | The hyperbolas from a point onto a given excess velocity, 500 random states | the asymptote from the eccentricity vector [1, Sec. 2.5] | both leave along it to 1.2 × 10⁻¹³ |
 | The same journey's strip leaving the Moon | the Moon's month | a point a day; 3.71 to 5.42 km/s; its lows on days 2 and 28 |
 | The best day in its stay | the strip | 26 Oct 2026, 3.706 km/s for the leg against 4.339 as scheduled; an option and the phase lamp |
-| Flown on that day | its price | leaves the Moon for 1,666 m/s against 1,657 (0.5 %); Mars 0.1 km off |
+| Flown on that day | its price | leaves the Moon for 1,660 m/s against 1,657 (0.2 %); Mars 0.1 km off |
 | Ten days into the stay | the Earth's radius | the nearer hyperbola dives to a 673 km perigee and is not taken; the other, 3.814 km/s about the Moon, is |
+| Earth orbit to Europa orbit, 30 days, home, flown (porkchop from 1 Jan 2027, the best phase leaving) | the plan, Europa reached and left via Jupiter | every aim at Europa (but the first, at the deep-space burn's point); 0.1 km off the planned periapsis (within 5 km); capture 5,810 m/s against 5,787 (within 3 %); left for 5,607 against 5,557 (0.9 %, within 3 %), the first aim after it 1.3 m/s; Earth 3.1 km off |
+| Earth orbit to a Europa landing, flown | the plan | down at 2.1 m/s, 1,681 m/s for the descent |
+| Earth orbit to Titan, landing through the air, flown | the plan | aimed at Titan; the entry perigee 1,000.01 km for 1,000 (within 5 km) |
+| Earth orbit to a Europa flyby, flown | the plan | aimed at Europa, not Jupiter; 0.0 km off the planned 2,061 km periapsis (within 5 km) |
 | What makes the full model's flight fall back | the rules above | an aim with no burn, a crash, a landing not made and a 400 km miss, each a reason |
 | Earth orbit, 23 days at the Moon, Mars on 20 Aug 2027: the leg at 180.4° | Abilleira [5]: a direct arc near 180° tilts steeply; a burn near halfway breaks the plane | direct 15.69 km/s on a plane tilted 20.1°; broken plane 4.572 km/s, its break at 47.0 % of the flight |
 | The broken plane's arcs and its break | geometry; two-body; Curtis eq. (6.20) on the horizontal speed; Napier's rule | first arc in the Earth's plane to 10⁻⁶°; the arcs join and reach Mars to 1 m; the break 60.869 m/s, the pure plane change to 10⁻³; the turn 0.1452° against Napier's 0.1452° (to 1 %) |
 | Stays of 18 to 30 days, through 180° | smoothness | the broken plane's excess speed leaving the Earth 3.17 to 3.72 km/s, its second difference at most 2.9 m/s (under 20); direct, 11 km/s |
 | The plane lamp; the options | the rules above | lit at 180.4°, with the deep-space burn's date; none at 196°; "Broken plane" (4.572) and "Direct, one plane" (15.69) listed, both dearer than the plan's 4.558 |
-| 20 days at the Moon (183.4°), flown in the full model | the plan | deep-space burn 180 m/s of corrections (39 planned) and Mars 1.6 km off; broken plane 205 (61 planned) and 0.7 km; each within 250 m/s and 20 km; direct 679 m/s (over 500) |
+| 20 days at the Moon (183.4°), flown in the full model | the plan | deep-space burn 198 m/s of corrections (39 planned) and Mars 1.0 km off; broken plane 221 (61 planned) and 0.8 km; each within 250 m/s and 20 km; direct 730 m/s (over 500) |
 | Earth orbit to Mars orbit, 180.4°: the deep-space burn and the broken plane | Lawden's conditions on the primer vector [6], [7]; its jump as the cost's gradient [8], [9] | deep-space burn 5.9151 km/s: p-dot jumps 3 % at $B$ (under 10), largest $\lvert\mathbf p\rvert$ 1.0001; broken plane 5.9414: jumps 128 %, $\lvert\mathbf p\rvert$ 1.0076, the jump the finite-difference gradient to 0.01 % |
 | The same leg, a blind search | twelve Nelder-Mead starts | nothing cheaper (under 0.5 m/s) |
 | Leaving 9 to 29 Nov 2026 | the direct arc and the broken plane | never dearer than either; its burn 0 m/s where it takes over, 73 at most; under 30 m/s a day |
@@ -1086,17 +1156,11 @@ orbits, waits 454 days.
   sets a craft entering an atmosphere down beneath its perigee without
   flying the entry. Terrain is a sphere (the Earth's, the WGS-84
   ellipsoid).
-- **Another planet's moon** (Europa, Titan and the rest): not yet flown
-  right. The flight takes them as having no gravity, and the kernel gives
-  them theirs. Earth orbit to Europa orbit comes in 200 km low, hits
-  Europa, and its departure would burn the planet's excess velocity. A
-  moon flyby reached via its planet is aimed at the planet, as arrivals
-  were.
 - **A moon left for a planet:** three levels of patched conics at the
   moon's place. The moon's own pull on the way out of the planet's sphere
-  is the flight's (its aims take it up), and a way out that passes close
-  by the planet is not taken. The ideal options still take the moon's best
-  phase.
+  is the flight's (its aims take it up, and from a planet's major moon its
+  departure burn), and a way out that passes close by the planet is not
+  taken. The ideal options still take the moon's best phase.
 - **The deep-space burn:** one burn, and only within 15° of 180°; a leg
   far from 180° that a burn would also help is flown direct. It is shaped
   with the moons at their mean phase, so it does not use the day's phase
@@ -1104,6 +1168,10 @@ orbits, waits 454 days.
   its hyperbolas swap. It is a local search from the broken plane: it
   finds the family the broken plane belongs to, not one far from it. A
   craft's first leg (from its own state) is always direct.
+- **A capture or departure at a planet's moon:** near impulsive, as
+  priced, so the flight's burns there are hard (122 to 130 m/s², 12 to 13
+  g, at Europa). A real craft with a smaller engine would pay gravity
+  losses the plan does not price.
 - **The full model:** the flight is slower in it (seconds, not tenths).
   Looking ahead uses lower degrees of the fields, though every burn kept
   is worked out at full degree. A journey whose full-model flight has
