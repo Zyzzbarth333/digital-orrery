@@ -25,15 +25,22 @@
 
 import { makeEnvironment } from './environment.js';
 import { addJ2 } from './zonal.js';
-import { propagate, rvToElements } from './orbital.js';
+import { propagate, rvToElements, timeToRadius } from './orbital.js';
 import { TOUCHDOWN_SPEED } from './landing.js';
 import { accelHeliocentric, primaryOf } from './nbody.js';
 import { eqjToEcl } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
-import { vnbDirection } from './kernelHost.js';
+import { vnbDirection, SUN_AT_ORIGIN } from './kernelHost.js';
+import { CraftAttitude } from './craftAttitude.js';
+import { thrustAxis } from './attitude.js';
 
 export const G0 = 9.80665;                 // m/s^2, for Isp
 const MAX_CARRY_S = 30 * 86400;
+// The Earth's entry interface, 400,000 ft above the equatorial radius
+// (WGS-84), and how far the drawn state is carried below it (s); see
+// Craft.airCarry.
+const ENTRY_INTERFACE_R = 6378.137 + 121.92;
+const AIR_CARRY_S = 2;
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -49,7 +56,12 @@ let nextId = 1;
 // cannot be held constant across a lag (in low orbit that is 0.24 km off
 // after 10 minutes, 115 km after an hour). Two-body plus J2, with the other
 // perturbations held at their value at the start (ap), by classical RK4 at
-// 1/256 of the orbital period (or longer, at most 2,048 steps). extra(t, x,
+// 1/256 of the period of a circular orbit at the craft's radius, taken
+// afresh at each step (or longer, at most 2,048 steps). In a circular orbit
+// that is 1/256 of the period; on an eccentric one the steps shorten
+// through perigee. Sized on the whole orbit's period instead, the steps just
+// after Artemis II's injection (a 10-day orbit) were 57 minutes long from
+// 6,600 km, and a 15-hour carry was 80,000 km out. extra(t, x,
 // out), if given, adds what changes as fast as J2 does (the environment's
 // gravity field and sunlight, at kernel time t and primary-relative x).
 // extra is taken once per step, at its start, and held across the step's
@@ -58,9 +70,7 @@ let nextId = 1;
 // cheap at high warp (a 24-minute lag in low orbit: 4.2 ms -> about 1.5 ms)
 // while J2 itself is still taken at every stage.
 function carryWithJ2(r0, v0, dtx, P, ap, extra = null, t0 = 0) {
-  const rn = norm(r0), en = 0.5 * (v0[0] ** 2 + v0[1] ** 2 + v0[2] ** 2) - P.mu / rn;
-  const period = en < 0 ? 2 * Math.PI * Math.sqrt((-P.mu / (2 * en)) ** 3 / P.mu) : 2 * Math.PI * Math.sqrt(rn ** 3 / P.mu);
-  const n = Math.min(2048, Math.max(1, Math.ceil(dtx / (period / 256)))), h = dtx / n;
+  const k = (2 * Math.PI / 256) / Math.sqrt(P.mu), hMin = dtx / 2048;
   const held = [0, 0, 0];
   const f = (x, out) => {
     const r2 = x[0] * x[0] + x[1] * x[1] + x[2] * x[2], k = -P.mu / (r2 * Math.sqrt(r2));
@@ -70,8 +80,9 @@ function carryWithJ2(r0, v0, dtx, P, ap, extra = null, t0 = 0) {
   };
   let r = [...r0], v = [...v0];
   const a1 = [0, 0, 0], a2 = [0, 0, 0], a3 = [0, 0, 0], a4 = [0, 0, 0];
-  for (let s = 0; s < n; s++) {
-    if (extra) { held[0] = held[1] = held[2] = 0; extra(t0 + (s + 0.5) * h, r, held); }
+  for (let done = 0; done < dtx;) {
+    const rn = norm(r), h = Math.min(dtx - done, Math.max(hMin, k * rn * Math.sqrt(rn)));
+    if (extra) { held[0] = held[1] = held[2] = 0; extra(t0 + done + 0.5 * h, r, held); }
     f(r, a1);
     const r2 = r.map((x, i) => x + 0.5 * h * v[i]), v2 = v.map((x, i) => x + 0.5 * h * a1[i]);
     f(r2, a2);
@@ -81,6 +92,7 @@ function carryWithJ2(r0, v0, dtx, P, ap, extra = null, t0 = 0) {
     f(r4, a4);
     r = r.map((x, i) => x + (h / 6) * (v[i] + 2 * v2[i] + 2 * v3[i] + v4[i]));
     v = v.map((x, i) => x + (h / 6) * (a1[i] + 2 * a2[i] + 2 * a3[i] + a4[i]));
+    done = h < dtx - done ? done + h : dtx;
   }
   return { r, v };
 }
@@ -100,7 +112,11 @@ export class Craft {
   // scriptIsp: the Isp (s) at which a real mission's scripted burns draw
   // propellant from the dry mass (a spacecraft's own tanks, beyond the
   // player's fuel), or null: they then leave the mass alone.
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null), scriptIsp = /** @type {number | null} */ (null), bare = false }) {
+  // attitude: carry an attitude (craftAttitude.js; {} for the app's own
+  // craft, or its spec, with mode the one to hold from the start), so burns
+  // fire along the body axis; null (the default) for a point mass whose
+  // burns go along the direction asked.
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null), scriptIsp = /** @type {number | null} */ (null), bare = false, attitude = /** @type {object | null} */ (null) }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys.view ? sys.view() : sys;
@@ -116,10 +132,13 @@ export class Craft {
     this.entryState = null;          // the entry guidance's, from the kernel
     this.vent = vent;
     // bare: flown in the kernel's point masses and zonal terms alone, without
-    // the environment (environment.js): a journey's craft, whose burns were
-    // worked out and flown headless in that model (journeyFlight.js), so the
-    // app flies the very flight the planner did, landings and all.
+    // the environment (environment.js): a journey's craft whose burns could
+    // only be worked out in that model (journeyFlight.js flyPlanned, a
+    // fallback), so the app flies the very flight the planner did. bareWhy:
+    // what the full model's flight could not do, for the Model row.
     this.bare = bare;
+    /** @type {string | null} */
+    this.bareWhy = null;
     this.sys.focus?.(r, t);
     const bodies = this.sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
@@ -146,7 +165,18 @@ export class Craft {
     this.log = [];                   // { t, text } for the app to show
     this.clockJumped = false;
     if (bare) this.note('flown in the planner\'s model: point masses and zonal terms, no drag, full gravity fields or sunlight', t);
+    this.att = null;
+    if (attitude) this.carryAttitude(attitude);
   }
+
+  // Carry an attitude from now on (craftAttitude.js): burns then fire along
+  // the body axis.
+  carryAttitude({ mode = 'prograde', ...spec } = {}) {
+    this.att = new CraftAttitude(this, spec, mode);
+    this.note(`attitude carried: holding ${mode}, burns along the body axis`, this.kState.t);
+  }
+  // The thrust axis (EQJ unit vector), or null for a point mass.
+  get bodyAxis() { return this.att ? thrustAxis(this.att.q) : null; }
 
   // The mass now: the dry mass, less what the mission's scripted burns have
   // drawn from it by the clock, and the player's fuel.
@@ -172,6 +202,7 @@ export class Craft {
       this.burns = [];
       this.prevClockT = tNow;                      // no fuel drawn across the jump
       this.clockJumped = true;
+      jumped = true;
       this.note(`clock set ${(moved / 86400).toFixed(2)} d away; state kept, burns cleared`, tNow);
     }
     this.clockT = tNow;
@@ -182,16 +213,20 @@ export class Craft {
       this.startNode(node);
     }
     this.updateBurns();
+    if (this.att) this.att.step(jumped);
   }
 
   // ---------------- burns ----------------
 
   // Start a burn at t0 along dir (EQJ, any length) at full thrust. Ends after
-  // duration, or when the tank runs dry. Returns the burn or null.
+  // duration, or when the tank runs dry. Returns the burn or null. A craft
+  // carrying an attitude fires along its body axis instead (axis: true;
+  // dir is then only where it was asked to point).
   startBurn({ t0, dir, duration = Infinity, kind = 'manual' }) {
     const mdot = this.thrust / this.ve;
+    if (this.att && !dir) dir = this.bodyAxis;
     if (!(this.fuel > 0) || !(mdot > 0) || !(norm(dir) > 0)) return null;
-    const burn = { t0, t1: t0 + Math.min(duration, this.fuel / mdot), dir: unit(dir), F: this.thrust, m0: this.mass, mdot, kind };
+    const burn = { t0, t1: t0 + Math.min(duration, this.fuel / mdot), dir: unit(dir), F: this.thrust, m0: this.mass, mdot, kind, ...(this.att ? { axis: true } : {}) };
     this.burns.push(burn);
     return burn;
   }
@@ -237,7 +272,12 @@ export class Craft {
   setScript(burns, about = 'earth') {
     // F = accel on a nominal 1 kg: the data give acceleration, not thrust
     // and mass, so these are flagged and their thrust ignores the mass.
-    this.script = burns.map((b) => ({ t0: b.t0, t1: b.t1, dir: b.dir, F: b.accel, m0: 1, mdot: 0, frame: 'vnb', about: b.about ?? about, scripted: true }));
+    // frame 'eqj': a fixed J2000 direction (a deep-space burn's 10 s
+    // intervals, about the Sun, whose orbital frame barely turns in one);
+    // otherwise the orbital frame about the burn's body.
+    this.script = burns.map((b) => (b.frame === 'eqj'
+      ? { t0: b.t0, t1: b.t1, dir: b.dir, F: b.accel, m0: 1, mdot: 0, scripted: true }
+      : { t0: b.t0, t1: b.t1, dir: b.dir, F: b.accel, m0: 1, mdot: 0, frame: 'vnb', about: b.about ?? about, scripted: true }));
     this.scriptMass0 = this.dryMass + this.fuel;
     this.scriptMasses();
     this.version++;
@@ -273,39 +313,6 @@ export class Craft {
     this.version++;
   }
   nextLanding(after) { return this.landings.find((L) => !L.done && L.t + (L.how === 'descent' ? 600 : 0) > after - 1e-6) ?? null; }
-  // Where a step that ended below a surface of radius R crossed it: back
-  // along the two-body path about the body, in twentieth-of-a-second steps
-  // (fourth-order Runge-Kutta; a craft settling at a few m/s is on a nearly
-  // radial path, where the universal-variable propagator is ill-conditioned),
-  // up to ten minutes back, the last step's crossing found by its fraction.
-  // The kernel checks for the ground at the end of each step, which near
-  // the ground in free fall can be a hundred metres down.
-  groundCrossing(key, r, v, t, R) {
-    const B = this.body(key, t);
-    if (!B?.eph) return { r, v, t };
-    const p0 = B.eph.position(t), v0 = B.eph.velocity(t);
-    let d = sub(r, p0), w = sub(v, v0), tt = 0;
-    if (norm(d) >= R) return { r, v, t };
-    const f = (x) => { const n = norm(x); return [x[0] * -B.mu / n ** 3, x[1] * -B.mu / n ** 3, x[2] * -B.mu / n ** 3]; };
-    const add3 = (a, b, k) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
-    const h = -0.05;
-    while (tt > -600) {
-      const k1v = f(d), k1r = w;
-      const k2v = f(add3(d, k1r, h / 2)), k2r = add3(w, k1v, h / 2);
-      const k3v = f(add3(d, k2r, h / 2)), k3r = add3(w, k2v, h / 2);
-      const k4v = f(add3(d, k3r, h)), k4r = add3(w, k3v, h);
-      const dn = [0, 1, 2].map((i) => d[i] + h / 6 * (k1r[i] + 2 * k2r[i] + 2 * k3r[i] + k4r[i]));
-      const wn = [0, 1, 2].map((i) => w[i] + h / 6 * (k1v[i] + 2 * k2v[i] + 2 * k3v[i] + k4v[i]));
-      if (norm(dn) >= R) {
-        const a = (R - norm(d)) / (norm(dn) - norm(d));
-        d = add3(d, sub(dn, d), a); w = add3(w, sub(wn, w), a); tt += a * h;
-        const at = t + tt, p = B.eph.position(at), pv = B.eph.velocity(at);
-        return { r: [p[0] + d[0], p[1] + d[1], p[2] + d[2]], v: [pv[0] + w[0], pv[1] + w[1], pv[2] + w[2]], t: at };
-      }
-      d = dn; w = wn; tt += h;
-    }
-    return { r, v, t };
-  }
   // Speed over a body's turning surface (km/s) at heliocentric r, v.
   groundSpeedOn(key, r, v, t) {
     const site = this.siteOn(key, r, t), g = site && this.siteState(site, t);
@@ -408,6 +415,10 @@ export class Craft {
     const duration = need / (this.thrust / this.ve);
     const burn = this.startBurn({ t0: node.t, dir: d, duration, kind: 'node' });
     if (!burn) { this.note('node refused: no propellant', node.t); return false; }
+    if (burn.axis) {
+      burn.nodeDir = unit(d);
+      burn.nodeId = node.id;             // the attitude notes how far off it starts (craftAttitude.js)
+    }
     this.executing = { node, burn };
     this.note(`node burn: ${(dv * 1000).toFixed(1)} m/s over ${duration.toFixed(1)} s`, node.t);
     return true;
@@ -433,9 +444,18 @@ export class Craft {
     const span = tEnd - this.kState.t;
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
-    const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
+    if (this.att && this.burns.some((b) => b.axis)) tEnd = Math.min(tEnd, this.att.A.t);
+    if (!(tEnd - this.kState.t > 0)) return null;
+    const burns = [...this.flownBurns(this.kState.t, tEnd), ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
       .map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted, mass0, massFlow }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted, ...(mass0 !== undefined ? { mass0, massFlow } : {}) }));
     return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns, env: this.bare ? null : this.envParams() };
+  }
+
+  // The engine's burns between from and to as the kernel flies them: a
+  // burn along the body axis as the attitude's pieces (craftAttitude.js),
+  // the rest as they are.
+  flownBurns(from, to) {
+    return this.burns.flatMap((b) => (b.axis && this.att ? this.att.pieces(b, from, to) : [b]));
   }
 
   // What the kernel's environment model needs of this craft (its mass as at
@@ -481,8 +501,8 @@ export class Craft {
     this.lagSeconds = (!res.complete && !impact) ? Math.max(0, res.tEnd - res.t) : 0;
     // A planned landing. An impact on its body within the hour of its time
     // is the touchdown if it is slower than TOUCHDOWN_SPEED over the ground
-    // (taken where the craft crossed the ground, not at the end of the
-    // kernel's step below it); faster, it falls through to the crash below.
+    // (the kernel's state is where its step crossed the surface, impact.js);
+    // faster, it falls through to the crash below.
     // Reaching the landing's time without an impact, the craft is put on
     // the planned site only if it is where the plan has it: a descent
     // within 100 m of the ground and as slow, an entry no higher than its
@@ -491,15 +511,14 @@ export class Craft {
     const L = this.nextLanding(this.kState.t - 3600);
     if (L) {
       if (impact && impact.body === L.key && Math.abs(impact.t - L.t) < 3600) {
-        const x = this.groundCrossing(L.key, res.r, res.v, res.t, norm(L.local));
-        const speed = this.groundSpeedOn(L.key, x.r, x.v, x.t);
+        const speed = this.groundSpeedOn(L.key, res.r, res.v, res.t);
         if (speed < TOUCHDOWN_SPEED) {
-          const site = this.siteOn(L.key, x.r, x.t);
-          this.setDown(L, site ? scale(site.local, norm(L.local) / norm(site.local)) : L.local, x.t);
+          const site = this.siteOn(L.key, res.r, res.t);
+          this.setDown(L, site ? scale(site.local, norm(L.local) / norm(site.local)) : L.local, res.t);
           return;
         }
         L.done = true;
-        this.note(`came down on ${L.key} at ${(speed * 1000).toFixed(0)} m/s: not a landing`, x.t);
+        this.note(`came down on ${L.key} at ${(speed * 1000).toFixed(0)} m/s: not a landing`, res.t);
       } else if (!impact && res.t >= L.t + (L.how === 'descent' ? 600 : 0) - 1e-6) {
         const B = this.body(L.key, res.t), h = B?.eph ? norm(sub(res.r, B.eph.position(res.t))) - norm(L.local) : Infinity;
         const near = L.how === 'descent' ? h < 0.1 && this.groundSpeedOn(L.key, res.r, res.v, res.t) < TOUCHDOWN_SPEED : L.how === 'entry' ? h <= (L.entryKm ?? 0) + 50 : true;
@@ -524,6 +543,7 @@ export class Craft {
 
   // A body by key at t (any planet, its centre, or moon, split or not).
   body(key, t) {
+    if (key === 'sun') return SUN_AT_ORIGIN;
     return this.sys.bodyAt ? this.sys.bodyAt(key, t) : this.sys.bodiesAt(t).find((b) => b.key === key);
   }
 
@@ -543,8 +563,45 @@ export class Craft {
     if (!(dtx > 0)) dtx = 0;
     // Asked for several times a frame (the scene, the readouts): carried once.
     const key = `${this.clockT}|${this.kState.t}|${this.version}|${this.script.length}|${this.burns.length}`, sh = this._shown;
-    if (!sh || sh.key !== key || sh.from !== this.kState || sh.r0 !== this.kState.r) this._shown = { key, from: this.kState, r0: this.kState.r, s: this.carryForward(Math.min(dtx, MAX_CARRY_S)) };
+    if (!sh || sh.key !== key || sh.from !== this.kState || sh.r0 !== this.kState.r) {
+      const air = this.airCarry(), dt = Math.min(dtx, MAX_CARRY_S, air);
+      let s = this.carryForward(dt);
+      // Held at the air's edge, the craft keeps its place over the Earth
+      // (left in space, the Earth would move off at 30 km/s).
+      const E = dt < dtx && dt === air ? this.body('earth', this.kState.t) : null;
+      if (E?.eph) {
+        const t1 = this.kState.t + dt, dr = sub(E.eph.position(this.clockT), E.eph.position(t1)), dv = sub(E.eph.velocity(this.clockT), E.eph.velocity(t1));
+        s = { r: [0, 1, 2].map((i) => s.r[i] + dr[i]), v: [0, 1, 2].map((i) => s.v[i] + dv[i]) };
+      }
+      this._shown = { key, t: this.clockT, from: this.kState, r0: this.kState.r, s };
+    }
     return { r: [...this._shown.s.r], v: [...this._shown.s.v] };
+  }
+  // The state drawn at clock time t, if it was drawn there (else null).
+  shownAt(t) { const sh = this._shown; return sh && sh.t === t ? { r: sh.s.r, v: sh.s.v } : null; }
+
+  // How far (s) the drawn state may be carried past the kernel's before the
+  // Earth's air: the carry's two-body orbit, its perturbations held, and its
+  // drag taken at the starting velocity are no model of an entry (carried a
+  // day through it while the kernel flew Artemis II's entry, the drawn
+  // capsule was 99 million km out at 1,100 km/s). So it stops where the
+  // conic about the Earth first comes down to the entry interface, 400,000
+  // ft (121.92 km) above the equatorial radius, and below it carries at most
+  // AIR_CARRY_S; the kernel flies the entry itself. Infinity away from the
+  // Earth, and for a bare craft (no air in its model).
+  airCarry() {
+    if (this.bare || this.kState.primary !== 'earth') return Infinity;
+    // Once per kernel state (a clock jump moves its time in place).
+    const A = this._air;
+    if (A && A.from === this.kState && A.t === this.kState.t && A.r === this.kState.r) return A.dt;
+    const E = this.body('earth', this.kState.t);
+    let dt = Infinity;
+    if (E?.eph) {
+      const tAir = timeToRadius(sub(this.kState.r, E.eph.position(this.kState.t)), sub(this.kState.v, E.eph.velocity(this.kState.t)), E.mu, ENTRY_INTERFACE_R);
+      dt = tAir > 0 ? tAir : AIR_CARRY_S;
+    }
+    this._air = { from: this.kState, t: this.kState.t, r: this.kState.r, dt };
+    return dt;
   }
 
   // Speed over the Earth's turning surface (km/s) at heliocentric r, v.
@@ -603,7 +660,7 @@ export class Craft {
       if (!B?.eph) return [0, 0, 0];
       return vnbDirection(b.dir, sub(x.r, B.eph.position(t)), sub(x.v, B.eph.velocity(t)));
     };
-    const parts = [...this.burns, ...this.script]
+    const parts = [...this.flownBurns(t0, t1), ...this.script]
       .map((b) => ({ b, p: Math.max(b.t0, t0), q: Math.min(b.t1, t1) })).filter((x) => x.q > x.p)
       .sort((x, y) => x.p - y.p);
     // The kernel's acceleration holds the thrust at its instant; one set

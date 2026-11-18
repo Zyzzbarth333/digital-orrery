@@ -51,6 +51,7 @@
 
 import { keplerStep, propagate } from './orbital.js';
 import { addJ2, below } from './zonal.js';
+import { locateImpact, dp45Dense } from './impact.js';
 
 // Dormand-Prince 5(4) (Dormand & Prince 1980): nodes, stage weights, the
 // 5th-order solution b (= the last stage row, FSAL) and the error weights
@@ -169,8 +170,16 @@ function conicStep(r0, v0, dt, mu, rOut, vOut) {
   for (let i = 0; i < 3; i++) { rOut[i] = s.r[i]; vOut[i] = s.v[i]; }
 }
 
+// A budget in wall time as well as in steps: deadline is a performance.now()
+// time (ms) after which an advance stops before its next step, as it does
+// when maxSteps runs out. At least one step is always taken, so a run of
+// short budgets still gets on.
+export function outOfTime(deadline, steps) {
+  return deadline != null && steps > 0 && performance.now() >= deadline;
+}
+
 // opts: bodiesAt, muSun, tolKm (default 1e-7 km per step), hMax, eta
-// (other-body step fraction, default 0.01), maxSteps, breakpoints,
+// (other-body step fraction, default 0.01), maxSteps, deadline, breakpoints,
 // extraAccel(t, r, out, mid), sunRadius, primaryOf, tidal (default true:
 // the tidal perturbation above; false for the ephemeris form).
 // Returns { steps, events, complete, left }: left is true when the craft
@@ -215,7 +224,7 @@ export function advanceEncke(state, tEnd, opts) {
     if (list !== sList) {
       sList = list;
       sCopies = list.map((b) => ({ key: b.key, mu: b.mu, radius: b.radius, parent: b.parent, r: [0, 0, 0],
-        j2: b.j2, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
+        j2: b.j2, zn: b.zn, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
       sP = list.findIndex((b) => b.key === key);
       sEnds = new Float64Array(list.length * 12);    // r0 v0 r1 v1 for each body
       sT0 = NaN;
@@ -298,6 +307,9 @@ export function advanceEncke(state, tEnd, opts) {
   const SV = Array.from({ length: 7 }, () => [0, 0, 0]);   // and velocity
   const nR = [0, 0, 0], nV = [0, 0, 0];                     // conic at the step's end
   const yt = [0, 0, 0, 0, 0, 0];
+  // The last step's start (deviation, first stage, conic), for its dense
+  // output at an impact.
+  const y0 = [0, 0, 0, 0, 0, 0], k1 = [0, 0, 0, 0, 0, 0], cR0 = [0, 0, 0], cV0 = [0, 0, 0];
   let rhoN = len3(cR[0], cR[1], cR[2]);
   let h = Math.min(hMax, 0.01 * Math.sqrt(rhoN ** 3 / mu));
   let fsal = false;
@@ -328,7 +340,7 @@ export function advanceEncke(state, tEnd, opts) {
   };
 
   while (dir * (tEnd - state.t) > 0) {
-    if (steps >= maxSteps) return { steps, events, complete: false, left: false };
+    if (steps >= maxSteps || outOfTime(opts.deadline, steps)) return { steps, events, complete: false, left: false };
     const bodies = bodiesAt(state.t);
     let cap = hMax;
     for (const b of bodies) {
@@ -394,8 +406,8 @@ export function advanceEncke(state, tEnd, opts) {
     if (err > 1) { h = hs * grow; fsal = true; continue; }   // K[0] still holds f at t
 
     // Accept: the 5th-order solution is the last stage's argument (FSAL).
-    for (let i = 0; i < 6; i++) { y[i] = yt[i]; K[0][i] = K[6][i]; }
-    for (let i = 0; i < 3; i++) { cR[i] = nR[i]; cV[i] = nV[i]; }
+    for (let i = 0; i < 6; i++) { y0[i] = y[i]; k1[i] = K[0][i]; y[i] = yt[i]; K[0][i] = K[6][i]; }
+    for (let i = 0; i < 3; i++) { cR0[i] = cR[i]; cV0[i] = cV[i]; cR[i] = nR[i]; cV[i] = nV[i]; }
     fsal = true;
     state.t = last ? t + dir * remaining : t + H;
     if (!last) h = hs * grow;
@@ -418,20 +430,31 @@ export function advanceEncke(state, tEnd, opts) {
       fsal = false;
     }
 
-    // Events, as in the Cowell kernel.
-    const r = state.r;
-    if (r[0] * r[0] + r[1] * r[1] + r[2] * r[2] < sunRadius * sunRadius) {
-      events.push({ type: 'impact', body: 'sun', t: state.t });
+    // Events, as in the Cowell kernel. An impact puts the state back to
+    // where the step crossed the surface: the deviation on the step's dense
+    // output, the conic carried to the same time (impact.js).
+    const hit = (key) => {
+      const tEndStep = state.t, yd = [0, 0, 0, 0, 0, 0], rc = [0, 0, 0], vc = [0, 0, 0];
+      const at = (s, rr, vv) => {
+        const ts = s === 1 ? tEndStep : t + s * H;
+        dp45Dense(y0, yt, k1, K, H, s, yd);
+        conicStep(cR0, cV0, s * H, mu, rc, vc);
+        P.eph.position(ts, rP); P.eph.velocity(ts, vP);
+        for (let i = 0; i < 3; i++) { rr[i] = rP[i] + rc[i] + yd[i]; vv[i] = vP[i] + vc[i] + yd[3 + i]; }
+      };
+      const I = locateImpact(key, t, H, tEndStep, at, bodiesAt, sunRadius);
+      if (I.s < 1) {
+        state.t = I.t;
+        for (let i = 0; i < 3; i++) { state.r[i] = I.r[i]; state.v[i] = I.v[i]; }
+      }
+      events.push({ type: 'impact', body: key, t: state.t, speed: I.speed });
       return { steps, events, complete: false, left: false };
-    }
+    };
+    const r = state.r;
+    if (r[0] * r[0] + r[1] * r[1] + r[2] * r[2] < sunRadius * sunRadius) return hit('sun');
     if (focus) focus(r, state.t);
     const now = bodiesAt(state.t);
-    for (const b of now) {
-      if (below(r, b)) {
-        events.push({ type: 'impact', body: b.key, t: state.t });
-        return { steps, events, complete: false, left: false };
-      }
-    }
+    for (const b of now) if (below(r, b)) return hit(b.key);
     if (++soiAge > 256) refreshSoi();
     let near = rhoN > 0.98 * soiP;
     for (let k = 0; k < kids.length && !near; k++) {

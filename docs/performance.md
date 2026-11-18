@@ -42,6 +42,61 @@ frame. The limits are elsewhere:
   than three pixels across, so the overview loads only the star map; a view
   of one planet loads that planet's maps.
 
+## Measuring
+
+`npm run bench:frames` (`scripts/bench-frames.mjs`) times the app's frames
+on this machine's GPUs and prints a Markdown table for a pull request. It
+serves a production build with `vite preview` (or takes `--url`), and
+times a second build or URL as the baseline when given one:
+
+```bash
+git worktree add /tmp/orrery-main origin/main
+(cd /tmp/orrery-main && npm ci && npm run build)
+npm run build
+npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
+```
+
+- **The browser.** Headless Chromium (Playwright's, or `CHROME=`) over the
+  DevTools protocol with no npm packages, rendering through ANGLE's GL-EGL
+  backend: on the integrated GPU by default, on the NVIDIA with
+  `--gpu nvidia` (PRIME render offload). The renderer's name is printed,
+  and an NVIDIA run that lands on another GPU stops with an error. The
+  launch and the page's helpers are shared with `npm run docs:clips`
+  (`scripts/lib/chromium.mjs`).
+- **Scenarios.** A URL query and a camera distance each: `earth` (20,000
+  km), `belt` (the Sun at 9 × 10⁸ km), and a craft launched with
+  `?craft=orbit,400,51.6` and followed at 0.4 km and 3,000 km, with an
+  attitude (`craft-near`, `craft-far`) and as a point mass (`,point`:
+  `point-near`, `point-far`). Those six run by default; `overview` and
+  `all` by name, `--list` lists them.
+- **Frame cost.** The app's render callback (`window.orrery.frame`, which
+  `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
+  the GPU to finish the frame: CPU and GPU time together. The **frame gap**
+  is the time from one callback to the next, 16.7 ms when the frame fits
+  the display's 60 Hz. The render scale is held (`?scale=fixed`).
+- **Rounds.** Each round loads every scenario afresh in each build, the
+  builds alternating which goes first, then waits `--settle` seconds (8)
+  and times `--seconds` (4). The table gives the median of each round's
+  median over `--rounds` (3); each round's numbers, with the 90th
+  percentile and the worst frame, go to stderr, and all of them to
+  `--json FILE`. `--size` (1920x1080) and `--dpr` (1) set the viewport.
+- **A busy machine.** Under heavy load the page can stall for seconds:
+  its camera flight never ends, or it draws a handful of frames while
+  timed. Such a sample is loaded afresh up to `--retries` times (2), then
+  left out. The table is still printed, with the missing samples listed
+  under it, and the script exits with status 1. The page's own errors and
+  the load average at each sample are printed as well.
+- **Clean-up.** The browser and the servers run in their own process
+  groups with a fresh profile, and are stopped by group, with the profile
+  removed, at the end, on an error or on Ctrl-C. A run killed outright
+  leaves its profile behind; the next launch removes any over ten minutes
+  old that no running process names.
+
+The machine is shared: two browsers on one GPU time each other, so run
+one benchmark at a time, and read the before and after of one run rather
+than numbers from different runs. On a busy machine repeat runs differ by
+10 to 20 %.
+
 ## Rendering
 
 Measured on 14 November 2026 for the [overhaul](ux/overhaul-plan.md),
@@ -202,6 +257,36 @@ the overview of a low orbit:
 
 What remains is mostly the GPU, which half the frame waits on near the
 Earth (the atmosphere fills the view).
+
+### Earth satellites
+
+Measured on 18 November 2026: main at the branch point (39fd9ca) and
+feat/satellites, production builds, interleaved, headless as above at
+1920 × 1080 and DPR 1. The view is the Earth from 51,000 km, at real time
+unless marked, with the layer switched off and on in the same page. Median
+frame, ms:
+
+| Scene | Intel | RTX |
+| --- | ---: | ---: |
+| Earth, main | 14.7–16.0 | 6.9–7.0 |
+| Earth, satellites off | 15.0–15.9 | 6.4–6.6 |
+| Earth, all 16,892 on | 18.1–19.5 | 6.6–6.7 |
+| the same at an hour a second | 19.4–19.5 | 7.1 |
+| the same at a day a second (main: Intel 15.9–16.0, RTX 8.2) | 20.0–20.5 | 7.5 |
+| following the ISS | 15.1 (a second run, 24.6, shared the GPU with another session's browser) | 6.8 |
+
+The first timing had the layer at 4–6 ms on the Intel GPU at real time and
+10 ms at a day a second. Switching parts off in turn found three costs:
+
+- **The markers, about 4 ms.** 85 markers moved every frame, though their
+  script took 0.5 ms. Now a constellation member's marker shows only
+  within 20,000 km of the camera, or when it is focused.
+- **The orbits, about 3.6 ms.** 85 lines, mostly in draw calls. Now the
+  constellations' 82 are one line set, drawn at once.
+- **The points, about 2 ms**, as they are.
+
+At high rates the worker's results also went to the GPU every frame (0.7 MB
+each). They are now sent at most ten times a second.
 
 ### The panels
 

@@ -38,7 +38,7 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
   const dragging = useRef(false);
   useEffect(() => {
     if (dragging.current || !j.waypoints.length || !sol.ok) return;
-    if (store.kernel.state === 'flying' || (store.kernel.state === 'done' && store.kernel.forVersion === store.version)) return;
+    if ((store.kernel.state === 'flying' || store.kernel.state === 'done') && store.kernel.forVersion === store.version) return;
     const t = setTimeout(() => store.check(), 600);
     return () => clearTimeout(t);
   }, [store.version]);
@@ -72,7 +72,7 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
     const r = k.state === 'done' && kernelNow ? k.reply : null;
     if (!r || !r.start) return;
     clock.setTime(r.start.ms);
-    const c = mission.flyJourney(r.start, r.burns, store.title(), r.landings ?? []);
+    const c = mission.flyJourney(r.start, r.burns, store.title(), r.landings ?? [], r.model ?? 'full', r.bareWhy ?? null);
     onFlown(c.id);
   };
 
@@ -217,6 +217,9 @@ function LegLine({ leg, fb, last }: { leg?: Leg; fb?: Flyby; last: boolean }) {
     <table className="readout compact"><tbody>
       <tr><th scope="row">Leg</th><td className="value">{iso(leg.depMs)} → {iso(leg.arrMs)} · {fmt(leg.tofDays, leg.tofDays < 10 ? 2 : 0)} d<span className="alt">{leg.geometry === 'local' ? `orbit change about ${nameOf(leg.central)}` : leg.resonance ? `resonant ${leg.resonance.N}:${leg.resonance.M}: back at ${nameOf(leg.to)} after ${leg.resonance.N} of its orbits` : `about ${nameOf(leg.central)}${leg.revs ? `, ${leg.revs} revolution${leg.revs > 1 ? 's' : ''}` : ''}`}</span></td><td className="src"><SourceTag src="Lambert" derived info="journey-leg" /></td></tr>
       <tr><th scope="row">Δv</th><td className="value">{fmt(leg.depDv + leg.midDv + leg.arrDv, 3)} km/s<span className="alt">{[leg.depDv && `leave ${fmt(leg.depDv, 3)}`, leg.midDv && `on the way ${fmt(leg.midDv, 3)}`, leg.arrDv && `arrive ${fmt(leg.arrDv, 3)}`].filter(Boolean).join(' · ') || 'no burn'}{leg.vinfArr ? ` · v∞ ${fmt(Math.hypot(...leg.vinfArr), 2)} km/s on arrival` : ''}</span></td><td className="src"><SourceTag src="2-body" derived info="journey-leg" /></td></tr>
+      {leg.plane && (
+        <tr><th scope="row">Plane</th><td className={`value${leg.plane.priced && !leg.plane.aimed && (leg.plane.extraDv ?? 0) > 0.05 ? ' bad' : ''}`}>{!leg.plane.priced ? 'not priced' : leg.plane.aimed ? 'held' : `${fmt(leg.plane.angleDeg ?? 0, 1)}° off the way out · +${fmt((leg.plane.extraDv ?? 0) * 1000, 0)} m/s`}<span className="alt">{!leg.plane.priced ? leg.plane.why : leg.plane.aimed ? `a ${fmt(leg.plane.stayDays ?? 0, 0)} d stay at ${nameOf(leg.from)}: the capture is aimed so the turned plane holds the way out` : `the parking orbit's plane after ${fmt(leg.plane.stayDays ?? 0, 0)} d at ${nameOf(leg.from)}: its node turns ${fmt(Math.abs(leg.plane.rateDegDay ?? 0), 2)}° a day (${fmt(leg.plane.iDeg ?? 0, 1)}° to the equator)`}</span></td><td className="src"><SourceTag src="J2" derived info="journey-plane" /></td></tr>
+      )}
       {leg.shaped && (
         <tr><th scope="row">Shaped</th><td className={`value${leg.reaches ? '' : ' bad'}`}>{leg.reaches ? 'reaches' : 'misses'} {nameOf(leg.to)} by {fmt(leg.missKm ?? 0, 0)} km<span className="alt">{(leg.nodes ?? []).length} node{(leg.nodes ?? []).length === 1 ? '' : 's'}, {fmt((leg.nodes ?? []).reduce((a, n) => a + n.dv, 0) * 1000, 1)} m/s · flown free from {leg.nodes?.length ? 'the departure through each node' : 'the flyby aimed by hand'}{leg.reaches ? '' : ' · drag a node\'s tabs, or aim the last node'}</span></td><td className="src"><SourceTag src="2-body" derived info="journey-shaped" /></td></tr>
       )}
@@ -277,7 +280,8 @@ function Summary({ store }: { store: JourneyStore }) {
           <tr key={i} className="burn-row"><th scope="row">{iso(b.ms)}</th><td className="value">{fmt(b.dv * 1000, 0)} m/s<span className="alt">{b.label}</span></td><td /></tr>
         ))}
         <tr><th scope="row">Kernel</th>
-          <td className="value">{k.state === 'flying' || (k.state !== 'idle' && !now) ? 'flying it…' : k.state === 'failed' ? <span className="bad">failed: {k.error}</span> : r ? `flown in ${fmt(r.ms / 1000, 1)} s · corrections ${fmt(r.correctionsDv * 1000, 1)} m/s` : 'waits for an edit to settle'}
+          <td className="value">{k.state === 'flying' || (k.state !== 'idle' && !now) ? 'flying it…' : k.state === 'failed' ? <span className="bad">failed: {k.error}</span> : r ? `flown in ${fmt(r.ms / 1000, 1)} s · corrections ${fmt(r.correctionsDv * 1000, 1)} m/s · ${r.model === 'bare' ? 'planner\'s model' : 'full model'}` : 'waits for an edit to settle'}
+            {r?.model === 'bare' && <span className="alt">Fell back to the planner's model (point masses and zonal terms): in the full one {r.bareWhy}</span>}
             {r && <span className="alt">{r.arrivals.map((a) => `${nameOf(a.body)} ${a.central ? `${fmt(a.missKm, 0)} km from the aim point` : `${fmt(a.missKm, 0)} km off the planned periapsis`}`).join(' · ')}{r.impact ? ` · hits ${nameOf(r.impact.body)}` : ''}</span>}
             {r && r.unsupported.length > 0 && <span className="alt">{r.unsupported.join(' · ')}</span>}
           </td>
@@ -301,7 +305,7 @@ export function JourneySummary({ store }: { store: JourneyStore }) {
         <table className="readout"><tbody>
           <tr><th scope="row">Route</th><td className="value">{store.title()}<span className="alt">{store.dates()} · {fmt(sol.durationDays, 0)} d</span></td><td /></tr>
           <tr><th scope="row">Δv</th><td className="value">{sol.ok ? `${fmt(sol.totalDv, 3)} km/s` : 'a leg has no solution'}<span className="alt">{sol.burns.length} burns, against a {fmt(store.budget, 1)} km/s budget</span></td><td className="src"><SourceTag src="Σ burns" derived info="journey-total" /></td></tr>
-          {lamps.filter((l) => l.level !== 'off').map((l) => <tr key={l.key}><th scope="row">{l.key === 'dv' ? 'Budget' : l.key === 'nowindow' ? 'No window' : l.key[0].toUpperCase() + l.key.slice(1)}</th><td className={`value${l.level === 'warn' ? ' bad' : ''}`}>{l.text}</td><td /></tr>)}
+          {lamps.filter((l) => l.level !== 'off').map((l) => <tr key={l.key}><th scope="row">{l.key === 'dv' ? 'Budget' : l.key === 'nowindow' ? 'No window' : l.key === 'parking' ? 'Parking orbit' : l.key[0].toUpperCase() + l.key.slice(1)}</th><td className={`value${l.level === 'warn' ? ' bad' : ''}`}>{l.text}</td><td /></tr>)}
         </tbody></table>
       ) : <p className="hint">No journey yet: plan one in the plotting table, from the pad, an orbit or a craft, through any number of flybys, orbits and landings.</p>}
       <div className="keys-row">

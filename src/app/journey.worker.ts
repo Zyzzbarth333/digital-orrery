@@ -7,7 +7,7 @@
 // and each waypoint's closest approach for the planner's readout.
 
 import { solveJourney, registerSmallBodies } from '../physics/journey.js';
-import { planFlight, flyJourney } from '../physics/journeyFlight.js';
+import { planFlight, flyPlanned } from '../physics/journeyFlight.js';
 import { legProfile } from '../physics/feasibility.js';
 import { solarSystemBodies } from '../physics/bodies.js';
 import { KERNEL_EPOCH_MS } from '../physics/kernelHost.js';
@@ -21,7 +21,8 @@ let sys: ReturnType<typeof solarSystemBodies> | null = null;
 
 export interface FlightRequest { type?: 'flight' | 'profiles'; journey: Journey; named: unknown[]; forVersion: number }
 export interface ProfilePoint { ms: number; dv: number; tofDays: number }
-export interface LegProfile { k: number; fromMs: number; points: ProfilePoint[]; best: ProfilePoint | null; stepDays: number }
+export interface LegProfile { k: number; fromMs: number; points: ProfilePoint[]; best: ProfilePoint | null; stepDays: number; phase: { ms: number; dv: number; tofDays: number; arrMs: number; angleDeg: number | null } | null;
+  plane?: { ms: number; dv: number; tofDays: number; arrMs: number; angleDeg: number; aimed: boolean; waitDays: number; flight: { ms: number; waitDays: number; dv: number; angleDeg: number } } | null }
 export interface ProfilesReply { type: 'profiles'; forVersion: number; profiles: (LegProfile | null)[] }
 export interface Arrival { waypoint: number; body: string; closest: number; plannedRp: number; missKm: number; at: number; central: boolean }
 export interface Landing { body: string; waypoint: number; t: number; local: number[]; how: 'descent' | 'entry' | 'setdown'; speed: number; lat: number; lon: number; until: number | null; dv?: number; ascentDv?: number; entryKm?: number }
@@ -30,6 +31,9 @@ export interface FlightReply {
   forVersion: number; error?: string; frame: string; pathEcl: number[][]; arrivals: Arrival[]; burns: PlannedBurn[];
   start: { r: number[]; v: number[]; ms: number } | null; unsupported: string[]; log: string[]; impact: { body: string; t: number } | null; ms: number; correctionsDv: number;
   landings: Landing[];
+  // The model the flight was worked out in (journeyFlight.js flyPlanned):
+  // the full one, or the planner's bare one as a fallback, and why.
+  model: 'full' | 'bare'; bareWhy: string | null; fullTrouble?: string[];
 }
 
 self.onmessage = async (e: MessageEvent<FlightRequest>) => {
@@ -50,7 +54,7 @@ self.onmessage = async (e: MessageEvent<FlightRequest>) => {
     sys ??= solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
     const sol = solveJourney(q.journey);
     const plan = planFlight(sol) as { start: FlightReply['start']; unsupported: string[] };
-    const f = flyJourney(sys, plan as never) as { burns: PlannedBurn[]; path: { t: number; r: number[] }[]; arrivals: Arrival[]; log: string[]; impact: FlightReply['impact']; correctionsDv: number; landings: Landing[] };
+    const f = flyPlanned(sys, plan as never) as { burns: PlannedBurn[]; path: { t: number; r: number[] }[]; arrivals: Arrival[]; log: string[]; impact: FlightReply['impact']; correctionsDv: number; landings: Landing[]; model: 'full' | 'bare'; bareWhy: string | null; fullTrouble?: string[] };
     // Drawn about the journey's frame: the Sun, or Earth for a journey that
     // never leaves it.
     const centrals = new Set(sol.legs.map((l: { central: string }) => l.central));
@@ -60,9 +64,9 @@ self.onmessage = async (e: MessageEvent<FlightRequest>) => {
       const c = helioStateEqj(frame, new Date(sys!.msAt(p.t))).r;
       return eqjToEclFast([p.r[0] - c[0], p.r[1] - c[1], p.r[2] - c[2]]);
     });
-    const reply: FlightReply = { forVersion: q.forVersion, frame, pathEcl, arrivals: f.arrivals, burns: f.burns, start: plan.start, unsupported: plan.unsupported, log: f.log, impact: f.impact, ms: performance.now() - t0, correctionsDv: f.correctionsDv, landings: f.landings };
+    const reply: FlightReply = { forVersion: q.forVersion, frame, pathEcl, arrivals: f.arrivals, burns: f.burns, start: plan.start, unsupported: plan.unsupported, log: f.log, impact: f.impact, ms: performance.now() - t0, correctionsDv: f.correctionsDv, landings: f.landings, model: f.model, bareWhy: f.bareWhy, fullTrouble: f.fullTrouble };
     self.postMessage(reply);
   } catch (err) {
-    self.postMessage({ forVersion: q.forVersion, error: String((err as Error)?.message ?? err), frame: 'sun', pathEcl: [], arrivals: [], burns: [], start: null, unsupported: [], log: [], impact: null, ms: 0, correctionsDv: 0, landings: [] } satisfies FlightReply);
+    self.postMessage({ forVersion: q.forVersion, error: String((err as Error)?.message ?? err), frame: 'sun', pathEcl: [], arrivals: [], burns: [], start: null, unsupported: [], log: [], impact: null, ms: 0, correctionsDv: 0, landings: [], model: 'full', bareWhy: null } satisfies FlightReply);
   }
 };

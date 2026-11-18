@@ -21,7 +21,7 @@ thrust.
 ## The Earth's gravity field
 
 The kernel's Earth has J2 ([zonal.js](nbody-kernel.md)). The environment
-adds the rest of EGM2008 (NGA's Earth Gravitational Model 2008), as an
+adds the rest of EGM2008 (NGA's Earth Gravitational Model 2008) [1], as an
 acceleration on the craft alone:
 - **Default:** degrees and orders 2 to 20, leaving out J2, which the zonal
   model already has from the same EGM2008.
@@ -55,7 +55,7 @@ a perturbation that now changes as fast as the craft circles the Earth.
 The Moon's mass is lumpy: dense "mascons" under its maria pull a low orbit
 out of shape, and most low lunar orbits come down within months. The
 kernel's Moon has J2. Within ten lunar radii, the environment adds the rest
-of GRAIL GL0660B, JPL's field from the GRAIL mission (Konopliv et al. 2013):
+of GRAIL GL0660B, JPL's field from the GRAIL mission (Konopliv et al. 2013 [2]):
 - **Default:** degrees 2 to 50, leaving out J2, which the zonal model
   already has from the same GL0660B.
 - **Data:** the coefficients to degree 100 are in `grail.js`, built by
@@ -70,7 +70,7 @@ of GRAIL GL0660B, JPL's field from the GRAIL mission (Konopliv et al. 2013):
   Moon's spin about its pole applied in between.
 
 **Check: Apollo's subsatellites.**
-- **PFS-2:** Apollo 16 released it at 21:56:09 UT on 24 April 1972 into a
+- **PFS-2:** Apollo 16 [3], [4] released it at 21:56:09 UT on 24 April 1972 into a
   90 × 130 km orbit inclined 10° (retrograde, as Apollo flew). It hit the
   Moon 34 days later. No source gives its node, so it is flown at four,
   with the field to degree 30:
@@ -139,13 +139,13 @@ $\mathbf a = -\tfrac12 \rho\, |\mathbf v_r|\, \mathbf v_r\, C_D A / m$:
   sunlight.
 - **Height:** geodetic height on WGS-84.
 - **Density** comes from `atmosphere.js`:
-  - **0 to 86 km:** the U.S. Standard Atmosphere 1976 (seven layers of
+  - **0 to 86 km:** the U.S. Standard Atmosphere 1976 [5] (seven layers of
     constant gradient in geopotential altitude). It matches the 1976
     tables to 0.003 % from 0 to 86 km.
   - **90 to 2,500 km:** NASA's MET-1999 thermosphere
     (`atmosphereMET.js`), driven by the Sun's activity for the date:
     - the previous day's F10.7, its 81-day mean, and the day's Ap;
-    - from CelesTrak's space-weather file, observed and then predicted to
+    - from CelesTrak's space-weather file [6], observed and then predicted to
       2041 (`public/data/spaceweather.json`, loaded with the DE442 table);
     - outside it, a moderate F10.7 150 and Ap 15.
   - **86 to 90 km:** the logarithm of density is blended between the two.
@@ -172,7 +172,7 @@ kernel (1.85 km without the Earth's field).
 
 The Moon and the Sun stretch the solid Earth, and the stretched Earth pulls
 on a craft a little differently. The model follows the IERS Conventions
-(2010), section 6.2, step 1 (`solidTide()`):
+(2010) [7], section 6.2, step 1 (`solidTide()`):
 - **What changes:** the Earth's degree 2 and 3 coefficients, by the Love
   number k_nm times the tide-raising potential of each body:
 
@@ -244,18 +244,26 @@ The kernel's zonal model (`zonal.js`) now gives every planet its J2, not
 only the Earth and the Moon. Each value is from the field's primary source
 (`bodies.js`):
 
-| Body | J2 (unnormalised) | Reference radius | Source |
-| --- | --- | --- | --- |
-| Mercury | 5.0317×10⁻⁵ | 2,440.0 km | MESSENGER, JGMESS160A (Konopliv et al. 2020), PDS |
-| Venus | 4.4044×10⁻⁶ | 6,051.0 km | Magellan, MGNP180U (Konopliv et al. 1999), PDS |
-| Mars | 1.9566×10⁻³ | 3,396.0 km | MRO120D, PDS |
-| Jupiter | 14,696.5735×10⁻⁶ | 71,492 km | Juno (Durante et al. 2020), PDS |
-| Saturn | 16,290.573×10⁻⁶ | 60,330 km | Cassini Grand Finale (Iess et al. 2019) |
-| Uranus | 3,510.7×10⁻⁶ | 25,559 km | Jacobson 2014, Table 12 |
-| Neptune | 3,408.43×10⁻⁶ | 25,225 km | Jacobson 2009, Table 5 |
+| Body | J2 (unnormalised) | J4 (unnormalised) | Reference radius | Source |
+| --- | --- | --- | --- | --- |
+| Mercury | 5.0317×10⁻⁵ | | 2,440.0 km | MESSENGER, JGMESS160A (Konopliv et al. 2020 [8]), PDS |
+| Venus | 4.4044×10⁻⁶ | | 6,051.0 km | Magellan, MGNP180U (Konopliv et al. 1999), PDS |
+| Mars | 1.9566×10⁻³ | | 3,396.0 km | MRO120D, PDS |
+| Jupiter | 14,696.5735×10⁻⁶ | −586.6085×10⁻⁶ (and J3, J5 to J12) | 71,492 km | Juno (Durante et al. 2020 [9]), PDS `GRV_JUGR_SHA_JUP_U_DUR2020` |
+| Saturn | 16,290.573×10⁻⁶ | −935.314×10⁻⁶ | 60,330 km | Cassini Grand Finale (Iess et al. 2019 [10]) |
+| Uranus | 3,510.7×10⁻⁶ | −34.2×10⁻⁶ | 25,559 km | Jacobson 2014 [11], Table 12 |
+| Neptune | 3,408.43×10⁻⁶ | −33.40×10⁻⁶ | 25,225 km | Jacobson 2009 [12], Table 5 |
 
-Mercury's, Venus's and Mars's are their normalised C20 times −√5. Each acts
-within 100 reference radii, about the body's pole of date.
+Mercury's, Venus's and Mars's are their normalised C20 times −√5.
+Jupiter's J3 to J12 are the PDS table's C30 to C120 with their signs
+changed (J4 = −C40 = −586.6085×10⁻⁶, 3σ 2.4×10⁻⁹;
+J6 = 34.2007×10⁻⁶; J8 = −2.422×10⁻⁶; J10 = 0.181×10⁻⁶; J9, J11 and J12
+are within their own 3σ uncertainties); Saturn's is the paper's, ±0.037×10⁻⁶. Uranus's and
+Neptune's were read from the same tables as their J2, by a summary of the
+articles' pages rather than from the PDFs themselves, with the J2 beside
+them matching the kernel's to every digit. Each acts within 100 reference
+radii, about the body's pole of date ([the kernel](nbody-kernel.md#oblateness-j2)
+has the terms beyond J2).
 
 **Check:** a circular orbit 3 Jupiter radii out, 30° to Jupiter's equator,
 flown for 10 days: the node turns 11.931°, against 11.901° from the
@@ -264,7 +272,7 @@ secular rate leaves out).
 
 ## Sunlight pressure
 
-Sunlight pushes a craft away from the Sun. As a flat "cannonball":
+Sunlight pushes a craft away from the Sun (nominal irradiance 1361 W/m², IAU 2015 Resolution B3 [13]). As a flat "cannonball":
 
 $$
 \mathbf a = \nu\, C_r\, P \left(\frac{1\,\text{AU}}{d}\right)^2 \frac{A}{m}\, \hat{\mathbf s},
@@ -278,7 +286,7 @@ $$
 - $\nu$ is the fraction of the Sun's disc the craft can see.
 
 **Shadows.** The Earth and the Moon are spheres that can cover part or all
-of the Sun's disc (Montenbruck and Gill, *Satellite Orbits*, §3.4.2):
+of the Sun's disc (Montenbruck and Gill, *Satellite Orbits*, §3.4.2 [14]):
 - **The overlap:** from the craft, the Sun has apparent radius $a$, the
   body $b$, and their centres are $c$ apart. The visible fraction is 1 when
   $c \ge a + b$, and 0 when the body covers the Sun ($c \le b - a$).
@@ -307,7 +315,7 @@ instead of 1,464, and 59 ms instead of 35.
 | Check | Reference | Result |
 | --- | --- | --- |
 | 1 m² per tonne at 1 AU, C_r = 1 | P/1000 | exact, away from the Sun, falling as 1/d² |
-| The Moon's shadow on the Earth, 21 August 2017 | NASA's eclipse tables (F. Espenak, GSFC): central line and limits at 17:20 UT, greatest eclipse at 18:25:31.8 UT | total on the central line and at greatest eclipse; both edges of the path within 10 km of NASA's limits |
+| The Moon's shadow on the Earth, 21 August 2017 | NASA's eclipse tables (F. Espenak, GSFC [15]): central line and limits at 17:20 UT, greatest eclipse at 18:25:31.8 UT | total on the central line and at greatest eclipse; both edges of the path within 10 km of NASA's limits |
 | Totality on the central line in Oregon | NASA: 2 min 02.6 s | 122.5 s with NASA's eclipse radii (Moon 0.272281 Earth radii, Sun 959.63″); 126.5 s with the app's mean radii, whose umbra is about 1.5 km wider |
 | Artemis I's 77 coast arcs | NASA's as-flown ephemeris | rms 22.5 m with gravity alone; 7.8 m with Orion's sunlight pressure (C_r A/m = 4.0×10⁻³ m²/kg at the start, its mass falling); 5.3 m with the full environment |
 | The Earth's field through the kernel: NESC case 3B, 8×8 GEM-T1, 8 hours | NASA's simulations | 4 mm from sim B |
@@ -324,32 +332,34 @@ instead of 1,464, and 59 ms instead of 35.
 | Relativity: the Earth's terms on a 12,270 km orbit | Schwarzschild less Lense–Thirring, 3.2496″ a year | 3.2496″ a year (0.1 %) |
 | Jupiter's J2: a node at 3 Jupiter radii, 10 days | secular theory, 11.901° | 11.931° (0.25 %) |
 
-## Sources
+## References
 
-- O. Montenbruck and E. Gill, *Satellite Orbits*, Springer, 2000, §3.2 and §3.4.
-- N. K. Pavlis et al., "The development and evaluation of the Earth
-  Gravitational Model 2008 (EGM2008)", *JGR* 117 (2012); coefficients via
-  GFZ's ICGEM service.
-- *U.S. Standard Atmosphere, 1976*, NOAA-S/T 76-1562.
-- A. S. Konopliv et al., "The JPL lunar gravity field to spherical harmonic
-  degree 660 from the GRAIL Primary Mission", *JGR Planets* 118 (2013);
-  NASA PDS Geosciences Node, `jggrx_0660b_sha.tab`.
-- NASA, *Apollo 16 Subsatellite*
-  ([science.nasa.gov](https://science.nasa.gov/mission/apollo-16-subsatellite/));
-  Gunter's Space Page, *PFS 1, 2*
-  ([space.skyrocket.de](https://space.skyrocket.de/doc_sdat/pfs.htm)).
-- CelesTrak space weather data (T. S. Kelso), from NOAA SWPC and GFZ
-  Potsdam: [celestrak.org/SpaceData](https://celestrak.org/SpaceData/).
-- IAU 2015 Resolution B3: nominal solar irradiance 1361 W/m² and radius
-  695,700 km.
-- G. Petit and B. Luzum (eds.), *IERS Conventions (2010)*, IERS Technical
-  Note 36: section 6.2 and Table 6.3 (solid tides), eq. 10.12
-  (relativity), [iers-conventions.obspm.fr](https://iers-conventions.obspm.fr/).
-- The planets' J2: Konopliv et al. 2020 (Icarus 335, 113500) and the PDS
-  file `jgmess_160a_sha.tab`; PDS `shgj180u.a01` (MGNP180U); PDS
-  `jgmro_120d_sha.tab` (MRO120D); Durante et al. 2020 (GRL 47,
-  e2019GL086572) and PDS `GRV_JUGR_SHA_JUP_U_DUR2020`; Iess et al. 2019
-  (Science 364, eaat2965); R. A. Jacobson, AJ 148, 76 (2014) and AJ 137,
-  4322 (2009).
-- F. Espenak, NASA GSFC, *Total Solar Eclipse of 2017 August 21*, path table,
-  [eclipse.gsfc.nasa.gov](https://eclipse.gsfc.nasa.gov/SEpath/SEpath2001/SE2017Aug21Tpath.html).
+[1] N. K. Pavlis, S. A. Holmes, S. C. Kenyon, and J. K. Factor, "The development and evaluation of the Earth Gravitational Model 2008 (EGM2008)," *J. Geophys. Res. Solid Earth*, vol. 117, no. B4, Art. no. B04406, 2012, doi: 10.1029/2011JB008916. Coefficients via GFZ's ICGEM service.
+
+[2] A. S. Konopliv *et al.*, "The JPL lunar gravity field to spherical harmonic degree 660 from the GRAIL Primary Mission," *J. Geophys. Res. Planets*, vol. 118, no. 7, pp. 1415–1434, 2013, doi: 10.1002/jgre.20097. NASA PDS Geosciences Node, `jggrx_0660b_sha.tab`.
+
+[3] NASA, "Apollo 16 Subsatellite." [Online]. Available: https://science.nasa.gov/mission/apollo-16-subsatellite/
+
+[4] Gunter's Space Page, "PFS 1, 2." [Online]. Available: https://space.skyrocket.de/doc_sdat/pfs.htm
+
+[5] *U.S. Standard Atmosphere, 1976*, Rep. NOAA-S/T 76-1562, 1976.
+
+[6] T. S. Kelso, "CelesTrak space weather data," from NOAA SWPC and GFZ Potsdam. [Online]. Available: https://celestrak.org/SpaceData/
+
+[7] G. Petit and B. Luzum, Eds., *IERS Conventions (2010)*, IERS Tech. Note 36, 2010. Section 6.2 and Table 6.3 (solid tides), eq. 10.12 (relativity). [Online]. Available: https://iers-conventions.obspm.fr/
+
+[8] A. S. Konopliv, R. S. Park, and A. I. Ermakov, "The Mercury gravity field, orientation, Love number, and ephemeris from the MESSENGER radiometric tracking data," *Icarus*, vol. 335, Art. no. 113386, 2020, doi: 10.1016/j.icarus.2019.07.020. The J2 table also uses the PDS file `jgmess_160a_sha.tab`, `shgj180u.a01` (MGNP180U) for Venus and `jgmro_120d_sha.tab` (MRO120D) for Mars.
+
+[9] D. Durante *et al.*, "Jupiter's gravity field halfway through the Juno mission," *Geophys. Res. Lett.*, vol. 47, no. 4, Art. no. e2019GL086572, 2020, doi: 10.1029/2019GL086572. PDS file `GRV_JUGR_SHA_JUP_U_DUR2020`.
+
+[10] L. Iess *et al.*, "Measurement and implications of Saturn's gravity field and ring mass," *Science*, vol. 364, no. 6445, Art. no. eaat2965, 2019, doi: 10.1126/science.aat2965.
+
+[11] R. A. Jacobson, "The orbits of the Uranian satellites and rings, the gravity field of the Uranian system, and the orientation of the pole of Uranus," *Astron. J.*, vol. 148, no. 5, Art. no. 76, 2014, doi: 10.1088/0004-6256/148/5/76.
+
+[12] R. A. Jacobson, "The orbits of the Neptunian satellites and the orientation of the pole of Neptune," *Astron. J.*, vol. 137, no. 5, pp. 4322–4329, 2009, doi: 10.1088/0004-6256/137/5/4322.
+
+[13] International Astronomical Union, "Resolution B3 on recommended nominal conversion constants for selected solar and planetary properties," 2015. Nominal solar irradiance 1361 W/m² and radius 695,700 km.
+
+[14] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, §3.2 and §3.4.
+
+[15] F. Espenak, "Total solar eclipse of 2017 August 21," NASA GSFC, path table. [Online]. Available: https://eclipse.gsfc.nasa.gov/SEpath/SEpath2001/SE2017Aug21Tpath.html

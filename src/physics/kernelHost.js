@@ -5,7 +5,13 @@
 // Worker (kernel.worker.js) wraps it; the main thread uses it directly when a
 // Worker is not available. Pure: no three.js, no DOM.
 //
-// Request:  { type: 'step', crafts: [CraftRequest] }
+// Request:  { type: 'step', crafts: [CraftRequest], budgetMs? }
+//   budgetMs   wall time (ms) the batch may take, shared evenly between its
+//              crafts: a craft's advance stops when its share runs out, as
+//              it does when maxSteps does (complete: false, t short of
+//              tEnd), and the next request carries on from there. Without
+//              it a request runs to tEnd, however long that takes (an
+//              entry under guidance, about 1.5 ms a step, took 3 s).
 //   CraftRequest = { id, version, r, v, t, tEnd, primary, thrust, maxSteps? }
 //     r, v       heliocentric J2000 equatorial km, km/s at time t
 //     t, tEnd    seconds from KERNEL_EPOCH_MS
@@ -29,7 +35,7 @@
 //   CraftResult = { id, version, r, v, t, tEnd, primary, accel, events,
 //                   complete, steps }
 //     accel      km/s^2 at the returned state, gravity plus thrust
-//     complete   false if the step budget ran out (t < tEnd) or an impact
+//     complete   false if the step or time budget ran out (t < tEnd) or an impact
 //                stopped the advance
 //   A craft whose step throws (a bad state, a time outside the ephemeris)
 //   comes back as { id, version, error } instead, and the others still step.
@@ -69,7 +75,14 @@ export function kernelMs(t) {
 }
 
 // Advance one craft. sys is a body set from solarSystemBodies().
-export function stepCraft(sys, req) {
+// The Sun as a burn's body: the origin, still.
+export const SUN_AT_ORIGIN = Object.freeze({
+  key: 'sun', r: [0, 0, 0],
+  eph: { position: (t, out = [0, 0, 0]) => { out[0] = out[1] = out[2] = 0; return out; }, velocity: (t, out = [0, 0, 0]) => { out[0] = out[1] = out[2] = 0; return out; } },
+});
+
+// deadline: a performance.now() time (ms) to stop by (nbody.js advance).
+export function stepCraft(sys, req, deadline = null) {
   // NaN does not throw anywhere in the kernel: it would integrate quietly and
   // come back as a 'complete' NaN state. Refuse it here instead.
   const finite = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
@@ -77,8 +90,10 @@ export function stepCraft(sys, req) {
       (req.thrust && !finite(req.thrust))) {
     throw new Error('non-finite craft state, time or thrust');
   }
-  // A body by key, a moon or planet whether or not its system is split.
-  const bodyOf = (key, t) => (sys.bodyAt ? sys.bodyAt(key, t) : sys.bodiesAt(t).find((x) => x.key === key));
+  // A body by key, a moon or planet whether or not its system is split; or
+  // the Sun, at the origin of the heliocentric frame the hooks see (a deep-
+  // space burn is steered about it).
+  const bodyOf = (key, t) => (key === 'sun' ? SUN_AT_ORIGIN : sys.bodyAt ? sys.bodyAt(key, t) : sys.bodiesAt(t).find((x) => x.key === key));
   const burns = (req.burns || []).filter((b) => b.t1 > req.t && b.t0 < req.tEnd);
   for (const b of burns) {
     if (![b.t0, b.t1, b.F, b.m0, b.mdot].every(Number.isFinite) || !finite(b.dir) || !(b.m0 - b.mdot * (b.t1 - b.t0) > 0)) {
@@ -166,7 +181,7 @@ export function stepCraft(sys, req) {
   const allBreaks = envEdges.length ? [...new Set([...(breakpoints ?? []), ...envEdges])].sort((x, y) => x - y) : breakpoints;
   const res = advance(state, req.tEnd, {
     bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel, breakpoints: allBreaks, stepCap: env?.stepCap ?? null,
-    maxSteps: req.maxSteps ?? DEFAULT_MAX_STEPS,
+    maxSteps: req.maxSteps ?? DEFAULT_MAX_STEPS, deadline,
   });
   const accel = accelHeliocentric(state.r, sys.bodiesAt(state.t), sys.muSun);
   const thrustNow = thrustAt(state.t, state.t, [0, 0, 0], state.r, state.v);
@@ -191,33 +206,49 @@ export function stepCraft(sys, req) {
 // kernel worker ({ type: 'aim' }), off the page's thread. dv0: a first
 // guess (the journey planner's two-body Lambert arc); rounds, how many
 // Newton rounds at most; damped, a step that hits a body or misses by more
-// is halved (up to five times) rather than ending the search.
-export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds = 4, damped = false }) {
+// is halved (up to five times) rather than ending the search. env: the
+// craft as the environment model sees it (as stepCraft takes it), so the
+// aim is flown in the full model; without it, gravity alone. envJ: a
+// cheaper one for the sensitivities alone (lower degrees of the fields):
+// Newton's steps are then a little less exact, but every run that is kept
+// is flown with env, so the aim is still the full model's. spread: seconds
+// over which the correction will be flown (a steady push from t0, as
+// RealMission.aimStep adds it to its burn), solved for as that push rather
+// than an impulse: aimed two minutes ahead of a burn of an hour (DART's
+// terminal guidance), the two differ by kilometres.
+export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds = 4, damped = false, env = null, envJ = env, spread = 0 }) {
   const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
   const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
   const list = burns.filter((b) => !b.aimed && b.t1 > t0 && b.t0 < T);
-  const fly = (vv) => {
-    const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: vv, t: t0, tEnd: T, primary: null, burns: list.map((b) => ({ ...b })), maxSteps: 1e6 });
+  // The craft flown to T with the correction dv: at once, or spread.
+  const fly = (dv, e = env) => {
+    const n = Math.hypot(dv[0], dv[1], dv[2]);
+    const push = spread > 0 && n > 0 ? [{ t0, t1: t0 + spread, dir: dv.map((x) => x / n), F: n * 1000 / spread, m0: 1, mdot: 0, scripted: true }] : [];
+    const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: spread > 0 ? [...v] : add3(v, dv), t: t0, tEnd: T, primary: null, burns: [...list.map((b) => ({ ...b })), ...push], maxSteps: 1e6, ...(e ? { env: e } : {}) });
     return res.complete && !res.events.some((e) => e.type === 'impact') ? res.r : null;
   };
-  const plain = fly([...v]);
+  const plain = fly([0, 0, 0]);
   const miss0 = plain ? Math.hypot(...sub3(plain, target)) : Infinity;
   let dv = [0, 0, 0], base = plain, best = { dv, after: miss0 };
   if (dv0) {
-    const guess = fly(add3(v, dv0));
+    const guess = fly([...dv0]);
     if (guess && Math.hypot(...sub3(guess, target)) < miss0) { dv = [...dv0]; base = guess; best = { dv, after: Math.hypot(...sub3(guess, target)) }; }
   }
   if (!base) return null;
   for (let round = 0; round < rounds && best.after > 0.01; round++) {
     const miss = sub3(base, target), h = 1e-5;
-    const cols = [0, 1, 2].map((j) => { const vv = add3(v, dv); vv[j] += h; const q = fly(vv); return q && sub3(q, base).map((d) => d / h); });
+    // (With a cheaper envJ, the nudged runs are differenced against a base
+    // run of their own in it.)
+    const baseJ = envJ === env ? base : fly(dv, envJ);
+    if (!baseJ) break;
+    const cols = [0, 1, 2].map((j) => { const dd = [...dv]; dd[j] += h; const q = fly(dd, envJ); return q && sub3(q, baseJ).map((d) => d / h); });
     if (cols.some((c) => !c)) break;
     const A = [0, 1, 2].map((i) => [cols[0][i], cols[1][i], cols[2][i]]), D = det3(A);
     if (!(Math.abs(D) > 0)) break;
     let step = [0, 1, 2].map((k) => det3(A.map((row, i) => row.map((val, c) => (c === k ? -miss[i] : val)))) / D);
     let next = null, after = Infinity;
     for (let half = 0; half <= (damped ? 5 : 0); half++, step = step.map((x) => x / 2)) {
-      next = fly(add3(v, add3(dv, step)));
+      next = fly(add3(dv, step));
       after = next ? Math.hypot(...sub3(next, target)) : Infinity;
       if (after < best.after) break;
     }
@@ -243,10 +274,10 @@ export function createKernelHost() {
         }
       }
       if (!msg || msg.type !== 'step') return { type: 'error', error: `unknown message ${msg && msg.type}` };
-      const t0 = Date.now();
+      const t0 = Date.now(), share = msg.budgetMs > 0 ? msg.budgetMs / msg.crafts.length : null;
       const crafts = msg.crafts.map((req) => {
         try {
-          return stepCraft(sys, req);
+          return stepCraft(sys, req, share === null ? null : performance.now() + share);
         } catch (err) {
           return { id: req.id, version: req.version, error: String(err && err.message || err) };
         }

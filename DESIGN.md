@@ -395,6 +395,19 @@ numerals, an engraved label above, and the unit beside.
 - **Porkchop:** shaded on the console's own ramp, from sheen through amber,
   key orange and engraving to window black, so low C3 glows. The minimum is
   outlined in ink and the picked cell in lamp green.
+- **Magnetic field lines:** the same ramp, by field strength: sheen where
+  the surface field is strongest, through amber and key orange to
+  engraving a thousand times weaker. The dipole's axis is a brighter line
+  through its own centre, tagged with its tilt.
+- **Auroras:** the Earth's in their real colours, oxygen green (557.7 nm)
+  low and red (630.0 nm) above, on the night side only; Jupiter's and
+  Saturn's, which shine in the ultraviolet, in a pale violet false colour
+  the rail's switch says is false.
+- **Mars's crust:** the gravity field's diverging ramp, blue inward and
+  amber outward, on a shell over the planet; its aurora in the giants'
+  violet false colour.
+- **Radiation belts:** pale teal (`#7fb8c9`) shells along the L-shells,
+  brightest where seen edge-on so the belt reads as a volume.
 
 ### Navigation
 

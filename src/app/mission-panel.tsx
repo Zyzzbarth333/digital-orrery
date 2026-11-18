@@ -20,6 +20,16 @@ const fmtDuration = (ms: number) => {
   const m = Math.round(ms / 60e3);
   return m < 60 ? `${m} min` : m < 2880 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${(m / 1440).toFixed(1)} d`;
 };
+// The attitude modes (attitude.js), as the keys name them, in the order
+// they sit: the orbital directions in pairs, then the node, a hold and off.
+const ATT_MODES: [string, string, string][] = [
+  ['prograde', 'Prograde', 'Body axis along the velocity'], ['retrograde', 'Retrograde', 'Body axis against the velocity'],
+  ['normal', 'Normal', 'Along the orbit normal (r × v)'], ['antinormal', 'Anti-normal', 'Against the orbit normal'],
+  ['radial', 'Radial out', 'Outward, square to the velocity in the orbit plane'], ['antiradial', 'Radial in', 'Inward, square to the velocity in the orbit plane'],
+  ['node', 'Node', 'Along the next manoeuvre node\'s burn'], ['inertial', 'Hold', 'Hold the attitude it has now, fixed among the stars'], ['off', 'Free', 'Thrusters off: it turns under the gravity gradient and the air alone'],
+];
+const ATT_LABEL: Record<string, string> = Object.fromEntries(ATT_MODES.map(([k, l]) => [k, l.toLowerCase()]));
+
 const utc = (tKernel: number) => new Date(kernelMs(tKernel)).toISOString().slice(0, 19).replace('T', ' ');
 
 function Num({ label, value, onChange, step = 1, unit, min, max }: { label: string; value: number; onChange: (v: number) => void; step?: number; unit?: string; min?: number; max?: number }) {
@@ -44,6 +54,8 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
   const [nodeMin, setNodeMin] = useState(30), [dvR, setDvR] = useState(0), [dvP, setDvP] = useState(100), [dvN, setDvN] = useState(0);
   const [realId, setRealId] = useState(REAL_MISSIONS[0].id), [realBurns, setRealBurns] = useState<RealBurns>('all');
   const [realState, setRealState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
+  const [sixdof, setSixdof] = useState(mission.sixdof);
+  const chooseSixdof = (on: boolean) => { mission.sixdof = on; setSixdof(on); };
   const c = mission.selected;
   const ascent = mission.ascentReadout(s.timeMs);
   // Bounds that keep a launch physical: above the atmosphere's dense part,
@@ -93,8 +105,9 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <SourceTag src="kernel" info="altitude" detail={`n-body state (Encke near a planet, Cowell elsewhere) carried to the clock${altNote}`} />],
       ['Speed', `${fmt(rel.v, 4)} km/s`, <SourceTag src="kernel" info="craft-speed" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
     ];
-    // A journey's craft flies the planner's model, not the full one.
-    if (c.bare) rows.push(['Model', 'Planner\'s', <SourceTag src="kernel" info="kernel-motion" detail="point masses and zonal terms only: no drag, full gravity fields or sunlight (the model its burns were worked out in), so a low orbit never decays" />]);
+    // A journey's craft flies the full model; where its aims could not
+    // converge there, the planner's model instead, and the row says why.
+    if (c.bare) rows.push(['Model', 'Planner\'s (fallback)', <SourceTag src="kernel" info="kernel-motion" detail={`point masses and zonal terms only: no drag, full gravity fields or sunlight, so a low orbit never decays. Its burns were worked out in that model because in the full one ${c.bareWhy ?? 'the aims did not converge'}`} />]);
     const site = c.crashed ? c.impactSite : null;
     // Entry (a crew module with its guidance): the bank the guidance flies
     // and the chutes, by height above the ellipsoid.
@@ -135,10 +148,10 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     }
     if (run) {
       const d = mission.distanceFromFlown(c);
-      rows.push(['From the flown path', d === null ? 'outside the data' : `${fmt(d, 1)} km`, <SourceTag src="BET" info="flown-path" />]);
+      rows.push(['From the flown path', d === null ? 'outside the data' : `${fmt(d, 1)} km`, <SourceTag src={run.m.data.sourceTag ?? 'BET'} info="flown-path" detail={run.m.data.source} />]);
       const nb = run.m.burnAt(s.timeMs);
       const inBurns = run.burns === 'all' || nb?.burn === run.m.burns[0];
-      rows.push(['Next burn', !nb ? 'none left' : nb.on ? `${nb.burn.name}, burning` : `${nb.burn.name} in ${fmtDuration(nb.inMs ?? 0)}${inBurns ? '' : ' (yours to fly)'}`, <SourceTag src="BET" info="next-burn" detail={nb ? `${fmt(nb.burn.mps * 1000 / 304.8, 1)} ft/s (${fmt(nb.burn.mps, 3)} m/s) as flown${nb.burn.nasa ? `; NASA: ${nb.burn.nasa}` : ''}` : 'every burn of the mission is done'} />]);
+      rows.push(['Next burn', !nb ? 'none left' : nb.on ? `${nb.burn.name}, burning` : `${nb.burn.name} in ${fmtDuration(nb.inMs ?? 0)}${inBurns ? '' : ' (yours to fly)'}`, <SourceTag src={run.m.data.sourceTag ?? 'BET'} info="next-burn" detail={nb ? `${fmt(nb.burn.mps * 1000 / 304.8, 1)} ft/s (${fmt(nb.burn.mps, 3)} m/s) as flown${nb.burn.nasa ? `; NASA: ${nb.burn.nasa}` : ''}` : 'every burn of the mission is done'} />]);
     }
     const plan = mission.plan(c);
     if (plan) rows.push([`Closest to ${plan.name}`, `${fmt(plan.closest / 1000, 0)} thousand km`, <SourceTag src="kernel" derived info="closest" detail={`planned arrival ${new Date(plan.arrivalMs).toISOString().slice(0, 10)}`} />]);
@@ -152,7 +165,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         <ul className="legend">
           <li><i className="sw conic" />Amber: the orbit it would follow if only {P ? P.name : 'the Sun'} pulled on it (the osculating orbit)</li>
           <li><i className="sw trail" />Glowing: the path it has flown, brightest at the craft</li>
-          {run && <li><i className="sw flown" />Green: the path the real {run.m.name.replace(/ plan$/, '')} flew{run.plan ? '; amber and the glow are our own plan' : ''}</li>}
+          {run && <li><i className="sw flown" />Green: the path the real {run.m.data.craftModel ? run.m.data.craft : run.m.name.replace(/ plan$/, '')} flew{run.plan ? '; amber and the glow are our own plan' : ''}</li>}
         </ul>
 
         {run && !run.plan && (
@@ -176,10 +189,45 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
                 </select>
               </label>
               <p className="hint">{run.aimed
-                ? `Each correction after the injection burn is worked out from where this craft is, as NASA's were from where Orion was, and added to the burn as flown${run.aimedDv > 0 ? `: ${fmt(run.aimedDv, 2)} m/s so far` : ''}.`
-                : 'The corrections are flown exactly as Orion flew them, without regard to where this craft is. The lunar flyby magnifies small differences, so it ends thousands of kilometres off without fixes.'}</p>
+                ? `Each burn after the first is worked out from where this craft is, as the navigation team's were from where ${run.m.data.craft?.replace(/ \(.*\)$/, '') ?? 'the craft'} was, and added to the burn as flown${run.aimedDv > 0 ? `: ${fmt(run.aimedDv, 2)} m/s so far` : ''}.`
+                : `The burns are flown exactly as ${run.m.data.craft?.replace(/ \(.*\)$/, '') ?? 'the craft'} flew them, without regard to where this craft is. A flyby magnifies small differences, so it ends thousands of kilometres off without fixes.`}</p>
             </>
           )}
+          </details>
+        )}
+
+        {c.att ? (() => {
+          const ro = c.att.readout(), spec = c.att.spec, mode = ro.mode;
+          const pointing = mode === 'off' ? 'Free: thrusters off'
+            : ro.locked ? `Holding ${ATT_LABEL[mode]}`
+              : `Turning to ${ATT_LABEL[mode]}: ${fmt((ro.error ?? 0) * DEG, 1)}° to go`;
+          const dist = Math.hypot(...ro.disturbance);
+          return (
+            <details className="section" open>
+            <summary className="strip">Attitude</summary>
+            <div className="keys-row wrap att-modes" role="radiogroup" aria-label="Attitude mode">
+              {ATT_MODES.map(([k, label, title]) => (
+                <button key={k} className="key" role="radio" aria-checked={mode === k} title={title} onClick={() => c.att?.setMode(k)}>{label}</button>
+              ))}
+            </div>
+            <table className="readout"><tbody>
+              <tr><th scope="row">Pointing</th><td className="value">{pointing}</td><td className="src"><SourceTag src="6-DOF" info="attitude" detail={`a sampled controller, ${fmt(spec.torqueMax[1], 0)} N m in pitch and yaw, ${fmt(spec.torqueMax[0], 0)} N m in roll, at most ${fmt(spec.rateMax * DEG, 1)}°/s`} /></td></tr>
+              {!ro.locked && mode !== 'off' && ro.turnLeft > 0 && <tr><th scope="row">Turn left</th><td className="value">{fmt(ro.turnLeft, 0)} s</td><td className="src"><SourceTag src="6-DOF" derived info="attitude-turn" detail={`from rest, about the body's pitch axis: ${fmt(ro.alpha * DEG, 2)}°/s² at most`} /></td></tr>}
+              <tr><th scope="row">Turning</th><td className="value">{fmt(ro.rate * DEG, 2)}°/s</td><td className="src"><SourceTag src="6-DOF" info="attitude-rate" /></td></tr>
+              <tr><th scope="row">Disturbance</th><td className="value">{dist > 0 ? `${dist.toExponential(1)} N m` : 'none'}</td><td className="src"><SourceTag src="6-DOF" info="attitude-torque" detail={ro.locked ? 'held against it: well inside the thrusters\' torque' : undefined} /></td></tr>
+              <tr><th scope="row">Thruster fuel</th><td className="value">{ro.rcsSpent < 1 ? `${fmt(ro.rcsSpent * 1000, 1)} g used` : `${fmt(ro.rcsSpent, 2)} kg used`}</td><td className="src"><SourceTag src="6-DOF" derived info="attitude-rcs" detail={`from the engine's tank, ${fmt(c.fuel, 1)} kg left; ${fmt(spec.rcsArm?.[1] ?? 0, 1)} m arms in pitch and yaw, ${fmt(spec.rcsArm?.[0] ?? 0, 1)} m in roll`} /></td></tr>
+              <tr><th scope="row">Inertia</th><td className="value">{fmt(ro.inertia[1][1], 0)} kg m² pitch · {fmt(ro.inertia[0][0], 0)} roll</td><td className="src"><SourceTag src="6-DOF" derived info="attitude-inertia" detail={`with ${fmt(c.fuel, 1)} kg of propellant in the tanks`} /></td></tr>
+              {(ro.auto || ro.autoPlan) && <tr><th scope="row">Node turn</th><td className="value">{(() => { const p = ro.autoPlan; return ro.auto || !p ? 'Turned for the node' : p.start > 0 ? `Starts in ${p.start < 120 ? `${fmt(p.start, 0)} s` : fmtDuration(p.start * 1000)}, ${fmt(p.theta * DEG, 0)}° in ${fmt(p.need, 0)} s` : 'Starting'; })()}</td><td className="src"><SourceTag src="6-DOF" derived info="attitude-auto" /></td></tr>}
+            </tbody></table>
+            <div className="keys-row"><button className="key small att-toggle" aria-pressed={ro.autoNode} onClick={() => c.att?.setAutoNode(!ro.autoNode)} title="Turn to each manoeuvre node by itself, early enough to settle before it fires, then back">Auto node turn</button></div>
+            <p className="hint">The engine fires along the craft's body axis, so point it first, or let it turn to each node by itself. A turn takes time: the thrusters' torque is finite, and they burn propellant from the engine's tank.</p>
+            </details>
+          );
+        })() : !c.bare && !run && (
+          <details className="section">
+          <summary className="strip">Attitude</summary>
+          <p className="hint">A point mass: its burns go along the direction you choose, with no turning.</p>
+          <div className="keys-row"><button className="key" onClick={() => c.carryAttitude({ mode: 'prograde' })}>Carry attitude</button></div>
           </details>
         )}
 
@@ -187,8 +235,12 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         <summary className="strip">Engine</summary>
         <p className="status">{c.engineOn || c.executing ? `Burning: ${fmt(c.thrust, 0)} N, ${fmt(c.fuel, 1)} kg left` : run && c.thrusting() ? (() => { const b = run.m.burnAt(s.timeMs); return b?.on ? `Scripted burn as flown: ${b.burn.name}` : `Small thrust as flown${b ? `, before ${b.burn.name}` : ''}`; })() : c.fuel > 0 ? `Off · ${fmt(c.thrust, 0)} N available` : 'Off · tank empty'}</p>
         <div className="keys-row wrap">
+          {c.att ? (
+            <button className="key" onClick={() => c.setEngine(c.bodyAxis)} disabled={c.engineOn || !(c.fuel > 0)} title="Fire along the body axis, wherever it points">Fire</button>
+          ) : (<>
           <button className="key" onClick={() => c.setEngine(st.v.map((x: number, i: number) => x - mission.primaryVelocity(c)[i]))}>Prograde</button>
           <button className="key" onClick={() => c.setEngine(st.v.map((x: number, i: number) => -(x - mission.primaryVelocity(c)[i])))}>Retrograde</button>
+          </>)}
           <button className="key" onClick={() => c.setEngine(null)} disabled={!c.engineOn} title={c.engineOn ? 'Cut the engine' : 'The engine is not burning'}>Cut</button>
         </div>
         </details>
@@ -303,6 +355,10 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
           </label>
         </div>
       )}
+      <div className="keys-row" role="radiogroup" aria-label="Flown as">
+        <button className="key" role="radio" aria-checked={sixdof} onClick={() => chooseSixdof(true)} title="It points and turns, and burns along its body axis">6-DOF</button>
+        <button className="key" role="radio" aria-checked={!sixdof} onClick={() => chooseSixdof(false)} title="Burns go along the direction chosen, with no turning">Point mass</button>
+      </div>
       <div className="keys-row">
         <button className="key primary" onClick={launch} disabled={!!launchProblem}>Launch</button>
         <span className="hint">{launchProblem ? `Needs ${launchProblem}` : kind === 'orbit' ? 'circular, from the ascending node' : 'from a 200 km parking orbit'}</span>

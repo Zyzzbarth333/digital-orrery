@@ -5,19 +5,22 @@
 // flown, and the flown trajectory, to compare against and to take tracking
 // fixes from. Pure: no DOM; the app's Mission (src/app/mission.ts) wraps it.
 //
-// Times are Unix milliseconds (UTC); states are geocentric J2000 equatorial
-// km, km/s, converted to the kernel's heliocentric frame with the app's
-// Earth.
+// Times are Unix milliseconds (UTC); states are J2000 equatorial km, km/s,
+// about the file's centre (data.centre: 'earth', the default, or 'sun'),
+// converted to the kernel's heliocentric frame with the app's Earth.
 
 import { helioStateEqj } from './ephemeris.js';
 import { kernelSeconds, aimTo } from './kernelHost.js';
 
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const ZERO = { r: [0, 0, 0], v: [0, 0, 0] };
 // A correction aims at the start of the next burn at least this far on (or
 // the end of the data): one followed sooner by another (the first of the two
 // outbound trims) is flown as it was, and the later one aims for both.
 const AIM_MIN_MS = 12 * 3600e3;
+// A craft's environment parameters for an aim (no entry guidance in it).
+const envOf = (c) => { if (c.bare || !c.envParams) return null; const { entry, ...p } = c.envParams(); return p; };
 
 export class RealMission {
   // data: the parsed mission file.
@@ -29,19 +32,27 @@ export class RealMission {
     this.flown = data.flown;                 // [ms, x, y, z, vx, vy, vz]
     this.id = data.id ?? null;               // the file's id (artemis1, ...)
     this.burns = data.burns;
+    this.centre = data.centre ?? 'earth';   // what the file's states are about
   }
+
+  // The centre's heliocentric state at ms (the Sun is the origin).
+  centreAt(ms) { return this.centre === 'sun' ? ZERO : helioStateEqj(this.centre, new Date(ms)); }
 
   // The craft's heliocentric state at the start, for new Craft().
   startState() {
-    const E = helioStateEqj('earth', new Date(this.startMs));
+    const E = this.centreAt(this.startMs);
     return { r: add(this.data.start.r, E.r), v: add(this.data.start.v, E.v), t: kernelSeconds(new Date(this.startMs)) };
   }
 
   // The scripted burns for Craft.setScript: kernel seconds, m/s^2, steered
-  // in the orbital frame about the burn's body (b.about, default the Earth).
+  // in the orbital frame about the burn's body (b.about, default the Earth),
+  // or for a burn with frame 'eqj' along fixed J2000 directions: about the
+  // Sun the orbital frame turns 0.02 degrees in half an hour, and a burn
+  // steered in it would be flown in quarter-second steps (kernelHost.js)
+  // that its 10 s intervals don't need.
   script() {
     return this.burns.flatMap((b) => b.intervals.map(([t0, t1, p, i, n, a]) => ({
-      t0: kernelSeconds(new Date(t0)), t1: kernelSeconds(new Date(t1)), dir: [p, i, n], accel: a, about: b.about ?? 'earth',
+      t0: kernelSeconds(new Date(t0)), t1: kernelSeconds(new Date(t1)), dir: [p, i, n], accel: a, about: b.about ?? 'earth', ...(b.frame === 'eqj' ? { frame: 'eqj' } : {}),
     })));
   }
 
@@ -61,7 +72,7 @@ export class RealMission {
     return next ? { burn: next, on: false, inMs: span(next)[0] - ms } : null;
   }
 
-  // The flown geocentric state at ms, by cubic Hermite interpolation between
+  // The flown state about the centre at ms, by cubic Hermite interpolation between
   // the 10-minute samples (positions and velocities), or null outside them.
   flownAt(ms) {
     const f = this.flown;
@@ -89,7 +100,7 @@ export class RealMission {
   fixAt(ms) {
     const g = this.flownAt(ms);
     if (!g) return null;
-    const E = helioStateEqj('earth', new Date(ms));
+    const E = this.centreAt(ms);
     return { r: add(g.r, E.r), v: add(g.v, E.v), t: kernelSeconds(new Date(ms)) };
   }
 
@@ -98,7 +109,7 @@ export class RealMission {
   distanceFromFlown(rHelio, ms) {
     const g = this.flownAt(ms);
     if (!g) return null;
-    const E = helioStateEqj('earth', new Date(ms));
+    const E = this.centreAt(ms);
     return Math.hypot(rHelio[0] - E.r[0] - g.r[0], rHelio[1] - E.r[1] - g.r[1], rHelio[2] - E.r[2] - g.r[2]);
   }
 
@@ -109,13 +120,19 @@ export class RealMission {
   // it), except one followed within 12 h by another. Each aims at the flown
   // position at the start of the next burn after it, or at the end.
   // { name, atMs, endMs, targetMs }: the burn's first and last instants.
+  // A file with flybys (data.flybys: { body, utc }) aims at the closest
+  // approach of one before the next burn instead: across a planet's flyby
+  // the miss is too far from linear for Newton's method to converge.
   aims() {
     if (this._aims) return this._aims;
     const B = this.burns.map((b) => ({ name: b.name, atMs: b.intervals[0][0], endMs: b.intervals.at(-1)[1] }));
+    const flybys = (this.data.flybys ?? []).map((f) => Date.parse(f.utc)).filter(Number.isFinite);
     this._aims = [];
     for (let k = 1; k < B.length; k++) {
       if (k + 1 < B.length && B[k + 1].atMs - B[k].endMs < AIM_MIN_MS) continue;
-      this._aims.push({ ...B[k], targetMs: k + 1 < B.length ? B[k + 1].atMs : this.endMs });
+      const next = k + 1 < B.length ? B[k + 1].atMs : this.endMs;
+      const flyby = flybys.find((ms) => ms > B[k].endMs && ms < next);
+      this._aims.push({ ...B[k], targetMs: flyby ?? next });
     }
     return this._aims;
   }
@@ -133,19 +150,24 @@ export class RealMission {
   // sys: the kernel's bodies. Returns { dv (EQJ km/s), miss (km, without
   // it), after (km, with it), off (km and km/s from the flown state) }, or
   // null outside the data or if a trial run fails or hits a body.
-  aimCorrection(sys, r, v, aim, burns = []) {
-    const req = this.aimRequest(r, v, aim, burns);
+  aimCorrection(sys, r, v, aim, burns = [], env = null) {
+    const req = this.aimRequest(r, v, aim, burns, env);
     const k = req && aimTo(sys, req);
     return k && this.aimed(k, r, v, aim);
   }
 
   // What aimTo needs for an aim from heliocentric r, v at its start, or
   // null outside the data; and its answer with the craft's offset from the
-  // flown state added.
-  aimRequest(r, v, aim, burns = []) {
+  // flown state added. env: the craft's environment parameters, used when
+  // the file asks to be aimed in it (data.aimInEnvironment: a cruise of
+  // months, where sunlight matters; Artemis aims over days, in gravity);
+  // such a file's corrections are also solved for as they are flown,
+  // spread over the burn (aimTo's spread).
+  aimRequest(r, v, aim, burns = [], env = null) {
     const target = this.fixAt(aim.targetMs);
     if (!target || !this.fixAt(aim.atMs)) return null;
-    return { r: [...r], v: [...v], t0: kernelSeconds(new Date(aim.atMs)), T: target.t, target: target.r, burns: burns.filter((b) => !b.aimed).map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted })) };
+    const asFlown = !!this.data.aimInEnvironment;
+    return { r: [...r], v: [...v], t0: kernelSeconds(new Date(aim.atMs)), T: target.t, target: target.r, env: asFlown && env ? env : null, spread: asFlown ? (aim.endMs - aim.atMs) / 1000 : 0, burns: burns.filter((b) => !b.aimed).map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted })) };
   }
   aimed(k, r, v, aim) {
     const x = this.fixAt(aim.atMs);
@@ -182,13 +204,13 @@ export class RealMission {
       else {
         if (run.asking !== key) {
           run.asking = key;
-          const req = this.aimRequest(c.kState.r, c.kState.v, a, c.script), r = [...c.kState.r], v = [...c.kState.v];
+          const req = this.aimRequest(c.kState.r, c.kState.v, a, c.script, envOf(c)), r = [...c.kState.r], v = [...c.kState.v];
           (req ? aimer(req) : Promise.resolve(null)).then((ans) => { if (run.asking === key) run.answer = { key, k: ans && this.aimed(ans, r, v, a) }; }, () => { if (run.asking === key) run.answer = { key, k: null }; });
         }
         c.holdAt = at(run.aimNext);
         return null;
       }
-    } else k = this.aimCorrection(sys, c.kState.r, c.kState.v, a, c.script);
+    } else k = this.aimCorrection(sys, c.kState.r, c.kState.v, a, c.script, envOf(c));
     if (k) {
       const dv = Math.hypot(k.dv[0], k.dv[1], k.dv[2]), span = (a.endMs - a.atMs) / 1000;
       if (dv > 0) c.addScripted({ t0: c.kState.t, t1: c.kState.t + span, dir: k.dv, accel: dv * 1000 / span });

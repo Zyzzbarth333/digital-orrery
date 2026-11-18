@@ -2,10 +2,11 @@
 
 `src/physics/sixdof.js` propagates a rigid vehicle about the Earth: its
 position and velocity, and its attitude and body rates, together. It is
-checked against NASA's 6-DOF check cases (below). The app's own
-spacecraft are still point masses in the n-body kernel
-([The n-body kernel](nbody-kernel.md)); this is the model a vehicle's
-attitude and the Earth's full gravity field will come from.
+checked against NASA's 6-DOF check cases [1] (below). The app's own
+spacecraft fly their translation in the n-body kernel
+([The n-body kernel](nbody-kernel.md)); craft launched in the app carry
+an attitude as well, turned by the rotational half of this model
+([Attitude in the app](#attitude-in-the-app)).
 
 Units are SI throughout (m, m/s, kg, N, N m, rad), as in NASA's cases.
 
@@ -32,7 +33,7 @@ $$\dot{\mathbf r} = \mathbf v,\quad \dot{\mathbf v} = \mathbf a_g + \mathbf a_{3
 
 - **Gravity:** a point mass, or a spherical-harmonic field to any degree
   and order (`geopotential.js`). The field uses Cunningham's V/W recursion
-  (Montenbruck and Gill, *Satellite Orbits*, §3.2.4). It has no latitude or
+  (Montenbruck and Gill, *Satellite Orbits*, §3.2.4 [2]). It has no latitude or
   longitude in it, so no singularity at the poles. Fully normalised
   coefficients are converted once:
   $C_{nm} = \bar C_{nm}\sqrt{(2-\delta_{m0})(2n+1)(n-m)!/(n+m)!}$. The field is
@@ -40,8 +41,8 @@ $$\dot{\mathbf r} = \mathbf v,\quad \dot{\mathbf v} = \mathbf a_g + \mathbf a_{3
   $\mathbf a = M^\mathsf T\, \nabla U(M\mathbf r)$.
 - **Earth rotation** (`earthRotation.js`): $M = R_3(\text{GAST})\,N\,P$,
   from J2000 to the Earth-fixed frame of date.
-  - Precession is IAU 1976 (Lieske).
-  - Nutation is IAU 1980, the full 106-term series. The table and its
+  - Precession is IAU 1976 (Lieske [3]).
+  - Nutation is IAU 1980 [4], the full 106-term series. The table and its
     fundamental arguments are NAIF's (CSPICE `zzwahr.c`), and our sum
     matches NAIF's routine to 10⁻¹⁹ rad.
   - Sidereal time is GMST (IAU 1982) plus the classic equation of the
@@ -61,8 +62,20 @@ $$\dot{\mathbf r} = \mathbf v,\quad \dot{\mathbf v} = \mathbf a_g + \mathbf a_{3
   is any function of time and position; for NASA's cases it is the MET
   atmosphere (below).
 - **Thrust and torque:** fixed in body axes, through the centre of mass.
+  A torque can also depend on the state (`control`: an attitude
+  controller), and the mass can fall with time (`massAt`).
 - **Gravity gradient:** the point-mass torque
-  $\boldsymbol\tau = 3\mu/r^3\,(\hat{\mathbf r}_B \times I\hat{\mathbf r}_B)$.
+  $\boldsymbol\tau = 3\mu/r^3\,(\hat{\mathbf r}_B \times I\hat{\mathbf r}_B)$
+  (`gravityGradientTorque`).
+- **Aerodynamic torque:** the drag acting at a centre of pressure
+  $\mathbf r_{cp}$ (body axes, from the centre of mass),
+  $\boldsymbol\tau = \mathbf r_{cp} \times \left(-\tfrac12 \rho\,|\mathbf v_B|\,\mathbf v_B\,C_D A\right)$,
+  $\mathbf v_B$ the air-relative velocity in body axes (`aeroTorque`).
+  Behind the centre of mass it turns the body into the airflow.
+
+`makeModel` returns the rotational half of the rates on its own,
+`rotationalRates(t, r, v, q, ω)`, which the full derivative uses and the
+app's attitude integrates on a translation it is given.
 
 ## NASA's 6-DOF check cases
 
@@ -102,11 +115,11 @@ What is not reproduced:
 
 `src/physics/atmosphereMET.js` is the Marshall Engineering Thermosphere
 (MET), the atmosphere all four NASA tools ran. It is NASA Marshall's
-version of Jacchia's 1970 static diffusion model, with two of Jacchia's
-1971 terms. It gives density, temperature and composition from 90 to
+version of Jacchia's 1970 [5] static diffusion model, with two of Jacchia's
+1971 [6] terms. It gives density, temperature and composition from 90 to
 2,500 km. NASA's report says the code is available only from MSFC on
 request. The equations and Fortran listings are public, though: they are
-in four NASA reports on the Technical Reports Server (Sources). The
+in four NASA reports on the Technical Reports Server [7]–[10]. The
 module is built from those.
 
 Inputs are the time (UTC), geodetic latitude, east longitude and height,
@@ -134,7 +147,7 @@ The model, in the order MET computes it:
   - Above 105 km: diffusive equilibrium for each of N₂, O₂, O, Ar and He
     (He with thermal diffusion factor −0.38), and H from 500 km.
   - Gravity is $9.80665/(1+z/6356.766\text{ km})^2$.
-  - The integrals use MET's own Gaussian quadrature, over its eight fixed
+  - The integrals use MET's own Gaussian quadrature [8], over its eight fixed
     height bands, with its 7-digit abscissas and weights.
 - **Jacchia 1971's terms:**
   - Seasonal-latitudinal density below 170 km.
@@ -147,14 +160,14 @@ The version reproduced is MET-1999, which sims B and C ran (sim A ran
 MET-2007, sim D MET-1995). MET-1999 has a few quirks, which the module
 keeps:
 - It reads the time as whole minutes and the date as an integer day of
-  the year, over a 365.2422-day year. MET-2007 made these continuous.
+  the year, over a 365.2422-day year. MET-2007 [10] made these continuous.
 - Its helium fairing goes in 10 km steps. `{ fairing: 'smooth' }` gives
   MET-V 2.0's cos² fairing instead.
 
 How it checks (`nesc.test.mjs`, [Validation](../validation.md#the-met-atmosphere)):
-- **NASA's MET-V 2.0 worked example:** every one of the ten printed
+- **NASA's MET-V 2.0 worked example** [9]: every one of the ten printed
   outputs, to the digits printed.
-- **MET-88's test case:** within 1.2×10⁻⁵. MET-88 had an older Sun and
+- **MET-88's test case** [7]: within 1.2×10⁻⁵. MET-88 had an older Sun and
   Simpson's rule.
 - **Along cases 5A–C and the drag cases:** at every 60 s sample, density
   within 2.4×10⁻⁶ of sim B's and temperature within 0.7 mK, at all three
@@ -197,25 +210,268 @@ Case 4 found two problems in the kernel, each fixed:
 For comparison: with the same Sun and Moon but the Earth at the origin,
 `sixdof.js` matches sim B to 1 mm.
 
-## Sources
+## Attitude in the app
 
-- M. P. Hickey, *The NASA Marshall Engineering Thermosphere Model*,
-  NASA CR-179359, 1988 (MET-88's Fortran listing); and *An Improvement in
-  the Numerical Integration Procedure Used in the NASA Marshall Engineering
-  Thermosphere Model*, NASA CR-179389, 1988 (the Gaussian quadrature).
-- J. K. Owens, *NASA Marshall Engineering Thermosphere Model — Version
-  2.0*, NASA/TM-2002-211786, 2002 (MET-1999's Sun, the worked example).
-- J. K. Owens et al., *Marshall Engineering Thermosphere Model, Version
-  MET-2007*, NASA/TM-2017-218238, 2017 (what MET-1999 did with time).
-- L. G. Jacchia, *New Static Models of the Thermosphere and Exosphere with
-  Empirical Temperature Profiles*, SAO Special Report 313, 1970; and
-  *Revised Static Models…*, SAO Special Report 332, 1971.
-- NASA Engineering and Safety Center, *Check-Cases for Verification of
-  6-Degree-of-Freedom Flight Vehicle Simulations*, NASA/TM-2015-218675
-  (NESC-RP-12-00770), Volumes I and II, 2015; data at
-  [nescacademy.nasa.gov/flightsim/2015](https://nescacademy.nasa.gov/flightsim/2015).
-- O. Montenbruck and E. Gill, *Satellite Orbits*, Springer, 2000, §3.2.4.
-- J. H. Lieske et al., "Expressions for the precession quantities based
-  upon the IAU (1976) system of astronomical constants", *A&A* 58, 1977.
-- P. K. Seidelmann (ed.), *Explanatory Supplement to the Astronomical
-  Almanac*, 1992, pp. 114–115 (IAU 1980 nutation); NAIF CSPICE `zzwahr.c`.
+Craft launched in the app (MISSION and ROCKET tabs) carry an attitude:
+a quaternion and body rates, turned by thrusters with a finite torque, by
+the gravity gradient and, low in the Earth's air, by drag. Their burns
+fire along the body's $+x$ axis. Real missions (Artemis) and journeys stay
+point masses, so their validations don't move. Code: `attitude.js` (the
+model and controller), `craftAttitude.js` (the craft's side, and its
+burns), tested in `attitude.test.mjs`
+([Validation](../validation.md#attitude-in-the-app-attitudetestmjs)).
+
+### The model
+
+`attitude.js` integrates only the rotation, with `makeModel`'s
+`rotationalRates`: the same torques and Euler's equations that the check
+cases test. The translation is handed to it as $\mathbf r(t), \mathbf v(t)$
+about the craft's primary, from the kernel's state as the app draws it,
+carried over a frame on the two-body orbit. The quaternion kinematics,
+the gravity-gradient torque and the aerodynamic torque are the standard
+forms [11].
+
+The app's craft is a 2 × 2 × 3 m box of 1,500 kg, long along the thrust
+axis: full, $I = \mathrm{diag}(1000, 1625, 1625)$ kg m², from
+$I = m(b^2+c^2)/12$. Its thrusters are 20 N pairs fired as couples,
+0.5 m from the roll axis and 1 m from the pitch and yaw axes: 20 N m in
+roll and 40 N m in pitch and yaw, at most 3°/s. The centre of pressure is
+0.3 m behind the centre of mass, and $C_D A$ is the craft's drag area
+(2.2 × 5 m²). The thrusters burn propellant
+([below](#the-thrusters-propellant)), and the inertia falls as the tank
+empties ([below](#inertia-and-the-propellant)).
+
+### Pointing and the controller
+
+The modes point body $+x$ along a direction of the orbital frame about the
+primary, with body $+z$ toward the orbit normal (toward the velocity for
+the two normal modes):
+
+| Mode | $+x$ along |
+| --- | --- |
+| Prograde, retrograde | $\pm\hat{\mathbf v}$ |
+| Normal, anti-normal | $\pm\hat{\mathbf h}$, $\mathbf h = \mathbf r \times \mathbf v$ |
+| Radial out, radial in | $\pm\hat{\mathbf v} \times \hat{\mathbf h}$ (square to the velocity, in the plane) |
+| Node | the next node's $\Delta\mathbf v$ in the same frame; during its burn, the burn's fixed direction |
+| Hold | the attitude it had when chosen |
+| Free | none: thrusters off |
+
+The controller is sampled every $T_c$ = 0.1 s and holds its torque
+between samples, as flight software does. It turns about the eigenaxis
+$\hat{\mathbf e}$ of the error, the single rotation by $\theta$ that takes
+the body onto the reference [12]:
+
+$$\boldsymbol\omega_\text{cmd} = \hat{\mathbf e}\,\min\left(\omega_\text{max},\ \sqrt{2\alpha_b\theta + c^2} - c\right) + \boldsymbol\omega_\text{ref},\qquad c = \alpha_b T_p$$
+
+$$\boldsymbol\tau = \boldsymbol\omega \times I\boldsymbol\omega + I\,\frac{\boldsymbol\omega_\text{cmd} - \boldsymbol\omega}{T_c}$$
+
+- $\alpha$ is the angular acceleration the torque limit allows about
+  $\hat{\mathbf e}$: the largest with $|(I\hat{\mathbf e}\,\alpha)_i| \le \tau_{\max,i}$
+  on every axis. The braking curve uses $\alpha_b = 0.8\,\alpha$, a margin
+  so the rate loop can always follow it.
+- Far from the target the curve brakes at $\alpha_b$, as the time-optimal
+  $\sqrt{2\alpha\theta}$ law does. Near it, it becomes $\theta/T_p$, a
+  first-order approach ($T_p$ = 0.4 s, critically damped with the
+  sampling), and it never asks for more than $\alpha_b$. An earlier
+  version switched to $\theta/T_p$ at a corner. That asked for $2\alpha_b$
+  there and saturated, overshooting slightly.
+- The rate loop is deadbeat: unsaturated, it reaches the command in one
+  period. The torque is clipped to the limit per axis, scaled as a whole
+  so it keeps its axis.
+- $\boldsymbol\omega_\text{ref}$, the reference's own turning (the orbital
+  frame turns at about the mean motion), is fed forward, from the
+  reference a second either side.
+
+A rest-to-rest turn can be no faster than full torque to the rate limit,
+a coast, and full torque back (bang-coast-bang):
+$t_\text{min} = \theta/\omega_\text{max} + \omega_\text{max}/\alpha$, or
+$2\sqrt{\theta/\alpha}$ when the rate limit is not reached. The controller
+follows its curve in a time it can predict in closed form
+(`slewTime`): full torque up to the curve or the rate limit, a coast, then
+down the curve, whose time from $\omega_1$ to $\omega_2$ is
+$[(\omega_1 - \omega_2) + c\ln(\omega_1/\omega_2)]/\alpha_b$. Eigenaxis turns
+are not quite time-optimal for a three-axis body [13], but they are the
+usual choice for their predictable path.
+
+**Locking.** Settled within $10^{-4}$ rad and $2\times10^{-4}$ rad/s of its
+reference, with the disturbances under a quarter of the torque limit, the
+attitude locks: it is the reference from then on, without integration,
+until the mode changes or a disturbance grows past half the limit. A craft
+holding prograde at a day a second costs nothing to carry.
+
+### The thrusters' propellant
+
+The attitude thrusters draw on the engine's tank. Each axis has its pair
+of thrusters, fired as a couple $L_i$ from the axis, so a torque
+$\tau_i$ takes $|\tau_i|/L_i$ of thrust between them, and the propellant
+is the total impulse over the exhaust velocity [14, §13.3]:
+
+$$J = \int \sum_i \frac{|\tau_i|}{L_i}\,dt,\qquad \Delta m = \frac{J}{I_{sp}\,g_0}$$
+
+- **The torque counted** is the controller's, held over each control
+  period. Locked on its reference, the craft is charged for the
+  disturbance it holds against (the gravity gradient, the air), found at
+  the start of each frame.
+- **The default craft:** $L = (0.5, 1, 1)$ m and $I_{sp}$ = 290 s,
+  bipropellant from the main tank. That is the class of ArianeGroup's
+  10 N bipropellant thruster, 292 s at its nominal point [15].
+- **Accounting:** `attitude.js` adds up $J$ as it steps; `craftAttitude.js`
+  takes $\Delta m$ from the tank each frame, after the engine's own draw
+  (`craft.js` `updateBurns`). An empty tank switches control off and cuts
+  the engine.
+- **A rest-to-rest turn** about a principal axis costs
+  $J = 2 I\,\omega_\text{peak}/L$, whatever the torque profile: the
+  torque gives the body all its angular momentum and takes it back. A 90°
+  pitch turn at the 3°/s limit is
+  $2 \times 1625 \times 0.0524 / 1 = 170.2$ N s, 59.8 g.
+- **Left out:** the thrusters' minimum impulse bit and the deadband limit
+  cycle a real hold pays for (here the hold pays only for the torque it
+  cancels), and the propellant they use during a burn, which the engine's
+  mass flow does not include (a few grams against kilograms).
+
+### Inertia and the propellant
+
+The propellant sits in two equal spherical tanks of radius $R$ = 0.37 m
+on the thrust axis, $d$ = 0.6 m fore and aft of the centre of mass. 250 kg
+of MMH and NTO at about 1.2 t/m³ fills each. With $m$ kg on board, each
+tank is a solid sphere about its centre, moved by the parallel-axis
+theorem [14, ch. 9]:
+
+$$I(m) = I_\text{dry} + \mathrm{diag}\left(\tfrac25 mR^2,\ \tfrac25 mR^2 + md^2,\ \tfrac25 mR^2 + md^2\right)$$
+
+The dry tensor is the full box's less the full tanks':
+$I_\text{dry} = \mathrm{diag}(972.6, 1417.6, 1417.6)$ kg m². Empty, the
+craft turns 15 % faster in pitch and yaw than full.
+
+- **Each frame** the tank has changed, `craftAttitude.js` sets the new
+  tensor (`attitude.js` `setInertia`, which makes the `sixdof.js` models
+  again, since they hold its inverse). Within a frame the tensor is held.
+- **The liquid turns with its tank,** as a rigid body. Slosh, and the lag
+  of a liquid in a turning tank, are left out. So are the terms in
+  $\dot I$ and the exhaust's own angular momentum (jet damping). They
+  are of the order of the propellant's flow times a distance squared (to
+  the tanks, to the nozzle) times the rate: during an engine burn
+  (1.6 kg/s) at the 3°/s limit with the nozzle 1.5 m back, about 0.2 N m,
+  half a per cent of the thrusters' torque, and nothing outside a burn.
+- **The tanks are equal,** so the centre of mass stays put as they drain.
+- The NASA check cases and `sixdof.js` keep fixed inertia, as the cases
+  do.
+
+### Turning for a node
+
+A manoeuvre node turns the craft to it by itself (AUTO NODE TURN, on by
+default). The turn starts
+
+$$t_\text{turn} = t_\text{node} - (1.1\,t_\text{slew} + 5\ \text{s})$$
+
+before the node, with $t_\text{slew}$ the controller's own closed-form
+time for the turn (`slewTime`, a few per cent over what it takes): the
+tenth covers the gyroscopic terms, the sampling and the reference's own
+turning, and the 5 s lets it lock. The turn is measured where the craft
+and the node's direction will be at $t_\text{turn}$: a locked craft on
+its reference then, and the node's direction in the orbital frame then.
+That matters at high warp, when a frame can carry the orbital frame
+through tens of degrees. Found a few passes from now, the turn starts
+exactly at its time, even inside a frame. After the burn the craft goes
+back to the mode it had. A node too close to settle for starts the turn
+at once, and the log says how long the turn needs and how long is left.
+When a node burn starts, the log says if the axis is more than a degree
+off its direction.
+
+In NODE mode, the craft aims along the node's $\Delta\mathbf v$ in the
+orbital frame of the moment until the burn is set up (at the start of the
+frame it falls in), then along the burn's fixed direction, and afterwards
+holds the direction it burned along.
+
+**Steps.** Under control, one RK4 step a control period, cut at frame
+edges. Without control, RK4 at a step that turns the body at most
+0.05 rad and takes a twentieth of the gravity-gradient and aerodynamic
+swings' periods, at most 30 s. At most 20,000 steps a frame; a burn is
+then flown only as far as the attitude has reached.
+
+### Burns along the body axis
+
+`craftAttitude.js` keeps what the thrust axis did, back to the kernel's
+state, as spans: each step's start and end directions, or a stretch
+locked on a reference. A burn goes to the kernel as pieces of those
+spans:
+- **Locked in a pointing mode:** a burn steered in the orbital frame (the
+  kernel's `vnb` burns), which is exactly a point-mass craft's steered
+  burn.
+- **Locked in a hold:** a burn along the held axis.
+- **Turning or free:** a piece per step (merged while the axis moves under
+  $10^{-4}$ rad), along the step's mean direction.
+
+The kernel only steps up to the clock, which the attitude has always
+reached, and the drawn carry takes the same pieces. A manoeuvre node on a
+6-DOF craft burns along the body axis too; the log says when the axis was
+more than a degree off the node's direction.
+
+### Where the attitude is carried
+
+On the main thread, frame by frame, and not in the kernel's Worker.
+`npm run bench:attitude` measured both on this machine (Node 20, an
+idle machine; the attitude's share of a frame, its craft against a
+point-mass twin):
+
+| Main thread | ms a frame |
+| --- | --- |
+| Held prograde, 1× (60 fps) | 0.02 |
+| Held prograde, a day a second | 0.08 |
+| A 90° slew to prograde, 1× (median of its 2,029 frames) | 0.01 |
+| The same slew inside one frame, a day a second (once) | 7.6 |
+| Thrusters off, tumbling under the gravity gradient, a day a second | 1.5 |
+
+| In the kernel (a 60 s step in low orbit) | ms |
+| --- | --- |
+| Coasting (3 steps) | 1.4 |
+| Ending on every 0.1 s control sample (600 steps) | 72 |
+
+Integrated with the translation, the kernel's steps would have to end on
+every control sample while the craft turns: fifty times the cost of the
+coast, for a rotation that costs microseconds alone. Moved to the Worker
+as a separate loop, the cost would be the main thread's, plus a frame of
+lag that the drawing would have to carry anyway. Accuracy is the same
+either way, and on the main thread the drawn attitude is never late.
+
+Accuracy of the main-thread path, against `sixdof.js` integrating the
+translation and the attitude together with the controller in the loop
+(a 428 m/s burn in a 400 km orbit, 600 s,
+[Validation](../validation.md#attitude-in-the-app-attitudetestmjs)):
+held prograde, 0.2 m; burning through a 30° turn, 1.2 m of the 7.5 km the
+turn costs (the coupled run's inertia fixed, the app's falling 2 % over
+the turn). The two-body carry within a frame leaves out the frame's
+thrust: at a day a second, a 5 kN burn on 1.5 t turns prograde by 0.03°
+in a frame, while a locked burn goes to the kernel steered exactly.
+
+## References
+
+[1] NASA Engineering and Safety Center, "Check-cases for verification of 6-degree-of-freedom flight vehicle simulations," Vols. I and II, NASA/TM-2015-218675 (NESC-RP-12-00770), 2015. [Online]. Available: https://nescacademy.nasa.gov/flightsim/2015
+
+[2] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, §3.2.4.
+
+[3] J. H. Lieske *et al.*, "Expressions for the precession quantities based upon the IAU (1976) system of astronomical constants," *Astron. Astrophys.*, vol. 58, 1977.
+
+[4] P. K. Seidelmann, Ed., *Explanatory Supplement to the Astronomical Almanac*, 1992, pp. 114–115 (IAU 1980 nutation). The nutation table and fundamental arguments are those of NAIF CSPICE `zzwahr.c`.
+
+[5] L. G. Jacchia, "New static models of the thermosphere and exosphere with empirical temperature profiles," Smithsonian Astrophys. Observatory, Special Rep. 313, 1970.
+
+[6] L. G. Jacchia, "Revised static models of the thermosphere and exosphere with empirical temperature profiles," Smithsonian Astrophys. Observatory, Special Rep. 332, 1971.
+
+[7] M. P. Hickey, "The NASA Marshall Engineering Thermosphere Model," NASA Contractor Rep. CR-179359, 1988. MET-88's Fortran listing.
+
+[8] M. P. Hickey, "An improvement in the numerical integration procedure used in the NASA Marshall Engineering Thermosphere Model," NASA Contractor Rep. CR-179389, 1988. The Gaussian quadrature.
+
+[9] J. K. Owens, "NASA Marshall Engineering Thermosphere Model: Version 2.0," NASA/TM-2002-211786, 2002. MET-1999's Sun and the worked example.
+
+[10] J. K. Owens *et al.*, "Marshall Engineering Thermosphere Model, Version MET-2007," NASA/TM-2017-218238, 2017. What MET-1999 did with time.
+
+[11] F. L. Markley and J. L. Crassidis, *Fundamentals of Spacecraft Attitude Determination and Control*. New York, NY, USA: Springer, 2014, doi: 10.1007/978-1-4939-0802-8.
+
+[12] B. Wie, *Space Vehicle Dynamics and Control*, 2nd ed. Reston, VA, USA: AIAA, 2008.
+
+[13] K. D. Bilimoria and B. Wie, "Time-optimal three-axis reorientation of a rigid spacecraft," *J. Guid. Control Dyn.*, vol. 16, no. 3, pp. 446–452, 1993, doi: 10.2514/3.21030.
+
+[14] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. §13.3 (specific impulse), ch. 9 (moments of inertia, the parallel-axis theorem).
+
+[15] ArianeGroup, "Chemical bi-propellant thruster family," product brochure. [Online]. Available: https://ariane.group/app/uploads/2024/09/ArianeGroup_Chemical_Bipropellant_Thruster_Family.pdf

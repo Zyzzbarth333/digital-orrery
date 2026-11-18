@@ -35,13 +35,15 @@
 // advance; a change of primary (the body whose sphere of influence holds the
 // craft) is reported and the advance continues.
 //
-// Each call has a step budget. Steps are never stretched to meet it: when it
-// runs out the advance stops short of tEnd and says so (complete: false), and
-// the caller continues from state.t next time. A stretched step near a planet
+// Each call has a step budget (and optionally a time budget, opts.deadline).
+// Steps are never stretched to meet it: when it runs out the advance stops
+// short of tEnd and says so (complete: false), and the caller continues from
+// state.t next time. A stretched step near a planet
 // can pass straight through it.
 
-import { advanceEncke, perturbationRatio, ENCKE_IN, DP45 } from './encke.js';
+import { advanceEncke, perturbationRatio, ENCKE_IN, DP45, outOfTime } from './encke.js';
 import { addJ2, below } from './zonal.js';
+import { locateImpact, dp45Dense, hermiteAt } from './impact.js';
 
 // The Cowell integrator unless asked for another: error-controlled
 // Dormand-Prince 5(4) (advanceCowellRK). 'yoshida4' (and 'leapfrog') remain,
@@ -179,6 +181,10 @@ function soiInfo(bodies, muSun) {
 //   fixedStep   use this |h| for every step instead of the eta rule
 //   maxSteps    step budget for this call (default 200,000). When it runs out
 //               the advance stops early with complete: false.
+//   deadline    optional wall-time budget: a performance.now() time (ms)
+//               after which the advance stops early the same way (encke.js
+//               outOfTime). The kernel worker sets it so one request never
+//               holds the worker for seconds.
 //   sunRadius   km (default 695,700); closer than this is an impact on 'sun'
 //   breakpoints sorted times (forward advances only) that steps must end on
 //               exactly, e.g. where a burn starts or stops
@@ -314,13 +320,15 @@ function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
   const y = [r[0], r[1], r[2], v[0], v[1], v[2]];
   if (state.primary === null) state.primary = primaryOf(helio(state.t, r, hB), bodiesAt(state.t), muSun);
   const K = Array.from({ length: 7 }, () => [0, 0, 0, 0, 0, 0]), yt = [0, 0, 0, 0, 0, 0];
+  // The last step's start and first stage, for its dense output at an impact.
+  const y0 = [0, 0, 0, 0, 0, 0], k1 = [0, 0, 0, 0, 0, 0], yd = [0, 0, 0, 0, 0, 0];
   let tau = tauAt(state.t, r);
   let h = Math.min(eta * tau, hMax);
   let steps = 0, bp = 0, fsal = false, floorSteps = 0;
   const bps = (breakpoints && dir > 0) ? breakpoints : null;
 
   while (dir * (tEnd - state.t) > 0) {
-    if (steps >= maxSteps) return { steps, floorSteps, events, complete: false };
+    if (steps >= maxSteps || outOfTime(opts.deadline, steps)) return { steps, floorSteps, events, complete: false };
     let cap = hMax;
     if (opts.stepCap) cap = Math.min(cap, opts.stepCap(state.t, helio(state.t, r, hB), helioV(state.t, v)));
     // On a conic that dips inside the primary, keep the old fixed-fraction
@@ -381,7 +389,7 @@ function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
     // taken anyway, as a fixed-step method would take it.
     if (err > 1 && hs > H_MIN) { h = Math.max(hs * grow, H_MIN); fsal = true; continue; }
     if (err > 1) floorSteps++;   // taken at the floor, over the tolerance
-    for (let i = 0; i < 6; i++) { y[i] = yt[i]; K[0][i] = K[6][i]; }
+    for (let i = 0; i < 6; i++) { y0[i] = y[i]; k1[i] = K[0][i]; y[i] = yt[i]; K[0][i] = K[6][i]; }
     fsal = true;
     state.t = last ? t + dir * remaining : t + H;
     if (!last) h = hs * grow;
@@ -390,19 +398,31 @@ function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
     r[0] = y[0]; r[1] = y[1]; r[2] = y[2]; v[0] = y[3]; v[1] = y[4]; v[2] = y[5];
     steps++;
 
-    const x = helio(state.t, r, hB);
-    if (x[0] * x[0] + x[1] * x[1] + x[2] * x[2] < sunRadius * sunRadius) {
-      events.push({ type: 'impact', body: 'sun', t: state.t });
+    // An impact: the state is put back to where the step crossed the
+    // surface, found on the step's dense output (impact.js).
+    const hit = (key) => {
+      const tEndStep = state.t;
+      const at = (s, rr, vv) => {
+        dp45Dense(y0, y, k1, K, H, s, yd);
+        const ts = s === 1 ? tEndStep : t + s * H, xr = helio(ts, yd, hA);
+        rr[0] = xr[0]; rr[1] = xr[1]; rr[2] = xr[2];
+        const xv = helioV(ts, [yd[3], yd[4], yd[5]]);
+        vv[0] = xv[0]; vv[1] = xv[1]; vv[2] = xv[2];
+      };
+      const I = locateImpact(key, t, H, tEndStep, at, bodiesAt, sunRadius);
+      if (I.s < 1) {
+        dp45Dense(y0, y, k1, K, H, I.s, yd);
+        state.t = I.t;
+        r[0] = yd[0]; r[1] = yd[1]; r[2] = yd[2]; v[0] = yd[3]; v[1] = yd[4]; v[2] = yd[5];
+      }
+      events.push({ type: 'impact', body: key, t: state.t, speed: I.speed });
       return { steps, floorSteps, events, complete: false };
-    }
+    };
+    const x = helio(state.t, r, hB);
+    if (x[0] * x[0] + x[1] * x[1] + x[2] * x[2] < sunRadius * sunRadius) return hit('sun');
     if (focus) focus(x, state.t);
     const now = bodiesAt(state.t);
-    for (const b of now) {
-      if (below(x, b)) {
-        events.push({ type: 'impact', body: b.key, t: state.t });
-        return { steps, floorSteps, events, complete: false };
-      }
-    }
+    for (const b of now) if (below(x, b)) return hit(b.key);
     const prevPrimary = state.primary;
     const p = primaryOf(x, now, muSun);
     if (p !== state.primary) {
@@ -500,6 +520,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
   const floorSteps = 0;   // fixed fractions of the dynamical time never fall to dp45's floor
   let bp = 0;   // next breakpoint index (forward only)
   const bps = (breakpoints && dir > 0) ? breakpoints : null;
+  const r0 = [0, 0, 0], v0 = [0, 0, 0], rd = [0, 0, 0], vd = [0, 0, 0];   // the step's start; scratch
 
   while (dir * (tEnd - state.t) > 0) {
     const bodies = bodiesAt(state.t);
@@ -523,7 +544,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
       while (bp < bps.length && bps[bp] <= state.t) bp++;
       if (bp < bps.length && bps[bp] < tEnd) remaining = bps[bp] - state.t;
     }
-    if (steps >= maxSteps) return { steps, floorSteps, events, complete: false };
+    if (steps >= maxSteps || outOfTime(opts.deadline, steps)) return { steps, floorSteps, events, complete: false };
     // The last step lands exactly on tEnd. Comparing against a fixed epsilon
     // instead fails once t is large: at t ~ 1e8 s a leftover of 1e-8 s is
     // below one ulp, t stops advancing and the loop drifts r without time.
@@ -533,25 +554,37 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
     mid = state.t + 0.5 * dir * h;
     // A step that lands on a breakpoint changes which burn is active, so the
     // acceleration carried into the next step must be the one on the far side.
+    const t0 = state.t;
+    for (let i = 0; i < 3; i++) { r0[i] = r[i]; v0[i] = v[i]; }
     state.t = integrate(state.t, r, v, a, dir * h, acc);
     if (last) state.t = landing;
     if (bps && last && state.t !== tEnd) { mid = state.t + 1e-9; acc(state.t, r, a); }
     steps++;
 
-    // Events, checked at the end of each step.
-    const x = helio(state.t, r, hB);
-    if (x[0] * x[0] + x[1] * x[1] + x[2] * x[2] < sunRadius * sunRadius) {
-      events.push({ type: 'impact', body: 'sun', t: state.t });
+    // Events, checked at the end of each step. An impact puts the state
+    // back to where the step crossed the surface, on the cubic Hermite
+    // through the step's ends (impact.js).
+    const hit = (key) => {
+      const tEndStep = state.t, H = tEndStep - t0, r1 = [...r], v1 = [...v];
+      const at = (s, rr, vv) => {
+        hermiteAt(r0, v0, r1, v1, H, s, rd, vd);
+        const ts = s === 1 ? tEndStep : t0 + s * H, xr = helio(ts, rd, hA), xv = helioV(ts, vd);
+        rr[0] = xr[0]; rr[1] = xr[1]; rr[2] = xr[2]; vv[0] = xv[0]; vv[1] = xv[1]; vv[2] = xv[2];
+      };
+      const I = locateImpact(key, t0, H, tEndStep, at, bodiesAt, sunRadius);
+      if (I.s < 1) {
+        hermiteAt(r0, v0, r1, v1, H, I.s, rd, vd);
+        state.t = I.t;
+        for (let i = 0; i < 3; i++) { r[i] = rd[i]; v[i] = vd[i]; }
+      }
+      events.push({ type: 'impact', body: key, t: state.t, speed: I.speed });
       return { steps, floorSteps, events, complete: false };
-    }
+    };
+    const x = helio(state.t, r, hB);
+    if (x[0] * x[0] + x[1] * x[1] + x[2] * x[2] < sunRadius * sunRadius) return hit('sun');
     if (focus) focus(x, state.t);
     const now = bodiesAt(state.t);
-    for (const b of now) {
-      if (below(x, b)) {
-        events.push({ type: 'impact', body: b.key, t: state.t });
-        return { steps, floorSteps, events, complete: false };
-      }
-    }
+    for (const b of now) if (below(x, b)) return hit(b.key);
     const prevPrimary = state.primary;
     const p = primaryOf(x, now, muSun);
     if (p !== state.primary) {

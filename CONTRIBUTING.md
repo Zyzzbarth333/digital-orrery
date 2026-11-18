@@ -34,17 +34,34 @@ A change can't break any of these.
   [docs conventions](docs/README.md#conventions)).
 - **The front pages stay current.** A change users will notice updates
   the README's description and [CHANGELOG.md](CHANGELOG.md) in the same
-  pull request, not later.
+  pull request, not later. A change to how accurate something is updates
+  [docs/accuracy.md](docs/accuracy.md) too, and the README's summary of it
+  if that no longer holds.
 - **Sources are cited, not copied.** Write equations in this project's
   notation and cite textbooks by section and example. Don't commit a
   textbook or paper's PDF, its figures or long quotations.
+- **Citations are IEEE style.** In the text, a source is a number in
+  brackets, `[1]`, with the place in it where that helps: `[1, Alg. 3.3]`,
+  `[2, Ex. 4.7]`, `[3, eq. (12)]`. Each docs page ends with a
+  `## References` list, numbered in the order the sources are first cited:
+  - paper: `[1] A. B. Author and C. Author, "Title," *J. Abbrev.*, vol. 5,
+    no. 2, pp. 10–20, 2021, doi: 10.xxxx/xxxx.`
+  - book: `[2] H. D. Curtis, *Orbital Mechanics for Engineering Students*,
+    4th ed. Oxford, U.K.: Butterworth-Heinemann, 2020.`
+  - report: `[3] Org., "Title," Rep. NASA/TM-2015-218675, 2015.`
+  - data, software or web page: `[4] NASA NAIF, "Generic kernels," 2024.
+    [Online]. Available: https://naif.jpl.nasa.gov/naif/data.html`
+
+  Give a DOI or a link wherever one exists, and only fields you have
+  checked. The [IEEE reference guide](https://journals.ieeeauthorcenter.ieee.org/wp-content/uploads/sites/7/IEEE_Reference_Guide.pdf)
+  has the rest.
 - **Copyleft stays outside.** GPL and AGPL tools (OpenRocket, for one) are
   used only as separate-process oracles. Their source and their example
   files are never committed or imported. The project is MIT.
-- **Data has a source and a licence.** A new map, catalogue or kernel is
-  credited in the [README](README.md#credits) and
-  [docs/frontend/textures.md](docs/frontend/textures.md), with its
-  licence.
+- **Data has a source and a licence.** A new map, catalogue, kernel,
+  library or font is credited in [docs/credits.md](docs/credits.md), with a
+  link to where it comes from and its licence, and in the page that uses
+  it (maps in [docs/frontend/textures.md](docs/frontend/textures.md)).
   - Large raw downloads stay out of git, under `python/data/` (ignored) or
     `~/.cache/digital-orrery/`.
   - What the app ships is built from them by an `npm run fetch:…` or
@@ -53,8 +70,9 @@ A change can't break any of these.
   or files from other teams or people.
 - **Rendering changes are measured.** Time a frame on an integrated GPU
   as well as a discrete one, before and after, and give the numbers in
-  the pull request ([docs/performance.md](docs/performance.md) has the
-  method).
+  the pull request. `npm run bench:frames` does this and prints the table
+  to paste ([docs/performance.md](docs/performance.md#measuring) has the
+  method and how to build main to compare against).
 - **The interface follows [DESIGN.md](DESIGN.md).** The console is 70s
   flight hardware, in its own look: don't borrow another app's or game's
   interface.

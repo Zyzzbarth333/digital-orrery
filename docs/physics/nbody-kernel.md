@@ -6,7 +6,7 @@ Worker).
 
 A spacecraft is a test particle: it feels the Sun, the planets, the Moon,
 near a planet that has them that planet's major moons ([below](#moons)),
-and near one of them the sixteen most massive asteroids
+and near one of them the sixteen most massive asteroids [1]
 ([below](#asteroids)), but does not pull on them. Their positions come from the ephemeris, so they
 move on their real paths throughout every step.
 
@@ -128,10 +128,44 @@ table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
+**The giants' higher zonal terms.** Jupiter carries its zonal field to
+$J_{12}$, and Saturn, Uranus and Neptune their $J_4$, each from the same
+solution as its $J_2$ and referred to the same radius (Jupiter's from the
+PDS table of Durante et al. 2020). With $s = z/d$ and $P_n$ the Legendre
+polynomial, degree $n$'s potential is $-\mu J_n R^n P_n(s)/d^{n+1}$, and
+
+$$
+\mathbf a_n = -\frac{\mu J_n R^n}{d^{n+2}}\left[P_n'(s)\,\hat{\mathbf p}
+- \bigl(s\,P_n'(s) + (n+1)P_n(s)\bigr)\,\frac{\mathbf d}{d}\right],
+$$
+
+with $P_n$ and $P_n'$ from Bonnet's recursion,
+$(n+1)P_{n+1} = (2n+1)sP_n - nP_{n-1}$ and
+$P_{n+1}' = P_{n-1}' + (2n+1)P_n$. A term acts only where
+$(n+1)|J_n|(R/d)^n$ is above $10^{-13}$ of the planet's pull: $J_4$
+everywhere within the $J_2$ cutoff, $J_8$ within 7 Jupiter radii, $J_{12}$
+within 2.7, so out among the moons the extra degrees cost nothing.
+
+- **Checks:** `flyby.test.mjs` case 5 takes Jupiter's field to $J_{12}$
+  against the potential's gradient ($2\times10^{-9}$ relative, 1.05 to 1.6
+  Jupiter radii out, where $J_5$ to $J_{12}$ are up to 0.4 % of the
+  field's pull). Case 3b flies the same $J_4$ written out separately as an
+  outside force: it matches the kernel's to 0.1 m.
+- **Effect:** at five Jupiter radii $J_4$ is $5\times10^{-7}$ of
+  Jupiter's pull; near Juno's perijoves, 1.02 radii out, $J_6$ is
+  $4\times10^{-5}$. Flown through the PJ57 perijove, Juno is 5.0 km off
+  two hours on with $J_2$ and $J_4$ only and 0.55 km with the field to
+  $J_{12}$; with $J_2$ alone, 150 km ([validation](../validation.md#juno-at-io)).
+- **What is not in it:** Jupiter's tesseral terms and tides. Its $J_9$,
+  $J_{11}$ and $J_{12}$ are in, though within their own 3σ uncertainties. The rocky planets'
+  $J_4$ is left out: about $10^{-3}$ of the Earth's $J_2$ and $10^{-2}$ of
+  Mars's, and the app's craft carry the Earth's and the Moon's full fields.
+
 The forces beyond these (the Earth's and Moon's higher harmonics, the
 Earth's tides, drag, sunlight pressure, venting and relativity) come from
 [the space environment](environment.md), through the `extraAccel` hook. Not
-yet modelled: the planets' harmonics beyond $J_2$, the moons' fields beyond
+yet modelled: the planets' harmonics beyond $J_2$ (beyond $J_{12}$ for
+Jupiter and $J_4$ for the other giants), the moons' fields beyond
 degree 2 ([moons](#the-moons-own-fields)), and the asteroids.
 
 ## Integrators
@@ -174,7 +208,9 @@ the fifth, and their difference estimates the step's error:
   `maxSteps`.
 - **Impacts:** on a conic that dips inside its primary the step is capped
   at the old fixed fraction of the dynamical time (as in Encke's method),
-  so a craft is found inside a body as soon after hitting it as before.
+  so a step that grazes a body and comes out again is still caught. Where
+  inside the step the craft met the surface is found on the step's dense
+  output ([impacts](#impacts)).
 
 Against Yoshida's fixed fraction (below), at the default tolerance. The
 references are runs at $10^{-10}$ km a step, which agree with Yoshida at a
@@ -194,7 +230,7 @@ each step costs six force evaluations to Yoshida's three, and in steady
 running it is faster everywhere but among a giant planet's moons
 ([performance](../performance.md#measured)).
 
-`method: 'yoshida4'` (or `'leapfrog'`) gives the symplectic integrators
+`method: 'yoshida4'` (or `'leapfrog'`) gives the symplectic integrators [2]
 below, and fixed steps always use them.
 
 ### Kick-drift-kick leapfrog (velocity Verlet)
@@ -223,7 +259,7 @@ w_0 = -\frac{2^{1/3}}{2 - 2^{1/3}} = -1.7024143839193153
 $$
 
 ($2w_1 + w_0 = 1$) cancel the third-order error terms, leaving a fourth-order
-method that is still time-reversible (Yoshida 1990). The middle step runs
+method that is still time-reversible (Yoshida 1990 [3]). The middle step runs
 backwards in time, so stage times reach about $t - 0.35h$ and $t + 1.35h$;
 everything evaluated there (ephemeris, thrust with falling mass) is smooth,
 so this is harmless.
@@ -278,10 +314,11 @@ while $\mathbf r$ kept drifting).
 ### Step budget
 
 Each call has a step budget (200,000 in the kernel, 20,000 per frame in the
-app). Steps are never stretched to meet it: a stretched step near a planet can
-pass straight through it. When the budget runs out the advance stops short
-and reports `complete: false`; the app carries on from there next frame and
-shows that physics is behind the clock.
+app), and may have a time budget (`deadline`, a `performance.now()` time).
+Steps are never stretched to meet either: a stretched step near a planet can
+pass straight through it. When a budget runs out the advance stops short,
+after at least one step, and reports `complete: false`; the app carries on
+from there next frame and shows that physics is behind the clock.
 
 ## Encke's method
 
@@ -350,10 +387,8 @@ local dynamical time in velocity. Steps end on the primary's ephemeris nodes
 the step so each uses the cubic of the interval it crosses; they are capped,
 as in Cowell, at 1 % of every other body's dynamical time, and at 1 % of the
 primary's on a conic whose periapsis is inside it, so impacts are caught as
-tightly as before. An impact is a step that ends below the body's surface:
-the Earth's is sea level, the WGS-84 ellipsoid about its pole of date
-(6,378.137 km at the equator, 6,356.752 km at the poles); every other
-body's is the sphere of its mean radius. When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
+tightly as before. A step that ends below the body's surface has hit it,
+and the crossing is found inside the step ([impacts](#impacts)). When $|\boldsymbol\delta|$ exceeds $10^{-4}|\boldsymbol\rho|$
 the conic is re-anchored on the current state (rectification).
 
 **The other bodies within a step.** They act on the craft only through
@@ -403,17 +438,85 @@ elements) would win that back, and is the next speed-up.
 
 Checked at the end of each step:
 
-- **Impact**: closer to a body's centre than its radius, or closer than
-  695,700 km to the Sun's. The advance stops there. The planets' moons are
-  bodies like any other here, with their radii from Horizons.
+- **Impact**: below a body's surface, or closer than 695,700 km to the
+  Sun's centre. The Earth's surface is sea level, the WGS-84 ellipsoid
+  about its pole of date (6,378.137 km at the equator, 6,356.752 km at the
+  poles); every other body's is the sphere of its mean radius, the moons'
+  from Horizons. The advance stops where the step crossed the surface
+  (below), and the event carries that time and the speed relative to the
+  body's centre (`{ type: 'impact', body, t, speed }`).
 - **Primary change**: the innermost sphere of influence holding the craft, by
-  Laplace's radius $r_\text{SOI} = d\,(\mu/\mu_\text{primary})^{2/5}$ ($d$ the
+  Laplace's radius [4] $r_\text{SOI} = d\,(\mu/\mu_\text{primary})^{2/5}$ ($d$ the
   body's distance from its primary; the Moon's is relative to Earth, and
   each planet's moon's relative to its planet: Ganymede's is 24,500 km).
   Reported; the advance continues.
 
 Known limit: the check is at step ends with no hysteresis, so a craft
 skimming a boundary can switch back and forth.
+
+### Impacts
+
+The surface is tested at the end of each step, so a step that ends below
+it crossed it somewhere inside. Until November 2026 the impact was
+reported there, up to a step late: 1 % of the local dynamical time near a
+surface, 14 s and 46 km below Ganymede's for a fall at 3.9 km/s. Now each
+integrator hands over its continuous extension of the step just taken,
+the state at a fraction $s \in [0, 1]$ of it (`impact.js`):
+
+- **Dormand–Prince** (Cowell's default): its dense output, the
+  fourth-order continuous extension of DOPRI5 [14, Sec. II.6], from the
+  step's two ends and seven stages, at no new force evaluations. Its
+  error is of the order of the step's own local error.
+- **Encke's method:** the same dense output for the deviation
+  $\boldsymbol\delta(s)$, with the reference conic carried to the same
+  instant (`keplerStep`) and the primary placed there from its ephemeris.
+- **Yoshida's and the leapfrog:** a cubic Hermite through the step's ends
+  (place and velocity at both). Their steps near a surface are 1 % of the
+  dynamical time, so the cubic errs by about $h^4|\mathbf r''''|/384$:
+  $10^{-10}$ km on a 14 s step onto Ganymede.
+
+On that path the crossing is the first root of the surface's level
+
+$$
+L(s) = \sqrt{\frac{|\mathbf d|^2 - z^2}{a^2} + \frac{z^2}{c^2}} - 1,
+$$
+
+$\mathbf d$ the craft less the body's centre at that time,
+$z = \mathbf d\cdot\hat{\mathbf p}$ along its pole, $a$ and $c$ its
+equatorial and polar radii (a sphere has $a = c = R$ and
+$L = |\mathbf d|/R - 1$). $L$ is negative exactly where the craft is below
+the surface, and near it $L$ is the height over the local radius. $L$ is
+sampled at eighths of the step for the first change of sign, so a step
+that dips in, out and in again is caught at its first entry. Then regula
+falsi in its Illinois form closes on the root to a microsecond. The state
+is put back there, and the advance returns.
+
+`nbody.test.mjs` case 6b drops a craft from 5,000 km onto a still body of
+radius 1,737.4 km, on an ellipse whose periapsis is 1,000 km. Two-body, it
+meets $r = R$ at the eccentric anomaly $E = 2\pi - \arccos((1 - R/a)/e)$,
+$(E - e\sin E - \pi)/n$ after apoapsis [4, Sec. 3.4], at the speed
+$\sqrt{\mu(2/R - 1/a)}$:
+
+| Integrator | Impact time against the two-body crossing | Height | Speed |
+| --- | ---: | ---: | ---: |
+| Dormand–Prince (Cowell) | 2 µs early | under 1 mm | to 1 mm/s |
+| Encke's method | under 1 µs | under 1 mm | to 1 mm/s |
+| Yoshida (Cowell) | 9 µs early | under 1 mm | to 1 mm/s |
+| leapfrog | 67 ms late (its own path, second order) | under 1 mm | 0.02 m/s fast |
+
+Onto a tilted WGS-84 ellipsoid it meets the exact conic's crossing
+(universal variables, bisected) to under 1 ms. `flyby.test.mjs` case 4's
+fall onto Ganymede now ends on the surface, not 46 km in.
+
+- **In the app:** a planned landing's touchdown speed (`landing.js`
+  `TOUCHDOWN_SPEED`, 10 m/s over the turning ground) is taken from the
+  kernel's state at the impact, which is now the crossing. `craft.js` and
+  `journeyFlight.js` used to walk back from the end of the step along a
+  two-body path, which left out the braking thrust. A capsule's
+  splashdown speed (under its chutes) is taken there too.
+- **Known limit:** a step that enters a body and leaves it again within
+  one eighth of a step is not seen. Near a body the step is capped at 1 %
+  of the dynamical time, so that would take a graze a few metres deep.
 
 ## Body positions between ephemeris calls
 
@@ -520,29 +623,46 @@ of it. Beyond that its pull is under $2\times10^{-15}$ km/s², a kilometre in
 a year, and the inner solar system never comes within 28 AU of it.
 Everywhere else it would only add a tenth to every force sum.
 
-**Nodes.** A planet's centre is interpolated on 6-hour nodes, built on the
-barycentre's own cubic plus the moons' offset. Each moon about its planet
-is a cubic of its own, whose spacing divides 6 hours and keeps
-$(\Delta n)^4 a/384$ under 100 m. Io, Europa, Ganymede and Callisto share
-Io's spacing, because `JupiterMoons` gives all four at once. A moon's
-heliocentric ephemeris is the sum of the two cubics (its nodes are the
-moon's, which Encke's steps end on). Measured against the models directly
-over 20 days (`flyby.test.mjs` case 1):
+**Nodes.** A planet's centre is interpolated on nodes, built on the
+barycentre's own cubic plus the moons' offset: Jupiter's an hour apart,
+the others' 6 hours. Each moon about its planet is a cubic of its own,
+whose spacing divides its planet's and keeps $(\Delta n)^4 a/384$ under
+10 m. Io, Europa, Ganymede and Callisto share Io's spacing, because
+`JupiterMoons` gives all four at once. A moon's heliocentric ephemeris is
+the sum of the two cubics (its nodes are the moon's, which Encke's steps
+end on). Measured against `moons.js` directly over 20 days from 12
+November 2026, from the satellite-ephemeris tables (`flyby.test.mjs`
+case 1):
 
 | Body | Node spacing | Worst error |
 | --- | ---: | ---: |
-| Mars's centre; Phobos, Deimos | 6 h; 18, 45 min | 0.2 m; 101 m, 36 m |
-| Jupiter's centre; Io, Europa, Ganymede, Callisto | 6 h; 36 min | 34 m (Io's 20 km swing of the centre); 69 m (Io), 34–38 m |
-| Saturn's centre; Mimas to Rhea; Titan; Iapetus | 6 h; 24–90 min; 3 h; 6 h | 1 m; 54–90 m; 24 m; 2 m |
-| Uranus's centre; Miranda to Oberon | 6 h; 40 min–3 h | 2 m; 19–80 m |
-| Neptune's centre; Triton | 6 h; 2 h | 1 m; 58 m |
-| Pluto's centre; Charon | 6 h; 3 h | 20 m (Charon's 2,100 km swing); 20 m |
+| Mars's centre; Phobos, Deimos | 6 h; 10, 30 min | 0 m; 10 m, 7 m |
+| Jupiter's centre; Io, Europa, Ganymede, Callisto | 1 h; 20 min | 10 m; 12 m |
+| Saturn's centre; Mimas to Rhea; Titan; Iapetus | 6 h; 14–45 min; 2 h; 6 h | 29 m; 26–31 m; 28 m; 1 m |
+| Uranus's centre; Miranda to Oberon | 6 h; 22 min–2 h | 1 m; 5–22 m |
+| Neptune's centre; Triton | 6 h; 72 min | 1 m; 7 m |
+| Pluto's centre; Charon | 6 h; 2 h | 20 m (Charon's 2,100 km swing); 18 m |
 
-Those were measured with the moons from their mean elements. From the
-satellite-ephemeris tables (2000–2049) the worst over all of them is 104 m
-(Callisto): each interval of a table is pinned to the SPK at its ends, but
-its velocity there is a few cm/s off, which a cubic over a 36-minute node
-spacing turns into tens of metres.
+Where an error is well over 10 m, the cubics are not what sets it. Each
+interval of a satellite table is pinned to the SPK at its ends, but its
+velocity there is a few cm/s off, which a cubic turns into an error that
+grows with the node spacing. On 6-hour nodes Jupiter's centre was 100 m
+off, and its moons with it, though their own cubics held them to 2–7 m
+about it; hourly nodes bring it to 10 m. Saturn's centre keeps 6 hours
+and about 30 m: its moons swing it less, and no check yet needs it closer.
+
+The spacing matters most on a slow pass. On Cassini's T45 pass over Titan
+(below), Titan's nodes three hours apart (100 m, before November 2026)
+put it 27 m from JPL's table at closest approach and Cassini 0.093 km off
+nine hours on; two hours apart, 14 m and 0.004 km.
+
+**Cost** of the tighter nodes, in simulated days: at Saturn 336 moon nodes
+a day instead of 192, at 4.5 µs each about 6 % of a run among its moons
+(about 10 % among Mars's). At Jupiter, 288 moon and 24 centre nodes a day
+instead of 160 and 4. Steps are unchanged in number. On a wide orbit
+(1.5 million km, 25 steps a day) that and the higher zonal terms cost 10
+to 30 % more CPU a simulated day, and on a busy one crossing Io's orbit
+(198 steps a day) 0 to 4 %, within this machine's noise.
 
 `moons.js` knows the moons themselves to within 1 km from 2000 to 2049
 (JPL's satellite ephemerides as tables) and, outside that, to 130 to 650 km
@@ -552,8 +672,13 @@ kernel, set how closely a flyby of a moon can be followed. On Juno's pass
 over Ganymede the kernel follows JPL's trajectory to 0.09 km after nine
 hours with JPL's moons (Ganymede where Juno's own track puts it), 22.7 km
 with `moons.js`'s (22.9 km with the Ganymede Horizons serves; 323 km with
-the fallback's), and 9,300 km with no moons
-([validation](../validation.md#the-moons-pull-junos-ganymede-flyby-flybytestmjs)).
+the fallback's), and 9,300 km with no moons. Juno's pass 1,496 km over
+Io on 30 December 2023 is followed to 0.041 km an hour on; Io's $J_2$
+and $C_{22}$ take that from 0.186 km. On through the perijove that
+followed, 1.02 Jupiter radii out, it is 0.28 km off there and 0.55 km two
+hours on, with Jupiter's field to $J_{12}$. Cassini's T45 pass 1,613 km over Titan
+is followed to 4 m nine hours on, with Titan's nodes two hours apart
+([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
 
 **Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never
 evaluates a moon):
@@ -577,11 +702,11 @@ Eunomia, Psyche, Euphrosyne, 52 Europa, Cybele, Sylvia, Thisbe, Camilla,
 Davida and Interamnia.
 
 - **GM:** the DE441 masses of the SB441-N16 perturber file, as NAIF's
-  `gm_de440.tpc` gives them (`BODY2000001_GM` etc.). Its sources list the
+  `gm_de440.tpc` gives them [5] (`BODY2000001_GM` etc.). Its sources list the
   "SB441-N16 small-body integration perturber file (DE441 masses)". Ceres
   62.63 km³/s², Vesta 17.29, Pallas 13.67, Hygiea 5.63, Psyche 1.59; the
   smallest, Cybele, 0.94.
-- **Positions:** SB441's own, from the Chebyshev table `sbTable.js`
+- **Positions:** SB441's own [6], from the Chebyshev table `sbTable.js`
   ([small bodies](../frontend/small-bodies.md#exact-positions-for-the-largest)),
   within 1 km of SB441 from 2000 to 2050 and two-body from the table's
   ends outside it. In the kernel each is a Hermite cubic through nodes a
@@ -634,6 +759,24 @@ means the next request covers a longer span. Every result carries the craft's
 state version; a burn or a clock jump on the main thread bumps the version,
 and a result computed from the old state is dropped.
 
+Each batch sent to the Worker has a time budget of 200 ms (`budgetMs`,
+shared between its crafts, each taking an even share of what is left).
+Most batches take a few milliseconds and never meet it. Artemis II's entry
+does: from separation to splashdown under the guidance its steps cost about
+1.5 ms each, 20 ms early on, where each guidance cycle predicts the landing
+several times, and at a day a second the whole entry came in one request of
+3–4 s. The client took a Worker silent for 2 s for a dead one and moved the
+kernel onto the page's thread for good. Now the entry is flown in about 17
+requests, each answered in under 250 ms, and the client's timeout (15 s) is
+only for a Worker that has stopped answering. Where the pieces end moves
+the landing, as frames ending them at lower warp always have: each piece
+restarts the integrator, and the guidance samples its cycles at other
+instants. Cut by step counts from 5 to 500 and by budgets from 25 to
+400 ms, it lands 0–1.4 km and within 2.2 s from where the one-request
+entry lands, under half Orion's 2.1 nmi (3.9 km) miss from its target on
+Artemis I [16]. On the page's thread (no Worker, or after a fallback) requests
+still run to their end. Checked by `src/physics/kernelClient.test.mjs`.
+
 Results arrive a frame or so late, so a craft is drawn at its last exact state
 $(\mathbf r_0, \mathbf v_0, t_0)$ carried forward to the sim clock: along a
 two-body orbit about its primary (with the primary's own position from the
@@ -648,9 +791,17 @@ About a primary with a J2 (Earth, the Moon), the primary's J2 is taken out
 of $\mathbf a_\text{other}$: it turns with the craft around its orbit, so
 held constant it would make things worse (0.24 km off after 10 minutes in
 low orbit, 115 km after an hour). The craft is instead carried by two-body
-motion plus J2, integrated with classical RK4 at 1/256 of the orbital
-period (at most 2,048 steps), with the other accelerations still held
-constant. That gives 5×10⁻⁵ km after 10 minutes and 6.5 m after an hour.
+motion plus J2, integrated with classical RK4, with the other accelerations
+still held constant. Each step is 1/256 of the period of a circular orbit at
+the craft's radius, taken afresh at each step (at most 2,048 steps), so in
+a circular orbit it is 1/256 of the period and on an eccentric one the steps
+shorten through perigee. That gives 5×10⁻⁵ km after 10 minutes and 6.5 m
+after an hour in low orbit. The steps were once sized on the whole orbit's
+period instead: just after Artemis II's injection (a 10-day orbit) they were
+57 minutes long from 6,600 km, and the drawn craft was 17,000 km off the
+kernel after a 15-hour lag (up to 78,000 km in the app, switched from real
+time to a day a second before the burn). Now it is 6 km
+(`src/physics/warp.test.mjs`).
 The environment beyond J2 (the Earth's field to degree 20, the upper air,
 sunlight) is evaluated once per step, at its middle, and held across the
 step's four stages; J2 is still taken at every stage. That field is most
@@ -660,7 +811,8 @@ cheaper at high warp. Against the kernel, a low orbit's carry stays within
 
 That is within 0.06 km in low orbit and 0.09 km in cruise in the browser.
 
-Two more rules keep long carries honest (`Craft.carryForward`):
+Three more rules keep long carries honest (`Craft.carryForward`,
+`Craft.airCarry`):
 - **In pieces near a body.** A carry longer than a quarter of the dynamical
   time $\sqrt{r^3/\mu}$ at the closest the osculating conic comes is split
   into that many pieces (at most 32), the acceleration found afresh at each.
@@ -674,6 +826,19 @@ Two more rules keep long carries honest (`Craft.carryForward`):
   of the moment), and coasts on. A 100 m/s burn ten minutes into an hour's
   carry is drawn within 0.2 km of the kernel; carried with the kernel's
   acceleration alone it was left out entirely.
+- **Not into the air.** A two-body carry with its perturbations held, and
+  the drag taken at the starting velocity, is no model of an entry: carried
+  a day from Artemis II's crew module separation while the kernel flew the
+  entry, the drawn capsule was 191 million km out at 2,700 km/s. So the carry
+  stops where the conic about the Earth first comes down to the entry
+  interface, 400,000 ft (121.92 km) above the equatorial radius [15], found
+  from the anomaly at that radius by Kepler's equation (`timeToRadius` in
+  `orbital.js`, checked against `propagate`). There the craft keeps its
+  place over the Earth until the kernel answers: 120.3 km up at 11.0 km/s,
+  1.6 km below the interface (the carry's J2 and Moon are not quite the
+  conic). Below the interface it is carried at most 2 s. The kernel flies
+  the entry itself, and the capsule then lies at its splashdown site. A
+  bare craft (a journey's, with no air in its model) is carried as before.
 
 At very high warp the kernel can still be a frame or more behind, most of
 all while it holds at a burn for an aimed correction: at a day a second the
@@ -707,56 +872,57 @@ relative).
 
 | Moon | $J_2$ ($10^{-6}$) | $C_{22}$ ($10^{-6}$) | $R$ (km) | Source |
 | --- | ---: | ---: | ---: | --- |
-| Io | 1,834.6 ± 1.5 | 549.6 ± 0.3 | 1,821.6 | Park et al. 2025 (Juno and Galileo) |
-| Europa | 437.6 ± 77.5 | 138.62 ± 2.44 | 1,560.8 | Gomez Casajus et al. 2021 (Galileo reanalysed), as the JUICE review tabulates it |
-| Ganymede | 133.0 ± 6.8 | 39.56 ± 1.73 | 2,631.2 | Gomez Casajus et al. 2022 (Juno and Galileo); normalised 5.948167 and 6.128513 ×10⁻⁵ in its dataset |
-| Callisto | 32.7 ± 0.8 | 10.2 ± 0.3 | 2,410.3 | Anderson et al. 2001, as the JUICE review tabulates it |
-| Titan | 31.808 ± 0.404 | 9.983 ± 0.039 | 2,575 | Iess et al. 2010, Table 1, solution SOL1 |
+| Io | 1,834.6 ± 1.5 | 549.6 ± 0.3 | 1,821.6 | Park et al. 2025 [7] (Juno and Galileo) |
+| Europa | 437.6 ± 77.5 | 138.62 ± 2.44 | 1,560.8 | Gomez Casajus et al. 2021 [8] (Galileo reanalysed), as the JUICE review [9] tabulates it |
+| Ganymede | 133.0 ± 6.8 | 39.56 ± 1.73 | 2,631.2 | Gomez Casajus et al. 2022 [10] (Juno and Galileo); normalised 5.948167 and 6.128513 ×10⁻⁵ in its dataset |
+| Callisto | 32.7 ± 0.8 | 10.2 ± 0.3 | 2,410.3 | Anderson et al. 2001 [11], as the JUICE review [9] tabulates it |
+| Titan | 31.808 ± 0.404 | 9.983 ± 0.039 | 2,575 | Iess et al. 2010 [12], Table 1, solution SOL1 |
 
 - **Reference radii:** for Io, Europa and Callisto the radius is the mean
   radius the review lists beside the values. The papers themselves were not
   opened to confirm it; a radius a few kilometres off changes the term by
   well under 1 %.
-- **Titan:** the 2012 tidal solution (SOL1b, $J_2 = 34.227$, $C_{22} =
+- **Titan:** the 2012 tidal solution [13] (SOL1b, $J_2 = 34.227$, $C_{22} =
   10.263$) fits a Love number as well. The static 2010 solution is used,
   since the tide is not modelled.
 - **Not modelled:** the moons' fields beyond degree 2, and their tides.
-- **Effect:** small on a flyby. On Juno's pass 1,046 km over Ganymede it
-  moves the kernel's Juno by 0.2 km after nine hours. For a craft orbiting a
-  moon it is what turns the orbit.
+- **Effect:** small on most flybys, measurable on the close ones. On
+  Juno's pass 1,046 km over Ganymede it moves the kernel's Juno by 0.2 km
+  after nine hours. Over Io (1,496 km up) it is 0.14 km an hour on, and
+  over Titan (1,613 km) 0.36 km nine hours on; with it, the Io pass is
+  followed four and a half times more closely and the Titan pass seventy times (`flyby.test.mjs` cases 3b
+  and 3c). For a craft orbiting a moon it is what turns the orbit.
 
-## Sources
+## References
 
-- R. S. Park et al., "Io's tidal response precludes a shallow magma ocean",
-  *Nature* 638 (2025) 69-73, doi:10.1038/s41586-024-08442-5.
-- L. Gomez Casajus et al., "Updated Europa gravity field and interior
-  structure from a reanalysis of Galileo tracking data", *Icarus* 358 (2021)
-  114187, doi:10.1016/j.icarus.2020.114187.
-- L. Gomez Casajus et al., "Gravity field of Ganymede after the Juno extended
-  mission", *Geophysical Research Letters* 49 (2022) e2022GL099475,
-  doi:10.1029/2022GL099475; dataset doi:10.5281/zenodo.6949645.
-- J. D. Anderson et al., "Shape, mean radius, gravity field, and interior
-  structure of Callisto", *Icarus* 153 (2001) 157-161,
-  doi:10.1006/icar.2001.6664.
-- L. Iess et al., "Gravity field, shape, and moment of inertia of Titan",
-  *Science* 327 (2010) 1367-1369, doi:10.1126/science.1182583.
-- L. Iess et al., "The tides of Titan", *Science* 337 (2012) 457-459,
-  doi:10.1126/science.1219631.
-- The JUICE geophysics review in *Space Science Reviews* (2026),
-  doi:10.1007/s11214-026-01293-8, for its table of the Galilean moons'
-  fields.
+[1] JPL Solar System Dynamics, "Horizons" announcement of 2021 April 12: the switch to DE440/441 and the sixteen most massive small-body perturbers. [Online]. Available: https://ssd.jpl.nasa.gov/announcements/an20210412a.html
 
-- H. Yoshida, "Construction of higher order symplectic integrators",
-  *Physics Letters A* 150 (1990) 262-268.
-- E. Hairer, C. Lubich, G. Wanner, *Geometric Numerical Integration*, 2nd ed.
-  (Springer, 2006): leapfrog, composition methods, energy behaviour.
-- Laplace's sphere of influence: Curtis, 4th ed., Section 8.4.
-- The asteroids' GMs: NAIF `gm_de440.tpc` (from `gm_Horizons.pck`, J.
-  Giorgini, SSD/JPL, 2022), source 3, "SB441-N16 small-body integration
-  perturber file (DE441 masses)".
-- Their positions: JPL's SB441 ephemerides,
-  [ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/](https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/),
-  documented in JPL IOM 392R-21-005 (D. Farnocchia, 2021).
-- JPL SSD, "Horizons" announcement of 2021 April 12: the switch to DE440/441
-  and the sixteen most massive small-body perturbers,
-  [ssd.jpl.nasa.gov/announcements/an20210412a.html](https://ssd.jpl.nasa.gov/announcements/an20210412a.html).
+[2] E. Hairer, C. Lubich, and G. Wanner, *Geometric Numerical Integration*, 2nd ed. Berlin, Germany: Springer, 2006. Leapfrog, composition methods and energy behaviour.
+
+[3] H. Yoshida, "Construction of higher order symplectic integrators," *Phys. Lett. A*, vol. 150, nos. 5–7, pp. 262–268, 1990, doi: 10.1016/0375-9601(90)90092-3.
+
+[4] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. Section 8.4, Laplace's sphere of influence.
+
+[5] NAIF, `gm_de440.tpc`, generic PCK, from `gm_Horizons.pck` (J. Giorgini, SSD/JPL, 2022); source 3, "SB441-N16 small-body integration perturber file (DE441 masses)." [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/
+
+[6] JPL, "SB441 small-body ephemerides," documented in JPL IOM 392R-21-005 (D. Farnocchia, 2021). [Online]. Available: https://ssd.jpl.nasa.gov/ftp/eph/small_bodies/asteroids_de441/
+
+[7] R. S. Park *et al.*, "Io's tidal response precludes a shallow magma ocean," *Nature*, vol. 638, pp. 69–73, 2025, doi: 10.1038/s41586-024-08442-5.
+
+[8] L. Gomez Casajus *et al.*, "Updated Europa gravity field and interior structure from a reanalysis of Galileo tracking data," *Icarus*, vol. 358, Art. no. 114187, 2021, doi: 10.1016/j.icarus.2020.114187.
+
+[9] F. Nimmo *et al.*, "Internal structure and dynamics of the Galilean satellites," *Space Sci. Rev.*, 2026, doi: 10.1007/s11214-026-01293-8. The JUICE geophysics review; its table of the Galilean moons' fields.
+
+[10] L. Gomez Casajus *et al.*, "Gravity field of Ganymede after the Juno extended mission," *Geophys. Res. Lett.*, vol. 49, Art. no. e2022GL099475, 2022, doi: 10.1029/2022GL099475. Dataset: doi: 10.5281/zenodo.6949645.
+
+[11] J. D. Anderson *et al.*, "Shape, mean radius, gravity field, and interior structure of Callisto," *Icarus*, vol. 153, pp. 157–161, 2001, doi: 10.1006/icar.2001.6664.
+
+[12] L. Iess *et al.*, "Gravity field, shape, and moment of inertia of Titan," *Science*, vol. 327, pp. 1367–1369, 2010, doi: 10.1126/science.1182583.
+
+[13] L. Iess *et al.*, "The tides of Titan," *Science*, vol. 337, pp. 457–459, 2012, doi: 10.1126/science.1219631.
+
+[14] E. Hairer, S. P. Nørsett, and G. Wanner, *Solving Ordinary Differential Equations I: Nonstiff Problems*, 2nd rev. ed. Berlin, Germany: Springer, 1993, doi: 10.1007/978-3-540-78862-1. Section II.6, dense output: the continuous extension of DOPRI5.
+
+[15] NASA, "Artemis II flight day 9: crew prepares to come home," NASA Artemis blog, Apr. 9, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/09/artemis-ii-flight-day-9-crew-prepares-to-come-home/
+
+[16] J. Rea, L. McNamara, and M. Kane, "Orion Artemis I entry performance," in *Proc. 46th Annu. AAS Guidance, Navigation and Control Conf.*, Feb. 2024, Paper AAS 24-174. NTRS 20240001314 (slides) and 20240000024 (paper). Table 4: splashdown 2.1 nmi from the target.
