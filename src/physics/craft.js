@@ -412,8 +412,7 @@ export class Craft {
     if (!burn) { this.note('node refused: no propellant', node.t); return false; }
     if (burn.axis) {
       burn.nodeDir = unit(d);
-      const off = Math.acos(Math.max(-1, Math.min(1, dot(unit(d), this.bodyAxis)))) * 180 / Math.PI;
-      if (off > 1) this.note(`node burning along the body axis, ${off.toFixed(1)}° off the node's direction`, node.t);
+      burn.nodeId = node.id;             // the attitude notes how far off it starts (craftAttitude.js)
     }
     this.executing = { node, burn };
     this.note(`node burn: ${(dv * 1000).toFixed(1)} m/s over ${duration.toFixed(1)} s`, node.t);

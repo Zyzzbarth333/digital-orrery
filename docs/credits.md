@@ -40,6 +40,7 @@ Every data source, map, font and library the app uses, with a link to where it c
 | NASA/JSC navigation, via [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) | Artemis I's as-flown trajectory |
 | JPL navigation: Juno's reconstructed trajectory and Cassini's final post-mission reconstruction, via [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) | Juno's passes over Ganymede and Io and Cassini's over Titan, the checks on the moons' pull |
 | NASA Engineering and Safety Center, [NASA/TM-2015-218675](https://ntrs.nasa.gov/citations/20150001263) ([check-case data](https://nescacademy.nasa.gov/flightsim/2015)) | the 6-DOF check cases |
+| ArianeGroup, [*Chemical Bi-Propellant Thruster Family*](https://ariane.group/app/uploads/2024/09/ArianeGroup_Chemical_Bipropellant_Thruster_Family.pdf) (the 10 N thruster's 292 s) | the class of the app's craft's attitude thrusters, and their Isp |
 | NASA Ames Research Center, [Trajectory Browser](https://trajbrowser.arc.nasa.gov/) | transfer optima to compare against |
 | D. A. Vallado, P. Crawford, R. Hujsak and T. S. Kelso, [*Revisiting Spacetrack Report #3*](https://celestrak.org/publications/AIAA/2006-6753/) (AIAA 2006-6753): its verification set and TEME example | the SGP4 checks |
 | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/): the ISS (−125544) | the satellites' independent check |
