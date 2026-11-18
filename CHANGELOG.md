@@ -109,7 +109,12 @@ once it has releases. Until then, everything sits under Unreleased.
   Dimorphos against its navigators' (`?mission=dart`): burns along their
   measured directions about the Sun, aims flown in the craft's own
   sunlight and as they are flown; Juno shows no flyby anomaly, and the
-  app's DART strikes 23 m from Dimorphos's centre (this pull request).
+  app's DART strikes 23 m from Dimorphos's centre (#97).
+- LRO's capture at the Moon in June 2009 flies in the app against its
+  final reconstruction (`?mission=lro`), down to its 30 km commissioning
+  orbit in the Moon's GRAIL field, checked degree by degree; burns the
+  reconstruction can't resolve are fitted as the engine would fly them
+  (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).

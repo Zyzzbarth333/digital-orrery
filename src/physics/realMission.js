@@ -162,12 +162,14 @@ export class RealMission {
   // the file asks to be aimed in it (data.aimInEnvironment: a cruise of
   // months, where sunlight matters; Artemis aims over days, in gravity);
   // such a file's corrections are also solved for as they are flown,
-  // spread over the burn (aimTo's spread).
+  // spread over the burn (aimTo's spread), by Newton's method damped (up to
+  // eight rounds, a step that misses by more halved): aimed a day across
+  // LRO's new lunar orbit, the first full step overshoots.
   aimRequest(r, v, aim, burns = [], env = null) {
     const target = this.fixAt(aim.targetMs);
     if (!target || !this.fixAt(aim.atMs)) return null;
     const asFlown = !!this.data.aimInEnvironment;
-    return { r: [...r], v: [...v], t0: kernelSeconds(new Date(aim.atMs)), T: target.t, target: target.r, env: asFlown && env ? env : null, spread: asFlown ? (aim.endMs - aim.atMs) / 1000 : 0, burns: burns.filter((b) => !b.aimed).map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted })) };
+    return { r: [...r], v: [...v], t0: kernelSeconds(new Date(aim.atMs)), T: target.t, target: target.r, env: asFlown && env ? env : null, spread: asFlown ? (aim.endMs - aim.atMs) / 1000 : 0, ...(asFlown ? { damped: true, rounds: 8 } : {}), burns: burns.filter((b) => !b.aimed).map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted })) };
   }
   aimed(k, r, v, aim) {
     const x = this.fixAt(aim.atMs);
