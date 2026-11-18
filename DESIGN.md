@@ -340,7 +340,10 @@ never resampled.
 - Under 720 px the rail becomes a horizontal strip under the sky, the plate
   folds behind "Show data", the console takes the plate's place, the
   header's engraved labels hide (the controls keep their names), and the
-  screws go.
+  screws go. The header's first line names the app instead of the rail's
+  wordmark (DIGITAL-ORRERY, and "The real solar system, now, from NASA
+  ephemerides"), and a first visit shows one line over the sky on how to
+  touch it, gone at the first touch.
 
 ## Elevation & Depth
 
