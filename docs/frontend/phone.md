@@ -8,6 +8,13 @@ offset in `src/scene/OrreryScene.ts`.
 
 ![Mars on a 390 × 844 phone: the sheet at peek, the sky above it](phone-peek.jpg)
 
+Before and after, on Mars at 390 × 844 and 844 × 390 (left and top: main
+before this change):
+
+![Before and after on a 390 × 844 phone](phone-before-after.jpg)
+
+![Before and after at 844 × 390, a phone on its side](phone-before-after-side.jpg)
+
 ## Where it applies
 
 - **Below 720 px wide:** the sheet runs along the bottom.
