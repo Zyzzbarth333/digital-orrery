@@ -105,14 +105,32 @@ Three levels of patched conics join it to the moon
   way. Both have the energy $v_\infty^2/2$. Over 500 random states, both
   leave along $\mathbf v_{\infty,P}$ to $10^{-13}$, checked against the
   asymptote of the orbit they start.
-- **The excess about the moon:** $\mathbf v - \mathbf v_m$, from the root
-  nearer the moon's own velocity. It is the departure's excess speed in
-  Curtis 8.40 above.
-- **Not a pass of the planet:** a root that is still falling inward, with
-  its periapsis under half the moon's distance, swings past the planet on
-  its way out. The flight does not aim that pass, so the root is not taken
-  while the other one is left. Ten days into the stay below, the nearer
-  root dives to a perigee of 673 km, inside the Earth.
+- **The excess about the moon:** $\mathbf v - \mathbf v_m$, from the
+  cheaper root. It is the departure's excess speed in Curtis 8.40 above.
+- **A swing-by of the planet:** a root that is still falling inward
+  (arriving, still rising) passes its periapsis $r_p$ on the way. That is
+  a path like any other, unless it comes near the planet. A root whose
+  periapsis is under twice the planet's radius $R$ is charged a margin on
+  its excess speed (`transfers.js swingbyMargin`), with
+  $u = r_p/R - 1$ its height in planet radii:
+  $$\delta v = V\,\frac{(1-u)^2}{u},\qquad V = 0.1\ \text{km/s}.$$
+  - **Its shape:** none from $2R$ out, where it starts flat, so its slope
+    is zero there. 50 m/s at half a radius up, 810 at a tenth, and
+    without bound at the surface. A root that dives into the planet is
+    never taken.
+  - **Why a margin and not a line:** a root given up the moment its
+    periapsis crosses a line makes the price jump as the moon moves, when
+    the other root is dearer. The rule this replaced refused a root under
+    half the moon's distance, unless both were. Leaving the Moon for Mars
+    (below) it jumped 0.69 km/s between stays of 20 and 21 days. On day 20
+    the cheaper root (3.44 km/s, perigee 74,000 km) was refused. On day 21
+    the dearer one's perigee came under the line too, and a 101,000 km
+    perigee was taken. With the margin, the dearer root takes over
+    smoothly, as the cheaper one's margin grows to the difference.
+  - **Flown:** the flight aims early for a swing-by
+    ([Flying it](#flying-it), step 9). Ten days into the stay below, the
+    cheaper root dives to a perigee of 673 km, inside the Earth, and the
+    other is taken.
 
 **The phase.** Over a month the moon goes round, so the price swings.
 Leaving lunar orbit for Mars on 31 Oct 2026, the Moon's velocity is 66°
@@ -122,7 +140,9 @@ scalars): 1,652 m/s. The flight, in the full model, pays 2,257: 1.4 % more.
 
 The window strips step a day at a time for these legs, not every 8 days,
 so the month's ripple shows. Two days into that week's stay, the departure
-is 1,647 m/s; sixteen days in, 3,381. The planner suggests the best day
+is 1,647 m/s; thirteen days in, 3,240. A day later the cheaper way out
+swings by the Earth 3,700 km up (a 30 m/s margin), and it is 2,611. The
+planner suggests the best day
 (`journey.js phaseOption`):
 
 - **The search:** every day's best flight time, from the arrival at the
@@ -165,8 +185,8 @@ Figs. 1–2]. Leaving lunar orbit for Mars, arriving on 20 Aug 2027, after a
   day of stay.
 - Flown, an arc a few degrees off 180° is no better. The kernel's aims,
   re-solved from where the craft is, chase a plane that turns with every
-  kilometre the craft is off it. A 20-day stay (183.4°) flies with 679 m/s
-  of corrections, where nearby stays need about 150.
+  kilometre the craft is off it. A 21-day stay (182.4°) flies with 1,058
+  m/s of corrections, where the broken plane needs 176.
 
 **The broken plane** (`journey.js brokenPlane`) is the way round it
 [5, Sec. I]:
@@ -191,9 +211,8 @@ rule for the right spherical triangle: $\sin\delta = \sin\beta/\sin\phi$.
 tries the broken plane within 15° of 180°. It takes it there wherever it
 costs less than the direct arc. Within 6° it takes it even where the
 direct arc is a little cheaper on paper, since the direct arc doesn't fly
-as planned there. At 183.4° the direct arc is 12 m/s cheaper. Flown, the
-broken plane takes 205 m/s of corrections, 61 of them its planned break;
-the direct arc takes 679 m/s.
+as planned there. At 182.4°, flown, the broken plane takes 176 m/s of
+corrections, 61 of them its planned break; the direct arc takes 1,058 m/s.
 
 **Where it shows:**
 - The leg's arcs are drawn broken at $B$.
@@ -617,9 +636,36 @@ Each step, in time order:
      departure from that orbit is step 5.
 9. **Leaving a moon for another planet:** the plan's excess velocity is
    the planet's. The flight takes the excess velocity about the moon as
-   the plan does (`moonExcess`, at the moon's place when it leaves), and
+   the plan does (`moonExcess`, at the moon's place when it leaves, the
+   cheaper root with its margin), and
    step 5 flies it. The first aim waits until
    the craft is clear of the planet.
+   - **A swing-by of the planet** (a root that falls inward to a
+     periapsis under a quarter of the moon's distance): one more aim
+     comes first, aimed where the next one is (the break point, on a
+     broken plane). It comes once the craft is clear of the moon, at half
+     again the time to cross the moon's sphere at the excess speed about
+     it, and before half the fall to the periapsis. Leaving the Moon, that
+     is about eight hours out. Not when burn nodes shape the way.
+   - **Why:** patched conics take the moon as a point, so the craft leaves
+     its sphere a little off the planned hyperbola. The pass turns the way
+     out by more the nearer it comes, and that error with it. Aimed only
+     once clear of the Earth, five days out, a craft leaving the Moon for
+     Mars after a pass 10,000 km from the Earth's centre was 11 million km
+     off course, and the aims cost 888 m/s. Aimed early, they cost 173.
+   - **Why a quarter:** leaving the Moon for Mars (Earth orbit 20 Oct
+     2026, the Moon from 24 Oct, Mars 20 Aug 2027), passes 10,000 to 54,000
+     km out cost 310 to 890 m/s of aims without the early one and 119 to
+     185 with it. Farther out it saves nothing. At 101,000 km, just inside
+     the quarter that day, it costs 19 m/s more (176 against 157), and at
+     184,000 km 3 m/s more (164 against 161). At 130,000 km, with the
+     Moon 177.5° from the way out, it costs 621 against 177.
+   - **Stays of 18 to 24 days, flown:** each leaves on the cheaper root,
+     and all but one reach Mars within 1 km for 161 to 185 m/s of aims.
+     The 20-day stay's parking orbit decays onto the Moon before it leaves
+     ([Limits](#limits)). The 22- to 24-day stays reach the Moon 59 to 71
+     km off the planned periapsis, as they did on the rule this replaced,
+     and that sends the app's flight to the bare model.
 
 The burns are finite, at 20 m/s² (3 km/s in two and a half minutes). The
 closest approach to each waypoint is watched over a window about its date.
@@ -943,16 +989,18 @@ orbits, waits 454 days.
 | Mars orbit to lunar orbit, and to a landing, flown (porkchop optimum, 11 Aug 2028 to 23 Jul 2029) | the plan, the Moon reached via the Earth | aimed at the Moon: 1.3 km off the planned periapsis; capture 2,061 m/s against 2,123 (within 5 %); landed at 2.3 m/s |
 | Earth orbit, a week in lunar orbit, then Mars, flown in the full model | the plan, priced by where the Moon is | leaves the Moon for 2,257 m/s against the plan's 2,227 (1.4 %, within 3 %; the best-phase price was 1,652); Mars 1.4 km off; corrections 165 m/s |
 | The hyperbolas from a point onto a given excess velocity, 500 random states | the asymptote from the eccentricity vector [1, Sec. 2.5] | both leave along it to 1.2 × 10⁻¹³ |
-| The same journey's strip leaving the Moon | the Moon's month | a point a day; 3.71 to 5.42 km/s; its lows on days 2 and 28 |
+| The same journey's strip leaving the Moon | the Moon's month | a point a day; 3.71 to 5.28 km/s; its lows on days 2 and 28 |
 | The best day in its stay | the strip | 26 Oct 2026, 3.706 km/s for the leg against 4.339 as scheduled; an option and the phase lamp |
 | Flown on that day | its price | leaves the Moon for 1,666 m/s against 1,657 (0.5 %); Mars 0.1 km off |
-| Ten days into the stay | the Earth's radius | the nearer hyperbola dives to a 673 km perigee and is not taken; the other, 3.814 km/s about the Moon, is |
+| The swing-by margin | its formula | none from two planet radii out, flat there; 50 m/s at half a radius up, 810 at a tenth, without bound at the surface |
+| Ten days into the stay | the Earth's radius | the cheaper hyperbola dives to a 673 km perigee and is not taken; the other, 3.814 km/s about the Moon, is, with no margin |
+| The price an hour at a time, stays of 18 to 30 days (the 21-day leg's excess velocity) | the Moon's motion | largest step 73 m/s, near day 22, where the Moon passes 177.5° from the way out; the old rule (no swing-by under half the Moon's distance unless both were) jumped 741 m/s on day 20.8 |
 | What makes the full model's flight fall back | the rules above | an aim with no burn, a crash, a landing not made and a 400 km miss, each a reason |
 | Earth orbit, 23 days at the Moon, Mars on 20 Aug 2027: the leg at 180.4° | Abilleira [5]: a direct arc near 180° tilts steeply; a burn near halfway breaks the plane | direct 15.69 km/s on a plane tilted 20.1°; broken plane 4.572 km/s, its break at 47.0 % of the flight |
 | The broken plane's arcs and its break | geometry; two-body; Curtis eq. (6.20) on the horizontal speed; Napier's rule | first arc in the Earth's plane to 10⁻⁶°; the arcs join and reach Mars to 1 m; the break 60.869 m/s, the pure plane change to 10⁻³; the turn 0.1452° against Napier's 0.1452° (to 1 %) |
 | Stays of 18 to 30 days, through 180° | smoothness | the excess speed leaving the Earth 3.17 to 3.72 km/s, its second difference at most 2.9 m/s (under 20); direct, 11 km/s |
 | The plane lamp; the options | the rules above | lit at 180.4°, with the break's date; none at 196°; "Direct, one plane" listed, at 15.69 km/s |
-| 20 days at the Moon (183.4°), flown in the full model | the plan | broken plane 205 m/s of corrections (61 planned) and Mars 0.7 km off, within 250 m/s and 20 km; direct 679 m/s (over 500) |
+| 21 days at the Moon (182.4°), flown in the full model | the plan | broken plane 176 m/s of corrections (61 planned) and Mars 0.8 km off, within 250 m/s and 20 km; direct 1,058 m/s (over 500) |
 
 ## Limits
 
@@ -975,9 +1023,17 @@ orbits, waits 454 days.
   were.
 - **A moon left for a planet:** three levels of patched conics at the
   moon's place. The moon's own pull on the way out of the planet's sphere
-  is the flight's (its aims take it up), and a way out that passes close
-  by the planet is not taken. The ideal options still take the moon's best
-  phase.
+  is the flight's (its aims take it up). A way out that swings by the
+  planet is taken when it is cheaper, with a margin under two planet
+  radii that is set by hand, not worked out from the flight's errors. The
+  ideal options still take the moon's best phase.
+- **A long stay in low lunar orbit:** the parking orbit is held in the
+  plane of the way out, and the Moon's mascons bring some of those planes
+  down within weeks, as they did Apollo 16's subsatellite
+  ([environment](environment.md)). Leaving for Mars, 100 km up, the 20-day
+  and the 30-day stays' orbits meet the Moon before they leave (the
+  30-day one on the rule this replaced too). The planner doesn't price the
+  orbit's life or a station-keeping burn.
 - **The broken plane:** its first arc keeps to the departure body's
   orbit plane, and its break is placed by when it comes, not searched in
   three dimensions. A deep-space burn that also reshapes the orbit can

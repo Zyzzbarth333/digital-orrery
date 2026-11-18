@@ -537,14 +537,38 @@ header('CASE 10: leaving a moon by where it is: the phase, the strips and the be
   const depB = Number(/moon: (\d+) m\/s/.exec(fb.log.find((l) => l.startsWith('depart moon')) ?? '')?.[1] ?? NaN) / 1000;
   console.log(`  leaving on that day: planned ${(sb.legs[1].depDv * 1000).toFixed(0)} m/s, flown ${(depB * 1000).toFixed(0)}; Mars ${fb.arrivals[1].missKm.toFixed(1)} km off, corrections ${(fb.correctionsDv * 1000).toFixed(0)} m/s`);
   check('flown on the suggested day: the departure within 3 % of its price, Mars within 20 km of plan', Math.abs(depB / sb.legs[1].depDv - 1) < 0.03 && fb.arrivals[1].missKm < 20 && !fb.impact);
-  // A hyperbola that would swing in close past the Earth is not taken: the
-  // flight does not aim that pass.
-  // Ten days in: the hyperbola nearer the Moon's velocity dives to a
-  // perigee inside the Earth on its way out; the other is taken.
+  // Of the two hyperbolas the cheaper is taken, and one that swings past
+  // the planet on the way out pays a margin as its periapsis comes under
+  // two of the planet's radii, without bound at the surface
+  // (transfers.js swingbyMargin): it is given up smoothly.
+  const RE = J.bodyInfo('earth').radius, M = X.swingbyMargin;
+  const slope = (M(2 * RE - 1, RE) - M(2 * RE - 2, RE));
+  console.log(`  the margin: ${M(2 * RE, RE)} from two radii out, slope ${(slope * 1000).toExponential(1)} m/s a km just under; ${(M(1.5 * RE, RE) * 1000).toFixed(0)} m/s at half a radius up, ${(M(1.1 * RE, RE) * 1000).toFixed(0)} at a tenth, ${M(RE, RE)} at the surface`);
+  check('the swing-by margin: none from two planet radii out, flat there (under 1e-7 km/s a km), growing without bound to the surface', M(2 * RE, RE) === 0 && M(3 * RE, RE) === 0 && Math.abs(slope) < 1e-7 && M(1.5 * RE, RE) > 0 && M(1.1 * RE, RE) > M(1.5 * RE, RE) && M(RE, RE) === Infinity && M(0.5 * RE, RE) === Infinity);
+  // Ten days in: the cheaper hyperbola dives to a perigee inside the Earth
+  // on its way out, and the other is taken.
   const L10 = J.solveJourney(mm(10)).legs[1], m10 = J.relState('moon', 'earth', L10.depMs), muE = J.bodyInfo('earth').mu;
-  const any = X.moonExcess({ rm: m10.r, vm: m10.v, vinf: L10.vinfDep, mu: muE }), kept = X.moonExcess({ rm: m10.r, vm: m10.v, vinf: L10.vinfDep, mu: muE, rMin: 0.5 * norm(m10.r) });
-  console.log(`  ten days in: the nearer hyperbola ${any.speed.toFixed(3)} km/s about the Moon, perigee ${any.rp.toFixed(0)} km; taken instead ${kept.speed.toFixed(3)} km/s, perigee behind it at ${kept.rp.toFixed(0)} km`);
-  check('a way out that swings in past the planet (falling inward, periapsis under half the moon\'s distance) is not taken while another is', any.rp < J.bodyInfo('earth').radius && !kept.swingby && kept.speed > any.speed && Math.abs(L10.moonDep.speed - kept.speed) < 1e-12);
+  const any = X.moonExcess({ rm: m10.r, vm: m10.v, vinf: L10.vinfDep, mu: muE }), kept = X.moonExcess({ rm: m10.r, vm: m10.v, vinf: L10.vinfDep, mu: muE, rPlanet: RE });
+  console.log(`  ten days in: the cheaper hyperbola ${any.speed.toFixed(3)} km/s about the Moon, perigee ${any.rp.toFixed(0)} km; taken instead ${kept.speed.toFixed(3)} km/s, perigee behind it at ${kept.rp.toFixed(0)} km`);
+  check('a way out that dives into the planet (falling inward, periapsis under its radius) is not taken; the other is, at its own price', any.ahead && any.rp < RE && !kept.ahead && kept.margin === 0 && kept.speed > any.speed && Math.abs(L10.moonDep.cost - kept.speed) < 1e-12);
+  // Over stays of 18 to 30 days the dearer hyperbola's perigee comes under
+  // half the Moon's distance on day 21, where the rule this replaced (no
+  // swing-by under half the Moon's distance unless both were) jumped. With
+  // the excess velocity held (the 21-day leg's) and the Moon moved an hour
+  // at a time, the price now moves only as the Moon does; its steepest
+  // stretch is near day 22, when the Moon passes within 3 degrees of the
+  // line opposite the way out and the two hyperbolas swap.
+  const L21 = J.solveJourney(mm(21)).legs[1];
+  const hourly = (rule) => { let worst = 0, at = 0, prev = null; for (let h = 0; h <= 12 * 24; h++) { const ms = D('2026-10-24T00:00:00Z') + (18 * 24 + h) * 3600e3, m = J.relState('moon', 'earth', ms); const c = rule(m); if (prev !== null && Math.abs(c - prev) > worst) { worst = Math.abs(c - prev); at = 18 + h / 24; } prev = c; } return { worst, at }; };
+  const nowRule = hourly((m) => X.moonExcess({ rm: m.r, vm: m.v, vinf: L21.vinfDep, mu: muE, rPlanet: RE }).cost);
+  // (The old rule, for comparison, on both roots.)
+  const oldRule = hourly((m) => {
+    const all = X.moonRoots({ rm: m.r, vm: m.v, vinf: L21.vinfDep, mu: muE });
+    const ok = all.filter((x) => !(x.ahead && x.rp < 0.5 * norm(m.r)));
+    return Math.min(...(ok.length ? ok : all).map((x) => x.speed));
+  });
+  console.log(`  the price an hour at a time over stays of 18 to 30 days: largest step ${(nowRule.worst * 1000).toFixed(0)} m/s (day ${nowRule.at.toFixed(1)}); by the old rule ${(oldRule.worst * 1000).toFixed(0)} m/s (day ${oldRule.at.toFixed(1)})`);
+  check('the price moves only as the Moon does: its largest hourly step under 100 m/s over stays of 18 to 30 days, where the old rule jumped by over 500', nowRule.worst < 0.1 && oldRule.worst > 0.5);
 }
 
 header('CASE 12: reaching a moon via its planet: Mars orbit to the Moon, flown');
@@ -636,14 +660,17 @@ header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira 200
   console.log(`  the plane lamp: ${lamp?.text}; options ${opts.map((o) => `${o.name} ${o.dv.toFixed(2)}`).join(', ')}`);
   check('the plane lamp says the plane breaks, and when; none at 196 deg; the direct arc is listed for comparison and dearer', lamp?.level === 'caution' && Math.abs(lamp.bestMs - bp.ms) < 1 && !lamp7 && opts.find((o) => o.type === 'direct')?.dv > opts.find((o) => o.type === 'lambert').dv);
 
-  // Flown in the full model, 20 days at the Moon (183.4 deg, where the
-  // direct arc is 12 m/s cheaper on paper): the broken plane's corrections
-  // are its planned break and the usual trims, the direct arc's the cost of
-  // following a plane that will not hold.
+  // Flown in the full model, 21 days at the Moon (182.4 deg): the broken
+  // plane's corrections are its planned break and the usual trims, the
+  // direct arc's the cost of following a plane that will not hold. (It
+  // flew 20 days, where the direct arc was 12 m/s cheaper on paper, until
+  // the Moon's cheaper hyperbola was taken there: that one's parking
+  // orbit, held in the plane of the way out, decays onto the Moon in the
+  // stay. Both roots of 21 days fly, on either rule.)
   const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
-  const s20 = J.solveJourney(mm(20)), f20 = flyJourney(sys, planFlight(s20)), d20 = flyJourney(sys, planFlight(J.solveJourney(mm(20, 'direct'))));
-  console.log(`  20 d at the Moon, flown: broken plane ${(f20.correctionsDv * 1000).toFixed(0)} m/s of corrections (${(s20.legs[1].midDv * 1000).toFixed(0)} of them the planned break), Mars ${f20.arrivals[1].missKm.toFixed(1)} km off; direct ${(d20.correctionsDv * 1000).toFixed(0)} m/s, Mars ${d20.arrivals[1].missKm.toFixed(1)} km off`);
-  check('inside 6 deg of 180 the planner takes the broken plane; flown, it corrects under 250 m/s and reaches Mars within 20 km, against over 500 m/s for the direct arc', !!s20.legs[1].brokenPlane && f20.correctionsDv < 0.25 && f20.arrivals[1].missKm < 20 && !f20.impact && d20.correctionsDv > 0.5);
+  const s21 = J.solveJourney(mm(21)), f21 = flyJourney(sys, planFlight(s21)), d21 = flyJourney(sys, planFlight(J.solveJourney(mm(21, 'direct'))));
+  console.log(`  21 d at the Moon, flown: broken plane ${(f21.correctionsDv * 1000).toFixed(0)} m/s of corrections (${(s21.legs[1].midDv * 1000).toFixed(0)} of them the planned break), Mars ${f21.arrivals[1].missKm.toFixed(1)} km off; direct ${(d21.correctionsDv * 1000).toFixed(0)} m/s, Mars ${d21.arrivals[1].missKm.toFixed(1)} km off`);
+  check('inside 6 deg of 180 the planner takes the broken plane; flown, it corrects under 250 m/s and reaches Mars within 20 km, against over 500 m/s for the direct arc', !!s21.legs[1].brokenPlane && f21.correctionsDv < 0.25 && f21.arrivals[1].missKm < 20 && !f21.impact && d21.correctionsDv > 0.5);
 }
 
 header("CASE 13: the parking orbit's plane over a stay (Curtis Sec. 4.7)");

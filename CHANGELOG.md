@@ -15,6 +15,7 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 73 m/s an hour. The flight aims a swing-by early, before the pass turns its error into millions of kilometres (this pull request).
 - Craft launched in the app carry an attitude (6-DOF). The MISSION tab
   points them prograde, retrograde, normal, radial, along the next node
   or holds them still, and they turn in the time their thrusters' torque

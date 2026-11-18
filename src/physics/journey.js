@@ -158,6 +158,12 @@ export function legGeometry(aKey, bKey, resonant = false) {
 
 // ---------------- the burns at each end ----------------
 
+// The root taken about a moon's planet (transfers.js moonExcess): the
+// cheaper, a swing-by that comes near the planet charged its margin; a pass
+// under a quarter of the moon's distance is a swing-by for the flight, which
+// aims it early.
+const moonRoot = (m, vinf, planet, arrive) => X.moonExcess({ rm: m.r, vm: m.v, vinf, mu: bodyInfo(planet).mu, arrive, rPlanet: bodyInfo(planet).radius, rSwing: 0.25 * norm(m.r) });
+
 // From a stop onto an excess velocity vinf (km/s: a vector, or a speed)
 // about its body.
 //   orbit (and the start's parking orbit): from a circular orbit at altKm;
@@ -172,7 +178,7 @@ export function legGeometry(aKey, bKey, resonant = false) {
 // distance less the moon's own, as if the moon moved the way out.
 function moonSpeed(vinf, B, via, arrive) {
   const P = bodyInfo(B.parent);
-  if (via && typeof via === 'object' && Array.isArray(vinf)) return X.moonExcess({ rm: via.r, vm: via.v, vinf, mu: P.mu, arrive, rMin: 0.5 * norm(via.r) }).speed;
+  if (via && typeof via === 'object' && Array.isArray(vinf)) return moonRoot(via, vinf, B.parent, arrive).cost;
   const w = Array.isArray(vinf) ? norm(vinf) : vinf, vm = Math.sqrt(P.mu / B.a);
   return Math.abs(Math.sqrt(w * w + 2 * P.mu / B.a) - vm);
 }
@@ -201,8 +207,8 @@ const moonAt = (isVia, key, ms) => (isVia ? relState(key, bodyInfo(key).parent, 
 // angle between the moon's velocity and the craft's about the planet there.
 function moonEnd(m, vinf, key, arrive) {
   if (!m || !vinf) return null;
-  const x = X.moonExcess({ rm: m.r, vm: m.v, vinf, mu: bodyInfo(bodyInfo(key).parent).mu, arrive, rMin: 0.5 * norm(m.r) });
-  return { vinf: x.vinf, speed: x.speed, rp: x.rp, swingby: x.swingby, angleDeg: Math.acos(Math.max(-1, Math.min(1, dot(unit(x.vAbout), unit(m.v))))) * 180 / Math.PI, bestSpeed: moonSpeed(norm(vinf), bodyInfo(key), true, arrive) };
+  const x = moonRoot(m, vinf, bodyInfo(key).parent, arrive);
+  return { vinf: x.vinf, speed: x.speed, margin: x.margin, cost: x.cost, rp: x.rp, ahead: x.ahead, swingby: x.swingby, rm: m.r, vAbout: x.vAbout, angleDeg: Math.acos(Math.max(-1, Math.min(1, dot(unit(x.vAbout), unit(m.v))))) * 180 / Math.PI, bestSpeed: moonSpeed(norm(vinf), bodyInfo(key), true, arrive) };
 }
 
 // ---------------- the parking orbit's plane over a stay ----------------

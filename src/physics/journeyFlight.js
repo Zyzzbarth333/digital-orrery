@@ -210,6 +210,21 @@ export function planFlight(sol) {
     // near the departure (from there the target is near 180 degrees away),
     // unless nodes before the break shape the way there.
     if (leg.brokenPlane && !nodes.some((n) => n.ms < leg.mid.ms)) events.push({ kind: 'aim', ms: leg.depMs + Math.min(clearP, 0.3 * (leg.mid.ms - leg.depMs)), body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central });
+    // Leaving a moon on a swing-by of its planet (journey.js moonDep: the
+    // way out falls in past the planet first), a first aim once clear of
+    // the moon (half again its sphere crossing at the excess speed about
+    // it), and before half the fall to the periapsis: the pass turns the way
+    // out, and the error the moon's pull leaves on the way out (patched
+    // conics take the moon as a point) grows with it, to millions of
+    // kilometres at the target. Aimed where the next aim is: the break
+    // point on a broken plane. (Not when burn nodes shape the way.)
+    const sw = leg.moonDep?.swingby && leg.endA && leg.endA !== P.body && !nodes.length ? leg.moonDep : null;
+    if (sw) {
+      const tp = timeToPeriapsis(sw.rm, sw.vAbout, bodyInfo(leg.endA).mu) * 1000;
+      const early = leg.depMs + Math.min(1.5 * crossing(P.body, sw.vinf), 0.5 * tp);
+      const toBreak = leg.mid ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central } : target;
+      if (early < first - 3600e3) events.push({ kind: 'aim', ms: early, ...toBreak });
+    }
     events.push({ kind: 'aim', ms: first, ...target });
     const second = Math.max(first + 0.25 * (leg.arrMs - first), leg.arrMs - 3 * tIn);
     if (second < leg.arrMs - 0.6 * tIn && leg.arrMs - first > 2 * DAY * 1000) events.push({ kind: 'aim', ms: second, ...target });
@@ -443,10 +458,10 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
     }
     if (!e.via) return want;
     // Of the two hyperbolas through the moon's place that leave on that
-    // asymptote (transfers.js moonExcess, as the plan prices it), the one
-    // nearer the moon's own velocity.
+    // asymptote (transfers.js moonExcess, as the plan prices it), the
+    // cheaper, a swing-by near the planet charged its margin.
     const M = bodyState(e.body, tt), Pp = bodyState(e.via, tt);
-    const rm = sub(M.r, Pp.r), x = moonExcess({ rm, vm: sub(M.v, Pp.v), vinf: want, mu: Pp.mu, rMin: 0.5 * norm(rm) });
+    const rm = sub(M.r, Pp.r), x = moonExcess({ rm, vm: sub(M.v, Pp.v), vinf: want, mu: Pp.mu, rPlanet: bodyInfo(e.via).radius });
     return x ? x.vinf : want;
   };
 
