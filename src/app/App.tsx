@@ -26,6 +26,14 @@ import { SatellitePlate, SatCloudPlate } from './satellite-plate';
 import { SpacecraftRail, type SpacecraftApi } from './spacecraft-rail';
 import { SpacecraftPlate } from './spacecraft-plate';
 import { PROBE_GROUPS, type Probe } from '../scene/spacecraftLayer';
+import { LAYERS_KEY, VIEW_KEY, clearStore, parseLayers, parseView, readStore, resumeTime, writeStore } from './remember.js';
+
+// What a refresh comes back to (remember.js, docs/frontend/camera.md#across-a-refresh):
+// the view from this tab's sessionStorage, the rail's switches from localStorage.
+const session = (() => { try { return window.sessionStorage; } catch { return undefined; } })();
+const local = (() => { try { return window.localStorage; } catch { return undefined; } })();
+// URL parameters that set the start: any of them, and the kept view is not used.
+const VIEW_PARAMS = ['focus', 't', 'view', 'phase', 'craft', 'mission', 'plan'];
 
 // Optional start state from the URL: ?focus=mars&t=2030-01-01T00:00Z&view=sun
 // (focus may be a barycentre: ssb, emb, jupiter-bary; &frame=ssb gives
@@ -38,14 +46,19 @@ import { PROBE_GROUPS, type Probe } from '../scene/spacecraftLayer';
 // Real missions: &mission=artemis2 (or artemis2,first to fly only the first
 // burn), &fix=12 for a tracking fix every 12 h; with &t= inside the mission
 // the craft starts where the real one was then.
-function initialState(): { focus: FocusKey; frame: Frame; timeMs: number; tGiven: boolean; sunView: boolean; phaseDeg: number; craft: string | null; plan: string | null; real: string | null; fix: number | null } {
+// Without them, a view kept from before a refresh in this tab, if any.
+const isFocus = (f: string | null): f is FocusKey => !!f && (f in BODY_BY_KEY || f in BARY_BY_KEY);
+function initialState(): { focus: FocusKey; frame: Frame | null; timeMs: number; tGiven: boolean; sunView: boolean; phaseDeg: number; craft: string | null; plan: string | null; real: string | null; fix: number | null; kept: ReturnType<typeof parseView> } {
   const q = new URLSearchParams(window.location.search);
   const f = q.get('focus');
   const t = Date.parse(q.get('t') ?? '');
+  const v = VIEW_PARAMS.some((k) => q.has(k)) ? null : parseView(readStore(session, VIEW_KEY));
+  const kept = v && isFocus(v.focus) ? v : null;
   return {
-    focus: f && (f in BODY_BY_KEY || f in BARY_BY_KEY) ? (f as FocusKey) : 'sun',
-    frame: q.get('frame') === 'ssb' ? 'ssb' : 'sun',
-    timeMs: Number.isFinite(t) ? t : Date.now(),
+    focus: isFocus(f) ? f : kept ? (kept.focus as FocusKey) : 'sun',
+    frame: q.get('frame') === 'ssb' ? 'ssb' : q.get('frame') === 'sun' ? 'sun' : null,
+    timeMs: Number.isFinite(t) ? t : kept?.clock ? resumeTime(kept.clock, kept.savedAt, Date.now()) : Date.now(),
+    kept,
     tGiven: Number.isFinite(t),
     real: q.get('mission'),
     fix: Number(q.get('fix')) || null,
@@ -83,9 +96,15 @@ function useMedia(query: string): boolean {
 
 export function App() {
   const init = useMemo(initialState, []);
-  const clock = useMemo(() => new SimClock(init.timeMs), [init]);
+  const clock = useMemo(() => {
+    const c = new SimClock(init.timeMs);
+    if (init.kept?.clock) { c.setRate(init.kept.clock.rate); c.setPlaying(init.kept.clock.playing); }
+    return c;
+  }, [init]);
+  // The rail's switches as this browser last left them (the URL's &frame= first).
+  const saved = useMemo(() => parseLayers(readStore(local, LAYERS_KEY)), []);
   const [focus, setFocus] = useState<FocusKey>(init.focus);
-  const [frame, setFrame] = useState<Frame>(init.frame);
+  const [frame, setFrame] = useState<Frame>(init.frame ?? saved.frame);
   // The flight console is the app's, not a body's: choosing a body never
   // closes it (docs/ux/overhaul-plan.md, point 5).
   const [consoleOpen, setConsoleOpen] = useState(Boolean(init.plan || init.craft || init.real));
@@ -137,10 +156,10 @@ export function App() {
   const smallBody = small ? named.find((b) => b.pdes === small) ?? null : null;
   // An irregular moon is a small focus too, as 'irr:<key>' (OrreryScene.focusOnSmall).
   const irregularMoonOn = small?.startsWith('irr:') ? irregularMoon(small.slice(4)) ?? null : null;
-  const [irregularOn, setIrregularOn] = useState(false);
+  const [irregularOn, setIrregularOn] = useState(saved.irregular);
   // A landing site on the Moon too, as 'site:<key>' (OrreryScene.focusOnSite).
   const siteView = small?.startsWith('site:') ? SITE_BY_KEY[small.slice(5)] ?? null : null;
-  const [sitesOn, setSitesOn] = useState(false);
+  const [sitesOn, setSitesOn] = useState(saved.sites);
   // Search any of the 135,353 (the rail's FIND field): a found point joins
   // the named ones and is flown to as they are.
   const smallSearch = useMemo(() => ({
@@ -153,7 +172,7 @@ export function App() {
   // search), by NORAD id: the plate shows it until a body, craft or small
   // body is chosen.
   const [sat, setSat] = useState<number | null>(null);
-  const [satLayers, setSatLayers] = useState<Record<SatLayerKey, boolean>>({ active: false, debris: false, 'rocket-bodies': false, analyst: false });
+  const [satLayers, setSatLayers] = useState<Record<SatLayerKey, boolean>>(saved.sats);
   // A debris cloud the camera is framing (the rail's Fly-to list), by key.
   const [satCloud, setSatCloud] = useState<string | null>(null);
   const [satClouds, setSatClouds] = useState<readonly SatCloud[]>([]);
@@ -173,7 +192,7 @@ export function App() {
   // A spacecraft beyond Earth orbit the camera is on, by key: it shares the
   // satellite's place on the plate.
   const [probe, setProbe] = useState<string | null>(null);
-  const [probeOn, setProbeOn] = useState(false);
+  const [probeOn, setProbeOn] = useState(saved.probes);
   const [probes, setProbes] = useState<{ craft: readonly Probe[]; fetched: string | null }>({ craft: [], fetched: null });
   const setProbeLayer = (on: boolean) => { setProbeOn(on); scene.current?.spacecraft.setOn(on); };
   const probeApi: SpacecraftApi = {
@@ -181,9 +200,17 @@ export function App() {
     craft: probes.craft, fetched: probes.fetched, current: probe, fly: (key) => scene.current?.focusOnProbe(key),
   };
   const probeView = probe !== null ? probes.craft.find((c) => c.key === probe) ?? null : null;
-  const [smallOn, setSmallOn] = useState<Record<string, boolean>>({ belt: true, neo: true, trojans: true, outer: true, comets: true, colours: false });
-  const [guidesOn, setGuidesOn] = useState<Record<GuideKey | MagneticKey, boolean>>({ axes: false, field: false, spheres: false, lagrange: false, pulls: false, flow: false, magnetic: false, aurora: false, belts: false });
-  const [flowOpts, setFlowOpts] = useState<{ frame: FlowFrame; plane: FlowPlane }>({ frame: 'falling', plane: 'orbit' });
+  const [smallOn, setSmallOn] = useState<Record<string, boolean>>(saved.small);
+  const [guidesOn, setGuidesOn] = useState<Record<GuideKey | MagneticKey, boolean>>(saved.guides);
+  const [flowOpts, setFlowOpts] = useState<{ frame: FlowFrame; plane: FlowPlane }>(saved.flow);
+  // Every switch, kept for this browser as it changes.
+  useEffect(() => {
+    writeStore(local, LAYERS_KEY, JSON.stringify({ small: smallOn, irregular: irregularOn, sites: sitesOn, sats: satLayers, probes: probeOn, guides: guidesOn, flow: flowOpts, frame }));
+  }, [smallOn, irregularOn, sitesOn, satLayers, probeOn, guidesOn, flowOpts, frame]);
+  const setGuide = (k: GuideKey | MagneticKey, on: boolean) => {
+    setGuidesOn((g) => ({ ...g, [k]: on }));
+    if (k === 'magnetic' || k === 'aurora' || k === 'belts') scene.current?.magnetic.set(k, on); else scene.current?.guides.set(k, on);
+  };
   const setSmallLayer = (k: SmallBodyGroup | 'colours', on: boolean) => {
     setSmallOn((s) => ({ ...s, [k]: on }));
     if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on);
@@ -192,6 +219,27 @@ export function App() {
   const setSitesLayer = (on: boolean) => { setSitesOn(on); scene.current?.sites.setOn(on); };
   // The ? sheet of keyboard shortcuts (key-sheet.tsx).
   const [keysOpen, setKeysOpen] = useState(false);
+  // Whether the camera is panned off what it is on (the view plate offers the way back).
+  const [panned, setPanned] = useState(false);
+  // The view, kept for this tab every second and as the page goes, for a
+  // refresh to come back to (sessionStorage: a new tab starts at home).
+  useEffect(() => {
+    const keep = () => {
+      const sc = scene.current;
+      const s = clock.snapshot;
+      const v = sc ? sc.viewState() : { focus, on: null, cam: null };
+      writeStore(session, VIEW_KEY, JSON.stringify({ ...v, clock: { timeMs: s.timeMs, rate: s.rate, playing: s.playing }, savedAt: Date.now() }));
+    };
+    const timer = setInterval(keep, 1000);
+    window.addEventListener('pagehide', keep);
+    return () => { clearInterval(timer); window.removeEventListener('pagehide', keep); };
+  }, [clock, focus]);
+  // HOME: the view a first visit opens on (the clock and the switches stay as they are).
+  const goHome = () => {
+    setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus('sun');
+    clearStore(session, VIEW_KEY);
+    scene.current?.home();
+  };
   // The followed craft's name, kept current (a rocket's climb included).
   const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
   const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); };
@@ -310,6 +358,23 @@ export function App() {
     sc.satellites.onClouds = setSatClouds;
     sc.smallBodies.onNamed = setNamed;
     if (sc.smallBodies.namedBodies.length) setNamed(sc.smallBodies.namedBodies);
+    sc.onPan = setPanned;
+    // The switches as they were kept: the scene starts with its defaults
+    // (remember.js's DEFAULT_LAYERS), so only what differs is set.
+    for (const [k, on] of Object.entries(smallOn)) {
+      if (k === 'colours') { if (on) sc.smallBodies.setColourByGroup(true); } else if (!on) sc.smallBodies.setGroup(k as SmallBodyGroup, false);
+    }
+    if (irregularOn) sc.irregulars.setOn(true);
+    if (sitesOn) sc.sites.setOn(true);
+    for (const [k, on] of Object.entries(satLayers)) if (on) sc.satellites.setLayer(k as SatLayerKey, true);
+    if (probeOn) sc.spacecraft.setOn(true);
+    sc.guides.setFlow(flowOpts.frame, flowOpts.plane);
+    for (const [k, on] of Object.entries(guidesOn)) {
+      if (!on) continue;
+      if (k === 'magnetic' || k === 'aurora' || k === 'belts') sc.magnetic.set(k, true); else sc.guides.set(k as GuideKey, true);
+    }
+    // The view kept from before a refresh (none when the URL sets one).
+    if (init.kept) sc.restoreView({ focus: init.kept.focus as FocusKey, on: init.kept.on, cam: init.kept.cam });
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
     const [kind, a, b, flown] = (init.craft ?? '').split(',');
     // React's development double-mount builds the scene twice: a craft
@@ -351,6 +416,9 @@ export function App() {
       // / finds (the rail's FIND field); ? lists the keys (the sheet closes itself).
       if (e.key === '/') { if (!journey.plotOpen) { document.getElementById('find')?.focus(); e.preventDefault(); } return; }
       if (e.key === '?') { setKeysOpen(true); e.preventDefault(); return; }
+      // H goes home; C puts the camera back on what it is on after a pan.
+      if (e.key === 'h' || e.key === 'H') { goHome(); e.preventDefault(); return; }
+      if (e.key === 'c' || e.key === 'C') { scene.current?.recentre(); e.preventDefault(); return; }
       const s = clock.snapshot;
       const ri = Math.max(0, RATES.findIndex((r) => r.rate === s.rate));
       // From a barycentre, up and down step from its body.
@@ -377,7 +445,7 @@ export function App() {
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
         view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: probeView?.name ?? siteView?.name ?? irregularMoonOn?.name ?? satView?.named.name ?? (cloudView ? `${cloudView.name} debris` : undefined) ?? smallBody?.name ?? focusName(focus) }}
-        flying={flying} frame={frame} />
+        flying={flying} frame={frame} panned={panned} onCentre={() => scene.current?.recentre()} onHome={goHome} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
       <BodyRail clock={clock} focus={following === null && small === null && sat === null && satCloud === null && probe === null ? focus : null} onSelect={chooseBody}
@@ -386,7 +454,7 @@ export function App() {
         frame={frame} onFrame={setFrame}
         smallBodies={smallOn} onSmallBodies={setSmallLayer}
         satellites={<><SatelliteRail api={satApi} /><SpacecraftRail api={probeApi} /></>}
-        guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); if (k === 'magnetic' || k === 'aurora' || k === 'belts') scene.current?.magnetic.set(k, on); else scene.current?.guides.set(k, on); }}
+        guides={guidesOn} onGuides={setGuide}
         flow={flowOpts} onFlow={(o) => { setFlowOpts(o); scene.current?.guides.setFlow(o.frame, o.plane); }}
         irregular={{ on: irregularOn, onToggle: setIrregularLayer }}
         sites={{ on: sitesOn, onToggle: setSitesLayer, current: siteView?.key ?? null, onFly: (key) => scene.current?.focusOnSite(key) }} />

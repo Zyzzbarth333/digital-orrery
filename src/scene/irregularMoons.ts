@@ -267,6 +267,14 @@ export class IrregularMoonLayer {
     g.setDrawRange(0, n);
     (g.getAttribute('position') as THREE.BufferAttribute).needsUpdate = n > 0;
     this.points.visible = n > 0;
+    // The labels are placed as the points are drawn (onBeforeRender), which
+    // a hidden Points never is: with none placed (the layer switched off, or
+    // the camera gone out of range) the names shown last frame are hidden
+    // here, or they would stay on the screen.
+    if (n === 0 && this.labelled.size) {
+      for (const key of this.labelled) this.markers.get(key)!.style.display = 'none';
+      this.labelled.clear();
+    }
     const pm = (this.points.material as THREE.ShaderMaterial).uniforms;
     pm.uLevel.value = level;
     (this.lines.material as THREE.ShaderMaterial).uniforms.level.value = level;

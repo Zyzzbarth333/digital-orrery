@@ -21,6 +21,11 @@
 //   settles on the new target with a critically damped spring (no
 //   overshoot) while the user steers;
 // - with reduced motion a flight is a cut.
+//
+// Panning moves the pivot off the target by an offset (km, ecliptic) that
+// rides with it, so a panned view still follows a moving body. Any flight
+// clears it; recentre() eases it back onto the target with the same spring
+// as the settle.
 
 type Vec3 = [number, number, number];
 
@@ -29,6 +34,10 @@ export interface Anchor {
   pos: () => Vec3 | null;     // heliocentric ecliptic km, now; null if gone
   minDist: number;            // closest the camera may be, km (1.2 radii; 0.05 km for a craft)
 }
+
+// The view a first visit opens on, and HOME returns to: the inner planets
+// from above the ecliptic, about the Sun.
+export const HOME = { az: -1.2, el: 0.5, dist: 1.6e9 };
 
 const RHO = 1.42;             // van Wijk & Nuij's users' mean preference
 const WIDTH_PER_KM = 2 * Math.tan((45 / 2) * Math.PI / 180);  // view height per km of distance (45 deg)
@@ -78,13 +87,15 @@ interface Flight {
   w0: number; w1: number;              // view widths, km
   t: number; T: number;                // seconds elapsed, duration
   ease: (x: number) => number;
+  turn: { az0: number; el0: number; dAz: number; dEl: number } | null;   // az and el eased along with the path (HOME)
 }
 
 export class CameraRig {
-  az = -1.2;
-  el = 0.5;
-  dist = 1.6e9;                 // km from the pivot
+  az = HOME.az;
+  el = HOME.el;
+  dist = HOME.dist;             // km from the pivot
   pivot: Vec3 = [0, 0, 0];      // km, this frame
+  pan: Vec3 = [0, 0, 0];        // km: how far the user has panned the pivot off the target
   target: Anchor;
   onArrive: (target: Anchor) => void = () => {};
 
@@ -103,14 +114,18 @@ export class CameraRig {
   // How far through its flight the camera is, eased as the path is (0 to
   // 1); 1 with none.
   get progress(): number { const f = this.flight; return f ? f.ease(Math.min(1, f.t / f.T)) : 1; }
+  // Whether the pivot is off the target (a pan not yet recentred).
+  get panned(): boolean { return this.pan[0] !== 0 || this.pan[1] !== 0 || this.pan[2] !== 0; }
 
-  // Start a flight to `to`, ending `endDist` km from it.
-  flyTo(to: Anchor, endDist: number): void {
+  // Start a flight to `to`, ending `endDist` km from it, and, given `turn`,
+  // at that azimuth and elevation (the shorter way round).
+  flyTo(to: Anchor, endDist: number, turn?: { az: number; el: number }): void {
     const pNow = this.pivot;
     const from = this.flight ? this.flight.to : this.target;
     const fromPos = from.pos();
     const toPos = to.pos();
     const retarget = this.flight !== null;
+    this.pan = [0, 0, 0];             // the flight starts from the panned pivot (pNow)
     // A cut with reduced motion, or when either end has no position yet
     // (a ?focus= link before the first frame).
     if (this.reduced?.matches || !fromPos || !toPos) {
@@ -118,13 +133,16 @@ export class CameraRig {
       this.target = to;
       this.settle = [0, 0, 0]; this.settleV = [0, 0, 0];
       this.dist = this.goalDist = endDist;
+      if (turn) { this.az = turn.az; this.el = turn.el; }
       this.onArrive(to);
       return;
     }
+    const dAz = turn ? Math.atan2(Math.sin(turn.az - this.az), Math.cos(turn.az - this.az)) : 0;
     this.flight = {
       from, fromOffset: sub(pNow, fromPos), to,
       w0: this.dist * WIDTH_PER_KM, w1: endDist * WIDTH_PER_KM,
       t: 0, T: 1, ease: retarget ? easeOut : easeInOut,
+      turn: turn ? { az0: this.az, el0: this.el, dAz, dEl: turn.el - this.el } : null,
     };
     const S = zoomPath(norm(sub(toPos, pNow)), this.flight.w0, this.flight.w1).S;
     this.flight.T = flightSeconds(S);
@@ -152,7 +170,38 @@ export class CameraRig {
     this.flight = null;
     this.target = to;
     this.settle = [0, 0, 0]; this.settleV = [0, 0, 0];
+    this.pan = [0, 0, 0];
     this.dist = this.goalDist = dist;
+  }
+
+  // Move the pivot by d km (ecliptic), off the target: a drag that pans.
+  // A flight under way stops where it is, and the aim stays there (its
+  // settle becomes part of the pan) rather than drifting on to the target.
+  panBy(d: Vec3): void {
+    if (this.flight) {
+      this.interrupt();
+      this.pan = add(this.pan, this.settle);
+      this.settle = [0, 0, 0]; this.settleV = [0, 0, 0];
+    }
+    this.pan = add(this.pan, d);
+  }
+
+  // Back onto the target: the pan becomes a settle offset, which the spring
+  // takes to zero (about 0.6 s, no overshoot).
+  recentre(): void {
+    if (!this.panned) return;
+    this.settle = add(this.settle, this.pan);
+    this.pan = [0, 0, 0];
+  }
+
+  // A view put back as it was (a refresh): no flight, no settle.
+  restore(to: Anchor, v: { az: number; el: number; dist: number; pan: Vec3 }): void {
+    this.flight = null;
+    this.target = to;
+    this.settle = [0, 0, 0]; this.settleV = [0, 0, 0];
+    this.az = v.az; this.el = Math.max(-1.5, Math.min(1.5, v.el));
+    this.dist = this.goalDist = Math.max(to.minDist, v.dist);
+    this.pan = [...v.pan];
   }
 
   zoom(factor: number, minDist: number, maxDist: number): void {
@@ -181,6 +230,11 @@ export class CameraRig {
       const [frac, w] = path.at(path.S * f.ease(x));
       this.pivot = add(start, scale(d, frac));
       this.dist = this.goalDist = w / WIDTH_PER_KM;
+      if (f.turn) {
+        const e = f.ease(x);
+        this.az = f.turn.az0 + f.turn.dAz * e;
+        this.el = f.turn.el0 + f.turn.dEl * e;
+      }
       if (x >= 1) {
         this.flight = null;
         this.target = f.to;
@@ -202,7 +256,7 @@ export class CameraRig {
       }
       if (norm(this.settle) < 1e-6 * this.dist) { this.settle = [0, 0, 0]; this.settleV = [0, 0, 0]; }
     }
-    this.pivot = add(p, this.settle);
+    this.pivot = add(add(p, this.settle), this.pan);
     // The wheel's zoom eases in, in log distance.
     if (this.dist !== this.goalDist) {
       const k = 1 - Math.exp(-dt / ZOOM_TAU);

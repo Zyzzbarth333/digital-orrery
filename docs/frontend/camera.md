@@ -7,8 +7,8 @@ flights between them. Code: `src/scene/cameraRig.ts`, used by
 ## The orbit camera
 
 The camera looks at a pivot and sits `dist` km from it, at an azimuth and
-elevation in the ecliptic frame. Dragging turns it (0.005 rad per pixel; one pointer at a time, so a
-second finger does not make the view jump);
+elevation in the ecliptic frame. Dragging turns it (0.005 rad per pixel; on touch, one finger turns and two
+pan and zoom, below);
 the wheel zooms by e^(0.0015 Δy) per event and the distance eases to the
 new value over about a quarter of a second, in log distance, so a zoom
 reads as one motion rather than steps. The pivot is the target's live
@@ -91,6 +91,74 @@ doesn't matter for them. A 3D model of the craft seen from 50 m would
 need its own pass (the second way above) for parts closer together than
 that.
 
+### Panning
+
+A right-drag, a middle-drag or a Shift-drag pans: it moves the pivot off
+the body, so the sky can be crossed freely while a body stays in focus. The
+point under the pointer stays under it at the pivot's depth (the drag in
+pixels times 2 tan 22.5° times the camera's distance, over the view's
+height, along the camera's right and up). On touch, two fingers pan by
+their midpoint and pinch-zoom by their spread; lifting one goes back to
+turning from where the other is.
+
+The pan is an offset from the body, in the ecliptic, so a panned view still
+rides with the body under time warp. The way back:
+- **C**, a double-click on the sky, or the view plate's CENTRE key (shown
+  while panned): the offset eases back to zero through the settle's spring
+  (about 0.6 s);
+- choosing the body again (the rail, its marker, FIND) reframes it;
+- any flight starts from the panned pivot and clears the pan.
+
+A pan during a flight stops it where it is, with the aim kept there rather
+than settling on the new body.
+
+### HOME
+
+**H**, or the view plate's HOME key, flies back to the view a first visit
+opens on: the Sun, 1.6 × 10⁹ km out, azimuth −1.2 and elevation 0.5 rad
+(the inner planets from above). The azimuth and elevation are eased along
+the flight. The zoom carried from body to body is forgotten. The clock and
+the rail's switches stay as they are.
+
+### Across a refresh
+
+A refresh in the same tab comes back to where the user was
+(`src/app/remember.js`, checked by `remember.test.mjs`):
+- **The view**, in `sessionStorage`, so a new tab starts at home: the body,
+  what the camera is on when it is not the body itself (an irregular moon, a
+  landing site or a named small body, which the camera goes to once the
+  named ones have loaded), the azimuth, elevation, distance and pan, and the
+  clock's time, rate and whether it runs. It is kept every second and as
+  the page goes.
+- **The clock**: held, it comes back to the same instant. Running, it goes
+  on by the time the refresh took, capped at a second as the clock caps a
+  background tab's pause, so a refresh at a year a second does not leap
+  years; a live clock (real time, within a minute of now) comes back live.
+- **The rail's switches**, in `localStorage`, for this browser: the small
+  bodies and their colours, the irregular moons, the landing sites, the
+  satellite sets, the spacecraft, every guide and magnetic layer, the
+  gravity field's frame and plane, and the distances' Sun or SSB frame.
+- **Not kept:** a followed craft, satellite or spacecraft (a mission or a
+  catalogue would have to load first): a refresh frames the body instead,
+  the Earth for a satellite. Mid-flight, the destination is kept and framed
+  afresh.
+
+Any view parameter in the URL (`focus`, `t`, `view`, `phase`, `craft`,
+`mission`, `plan`) wins: the kept view is not used. `&frame=` wins over the
+kept frame switch. Storage that is off (a private window, a blocked site)
+is no storage: every read and write is in try/catch, and a field that does
+not read back as the kind written falls back to its default alone.
+
+### The rail holds still
+
+Choosing a planet below an open moon grid closed that grid, so the row
+just chosen jumped up from under the pointer: Uranus after Neptune by
+362 px at 1440 × 900, leaving the Comets switch where Neptune was. On a
+phone, where the rail is one scrolling row, Uranus chosen after Saturn
+ended 618 px off the screen's left edge. Now, while the mouse is over the rail, a grid that was
+open stays open until the mouse leaves; and a row chosen by touch or a key
+is kept where it was by scrolling the list by as much as it moved.
+
 ## Flights
 
 Choosing a body (the rail, its FIND field, a marker in the sky, the arrow
@@ -147,7 +215,8 @@ separately. Choosing the body already in view reframes it at the default.
 - **Another choice** starts a new path from wherever the camera is, eased
   out only (it is already moving), so the motion does not restart from
   rest.
-- **A drag, a scroll or Escape** ends the flight on the spot. The target
+- **A drag, a scroll or Escape** ends the flight on the spot (a pan too, see
+  [Panning](#panning)). The target
   becomes the new body; the aim, which was between the two, settles onto it
   through a critically damped spring (ω = 7 rad/s, no overshoot, about
   0.6 s), while the user's drag or zoom applies at once. Stopped while still
