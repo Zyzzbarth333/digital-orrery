@@ -17,6 +17,7 @@
 //   --settle S, --seconds S           seconds to load, then to time (8, 4)
 //   --size WxH, --dpr N               the viewport (1920x1080, 1)
 //   --json FILE                       every round's numbers as JSON
+//   --force                           start with less memory than the cap needs
 //   scenario … | all                  which scenarios (the defaults below)
 //
 // Each round loads every scenario afresh in each variant, the variants
@@ -34,12 +35,15 @@
 // still printed, the missing samples are listed under it, and the script
 // exits with status 1. The load average at each sample is printed too.
 //
-// The render scale is held (?scale=fixed). Run one benchmark at a time:
-// two browsers share the GPU and time each other.
+// Each sample gets a fresh browser: one browser on the Intel GPU grows
+// past 8 GB over a run's page loads (its textures are system memory). The
+// run holds the GPU lock that sessions share, so benchmarks queue rather
+// than time each other, and each browser has a memory cap
+// (scripts/lib/chromium.mjs). The render scale is held (?scale=fixed).
 
 import { writeFileSync } from 'node:fs';
 import { loadavg } from 'node:os';
-import { GPUS, launch, pageApi, serve } from './lib/chromium.mjs';
+import { GPUS, browserMemory, gpuLock, launch, pageApi, serve } from './lib/chromium.mjs';
 
 // ---- Scenarios ------------------------------------------------------------
 // A URL query (App.tsx's initialState documents it), an expression to run
@@ -132,6 +136,38 @@ async function measure(p, base, sc, opts) {
   }
 }
 
+// One sample in a browser of its own, closed after it. The first sample on
+// each GPU reads the renderer's name, and stops the run if an NVIDIA run
+// is drawn on another GPU.
+async function sample(gpu, base, sc, opts, renderers, log) {
+  const browser = await launch({ gpu, ...opts.view });
+  try {
+    const { cdp } = browser;
+    const p = pageApi(cdp);
+    await cdp.send('Page.enable');
+    await cdp.send('Runtime.enable');
+    // The page's own errors, which explain a sample that fails.
+    cdp.on('Runtime.exceptionThrown', ({ exceptionDetails: x }) => log(`  page: ${(x.exception?.description ?? x.text).split('\n').slice(0, 3).join(' | ')}`));
+    cdp.on('Runtime.consoleAPICalled', ({ type, args }) => { if (type === 'error') log(`  page console: ${args.map((a) => a.value ?? a.description).join(' ').slice(0, 300)}`); });
+    cdp.on('Inspector.targetCrashed', () => log('  page: the renderer crashed'));
+    await cdp.send('Emulation.setDeviceMetricsOverride', { ...opts.view, deviceScaleFactor: opts.dpr, mobile: false });
+    await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+    const s = await measure(p, base, sc, opts);
+    if (!renderers[gpu]) {
+      renderers[gpu] = await p.eval(RENDERER);
+      log(`${gpu}: ${renderers[gpu]}, canvas ${s.canvas}`);
+      if (gpu === 'nvidia' && !/nvidia/i.test(renderers[gpu])) throw Object.assign(new Error(`--gpu nvidia, but the page renders on ${renderers[gpu]}`), { fatal: true });
+    }
+    return s;
+  } catch (e) {
+    // The cap kills the page or GPU process, which closes the socket.
+    if (/socket closed/.test(e.message)) e.message += `: a browser process died (over its ${browserMemory()} memory cap?)`;
+    throw e;
+  } finally {
+    await browser.close();
+  }
+}
+
 // ---- Output ---------------------------------------------------------------
 
 const median = (a) => { const s = a.slice().sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -181,7 +217,7 @@ function args() {
   const flag = (k) => { const i = argv.indexOf(k); return i < 0 ? false : (argv.splice(i, 1), true); };
   const num = (k, d) => { const v = Number(opt(k, d)); if (!(v > 0)) throw new Error(`${k} wants a positive number`); return v; };
   const o = {
-    list: flag('--list'),
+    list: flag('--list'), force: flag('--force'),
     url: opt('--url'), dist: opt('--dist'), baseUrl: opt('--base-url'), baseDist: opt('--base-dist'),
     label: opt('--label'), baseLabel: opt('--base-label'),
     gpus: opt('--gpu', 'intel').split(','),
@@ -219,6 +255,7 @@ async function main() {
   const loads = [];
   const log = (s) => console.error(s);
   const started = new Date();
+  const lock = await gpuLock({ log, force: o.force });
   try {
     for (const v of variants) {
       if (v.dist) { v.server = await serve(v.dist); v.base = v.server.url; } else v.base = v.url.replace(/\/$/, '');
@@ -226,49 +263,31 @@ async function main() {
     }
     for (const gpu of o.gpus) {
       results[gpu] = Object.fromEntries(o.names.map((n) => [n, Object.fromEntries(variants.map((v) => [v.label, []]))]));
-      const browser = await launch({ gpu, ...o.view });
-      try {
-        const { cdp } = browser;
-        const p = pageApi(cdp);
-        await cdp.send('Page.enable');
-        await cdp.send('Runtime.enable');
-        // The page's own errors, which explain a sample that fails.
-        cdp.on('Runtime.exceptionThrown', ({ exceptionDetails: x }) => log(`  page: ${(x.exception?.description ?? x.text).split('\n').slice(0, 3).join(' | ')}`));
-        cdp.on('Runtime.consoleAPICalled', ({ type, args }) => { if (type === 'error') log(`  page console: ${args.map((a) => a.value ?? a.description).join(' ').slice(0, 300)}`); });
-        cdp.on('Inspector.targetCrashed', () => log('  page: the renderer crashed'));
-        await cdp.send('Emulation.setDeviceMetricsOverride', { ...o.view, deviceScaleFactor: o.dpr, mobile: false });
-        await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
-        for (let r = 0; r < o.rounds; r++) {
-          for (const n of o.names) {
-            const order = r % 2 ? variants.slice().reverse() : variants;
-            for (const v of order) {
-              const where = `${gpu}, round ${r + 1}, ${n}, ${v.label}`;
-              let s = null;
-              for (let a = 0; a <= o.retries && !s; a++) {
-                s = await measure(p, v.base, SCENARIOS[n], o).catch((e) => {
-                  log(`${where}: ${e.message}, load average ${loadavg()[0].toFixed(0)}${a < o.retries ? '; loading it again' : '; left out'}`);
-                  if (a === o.retries) failed.push(`${where}: ${e.message}`);
-                  return null;
-                });
-              }
-              if (!s) continue;
-              loads.push(loadavg()[0]);
-              if (!renderers[gpu]) {
-                renderers[gpu] = await p.eval(RENDERER);
-                log(`${gpu}: ${renderers[gpu]}, canvas ${s.canvas}`);
-                if (gpu === 'nvidia' && !/nvidia/i.test(renderers[gpu])) throw new Error(`--gpu nvidia, but the page renders on ${renderers[gpu]}`);
-              }
-              results[gpu][n][v.label].push(s);
-              log(`${gpu} r${r + 1} ${n.padEnd(10)} ${v.label.padEnd(10)} frame ${ms(s.cost)} ms (p90 ${ms(s.p90)}, worst ${ms(s.worst)}), gap ${ms(s.gap)} ms, ${s.frames} frames, camera ${kmText(+s.km.toPrecision(3))}, load ${loads.at(-1).toFixed(0)}`);
+      for (let r = 0; r < o.rounds; r++) {
+        for (const n of o.names) {
+          const order = r % 2 ? variants.slice().reverse() : variants;
+          for (const v of order) {
+            const where = `${gpu}, round ${r + 1}, ${n}, ${v.label}`;
+            let s = null;
+            for (let a = 0; a <= o.retries && !s; a++) {
+              s = await sample(gpu, v.base, SCENARIOS[n], o, renderers, log).catch((e) => {
+                if (e.fatal) throw e;
+                log(`${where}: ${e.message}, load average ${loadavg()[0].toFixed(0)}${a < o.retries ? '; loading it again' : '; left out'}`);
+                if (a === o.retries) failed.push(`${where}: ${e.message}`);
+                return null;
+              });
             }
+            if (!s) continue;
+            loads.push(loadavg()[0]);
+            results[gpu][n][v.label].push(s);
+            log(`${gpu} r${r + 1} ${n.padEnd(10)} ${v.label.padEnd(10)} frame ${ms(s.cost)} ms (p90 ${ms(s.p90)}, worst ${ms(s.worst)}), gap ${ms(s.gap)} ms, ${s.frames} frames, camera ${kmText(+s.km.toPrecision(3))}, load ${loads.at(-1).toFixed(0)}`);
           }
         }
-      } finally {
-        await browser.close();
       }
     }
   } finally {
     for (const v of variants) await v.server?.stop();
+    await lock.release();
   }
 
   const day = started.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -276,7 +295,7 @@ async function main() {
   console.log(`Frame cost and frame gap, median ms, ${what}:\n`);
   console.log(table(results, o.names, variants, o.gpus));
   console.log(`\n\`npm run bench:frames\`, ${day}: ${o.view.width} × ${o.view.height} at DPR ${o.dpr}, ${o.rounds} round${o.rounds === 1 ? '' : 's'}${variants.length > 1 ? ' interleaved' : ''}, ${o.seconds} s timed after ${o.settle} s, load average ${loadRange(loads)}; ${o.gpus.map((g) => `${GPU_NAME[g]}: ${renderers[g] ?? "?"}`).join('; ')}.`);
-  if (failed.length) console.log(`\nLeft out after ${o.retries + 1} tries (the medians are over the other rounds):\n${failed.map((f) => `- ${f}`).join('\n')}`);
+  if (failed.length) console.log(`\nLeft out after ${o.retries + 1} ${o.retries ? "tries" : "try"} (the medians are over the other rounds):\n${failed.map((f) => `- ${f}`).join('\n')}`);
   if (o.json) writeFileSync(o.json, JSON.stringify({ started, options: { ...o, names: o.names }, renderers, variants: variants.map(({ label, where }) => ({ label, where })), loads, failed, results }, null, 2));
   if (failed.length) { console.error(`${failed.length} sample${failed.length === 1 ? '' : 's'} left out`); process.exitCode = 1; }
 }

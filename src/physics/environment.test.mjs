@@ -302,5 +302,50 @@ header("THE PLANETS' J2: a Jupiter orbiter's node regresses as the theory has it
   check("Jupiter's J2 turns the node as theory has it (within 2 %)", Math.abs(got / want - 1) < 0.02);
 }
 
+header("MERCURY'S AND VENUS'S FIELDS: JGMESS160A and MGNP180U against an oracle");
+{
+  // The oracle (planetFields.oracle.wls) sums each PDS file's potential
+  // directly, with Wolfram's Legendre functions at 50 digits, and
+  // differentiates it: a method and a reading of the file independent of
+  // geopotential.js's recursion and environment.fetch.mjs's. Its points:
+  // 200 to 1,000 km up, Mercury's northern plains and Venus's Maxwell
+  // Montes and Atla Regio among them, to degrees 20, 50 and 80.
+  const fs = await import('node:fs');
+  const { geopotential } = await import('./geopotential.js');
+  const { JGMESS160A, MERCURY_FRAME } = await import('./jgmess160a.js');
+  const { MGNP180U, VENUS_FRAME } = await import('./mgnp180u.js');
+  const { planetFrame } = await import('./environment.js');
+  const oracle = JSON.parse(fs.readFileSync(new URL('./fixtures/planet_fields.json', import.meta.url)));
+  const FIELD = { mercury: JGMESS160A, venus: MGNP180U }, FRAME = { mercury: MERCURY_FRAME, venus: VENUS_FRAME };
+  let worst = 0, worstMs = 0;
+  for (const p of oracle.points) {
+    const F = FIELD[p.body], g = geopotential({ mu: F.gm, radius: F.radius, n: p.degree, C: F.C, S: F.S, central: false }).accel(p.r);
+    worst = Math.max(worst, norm(g.map((x, i) => x - p.accel[i])) / norm(p.accel));
+    // The same through the environment: the body at the origin, the craft
+    // turned into J2000 by the field's frame, the acceleration turned back.
+    const t = kt(Date.UTC(2008, 9, 6, 8, 40)), ms = kernelMs(t), d = (await import('./ephemeris.js')).ttSeconds(ms) / 86400;
+    const M = planetFrame(FRAME[p.body], d), toJ = (v) => [0, 1, 2].map((j) => M[0][j] * v[0] + M[1][j] * v[1] + M[2][j] * v[2]);
+    const env = makeEnvironment({ bodiesAt: () => [{ key: p.body, r: [0, 0, 0] }] }, { area: 0, relativity: false, earth: { degree: 0 }, moon: { degree: 0 }, mercury: { degree: 0 }, venus: { degree: 0 }, [p.body]: { degree: p.degree, withJ2: true } });
+    const e = env(t, toJ(p.r), [0, 0, 0], [0, 0, 0]);
+    worstMs = Math.max(worstMs, norm(e.map((x, i) => x - toJ(p.accel)[i])) / norm(p.accel));
+  }
+  const mgal = (p) => norm(p.accel) * 1e8;
+  console.log(`  ${oracle.points.length} points, ${Math.min(...oracle.points.map(mgal)).toFixed(1)} to ${Math.max(...oracle.points.map(mgal)).toFixed(1)} mGal beyond the point mass: geopotential.js within ${worst.toExponential(1)} of the oracle, the environment within ${worstMs.toExponential(1)}`);
+  check('both fields to degree 80 match the oracle within 1e-12 at every point', worst < 1e-12);
+  check('the environment turns them into J2000 and back within 1e-12', worstMs < 1e-12);
+
+  // The frames. Venus's is the IAU's, as the app orients Venus (checked
+  // against CSPICE's IAU_VENUS in orientation.test.mjs). Mercury's field
+  // was solved in its own: its PDS label's pole (RA 281.0138, Dec 61.4161)
+  // and W0 329.75 deg, 0.15 deg from the IAU's (329.5988) in longitude.
+  const ms = Date.UTC(2008, 0, 14, 19, 4, 39), d = (await import('./ephemeris.js')).ttSeconds(ms) / 86400;
+  const ang = (A, B) => Math.max(...A.map((a, i) => Math.acos(Math.min(1, a[0] * B[i][0] + a[1] * B[i][1] + a[2] * B[i][2])))) * 180 / Math.PI;
+  const v = ang(planetFrame(VENUS_FRAME, d), bodyAxesEqj('venus', new Date(ms))), m = ang(planetFrame(MERCURY_FRAME, d), bodyAxesEqj('mercury', new Date(ms)));
+  const Z = planetFrame(MERCURY_FRAME, 0)[2], a0 = Math.atan2(Z[1], Z[0]) * 180 / Math.PI + 360, d0 = Math.asin(Z[2]) * 180 / Math.PI;
+  console.log(`  Venus's frame ${v.toExponential(1)} deg from the app's; Mercury's ${m.toFixed(3)} deg from the IAU's, its pole at J2000 RA ${a0.toFixed(4)}, Dec ${d0.toFixed(4)} deg`);
+  check("Venus's field frame is the app's IAU frame (within 1e-6 deg)", v < 1e-6);
+  check("Mercury's is its label's: the pole at RA 281.0138, Dec 61.4161 at J2000, within 0.2 deg of the IAU's", Math.abs(a0 - 281.0138) < 1e-9 && Math.abs(d0 - 61.4161) < 1e-9 && m < 0.2);
+}
+
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
 process.exitCode = failures ? 1 : 0;

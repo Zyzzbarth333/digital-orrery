@@ -22,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { launch, pageApi, serve } from './lib/chromium.mjs';
+import { gpuLock, launch, pageApi, serve } from './lib/chromium.mjs';
 
 const OUT = resolve('docs/clips');
 const VIEW = { width: 1200, height: 750 }; // CSS px, captured at DPR 1
@@ -309,6 +309,7 @@ async function main() {
   const url = opt('--url');
   const shot = opt('--shot');
   const keep = flag('--keep');
+  const force = flag('--force');
   const allGifs = flag('--gif');
   const names = argv.length ? argv : Object.keys(CLIPS);
   for (const n of names) if (!CLIPS[n] && !shot) throw new Error(`No clip "${n}": ${Object.keys(CLIPS).join(', ')}`);
@@ -316,6 +317,7 @@ async function main() {
 
   const work = join(tmpdir(), `docs-clips-${process.pid}`);
   let server = null, browser = null;
+  const lock = await gpuLock({ force });
   try {
     server = url ? null : await serve('dist');
     const base = (url ?? server.url).replace(/\/$/, '');
@@ -352,6 +354,7 @@ async function main() {
   } finally {
     await browser?.close();
     await server?.stop();
+    await lock.release();
     if (!keep) rmSync(work, { recursive: true, force: true });
     else console.log(`frames kept in ${work}`);
   }

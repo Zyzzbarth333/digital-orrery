@@ -90,6 +90,7 @@ run outside tools, and need a network or an installed tool:
 | `npm run fetch:flyby` | the moon and planet flybys from JPL Horizons; Voyager 2 at Neptune from NAIF's SPK (needs CMake and CSPICE: `c/flyby_ref`) |
 | `npm run oracle:openrocket` | the ROCKET tab's ascent against OpenRocket (needs Java and OpenRocket) |
 | `npm run build:textures` | the maps, as WebP and GPU-compressed KTX2, from their sources (needs KTX-Software's `ktx`) |
+| `wolframscript -file src/physics/planetFields.oracle.wls` | Mercury's and Venus's gravity fields summed directly from the PDS files, for `environment.test.mjs` (needs the Wolfram Engine, and `npm run fetch:environment` first) |
 | `npm run bench` | the kernel's speed |
 
 A check that needs local data it can't find skips itself and says so.

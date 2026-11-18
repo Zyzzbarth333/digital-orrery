@@ -170,7 +170,7 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
   // deepSpaceBurn) or on a broken plane (brokenPlane), or, where neither
   // could be found, direct on a plane that will not hold.
   for (const L of sol.legs) {
-    if (!L?.ok || L.geometry !== 'between' || L.resonance) continue;
+    if (!L?.ok || (L.geometry !== 'between' && L.geometry !== 'craft') || L.resonance) continue;
     const ds = L.deepSpace, bp = L.brokenPlane;
     if (ds) {
       lamps.push({ key: 'plane', level: 'caution', leg: L.index, text: `To ${name(L.to)}: ${ds.angleDeg.toFixed(1)}° round the ${name(L.central)}, so a deep-space burn on ${iso(ds.ms)}, ${(ds.dv * 1000).toFixed(0)} m/s, reshapes the transfer${Number.isFinite(ds.directDv) ? `; direct ${ds.directDv.toFixed(2)} km/s, tilted ${ds.directIncDeg.toFixed(1)}°` : ''}`, bestMs: ds.ms });

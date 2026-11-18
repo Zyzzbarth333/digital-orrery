@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- A git worktree builds and tests without a `node_modules` of its own: `src/physics/sgp4.js` imports satellite.js by name, and a small Vite plugin keeps its WebAssembly build out of the bundles, which come out byte for byte as before (this pull request).
 - `npm run bench:frames` times the app's frames on the integrated and the discrete GPU, a build against main, and prints the table a pull request needs (this pull request).
 - The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
 - The clips are filmed again from the app as it is now, with three more: the Earth's satellites, its magnetic field and auroras, and Jupiter's irregular moons (this pull request).
@@ -16,6 +17,7 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- A journey started from a craft's own state now takes a deep-space burn (or a broken plane) on its first leg when that leg runs nearly 180° round the Sun, as legs between bodies do, with the craft's own orbit as the plane. From a craft near the Earth to Mars, leaving on 18 Nov 2026, the leg cost 12.72 km/s direct and now 5.47; flown, its corrections fall from 687 to 112 m/s. The plane lamp and the leg's options show it (this pull request).
 - Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 39 m/s an hour. The flight aims a swing-by that passes close to the planet early, before the pass (this pull request).
 - After a long stay in a planet's orbit, a flown journey now leaves for what the plan prices. The trims on the way in aim the parking orbit's node so it turns onto the plan's on the planned day, for under 1 m/s, and the planner prices the orbit's plane at the radius the capture flies, its mean radius. A year at Mars, the departure on the planned day was 3.5 % over the plan and is now 0.4 %; on the day the parking orbit lamp suggests, 4.3 % and now 0.2 %. The plan's estimate of the flight's wait for the plane now searches as the flight does (this pull request).
 - A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
@@ -84,8 +86,11 @@ once it has releases. Until then, everything sits under Unreleased.
   Europa, Titan is entered at its planned height, a moon flyby is aimed at
   the moon, not its planet, and leaving Europa for Earth is flown within
   1 % of the planner's price. Captures and departures burn near
-  impulsively, centred on the periapsis, as the plan prices them (this
-  pull request).
+  impulsively, as the plan prices them (#105). The parking orbit at such a
+  moon now holds the way out through its stay: its plane is set by the
+  last aim down the planet's well, two days out, allowing for the stay's
+  turn of it (ten degrees over six days at Europa), so leaving Europa for
+  Earth costs 0.3 % over its price, not 0.9 % (this pull request).
 - A leg that runs nearly 180 degrees round the Sun is planned on a broken
   plane: in the departure's orbit plane to about halfway, then a burn that
   turns the plane onto the target. Leaving lunar orbit for Mars after 23
@@ -126,7 +131,19 @@ once it has releases. Until then, everything sits under Unreleased.
   final reconstruction (`?mission=lro`), down to its 30 km commissioning
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
-  (this pull request).
+  (#113).
+- MESSENGER's cruise to Mercury, 2004 to 2011, flies in the app against
+  JHU/APL's reconstruction (`?mission=messenger`): six flybys, every burn
+  within 1.1 % and 1.7° of APL's record, and the sunlight it steered by
+  fitted every 10 days, which brings 49 coast arcs within 5.4 km. A real
+  mission's flown path is now interpolated in TT seconds, so a leap
+  second no longer puts it 38 km off (this pull request).
+- Craft near Mercury and Venus feel their gravity fields, MESSENGER's
+  JGMESS160A and Magellan's MGNP180U, to degree 20 by default (`mercury:
+  { degree }` and `venus: { degree }`, as the Moon's). MESSENGER's pass
+  338 km over Venus now leaves 0.7 mm/s in the reconstruction's 10 s
+  steps instead of 105, and ends 0.6 km off half a day later instead of
+  4.0 (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
@@ -248,7 +265,9 @@ once it has releases. Until then, everything sits under Unreleased.
   sky's dimming are checked from other planets and in transits (#67).
 - The Earth's sky costs less near the Earth: frames 40 % shorter on an
   integrated GPU with the Earth in view, and 23 % in low orbit at a day a
-  second, with the same look (this pull request).
+  second, with the same look (#122).
+- The faint belt's file is a quarter smaller, 17.4 MB instead of 23.1 MB,
+  so the haze loads sooner on a slow link (this pull request).
 
 ### The console
 - Source tags open each value's equation and source, set in a bundled
