@@ -254,7 +254,8 @@ The sky was the last part to appear: decoding the 8192 × 4096 WebP takes
 seconds. A 2048-wide copy (0.57 MB, the same mean light to 0.04 %) is shown
 first and the full map put in its place when it is up.
 
-**Not done.** A smaller belt file (23 MB at 16 bytes a body; 12 would do).
+**Since then.** The belt file is 17.4 MB at 12 bytes a body, down from
+23.1 MB at 16 ([the faint belt's file](frontend/small-bodies.md#the-data)).
 KTX2 textures came later ([below](#gpu-compressed-maps)).
 
 ### A craft at high warp
