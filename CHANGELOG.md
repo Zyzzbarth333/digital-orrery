@@ -285,6 +285,12 @@ once it has releases. Until then, everything sits under Unreleased.
 - The Earth's sky costs less near the Earth: frames 40 % shorter on an
   integrated GPU with the Earth in view, and 23 % in low orbit at a day a
   second, with the same look (#122).
+- The Earth's air now scatters sunlight more than once, from Hillaire's
+  multiple-scattering table: the twilight band reaches further past the
+  terminator, bluer, the lit edge of a crescent Earth is bluer, and the
+  haze over the day side is a little stronger. While the clock is held and
+  the camera still (or only turning), the sky's table of view rays is no
+  longer marched again every frame (this pull request).
 - The faint belt's file is a quarter smaller, 17.4 MB instead of 23.1 MB,
   so the haze loads sooner on a slow link (this pull request).
 

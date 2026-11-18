@@ -1,12 +1,14 @@
 // src/scene/atmosphere.ts
 //
-// Physically based atmospheres (docs/frontend/atmospheres.md): single
-// scattering by molecules (Rayleigh) and aerosols (Mie), with ozone
-// absorption, integrated along each view ray through a shell around the
-// planet (marched once a frame into a table of rays from the camera, which
-// the shell's pixels look up: renderViewTable), and the same medium's
-// transmittance applied to the sunlight that reaches the surface (sunset
-// reddening at the terminator).
+// Physically based atmospheres (docs/frontend/atmospheres.md): scattering
+// by molecules (Rayleigh) and aerosols (Mie), with ozone absorption,
+// integrated along each view ray through a shell around the planet
+// (marched once a frame into a table of rays from the camera, which the
+// shell's pixels look up: renderViewTable), the light scattered more than
+// once added from a second table (Hillaire's multiple-scattering table,
+// made once: msFragment), and the same medium's transmittance applied
+// to the sunlight that reaches the surface (sunset reddening at the
+// terminator).
 //
 // All lengths in the shaders are km, relative to the planet's centre;
 // coefficients are per km. The planet is an ellipsoid and so is its
@@ -28,6 +30,7 @@ export interface AtmosphereParams {
   ozone: [number, number, number];      // absorption at the layer's peak, 1/km
   ozoneCentreKm: number;
   ozoneHalfWidthKm: number;
+  groundAlbedo: number;        // the ground's diffuse albedo, for the light it sends back up into the air
   source: string;
 }
 
@@ -35,9 +38,9 @@ export interface AtmosphereParams {
 // demo.cc): Rayleigh 1.24062e-6 lambda^-4 /m (lambda in um) at 680, 550 and
 // 440 nm with an 8 km scale height; Mie extinction 5.328e-3 / 1.2 km
 // (Angstrom beta over the scale height) = 4.44e-6 /m with single-scattering
-// albedo 0.9, g = 0.8; ozone in a tent from 10 to 40 km peaking at 25 km.
-// The ozone peak coefficients are Hillaire's (2020), not yet checked
-// against the paper.
+// albedo 0.9, g = 0.8; ozone in a tent from 10 to 40 km peaking at 25 km,
+// its peak coefficients from Hillaire (2020), Table 1. Ground albedo 0.3,
+// Hillaire's (2020, Section 4).
 export const EARTH_ATMOSPHERE: AtmosphereParams = {
   topKm: 100,
   rayleigh: [5.802e-3, 13.558e-3, 33.1e-3],
@@ -49,6 +52,7 @@ export const EARTH_ATMOSPHERE: AtmosphereParams = {
   ozone: [0.650e-3, 1.881e-3, 0.085e-3],
   ozoneCentreKm: 25,
   ozoneHalfWidthKm: 15,
+  groundAlbedo: 0.3,
   source: 'Bruneton (2017) reference model; ozone peak from Hillaire (2020)',
 };
 
@@ -172,6 +176,84 @@ export function transmittanceLut(a: AtmosphereParams, groundKm: number): THREE.D
   return tex;
 }
 
+// ---- Light scattered more than once ----------------------------------------
+//
+// Hillaire's (2020, Section 5.5) multiple-scattering table. After its
+// second bounce, the light is taken as isotropic, and the light reaching
+// the air around a point as the light reaching the point itself. Then the
+// light of every order past the first, per unit sunlight, depends only on
+// the point's altitude and the Sun's angle from its zenith:
+//
+//   Psi = L2 / (1 - f),
+//
+// with L2 the light scattered once toward the point and once more there
+// (isotropically), and f the fraction of light that one more bounce
+// returns to it, each averaged over the directions round the point (Eqs.
+// 5-10). The light the ground reflects counts in L2. Along a view ray,
+// each step then adds sigma_s Psi, with the view path's transmittance
+// (Eq. 11). The medium does not change, so the table is made once, on the
+// GPU, when the shell is first drawn. The paper takes 64 directions of 20
+// steps, which a finer integration puts 10-20 % out in places; made once,
+// the table can take 256 directions of 40 steps, within about 3 %.
+
+const MS_N = 32;
+
+const msFragment = /* glsl */ `
+#include <common>
+${ATMO_UNIFORMS}
+${ATMO_FUNCS}
+uniform float atmoAlbedo;
+layout(location = 0) out vec4 outMs;
+void main() {
+  // Texel centres at the ends: u = (1 + cos of the Sun's zenith angle) / 2,
+  // v = altitude / the shell's depth.
+  vec2 x = floor(gl_FragCoord.xy) / ${MS_N - 1}.0;
+  float muS = 2.0 * x.x - 1.0;
+  float r = atmoRg + max(x.y * (atmoRt - atmoRg), 0.01);
+  vec3 p = vec3(0.0, 0.0, r);
+  vec3 sun = vec3(sqrt(max(1.0 - muS * muS, 0.0)), 0.0, muS);
+  vec3 L2 = vec3(0.0), f = vec3(0.0);
+  const int SQRT_DIRS = 16, STEPS = 40;
+  for (int a = 0; a < SQRT_DIRS; a++) {
+    for (int b = 0; b < SQRT_DIRS; b++) {
+      // 256 directions of equal solid angle.
+      float cosT = 1.0 - 2.0 * (float(a) + 0.5) / float(SQRT_DIRS);
+      float phi = 2.0 * PI * (float(b) + 0.5) / float(SQRT_DIRS);
+      float sinT = sqrt(max(1.0 - cosT * cosT, 0.0));
+      vec3 d = vec3(sinT * cos(phi), sinT * sin(phi), cosT);
+      vec2 g = atmoSphere(p, d, atmoRg);
+      bool hit = g.x > 0.0;
+      float tEnd = hit ? g.x : max(atmoSphere(p, d, atmoRt).y, 0.0);
+      float ds = tEnd / float(STEPS);
+      vec3 T = vec3(1.0), L = vec3(0.0), F = vec3(0.0);
+      for (int k = 0; k < STEPS; k++) {
+        vec3 q = p + d * ((float(k) + 0.5) * ds);
+        float h = length(q) - atmoRg;
+        vec3 sigS = atmoBetaR * exp(-h / atmoHR) + atmoBetaMs * exp(-h / atmoHM);
+        vec3 ext = max(atmoExtinction(h), vec3(1e-9));
+        vec3 Ts = exp(-ext * ds);
+        // The step's integral of T sigma_s, exact for a uniform step,
+        // which keeps f under 1 (Hillaire 2020, Sec. 5.5.3).
+        vec3 S = T * (sigS - sigS * Ts) / ext;
+        L += S * atmoSunTransmittance(q, sun) / (4.0 * PI);
+        F += S;
+        T *= Ts;
+      }
+      if (hit) {
+        vec3 n = normalize(p + d * tEnd);
+        L += T * atmoSunTransmittance(n * (atmoRg + 1e-3), sun) * max(dot(n, sun), 0.0) * atmoAlbedo / PI;
+      }
+      L2 += L;
+      f += F;
+    }
+  }
+  // The integrals over the sphere with the isotropic phase 1 / (4 pi):
+  // each direction's solid angle, 4 pi / n, times the phase, is 1 / n.
+  float n = float(SQRT_DIRS * SQRT_DIRS);
+  outMs = vec4((L2 / n) / (1.0 - f / n), 1.0);
+}
+`;
+
 // ---- The shell -------------------------------------------------------------
 //
 // The scattered light along a view ray depends only on where the ray
@@ -204,6 +286,16 @@ uniform vec3 viewSunH;      // the Sun's direction along the camera's horizon (a
 uniform vec3 viewSun;       // unit vector to the Sun, ground sphere's space
 const float VW = ${VIEW_W}.0, VH = ${VIEW_HALF}.0;
 float viewRho(float r) { return sqrt(max(r * r - atmoRg * atmoRg, 0.0)); }
+`;
+
+// The multiple-scattering table's light (per unit sunlight, 1/sr) at
+// altitude h, the Sun's zenith angle's cosine muS.
+const MS_LOOKUP = /* glsl */ `
+uniform sampler2D msLut;
+vec3 msLight(float h, float muS) {
+  vec2 x = clamp(vec2(0.5 + 0.5 * muS, h / (atmoRt - atmoRg)), 0.0, 1.0);
+  return texture(msLut, (0.5 + x * ${MS_N - 1}.0) / ${MS_N}.0).rgb;
+}
 `;
 
 // The table's (u, v) for a ray from the camera: mu the cosine of its angle
@@ -240,7 +332,13 @@ const tableFragment = /* glsl */ `
 ${ATMO_UNIFORMS}
 ${VIEW_PARAMS}
 ${ATMO_FUNCS}
-layout(location = 0) out vec4 outRayleigh;   // rgb: Rayleigh light without its phase; a: 1 - the view path's transmittance (luminance)
+${MS_LOOKUP}
+// rgb: Rayleigh light without its phase, and the multiple-scattering light
+// divided by the Rayleigh phase at this texel's ray (the shell multiplies
+// it back by its own pixel's, which differs from it by little across a
+// texel: the phase is smooth); a: 1 - the view path's transmittance
+// (luminance).
+layout(location = 0) out vec4 outRayleigh;
 layout(location = 1) out vec4 outMie;        // rgb: Mie light without its phase
 void main() {
   float i = floor(gl_FragCoord.x), j = floor(gl_FragCoord.y);
@@ -277,17 +375,24 @@ void main() {
   if (t1 <= t0) { outRayleigh = vec4(0.0); outMie = vec4(0.0); return; }
   const int N = 32;
   float ds = (t1 - t0) / float(N);
-  vec3 tau = vec3(0.0), LR = vec3(0.0), LM = vec3(0.0);
+  vec3 tau = vec3(0.0), LR = vec3(0.0), LM = vec3(0.0), LMS = vec3(0.0);
   for (int k = 0; k < N; k++) {
     vec3 q = p + d * (t0 + (float(k) + 0.5) * ds);
-    float h = length(q) - Rg;
+    float rq = length(q), h = rq - Rg;
     vec3 ext = atmoExtinction(h);
-    vec3 w = exp(-(tau + 0.5 * ext * ds)) * atmoSunTransmittance(q, viewSun) * ds;
-    LR += w * exp(-h / atmoHR);
-    LM += w * exp(-h / atmoHM);
+    vec3 tv = exp(-(tau + 0.5 * ext * ds)) * ds;
+    vec3 w = tv * atmoSunTransmittance(q, viewSun);
+    float dR = exp(-h / atmoHR), dM = exp(-h / atmoHM);
+    LR += w * dR;
+    LM += w * dM;
+    // Light scattered more than once: sigma_s Psi, with no phase and no
+    // shadow (Hillaire 2020, Eq. 11).
+    LMS += tv * (atmoBetaR * dR + atmoBetaMs * dM) * msLight(h, dot(q, viewSun) / rq);
     tau += ext * ds;
   }
-  outRayleigh = vec4(atmoBetaR * LR, 1.0 - dot(exp(-tau), vec3(0.2126, 0.7152, 0.0722)));
+  float nu = dot(d, viewSun);
+  float phR = 3.0 / (16.0 * PI) * (1.0 + nu * nu);
+  outRayleigh = vec4(atmoBetaR * LR + LMS / phR, 1.0 - dot(exp(-tau), vec3(0.2126, 0.7152, 0.0722)));
   outMie = vec4(atmoBetaMs * LM, 1.0);
 }
 `;
@@ -370,15 +475,36 @@ interface ViewTable {
   scene: THREE.Scene;
   camera: THREE.Camera;
   uniforms: Record<string, THREE.IUniform>;   // shared with the shell's material
+  ms: { target: THREE.WebGLRenderTarget; scene: THREE.Scene; drawn: boolean };
+  // The camera and the Sun (ground sphere's space) the table was last
+  // marched from, or null before the first.
+  lastCam: THREE.Vector3 | null;
+  lastSun: THREE.Vector3;
 }
 
-export function makeAtmosphere(a: AtmosphereParams, groundKm: number, unitKm: number): THREE.Mesh {
-  const target = new THREE.WebGLRenderTarget(VIEW_W, 2 * VIEW_HALF, { count: 2, type: THREE.HalfFloatType, depthBuffer: false });
+// A full-screen triangle pair drawing one fragment shader into a target.
+function quadScene(fragmentShader: string, uniforms: Record<string, THREE.IUniform>): THREE.Scene {
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3, vertexShader: quadVertex, fragmentShader, uniforms, depthTest: false, depthWrite: false,
+  }));
+  quad.frustumCulled = false;
+  const scene = new THREE.Scene();
+  scene.add(quad);
+  return scene;
+}
+
+function linearTextures(target: THREE.WebGLRenderTarget): THREE.WebGLRenderTarget {
   for (const t of target.textures) {
     t.minFilter = t.magFilter = THREE.LinearFilter;
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
     t.generateMipmaps = false;
   }
+  return target;
+}
+
+export function makeAtmosphere(a: AtmosphereParams, groundKm: number, unitKm: number): THREE.Mesh {
+  const target = linearTextures(new THREE.WebGLRenderTarget(VIEW_W, 2 * VIEW_HALF, { count: 2, type: THREE.HalfFloatType, depthBuffer: false }));
+  const msTarget = linearTextures(new THREE.WebGLRenderTarget(MS_N, MS_N, { type: THREE.HalfFloatType, depthBuffer: false }));
   const uniforms: Record<string, THREE.IUniform> = {
     ...atmosphereUniforms(a, groundKm),
     viewCam: { value: new THREE.Vector3(0, 0, groundKm + a.topKm + 1) },
@@ -386,12 +512,8 @@ export function makeAtmosphere(a: AtmosphereParams, groundKm: number, unitKm: nu
     viewSunH: { value: new THREE.Vector3(1, 0, 0) },
     viewSun: { value: new THREE.Vector3(1, 0, 0) },
   };
-  const table = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
-    glslVersion: THREE.GLSL3, vertexShader: quadVertex, fragmentShader: tableFragment, uniforms, depthTest: false, depthWrite: false,
-  }));
-  table.frustumCulled = false;
-  const scene = new THREE.Scene();
-  scene.add(table);
+  const scene = quadScene(tableFragment, { ...uniforms, msLut: { value: msTarget.texture } });
+  const msScene = quadScene(msFragment, { ...uniforms, atmoAlbedo: { value: a.groundAlbedo } });
   const mat = new THREE.ShaderMaterial({
     vertexShader: vertex,
     fragmentShader: fragment,
@@ -410,7 +532,11 @@ export function makeAtmosphere(a: AtmosphereParams, groundKm: number, unitKm: nu
   });
   const mesh = new THREE.Mesh(new THREE.SphereGeometry((groundKm + a.topKm) / unitKm, 128, 64), mat);
   mesh.renderOrder = 10;
-  mesh.userData.viewTable = { target, scene, camera: new THREE.Camera(), uniforms } satisfies ViewTable;
+  mesh.userData.viewTable = {
+    target, scene, camera: new THREE.Camera(), uniforms,
+    ms: { target: msTarget, scene: msScene, drawn: false },
+    lastCam: null, lastSun: new THREE.Vector3(),
+  } satisfies ViewTable;
   mesh.userData.sunDir = new THREE.Vector3(1, 0, 0);
   return mesh;
 }
@@ -423,7 +549,10 @@ const _m = new THREE.Matrix4();
 // from there. centre is the planet's render position (camera-relative),
 // sunDir the unit vector to the Sun from it, unitKm km per render unit.
 // The table is skipped while the shell is out of view or under two pixels
-// across; it is redrawn when it comes back.
+// across; it is redrawn when it comes back. It is also skipped while
+// neither the camera nor the Sun has moved relative to the planet (the
+// clock held, the camera still or only turning): it would come out the
+// same. The multiple-scattering table is made before the first.
 export function renderViewTable(renderer: THREE.WebGLRenderer, shell: THREE.Mesh, camera: THREE.PerspectiveCamera,
   centre: THREE.Vector3, sunDir: THREE.Vector3, unitKm: number): void {
   const vt = shell.userData.viewTable as ViewTable;
@@ -452,8 +581,17 @@ export function renderViewTable(renderer: THREE.WebGLRenderer, shell: THREE.Mesh
     const px = (u.atmoRt.value as number) / r / Math.tan((camera.fov * Math.PI) / 360) * renderer.domElement.height / 2;
     if (px < 1) return;
   }
+  // Still: under a millimetre and a nanoradian since the last march.
+  if (vt.lastCam && vt.lastCam.distanceToSquared(cam) < 1e-12 && vt.lastSun.distanceToSquared(sun) < 1e-18) return;
   const prev = renderer.getRenderTarget();
+  if (!vt.ms.drawn) {
+    renderer.setRenderTarget(vt.ms.target);
+    renderer.render(vt.ms.scene, vt.camera);
+    vt.ms.drawn = true;
+  }
   renderer.setRenderTarget(vt.target);
   renderer.render(vt.scene, vt.camera);
   renderer.setRenderTarget(prev);
+  (vt.lastCam ??= new THREE.Vector3()).copy(cam);
+  vt.lastSun.copy(sun);
 }
