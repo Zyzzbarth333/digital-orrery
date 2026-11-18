@@ -131,10 +131,11 @@ void main() {
 }
 `;
 const BELT_COLOUR = new THREE.Color(0x7fb8c9);
-const BELT_SHELLS = 5, BELT_LON = 36, BELT_SAMPLES = 40;
+const BELT_SHELLS = 3, BELT_LON = 36, BELT_SAMPLES = 40;
+const BELT_LAT = 50;        // shells stop this far (deg) from the magnetic equator, where they have faded
 
 // Emission colours: 557.7 nm and 630.0 nm as sRGB, and the giants' false colour.
-const GREEN = new THREE.Color(0.32, 1.0, 0.45), RED = new THREE.Color(1.0, 0.16, 0.1), UV = new THREE.Color(0.72, 0.62, 1.0);
+const GREEN = new THREE.Color(0.32, 1.0, 0.45), RED = new THREE.Color(1.0, 0.16, 0.1), UV = new THREE.Color(0.42, 0.34, 1.0);
 // Earth's emission layers, km above the surface: green peaks near 110-150
 // km, red 630 nm above about 200 km.
 const LAYERS = [100, 120, 145, 175, 215, 260, 310];
@@ -287,11 +288,14 @@ export class MagneticLayer {
     }
     this.lineMat.uniforms.level.value = f.level;
     this.axisMat.uniforms.level.value = f.level;
-    for (const k of ['earth', 'jupiter', 'saturn'] as BodyKey[]) {
+    // Auroras give their own light: the display level may dim them near the
+    // Sun but never brightens them past their emission far from it.
+    const glow = Math.min(f.level, 1);
+    for (const k of ['earth', 'jupiter', 'saturn', 'uranus', 'neptune'] as BodyKey[]) {
       const m = k === 'earth' ? this.earthAurora : this.giant.get(k)?.mesh;
-      if (m) (m.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+      if (m) (m.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     }
-    if (this.io.mesh) (this.io.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+    if (this.io.mesh) (this.io.mesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     for (const b of this.beltMeshes.values()) if (b.mesh) (b.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
 
     // The legend: the focused body's, else none.
@@ -460,7 +464,7 @@ export class MagneticLayer {
           });
         });
       }
-      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 2.2 : k === 'saturn' ? 1.8 : 0.9); g.add(gi!.mesh); });
+      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 1 : k === 'saturn' ? 0.9 : 0.16); g.add(gi!.mesh); });
       gi = { mesh: null, jobs, done: false };
       this.giant.set(k, gi);
     }
@@ -486,22 +490,24 @@ export class MagneticLayer {
   private bandMesh(edges: { north: (V3 | null)[]; south: (V3 | null)[] }[], intensity: number): THREE.Mesh {
     const pos: number[] = [], em: number[] = [], idx: number[] = [];
     // A glowing sheet a few hundred km up, fading upward like a curtain.
-    const lift = [1.002, 1.006, 1.012], lw = [1, 0.55, 0.22];
+    const lift = [1.004, 1.012], lw = [1, 0.3];
     for (const h of ['north', 'south'] as const) {
       const a = edges[0][h], b = edges[1][h], n = a.length;
       for (let li = 0; li < lift.length; li++) {
         const base = pos.length / 3;
         for (let i = 0; i <= n; i++) {
           const pa = a[i % n] ?? b[i % n], pb = b[i % n] ?? a[i % n];
-          for (const [p, w] of [[pa, 0.55], [mid(pa, pb), 1], [pb, 0.55]] as [V3 | null, number][]) {
-            const q = p ?? [0, 0, 0], r = Math.hypot(...q) || 1;
-            pos.push((q[0] / r) * lift[li] * r, (q[1] / r) * lift[li] * r, (q[2] / r) * lift[li] * r);
+          // Rows across the band, each back on the surface, brightest mid-band.
+          for (let r = 0; r < ROWS; r++) {
+            const t = r / (ROWS - 1), p = between(pa, pb, t), w = Math.sin(Math.PI * t) ** 2;
+            const q = p ?? [0, 0, 0];
+            pos.push(q[0] * lift[li], q[1] * lift[li], q[2] * lift[li]);
             const e = intensity * w * lw[li] * (p ? 1 : 0);
             em.push(UV.r * e, UV.g * e, UV.b * e);
           }
         }
-        for (let i = 0; i < n; i++) for (let j = 0; j < 2; j++) {
-          const i0 = base + i * 3 + j, i1 = i0 + 3;
+        for (let i = 0; i < n; i++) for (let j = 0; j < ROWS - 1; j++) {
+          const i0 = base + i * ROWS + j, i1 = i0 + ROWS;
           idx.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
         }
       }
@@ -599,11 +605,13 @@ export class MagneticLayer {
               for (let sIdx = 0; sIdx < BELT_SAMPLES; sIdx++) {
                 pos.push(r.points[3 * sIdx], r.points[3 * sIdx + 1], r.points[3 * sIdx + 2]);
                 // Trapped particles crowd toward the magnetic equator.
-                wt.push(w * Math.exp(-((r.lat[sIdx] / 28) ** 2)));
+                wt.push(Math.abs(r.lat[sIdx]) > BELT_LAT ? 0 : w * Math.exp(-((r.lat[sIdx] / 28) ** 2)));
               }
             }
             for (let j = 0; j < BELT_LON; j++) for (let sIdx = 0; sIdx < BELT_SAMPLES - 1; sIdx++) {
               const i0 = base + j * BELT_SAMPLES + sIdx, i1 = i0 + BELT_SAMPLES;
+              // No triangles where the shell has faded out (fill is the cost on an integrated GPU).
+              if (wt[i0] < 0.03 && wt[i0 + 1] < 0.03 && wt[i1] < 0.03 && wt[i1 + 1] < 0.03) continue;
               idx.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
             }
           });
@@ -617,7 +625,7 @@ export class MagneticLayer {
         geo.computeVertexNormals();
         const mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({
           vertexShader: beltVertex, fragmentShader: beltFragment, transparent: true, depthWrite: false, toneMapped: false,
-          blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { colour: { value: BELT_COLOUR }, level: { value: 1 } },
+          blending: THREE.AdditiveBlending, side: THREE.FrontSide, uniforms: { colour: { value: BELT_COLOUR }, level: { value: 1 } },
         }));
         mesh.frustumCulled = false;
         mesh.renderOrder = 3;
@@ -708,7 +716,13 @@ function rotZ(q: V3, lon: number): V3 {
   const a = (lon * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
   return [c * q[0] - s * q[1], s * q[0] + c * q[1], q[2]];
 }
-function mid(a: V3 | null, b: V3 | null): V3 | null {
+// A fraction t of the way between two surface points, back on the surface
+// (their radii blended, along the blended direction), not on the chord
+// through the planet.
+const ROWS = 7;
+function between(a: V3 | null, b: V3 | null, t: number): V3 | null {
   if (!a || !b) return a ?? b;
-  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  const m: V3 = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), a[2] + t * (b[2] - a[2])], n = Math.hypot(...m) || 1;
+  const r = Math.hypot(...a) * (1 - t) + Math.hypot(...b) * t;
+  return [(m[0] / n) * r, (m[1] / n) * r, (m[2] / n) * r];
 }

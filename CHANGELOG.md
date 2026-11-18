@@ -91,7 +91,11 @@ once it has releases. Until then, everything sits under Unreleased.
   Saturn's (Cassini) and Uranus's and Neptune's (Voyager) measured fields,
   shaded by strength, with each dipole's tilt and offset. The Earth's
   auroral ovals for the day's Kp, green below red on the night side;
-  Jupiter's and Saturn's main ovals and Io's footprint (this pull request).
+  Jupiter's and Saturn's main ovals and Io's footprint, Uranus's and
+  Neptune's auroral zones, and Mercury's field from MESSENGER. A third
+  guide draws the radiation belts of the Earth, Jupiter and Saturn along
+  their L-shells, the Earth's inner belt dipping over the South Atlantic
+  (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
