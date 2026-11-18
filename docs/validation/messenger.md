@@ -244,6 +244,8 @@ default (`fixHours` in the file).
 
 - **Blind,** a year of sunlight the app's one Cr can't follow brings the
   Earth flyby in 3,100 km too high, and the rest of the flight is lost.
+  The validation flies it to a day past that flyby and no further
+  (`blindFlybys`), which saves 30 s of `npm test`.
 - **Aimed,** as Juno and DART fly, each burn aims at the next one's
   flown state. Across Mercury's second flyby, with J2 alone, what the
   pass left (0.125 m/s) turned into hundreds of kilometres by DSM-4A. So

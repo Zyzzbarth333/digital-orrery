@@ -378,15 +378,16 @@ for (const id of ids) {
     const near = data.flybys.map((f) => Date.parse(f.utc));
     // fixHours: a tracking fix that often (the file's own, data.fixHours,
     // as the app flies it by default).
-    const flyApp = ({ aimed = false, fixHours = null } = {}) => {
+    // untilMs: flown to then, not to the file's end.
+    const flyApp = ({ aimed = false, fixHours = null, untilMs = file.endMs } = {}) => {
       const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, ...model });
       c.setScript(file.script());
       const client = new KernelClient(), run = { aimNext: 0, aimedDv: 0 };
       const step = (t) => { c.advanceClock(t); if (aimed) file.aimStep(c, sys, run); client.tick([c]); if (aimed) { file.aimStep(c, sys, run); client.tick([c]); } };
       let worst = 0, prev = file.startMs;
       const lows = data.flybys.map(() => ({ d: Infinity }));
-      for (let ms = file.startMs; ms < file.endMs && !c.crashed && !c.error;) {
-        ms = Math.min(file.endMs, ms + (near.some((x) => Math.abs(x - ms) < 864e5) ? 60e3 : 3600e3));
+      for (let ms = file.startMs; ms < untilMs && !c.crashed && !c.error;) {
+        ms = Math.min(untilMs, ms + (near.some((x) => Math.abs(x - ms) < 864e5) ? 60e3 : 3600e3));
         for (const f of file.fixesBetween(prev, ms, fixHours)) { step(kt(f)); const x = file.fixAt(f); c.setState(x.r, x.v, x.t); }
         prev = ms;
         step(kt(ms));
@@ -398,12 +399,15 @@ for (const id of ids) {
         });
       }
       const endState = { ms: kernelMs(c.kState.t), ...about({ r: c.kState.r, v: c.kState.v }, kernelMs(c.kState.t), centre) };
-      return { worst, end: file.distanceFromFlown(c.kState.r, kernelMs(c.kState.t)), lows, aimedDv: run.aimedDv, error: c.error, crashed: c.crashed, endState };
+      return { untilMs, worst, end: file.distanceFromFlown(c.kState.r, kernelMs(c.kState.t)), lows, aimedDv: run.aimedDv, error: c.error, crashed: c.crashed, endState };
     };
-    const show = (label, x) => console.log(`  ${label.padEnd(36)} ${x.lows.length ? `flybys ${x.lows.map((l) => `${l.d.toFixed(1)} km`).join(', ')}   ` : ''}at the end ${x.end.toFixed(1)} km, worst ${x.worst.toFixed(1)} km${x.crashed ? ', crashed' : ''}${x.error ? `, ${x.error}` : ''}`);
+    const show = (label, x) => console.log(`  ${label.padEnd(36)} ${x.lows.length ? `flybys ${x.lows.filter((l) => l.d < Infinity).map((l) => `${l.d.toFixed(1)} km`).join(', ')}${x.untilMs < file.endMs ? ', then lost' : ''}   ` : ''}${x.untilMs < file.endMs ? `at ${hhmm(x.untilMs).slice(0, 10)}` : 'at the end'} ${x.end.toFixed(1)} km, worst ${x.worst.toFixed(1)} km${x.crashed ? ', crashed' : ''}${x.error ? `, ${x.error}` : ''}`);
     // As the app flies it by default: aimed, or (a file with fixHours) the
     // burns as flown with a tracking fix that often.
-    const blind = flyApp(), aimed = data.fixHours ? flyApp({ fixHours: data.fixHours }) : flyApp({ aimed: true });
+    // Blind, a flight that is lost after its first flybys (M.blindFlybys:
+    // MESSENGER's, after the Earth's) is flown a day past them, not on
+    // through years that show nothing more.
+    const blind = flyApp(M.blindFlybys ? { untilMs: near[M.blindFlybys - 1] + 864e5 } : {}), aimed = data.fixHours ? flyApp({ fixHours: data.fixHours }) : flyApp({ aimed: true });
     // Aimed with no fixes, for comparison (LRO's); not for a flight whose
     // aims cross flybys the app's field can't match (MESSENGER's at
     // Mercury: M.fixesOnly; docs/validation/messenger.md).

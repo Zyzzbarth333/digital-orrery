@@ -129,6 +129,59 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
 Read the before and after of one run rather than numbers from different
 runs. On a busy machine repeat runs differ by 10 to 20 %.
 
+## The test suite
+
+`npm test` (`scripts/test.mjs`) runs every check file in its own Node
+process, four at a time (`--jobs N` or `TEST_JOBS` for more or fewer).
+Each file's output is printed whole, in the runner's order, so the log
+reads as one run did. The runner ends with a table of the slowest parts.
+A part fails if it exits non-zero or prints a FAIL line. The slowest
+files run in parts:
+
+- **`journey.test.mjs`, by case.** CASE 5, 12 and 17 run alone; 20 and
+  21 together (21 takes 20's flight); 8, 15 and 16 together; 9 and 10
+  together; and the rest (`--except`) in one more
+  part, so a new case runs without being listed. Each file takes the cases
+  to run on its command line: `node src/physics/journey.test.mjs 12 17`.
+  A case named that the file doesn't have fails, so a part can't silently
+  run nothing.
+- **`missions.validate.mjs`, by mission**, as it already took them:
+  `node src/physics/missions.validate.mjs messenger`.
+
+`npm test -- journey` runs only the parts whose command contains
+`journey`. With more processors, `TEST_JOBS=8 npm test` is faster still:
+CASE 12 and 17, about a minute each, and 20 with 21 are then the floor. Each journey part
+takes up to 0.8 GB, which is why four is the default.
+
+No flight is flown twice in one run, so there is nothing to share between
+checks. A journey flight's time is the kernel's: half of it is placing the
+bodies at each step (`bodies.js`). MESSENGER's blind replay, every burn as
+flown with no fixes, is flown a day past the Earth flyby. After that it is
+lost and shows nothing more, and it was 30 s of its six-year flight
+(`blindFlybys` in `missions.data.mjs`).
+
+Measured on 18 November 2026: main at c827a24, one file after another
+as `npm test` ran them, against this runner straight after, on a 32-thread
+machine shared with other sessions (load average about 3), each run
+capped at 4 GB:
+
+| | Main, one after another | Side by side |
+| --- | --- | --- |
+| `npm test`, wall | 461 s | 146 s, four at a time |
+| All parts one after another | 461 s | 575 s (each part slower with four running) |
+| `journey.test.mjs` | 228 s in one | slowest part 66 s (CASE 20 and 21) |
+| `missions.validate.mjs` | 70 s in one | slowest part 36 s (MESSENGER) |
+| `artemis1.validate.mjs` | 22 s | 29 s |
+| `artemis2.validate.mjs` | 17 s | 23 s |
+| PASS lines | 1,219 | 1,219 |
+
+An earlier pair of runs, with the machine busier (load average 5), took
+551 s and 140 s.
+
+Every check prints the same tolerance and value as before. The only lines
+that differ are measured times and MESSENGER's blind line, which now ends
+at the Earth flyby.
+
 ## Rendering
 
 Measured on 14 November 2026 for the [overhaul](ux/overhaul-plan.md),
