@@ -14,6 +14,7 @@ import { bodyState } from '../scene/OrreryScene';
 import type { IrregularMoon } from '../scene/irregularMoons';
 import { irregularStateEqjAtTt, irregularSource } from '../physics/irregularMoons.js';
 import { eqjToEcl, ttSeconds } from '../physics/ephemeris.js';
+import { keepDesignation } from './find';
 
 const C_KM_S = 299792.458;
 const PLANET = { jupiter: 'Jupiter', saturn: 'Saturn', neptune: 'Neptune' } as const;
@@ -65,7 +66,7 @@ export function IrregularMoonPlate({ clock, moon: m }: { clock: SimClock; moon: 
   return (
     <div className="tab-body">
       <div className="plate-head">
-        <h2>{m.name}</h2>
+        <h2>{keepDesignation(m.name)}</h2>
         <p className="engraved">{m.retrograde ? 'Retrograde' : 'Prograde'} irregular moon of {PLANET[m.planet]}</p>
       </div>
       <p className="strip" aria-hidden="true">Readout · source</p>

@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Digital orrery: one frame",
+    "output": "docs/diagrams/frame.html",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Zyzzbarth333/digital-orrery.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "d6828a2ba647825ab5eb5ee5b41c72a4980ad784"
+    },
+    "legend": {
+      "entries": {
+        "emphasis": { "label": "frame path" },
+        "dashed": { "label": "message or event, not waited on" },
+        "default": { "label": "call" }
+      }
+    }
+  },
+  "participants": [
+    { "id": "plates", "type": "frontend", "label": "Plates", "sublabel": "panels.tsx",
+      "sources": [{ "path": "src/app/panels.tsx", "line": 616, "end_line": 653 }] },
+    { "id": "clock", "type": "frontend", "label": "SimClock", "sublabel": "clock.ts",
+      "sources": [{ "path": "src/app/clock.ts", "line": 31, "end_line": 42 }, { "path": "src/app/clock.ts", "line": 89, "end_line": 98 }] },
+    { "id": "scene", "type": "cloud", "label": "OrreryScene", "sublabel": "rAF frame()",
+      "sources": [{ "path": "src/scene/OrreryScene.ts", "line": 1203, "end_line": 1240 }, { "path": "src/scene/OrreryScene.ts", "line": 1335, "end_line": 1384 }, { "path": "src/app/App.tsx", "line": 349, "end_line": 353 }] },
+    { "id": "mission", "type": "frontend", "label": "Mission", "sublabel": "mission.ts",
+      "sources": [{ "path": "src/app/mission.ts", "line": 127, "end_line": 154 }, { "path": "src/app/mission.ts", "line": 402, "end_line": 407 }, { "path": "src/physics/craft.js", "line": 555, "end_line": 568 }] },
+    { "id": "kclient", "type": "backend", "label": "KernelClient", "sublabel": "kernelClient.js",
+      "sources": [{ "path": "src/physics/kernelClient.js", "line": 86, "end_line": 125 }, { "path": "src/physics/kernelClient.js", "line": 127, "end_line": 145 }] },
+    { "id": "kworker", "type": "backend", "label": "Kernel worker", "sublabel": "kernelHost.js",
+      "sources": [{ "path": "src/physics/kernel.worker.js", "line": 20, "end_line": 29 }, { "path": "src/physics/kernelHost.js", "line": 302, "end_line": 324 }, { "path": "src/physics/kernelHost.js", "line": 218, "end_line": 224 }] },
+    { "id": "ephem", "type": "backend", "label": "Ephemeris", "sublabel": "one copy per thread",
+      "sources": [{ "path": "src/scene/OrreryScene.ts", "line": 161, "end_line": 182 }, { "path": "src/physics/bodies.js", "line": 37, "end_line": 46 }, { "path": "src/physics/ephemeris.js", "line": 19, "end_line": 21 }] }
+  ],
+  "segments": [
+    { "from": 150, "to": 520, "label": "Main thread, one animation frame" },
+    { "from": 530, "to": 680, "label": "Kernel worker, while frames go on" },
+    { "from": 690, "to": 810, "label": "Plates, at most ten times a second" }
+  ],
+  "messages": [
+    { "id": "tick", "from": "scene", "to": "clock", "y": 170, "label": "tick(dt)", "variant": "emphasis", "note": "dt clamped to 1 s" },
+    { "id": "on-frame", "from": "scene", "to": "mission", "y": 225, "label": "onFrame(t, jumps)", "variant": "emphasis", "note": "advanceClock on every craft" },
+    { "id": "client-tick", "from": "mission", "to": "kclient", "y": 280, "label": "tick(crafts)", "variant": "emphasis", "note": "skipped while a step is in flight" },
+    { "id": "post-step", "from": "kclient", "to": "kworker", "y": 335, "label": "postMessage step", "variant": "dashed", "note": "buildRequest per craft, 200 ms budget" },
+    { "id": "craft-source", "from": "scene", "to": "mission", "y": 390, "label": "craftSource: views()" },
+    { "id": "craft-views", "from": "mission", "to": "scene", "y": 418, "label": "CraftView[]", "variant": "return", "note": "last state carried to the clock" },
+    { "id": "body-state", "from": "scene", "to": "ephem", "y": 473, "label": "bodyState(date)" },
+    { "id": "body-states", "from": "ephem", "to": "scene", "y": 501, "label": "states", "variant": "return", "note": "place layers, render" },
+    { "id": "bodies-at", "from": "kworker", "to": "ephem", "y": 560, "label": "bodiesAt(t)", "note": "nbody advance under every force" },
+    { "id": "bodies-reply", "from": "ephem", "to": "kworker", "y": 615, "label": "positions", "variant": "return" },
+    { "id": "stepped", "from": "kworker", "to": "kclient", "y": 643, "label": "stepped", "variant": "return", "note": "applyResult; drawn next frame" },
+    { "id": "emit", "from": "clock", "to": "plates", "y": 710, "label": "emit", "variant": "dashed", "note": "useClock re-renders" },
+    { "id": "plate-state", "from": "plates", "to": "ephem", "y": 765, "label": "bodyState(focus)" },
+    { "id": "plate-reply", "from": "ephem", "to": "plates", "y": 793, "label": "r, v", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "scene", "from": 165, "to": 507, "type": "cloud" },
+    { "participant": "mission", "from": 220, "to": 424, "type": "frontend" },
+    { "participant": "kworker", "from": 330, "to": 649, "type": "backend" },
+    { "participant": "plates", "from": 705, "to": 799, "type": "frontend" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "The frame", "items": [
+      "OrreryScene.frame ticks the clock, then calls Mission.frame through onFrame",
+      "Mission sends each craft to KernelClient, then the scene draws Mission.views()",
+      "The bodies come from the ephemeris at the clock's time"
+    ] },
+    { "dot": "violet", "title": "The worker", "items": [
+      "KernelClient sends nothing new while a step is out",
+      "The reply updates each craft's kernel state; until then each craft is carried forward",
+      "With no worker, kernelHost runs the same step on the main thread"
+    ] },
+    { "dot": "amber", "title": "The plates", "items": [
+      "SimClock tells React at most every 100 ms",
+      "A plate asks for its body's state itself, at the clock's time"
+    ] }
+  ]
+}

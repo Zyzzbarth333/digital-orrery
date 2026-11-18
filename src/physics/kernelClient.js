@@ -27,13 +27,15 @@ import { createKernelHost } from './kernelHost.js';
 
 export class KernelClient {
   // budgetMs: the Worker's time per request. replyTimeoutMs: how long a
-  // Worker that has loaded its tables may stay silent with a request (and
-  // no aim) in flight before it is taken for dead, counted from its ready
-  // message at the earliest. loadTimeoutMs: how long the loading may take
+  // Worker that has loaded its tables may stay silent with a request in
+  // flight before it is taken for dead, counted from its ready message at
+  // the earliest. aimTimeoutMs: the same while an aim is in its queue, which
+  // may take seconds (kernelHost.aimTo's rounds) before the step behind it
+  // is answered. loadTimeoutMs: how long the loading may take
   // (a fetch that hangs), from the Worker's start. createWorker: makes the
   // Worker (a stand-in in Node's checks); Vite bundles kernel.worker.js only
   // from the literal new Worker(new URL(...)) below.
-  constructor({ useWorker = true, budgetMs = 200, replyTimeoutMs = 15000, loadTimeoutMs = 120000, createWorker = null } = {}) {
+  constructor({ useWorker = true, budgetMs = 200, replyTimeoutMs = 15000, aimTimeoutMs = 60000, loadTimeoutMs = 120000, createWorker = null } = {}) {
     this.busy = false;
     this.sentAt = 0;
     this.startedAt = performance.now();
@@ -41,6 +43,8 @@ export class KernelClient {
     this.loadTimeoutMs = loadTimeoutMs;
     this.budgetMs = budgetMs;
     this.replyTimeoutMs = replyTimeoutMs;
+    this.aimTimeoutMs = aimTimeoutMs;
+    this.heardAt = 0;            // the Worker's last message, or the last aim sent
     this.inflight = new Map();
     this.aiming = new Map();     // id -> resolve, for aim requests
     this.aimId = 0;
@@ -53,6 +57,7 @@ export class KernelClient {
         this.worker = createWorker ? createWorker() : new Worker(new URL('./kernel.worker.js', import.meta.url), { type: 'module' });
         this.worker.onmessage = (e) => {
           const type = e.data && e.data.type;
+          this.heardAt = performance.now();
           if (type === 'ready') this.readyAt = performance.now();
           else if (type === 'aimed') this.onAimed(e.data);
           else this.onReply(e.data);
@@ -88,14 +93,16 @@ export class KernelClient {
   tick(crafts) {
     if (this.busy) {
       // A Worker that never answers would otherwise freeze every craft. A
-      // live one answers within its budget, so this is for a dead one (an
-      // aim ahead of the step in its queue may take a while, so not then).
+      // live one answers within its budget, so this is for a dead one. An
+      // aim ahead of the step in its queue may take a while, so with one in
+      // flight the wait is the longer aimTimeoutMs, not none at all: a
+      // Worker that hangs on an aim must not freeze every craft for good.
       const now = performance.now();
       if (this.worker && this.readyAt === null) {
         if (now - this.startedAt > this.loadTimeoutMs) this.fallBack(`worker tables not loaded in ${this.loadTimeoutMs / 1000} s`);
         else return false;
-      } else if (this.worker && !this.aiming.size && now - Math.max(this.sentAt, this.readyAt) > this.replyTimeoutMs) {
-        this.fallBack(`no reply in ${this.replyTimeoutMs} ms, the worker looks stuck`);
+      } else if (this.worker && now - Math.max(this.sentAt, this.readyAt, this.heardAt) > (this.aiming.size ? this.aimTimeoutMs : this.replyTimeoutMs)) {
+        this.fallBack(`no reply in ${this.aiming.size ? this.aimTimeoutMs : this.replyTimeoutMs} ms, the worker looks stuck`);
       } else {
         return false;
       }
@@ -146,13 +153,20 @@ export class KernelClient {
 
   // An aim (kernelHost.aimTo) worked out in the worker, off this thread:
   // resolves with its answer, or null if it failed. In the worker's queue
-  // with the steps; without a worker, worked out here at once.
+  // with the steps; without a worker, worked out here at once, and a throw
+  // there answers null as the worker's failure does (it runs inside the
+  // frame loop, mission.ts).
   aim(req) {
     const id = ++this.aimId, msg = { type: 'aim', id, ...req };
     if (!this.worker) {
-      const reply = this.host.handle(msg);
-      return Promise.resolve(reply.result ?? null);
+      try {
+        return Promise.resolve(this.host.handle(msg).result ?? null);
+      } catch (err) {
+        console.warn(`KernelClient: aim failed: ${err && err.message || err}`);
+        return Promise.resolve(null);
+      }
     }
+    this.heardAt = performance.now();
     return new Promise((resolve) => { this.aiming.set(id, resolve); this.worker.postMessage(msg); });
   }
   onAimed(reply) {
@@ -162,8 +176,12 @@ export class KernelClient {
     resolve?.(reply.result ?? null);
   }
 
+  // Aims still waiting answer null, so nothing waits on a client that is
+  // gone.
   dispose() {
     if (this.worker) this.worker.terminate();
     this.worker = null;
+    for (const resolve of this.aiming.values()) resolve(null);
+    this.aiming.clear();
   }
 }

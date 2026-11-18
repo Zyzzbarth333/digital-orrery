@@ -6,70 +6,55 @@ maps, built offline from JPL, NAIF, NASA and USGS sources and shipped in
 three.js in it, so every module also runs in Node and in its tests. The
 **front end** is React for the console and three.js for the sky.
 
-```mermaid
-flowchart LR
-  subgraph data["Data, built offline (public/)"]
-    de["DE442 Chebyshev tables<br/>planets, Moon, Sun, SSB"]
-    moonT["Moon tables<br/>JPL satellite kernels"]
-    sb["Small bodies<br/>JPL SBDB packs"]
-    maps["Maps, rings, stars<br/>NASA, USGS, ESA"]
-  end
+![The parts of the app and the calls between them](diagrams/architecture.svg)
 
-  subgraph physics["Physics (src/physics/)"]
-    eph["ephemeris.js · deTable.js<br/>moons.js · orientation.js"]
-    craft["craft.js<br/>one spacecraft"]
-    host["kernelHost.js"]
-    kernel["nbody.js · encke.js<br/>environment.js"]
-    plan["journey.js · journeyFlight.js<br/>transfers.js · rocket.js"]
-  end
-
-  subgraph workers["Web Workers"]
-    kw["kernel.worker.js<br/>steps every craft"]
-    jw["journey.worker.ts<br/>flies a planned journey"]
-    bw["beltHaze.worker.ts<br/>bins the faint belt"]
-  end
-
-  subgraph ui["Front end (src/app/, src/scene/)"]
-    app["App.tsx · clock.ts<br/>console: Mission, Planner, Rocket"]
-    plot["plot-table.tsx<br/>plotting table"]
-    scene["OrreryScene.ts<br/>bodies, orbits, guides, post"]
-    layers["craftLayer · smallBodies<br/>beltHaze · journeyLayer"]
-  end
-
-  de --> eph
-  moonT --> eph
-  sb --> layers
-  maps --> scene
-  eph --> scene
-  eph --> kernel
-  app --> craft
-  craft --> host --> kw
-  kw --> kernel
-  kw -- "states each frame" --> craft
-  craft --> layers
-  app --> plot --> plan
-  plan --> jw --> kernel
-  sb --> bw --> layers
-  layers --> scene
-```
+Each box is a module, and each arrow a call or import in the code at
+the commit the diagram was drawn from. The
+[explorable page](diagrams/architecture.html), opened in a browser from a
+clone, links every box to its source lines. The legend gives each colour's folder.
 
 **Each frame:**
-1. **The clock** (`clock.ts`) gives the sim time.
-2. **The bodies:** the scene asks the ephemeris for every body's position
+1. **The clock:** `OrreryScene`'s animation frame ticks `SimClock`
+   (`clock.ts`), which gives the sim time.
+2. **The craft:** the scene calls `Mission.frame` through `onFrame`.
+   Mission moves each craft's clock on and hands the crafts to
+   `KernelClient`, which posts one step to the kernel worker. While a step
+   is out it sends no other.
+3. **The worker:** `kernel.worker.js` passes the step to `kernelHost.js`,
+   which steps each craft under every force to that time
+   ([the n-body kernel](physics/nbody-kernel.md)). The reply comes back a
+   frame or more later and updates each craft.
+4. **The bodies:** the scene asks the ephemeris for every body's position
    at that time, and draws them about a camera kept at the render origin
-   ([the 3D scene](frontend/scene.md)).
-3. **The craft:** each sends its state and its burns to the kernel worker.
-   The worker steps it under every force to that time
-   ([the n-body kernel](physics/nbody-kernel.md)).
-4. **Drawing:** results come back a frame later. Each craft is drawn at
-   its last exact state, carried forward to the clock.
+   ([the 3D scene](frontend/scene.md)). Each craft is drawn at its last
+   exact state, carried forward to the clock.
+5. **The plates:** at most ten times a second the clock tells React. Each
+   plate then asks the ephemeris for its own body at the clock's time.
+
+![One frame, from the clock tick to the plates](diagrams/frame.svg)
+
+([explorable page](diagrams/frame.html))
 
 **Off the main thread:**
 - **The kernel worker** steps the spacecraft.
-- **The journey worker** flies a plan from the planner to check it.
-- **The belt worker** places 1.45 million faint asteroids for the haze.
+- **The journey worker** flies a plan from the planner to check it, with
+  its own copy of `kernelHost.js`.
+- **The satellites worker** runs SGP4 for every satellite in the catalogue.
+- **The belt worker** bins 1.45 million faint asteroids for the haze.
+- **The porkchop worker** fills the planner's grid of Lambert arcs.
+- **The passes worker** finds a satellite's passes over a place.
+- **The gravity field worker** works out a body's gravity anomaly map.
+- **The decode worker** fetches and decodes the surface maps.
 
-The page stays responsive while all three run.
+The page stays responsive while they run. If the kernel worker fails,
+`KernelClient` runs `kernelHost.js` on the main thread instead.
+
+**Redrawing the diagrams:** each page is built from its JSON beside it in
+`docs/diagrams/` by the [Archify](https://github.com/tt-a1i/archify) skill:
+`archify finalize architecture docs/diagrams/architecture.archify.json
+docs/diagrams/architecture.html --repo-root .` (and `sequence` for
+`frame.archify.json`). The SVGs are the page's **Export → SVG (light)**.
+Update the `revision` in each JSON to the commit you drew from.
 
 **The folders:**
 
@@ -83,8 +68,10 @@ digital-orrery/
 │   │   └── fixtures/        # reference data the tests check against (CSPICE, Horizons, NASA)
 │   └── utils/constants.js
 ├── public/                  # surface maps, star map, ephemeris and small-body tables
-├── c/                       # CSPICE programs that write fixtures and the moon tables
-├── python/                  # SPICE metakernel, kernels (downloaded, not in git), offline checks
+├── c/                       # CSPICE programs that write fixtures, the DE442, moon and
+│                            #   asteroid tables, and the Earth orientation samples
+├── python/                  # SPICE metakernel, kernels (downloaded, not in git), offline
+│                            #   checks, and the texture build (python/textures)
 ├── tools/                   # outside oracles (OpenRocket, RocketPy)
 ├── docs/                    # the physics and the front end, with the maths, and validation
 └── .github/                 # CI, issue and pull request templates

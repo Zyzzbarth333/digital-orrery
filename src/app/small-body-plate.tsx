@@ -12,6 +12,7 @@ import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { jdOf, sizeOf, ASSUMED_ALBEDO, ASSUMED_COMET_KM, type Named } from '../scene/smallBodies';
 import { smallBodyFacts, SB_CLASS_NAMES, SB_GROUPS } from '../physics/smallBodies.js';
+import { keepDesignation } from './find';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -50,7 +51,7 @@ export function SmallBodyPlate({ clock, body: b }: { clock: SimClock; body: Name
       : {
         label: 'Diameter', value: 'not in SBDB', alt: `drawn ${fmtGroup(size.diameterKm, size.diameterKm < 10 ? 1 : 0)} km across, assumed`,
         src: 'assumed', derived: true, info: 'sb-size-assumed',
-        detail: comet ? `a ${ASSUMED_COMET_KM} km nucleus` : `from H ${b.H} for an albedo of ${ASSUMED_ALBEDO}`,
+        detail: comet ? `a ${ASSUMED_COMET_KM} km nucleus` : b.H === null ? `SBDB gives no H either: ${ASSUMED_COMET_KM} km assumed` : `from H ${b.H} for an albedo of ${ASSUMED_ALBEDO}`,
       },
     ...(b.H === null ? [] : [comet
       ? { label: 'Total magnitude', value: b.H.toFixed(2), alt: 'M1', src: 'SBDB', info: 'sb-m1' } as Row
@@ -67,7 +68,7 @@ export function SmallBodyPlate({ clock, body: b }: { clock: SimClock; body: Name
   return (
     <div className="tab-body">
       <div className="plate-head">
-        <h2>{b.name}</h2>
+        <h2>{keepDesignation(b.name)}</h2>
         <p className="engraved">{kind}</p>
       </div>
       <p className="strip" aria-hidden="true">Readout · source</p>
