@@ -6,7 +6,9 @@
 // (docs/frontend/rocket.md). The physics is src/physics/rocket.js, after
 // Curtis, Orbital Mechanics for Engineering Students, chapter 13. It also
 // flies OpenRocket designs (.ork files) with the same ascent, beside
-// OpenRocket's own result (src/physics/ork.js).
+// OpenRocket's own result (src/physics/ork.js), and the stack the plotting
+// table's STACK station sizes for the journey (staging.js stackAsLauncher),
+// with the journey itself as a job.
 
 import { useMemo, useRef, useState } from 'react';
 import type { SimClock } from './clock';
@@ -20,6 +22,9 @@ import { LAUNCHERS } from '../physics/launchers.js';
 import { SourceTag } from './source-tag';
 import { rvToElements } from '../physics/orbital.js';
 import { orkXml, readOrk, vehicleFromOrk, flyOrk } from '../physics/ork.js';
+import { stackAsLauncher } from '../physics/staging.js';
+import { useStack } from './plot-stack';
+import type { JourneyStore } from './journey';
 
 interface StageRow { name: string; dry: number; prop: number; isp: number; ispSl: number; thrust: number; est?: string[] }   // t, t, s, s, kN
 interface Flown { flight: string; frame: 'inertial' | 'surface'; events: { name: string; t: number; h: number; v: number }[]; source: string }
@@ -27,7 +32,10 @@ interface Preset {
   label: string; payload: number; diameter: number; cd: number; stages: StageRow[];
   // A real launcher's: where its figures come from, the job it flew, and
   // the flight to set the ascent beside.
-  source?: { text: string; url: string }; est?: { cd?: boolean; payload?: boolean }; job?: { pad: string; inc: number; alt: number }; flown?: Flown;
+  source?: { text: string; url: string }; est?: { cd?: boolean; payload?: boolean; diameter?: boolean }; job?: { pad: string; inc: number; alt: number }; flown?: Flown;
+  // The journey's stack (staging.js stackAsLauncher): sized in STACK, with
+  // its thrust, sea-level Isp, size and drag estimated.
+  fromJourney?: boolean;
 }
 
 // The presets: real launchers from their published figures
@@ -55,7 +63,7 @@ const PADS = [
   { key: 'mahia', name: 'Mahia LC-1, New Zealand', lat: -39.262, lon: 177.865 },
 ];
 
-type Job = 'orbit' | 'gto' | 'moon' | 'planner';
+type Job = 'orbit' | 'gto' | 'moon' | 'planner' | 'journey';
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ');
 
@@ -67,7 +75,20 @@ function useSaved<T>(key: string, initial: T): [T, (v: T) => void] {
   return [v, (x: T) => { saved[key] = x; setV(x); }];
 }
 
-export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; mission: Mission; onFlown: (id: number) => void }) {
+export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimClock; mission: Mission; journey: JourneyStore; onFlown: (id: number) => void }) {
+  // The journey's stack, as STACK sizes it, offered after the presets: only
+  // for a journey from the pad, which STACK sizes with the climb.
+  const stack = useStack(journey);
+  const J = journey.journey, Jsol = journey.solution;
+  const fromPad = J.start.kind === 'pad' && J.waypoints.length > 0 && Jsol.ok;
+  const journeyPreset = useMemo<Preset | null>(() => {
+    if (!fromPad || !stack.chosen) return null;
+    const p = stackAsLauncher(stack.chosen, { payload: journey.vehicle.payload, label: `Journey's stack (${journey.title()})` });
+    if (!p) return null;
+    const near = PADS.reduce((a, b) => (Math.abs(b.lat - (J.start.latDeg ?? 28.5)) < Math.abs(a.lat - (J.start.latDeg ?? 28.5)) ? b : a));
+    return { ...p, fromJourney: true, job: { pad: near.key, inc: Math.ceil(Math.abs(near.lat) * 10) / 10, alt: J.start.altKm } } as Preset;
+  }, [fromPad, stack.chosen, journey.vehicle.payload, journey.version]);
+  const presets = journeyPreset ? [...PRESETS, journeyPreset] : PRESETS;
   const [preset, setPreset] = useSaved('preset', LAUNCHERS.length);
   // A real launcher's figures are shown greyed, as published, until one is
   // changed: then the design is the user's own.
@@ -86,12 +107,12 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
   const [note, setNote] = useState<string | null>(null);
 
   const usePreset = (i: number) => {
-    const p = PRESETS[i];
+    const p = presets[i];
     setPreset(i); setCustom(false); setStages(p.stages); setPayload(p.payload); setDiameter(p.diameter); setCd(p.cd); setFlight(null); setLosses(null); setNote(null);
-    if (p.job) { setPad(p.job.pad); setInc(p.job.inc); setAlt(p.job.alt); setJob('orbit'); }
+    if (p.job) { setPad(p.job.pad); setInc(p.job.inc); setAlt(p.job.alt); setJob(p.fromJourney ? 'journey' : 'orbit'); }
   };
-  const P0 = PRESETS[preset];
-  const published = !!P0.source && !custom;
+  const P0 = presets[preset] ?? PRESETS[LAUNCHERS.length];
+  const published = (!!P0.source || !!P0.fromJourney) && !custom;
   const own = () => { if (!custom) setCustom(true); };
   const edit = (i: number, k: keyof StageRow, v: string | number) => {
     setStages(stages.map((s, j) => (j === i ? { ...s, [k]: k === 'name' ? v : Number(v) } : s)));
@@ -114,10 +135,12 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
   const P = PADS.find((p) => p.key === pad)!;
   const az = launchAzimuth(inc, P.lat);
   const win = mission.lastWindow;
-  const parkAlt = job === 'orbit' ? alt : 200;
+  const parkAlt = job === 'orbit' ? alt : job === 'journey' && fromPad ? J.start.altKm : 200;
   const toOrbit = az === null ? null : deltaVToOrbit({ h: parkAlt * 1000, lat: P.lat, az, losses: losses ?? 1500 });
   const onward = job === 'orbit' ? 0 : job === 'gto' ? deltaVToApoapsis({ h: 200e3, apo: 35786e3 })
-    : job === 'moon' ? deltaVDeparture({ h: 200e3, c3: -2 }) : win ? deltaVDeparture({ h: 200e3, c3: win.c3 }) : null;
+    : job === 'moon' ? deltaVDeparture({ h: 200e3, c3: -2 })
+      : job === 'journey' ? (fromPad ? Jsol.totalDv * 1000 : null)
+        : win ? deltaVDeparture({ h: 200e3, c3: win.c3 }) : null;
   const needed = toOrbit !== null && onward !== null ? toOrbit + onward : null;
   const margin = perf && needed !== null ? perf.dv - needed : null;
 
@@ -200,9 +223,16 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
         <div className="form-grid">
           <label className="num wide"><span className="engraved">Start from</span>
             <select className="input" value={preset} onChange={(e) => usePreset(Number(e.target.value))}>
-              {PRESETS.map((p, i) => <option key={p.label} value={i}>{custom && i === preset ? `Custom, from ${p.label}` : p.label}</option>)}
+              {presets.map((p, i) => <option key={p.label} value={i}>{custom && i === preset ? `Custom, from ${p.label}` : p.label}</option>)}
             </select>
           </label>
+          {P0.fromJourney && (
+            <p className="hint wide preset-src">
+              {published
+                ? <>Sized in the plotting table's STACK station for the journey: its masses and vacuum Isp. Its thrust, the first stage's sea-level Isp, the diameter and the drag are estimates (dashed), the medians of the real launchers above. Change any to make the design your own.</>
+                : <>Custom: changed from the journey's stack. <button className="key small" onClick={() => usePreset(preset)}>Back to the journey's stack</button></>}
+            </p>
+          )}
           {P0.source && (
             <p className="hint wide preset-src">
               {published
@@ -214,7 +244,7 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
             <input className="input" type="number" min={0} step={0.1} aria-invalid={!(payload >= 0)} value={payload} onChange={(e) => { setPayload(Number(e.target.value)); setFlight(null); }} /><span className="unit">t</span>
           </label>
           <label className="num"><span className="engraved">Diameter</span>
-            <input className={inputClass} type="number" min={0.1} step={0.1} aria-invalid={!(diameter > 0)} value={diameter} onChange={(e) => { setDiameter(Number(e.target.value)); setFlight(null); own(); }} /><span className="unit">m</span>
+            <input className={estClass(P0.est?.diameter)} title={estTitle(P0.est?.diameter)} type="number" min={0.1} step={0.1} aria-invalid={!(diameter > 0)} value={Number(diameter.toPrecision(4))} onChange={(e) => { setDiameter(Number(e.target.value)); setFlight(null); own(); }} /><span className="unit">m</span>
           </label>
           <label className="num"><span className="engraved" title="drag coefficient, held constant">Drag coeff.</span>
             <input className={estClass(P0.est?.cd)} title={estTitle(P0.est?.cd)} type="number" min={0.05} step={0.05} aria-invalid={!(cd > 0)} value={cd} onChange={(e) => { setCd(Number(e.target.value)); setFlight(null); own(); }} />
@@ -256,7 +286,7 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
       <details className="section" open>
         <summary className="strip">The job</summary>
         <div className="keys-row wrap" role="radiogroup" aria-label="Job">
-          {([['orbit', 'Orbit'], ['gto', 'Geostationary transfer'], ['moon', 'The Moon'], ['planner', 'Planner window']] as const).map(([k, label]) => (
+          {([['orbit', 'Orbit'], ['gto', 'Geostationary transfer'], ['moon', 'The Moon'], ['planner', 'Planner window'], ['journey', 'The journey']] as const).map(([k, label]) => (
             <button key={k} className="key small" role="radio" aria-checked={job === k} onClick={() => setJob(k)}>{label}</button>
           ))}
         </div>
@@ -277,10 +307,11 @@ export function RocketPanel({ clock, mission, onFlown }: { clock: SimClock; miss
         </div>
         {az === null && <p className="status bad">An orbit inclined {fmt(inc, 1)}° can't be reached directly from {fmt(Math.abs(P.lat), 1)}° latitude: the inclination must be at least the pad's latitude.</p>}
         {job === 'planner' && !win && <p className="status">Pick a cell in the PLANNER's porkchop first: its launch energy (C3) sets the departure burn.</p>}
+        {job === 'journey' && !fromPad && <p className="status">{J.waypoints.length ? (Jsol.ok ? 'The journey starts in orbit, not from the pad: start it from the pad in the plotting table to fly its rocket here.' : 'A leg of the journey has no solution: fix it in the plotting table.') : 'Plan a journey in the plotting table first: its delta-v is the job.'}</p>}
         {needed !== null && toOrbit !== null && onward !== null && (
           <table className="readout"><tbody>
             <tr><th scope="row">To orbit</th><td className="value">{fmt(toOrbit / 1000, 3)} km/s<span className="alt">{fmt(circularSpeed(parkAlt * 1000) / 1000, 3)} circular at {parkAlt} km − {fmt(rotationBonus(P.lat, az!) / 1000, 3)} Earth's rotation + {fmt((losses ?? 1500) / 1000, 3)} losses</span></td><td className="src"><SourceTag src={losses === null ? 'assumed' : 'flown'} derived={losses === null} info="to-orbit" detail={losses === null ? 'losses assumed: 1.5 km/s, typical; fly the ascent for this stack\'s own' : 'losses from the ascent you flew'} /></td></tr>
-            {job !== 'orbit' && <tr><th scope="row">Onward</th><td className="value">{fmt(onward / 1000, 3)} km/s<span className="alt">{job === 'gto' ? 'Hohmann burn from 200 km to 35,786 km' : job === 'moon' ? 'from 200 km to the Moon (C3 about −2 km²/s²)' : `to ${win!.name}, C3 ${fmt(win!.c3, 2)} km²/s², departing ${iso(win!.depMs).slice(0, 10)}`}</span></td><td className="src"><SourceTag src="2-body" info={job === 'gto' ? 'hohmann' : 'departure'} detail="from a 200 km circular parking orbit" /></td></tr>}
+            {job !== 'orbit' && <tr><th scope="row">Onward</th><td className="value">{fmt(onward / 1000, 3)} km/s<span className="alt">{job === 'gto' ? 'Hohmann burn from 200 km to 35,786 km' : job === 'moon' ? 'from 200 km to the Moon (C3 about −2 km²/s²)' : job === 'journey' ? `${journey.title()}: every burn from the ${parkAlt} km parking orbit on (${Jsol.burns.length})` : `to ${win!.name}, C3 ${fmt(win!.c3, 2)} km²/s², departing ${iso(win!.depMs).slice(0, 10)}`}</span></td><td className="src">{job === 'journey' ? <SourceTag src="Σ burns" derived info="journey-total" detail="the journey's patched-conic burns, as the planner sums them" /> : <SourceTag src="2-body" info={job === 'gto' ? 'hohmann' : 'departure'} detail="from a 200 km circular parking orbit" />}</td></tr>}
             <tr><th scope="row">Needed</th><td className="value">{fmt(needed / 1000, 3)} km/s{margin !== null && <span className={`alt ${margin < 0 ? 'short' : ''}`}>{margin >= 0 ? `the stack has ${fmt(margin / 1000, 3)} km/s to spare` : `the stack is ${fmt(-margin / 1000, 3)} km/s short`}</span>}</td><td className="src" /></tr>
           </tbody></table>
         )}

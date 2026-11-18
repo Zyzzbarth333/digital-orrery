@@ -584,9 +584,10 @@ The stage technologies:
 - **Structural ratio:** 0.1, the lower limit Curtis §13.4 gives for
   current materials.
 
-Both can be edited, and they are not any one vehicle's. Real launchers come
-to the ROCKET tab separately, and `staging.js` is where its comparison will
-read from.
+Both can be edited, and they are not any one vehicle's. The ROCKET tab
+offers the stack STACK sizes as "Journey's stack", to fly its ascent beside
+the real launchers, with the journey as its job
+([the journey's stack](rocket.md#the-journeys-stack)).
 
 With identical stages, the Lagrange optimum is restricted staging (Curtis
 13.56):

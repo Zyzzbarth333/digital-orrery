@@ -211,13 +211,17 @@ class SumEphemeris {
 //            R = 3396.0 km (permanent tide excluded).
 //   Jupiter: Juno (Durante et al. 2020, GRL 47, e2019GL086572), PDS table
 //            GRV_JUGR_SHA_JUP_U_DUR2020: J2 = 14696.5735e-6 unnormalised,
-//            R = 71492 km.
+//            J4 = -586.6085e-6 (C40 = +5.866085e-4), R = 71492 km.
 //   Saturn:  Cassini's Grand Finale (Iess et al. 2019, Science 364,
-//            eaat2965): J2 = 16290.573e-6, R = 60330 km.
+//            eaat2965): J2 = 16290.573e-6, J4 = -935.314e-6, R = 60330 km.
 //   Uranus:  Jacobson 2014, AJ 148, 76, Table 12: J2 = 3510.7e-6,
-//            R = 25559 km.
+//            J4 = -34.2e-6, R = 25559 km.
 //   Neptune: Jacobson 2009, AJ 137, 4322, Table 5: J2 = 3408.43e-6,
-//            R = 25225 km.
+//            J4 = -33.40e-6, R = 25225 km.
+// The giants' J4 is from the same solution as their J2 and referred to the
+// same radius (zonal.js). The rocky bodies' J4 is left out: about 1e-3 of
+// the Earth's J2 and 1e-2 of Mars's, and the app's craft carry the Earth's
+// and the Moon's full fields (environment.js).
 // Pluto and the moons have none here. A split system's J2 stays with the
 // planet's centre.
 // The pole is the body's spin axis of date (orientation.js), refreshed once a
@@ -228,10 +232,10 @@ export const ZONAL = {
   earth: { j2: 4.84165143790815e-4 * Math.sqrt(5), rJ2: 6378.1363 },
   moon: { j2: 9.088083466222001e-5 * Math.sqrt(5), rJ2: 1738.0 },
   mars: { j2: 8.750220924537e-4 * Math.sqrt(5), rJ2: 3396.0 },
-  jupiter: { j2: 14696.5735e-6, rJ2: 71492 },
-  saturn: { j2: 16290.573e-6, rJ2: 60330 },
-  uranus: { j2: 3510.7e-6, rJ2: 25559 },
-  neptune: { j2: 3408.43e-6, rJ2: 25225 },
+  jupiter: { j2: 14696.5735e-6, j4: -586.6085e-6, rJ2: 71492 },
+  saturn: { j2: 16290.573e-6, j4: -935.314e-6, rJ2: 60330 },
+  uranus: { j2: 3510.7e-6, j4: -34.2e-6, rJ2: 25559 },
+  neptune: { j2: 3408.43e-6, j4: -33.40e-6, rJ2: 25225 },
 };
 // The large moons' degree-2 fields, unnormalised, with the reference radius
 // they are referred to (docs/physics/nbody-kernel.md#moons has the sources):
@@ -296,7 +300,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
   const sunEph = new HermiteEphemeris((t) => sunAboutSsbAtTt(tt0 + t), SUN_SPACING);
   const withJ2 = (b) => {
     const z = zonal && ZONAL[b.key];
-    if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN });
+    if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN, ...(z.j4 ? { j4: z.j4 } : {}) });
     if (z && SURFACE[b.key]) b.surface = SURFACE[b.key];
     return b;
   };
