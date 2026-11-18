@@ -85,6 +85,14 @@ once it has releases. Until then, everything sits under Unreleased.
   and aiming a node before the break aims it at the break point. In
   flight, such a leg's departure, if it waits, is re-aimed at the break
   point, not straight at the target (this pull request).
+- Such a leg is now flown with a deep-space burn: the burn near halfway
+  can go anywhere, so it reshapes the transfer as well as turning its
+  plane. It is the optimum by Lawden's primer vector conditions, never
+  dearer than the direct arc or the broken plane, and up to 76 m/s
+  cheaper than the broken plane leaving Earth orbit for Mars in November
+  2026. Its price still runs smoothly as the dates change. "Broken plane"
+  is listed beside it and can be chosen, and the plane lamp says where the
+  burn is (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing

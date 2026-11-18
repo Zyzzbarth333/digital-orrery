@@ -53,11 +53,11 @@ export function legProfile(journey, k, { spanDays = null, stepDays = null, tofSt
     const tried = [];
     for (let i = 0; i < tofSteps; i++) {
       const tof = tH * (0.5 + (1.1 * i) / (tofSteps - 1));
-      const L = solveLeg(P, Q, dep, dep + tof * DAY_MS, { maxRevs: 0 });
+      const L = solveLeg(P, Q, dep, dep + tof * DAY_MS, { maxRevs: 0, dsm: false });
       if (!L.ok) continue;
       const dv = L.depDv + L.arrDv + L.midDv;
       if (plane) tried.push({ L, dv, tof });
-      else if (!p || dv < p.dv) p = { ms: dep, dv, tofDays: tof };
+      else if (!p || dv < p.dv) p = { ms: dep, dv, tofDays: tof, L };
     }
     // With the plane: the flight times in order of their price in the
     // plane, each with its plane's extra, until the next costs more in the
@@ -67,10 +67,16 @@ export function legProfile(journey, k, { spanDays = null, stepDays = null, tofSt
       for (const c of tried) {
         if (p && c.dv >= p.dv) break;
         const dv = c.dv + plane(c.L);
-        if (!p || dv < p.dv) p = { ms: dep, dv, tofDays: c.tof };
+        if (!p || dv < p.dv) p = { ms: dep, dv, tofDays: c.tof, L: c.L };
       }
     }
-    if (p) { points.push(p); if (!best || p.dv < best.dv) best = p; }
+    // Near 180 degrees the flight times are scanned on the broken plane, and
+    // the best is priced with its deep-space burn, as the plan prices it.
+    if (p?.L.brokenPlane) {
+      const L = solveLeg(P, Q, dep, dep + p.tofDays * DAY_MS, { maxRevs: 0 });
+      if (L.ok) p.dv = L.depDv + L.arrDv + L.midDv + (plane ? plane(L) : 0);
+    }
+    if (p) { delete p.L; points.push(p); if (!best || p.dv < best.dv) best = p; }
   }
   const phase = g.viaA ? phaseOption(journey, k, { sol: s }) : null;
   const po = plane ? planeOption(journey, k, { sol: s }) : null;
@@ -160,11 +166,16 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
   }
 
   // Plane: a leg near 180 degrees round its central body, where Lambert's
-  // plane is ill-defined, flown on a broken plane (journey.js brokenPlane),
-  // or, where none could be found, direct on a plane that will not hold.
+  // plane is ill-defined, flown with a deep-space burn (journey.js
+  // deepSpaceBurn) or on a broken plane (brokenPlane), or, where neither
+  // could be found, direct on a plane that will not hold.
   for (const L of sol.legs) {
     if (!L?.ok || L.geometry !== 'between' || L.resonance) continue;
-    const bp = L.brokenPlane;
+    const ds = L.deepSpace, bp = L.brokenPlane;
+    if (ds) {
+      lamps.push({ key: 'plane', level: 'caution', leg: L.index, text: `To ${name(L.to)}: ${ds.angleDeg.toFixed(1)}° round the ${name(L.central)}, so a deep-space burn on ${iso(ds.ms)}, ${(ds.dv * 1000).toFixed(0)} m/s, reshapes the transfer${Number.isFinite(ds.directDv) ? `; direct ${ds.directDv.toFixed(2)} km/s, tilted ${ds.directIncDeg.toFixed(1)}°` : ''}`, bestMs: ds.ms });
+      break;
+    }
     if (bp) {
       lamps.push({ key: 'plane', level: 'caution', leg: L.index, text: `To ${name(L.to)}: ${bp.angleDeg.toFixed(1)}° round the ${name(L.central)}, so the plane breaks on ${iso(bp.ms)}, ${(bp.dv * 1000).toFixed(0)} m/s (${bp.turnDeg.toFixed(2)}°)${Number.isFinite(bp.directDv) ? `; direct ${bp.directDv.toFixed(2)} km/s, tilted ${bp.directIncDeg.toFixed(1)}°` : ''}`, bestMs: bp.ms });
       break;
