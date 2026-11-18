@@ -21,9 +21,13 @@ export interface Leg {
   resonance?: { N: number; M: number; theta: number; phi: number; vinf: number; missKm: number };
   shaped?: boolean; missKm?: number; reaches?: boolean; nodes?: { id: number; ms: number; dv: number }[];
   plane?: LegPlane;
+  stayOrbit?: StayOrbit;
 }
 // The parking orbit's plane on the day the leg leaves (journey.js planeAt).
 export interface LegPlane { priced: boolean; why?: string; body?: string; aimed?: boolean; stayDays?: number; iDeg?: number | null; rateDegDay?: number | null; firstOrderDegDay?: number | null; angleDeg?: number; inPlaneDv?: number; dv?: number; extraDv?: number; model?: 'moon'; iEndDeg?: number | null }
+// A stay in lunar orbit before the leg: the eccentricity the Moon's field
+// raises over it (journey.js moonStay).
+export interface StayOrbit { altKm: number; stayDays: number; toDays: number; iDeg: number; eMax: number; lowKm: number; lowMs: number; fallMs: number | null; fallDays: number | null; safeAltKm?: number | null }
 export interface Flyby { byHand?: boolean; body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
 export interface Burn { ms: number; body: string; dv: number; kind: string; label: string; leg: number }
 export interface JourneySolution { stops: Stop[]; legs: Leg[]; flybys: (Flyby | undefined)[]; burns: Burn[]; totalDv: number; startMs: number; endMs: number; durationDays: number; ok: boolean; error?: string }

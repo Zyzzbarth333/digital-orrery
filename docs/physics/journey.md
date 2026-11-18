@@ -631,9 +631,9 @@ is then 0.70° off, so the tesseral terms matter.
 What it leaves out is the eccentricity the field's odd degrees raise, to
 0.01 to 0.07 over three months, and what that couples into the plane,
 most where the orbit is near the equator. Near the equator, 100 km up,
-that eccentricity brings the orbit down: 13 days at 7°, 48 days at 173°,
-and 74 days at 150°; 200 km up, it holds three months. The plan does not
-warn of it.
+that eccentricity brings the orbit down within weeks; the plan flies it
+too, for whether the orbit falls ([a low orbit at the
+Moon](#a-low-orbit-at-the-moon)), but does not price its plane with it.
 
 The case in the tests is the Earth to the Moon, 75 days 200 km up from
 5 Dec 2026, and home. A journey from the Earth comes in near the Moon's
@@ -653,6 +653,104 @@ Before, the plan said "not priced" and charged the burn in the plane,
 831 m/s: 9 % under the flight. What is left is the eccentricity: the
 flight leaves an orbit the stay has made eccentric (e 0.044), which the
 plan's circular orbit does not have.
+
+### A low orbit at the Moon
+
+A low lunar orbit does not stay circular. The field's odd degrees, the
+mascons near the equator above all, raise its eccentricity until the
+periapsis reaches the ground, as they did Apollo 16's subsatellite
+([environment](environment.md)). A journey from the Earth arrives near
+the Moon's orbit plane, so near its equator (the leg's free end is in
+that plane), where it is quickest: 100 km up at 7° to the equator the
+orbit falls in 13 days. So `lunarPlane.js` flies the orbit's mean
+eccentricity through the stay as well as its plane, averaged over each
+turn in the same way, and the plan says when the orbit falls.
+
+- **The averaged motion.** The eccentricity vector
+  $\mathbf e = \mathbf v\times\mathbf h/\mu - \hat{\mathbf r}$
+  [1, Sec. 2.5] and $\mathbf j = \sqrt{1-e^2}\,\hat{\mathbf n}$ move under
+  the averaged force function $\bar U(\mathbf j, \mathbf e)$ as
+  $$\frac{d\mathbf e}{dt} = \frac{1}{\sqrt{\mu a}}\left(\mathbf j\times\nabla_{\mathbf e}\bar U + \mathbf e\times\nabla_{\mathbf j}\bar U\right)$$
+  (Milankovitch's equations, as Tremaine, Touma and Namouni write them
+  [10, eq. (16)], with the potential energy $-\bar U$). The orbit is near
+  circular until it falls, so this is taken to first order in $e$.
+- **The forcing** is the part at $e = 0$. An orbit of small $e$ has
+  $\mathbf r = a\big((\cos E - e)\,\hat{\mathbf p} + \sin E\,\hat{\mathbf q}\big)$
+  and $dM = (1 - e\cos E)\,dE$, so round the circle
+  $$\nabla_{\mathbf e}\bar U = -\frac{1}{2\pi}\oint \big(a\nabla U + U\hat{\mathbf r}\big)\,dE$$
+  in the plane. For the field's degree $n$, $U_n = (\mu/a)(R/a)^n Y_n$,
+  the radial and along-track parts sum (by parts) to
+  $\tfrac{n-1}{2\pi}\oint U_n\hat{\mathbf r}\,dE$. Round a great circle, a
+  degree-$n$ harmonic's first Fourier harmonic is $P_n'(0)/P_n'(1)$ times
+  its gradient over the sphere at the circle's pole (the addition theorem
+  [11, Sec. 3.6] again, now for order 1 about the pole; $P_n'(1) =
+  n(n+1)/2$). So
+  $$\nabla_{\mathbf e}\bar U\big|_{e=0} = \sum_n \frac{(n-1)\,P_n'(0)}{n(n+1)}\,\nabla_S U_n(\hat{\mathbf n}):$$
+  the field with its even degrees gone ($P_n'(0) = 0$) and each odd one
+  weighed so, its gradient at the normal. As for the plane, that is
+  `geopotential.js`'s acceleration at radius $R$ along $\hat{\mathbf n}$,
+  times $R^2/a$. GRAIL GL0660B [12] to degree 50, the kernel's: at
+  degree 30 the 150° orbit below falls on day 87, not 65. Against
+  Gauss's equations, $\mathbf e$'s rate from the force
+  differentiated, averaged over 3,600 points round the circle, it is
+  exact (CASE 21, to $10^{-14}$).
+- **The terms in $e$.** J2 turns $\mathbf e$ about the normal at
+  $\tfrac34\,\omega J_2 (R/a)^2(3\cos^2 i - 1)$: the argument of
+  periapsis' rate, Curtis eq. (4.53) [1], and the node's (eq. (4.52)) part
+  about the normal. The Earth's and the Sun's tides, the quadrupole $T$
+  of the plane's model, averaged over the orbit
+  [10, eqs. (7), (9)], are
+  $\bar U = \tfrac{a^2}{2}\big(\tfrac52\,\mathbf e^\mathsf T T\mathbf e - \tfrac12\,\mathbf j^\mathsf T T\mathbf j\big)$,
+  so they add $\tfrac{a^2}{2\sqrt{\mu a}}\big(5\,\hat{\mathbf n}\times T\mathbf e - \mathbf e\times T\hat{\mathbf n}\big)$
+  (their eq. (19) at small $e$). The rest of the degree 2 and the higher
+  even degrees, which turn $\mathbf e$ a little faster or slower, are
+  left out.
+- **Flown on the plane's track:** RK4 on the plane's 12-hour grid, the
+  forcing at each step and half step, the vector kept in the plane the
+  track flies. About 15 ms for 100 days (24-hour steps give the same
+  falls to 0.3 days).
+- **Falling.** The orbit falls when its mean periapsis $a(1-e)$ reaches
+  the ground, the sphere the kernel's impacts use (1,737.4 km).
+
+Against the kernel, circular orbits from 10 Jan 2027 flown in the full
+model (GRAIL to degree 50), the mean eccentricity over a turn at the end
+of each day:
+
+| The orbit | The kernel | The model | Its e, most off the kernel's |
+| --- | --- | --- | --- |
+| 100 km up, 7° to the equator | falls on day 12.5 | 12.5 | 0.0014 |
+| 100 km up, 173°, its node 90° on | falls on day 30.5 | 30.7 | 0.0021 |
+| 100 km up, 173° | falls on day 48.0 | 47.8 | 0.0021 |
+| 100 km up, 150° | falls on day 65.4 | 65.5 | 0.0013 |
+| 100 km up, 30°, 100 d | holds; mean periapsis down to 3 km | 10 km | 0.0069 |
+| 100 km up, 60°, 100 d | holds; 13 km | 22 km | 0.0052 |
+| 150 km up, 173°, 100 d | holds; 17 km | 22 km | 0.0032 |
+| 200 km up, 7°, 100 d | holds; 78 km | 81 km | 0.0029 |
+| 200 km up, 173°, 100 d | holds; 92 km | 94 km | 0.0014 |
+
+Each row is one run made while building it (a few seconds to a minute a
+row), not in the tests; CASE 21 flies the first. The model's periapsis
+is up to 9 km high where the orbit is inclined (the terms of second order
+in $e$ grow as the periapsis comes down over the lumps), so a stay whose
+mean periapsis comes within 20 km of the ground is flagged too.
+
+**In the plan.** Each stay in lunar orbit before a leg (`moonStay`, on the
+leg as `stayOrbit`) is flown from the capture, circular in the plane of
+the way in and the way out, to the departure (at most a year): the
+highest mean $e$, the lowest periapsis and when, and the day it falls.
+Where it falls or comes within 20 km, the lowest orbit 50 km higher at a
+time (up to 400 km more) that holds the stay with 20 km to spare. The
+leg's panel has an "Orbit" row, and the [low orbit lamp](#the-flags)
+lights.
+
+The case in the tests is CASE 20's journey, Earth to the Moon, 75 days
+in orbit from 5 Dec 2026 at 172.9° to the equator, and home, 100 km and
+200 km up:
+
+| | The plan | Flown (full model) |
+| --- | --- | --- |
+| 100 km up | falls on day 29.6 (e 0.056); the lamp: stay under 28 d, or 200 km up | hits the Moon on day 29.3 |
+| 200 km up | holds: e up to 0.064, the periapsis down to 77 km; no lamp | home; it leaves an orbit of e 0.044 |
 
 ## The options for a leg, compared
 
@@ -1239,6 +1337,8 @@ The table's other two stations:
     tenth of the plan;
   - **windows** and **delta-v:** from the lamps;
   - **flybys:** none underground;
+  - **orbits** (only when the low orbit lamp is lit): no-go where a stay
+    in lunar orbit falls;
   - **vehicle:** a stack exists, and which real launchers could fly it;
   - **launch.**
 
@@ -1281,6 +1381,12 @@ The lamps (`assess`), each lit only when it means something:
   day near it when the plane holds the way out (within 30 days, the
   arrival kept), or, until the profile comes, the angle and the extra. A
   window lamp for a date within those 30 days gives way to it.
+- **Low orbit:** a stay in lunar orbit whose eccentricity, raised by the
+  field, brings it down within the stay (warning), or its mean periapsis
+  within 20 km of the ground (caution) ([a low orbit at the
+  Moon](#a-low-orbit-at-the-moon)). It says when, how short a stay holds,
+  and how high an orbit holds it. The GO board's "Orbits" row is no-go
+  on the warning.
 - **Wait** (caution): the longest stay over 30 days.
 - **Delta-v:** the total against the budget, with the margin, or by how
   much it is over.
@@ -1361,6 +1467,10 @@ orbits, waits 454 days.
 | The same, against the kernel: 100 km up at 60°, 30 days, both at degree 10 | the kernel (0.1°, a tenth of J2 alone's miss) | the plane moved 16.08°; the model 0.018° off, J2 alone 0.58° |
 | 75 days 200 km over the Moon from 5 Dec 2026, then home, flown | the full-model flight (the plane 0.5°, the burn 2 %) | the plan 8.04° off the way out on the planned day (J2 alone 8.40°), 921 m/s; flown 8.09°, 908 m/s (1.4 %); the capture's plane 0.05° off the plan's; Earth reached |
 | The same, leaving on the plan's day for the plane (1 d earlier) | the plan (on time, 0.5°, 2 %) | 7.72° off, 913 m/s; flown on time, 7.80°, 899 m/s (1.5 %) |
+| A low lunar orbit's eccentricity (`lunarPlane.js`): the forcing at e = 0, six orbits 100 and 200 km up, degree 50 | Gauss's equations averaged over 3,600 points round the circle | to 6 × 10⁻¹⁵ (tolerance 10⁻⁹) |
+| The same, against the kernel: 100 km up at 7° from 10 Jan 2027, flown to its impact | the kernel (e within 0.003 a day; the fall within a day) | e within 0.0014 each day; the plan's fall day 12.48, the impact 12.43 |
+| 75 days over the Moon from 5 Dec 2026 and home (CASE 20's), 100 km up | the full-model flight (the fall within a day); the lamp | the plan falls on day 29.59, warns (stay under 28 d, or 200 km up); flown, it hits the Moon on day 29.33 |
+| The same, 200 km up (CASE 20's flight) | the full-model flight; the lamp | the plan holds, e up to 0.064, the periapsis 77 km; no lamp; flown home |
 | The node's J2 regression, 280 by 400 km at 51.43° | Curtis Ex 4.8, eq. (4.52) | −1.0465 × 10⁻⁶ rad/s, 5.181° a day west |
 | The node 400 km over Mars at 150.6°, ten days in the kernel, from the node and 90° past it | the kernel | eq. (4.52) 0.58 and 0.15 % slow (within 1 %); flown ten turns in the J2 field, 0.06 and 0.04 % (within 0.25 %) |
 | The same orbit, the trial at the mean radius, started 0 to 135° past the node | its mean semi-major axis; the starts tilted 0.03° | the mean semi-major axis the planned one to 1 m; node rates 0.06 % apart (within 0.1 %; started circular, 0.46 %); the rest the inclination's term within a turn (tilted, 0.001 %, within 0.005 %) |
@@ -1426,10 +1536,10 @@ orbits, waits 454 days.
 - **A long stay in low lunar orbit:** the parking orbit is held in the
   plane of the way out, and the Moon's mascons bring some of those planes
   down within weeks, as they did Apollo 16's subsatellite
-  ([environment](environment.md)). Leaving for Mars after 20 days, 100 km
-  up, the broken plane's orbit (taken by hand) meets the Moon before it
-  leaves. The planner doesn't price the orbit's life or a station-keeping
-  burn.
+  ([environment](environment.md)). The plan flies the orbit's mean
+  eccentricity and says when it falls, to first order in $e$ from a
+  circular capture; it doesn't price a station-keeping burn, or the plane
+  of the eccentric orbit.
 - **The deep-space burn:** one burn, and only within 15° of 180°; a leg
   far from 180° that a burn would also help is flown direct. It is shaped
   with the moons at their mean phase, so it does not use the day's phase

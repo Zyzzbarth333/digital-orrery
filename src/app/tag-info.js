@@ -633,6 +633,12 @@ export const TAG_INFO = {
     where: 'n even; n̂: the orbit\'s normal, at latitude φ and longitude λ in the Moon\'s principal axes; GRAIL GL0660B to degree 30; the third bodies the Earth and the Sun; within a degree of the kernel\'s plane over 90 days 200 km up',
     source: 'Tremaine, Touma & Namouni 2009, AJ 137, 3706, eq. 19 · Jackson, Classical Electrodynamics, 3rd ed., §3.6 · GRAIL GL0660B (Konopliv et al. 2013) · docs/physics/journey.md#the-plane-at-the-moon',
   },
+  'journey-orbit-moon': {
+    what: 'A low lunar orbit does not stay circular: the field\'s odd degrees, the mascons near the equator above all, raise its eccentricity until the periapsis reaches the ground. Earth-to-Moon journeys arrive near the Moon\'s equator, where 100 km up it falls within weeks. So the orbit\'s mean eccentricity is flown through the stay on the plane\'s track, averaged over each turn, and the stay is flagged where it falls or its periapsis comes within 20 km of the ground.',
+    tex: ['\\frac{d\\mathbf e}{dt} = \\frac{1}{\\sqrt{\\mu a}}\\left(\\hat{\\mathbf n}\\times\\nabla_{\\mathbf e}\\bar{U} + \\mathbf e\\times\\nabla_{\\mathbf j}\\bar{U}\\right)', '\\nabla_{\\mathbf e}\\bar{U} = \\sum_{n} \\frac{(n-1)\\,P_n\'(0)}{n(n+1)}\\,\\nabla_S U_n(\\hat{\\mathbf n})'],
+    where: 'e: the eccentricity vector, its gradient at e = 0; n̂: the orbit\'s normal; n odd, from 3; U_n: the field\'s degree n on the circle\'s radius, its gradient over the sphere at n̂; GRAIL GL0660B to degree 50, J2\'s turn of the periapsis and the Earth\'s and the Sun\'s tides; falls within a day of the kernel\'s flights 100 km up',
+    source: 'Tremaine, Touma & Namouni 2009, AJ 137, 3706, eq. 16 · Jackson, Classical Electrodynamics, 3rd ed., §3.6 · GRAIL GL0660B (Konopliv et al. 2013) · docs/physics/journey.md#a-low-orbit-at-the-moon',
+  },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
     tex: ['\\Delta v = \\sum \\Delta v_\\text{burn}'],

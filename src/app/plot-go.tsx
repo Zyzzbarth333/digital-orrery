@@ -54,6 +54,9 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
   const dvl = lamp('dv'), miss = lamp('miss');
   rows.push(dvl?.level === 'warn' ? { key: 'Delta-v', state: 'nogo', text: dvl.text, fix: 'Raise the budget, or leave at the windows' } : { key: 'Delta-v', state: 'go', text: `${fmt(sol.totalDv, 2)} of ${fmt(store.budget, 1)} km/s` });
   if (miss) rows.push({ key: 'Shaping', state: 'nogo', text: miss.text, fix: 'Aim the last node, or remove it' });
+  // A low lunar orbit the field brings down in the stay.
+  const lo = lamp('lowOrbit');
+  if (lo) rows.push(lo.level === 'warn' ? { key: 'Orbits', state: 'nogo', text: lo.text, fix: 'Shorten the stay or raise the orbit in PLOT' } : { key: 'Orbits', state: 'go', text: lo.text });
   const fb = lamps.filter((l) => l.key === 'flyby');
   rows.push(fb.some((l) => l.level === 'warn') ? { key: 'Flybys', state: 'nogo', text: fb.map((l) => l.text).join('; ') } : { key: 'Flybys', state: 'go', text: sol.flybys.some(Boolean) ? (fb.length ? fb.map((l) => l.text).join('; ') : 'Every pass above its floor') : 'None' });
   // Vehicle.
