@@ -90,7 +90,9 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth's (IGRF-14), Jupiter's (JRM33 with its current sheet),
   Saturn's (Cassini) and Uranus's and Neptune's (Voyager) measured fields,
   shaded by strength, with each dipole's tilt and offset. The Earth's
-  auroral ovals for the day's Kp, green below red on the night side;
+  auroral ovals, green below red on the night side: NOAA's live OVATION
+  Prime map when the clock is near now, Starkov's oval for the day's Kp
+  otherwise;
   Jupiter's and Saturn's main ovals and Io's footprint, Uranus's and
   Neptune's auroral zones, and Mercury's field from MESSENGER. A third
   guide draws the radiation belts of the Earth, Jupiter and Saturn along

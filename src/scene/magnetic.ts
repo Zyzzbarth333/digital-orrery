@@ -25,6 +25,7 @@ export type MagneticKey = 'magnetic' | 'aurora' | 'belts';
 type Mag = typeof import('../physics/magnetic.js');
 type Aur = typeof import('../physics/aurora.js');
 type Belts = typeof import('../physics/belts.js');
+type Ovation = ReturnType<typeof import('../physics/ovation.js')['parseOvation']>;
 type Model = NonNullable<ReturnType<Mag['magneticModel']>>;
 type V3 = [number, number, number];
 
@@ -188,6 +189,14 @@ export class MagneticLayer {
   private w = new THREE.Vector3();
   // Auroras.
   private kpLoaded = false;
+  // NOAA's live aurora map, fetched while the auroras are on and the clock
+  // is near now, at most every five minutes.
+  private ov: typeof import('../physics/ovation.js') | null = null;
+  private ovation: Ovation | null = null;
+  private ovationAsked = 0;
+  private ovationMesh: THREE.Mesh | null = null;
+  private ovationBuilt: Ovation | null = null;
+  private ovationPeak: V3 = [0, 0, 1];      // the map's brightest point in the north, for its tag
   private cgm: ReturnType<Aur['cgmGrid']> | null = null;
   private earthAurora: THREE.Mesh | null = null;
   private earthKey = '';
@@ -213,7 +222,8 @@ export class MagneticLayer {
   set(key: MagneticKey, on: boolean): void {
     this.on[key] = on;
     if (on && !this.loading) {
-      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js')]).then(([m, a, b]) => { this.mag = m; this.aur = a; this.belts = b; });
+      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js'), import('../physics/ovation.js')])
+        .then(([m, a, b, o]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; });
     }
     if (key === 'aurora' && on && !this.kpLoaded) {
       this.kpLoaded = true;
@@ -228,7 +238,7 @@ export class MagneticLayer {
   }): void {
     this.tagCount = 0;
     const any = this.on.magnetic || this.on.aurora || this.on.belts;
-    if (!any || !this.mag || !this.aur || !this.belts) {
+    if (!any || !this.mag || !this.aur || !this.belts || !this.ov) {
       for (const g of this.groups.values()) g.visible = false;
       this.legend.hidden = true; this.legendFor = null;
       this.hideTags();
@@ -277,14 +287,14 @@ export class MagneticLayer {
       if (this.on.belts && k in this.belts!.BELTS) this.beltShells(k, L, g, spare);
       const bm = this.beltMeshes.get(k);
       if (bm?.mesh) bm.mesh.visible = this.on.belts;
-      if (this.earthAurora && k === 'earth') this.earthAurora.visible = this.on.aurora;
+      if (k === 'earth' && !this.on.aurora) { if (this.earthAurora) this.earthAurora.visible = false; if (this.ovationMesh) this.ovationMesh.visible = false; }
       const gi = this.giant.get(k);
       if (gi?.mesh) gi.mesh.visible = this.on.aurora;
       if (this.io.mesh && k === 'jupiter') this.io.mesh.visible = this.on.aurora;
 
       // A tag at the dipole's end for the focused body.
       if (k === f.focus && px > 10 && this.on.magnetic) this.poleTag(k, L, g, f.camera, f.width, f.height);
-      if (k === f.focus && px > 10 && this.on.aurora && k === 'earth' && this.earthAurora) this.kpTag(g, sunB, L, f.camera, f.width, f.height);
+      if (k === f.focus && px > 10 && this.on.aurora && k === 'earth' && (this.earthAurora || this.ovationMesh)) this.kpTag(g, sunB, L, f.camera, f.width, f.height);
     }
     this.lineMat.uniforms.level.value = f.level;
     this.axisMat.uniforms.level.value = f.level;
@@ -296,6 +306,7 @@ export class MagneticLayer {
       if (m) (m.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     }
     if (this.io.mesh) (this.io.mesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
+    if (this.ovationMesh) (this.ovationMesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     for (const b of this.beltMeshes.values()) if (b.mesh) (b.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
 
     // The legend: the focused body's, else none.
@@ -377,8 +388,77 @@ export class MagneticLayer {
 
   // ---- the Earth's auroral ovals ----
 
+  // Fetch NOAA's latest map when the clock is within three hours of now.
+  private askOvation(date: Date): void {
+    const now = Date.now();
+    if (!this.ov || Math.abs(date.getTime() - now) > 3 * 3600e3 || now - this.ovationAsked < 5 * 60e3) return;
+    this.ovationAsked = now;
+    void fetch(this.ov.OVATION_URL).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j) => { this.ovation = this.ov!.parseOvation(j); }).catch((e) => console.warn('OVATION:', e));
+  }
+
+  // NOAA's map as stacked sheets 100-300 km up, in geographic coordinates
+  // (the Earth's frame), built once per map: green low, red higher, by the
+  // map's probability of visible aurora.
+  private ovationSheets(L: BodyLines, g: THREE.Group, o: Ovation): void {
+    if (this.ovationBuilt === o && this.ovationMesh) return;
+    this.ovationBuilt = o;
+    const pos: number[] = [], em: number[] = [], idx: number[] = [];
+    const layers = [105, 130, 175, 250], gw = [0.6, 1, 0.5, 0.05], rw = [0, 0.03, 0.2, 0.5];
+    const D = Math.PI / 180, a = L.model.a, dLon = 2;
+    let best = -1;
+    for (let lat = 50; lat <= 85; lat++) for (let lon = 0; lon < 360; lon += 2) {
+      const v = this.ov!.ovationAt(o, lat, lon);
+      if (v > best) { best = v; const c = Math.cos(lat * D), r = 1 + 300 / a; this.ovationPeak = [r * c * Math.cos(lon * D), r * c * Math.sin(lon * D), r * Math.sin(lat * D)]; }
+    }
+    for (const h of [1, -1]) {
+      for (let li = 0; li < layers.length; li++) {
+        const r = 1 + layers[li] / a, base = pos.length / 3, rows = 46, cols = 360 / dLon;
+        for (let i = 0; i < rows; i++) {
+          const lat = h * (44 + i);
+          for (let j = 0; j <= cols; j++) {
+            const lon = j * dLon, cl = Math.cos(lat * D);
+            pos.push(r * cl * Math.cos(lon * D), r * cl * Math.sin(lon * D), r * Math.sin(lat * D));
+            const e = Math.min(1, this.ov!.ovationAt(o, lat, lon) / 40) ** 0.8;
+            const gg = gw[li] * e * 0.55, rr = rw[li] * e * 0.45;
+            em.push(GREEN.r * gg + RED.r * rr, GREEN.g * gg + RED.g * rr, GREEN.b * gg + RED.b * rr);
+          }
+        }
+        for (let i = 0; i < rows - 1; i++) for (let j = 0; j < cols; j++) {
+          const i0 = base + i * (cols + 1) + j, i1 = i0 + cols + 1;
+          if (em[3 * i0 + 1] + em[3 * (i0 + 1) + 1] + em[3 * i1 + 1] + em[3 * (i1 + 1) + 1] + em[3 * i0] + em[3 * i1] < 0.02) continue;
+          idx.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
+        }
+      }
+    }
+    if (!this.ovationMesh) {
+      this.ovationMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.ShaderMaterial({
+        vertexShader: auroraVertex, fragmentShader: auroraFragment, transparent: true, depthWrite: false, toneMapped: false,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        uniforms: { level: { value: 1 }, sunDir: { value: new THREE.Vector3() }, dayFade: { value: 1 } },
+      }));
+      this.ovationMesh.frustumCulled = false;
+      this.ovationMesh.renderOrder = 4;
+      g.add(this.ovationMesh);
+    }
+    const geo = this.ovationMesh.geometry;
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('emission', new THREE.Float32BufferAttribute(em, 3));
+    geo.setIndex(idx);
+  }
+
   private earthOval(L: BodyLines, g: THREE.Group, sunB: THREE.Vector3, date: Date, spare: () => number): void {
     const aur = this.aur!;
+    this.askOvation(date);
+    const live = this.ov!.ovationCovers(this.ovation, date.getTime());
+    if (live) this.ovationSheets(L, g, this.ovation!);
+    if (this.ovationMesh) {
+      this.ovationMesh.visible = live && this.on.aurora;
+      ((this.ovationMesh.material as THREE.ShaderMaterial).uniforms.sunDir.value as THREE.Vector3).copy(sunB);
+    }
+    if (this.earthAurora) this.earthAurora.visible = !live && this.on.aurora;
+    if (live) return;
+    // The CGM grid places Starkov's oval (the live map is already geographic).
     if (!this.cgm) this.cgm = aur.cgmGrid(L.model);
     if (!this.cgm.done) { this.cgm.step(Math.max(0.5, spare())); if (!this.cgm.done) return; }
     const kp = aur.kpAt(date.getTime());
@@ -648,6 +728,12 @@ export class MagneticLayer {
   }
 
   private kpTag(g: THREE.Group, sunB: THREE.Vector3, L: BodyLines, camera: THREE.PerspectiveCamera, width: number, height: number): void {
+    if (this.ovationMesh?.visible && this.ovation) {
+      const hhmm = new Date(this.ovation.forecast).toISOString().slice(11, 16), q = this.ovationPeak;
+      const s0 = this.screen(this.v.set(q[0], q[1], q[2]).applyMatrix4(g.matrix), camera, width, height);
+      if (s0) this.tag(s0, `OVATION ${hhmm}`, 'guide-tag mag-kp', `NOAA SWPC's live aurora map (OVATION Prime, from the solar wind measured at L1) for ${hhmm} UTC: the probability of visible aurora, green 557.7 nm low, red 630.0 nm above. Tagged at its brightest point in the north. Away from now, Starkov's oval for the day's Kp`);
+      return;
+    }
     if (!this.cgm?.done) return;
     // On the northern oval at magnetic midnight.
     const sunLon = this.aur!.dipoleLongitude(this.cgm.frame, [sunB.x, sunB.y, sunB.z]);
@@ -700,6 +786,7 @@ export class MagneticLayer {
     for (const gi of this.giant.values()) if (gi.mesh) { gi.mesh.geometry.dispose(); (gi.mesh.material as THREE.Material).dispose(); }
     if (this.io.mesh) { this.io.mesh.geometry.dispose(); (this.io.mesh.material as THREE.Material).dispose(); }
     for (const b of this.beltMeshes.values()) if (b.mesh) { b.mesh.geometry.dispose(); (b.mesh.material as THREE.Material).dispose(); }
+    if (this.ovationMesh) { this.ovationMesh.geometry.dispose(); (this.ovationMesh.material as THREE.Material).dispose(); }
     for (const g of this.groups.values()) this.scene.remove(g);
     this.lineMat.dispose(); this.axisMat.dispose();
     this.legend.remove();

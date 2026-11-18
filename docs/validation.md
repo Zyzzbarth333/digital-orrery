@@ -645,6 +645,7 @@ references these are).
 | Kp | CelesTrak SW-All.csv, 10–11 May 2024 | every three-hour value, the 9o included |
 | corrected geomagnetic coordinates | a pure centred dipole (identity) | within 0.004° |
 | Saturn's northern oval | Cassini 11 conjugate of 15° south | 13.3° from the north pole |
+| Starkov's oval, IGRF-14, CGM and Kp together | NOAA's OVATION Prime map, forecast 03:09 UTC 18 Nov 2026 (Kp 3−), night side | mean probability 19.6 % mid-oval vs 7.7 % 6° equatorward and 1.0 % 6° poleward (north); 15.2, 7.1 and 0.8 % (south) |
 | Neptune's auroral zone, L 3–20 | JWST: 30–60° S (Melin et al. 2025) | 24–48° S, mean 35° S |
 | Mercury's offset dipole | Anderson et al. 2012: 190 nT R_M³, 479 km north; libinternalfield's expansion | as published; expansion within 0.06 nT |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |

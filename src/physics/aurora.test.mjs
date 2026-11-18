@@ -17,6 +17,9 @@ import {
   centredDipolePoint, dipoleLongitude, mlt, magneticEquatorFrame, equatorFootprints, ioFootprint, saturnOval, JUPITER_MAIN, ICE_GIANT_AURORA,
 } from './aurora.js';
 import { magneticModel, offsetDipole } from './magnetic.js';
+import { parseOvation, ovationAt, ovationCovers } from './ovation.js';
+import { bodyAxesEqj } from './orientation.js';
+import * as Astronomy from 'astronomy-engine';
 
 let failed = 0;
 function check(ok, what) {
@@ -145,6 +148,37 @@ console.log('Saturn and Jupiter');
   }
   const mean = lats.reduce((a, b) => a + b, 0) / lats.length;
   check(mean < -30 && mean > -60 && Math.min(...lats) > -60, `Neptune's southern zone (L 3-20) at ${Math.max(...lats).toFixed(0)} to ${Math.min(...lats).toFixed(0)} deg, mean ${mean.toFixed(0)} (JWST: 30-60 S); ${Math.min(...lons).toFixed(0)}-${Math.max(...lons).toFixed(0)} W (JWST: 200-280 W)`);
+}
+
+console.log("NOAA's OVATION Prime map against Starkov's oval");
+{
+  // A snapshot of NOAA SWPC's live map (forecast 03:09 UTC 18 Nov 2026), read
+  // as the app reads the live file, against Starkov's oval for that hour's
+  // Kp carried to geographic positions through IGRF-14: on the night side
+  // (18 to 06 MLT) the map's aurora should lie inside the oval.
+  const fx = JSON.parse(fs.readFileSync(new URL('./fixtures/ovation_2026-11-18.json', import.meta.url), 'utf8'));
+  const bytes = Buffer.from(fx.b64, 'base64'), coordinates = [];
+  fx.latitudes.forEach((lat, i) => { for (let lon = 0; lon < 360; lon++) coordinates.push([lon, lat, bytes[i * 360 + lon]]); });
+  const o = parseOvation({ 'Observation Time': fx['Observation Time'], 'Forecast Time': fx['Forecast Time'], coordinates });
+  const t = new Date(fx['Forecast Time']);
+  check(ovationCovers(o, t.getTime()) && !ovationCovers(o, t.getTime() + 2 * 3600e3) && Math.abs(ovationAt(o, 65.5, 10.5) - (bytes[fx.latitudes.indexOf(65) * 360 + 10] + bytes[fx.latitudes.indexOf(65) * 360 + 11] + bytes[fx.latitudes.indexOf(66) * 360 + 10] + bytes[fx.latitudes.indexOf(66) * 360 + 11]) / 4) < 1e-9,
+    'the map parses, interpolates between cells, and holds only near its forecast time');
+  const kp = kpAt(t.getTime()).kp;
+  const E = magneticModel('earth', t), g = cgmGrid(E);
+  g.step();
+  const sun = Astronomy.GeoVector(Astronomy.Body.Sun, t, true), ax = bodyAxesEqj('earth', t);
+  const sv = ax.map((a) => a[0] * sun.x + a[1] * sun.y + a[2] * sun.z), sn = Math.hypot(...sv);
+  const sunLon = dipoleLongitude(g.frame, sv.map((v) => v / sn));
+  for (const h of [1, -1]) {
+    let inside = 0, eq = 0, pole = 0, n = 0;
+    for (let m = 18; m < 30; m += 0.5) {
+      const t2 = m % 24, lon = sunLon + (t2 - 12) * 15;
+      const e = ovalLatitude('equatorward', kp, t2), p = ovalLatitude('poleward', kp, t2);
+      const val = (lat) => { const q = g.at(h, lat, lon); return ovationAt(o, Math.asin(q[2]) / DEG, Math.atan2(q[1], q[0]) / DEG); };
+      inside += val((e + p) / 2); eq += val(e - 6); pole += val(p + 6); n++;
+    }
+    check(inside > 1.5 * eq && inside > 5 * pole, `${h > 0 ? 'north' : 'south'}: OVATION's mean ${(inside / n).toFixed(1)} % mid-oval, ${(eq / n).toFixed(1)} % 6 deg equatorward, ${(pole / n).toFixed(1)} % 6 deg poleward (Kp ${kpLabel(kp)})`);
+  }
 }
 
 if (failed) { console.log(`\n${failed} check(s) failed`); process.exit(1); }

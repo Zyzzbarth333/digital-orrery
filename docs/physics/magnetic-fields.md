@@ -255,9 +255,32 @@ rows between the diffuse edge and the oval glow faintly. The oval is
 brightest before magnetic midnight and brighter with Kp, and fades out
 where the Sun is up.
 
-The brightness is an illustration. Starkov's model places the edges, not
-the intensity; OVATION Prime would give intensity, from solar-wind input
-the app does not hold.
+The brightness is an illustration: Starkov's model places the edges, not
+the intensity.
+
+### Live aurora: NOAA's OVATION Prime map
+
+When the app's clock is within three hours of now, it fetches NOAA Space
+Weather Prediction Center's live aurora map [22]. The map is the
+OVATION Prime model [23], [24], driven by the solar wind measured
+upstream at L1. It gives the probability of visible aurora (%) on a 1°
+geographic grid, for a forecast time half an hour to an hour and a half
+ahead.
+
+The app uses the map from half an hour before its solar-wind time to an
+hour after its forecast time, and asks for a new one at most every five
+minutes. NOAA publishes only the latest map, so any other time falls back
+to Starkov's oval.
+
+The map is drawn as four sheets from 105 to 250 km up, in the Earth's own
+frame. Brightness follows the probability (full at 40% and above), green
+below and red above as before, faded where the Sun is up. Cells under
+about 4% are left out. The tag names the forecast time and sits at the
+map's brightest northern point.
+
+The map is geographic and changes only every few minutes, so it is built
+once per map. It costs nothing measurable a frame: the layer's update
+takes 0.1 ms.
 
 ### Jupiter and Saturn
 
@@ -265,7 +288,7 @@ Both giants' main ovals shine mostly in the ultraviolet, so they are drawn
 in a pale violet false colour, on both day and night sides:
 
 - **Jupiter's main emission** maps to about 20–30 $R_J$ in the
-  magnetodisc [22]. It is drawn as the band between the footprints of
+  magnetodisc [25]. It is drawn as the band between the footprints of
   field lines from 20 and 30 $R_J$ in the magnetic equator, traced through
   JRM33 and con2020. The northern band reaches down to about 55° near
   180–200° W (57° at 200° W), the long-known "kidney" shape that the field's northern
@@ -277,7 +300,7 @@ in a pale violet false colour, on both day and night sides:
   Io disturbed lies at larger longitudes. The small lead angle of the spot
   ahead of the footprint, a few degrees, is left out.
 - **Saturn's main oval** is drawn at 14–16° colatitude from the southern
-  pole, the medians of Badman et al.'s HST statistics [23]. The northern
+  pole, the medians of Badman et al.'s HST statistics [26]. The northern
   oval is that band's conjugate along Cassini 11's field lines. It comes
   out 13.3° from the north pole, smaller because the field is offset north.
 
@@ -286,8 +309,8 @@ in a pale violet false colour, on both day and night sides:
 JWST found Neptune's infrared aurora in 2023, the first since Voyager's
 faint ultraviolet glimpses. The southern emission lay between 30° and 60°
 S and 200° and 280° W, and mapped to L-shells from under 3 to 20 $R_N$
-(3–5 in the north) [24]. Uranus's aurora has been seen by Hubble as
-spots near its magnetic poles, rotating with the planet [25].
+(3–5 in the north) [27]. Uranus's aurora has been seen by Hubble as
+spots near its magnetic poles, rotating with the planet [28].
 
 Both are drawn as the band between the footprints of field lines from 3
 and 20 radii in the magnetic equator, traced through Voyager's dipoles.
@@ -311,11 +334,11 @@ measured.
 
 | Body | Belt | L (peak) | Source |
 | --- | --- | --- | --- |
-| Earth | inner, protons and electrons | 1.2–2 (1.5) | "$L \lesssim 2$", the slot at L 2–3 [26] |
-| Earth | outer, electrons | 3–6.6 (4.6) | "$L \gtrsim 3$", its heart at L 4.6, strong at geosynchronous orbit, L 6.6 [26] |
-| Jupiter | ions and electrons | 1.2–6 (3) | trapping from 1.2 $R_J$; MeV electrons peak near L 3 and fall about tenfold by L 6 [27] |
-| Saturn | innermost, protons | 1.03–1.22 (1.12) | between the planet and the D ring [27], [28] |
-| Saturn | electrons | 2.27–7 (2.5) | outside the A ring, peaking near L 2.5, gone by L 7 [27] |
+| Earth | inner, protons and electrons | 1.2–2 (1.5) | "$L \lesssim 2$", the slot at L 2–3 [29] |
+| Earth | outer, electrons | 3–6.6 (4.6) | "$L \gtrsim 3$", its heart at L 4.6, strong at geosynchronous orbit, L 6.6 [29] |
+| Jupiter | ions and electrons | 1.2–6 (3) | trapping from 1.2 $R_J$; MeV electrons peak near L 3 and fall about tenfold by L 6 [30] |
+| Saturn | innermost, protons | 1.03–1.22 (1.12) | between the planet and the D ring [30], [31] |
+| Saturn | electrons | 2.27–7 (2.5) | outside the A ring, peaking near L 2.5, gone by L 7 [30] |
 
 Because the shells are traced through the real field, the Earth's inner
 belt follows the dipole's tilt and offset. It comes lowest, about 980 km
@@ -328,7 +351,7 @@ moons' orbits are not drawn.
 `magnetic.test.mjs`:
 
 - **IGRF against NOAA.** NOAA NCEI's Geomag 7.0 calculator ships its 20
-  sample points run on IGRF-13 [29]. The same sum on the same coefficients
+  sample points run on IGRF-13 [32]. The same sum on the same coefficients
   gives X, Y, Z, H and F within 0.054 nT of them, under the printout's
   0.1 nT, and D and I within its minute. The points cover 2015–2024.5,
   0–30,000 ft, geodetic and geocentric.
@@ -348,7 +371,7 @@ moons' orbits are not drawn.
   libinternalfield's transcription [14], matches Cao et al.'s Table 5. The eccentric dipole sits 2,254 km north, against the magnetic
   equator's 2,300 km northward shift they measured.
 - **Uranus and Neptune** match Ness's moments, tilts and offsets. Uranus's
-  OTD moment is within 4.9° of the dipole of Connerney's Q3 model [30]
+  OTD moment is within 4.9° of the dipole of Connerney's Q3 model [33]
   turned the same way, whose tilt is 58.6°.
 - **The sums and the tracer:**
   - Degree-1 harmonics equal the closed-form dipole.
@@ -386,8 +409,16 @@ moons' orbits are not drawn.
 - **Saturn's oval** maps from 15° south to 13.3° north.
 - **Jupiter's main emission** lies poleward of Io's footprint: a mean
   73.3° against 66.2° magnetic latitude.
+- **Starkov's oval against NOAA's live map.** This is an independent
+  check of the oval, IGRF-14, CGM and Kp together. A saved OVATION Prime
+  map [22] (forecast 03:09 UTC, 18 November 2026) is compared with
+  Starkov's oval for that hour's Kp (3−). On the night side, 18 to 06 MLT,
+  the map's mean probability is:
+  - north: 19.6% mid-oval, 7.7% six degrees equatorward and 1.0% six
+    degrees poleward;
+  - south: 15.2%, 7.1% and 0.8%.
 - **Neptune's zone** (L 3–20) falls at 24–48° S, mean 35° S, inside
-  JWST's 30–60° S [24]. Its 259–291° W, against JWST's 200–280° W,
+  JWST's 30–60° S [27]. Its 259–291° W, against JWST's 200–280° W,
   rests on the Voyager longitude convention.
 
 ## References
@@ -434,20 +465,26 @@ moons' orbits are not drawn.
 
 [21] G. Gustafsson, N. E. Papitashvili, and V. O. Papitashvili, "A revised corrected geomagnetic coordinate system for Epochs 1985 and 1990," *J. Atmos. Terr. Phys.*, vol. 54, no. 11–12, pp. 1609–1631, 1992, doi: 10.1016/0021-9169(92)90167-J.
 
-[22] J. T. Clarke *et al.*, "Jupiter's aurora," in *Jupiter: The Planet, Satellites and Magnetosphere*, F. Bagenal, T. E. Dowling, and W. B. McKinnon, Eds. Cambridge, U.K.: Cambridge Univ. Press, 2004, ch. 26, pp. 639–670. (The 20–30 $R_J$ mapping as later papers cite it.)
+[22] NOAA Space Weather Prediction Center, "Aurora - 30 minute forecast," ovation_aurora_latest.json. [Online]. Available: https://www.swpc.noaa.gov/products/aurora-30-minute-forecast (data: https://services.swpc.noaa.gov/json/ovation_aurora_latest.json). US Government work.
 
-[23] S. V. Badman *et al.*, "A statistical analysis of the location and width of Saturn's southern auroras," *Ann. Geophys.*, vol. 24, no. 12, pp. 3533–3545, 2006, doi: 10.5194/angeo-24-3533-2006.
+[23] P. T. Newell, T. Sotirelis, and S. Wing, "Diffuse, monoenergetic, and broadband aurora: The global precipitation budget," *J. Geophys. Res. Space Phys.*, vol. 114, no. A9, Art. no. 2009JA014326, 2009, doi: 10.1029/2009JA014326.
 
-[24] H. Melin *et al.*, "Discovery of H3+ and infrared aurorae at Neptune with JWST," *Nat. Astron.*, vol. 9, no. 5, pp. 666–671, 2025, doi: 10.1038/s41550-025-02507-9.
+[24] P. T. Newell *et al.*, "OVATION Prime-2013: Extension of auroral precipitation model to higher disturbance levels," *Space Weather*, vol. 12, no. 6, pp. 368–379, 2014, doi: 10.1002/2014SW001056.
 
-[25] L. Lamy *et al.*, "The aurorae of Uranus past equinox," *J. Geophys. Res. Space Phys.*, vol. 122, no. 4, pp. 3997–4008, 2017, doi: 10.1002/2017JA023918. (Not opened; its abstract.)
+[25] J. T. Clarke *et al.*, "Jupiter's aurora," in *Jupiter: The Planet, Satellites and Magnetosphere*, F. Bagenal, T. E. Dowling, and W. B. McKinnon, Eds. Cambridge, U.K.: Cambridge Univ. Press, 2004, ch. 26, pp. 639–670. (The 20–30 $R_J$ mapping as later papers cite it.)
 
-[26] G. D. Reeves and I. A. Daglis, "Geospace magnetic storms and the Van Allen radiation belts," in *Waves, Particles, and Storms in Geospace*, G. Balasis, I. A. Daglis, and I. R. Mann, Eds. Oxford, U.K.: Oxford Univ. Press, 2016, ch. 3, doi: 10.1093/acprof:oso/9780198705246.003.0004.
+[26] S. V. Badman *et al.*, "A statistical analysis of the location and width of Saturn's southern auroras," *Ann. Geophys.*, vol. 24, no. 12, pp. 3533–3545, 2006, doi: 10.5194/angeo-24-3533-2006.
 
-[27] E. Roussos and P. Kollmann, "The radiation belts of Jupiter and Saturn," in *Magnetospheres in the Solar System*, Geophys. Monogr. Ser., vol. 259. Washington, DC, USA: AGU/Wiley, 2021, pp. 499–514, doi: 10.1002/9781119815624.ch32. Preprint: arXiv:2006.14682.
+[27] H. Melin *et al.*, "Discovery of H3+ and infrared aurorae at Neptune with JWST," *Nat. Astron.*, vol. 9, no. 5, pp. 666–671, 2025, doi: 10.1038/s41550-025-02507-9.
 
-[28] E. Roussos *et al.*, "A radiation belt of energetic protons located between Saturn and its rings," *Science*, vol. 362, no. 6410, Art. no. eaat1962, 2018, doi: 10.1126/science.aat1962.
+[28] L. Lamy *et al.*, "The aurorae of Uranus past equinox," *J. Geophys. Res. Space Phys.*, vol. 122, no. 4, pp. 3997–4008, 2017, doi: 10.1002/2017JA023918. (Not opened; its abstract.)
 
-[29] NOAA National Centers for Environmental Information, "Geomag 7.0" (geomag70_linux.tar.gz: sample_coords.txt, sample_out_IGRF13.txt, IGRF13.COF). [Online]. Available: https://www.ngdc.noaa.gov/IAGA/vmod/igrf.html
+[29] G. D. Reeves and I. A. Daglis, "Geospace magnetic storms and the Van Allen radiation belts," in *Waves, Particles, and Storms in Geospace*, G. Balasis, I. A. Daglis, and I. R. Mann, Eds. Oxford, U.K.: Oxford Univ. Press, 2016, ch. 3, doi: 10.1093/acprof:oso/9780198705246.003.0004.
 
-[30] J. E. P. Connerney, M. H. Acuña, and N. F. Ness, "The magnetic field of Uranus," *J. Geophys. Res.*, vol. 92, no. A13, pp. 15329–15336, 1987, doi: 10.1029/JA092iA13p15329.
+[30] E. Roussos and P. Kollmann, "The radiation belts of Jupiter and Saturn," in *Magnetospheres in the Solar System*, Geophys. Monogr. Ser., vol. 259. Washington, DC, USA: AGU/Wiley, 2021, pp. 499–514, doi: 10.1002/9781119815624.ch32. Preprint: arXiv:2006.14682.
+
+[31] E. Roussos *et al.*, "A radiation belt of energetic protons located between Saturn and its rings," *Science*, vol. 362, no. 6410, Art. no. eaat1962, 2018, doi: 10.1126/science.aat1962.
+
+[32] NOAA National Centers for Environmental Information, "Geomag 7.0" (geomag70_linux.tar.gz: sample_coords.txt, sample_out_IGRF13.txt, IGRF13.COF). [Online]. Available: https://www.ngdc.noaa.gov/IAGA/vmod/igrf.html
+
+[33] J. E. P. Connerney, M. H. Acuña, and N. F. Ness, "The magnetic field of Uranus," *J. Geophys. Res.*, vol. 92, no. A13, pp. 15329–15336, 1987, doi: 10.1029/JA092iA13p15329.
