@@ -17,6 +17,15 @@
 // The lines are fixed in each body's frame, so they are traced once (a few
 // milliseconds a frame until done, focused body first) and then only
 // turned with the body. The physics loads the first time either is on.
+//
+// Field lines do not move; what moves along them is trapped particles.
+// Each closed line carries a faint pulse, a particle bouncing between its
+// mirror points at the speed the kept magnetic moment allows (bounceTrack:
+// fast over the equator, slowing to a stop where it mirrors). Real bounces
+// take a fraction of a second to minutes; here each takes seconds, longer
+// on longer lines (as the square root of the real period's path, so the
+// outer lines still move). The pulses stop while time is held and are not
+// drawn at all with reduced motion.
 
 import * as THREE from 'three';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
@@ -45,6 +54,7 @@ const SEEDS: Record<string, number[]> = {
 };
 const N_LON = 12;
 const DECADES = 3;                         // the ramp spans 1000:1 in |B|
+const PULSE_S = 1.6;                       // a bounce's display period per square root of its path in radii
 
 // Lines shaded along the console's ramp (planner-panel.tsx's porkchop):
 // strong sheen, then phosphor amber, key orange, engraving.
@@ -52,9 +62,12 @@ const lineVertex = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_vertex>
 attribute float strength;
+attribute vec3 bounce;      // the bounce coordinate x, the display period (s, 0: none), a phase offset
 varying float vS;
+varying vec3 vB;
 void main() {
   vS = strength;
+  vB = bounce;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   #include <logdepthbuf_vertex>
 }
@@ -64,7 +77,10 @@ const lineFragment = /* glsl */ `
 #include <logdepthbuf_pars_fragment>
 uniform float level;
 uniform float opacity;
+uniform float time;         // seconds of pulse motion (held while time is held)
+uniform float pulse;        // the pulses' strength: 0 with reduced motion
 varying float vS;
+varying vec3 vB;
 vec3 ramp(float s) {
   vec3 c0 = vec3(0.604, 0.196, 0.086), c1 = vec3(0.851, 0.325, 0.122), c2 = vec3(1.0, 0.698, 0.180), c3 = vec3(0.961, 0.941, 0.894);
   float f = clamp(s, 0.0, 1.0) * 3.0;
@@ -73,7 +89,17 @@ vec3 ramp(float s) {
 void main() {
   #include <logdepthbuf_fragment>
   float a = opacity * (0.22 + 0.6 * clamp(vS, 0.0, 1.0));
-  gl_FragColor = vec4(ramp(vS) * a * level, a);
+  // The particle's place on the line: there and back between the mirror
+  // points (x = 0 and 1) once a period.
+  float glow = 0.0;
+  if (vB.y > 0.0 && pulse > 0.0) {
+    float x = 1.0 - abs(1.0 - 2.0 * fract(time / vB.y + vB.z));
+    float d = (vB.x - x) / 0.035;
+    glow = pulse * exp(-d * d);
+  }
+  vec3 c = mix(ramp(vS), ramp(1.0), 0.6 * glow);
+  a *= 1.0 + 1.8 * glow;
+  gl_FragColor = vec4(c * a * level, a);
 }
 `;
 
@@ -232,6 +258,7 @@ interface BodyLines {
   seeds: { p: V3; keepOpenOnly: boolean }[];
   next: number;
   pos: number[]; str: number[]; index: number[];
+  bnc: number[];              // per point: bounce coordinate, display period, phase
   bRef: number;
   mesh: THREE.LineSegments | null;
   axis: THREE.LineSegments | null;
@@ -268,8 +295,11 @@ export class MagneticLayer {
   private earthYear = NaN;
   private lineMat = new THREE.ShaderMaterial({
     vertexShader: lineVertex, fragmentShader: lineFragment, transparent: true, depthWrite: false, toneMapped: false,
-    blending: THREE.AdditiveBlending, uniforms: { level: { value: 1 }, opacity: { value: 1 } },
+    blending: THREE.AdditiveBlending, uniforms: { level: { value: 1 }, opacity: { value: 1 }, time: { value: 0 }, pulse: { value: 1 } },
   });
+  private pulseTime = 0;
+  private lastFrame = NaN;
+  private reduced = matchMedia('(prefers-reduced-motion: reduce)');
   private axisMat = new THREE.ShaderMaterial({
     vertexShader: lineVertex, fragmentShader: lineFragment, transparent: true, depthWrite: false, toneMapped: false,
     blending: THREE.AdditiveBlending, uniforms: { level: { value: 1 }, opacity: { value: 0.9 } },
@@ -335,7 +365,7 @@ export class MagneticLayer {
 
   update(f: {
     camera: THREE.PerspectiveCamera; meshes: Map<BodyKey, THREE.Mesh>; materials: Map<BodyKey, THREE.ShaderMaterial>;
-    focus: BodyKey | null; width: number; height: number; level: number; date: Date;
+    focus: BodyKey | null; width: number; height: number; level: number; date: Date; running: boolean;
   }): void {
     this.tagCount = 0;
     const any = this.on.magnetic || this.on.aurora || this.on.belts;
@@ -406,7 +436,7 @@ export class MagneticLayer {
           L.lineSun = [sunB.x, sunB.y, sunB.z];
           const T = this.t89.withT89(L.model, L.lineSun, kp);
           L.lineModel = { ...T, mp, within: this.bnd.insideBoundary(T.gsm, mp.r) };
-          L.next = 0; L.pos = []; L.str = []; L.index = []; L.built = false;
+          L.next = 0; L.pos = []; L.str = []; L.index = []; L.bnc = []; L.built = false;
         }
       }
       if (k === 'earth' || k === 'jupiter' || k === 'saturn') this.boundary(k, L, g, sunB, sunPos ? (mesh.position.distanceTo(sunPos) * UNIT_KM) / 149597870.7 : 1, (mesh.position.length() * UNIT_KM) / L.model.a, f);
@@ -445,6 +475,12 @@ export class MagneticLayer {
     }
     this.lineMat.uniforms.level.value = f.level;
     this.axisMat.uniforms.level.value = f.level;
+    // The pulses run on the wall clock while the sim clock runs.
+    const now = performance.now() / 1000, dt = Number.isFinite(this.lastFrame) ? Math.min(now - this.lastFrame, 0.1) : 0;
+    this.lastFrame = now;
+    if (f.running && !this.reduced.matches) this.pulseTime += dt;
+    this.lineMat.uniforms.time.value = this.pulseTime;
+    this.lineMat.uniforms.pulse.value = this.reduced.matches ? 0 : 1;
     for (const b of this.bnds.values()) (b.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
     this.sun?.hcs?.children.forEach((o) => { ((o as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.level.value = f.level; });
     // Auroras give their own light: the display level may dim them near the
@@ -643,7 +679,7 @@ export class MagneticLayer {
     const b: V3 = [0, 0, 0];
     let bRef = 0;
     for (const s of seeds) bRef = Math.max(bRef, Math.hypot(...model.field(s.p[0], s.p[1], s.p[2], b)));
-    const L: BodyLines = { model, lineModel: model, lineSun: null, built: false, surface, seeds, next: 0, pos: [], str: [], index: [], bRef, mesh: null, axis: null, range: [Infinity, 0] };
+    const L: BodyLines = { model, lineModel: model, lineSun: null, built: false, surface, seeds, next: 0, pos: [], str: [], index: [], bnc: [], bRef, mesh: null, axis: null, range: [Infinity, 0] };
     this.lines.set(k, L);
     return L;
   }
@@ -654,7 +690,14 @@ export class MagneticLayer {
     if (s.keepOpenOnly && t.closed) return;
     if (t.strength.length < 3) return;
     const base = L.pos.length / 3, n = t.strength.length;
+    // A trapped particle's bounce on a closed line: its period on screen
+    // grows as the square root of the real one's path (in units of the
+    // model's radius a, as the points are).
+    const b = this.mag!.bounceTrack(t);
+    const period = b ? PULSE_S * Math.sqrt(b.total) : 0;
+    const phase = (L.next * 0.618034) % 1;
     for (let i = 0; i < n; i++) {
+      L.bnc.push(b ? b.x[i] : 0, period, phase);
       L.pos.push(t.points[3 * i], t.points[3 * i + 1], t.points[3 * i + 2]);
       const B = t.strength[i];
       L.str.push(Math.log10(B / L.bRef) / DECADES + 1);
@@ -667,9 +710,10 @@ export class MagneticLayer {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(L.pos, 3));
     geo.setAttribute('strength', new THREE.Float32BufferAttribute(L.str, 1));
+    geo.setAttribute('bounce', new THREE.Float32BufferAttribute(L.bnc, 3));
     geo.setIndex(L.index);
     L.built = true;
-    L.pos = []; L.str = []; L.index = [];
+    L.pos = []; L.str = []; L.index = []; L.bnc = [];
     if (L.mesh) { L.mesh.geometry.dispose(); L.mesh.geometry = geo; return; }
     L.mesh = new THREE.LineSegments(geo, this.lineMat);
     L.mesh.frustumCulled = false;
