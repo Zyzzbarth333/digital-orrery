@@ -5,6 +5,11 @@
 // craft's drawn position, its osculating conic about its primary (amber) and
 // the path it has flown (pale). Lines are drawn relative to the primary and
 // placed at the primary's render position, like the bodies' orbit lines.
+// Closer than a tenth of the craft's distance from its primary, where the
+// conic's uniform samples (and float32 about the primary) would miss the
+// craft, the conic and the trail's last stretch are drawn every frame
+// relative to the craft instead (craftPaths.ts, conicAround), so they run
+// through it from any distance.
 // They are drawing aids at a display level: multiplied by 1/exposure
 // (setLevel), so after the HDR pipeline's exposure and tone curve they show
 // at the colours given here.
@@ -16,11 +21,11 @@
 // axis (+x) long in amber, +y and +z short in pale phosphor, an axis
 // pointing away from the camera fainter, the reference it is turning to
 // as a dashed amber stalk, and a short orange plume aft while it burns.
-// An SVG overlay rather than lines in the scene: the camera follows a
-// craft from 50 m, inside the scene's 1 km near plane.
+// An SVG overlay rather than lines in the scene, at a fixed size.
 
 import * as THREE from 'three';
 import { orbitTrailMaterial } from './orbitTrail';
+import { conicAround } from './craftPaths';
 
 type V3 = [number, number, number];
 
@@ -41,12 +46,21 @@ export interface CraftView {
   // The attitude: body axes x, y, z and the reference's x (ecliptic unit
   // vectors), and whether it is burning.
   attitude?: { axes: [V3, V3, V3]; target: V3 | null; firing: boolean };
+  // The craft's state relative to its primary (ecliptic km, km/s), the
+  // primary's GM and how far a hyperbola is drawn: for the close-up conic.
+  orbit?: { r: V3; v: V3; mu: number; rMax: number };
 }
 
-interface Drawn { conic: THREE.Line; trail: THREE.Line; flown: THREE.Line | null; marker: HTMLDivElement; att: SVGSVGElement | null; version: number }
+// near and nearTrail: the close-up conic and trail end, sharing the
+// conic's and trail's materials.
+interface Drawn { conic: THREE.Line; trail: THREE.Line; near: THREE.Line; nearTrail: THREE.Line; flown: THREE.Line | null; marker: HTMLDivElement; att: SVGSVGElement | null; version: number }
 
 // Within this distance of the camera a craft's attitude is drawn.
 export const ATTITUDE_RANGE_KM = 50000;
+// The close-up lines are drawn within this share of the craft's distance
+// from its primary. There the uniform conic's chords (sag up to 7.5e-5 of
+// that distance) would be about a pixel off the craft.
+const CLOSE_SHARE = 0.1;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 // Screen lengths (px): the thrust axis, the other two, the box's long side.
 const AXIS_PX = 40, SIDE_PX = 24, BOX_PX = 18;
@@ -90,6 +104,23 @@ function setPoints(line: THREE.Line, pts: V3[], unitKm: number): void {
   line.geometry.setAttribute('position', new THREE.BufferAttribute(arr, 3));
   line.geometry.setAttribute('u', new THREE.BufferAttribute(u, 1));
   line.geometry.setDrawRange(0, pts.length);
+}
+
+// Points relative to the craft, written into a line's own buffer (grown
+// when short), with the trail's age attribute at its newest.
+function setLocal(line: THREE.Line, pts: V3[], unitKm: number): void {
+  const g = line.geometry, n = pts.length;
+  let pos = g.getAttribute('position') as THREE.BufferAttribute;
+  if (pos.count < n) {
+    pos = new THREE.BufferAttribute(new Float32Array(n * 3), 3);
+    pos.setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', pos);
+    if (g.getAttribute('u')) g.setAttribute('u', new THREE.BufferAttribute(new Float32Array(n), 1));
+  }
+  const a = pos.array as Float32Array;
+  for (let i = 0; i < n; i++) { const p = pts[i]; a[3 * i] = p[0] / unitKm; a[3 * i + 1] = p[2] / unitKm; a[3 * i + 2] = -p[1] / unitKm; }
+  pos.needsUpdate = true;
+  g.setDrawRange(0, n);
 }
 
 // The flown path glows at the craft and fades with age (orbitTrail.ts).
@@ -136,8 +167,16 @@ export class CraftLayer {
         marker.innerHTML = '<span class="glyph"></span><span class="name"></span>';
         marker.addEventListener('click', () => this.onPick(v.id));
         this.overlay.appendChild(marker);
-        d = { conic: lineOf(0xffb22e, 0.55), trail: trailOf(0xffcf7a), flown: null, marker, att: null, version: -1 };
-        this.scene.add(d.conic, d.trail);
+        const conic = lineOf(0xffb22e, 0.55), trail = trailOf(0xffcf7a);
+        const near = new THREE.Line(new THREE.BufferGeometry(), conic.material);
+        near.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+        const nearTrail = new THREE.Line(new THREE.BufferGeometry(), trail.material);
+        nearTrail.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+        nearTrail.geometry.setAttribute('u', new THREE.BufferAttribute(new Float32Array(1), 1));
+        near.frustumCulled = nearTrail.frustumCulled = false;
+        near.visible = nearTrail.visible = false;
+        d = { conic, trail, near, nearTrail, flown: null, marker, att: null, version: -1 };
+        this.scene.add(d.conic, d.trail, near, nearTrail);
         this.drawn.set(v.id, d);
       }
       if (d.version !== v.pathVersion) {
@@ -154,6 +193,7 @@ export class CraftLayer {
       const p = [v.primaryEcl[0] - cam[0], v.primaryEcl[1] - cam[1], v.primaryEcl[2] - cam[2]];
       toRender(p, unitKm, d.conic.position);
       d.trail.position.copy(d.conic.position);
+      this.placeClose(v, d, cam, unitKm);
       (d.marker.querySelector('.name') as HTMLElement).textContent = v.name;
       d.marker.classList.toggle('burn', v.thrusting);
       d.marker.classList.toggle('lost', v.crashed);
@@ -162,13 +202,31 @@ export class CraftLayer {
     this.setLevel(this.level);
     for (const [id, d] of this.drawn) {
       if (seen.has(id)) continue;
-      this.scene.remove(d.conic, d.trail);
-      d.conic.geometry.dispose(); d.trail.geometry.dispose();
+      this.scene.remove(d.conic, d.trail, d.near, d.nearTrail);
+      d.conic.geometry.dispose(); d.trail.geometry.dispose(); d.near.geometry.dispose(); d.nearTrail.geometry.dispose();
       if (d.flown) { this.scene.remove(d.flown); d.flown.geometry.dispose(); }
       d.marker.remove();
       d.att?.remove();
       this.drawn.delete(id);
     }
+  }
+
+  // Close to the craft: the conic and the trail's last stretch from its
+  // state this frame, placed at the craft's render position; the uniform
+  // conic is hidden.
+  private placeClose(v: CraftView, d: Drawn, cam: V3, unitKm: number): void {
+    const o = v.orbit;
+    const rel = [v.rEcl[0] - cam[0], v.rEcl[1] - cam[1], v.rEcl[2] - cam[2]];
+    const close = !!o && Math.hypot(rel[0], rel[1], rel[2]) < CLOSE_SHARE * Math.hypot(o.r[0], o.r[1], o.r[2]);
+    const c = close ? conicAround(o!.r, o!.v, o!.mu, o!.rMax, v.trailEcl.at(-1) ?? null) : null;
+    d.conic.visible = !c;
+    d.near.visible = !!c;
+    d.nearTrail.visible = !!c && c.back.length > 1;
+    if (!c) return;
+    toRender(rel, unitKm, d.near.position);
+    d.nearTrail.position.copy(d.near.position);
+    setLocal(d.near, c.ahead, unitKm);
+    if (c.back.length > 1) setLocal(d.nearTrail, c.back, unitKm);
   }
 
   // After the camera is set: markers at their projected positions.
@@ -227,7 +285,7 @@ export class CraftLayer {
   }
 
   dispose(): void {
-    for (const d of this.drawn.values()) { this.scene.remove(d.conic, d.trail); if (d.flown) this.scene.remove(d.flown); d.marker.remove(); d.att?.remove(); }
+    for (const d of this.drawn.values()) { this.scene.remove(d.conic, d.trail, d.near, d.nearTrail); if (d.flown) this.scene.remove(d.flown); d.marker.remove(); d.att?.remove(); }
     this.drawn.clear();
   }
 }
