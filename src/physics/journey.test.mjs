@@ -547,6 +547,33 @@ header('CASE 10: leaving a moon by where it is: the phase, the strips and the be
   check('a way out that swings in past the planet (falling inward, periapsis under half the moon\'s distance) is not taken while another is', any.rp < J.bodyInfo('earth').radius && !kept.swingby && kept.speed > any.speed && Math.abs(L10.moonDep.speed - kept.speed) < 1e-12);
 }
 
+header('CASE 12: reaching a moon via its planet: Mars orbit to the Moon, flown');
+{
+  // Mars orbit to lunar orbit, and to a landing, on the leg's porkchop
+  // optimum. The leg is solved about the Sun to the Earth; the flight aims
+  // at the Moon itself, with the B-plane point from the excess velocity
+  // about the Moon where it is on the day (journey.js moonArr). Aimed at the
+  // Earth's centre plus the Moon's periapsis offset, as it was, the craft
+  // hit the Earth.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const toMoon = (kind) => {
+    let j = { start: { body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2028-06-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'moon', kind, altKm: 100, stayDays: 3, dateMs: D('2029-02-06T00:00:00Z') }] };
+    j = J.applyOption(j, 0, J.legOptions(j, 0).options.find((x) => x.type === 'porkchop'));
+    const s = J.solveJourney(j), p = planFlight(s), f = flyJourney(sys, p);
+    return { s, p, f };
+  };
+  const o = toMoon('orbit'), L = o.s.legs[0];
+  const cap = Number(/capture at moon: (\d+) m\/s/.exec(o.f.log.join('\n'))?.[1] ?? NaN) / 1000;
+  console.log(`  Mars ${new Date(L.depMs).toISOString().slice(0, 10)} to the Moon ${new Date(L.arrMs).toISOString().slice(0, 10)}: ${L.moonArr.speed.toFixed(3)} km/s about the Moon; Moon ${o.f.arrivals[0].missKm.toFixed(1)} km off the planned periapsis; capture ${(cap * 1000).toFixed(0)} m/s against the plan's ${(L.arrDv * 1000).toFixed(0)}; corrections ${(o.f.correctionsDv * 1000).toFixed(0)} m/s`);
+  check('Mars orbit to lunar orbit, flown in the full model: aimed at the Moon, its periapsis within 20 km of plan, the capture within 5 % of its price, no trouble', o.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'moon') && o.f.arrivals[0].missKm < 20 && Math.abs(cap / L.arrDv - 1) < 0.05 && flightTrouble(o.p, o.f).length === 0);
+  // Landing: the long capture (2 km/s, against 0.8 from the Earth) leaves
+  // the parking orbit eccentric, so the descent orbit burn is worked out
+  // from the orbit the craft is in.
+  const l = toMoon('land'), down = l.f.landings[0];
+  console.log(`  and down on the Moon: ${l.f.log.find((x) => x.startsWith('landed')) ?? l.f.log.find((x) => x.startsWith('descent'))}`);
+  check('Mars orbit to a Moon landing, flown: down under 3 m/s, no trouble', down?.body === 'moon' && down.speed < 0.003 && flightTrouble(l.p, l.f).length === 0);
+}
+
 header('CASE 11: the full model, or the bare one as a fallback');
 {
   // flightTrouble: what keeps a flight from being taken in the full model.
