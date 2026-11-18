@@ -42,6 +42,15 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth: its aims are at the Moon itself, and a landing after a long
   capture works its descent out from the orbit it is in (this pull
   request).
+- Journeys to and from the planets' major moons (Europa, Ganymede, Titan
+  and the rest) are flown with those moons' gravity, as the kernel gives
+  it. Earth orbit to Europa orbit is captured 0.5 km off its planned
+  periapsis, where it came in 300 km low and hit Europa. A descent lands on
+  Europa, Titan is entered at its planned height, a moon flyby is aimed at
+  the moon, not its planet, and leaving Europa for Earth is flown within
+  1 % of the planner's price. Captures and departures burn near
+  impulsively, centred on the periapsis, as the plan prices them (this
+  pull request).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
