@@ -10,12 +10,18 @@
 // up to two seconds when a body was clicked. Now the browser decodes them
 // off the main thread (createImageBitmap) and the scene uploads at most one
 // per frame (TextureUploader) before any material uses it.
+//
+// Where the GPU takes a format the Basis transcoder makes, maps with a KTX2
+// copy (manifest.ktx2) load that instead (ktx2.ts): already compressed, a
+// quarter of the video memory, uploaded the same way. The WebP is the
+// fallback, per map.
 
 import * as THREE from 'three';
 import type { BodyKey } from './catalogue';
 import { applySurfaceMaps } from './bodyMaterial';
 import type { DecodeReply, DecodeRequest } from './decode.worker';
 import type { SkyDetailEntry } from './skyDetail';
+import { blockRowBytes, initKtx2, ktx2Ready, loadKtx2, type CompressedLevels } from './ktx2';
 
 export interface SurfaceEntry {
   day?: string;                 // path under textures/
@@ -30,15 +36,21 @@ export interface SurfaceEntry {
 export interface Manifest {
   bodies: Partial<Record<BodyKey, SurfaceEntry>>;
   rings?: { saturn?: { tau: string; innerKm: number; outerKm: number; credit: string } };
+  ktx2?: Record<string, string>;   // map path -> its KTX2 (python/textures/build_ktx2.py)
   stars?: { map: string; preview?: string; raAtLeftDeg: number; raIncreasesRight: boolean; gain?: number; detail?: SkyDetailEntry; points?: string; pointCount?: number; credit: string };
 }
 
 export const BASE = `${import.meta.env.BASE_URL}textures/`;
 
+// Map paths with a KTX2 copy, from the manifest.
+let ktx2Paths: Record<string, string> = {};
+
 export async function loadManifest(): Promise<Manifest | null> {
   try {
     const r = await fetch(`${BASE}manifest.json`);
-    return r.ok ? ((await r.json()) as Manifest) : null;
+    const m = r.ok ? ((await r.json()) as Manifest) : null;
+    ktx2Paths = m?.ktx2 ?? {};
+    return m;
   } catch {
     return null;
   }
@@ -65,9 +77,11 @@ export async function loadJson<T>(path: string): Promise<T> {
 const BYTES_PER_FRAME = 4 * 1024 * 1024;
 
 interface UploadJob {
-  bitmap: ImageBitmap;
+  bitmap: ImageBitmap | null;
+  levels: CompressedLevels | null;      // a KTX2 map's levels, instead of a bitmap
   colour: boolean;
   gl: WebGLTexture | null;
+  level: number;                        // compressed: the level being filled
   y: number;                            // next row to upload
   resolve: (t: THREE.Texture) => void;
   reject: (e: Error) => void;
@@ -77,9 +91,13 @@ export class TextureUploader {
   private queue: UploadJob[] = [];
   private gl: WebGL2RenderingContext;
   private aniso: number;
+  // Video memory of the maps this uploader made and has not seen freed,
+  // from their formats and sizes (window.orrery.uploader with ?debug).
+  gpuBytes = 0;
   constructor(private renderer: THREE.WebGLRenderer) {
     this.gl = renderer.getContext() as WebGL2RenderingContext;
     this.aniso = renderer.capabilities.getMaxAnisotropy();
+    initKtx2(renderer);
   }
   get pending(): number { return this.queue.length; }
 
@@ -88,42 +106,82 @@ export class TextureUploader {
   get maxSize(): number { return this.renderer.capabilities.maxTextureSize; }
 
   upload(bitmap: ImageBitmap, colour: boolean): Promise<THREE.Texture> {
-    return new Promise((resolve, reject) => this.queue.push({ bitmap, colour, gl: null, y: 0, resolve, reject }));
+    return new Promise((resolve, reject) => this.queue.push({ bitmap, levels: null, colour, gl: null, level: 0, y: 0, resolve, reject }));
+  }
+
+  // A KTX2 map's levels. Levels larger than the GPU takes are skipped.
+  uploadCompressed(levels: CompressedLevels, colour: boolean): Promise<THREE.Texture> {
+    const max = this.maxSize;
+    const fit = levels.levels.findIndex((l) => l.width <= max && l.height <= max);
+    const use = { ...levels, levels: levels.levels.slice(Math.max(0, fit)) };
+    return new Promise((resolve, reject) => this.queue.push({ bitmap: null, levels: use, colour, gl: null, level: 0, y: 0, resolve, reject }));
   }
 
   // Forget queued work after a lost context (its textures went with it).
   // A lost context took the textures with it: queued work is dropped and
   // its callers told, so nothing waits forever.
   clear(): void {
-    for (const j of this.queue) { j.bitmap.close(); j.reject(new Error('WebGL context lost')); }
+    for (const j of this.queue) { j.bitmap?.close(); j.reject(new Error('WebGL context lost')); }
     this.queue = [];
+    this.gpuBytes = 0;
   }
 
   step(): void {
     const job = this.queue[0];
     if (!job || this.gl.isContextLost()) return;
     const gl = this.gl, state = this.renderer.state;
-    const { bitmap } = job;
-    const W = bitmap.width, H = bitmap.height;
-    if (!job.gl) {
-      job.gl = gl.createTexture();
+    let bytes = 0;
+    if (job.levels) {
+      // Compressed: each level in strips of whole block rows, no mipmapping.
+      const { internalFormat, blockBytes, levels } = job.levels;
+      if (!job.gl) {
+        job.gl = gl.createTexture();
+        state.bindTexture(gl.TEXTURE_2D, job.gl);
+        gl.texStorage2D(gl.TEXTURE_2D, levels.length, internalFormat, levels[0].width, levels[0].height);
+      }
       state.bindTexture(gl.TEXTURE_2D, job.gl);
-      const levels = Math.floor(Math.log2(Math.max(W, H))) + 1;
-      gl.texStorage2D(gl.TEXTURE_2D, levels, job.colour ? gl.SRGB8_ALPHA8 : gl.RGBA8, W, H);
+      // Small levels go up together, within the frame's budget.
+      let budget = BYTES_PER_FRAME;
+      while (job.level < levels.length && budget > 0) {
+        const L = levels[job.level];
+        const rowBytes = blockRowBytes(L.width, blockBytes);
+        const blockRows = Math.ceil(L.height / 4);
+        const by = job.y / 4;
+        const n = Math.max(1, Math.min(blockRows - by, Math.floor(budget / rowBytes)));
+        const h = Math.min(L.height - job.y, n * 4);
+        gl.compressedTexSubImage2D(gl.TEXTURE_2D, job.level, 0, job.y, L.width, h, internalFormat,
+          L.data.subarray(by * rowBytes, (by + n) * rowBytes));
+        budget -= n * rowBytes;
+        job.y += h;
+        if (job.y >= L.height) { job.level++; job.y = 0; }
+      }
+      if (job.level < levels.length) return;
+      bytes = levels.reduce((s, L) => s + L.data.byteLength, 0);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, levels.length > 1 ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+    } else {
+      const bitmap = job.bitmap!;
+      const W = bitmap.width, H = bitmap.height;
+      if (!job.gl) {
+        job.gl = gl.createTexture();
+        state.bindTexture(gl.TEXTURE_2D, job.gl);
+        const levels = Math.floor(Math.log2(Math.max(W, H))) + 1;
+        gl.texStorage2D(gl.TEXTURE_2D, levels, job.colour ? gl.SRGB8_ALPHA8 : gl.RGBA8, W, H);
+      }
+      state.bindTexture(gl.TEXTURE_2D, job.gl);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+      const rows = Math.max(16, Math.floor(BYTES_PER_FRAME / (W * 4)));
+      const n = Math.min(rows, H - job.y);
+      gl.pixelStorei(gl.UNPACK_SKIP_ROWS, job.y);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, job.y, W, n, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
+      gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+      job.y += n;
+      if (job.y < H) return;
+      gl.generateMipmap(gl.TEXTURE_2D);
+      bytes = Math.round((W * H * 4 * 4) / 3);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     }
-    state.bindTexture(gl.TEXTURE_2D, job.gl);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-    const rows = Math.max(16, Math.floor(BYTES_PER_FRAME / (W * 4)));
-    const n = Math.min(rows, H - job.y);
-    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, job.y);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, job.y, W, n, gl.RGBA, gl.UNSIGNED_BYTE, bitmap);
-    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
-    job.y += n;
-    if (job.y < H) return;
-    gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -131,11 +189,12 @@ export class TextureUploader {
     if (ext) gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, this.aniso);
     state.bindTexture(gl.TEXTURE_2D, null as unknown as WebGLTexture);
     this.queue.shift();
-    bitmap.close();
+    job.bitmap?.close();
     const tex = new THREE.ExternalTexture(job.gl);
     tex.colorSpace = job.colour ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     const glTex = job.gl;
-    tex.addEventListener('dispose', () => gl.deleteTexture(glTex));
+    this.gpuBytes += bytes;
+    tex.addEventListener('dispose', () => { gl.deleteTexture(glTex); this.gpuBytes -= bytes; });
     job.resolve(tex);
   }
 }
@@ -169,7 +228,17 @@ export function decodeImage(url: string, opts: { premultiply: boolean; brightLum
 // A map as a texture, decoded in the worker and uploaded through the
 // uploader. Body maps are opaque, so they are premultiplied (no value
 // changes). Browsers without createImageBitmap use a TextureLoader.
-export async function loadTexture(url: string, colour: boolean, uploader: TextureUploader): Promise<THREE.Texture> {
+// ktx2: the map's KTX2 copy, tried first where the GPU takes it; on any
+// failure the WebP loads instead.
+export async function loadTexture(url: string, colour: boolean, uploader: TextureUploader, ktx2?: string): Promise<THREE.Texture> {
+  if (ktx2 && ktx2Ready()) {
+    try {
+      return await uploader.uploadCompressed(await loadKtx2(ktx2, colour), colour);
+    } catch (e) {
+      if ((e as Error).message === 'WebGL context lost') throw e;
+      console.warn(`KTX2 map failed, loading the WebP: ${(e as Error).message}`);
+    }
+  }
   if (typeof createImageBitmap !== 'function' || typeof Worker !== 'function') {
     const t = await new THREE.TextureLoader().loadAsync(url);
     t.colorSpace = colour ? THREE.SRGBColorSpace : THREE.NoColorSpace;
@@ -190,7 +259,8 @@ export class SurfaceLoader {
   load(path: string, colour: boolean): Promise<THREE.Texture> {
     let p = this.cache.get(path);
     if (!p) {
-      p = loadTexture(BASE + path, colour, this.uploader);
+      const k = ktx2Paths[path];
+      p = loadTexture(BASE + path, colour, this.uploader, k && BASE + k);
       this.cache.set(path, p);
     }
     return p;

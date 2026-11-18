@@ -9,6 +9,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from masters import save_webp
+
 Image.MAX_IMAGE_PIXELS = None
 
 
@@ -295,7 +297,7 @@ def _sky_preview(a: np.ndarray, scale: float, out: Path, width: int = 2048) -> P
     k = w // width
     small = np.asarray(a, dtype=np.float32).reshape(h // k, k, width, k, 3).mean(axis=(1, 3)) * scale
     pv = out / "stars" / f"milky-way-{width // 1024}k.webp"
-    Image.fromarray(_srgb8(small), "RGB").save(pv, "WEBP", quality=90, method=6)
+    save_webp(Image.fromarray(_srgb8(small), "RGB"), pv, quality=90)
     print(f"  wrote {pv.relative_to(out)} {width}x{width // 2} {pv.stat().st_size / 1e6:.2f} MB (preview)")
     return pv
 
@@ -332,7 +334,7 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, det
     img = Image.fromarray(_srgb8(np.asarray(a, dtype=np.float32) * scale), "RGB")
     m = out / "stars" / f"milky-way-{base // 1024}k.webp"
     m.parent.mkdir(parents=True, exist_ok=True)
-    img.save(m, "WEBP", quality=92, method=6)
+    save_webp(img, m, quality=92)
     old = out / "stars" / "milky-way.webp"          # the earlier 4096-wide map
     if old.exists():
         old.unlink()
@@ -355,7 +357,7 @@ def stars(src, out, colour_map, heights_km, normal_map, vmax=9.0, base=8192, det
         for c in range(cols):
             x = np.arange(c * tile - gutter, (c + 1) * tile + gutter) % detail
             t = tdir / f"{r}-{c}.webp"
-            Image.fromarray(np.ascontiguousarray(band[:, x]), "RGB").save(t, "WEBP", quality=90, method=6)
+            save_webp(Image.fromarray(np.ascontiguousarray(band[:, x]), "RGB"), t, quality=90)
             total += t.stat().st_size
     print(f"  wrote {tdir.relative_to(out)}/ {rows}x{cols} tiles of {tile}+2x{gutter} px, {total / 1e6:.1f} MB")
 
