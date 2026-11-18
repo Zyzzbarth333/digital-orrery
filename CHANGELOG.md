@@ -84,8 +84,11 @@ once it has releases. Until then, everything sits under Unreleased.
   Europa, Titan is entered at its planned height, a moon flyby is aimed at
   the moon, not its planet, and leaving Europa for Earth is flown within
   1 % of the planner's price. Captures and departures burn near
-  impulsively, centred on the periapsis, as the plan prices them (this
-  pull request).
+  impulsively, as the plan prices them (#105). The parking orbit at such a
+  moon now holds the way out through its stay: its plane is set by the
+  last aim down the planet's well, two days out, allowing for the stay's
+  turn of it (ten degrees over six days at Europa), so leaving Europa for
+  Earth costs 0.3 % over its price, not 0.9 % (this pull request).
 - A leg that runs nearly 180 degrees round the Sun is planned on a broken
   plane: in the departure's orbit plane to about halfway, then a burn that
   turns the plane onto the target. Leaving lunar orbit for Mars after 23
