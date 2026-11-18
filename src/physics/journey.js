@@ -431,30 +431,19 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
     const cost = ends(mA, mB), mean = g.viaA || g.viaB ? ends(g.viaA || null, g.viaB || null) : cost;
     if (via === 'bielliptic') return solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out, mA, mB);
     const s = bestArc(a.r, b.r, tof, mu, cost, pick ? pick.revs : g.resonant ? Math.max(2, maxRevs) : maxRevs, pick);
-    // Near 180 degrees round the central body the direct arc's plane is
-    // ill-defined: a deep-space burn (or a broken plane: with dsm false, for
-    // a quick scan, or by choice), where it costs less (or there is no
-    // direct arc at all).
-    const angle = transferAngle(a.r, b.r);
-    out.transferDeg = angle * 180 / Math.PI;
-    if (via !== 'direct' && (!pick || pick.revs === 0) && Math.abs(angle - Math.PI) < BROKEN_BAND) {
-      const bp = brokenPlane(a, b, depMs, arrMs, mu, cost);
-      const ds = bp && via !== 'brokenplane' && dsm ? deepSpaceBurn(a, b, depMs, arrMs, mu, mean, cost, bp) : null;
-      const x = ds ?? bp;
-      if (x && (!s || via === 'brokenplane' || via === 'deepspace' || x.cost < s.cost || Math.abs(angle - Math.PI) < BROKEN_ALWAYS)) {
-        out.arcs.push({ r1: a.r, v1: x.v1, t1: depMs, t2: x.ms, mu }, { r1: x.r, v1: x.v1b, t1: x.ms, t2: arrMs, mu });
-        out.vinfDep = sub(x.v1, a.v); out.vinfArr = sub(x.v2, b.v);
-        out.depDv = departCost(P, out.vinfDep, g.A, mA);
-        out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
-        out.midDv = x.midDv;
-        out.mid = { ms: x.ms, r: x.r };
-        out.moonDep = P.kind === 'flyby' ? null : moonEnd(mA, out.vinfDep, P.body, false);
-        out.moonArr = Q.kind === 'flyby' ? null : moonEnd(mB, out.vinfArr, Q.body, true);
-        const info = { ms: x.ms, r: x.r, dv: x.midDv, turnDeg: x.turnDeg, angleDeg: angle * 180 / Math.PI, directDv: s ? s.cost : Infinity, directIncDeg: s ? arcTilt(a, s.v1) : null };
-        if (ds) out.deepSpace = { ...info, heightDeg: ds.heightDeg, brokenDv: bp.cost, brokenMeanDv: ds.brokenMean, meanDv: ds.mean };
-        else out.brokenPlane = info;
-        return { ...out, revs: 0, branch: 'single', ok: true, endA: g.endA, endB: g.endB };
-      }
+    // Near 180 degrees round the central body: a deep-space burn or a
+    // broken plane, where it costs less (halfTurn).
+    out.transferDeg = transferAngle(a.r, b.r) * 180 / Math.PI;
+    const h = halfTurn(a, b, depMs, arrMs, mu, cost, mean, s, { via, dsm, pick });
+    if (h) {
+      Object.assign(out, h);
+      out.vinfDep = sub(h.arcs[0].v1, a.v); out.vinfArr = sub(h.v2, b.v);
+      out.depDv = departCost(P, out.vinfDep, g.A, mA);
+      out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
+      out.moonDep = P.kind === 'flyby' ? null : moonEnd(mA, out.vinfDep, P.body, false);
+      out.moonArr = Q.kind === 'flyby' ? null : moonEnd(mB, out.vinfArr, Q.body, true);
+      delete out.v2;
+      return { ...out, revs: 0, branch: 'single', ok: true, endA: g.endA, endB: g.endB };
     }
     if (!s) return { ...out, error: 'no Lambert arc between these dates' };
     out.arcs.push({ r1: a.r, v1: s.v1, t1: depMs, t2: arrMs, mu });
@@ -561,6 +550,31 @@ function brokenPlane(a, b, depMs, arrMs, mu, cost) {
 }
 // The angle between the arcs' planes either side of a burn at r.
 const planeTurn = (s) => Math.acos(Math.max(-1, Math.min(1, dot(unit(cross(s.r, s.v2a)), unit(cross(s.r, s.v1b)))))) * 180 / Math.PI;
+
+// Near 180 degrees round the central body the direct arc's plane is
+// ill-defined: a deep-space burn (or a broken plane: with dsm false, for a
+// quick scan, or by via 'brokenplane'), where it costs less than the
+// direct arc s, or within BROKEN_ALWAYS of 180, or where there is no direct
+// arc at all. a: the departure's state ({ r, v } about the central body: a
+// body's, or a craft's own), whose orbit plane is the plane the first arc
+// keeps; b: the target's at the arrival. cost and mean price the end burns
+// as solveLeg's do (mean: any moon at its best phase). Returns null for
+// the direct arc, or the leg's fields for two arcs: { arcs, v2 (the
+// arrival velocity), midDv, mid, deepSpace or brokenPlane }.
+function halfTurn(a, b, depMs, arrMs, mu, cost, mean, s, { via = 'lambert', dsm = true, pick = null } = {}) {
+  const angle = transferAngle(a.r, b.r);
+  if (via === 'direct' || (pick && pick.revs !== 0) || !(Math.abs(angle - Math.PI) < BROKEN_BAND)) return null;
+  const bp = brokenPlane(a, b, depMs, arrMs, mu, cost);
+  const ds = bp && via !== 'brokenplane' && dsm ? deepSpaceBurn(a, b, depMs, arrMs, mu, mean, cost, bp) : null;
+  const x = ds ?? bp;
+  if (!x || !(!s || via === 'brokenplane' || via === 'deepspace' || x.cost < s.cost || Math.abs(angle - Math.PI) < BROKEN_ALWAYS)) return null;
+  const info = { ms: x.ms, r: x.r, dv: x.midDv, turnDeg: x.turnDeg, angleDeg: angle * 180 / Math.PI, directDv: s ? s.cost : Infinity, directIncDeg: s ? arcTilt(a, s.v1) : null };
+  return {
+    arcs: [{ r1: a.r, v1: x.v1, t1: depMs, t2: x.ms, mu }, { r1: x.r, v1: x.v1b, t1: x.ms, t2: arrMs, mu }],
+    v2: x.v2, midDv: x.midDv, mid: { ms: x.ms, r: x.r },
+    ...(ds ? { deepSpace: { ...info, heightDeg: ds.heightDeg, brokenDv: bp.cost, brokenMeanDv: ds.brokenMean, meanDv: ds.mean } } : { brokenPlane: info }),
+  };
+}
 
 // ---------------- the deep-space burn ----------------
 
@@ -788,7 +802,7 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     Q.arrMs += shift; Q.depMs += shift;
     const w = journey.waypoints[k - 1];
     let leg;
-    if (P.kind === 'craft' && k === 1) leg = solveCraftLeg(P, Q, P.depMs, Q.arrMs, w);
+    if (P.kind === 'craft' && k === 1) leg = solveCraftLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs });
     else {
       const prev = legs[k - 2], vinfIn = P.kind === 'flyby' && prev?.ok && prev.vinfArr ? norm(prev.vinfArr) : null;
       leg = solveLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs, branch: w.branch, maxRevs, vinfIn, resonance: w.resonance ?? null });
@@ -892,8 +906,12 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
 
 // From a craft's own state (heliocentric, or about a planet if it is in
 // orbit there: the journey's start body): the first leg is a Lambert arc
-// from where it is, the burn the change of velocity.
-function solveCraftLeg(P, Q, depMs, arrMs, w) {
+// from where it is, the burn the change of velocity. To a body round the
+// central one (a planet about the Sun, a moon about its planet) near 180
+// degrees, a deep-space burn or a broken plane as between bodies
+// (halfTurn), the in-plane reference the craft's own orbit plane. via
+// ('lambert', 'direct', 'brokenplane'), revs and dsm as solveLeg's.
+function solveCraftLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, dsm = true } = {}) {
   const s = P.state;
   if (!s) return { ok: false, error: 'no craft state', arcs: [], from: P.body, to: Q.body, depMs, arrMs };
   const g = legGeometry(P.body, Q.body), central = g.kind === 'local' ? P.body : g.central;
@@ -902,8 +920,18 @@ function solveCraftLeg(P, Q, depMs, arrMs, w) {
   const b = Q.body === central ? null : relState(Q.body === central ? central : (g.endB ?? Q.body), central, arrMs);
   const B = bodyInfo(Q.body);
   const mB = moonAt(g.viaB, Q.body, arrMs);
-  const sol = b && bestArc(r1, b.r, tof, mu, (v1, v2) => norm(sub(v1, v0)) + arriveCost(Q, sub(v2, b.v), B, mB), w.revs ?? 0);
+  const ends = (m) => (v1, v2) => norm(sub(v1, v0)) + arriveCost(Q, sub(v2, b.v), B, m);
+  const cost = ends(mB), mean = g.viaB ? ends(g.viaB) : cost;
+  const sol = b && bestArc(r1, b.r, tof, mu, cost, revs ?? 0);
   const base = { geometry: 'craft', central, from: P.body, to: Q.body, depMs, arrMs, tofDays: tof / DAY, arcs: [], vinfDep: null, vinfArr: null, depDv: 0, arrDv: 0, midDv: 0 };
+  if (b && g.kind === 'between') {
+    base.transferDeg = transferAngle(r1, b.r) * 180 / Math.PI;
+    const h = halfTurn({ r: r1, v: v0 }, b, depMs, arrMs, mu, cost, mean, sol, { via, dsm, pick: revs ? { revs } : null });
+    if (h) {
+      const { v2, ...legFields } = h;
+      return { ...base, ...legFields, vinfArr: sub(v2, b.v), depDv: norm(sub(h.arcs[0].v1, v0)), arrDv: arriveCost(Q, sub(v2, b.v), B, mB), ok: true, revs: 0, branch: 'single', endB: g.endB ?? Q.body };
+    }
+  }
   if (!sol) return { ...base, ok: false, error: 'no Lambert arc from the craft between these dates' };
   return { ...base, arcs: [{ r1, v1: sol.v1, t1: depMs, t2: arrMs, mu }], vinfArr: sub(sol.v2, b.v), depDv: norm(sub(sol.v1, v0)), arrDv: arriveCost(Q, sub(sol.v2, b.v), B, mB), ok: true, revs: sol.revs, branch: sol.branch, endB: g.endB ?? Q.body };
 }
@@ -1048,23 +1076,47 @@ export function legOptions(journey, k, { search = true } = {}) {
   // already.
   const plane = planePricer(sol, k);
   const legDv = (L) => L.depDv + L.arrDv + L.midDv + joinIn(L) + (plane && L !== asIs ? plane(L) : 0);
-  const ds = asIs.ok ? asIs.deepSpace : null, bpl = asIs.ok ? asIs.brokenPlane : null, near = ds ?? bpl, ms = (x) => `${(x * 1000).toFixed(0)} m/s`;
-  if (asIs.ok && g.kind !== 'local') options.push({ type: 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : ds ? 'Deep-space burn, as scheduled' : bpl ? 'Broken plane, as scheduled' : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch,
-    ...(ds ? { note: `${ds.angleDeg.toFixed(1)}° round the ${C.name}: ${ms(ds.dv)} on ${new Date(ds.ms).toISOString().slice(0, 10)}, ${ds.heightDeg.toFixed(2)}° off the departure's plane, reshapes the transfer` } : bpl ? { note: `${bpl.angleDeg.toFixed(1)}° round the ${C.name}: the plane turned ${bpl.turnDeg.toFixed(2)}° on the way, for ${ms(bpl.dv)}` } : {}) });
-  // Near 180 degrees, the broken plane (beside a deep-space burn) and the
-  // direct arc on one plane, for comparison.
+  // Near 180 degrees the leg is the planner's own choice (a deep-space burn
+  // or a broken plane) unless one was chosen by hand (via 'direct',
+  // 'brokenplane' or 'deepspace'). Each of the others is listed beside it,
+  // and the planner's own choice is listed as 'lambert' (choosing it hands
+  // the leg back to the planner), so a choice by hand can always be undone.
+  const ms = (x) => `${(x * 1000).toFixed(0)} m/s`;
   const vinIn = inbound?.ok && inbound.vinfArr && P.kind === 'flyby' ? norm(inbound.vinfArr) : null;
-  if (ds) {
-    const B = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'brokenplane', vinfIn: vinIn });
+  // (From a craft's own state, from where it is.)
+  const legVia = (via) => (P.kind === 'craft' && k === 0 ? solveCraftLeg(P, Q, asIs.depMs, asIs.arrMs, { via }) : solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via, vinfIn: vinIn }));
+  const byHand = ['direct', 'brokenplane', 'deepspace'].includes(journey.waypoints[k]?.via) ? journey.waypoints[k].via : null;
+  const auto = byHand && asIs.ok ? legVia('lambert') : asIs;
+  const kindOf = (L) => (!L?.ok ? null : L.deepSpace ? 'deepspace' : L.brokenPlane ? 'brokenplane' : 'direct');
+  const ds = asIs.ok ? asIs.deepSpace : null, bpl = asIs.ok ? asIs.brokenPlane : null;
+  const near = ds ?? bpl ?? (auto?.ok ? auto.deepSpace ?? auto.brokenPlane : null);
+  const directNote = near ? `its plane tilted ${near.directIncDeg?.toFixed(1)}° to the departure's: ill-defined this near 180°, and dear to fly` : null;
+  const dsNote = (x) => `${x.angleDeg.toFixed(1)}° round the ${C.name}: ${ms(x.dv)} on ${new Date(x.ms).toISOString().slice(0, 10)}, ${x.heightDeg.toFixed(2)}° off the departure's plane, reshapes the transfer`;
+  const bpNote = (x) => `${x.angleDeg.toFixed(1)}° round the ${C.name}: the plane turned ${x.turnDeg.toFixed(2)}° on the way, for ${ms(x.dv)}`;
+  if (asIs.ok && g.kind !== 'local') {
+    const k0 = near ? kindOf(asIs) : null;
+    options.push({ type: byHand ?? 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : k0 === 'deepspace' ? 'Deep-space burn, as scheduled' : k0 === 'brokenplane' ? 'Broken plane, as scheduled' : k0 === 'direct' ? 'Direct, one plane, as scheduled' : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch,
+      ...(ds ? { note: dsNote(ds) } : bpl ? { note: bpNote(bpl) } : k0 === 'direct' ? { note: directNote } : {}) });
+  }
+  // The planner's own choice, when the leg was set by hand to another.
+  if (byHand && auto?.ok && kindOf(auto) !== kindOf(asIs) && (auto.deepSpace || auto.brokenPlane)) {
+    const x = auto.deepSpace ?? auto.brokenPlane;
+    options.push({ type: 'lambert', name: auto.deepSpace ? 'Deep-space burn' : 'Broken plane', dv: legDv(auto), tofDays: auto.tofDays, depMs: auto.depMs, arrMs: auto.arrMs, revs: auto.revs, branch: auto.branch, note: `the planner's choice: ${auto.deepSpace ? dsNote(x) : bpNote(x)}` });
+  }
+  // The broken plane beside a deep-space burn, for comparison.
+  const dsAny = ds ?? (auto?.ok ? auto.deepSpace : null);
+  if (dsAny && kindOf(asIs) !== 'brokenplane') {
+    const B = legVia('brokenplane');
     if (B.ok && B.brokenPlane) {
-      const d = legDv(B) - legDv(asIs), mean = ds.brokenMeanDv - ds.meanDv;
+      const ref = kindOf(asIs) === 'deepspace' ? asIs : auto, d = legDv(B) - legDv(ref), mean = dsAny.brokenMeanDv - dsAny.meanDv;
       options.push({ type: 'brokenplane', name: 'Broken plane', dv: legDv(B), tofDays: B.tofDays, depMs: B.depMs, arrMs: B.arrMs, revs: 0, branch: 'single',
         note: `the plane turned ${B.brokenPlane.turnDeg.toFixed(2)}° on the way, for ${ms(B.brokenPlane.dv)}; ${d >= 0 ? `${ms(d)} dearer` : `${ms(-d)} cheaper on the day, for the ${bodyInfo(P.body).name}'s phase`}${g.viaA || g.viaB ? `, ${ms(mean)} dearer at the mean phase` : ''}` });
     }
   }
-  if (near) {
-    const D = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'direct', vinfIn: vinIn });
-    if (D.ok) options.push({ type: 'direct', name: 'Direct, one plane', dv: legDv(D), tofDays: D.tofDays, depMs: D.depMs, arrMs: D.arrMs, revs: D.revs, branch: D.branch, note: `its plane tilted ${near.directIncDeg?.toFixed(1)}° to the departure's: ill-defined this near 180°, and dear to fly` });
+  // The direct arc on one plane, for comparison.
+  if (near && kindOf(asIs) !== 'direct') {
+    const D = legVia('direct');
+    if (D.ok) options.push({ type: 'direct', name: 'Direct, one plane', dv: legDv(D), tofDays: D.tofDays, depMs: D.depMs, arrMs: D.arrMs, revs: D.revs, branch: D.branch, note: directNote });
   }
 
   if (g.kind === 'local') {
@@ -1225,7 +1277,7 @@ export function applyOption(journey, k, o) {
   if (o.type === 'resonance') w.resonance = o.resonance;
   w.chosen = o.type;
   w.revs = o.revs; w.branch = o.branch;
-  if (o.type === 'lambert' || o.type === 'direct' || o.type === 'brokenplane') return j;
+  if (o.type === 'lambert' || o.type === 'direct' || o.type === 'brokenplane' || o.type === 'deepspace') return j;
   const sol = solveJourney(journey), P = sol.stops[k];
   if (k === 0) j.start.dateMs = o.depMs;
   else if (P.kind !== 'flyby') j.waypoints[k - 1].stayDays = Math.max(0, (o.depMs - P.arrMs) / DAY_MS);

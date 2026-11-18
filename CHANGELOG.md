@@ -17,6 +17,7 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- A journey started from a craft's own state now takes a deep-space burn (or a broken plane) on its first leg when that leg runs nearly 180° round the Sun, as legs between bodies do, with the craft's own orbit as the plane. From a craft near the Earth to Mars, leaving on 18 Nov 2026, the leg cost 12.72 km/s direct and now 5.47; flown, its corrections fall from 687 to 112 m/s. The plane lamp and the leg's options show it (this pull request).
 - Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 39 m/s an hour. The flight aims a swing-by that passes close to the planet early, before the pass (this pull request).
 - After a long stay in a planet's orbit, a flown journey now leaves for what the plan prices. The trims on the way in aim the parking orbit's node so it turns onto the plan's on the planned day, for under 1 m/s, and the planner prices the orbit's plane at the radius the capture flies, its mean radius. A year at Mars, the departure on the planned day was 3.5 % over the plan and is now 0.4 %; on the day the parking orbit lamp suggests, 4.3 % and now 0.2 %. The plan's estimate of the flight's wait for the plane now searches as the flight does (this pull request).
 - A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
@@ -110,6 +111,11 @@ once it has releases. Until then, everything sits under Unreleased.
   2026. Its price still runs smoothly as the dates change. "Broken plane"
   is listed beside it and can be chosen, and the plane lamp says where the
   burn is (this pull request).
+- Choosing the direct arc or the broken plane for a leg near 180 degrees
+  can be undone: the planner's deep-space burn stays in the leg's options,
+  where before only "Lambert, as scheduled" was left, priced as the direct
+  arc but giving the deep-space burn. A stay re-timed by an option shows
+  to a hundredth of a day, not as a long decimal (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
@@ -272,6 +278,16 @@ once it has releases. Until then, everything sits under Unreleased.
   distance. Followed from under a kilometre they used to stop a kilometre
   short, and from 10 km the orbit line passed about 500 m beside the craft
   (#96).
+- Satellite passes over a place: the satellite plate lists the next
+  three days' passes over a latitude, longitude and height (kept in the
+  browser; **Locate** asks the browser), each with its rise, peak and set,
+  their times, directions and ranges, and whether it can be seen: sunlit
+  with the Sun 6° below the horizon. The ground under the satellite can
+  be drawn on the Earth, its next pass brighter. The rail's **Passes** key
+  shows the ISS's. Checked against Heavens-Above's predictions for the
+  same element set: 90 passes over Greenwich and Sydney, within a second
+  and their whole degree, each marked visible or not as they mark it
+  (this pull request).
 - A followed Earth satellite's orbit line runs through it from any
   distance. From closer than a tenth of its distance from the Earth (680
   km for the ISS) the line about it is drawn from SGP4 every frame; before,

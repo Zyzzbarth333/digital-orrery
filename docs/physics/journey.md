@@ -230,6 +230,31 @@ there. At 182.4° (21 days at the Moon), flown, the deep-space burn takes
 167 m/s of corrections, 47 of them its planned burn, and the broken plane
 154, 61 of them its break; the direct arc takes 1,018 m/s.
 
+**From a craft's own state.** A journey can start from the selected
+craft, where it is: its first leg leaves from the craft's own position
+and velocity, not a body's, and its first burn is the change from the
+craft's velocity onto the leg's arc (`journey.js solveCraftLeg`). To a
+body about the same central body (a planet, from a craft round the Sun)
+near 180°, that leg goes through the same search (`journey.js halfTurn`):
+the broken plane, then the deep-space burn from it, taken by the same
+rules. The in-plane reference is the craft's own orbit plane, the plane of
+its position and velocity. A craft where the Earth was two days before,
+its orbit tilted 1° to the Earth's, leaving on 18 Nov 2026 for Mars orbit
+on 20 Aug 2027 (180.4° round the Sun):
+- **The direct arc** tilts 14.3° to the craft's plane and costs 12.72
+  km/s.
+- **The broken plane** costs 5.474 km/s. Its first arc lies in the
+  craft's plane to $10^{-6}$°, 1° off the Earth's.
+- **The deep-space burn**, the plan, costs 5.471 km/s, 42 m/s of it at
+  $B$.
+- **Over neighbouring days**, leaving 9 to 29 November, the plan is never
+  dearer than either, and its price runs smoothly where the direct arc's
+  leaps.
+- **Flown in the full model**, the deep-space burn takes 112 m/s of
+  corrections, 42 of them its planned burn, and reaches Mars 1.2 km off.
+  The broken plane takes 113 m/s. The direct arc, which the craft's first
+  leg always flew before, takes 687 m/s.
+
 ### The deep-space burn
 
 The broken plane keeps $B$ on the arc in the departure body's plane, so
@@ -303,7 +328,11 @@ find with its deep-space burn.
   plane).
 - The leg's options list it as "Deep-space burn, as scheduled". "Broken
   plane" and "Direct, one plane" are listed beside it for comparison, and
-  can be chosen (`via: 'brokenplane'`, `via: 'direct'`).
+  can be chosen (`via: 'brokenplane'`, `via: 'direct'`). Once one is
+  chosen, it is the leg "as scheduled", and the other two stay listed. The
+  deep-space burn is then listed as the planner's choice, and choosing it
+  hands the leg back to the planner. Each row's price is the leg that
+  row gives.
 - The plane lamp says where the burn is (below).
 
 The porkchop search, the window strips and the best day in a stay all
@@ -313,7 +342,9 @@ price each leg through the same solver. So the ridge of high cost along
 **In flight**, the craft leaves on the first arc. Its first aim, near the
 departure, is at $B$ (the break point, or the deep-space burn's), not the
 target. If the departure waits for the parking orbit's plane, the way out
-is re-solved to $B$ too. The burn at $B$ is the next aim, from where the craft is, to the
+is re-solved to $B$ too. From a craft's own state, the first burn is an
+impulse onto the first arc, and its first aim is at $B$ two hours later.
+The burn at $B$ is the next aim, from where the craft is, to the
 target.
 
 ### Resonant returns
@@ -1242,11 +1273,13 @@ orbits, waits 454 days.
 | The broken plane's arcs and its break | geometry; two-body; Curtis eq. (6.20) on the horizontal speed; Napier's rule | first arc in the Earth's plane to 10⁻⁶°; the arcs join and reach Mars to 1 m; the break 60.869 m/s, the pure plane change to 10⁻³; the turn 0.1452° against Napier's 0.1452° (to 1 %) |
 | Stays of 18 to 30 days, through 180° | smoothness | the broken plane's excess speed leaving the Earth 3.17 to 3.72 km/s, its second difference at most 2.9 m/s (under 20); direct, 11 km/s |
 | The plane lamp; the options | the rules above | lit at 180.4°, with the deep-space burn's date; none at 196°; "Broken plane" (4.572) and "Direct, one plane" (15.69) listed, both dearer than the plan's 4.558 |
+| The options after the direct arc or the broken plane is chosen by hand | the solver: each row priced as the leg it gives | all three listed each time, each to 10⁻⁹ km/s; the planner's choice, the deep-space burn at 4.558 km/s, listed and restored |
 | 21 days at the Moon (182.4°), flown in the full model | the plan | deep-space burn 167 m/s of corrections (47 planned) and Mars 1.0 km off; broken plane 154 (61 planned) and 0.8 km; each within 250 m/s and 20 km; direct 1,018 m/s (over 500) |
 | Earth orbit to Mars orbit, 180.4°: the deep-space burn and the broken plane | Lawden's conditions on the primer vector [6], [7]; its jump as the cost's gradient [8], [9] | deep-space burn 5.9151 km/s: p-dot jumps 3 % at $B$ (under 10), largest $\lvert\mathbf p\rvert$ 1.0001; broken plane 5.9414: jumps 128 %, $\lvert\mathbf p\rvert$ 1.0076, the jump the finite-difference gradient to 0.01 % |
 | The same leg, a blind search | twelve Nelder-Mead starts | nothing cheaper (under 0.5 m/s) |
 | Leaving 9 to 29 Nov 2026 | the direct arc and the broken plane | never dearer than either; its burn 0 m/s where it takes over, 73 at most; under 30 m/s a day |
 | Lunar orbit to Mars, stays of 18 to 30 days | smoothness; the broken plane | the excess speed's second difference at most 4.3 m/s (under 20); 0 to 46 m/s saved at the mean phase; cheaper on the day on 12 of 13 |
+| A craft's own first leg at 180.4°: from near the Earth, its orbit tilted 1°, to Mars orbit on 20 Aug 2027 | Abilleira [5]; Lawden [6]; the craft's orbit plane; two-body; the full-model flight | direct 12.72 km/s, tilted 14.3°; broken plane 5.474, its first arc in the craft's plane to 10⁻⁶°; the plan's deep-space burn 5.471; leaving 9 to 29 Nov never dearer than either and smooth; flown with 112 m/s of corrections, Mars 1.2 km off, against the direct arc's 687 |
 
 ## Limits
 
@@ -1280,7 +1313,9 @@ orbits, waits 454 days.
   with the moons at their mean phase, so it does not use the day's phase
   (see above). It is a local search from the broken plane: it
   finds the family the broken plane belongs to, not one far from it. A
-  craft's first leg (from its own state) is always direct.
+  craft's first leg (from its own state) gets it only to a body about the
+  same central body: from a craft in Earth orbit to the Moon, it is
+  direct.
 - **A capture or departure at a planet's moon:** near impulsive, as
   priced, so the flight's burns there are hard (122 to 130 m/s², 12 to 13
   g, at Europa). A real craft with a smaller engine would pay gravity

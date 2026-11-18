@@ -38,7 +38,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 
 - **The sky:**
   - the Sun, planets, 76 moons (and 381 irregular moons of Jupiter, Saturn and Neptune as a layer) and 135,353 asteroids and comets, at their real positions for any date, at true scale;
-  - 16,892 Earth satellites from CelesTrak's element sets, moved by SGP4, with the ISS, Tiangong, Hubble, GPS, Galileo and the weather satellites' orbits;
+  - 16,892 Earth satellites from CelesTrak's element sets, moved by SGP4, with the ISS, Tiangong, Hubble, GPS, Galileo and the weather satellites' orbits, and any one's passes over a place: rise, peak and set, whether it can be seen, and its ground track on the Earth;
   - the spacecraft at Mercury, the Moon, Mars and Jupiter, about the Sun-Earth L1 and L2 points and in cruise, on JPL Horizons' trajectories for 2026 and 2027;
   - real surface maps and relief, Saturn's rings from Cassini measurements, Jupiter's, Uranus's and Neptune's from occultations and ring tables (their faint dust bright in forward scattering, Neptune's arcs where they were last measured), Earth's clouds as satellites saw them that day under a physically based atmosphere; the planets' and moons' maps load GPU-compressed (KTX2), in a quarter of the video memory, where the GPU can take them;
   - the real star field and Milky Way.
@@ -50,7 +50,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
   - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown;
   - Juno's deep-space burns and Earth flyby (2012–13), DART's last five weeks to its impact on Dimorphos (2022), LRO's capture into a low lunar orbit (2009), and MESSENGER's six flybys on its way into Mercury orbit (2004–11) fly against their navigation teams' reconstructions.
 - **Planning:**
-  - a journey of any number of legs, each leg's transfers compared (a deep-space burn where a leg runs nearly 180° round the Sun), shaped by hand on a plotting table;
+  - a journey of any number of legs, each leg's transfers compared (a deep-space burn where a leg runs nearly 180° round the Sun, from a body or from a craft's own state), shaped by hand on a plotting table;
   - a long stay in a planet's orbit turns the orbit's plane (the planet's $J_2$): the planner prices leaving out of it and suggests the day it holds the way out ([journeys](docs/physics/journey.md#the-parking-orbits-plane));
   - flown by the kernel, with the rocket it needs; the planets' major moons (Europa, Titan and the rest) with their own gravity, reached through their planet's well, captured, landed on (Titan through its air) and left.
 - **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, from the stack the planner sized for your journey, or from an OpenRocket design, and fly it from a real pad into orbit.
