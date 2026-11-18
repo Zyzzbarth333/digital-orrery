@@ -33,6 +33,7 @@ import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '../physics/kernelHost.
 import { solarSystemBodies } from '../physics/bodies.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
 import { departureHyperbola } from '../physics/launch.js';
+import { JOURNEY_CRAFT } from '../physics/journeyFlight.js';
 import { craftWarns } from './craft-state.js';
 import { RealMission } from '../physics/realMission.js';
 import { ORION_CRAFT, ORION_ENTRIES, orionFor } from '../physics/orion.js';
@@ -248,9 +249,13 @@ export class Mission {
 
   // A journey from the planner, as the kernel flew it there (journey.worker.ts):
   // its start state and the burns it made, scheduled on a new craft, with
-  // its landings (the stays on the ground, Craft.addLandings).
-  flyJourney(start: { r: number[]; v: number[]; ms: number }, burns: object[], name: string, landings: object[] = []): Craft {
-    const c = new Craft({ name, r: start.r as V3, v: start.v as V3, t: kernelSeconds(new Date(start.ms)), sys: this.sys, bare: true });
+  // its landings (the stays on the ground, Craft.addLandings). The craft is
+  // the one the flight was worked out for (journeyFlight.js JOURNEY_CRAFT),
+  // in the full model, or bare where the flight fell back to that (bareWhy:
+  // why, for its Model row).
+  flyJourney(start: { r: number[]; v: number[]; ms: number }, burns: object[], name: string, landings: object[] = [], model: 'full' | 'bare' = 'full', bareWhy: string | null = null): Craft {
+    const c = new Craft({ name, r: start.r as V3, v: start.v as V3, t: kernelSeconds(new Date(start.ms)), sys: this.sys, bare: model === 'bare', ...JOURNEY_CRAFT });
+    c.bareWhy = model === 'bare' ? bareWhy : null;
     c.addPlanned(burns);
     if (landings.length) c.addLandings(landings);
     c.note(`${burns.length} planned burns scheduled`, c.kState.t);

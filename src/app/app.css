@@ -757,6 +757,7 @@ details.section[open] > summary::after { content: '−'; }
 .tl-stay { fill: none; stroke: var(--phosphor-dim); stroke-dasharray: 4 3; }
 .tl-burn { stroke: var(--sheen); stroke-width: 1.5; }
 .tl-cursor { stroke: var(--key-lit); stroke-width: 2; } .tl-cursor-grip { fill: var(--key-lit); cursor: ew-resize; }
+.tl-phase path { fill: var(--key-lit); cursor: pointer; } .tl-phase path:hover { fill: var(--phosphor); }
 /* Narrower: one scrolling column, the scope first after the head. */
 @media (max-width: 1100px) {
   .plot-table { display: flex; flex-direction: column; overflow-y: auto; }

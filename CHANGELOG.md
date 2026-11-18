@@ -27,6 +27,17 @@ once it has releases. Until then, everything sits under Unreleased.
   (#51), with STACK and GO stations (#54). Resonant returns to the same
   planet, as Galileo's Earth flybys (#59). Journeys land, stay and lift
   off, and leave a moon for another planet (#65).
+- Leaving a moon for another planet is priced by where the moon really is
+  on the day, so the planner's price for leaving lunar orbit for Mars is
+  within 2 % of the flight's, not 26 % short. The window strips for such
+  legs show the month's ripple a day at a time, and the planner suggests
+  the best day in the stay: an option, a lamp and a mark on the strip
+  (this pull request).
+- Journeys are flown in the full model, with the Earth's and the Moon's
+  gravity fields (mascons included), drag and sunlight, and their craft
+  no longer flies bare: a Moon landing comes down on its site. The bare
+  model is kept as a fallback where the full model's aims can't converge,
+  and the craft's Model row says so (this pull request).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,

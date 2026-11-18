@@ -17,6 +17,8 @@
 //     departureDv, captureDv, optimalCapture     the burns at each end (8.4-8.6, Ex 8.4, 8.5, 8.10)
 //     aimingRadius, turnAngle, hyperbolaEccentricity
 //     flyby, flybyFromB, poweredFlyby, bPlane    gravity assists (8.7, Ex 8.6)
+//   Leaving a moon for another planet
+//     asymptoteVelocities, moonExcess    the hyperbola about the planet from the moon's place
 
 const TWO_PI = 2 * Math.PI;
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -282,4 +284,58 @@ export function resonantVinf({ rB, vB, vinf, theta, phi }) {
   const u1 = unit(vB), out = sub(rB, scale(u1, dot(rB, u1))), u2 = unit(out), u3 = cross(u1, u2);
   const s = Math.sin(theta);
   return [0, 1, 2].map((i) => vinf * (Math.cos(theta) * u1[i] + s * (Math.cos(phi) * u2[i] + Math.sin(phi) * u3[i])));
+}
+
+// ---------------- leaving a moon for another planet ----------------
+
+// The velocities at r (about a body of GM mu) whose two-body hyperbola
+// leaves along the excess velocity vinf (a vector). The orbit's plane holds
+// r and vinf, and the eccentricity vector (Curtis 2.5: mu e = v x h - mu r/r)
+// is the same at r as out on the asymptote, where r/r is the asymptote's
+// direction u and v is vinf u. With v = vr r_hat + vt t_hat (t_hat in the
+// plane, ninety degrees on from r_hat towards u, at angle phi from r_hat) and
+// h = r vt, its two components are
+//   r vt (vt - vinf sin phi) = mu (1 - cos phi),
+//   vr = vinf cos phi + mu sin phi / (r vt).
+// The first is a quadratic in vt with one root of each sign: the craft swings
+// the short way round to the asymptote (vt > 0), or the long way. Returns
+// both velocities; [] if r lies along vinf (a radial hyperbola, returned as
+// the one velocity straight out).
+export function asymptoteVelocities(r, vinf, mu) {
+  const rn = norm(r), w = norm(vinf), rh = scale(r, 1 / rn), u = scale(vinf, 1 / w);
+  const c = clamp(dot(rh, u), -1, 1), n = cross(rh, u), s = norm(n);
+  if (s < 1e-9) return c > 0 ? [scale(rh, Math.sqrt(w * w + 2 * mu / rn))] : [];
+  const th = cross(scale(n, 1 / s), rh);
+  const disc = Math.sqrt(rn * rn * w * w * s * s + 4 * rn * mu * (1 - c));
+  return [1, -1].map((sg) => {
+    const vt = (rn * w * s + sg * disc) / (2 * rn), vr = w * c + mu * s / (rn * vt);
+    return [vr * rh[0] + vt * th[0], vr * rh[1] + vt * th[1], vr * rh[2] + vt * th[2]];
+  });
+}
+
+// Three-level patched conics at a moon's real place: the excess velocity
+// about the moon (rm, vm: its state about its planet) for an excess velocity
+// vinf about the planet. Leaving, the craft is at the moon's place on a
+// hyperbola about the planet that leaves along vinf; arriving
+// (arrive: true), on one that came in along vinf (time reversed: the state
+// (r, -v) leaves along -vinf). Of the two such hyperbolas the one nearer the
+// moon's own velocity is kept, unless it swings in past the planet on the
+// way (still falling inward, its periapsis under rMin): that is a flyby of
+// the planet, which the flight does not aim. Returns { vinf (vector about
+// the moon), speed, vAbout (the craft's velocity about the planet), rp (that
+// hyperbola's periapsis), swingby (true if only such a one was left) }.
+export function moonExcess({ rm, vm, vinf, mu, arrive = false, rMin = 0 }) {
+  const list = arrive ? asymptoteVelocities(rm, scale(vinf, -1), mu).map((v) => scale(v, -1)) : asymptoteVelocities(rm, vinf, mu);
+  let best = null, fallback = null;
+  for (const v of list) {
+    const d = sub(v, vm), m = norm(d), h = norm(cross(rm, v)), en = dot(v, v) / 2 - mu / norm(rm);
+    const rp = (h * h / mu) / (1 + Math.sqrt(Math.max(0, 1 + 2 * en * h * h / (mu * mu))));
+    // Leaving, the periapsis is ahead if the craft is falling inward;
+    // arriving, if it was rising (it has passed it on the way in).
+    const ahead = arrive ? dot(rm, v) > 0 : dot(rm, v) < 0;
+    const x = { vinf: d, speed: m, vAbout: v, rp, swingby: ahead && rp < rMin };
+    if (!x.swingby && (!best || m < best.speed)) best = x;
+    if (!fallback || m < fallback.speed) fallback = x;
+  }
+  return best ?? fallback;
 }

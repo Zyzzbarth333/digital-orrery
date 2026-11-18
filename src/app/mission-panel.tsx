@@ -105,8 +105,9 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <SourceTag src="kernel" info="altitude" detail={`n-body state (Encke near a planet, Cowell elsewhere) carried to the clock${altNote}`} />],
       ['Speed', `${fmt(rel.v, 4)} km/s`, <SourceTag src="kernel" info="craft-speed" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
     ];
-    // A journey's craft flies the planner's model, not the full one.
-    if (c.bare) rows.push(['Model', 'Planner\'s', <SourceTag src="kernel" info="kernel-motion" detail="point masses and zonal terms only: no drag, full gravity fields or sunlight (the model its burns were worked out in), so a low orbit never decays" />]);
+    // A journey's craft flies the full model; where its aims could not
+    // converge there, the planner's model instead, and the row says why.
+    if (c.bare) rows.push(['Model', 'Planner\'s (fallback)', <SourceTag src="kernel" info="kernel-motion" detail={`point masses and zonal terms only: no drag, full gravity fields or sunlight, so a low orbit never decays. Its burns were worked out in that model because in the full one ${c.bareWhy ?? 'the aims did not converge'}`} />]);
     const site = c.crashed ? c.impactSite : null;
     // Entry (a crew module with its guidance): the bank the guidance flies
     // and the chutes, by height above the ellipsoid.
