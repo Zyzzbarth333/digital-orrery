@@ -3,7 +3,8 @@
 // The data plate for the Earth satellite the camera is on (chosen by its
 // marker, the rail's Fly-to list or the search): where SGP4 puts it now,
 // whether it is in sunlight, and its GP element set, with the epoch's age
-// and where the elements came from. Each value carries its source tag.
+// and where the elements came from, then its passes over a place
+// (satellite-passes.tsx). Each value carries its source tag.
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
@@ -11,6 +12,8 @@ import { bodyState } from '../scene/OrreryScene';
 import { eclToEqj } from '../physics/ephemeris.js';
 import { stateEqj, meanOrbit, inShadow, type satrecOf } from '../physics/satellites.js';
 import { orbitClass, SAT_GROUPS, type NamedSat, type SatSource } from '../scene/satellites';
+import type { GroundTrack } from '../scene/groundTrack';
+import { SatellitePasses } from './satellite-passes';
 
 const WGS84_A = 6378.137, WGS84_B = 6356.752;
 
@@ -23,7 +26,7 @@ function age(ms: number): string {
   return ms >= 0 ? `${s} after epoch` : `${s} before epoch`;
 }
 
-export function SatellitePlate({ clock, sat, source }: { clock: SimClock; sat: PlateSat; source: SatSource | null }) {
+export function SatellitePlate({ clock, sat, source, track = null }: { clock: SimClock; sat: PlateSat; source: SatSource | null; track?: GroundTrack | null }) {
   const s = useClock(clock);
   const st = stateEqj(sat.rec, s.timeMs);
   const o = meanOrbit(sat.rec);
@@ -70,6 +73,7 @@ export function SatellitePlate({ clock, sat, source }: { clock: SimClock; sat: P
       </div>
       <p className="strip" aria-hidden="true">Readout · source</p>
       <Readout rows={rows} />
+      <SatellitePasses key={sat.omm.NORAD_CAT_ID} clock={clock} sat={sat} track={track} />
       <div className="plate-notes">
         <p>Moved by SGP4 from its GP element set, as the US Space Force fits them: about a kilometre at the epoch, a few kilometres a day either side. Drawn as a point; the camera can come to within 20 m. Choose a body in the rail to leave it.</p>
       </div>

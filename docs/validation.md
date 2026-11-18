@@ -891,6 +891,16 @@ shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are))
 | the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
 | the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
 
+Passes over a place (`passes.test.mjs`,
+[passes over a place](frontend/satellites.md#passes-over-a-place)):
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the ISS's passes above 10°, Greenwich and Sydney Observatory, 18–28 Nov 2026 | Heavens-Above [11], its own element set for the ISS | all 90 found, none extra; culminations within 0.70 s, peaks within their whole degree, 10° crossings within 1.3 s |
+| visible, daylight or in shadow (sunlit, Sun below −6°, rise to set) | the same | as they have it for all 90 |
+| seven passes in detail: rise, set, shadow edges, directions, ranges | the same | times within 1.2 s (rise and set within 0.85 s), directions within their rounding, ranges within 0.4 km, the Sun's altitude within 0.06° |
+| TEME to ITRF by GMST and polar motion | the app's J2000 path (TEME to J2000, then ITRF93) | within 1.3 m for the ISS over 10 days (the IERS nutation corrections) |
+
 ## Magnetic fields and auroras (`magnetic.test.mjs`, `aurora.test.mjs`)
 
 The planets' and the Sun's fields, the field-line tracer and the auroral ovals
@@ -974,3 +984,5 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 [9] R. A. Jacobson, "The orbits of the Neptunian satellites and the orientation of the pole of Neptune," *Astron. J.*, vol. 137, no. 5, p. 4322, 2009, doi: 10.1088/0004-6256/137/5/4322. Table 5.
 
 [10] R. A. Jacobson, Voyager 2 Neptune encounter trajectory, NAIF SPK `vgr2_nep097.bsp`, JPL Solar System Dynamics, 2022; merged with DE440 and nep097 by NAIF, 30 Aug. 2022. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/
+
+[11] C. Peat, "Heavens-Above," Heavens-Above GmbH: ISS (25544) orbit, all passes and pass details over Greenwich and Sydney Observatory, 18–28 Nov. 2026, fetched 18 Nov. 2026. [Online]. Available: https://www.heavens-above.com/orbit.aspx?satid=25544
