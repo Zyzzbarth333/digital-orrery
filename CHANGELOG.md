@@ -106,7 +106,12 @@ once it has releases. Until then, everything sits under Unreleased.
   Cassini's over Titan to 4 m nine hours on, from 93 m (#86).
 - Jupiter, Saturn, Uranus and Neptune pull with their J4 as well as their
   J2, from the same published solutions: Juno's pass over Io is followed
-  to 40 m an hour on, from 51 m (this pull request).
+  to 40 m an hour on, from 51 m (#93).
+- Jupiter pulls with its zonal field to J12, and the kernel places
+  Jupiter and its four large moons to 10 m instead of 100 m. Juno is
+  followed through its PJ57 perijove, 1.02 Jupiter radii out, to 0.28 km
+  there and 0.55 km two hours on; with J2 and J4 alone it was 5 km
+  (this pull request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
