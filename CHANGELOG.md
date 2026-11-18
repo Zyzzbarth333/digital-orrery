@@ -9,12 +9,16 @@ once it has releases. Until then, everything sits under Unreleased.
 ### The project
 - `npm run bench:frames` times the app's frames on the integrated and the discrete GPU, a build against main, and prints the table a pull request needs (this pull request).
 - The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
-- Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (this pull request).
+- The clips are filmed again from the app as it is now, with three more: the Earth's satellites, its magnetic field and auroras, and Jupiter's irregular moons (this pull request).
+- Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (#76).
 - Screenshots in the README, a glossary, an architecture diagram, and the credits as tables (this pull request).
 - CI, a contributing guide, a security policy, this changelog and a citation (#68).
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- Leaving a moon for another planet, the planner takes the cheaper of the two ways out about the planet, a swing-by of it included, and charges a swing-by that comes within two planet radii a margin that grows to the surface. The price no longer jumps from one day to the next: leaving the Moon for Mars it fell 0.69 km/s between stays of 20 and 21 days, and now moves at most 39 m/s an hour. The flight aims a swing-by that passes close to the planet early, before the pass (this pull request).
+- After a long stay in a planet's orbit, a flown journey now leaves for what the plan prices. The trims on the way in aim the parking orbit's node so it turns onto the plan's on the planned day, for under 1 m/s, and the planner prices the orbit's plane at the radius the capture flies, its mean radius. A year at Mars, the departure on the planned day was 3.5 % over the plan and is now 0.4 %; on the day the parking orbit lamp suggests, 4.3 % and now 0.2 %. The plan's estimate of the flight's wait for the plane now searches as the flight does (this pull request).
+- A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
 - Craft launched in the app carry an attitude (6-DOF). The MISSION tab
   points them prograde, retrograde, normal, radial, along the next node
   or holds them still, and they turn in the time their thrusters' torque
@@ -73,6 +77,18 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth: its aims are at the Moon itself, and a landing after a long
   capture works its descent out from the orbit it is in (this pull
   request).
+- Journeys to and from the planets' major moons (Europa, Ganymede, Titan
+  and the rest) are flown with those moons' gravity, as the kernel gives
+  it. Earth orbit to Europa orbit is captured 0.1 km off its planned
+  periapsis, where it came in 300 km low and hit Europa. A descent lands on
+  Europa, Titan is entered at its planned height, a moon flyby is aimed at
+  the moon, not its planet, and leaving Europa for Earth is flown within
+  1 % of the planner's price. Captures and departures burn near
+  impulsively, as the plan prices them (#105). The parking orbit at such a
+  moon now holds the way out through its stay: its plane is set by the
+  last aim down the planet's well, two days out, allowing for the stay's
+  turn of it (ten degrees over six days at Europa), so leaving Europa for
+  Earth costs 0.3 % over its price, not 0.9 % (this pull request).
 - A leg that runs nearly 180 degrees round the Sun is planned on a broken
   plane: in the departure's orbit plane to about halfway, then a burn that
   turns the plane onto the target. Leaving lunar orbit for Mars after 23
@@ -113,7 +129,7 @@ once it has releases. Until then, everything sits under Unreleased.
   final reconstruction (`?mission=lro`), down to its 30 km commissioning
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
-  (this pull request).
+  (#113).
 - MESSENGER's cruise to Mercury, 2004 to 2011, flies in the app against
   JHU/APL's reconstruction (`?mission=messenger`): six flybys, every burn
   within 1.1 % and 1.7° of APL's record, and the sunlight it steered by
@@ -152,9 +168,25 @@ once it has releases. Until then, everything sits under Unreleased.
   Jupiter and its four large moons to 10 m instead of 100 m. Juno is
   followed through its PJ57 perijove, 1.02 Jupiter radii out, to 0.28 km
   there and 0.55 km two hours on; with J2 and J4 alone it was 5 km
-  (this pull request).
+  (#98).
+- Saturn pulls with its zonal field to J12, Jupiter with the tide its
+  moons raise on it, and Enceladus with its J2 and C22; Saturn's moons are
+  placed to 16 m. Four more passes check the kernel against the craft's
+  own tracks: Juno at Europa, Cassini at Enceladus and between Saturn
+  and its rings, and Voyager 2 at Neptune and Triton (this pull request).
 
 ### The sky and its bodies
+- The planets' and moons' maps load GPU-compressed where the GPU can take
+  them (KTX2 with Basis Universal, transcoded to BC7, ASTC or ETC2): a
+  quarter of the video memory, so an 8k map takes 45 MB, not 179. Colour
+  maps that look the same are ETC1S, about the WebP's size; the rest, and
+  the normal maps, are UASTC, 2.5 to 4 times larger to download (the
+  Moon's map 25 MB, not 5.5). The sky stays WebP, so the start downloads
+  no more than before. Other GPUs, and `?webp`, keep the WebP maps.
+  `npm run build:textures` rebuilds them, `npm run bench:textures`
+  measures them (this pull request).
+- Jupiter, Uranus and Neptune have their rings. Uranus's ten narrow rings run on their measured orbits (French et al. 2024), eccentric, tilted and precessing, with depths and shapes from Voyager's occultations; its dust bands, ν and μ are there too. Neptune's Adams arc sits where it was last measured, with Le Verrier, Lassell and Galle. Jupiter's main ring, halo and gossamer rings are dust: faint, and brightest from Jupiter's shadow. Rings narrower than a pixel stay one steady line. They are as faint as the real ones; `?exposure=N` lengthens the exposure, as ring photographs do ([rings](docs/frontend/rings.md); #110).
+- The rings are truer to the measurements: Uranus's rings carry all ten of their measured normal modes; Neptune's Adams ring has the 42 lobes Galatea forces on it, and its arcs are as bright and where they were at each date they were seen, so Liberté and Courage are gone since 2009; the ring particles are as dark as Voyager measured them (this pull request).
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
   come from JPL's satellite ephemerides to within a kilometre, 76 of them
   (#33, #56). The Earth turns on UT1 with polar motion (#50).
@@ -202,7 +234,14 @@ once it has releases. Until then, everything sits under Unreleased.
   beside Io's, each placed ahead of its field line by the lead angle Juno
   measured. Uranus and Neptune have radiation belts too, and the belts
   cost an integrated GPU about a millisecond at Earth instead of eight
-  (this pull request).
+  (#100).
+- The Earth's field lines are bent by its magnetosphere for the day's Kp
+  (Tsyganenko's T89): squeezed on the day side, drawn into a tail on the
+  night side. Saturn's lines stretch through Voyager's ring current,
+  Ganymede's close inside Jupiter's field and open into it, and the Sun
+  has field lines too, from the Wilcox Solar Observatory's model for the
+  date's Carrington rotation: loops over the streamer belt and open lines
+  from the polar holes (this pull request).
 - The gravity field of every body at once, as field lines flowing toward
   the masses in a plane through the focus: inertial, falling with the
   focus, less its own pull (Jupiter's moons' wells), or in the rotating
@@ -210,12 +249,22 @@ once it has releases. Until then, everything sits under Unreleased.
   L1–L3. The spin axes show which way each body turns, with Venus, Uranus
   and Pluto marked retrograde. Orbit lines fade where they pass close to
   the camera against their size, so a body's own orbit no longer cuts
-  across the view when zoomed in on it (this pull request).
+  across the view when zoomed in on it (#103).
+- The gravity field's rotating-frame contours are unbroken lines, worked
+  out at every pixel; a readout beside the cursor gives the field there
+  exactly. A followed craft's osculating conic fades close in as the
+  trails do. The rail fits a short window: the planets keep three rows,
+  the guides four, and the rail scrolls past that (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
   Sun's corona shows when a body covers its disc (#63). The glare and the
   sky's dimming are checked from other planets and in transits (#67).
+- The Earth's sky costs less near the Earth: frames 40 % shorter on an
+  integrated GPU with the Earth in view, and 23 % in low orbit at a day a
+  second, with the same look (#122).
+- The faint belt's file is a quarter smaller, 17.4 MB instead of 23.1 MB,
+  so the haze loads sooner on a slow link (this pull request).
 
 ### The console
 - Source tags open each value's equation and source, set in a bundled
@@ -226,7 +275,11 @@ once it has releases. Until then, everything sits under Unreleased.
 - A craft's orbit line and flown trail run up to and through it from any
   distance. Followed from under a kilometre they used to stop a kilometre
   short, and from 10 km the orbit line passed about 500 m beside the craft
-  (this pull request).
+  (#96).
+- A followed Earth satellite's orbit line runs through it from any
+  distance. From closer than a tenth of its distance from the Earth (680
+  km for the ISS) the line about it is drawn from SGP4 every frame; before,
+  the ISS's line passed 0.5 to 1.4 km beside it (this pull request).
 - Artemis II at a day a second reads true: switched there straight from
   real time before the injection, its distance from the flown path no
   longer jumps to tens of thousands of km while the kernel catches up, and

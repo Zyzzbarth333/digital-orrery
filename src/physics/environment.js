@@ -145,15 +145,24 @@ export function earthFixedAt(epochMs, opts = {}) {
 // k_nm: the anelastic nominal values of IERS Table 6.3 (complex for n = 2,
 // m > 0) and its elastic values for n = 3 (0.093, and 0.094 for m = 3). Returns { C, S } as [n][m] arrays.
 export const LOVE = { 2: [[0.30190, 0], [0.29830, -0.00144], [0.30102, -0.00130]], 3: [[0.093, 0], [0.093, 0], [0.093, 0], [0.094, 0]] };
+const TIDE_NORM = [null, null, [0, 1, 2].map((m) => normFactor(2, m)), [0, 1, 2, 3].map((m) => normFactor(3, m))];
 export function solidTide(ps, ratios, R) {
   const C = [[], [], [0, 0, 0], [0, 0, 0, 0]], S = [[], [], [0, 0, 0], [0, 0, 0, 0]];
+  // Each body's distance, sine of latitude, its cosine and longitude, once
+  // (they were worked out again for each of the seven n, m).
+  const J = ps.length, D = new Array(J), X = new Array(J), Q = new Array(J), LON = new Array(J);
+  for (let j = 0; j < J; j++) {
+    const p = ps[j], d = Math.hypot(p[0], p[1], p[2]), x = p[2] / d;
+    D[j] = d; X[j] = x; Q[j] = Math.sqrt(1 - x * x); LON[j] = Math.atan2(p[1], p[0]);
+  }
   for (let n = 2; n <= 3; n++) {
     for (let m = 0; m <= n; m++) {
       let ar = 0, ai = 0;
-      for (let j = 0; j < ps.length; j++) {
-        const p = ps[j], d = Math.hypot(p[0], p[1], p[2]), x = p[2] / d, q = Math.sqrt(1 - x * x), lon = Math.atan2(p[1], p[0]);
-        const P = n === 2 ? [(3 * x * x - 1) / 2, 3 * x * q, 3 * q * q][m] : [(5 * x * x * x - 3 * x) / 2, 1.5 * (5 * x * x - 1) * q, 15 * x * q * q, 15 * q * q * q][m];
-        const f = ratios[j] * (R / d) ** (n + 1) * P * normFactor(n, m);
+      for (let j = 0; j < J; j++) {
+        const d = D[j], x = X[j], q = Q[j], lon = LON[j];
+        const P = n === 2 ? (m === 0 ? (3 * x * x - 1) / 2 : m === 1 ? 3 * x * q : 3 * q * q)
+          : (m === 0 ? (5 * x * x * x - 3 * x) / 2 : m === 1 ? 1.5 * (5 * x * x - 1) * q : m === 2 ? 15 * x * q * q : 15 * q * q * q);
+        const f = ratios[j] * (R / d) ** (n + 1) * P * TIDE_NORM[n][m];
         ar += f * Math.cos(m * lon); ai -= f * Math.sin(m * lon);
       }
       const [kr, ki] = LOVE[n][m];
@@ -229,10 +238,17 @@ export function makeEnvironment(sys, craft = {}) {
   let entryState = null, upperAirFn = null;
   const epochMs = craft.epochMs ?? Date.UTC(2000, 0, 1, 12);
   // Kernel time is TT seconds from epochMs (kernelHost.kernelSeconds).
-  const tt0 = ttSeconds(epochMs), msAt = (t) => utcMsAtTt(tt0 + t);
+  // msAt and fixed are pure in t, and each stage asks them several times
+  // for the same t (the field, the tide, relativity and drag): each keeps
+  // its last answer. (fixed's matrix is only read, never written.)
+  const tt0 = ttSeconds(epochMs);
+  let msT = NaN, msV = NaN;
+  const msAt = (t) => (t === msT ? msV : (msT = t, msV = utcMsAtTt(tt0 + t)));
   const E = craft.earth ?? {};
   const massAt = craft.massAt ?? (() => craft.mass);
-  const fixed = earthFixedAt(epochMs, E);
+  const fixedAt = earthFixedAt(epochMs, E);
+  let fixT = NaN, fixM = null;
+  const fixed = (t) => (t === fixT ? fixM : (fixT = t, fixM = fixedAt(t)));
   const earthState = (t, vOut) => {
     const e = sys.bodiesAt(t).find((b) => b.key === 'earth');
     if (!e) { vOut[0] = vOut[1] = vOut[2] = 0; return [0, 0, 0]; }

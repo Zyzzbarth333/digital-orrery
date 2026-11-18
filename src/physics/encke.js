@@ -50,7 +50,7 @@
 // ~2e-7 is Encke; GEO ~5e-5 and beyond, and thrusting craft, are Cowell.
 
 import { keplerStep, propagate } from './orbital.js';
-import { addJ2, below } from './zonal.js';
+import { addJ2, addTide, below } from './zonal.js';
 import { locateImpact, dp45Dense } from './impact.js';
 
 // Dormand-Prince 5(4) (Dormand & Prince 1980): nodes, stage weights, the
@@ -101,7 +101,7 @@ function perturbation(c, rP, aP, key, mu, bodies, muSun, out, sunAcc = null) {
     const p = b.r;
     const ex = p[0] - c[0], ey = p[1] - c[1], ez = p[2] - c[2];
     const e2 = ex * ex + ey * ey + ez * ez;
-    if (b.j2 && e2 < b.j2Cut2) addJ2(-ex, -ey, -ez, e2, b, out);
+    if (b.j2 && e2 < b.j2Cut2) { addJ2(-ex, -ey, -ez, e2, b, out); if (b.tide) addTide(-ex, -ey, -ez, e2, b, bodies, out); }
     if (b.key === key) continue;
     const q2 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
     const ke = b.mu / (e2 * Math.sqrt(e2)), kj = ind * b.mu / (q2 * Math.sqrt(q2));
@@ -131,7 +131,7 @@ function perturbationTidal(c, rP, key, bodies, muSun, out) {
     const p = b.r;
     const ex = p[0] - c[0], ey = p[1] - c[1], ez = p[2] - c[2];
     const e2 = ex * ex + ey * ey + ez * ez;
-    if (b.j2 && e2 < b.j2Cut2) addJ2(-ex, -ey, -ez, e2, b, out);
+    if (b.j2 && e2 < b.j2Cut2) { addJ2(-ex, -ey, -ez, e2, b, out); if (b.tide) addTide(-ex, -ey, -ez, e2, b, bodies, out); }
     if (b.key === key) continue;
     const fx = p[0] - rP[0], fy = p[1] - rP[1], fz = p[2] - rP[2];
     const f2 = fx * fx + fy * fy + fz * fz;
@@ -224,7 +224,7 @@ export function advanceEncke(state, tEnd, opts) {
     if (list !== sList) {
       sList = list;
       sCopies = list.map((b) => ({ key: b.key, mu: b.mu, radius: b.radius, parent: b.parent, r: [0, 0, 0],
-        j2: b.j2, zn: b.zn, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
+        j2: b.j2, zn: b.zn, tide: b.tide, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
       sP = list.findIndex((b) => b.key === key);
       sEnds = new Float64Array(list.length * 12);    // r0 v0 r1 v1 for each body
       sT0 = NaN;

@@ -11,7 +11,8 @@
 //                                       the body's zonal field (the kernel's:
 //                                       J2, and for the giant planets the
 //                                       terms beyond it, bodies.js ZONAL jn)
-//                                       for ten turns, rad/s
+//                                       for ten turns, rad/s, and its mean
+//                                       semi-major axis
 //   leaveCircularDv(n, r, mu, vinf)     the cheapest single burn from a
 //                                       circular orbit onto an asymptote
 //   turnPlane(n, pole, angle)           a plane's normal after its node turns
@@ -47,7 +48,8 @@ export function nodeRate(mu, j2, R, a, e, i) {
 // it starts), and J2's second-order terms add their share: together about
 // 0.15 to 0.6 % at 400 km over Mars, which over a year's stay is 5 to 20
 // degrees of node. Returns { rate (rad/s), first (eq. (4.52) for the
-// starting orbit), ratio }, or null for an orbit too near the equator to
+// starting orbit), ratio, aMean (the osculating semi-major axis averaged
+// over the turns, km) }, or null for an orbit too near the equator to
 // have a node.
 export function flownNodeRate({ mu, j2, jn = null, R, pole, r, v, turns = 10, steps = 240 }) {
   const p = unit(pole);
@@ -66,7 +68,7 @@ export function flownNodeRate({ mu, j2, jn = null, R, pole, r, v, turns = 10, st
   const T = 2 * Math.PI * Math.sqrt(a0 ** 3 / mu), dt = T / steps;
   const e1 = unit(Math.abs(p[2]) < 0.9 ? cross(p, [0, 0, 1]) : cross(p, [1, 0, 0])), e2 = cross(p, e1);
   const nodeOf = (x, u) => { const n = cross(p, cross(x, u)); return Math.atan2(dot(n, e2), dot(n, e1)); };
-  let x = r.slice(), u = v.slice(), t = 0;
+  let x = r.slice(), u = v.slice(), t = 0, aSum = 0, aN = 0;
   const crossings = [];
   for (let s = 0; s < (turns + 1) * steps; s++) {
     const k1v = acc(x), k1x = u;
@@ -84,6 +86,9 @@ export function flownNodeRate({ mu, j2, jn = null, R, pole, r, v, turns = 10, st
       crossings.push({ t: t + f * dt, node: N0 + f * d });
     }
     x = xn; u = un; t += dt;
+    // The osculating semi-major axis, averaged over the turns flown from
+    // the first crossing (the mean orbit's, as journeyFlight.js meanOrbit).
+    if (crossings.length) { aSum += 1 / (2 / norm(x) - dot(u, u) / mu); aN++; }
     if (crossings.length > turns) break;
   }
   if (crossings.length < 2) return null;
@@ -94,7 +99,7 @@ export function flownNodeRate({ mu, j2, jn = null, R, pole, r, v, turns = 10, st
     total += d;
   }
   const rate = total / (crossings.at(-1).t - crossings[0].t);
-  return { rate, first, ratio: rate / first };
+  return { rate, first, ratio: rate / first, aMean: aN ? aSum / aN : a0 };
 }
 
 // A plane's normal n after its node has turned by `angle` about the pole

@@ -132,7 +132,7 @@ terminal guidance ends two minutes before the impact, where an impulse at
 its start would miss by 0.6 km. A file with flybys aims at a flyby's
 perigee rather than across it.
 
-![Artemis II about the Earth, from translunar injection at an hour a second and then a day a second: the craft climbs out, loops round the Moon and falls back, its flown path drawn beside the real one, while the readout gives its distance from the flown path](../clips/artemis2.webp)
+![Artemis II about the Earth at a day a second from just before translunar injection: the craft climbs out, loops round the Moon and falls back, its flown path drawn beside NASA's, while the readout gives its distance from the flown path](../clips/artemis2.webp)
 
 - **Fly it:** sets the clock to the mission's start (BACK undoes it). For
   Artemis II that's 2 April 2026, 23:39:59 UTC, ten minutes before
@@ -219,7 +219,11 @@ running), which the injection burn grew to 180 km by the next day.
 The kernel learned two things for this:
 - **Steered burns:** a burn can be steered in the orbital frame about a
   body (`frame: 'vnb'`). The integrator passes the craft's velocity to the
-  thrust (in Encke too), and steps inside such a burn are capped at 0.25 s.
+  thrust (in Encke too). Steps inside such a burn were capped at 0.25 s
+  while the kernel's Cowell steps were symplectic. The error-controlled
+  steps follow the turn on their own: one step to each 5-second interval
+  ends the injection burn within millimetres of 0.01 s steps
+  ([Artemis II check](../validation/artemis2.md#3-the-whole-mission-with-orions-burns)).
 - **Tracking fixes:** `Craft.setState` takes a fix.
 
 ## Manoeuvre nodes and the engine

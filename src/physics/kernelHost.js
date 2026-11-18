@@ -74,6 +74,20 @@ export function kernelMs(t) {
   return utcMsAtTt(TT0 + t);
 }
 
+// For burns [{ t0, t1 }]: a function giving, for a time t, a slot that is
+// the same for every t between the same two of their sorted distinct
+// edges: 2k for t on the k-th edge, 2k + 1 for t in the open interval just
+// below it (2n + 1 above the last of n), -1 for a t that is not a number.
+function edgeSegments(list) {
+  const e = [...new Set(list.flatMap((b) => [b.t0, b.t1]))].sort((x, y) => x - y);
+  return (t) => {
+    if (!(t === t)) return -1;
+    let lo = 0, hi = e.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (e[m] < t) lo = m + 1; else hi = m; }
+    return lo < e.length && e[lo] === t ? 2 * lo : 2 * lo + 1;
+  };
+}
+
 // Advance one craft. sys is a body set from solarSystemBodies().
 // The Sun as a burn's body: the origin, still.
 export const SUN_AT_ORIGIN = Object.freeze({
@@ -109,24 +123,36 @@ export function stepCraft(sys, req, deadline = null) {
   // A burn in the orbital frame needs the craft's velocity (r, v); where the
   // integrator has none (Encke, which runs only while thrust is negligible)
   // it keeps the direction it last had.
-  const vb = [0, 0, 0];
+  //
+  // Which burns are on, and which set the mass, can change only at a burn's
+  // edge, so each answer is kept for its slot (edgeSegments: an edge, or
+  // the open interval between two), found by bisection: a real mission's
+  // burn is hundreds of 5-second intervals, and scanning them all at every
+  // stage was a tenth of a steered burn's time.
+  const segmentOf = edgeSegments(burns);
+  const onCache = [], vb = [0, 0, 0];
+  const burnsOn = (mid) => {
+    const k = segmentOf(mid);
+    if (k >= 0 && onCache[k]) return onCache[k];
+    const on = burns.filter((b) => mid >= b.t0 && mid < b.t1);
+    if (k >= 0) onCache[k] = on;
+    return on;
+  };
   const thrustAt = (t, mid, out, r, v) => {
     out[0] = out[1] = out[2] = 0;
     if (constant) { out[0] = th[0]; out[1] = th[1]; out[2] = th[2]; }
-    for (const b of burns) {
-      if (mid >= b.t0 && mid < b.t1) {
-        const k = b.F / (b.m0 - b.mdot * (t - b.t0)) / 1000;   // m/s^2 -> km/s^2
-        let d = b.dir;
-        if (b.frame === 'vnb') {
-          if (r && v) {
-            const B = bodyOf(b.about, t);
-            B.eph.velocity(t, vb);
-            b.last = vnbDirection(b.dir, [r[0] - B.r[0], r[1] - B.r[1], r[2] - B.r[2]], [v[0] - vb[0], v[1] - vb[1], v[2] - vb[2]]);
-          }
-          d = b.last ?? [0, 0, 0];
+    for (const b of burnsOn(mid)) {
+      const k = b.F / (b.m0 - b.mdot * (t - b.t0)) / 1000;   // m/s^2 -> km/s^2
+      let d = b.dir;
+      if (b.frame === 'vnb') {
+        if (r && v) {
+          const B = bodyOf(b.about, t);
+          B.eph.velocity(t, vb);
+          b.last = vnbDirection(b.dir, [r[0] - B.r[0], r[1] - B.r[1], r[2] - B.r[2]], [v[0] - vb[0], v[1] - vb[1], v[2] - vb[2]]);
         }
-        out[0] += k * d[0]; out[1] += k * d[1]; out[2] += k * d[2];
+        d = b.last ?? [0, 0, 0];
       }
+      out[0] += k * d[0]; out[1] += k * d[1]; out[2] += k * d[2];
     }
     return out;
   };
@@ -138,18 +164,27 @@ export function stepCraft(sys, req, deadline = null) {
   // Scripted burns (a real mission's, given as acceleration on a nominal
   // 1 kg) count only when they carry their own mass and flow (mass0,
   // massFlow: a craft with a scriptIsp); otherwise they are skipped.
-  const massAt = (t) => {
+  // massFrom(t): which of those it is at t, as { b, m0, md } for a burn on
+  // then, or { m } for a mass held between burns.
+  const massFrom = (t) => {
     let next = null, last = null;
     for (const b of burns) {
       const m0 = b.scripted ? b.mass0 : b.m0, md = b.scripted ? b.massFlow : b.mdot;
       if (m0 === undefined) continue;
-      if (t >= b.t0 && t < b.t1) return m0 - md * (t - b.t0);
+      if (t >= b.t0 && t < b.t1) return { b, m0, md };
       if (b.t0 >= t && (!next || b.t0 < next.t0)) next = { t0: b.t0, m: m0 };
       if (b.t1 <= t && (!last || b.t1 > last.t1)) last = { t1: b.t1, m: m0 - md * (b.t1 - b.t0) };
     }
-    if (next) return next.m;
-    if (last) return last.m;
-    return req.env.mass;
+    if (next) return { m: next.m };
+    if (last) return { m: last.m };
+    return { m: req.env.mass };
+  };
+  const massCache = [];
+  const massAt = (t) => {
+    const k = segmentOf(t);
+    let w = k >= 0 ? massCache[k] : null;
+    if (!w) { w = massFrom(t); if (k >= 0) massCache[k] = w; }
+    return w.b ? w.m0 - w.md * (t - w.b.t0) : w.m;
   };
   const env = req.env ? makeEnvironment(sys, { ...req.env, massAt }) : null;
   const thrusting = constant || burns.length;
@@ -163,14 +198,17 @@ export function stepCraft(sys, req, deadline = null) {
   // whole burn in one step, and a burn that sheds a large share of the mass
   // (44 % in the tests) is too curved for that (1.5 % short of the rocket
   // equation in one step).
-  // A burn steered in the orbital frame turns with the velocity, which the
-  // symplectic steps follow only to first order: its steps are also capped
-  // at 0.25 s (0.0065 m/s per minute of burning near perigee, against
-  // 0.13 m/s at 5 s, measured against RK4 at 0.01 s).
+  // A burn steered in the orbital frame turns with the velocity. The
+  // symplectic steps this kernel once took followed that only to first
+  // order, and such a burn's steps were capped at 0.25 s. The error-
+  // controlled steps see each stage's own velocity, so the cap is gone:
+  // Artemis II's 23-minute injection burn, flown in 276 steps instead of
+  // 5,480, ends 2 mm and 0.004 mm/s from the same burn at 0.01 s steps
+  // (the 0.25 s cap's own difference is the same size).
   const breakpoints = burns.length
     ? [...new Set(burns.flatMap((b) => {
       const m1 = b.m0 - b.mdot * (b.t1 - b.t0);
-      const n = Math.min(4000, Math.max(1, Math.ceil(Math.log(b.m0 / m1) / Math.log(1.01)), b.frame === 'vnb' ? Math.ceil((b.t1 - b.t0) / 0.25) : 1));
+      const n = Math.min(4000, Math.max(1, Math.ceil(Math.log(b.m0 / m1) / Math.log(1.01))));
       const pts = [];
       for (let k = 0; k <= n; k++) pts.push(k === n ? b.t1 : b.t0 + (b.t1 - b.t0) * k / n);
       return pts;
