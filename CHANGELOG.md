@@ -142,8 +142,13 @@ once it has releases. Until then, everything sits under Unreleased.
   clock is near now, Starkov's oval otherwise. Uranus's and Neptune's
   auroral zones and Mercury's field join the guides, and a third guide
   draws the radiation belts of the Earth, Jupiter and Saturn along their
-  L-shells, the Earth's inner belt dipping over the South Atlantic (this
-  pull request).
+  L-shells, the Earth's inner belt dipping over the South Atlantic (#88).
+- Ganymede's own field and auroral ovals, Mars's magnetised crust and its
+  aurora, and Europa's, Ganymede's and Enceladus's auroral footprints
+  beside Io's, each placed ahead of its field line by the lead angle Juno
+  measured. Uranus and Neptune have radiation belts too, and the belts
+  cost an integrated GPU about a millisecond at Earth instead of eight
+  (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
