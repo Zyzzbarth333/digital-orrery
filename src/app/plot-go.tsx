@@ -61,7 +61,8 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
   rows.push(fb.some((l) => l.level === 'warn') ? { key: 'Flybys', state: 'nogo', text: fb.map((l) => l.text).join('; ') } : { key: 'Flybys', state: 'go', text: sol.flybys.some(Boolean) ? (fb.length ? fb.map((l) => l.text).join('; ') : 'Every pass above its floor') : 'None' });
   // Vehicle.
   const can = real.filter((r) => r.can).map((r) => r.label);
-  rows.push(chosen ? { key: 'Vehicle', state: 'go', text: `${chosen.n} stages, ${fmt((chosen.liftoff ?? 0) / 1000, 1)} t at liftoff, ${fmt(store.vehicle.payload / 1000, 1)} t delivered${can.length ? ` · could also fly: ${can.join(', ')}` : ''}` }
+  // The stack sized in STACK, which the ROCKET tab flies as "Journey's stack".
+  rows.push(chosen ? { key: 'Vehicle', state: 'go', text: `STACK's ${chosen.n}-stage stack (the ROCKET tab's "Journey's stack"): ${fmt((chosen.liftoff ?? 0) / 1000, 1)} t at liftoff, ${fmt(store.vehicle.payload / 1000, 1)} t delivered${can.length ? ` · could also fly: ${can.join(', ')}` : ''}` }
     : { key: 'Vehicle', state: 'nogo', text: `No stack of these stages gives ${fmt(dv / 1000, 1)} km/s`, fix: 'Change the stages in STACK' });
   // Launch.
   const s0 = j.start;

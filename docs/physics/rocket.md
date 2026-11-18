@@ -225,7 +225,10 @@ rocket equation (`staging.js sizeLauncher`,
 mass and vacuum Isp. The ROCKET tab offers it as "Journey's stack", after
 the presets, for a journey from the pad (one that starts in orbit is sized
 with no climb). Choosing it sets the job to the journey, and the pad nearest
-the journey's latitude, due east.
+the journey's latitude, due east. While a journey has a stack and the tab
+shows another vehicle, the tab says so, with a key to fly the journey's
+stack. The plotting table's GO board names the same stack in its Vehicle
+row, so the rocket the commit relies on is the one this tab can fly.
 
 To fly an ascent, a stack needs what sizing leaves out
 (`staging.js stackAsLauncher`). It takes those from the real launchers

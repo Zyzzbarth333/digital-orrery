@@ -289,6 +289,7 @@ once it has releases. Until then, everything sits under Unreleased.
   so the haze loads sooner on a slow link (this pull request).
 
 ### The console
+- The plotting table's GO board names the rocket it checks (STACK's sized stack, the ROCKET tab's "Journey's stack"), and the ROCKET tab says when it shows another vehicle, with a key to fly the journey's stack. The irregular-moon list says "retrograde" in place of "(r)", and the journey's date control reads "When a date slides: later ones follow / later ones stay" (this pull request).
 - Source tags open each value's equation and source, set in a bundled
   math font (#31, #36, #37). The app has an icon (#31).
 - The console's HDR sky and camera flights (#28).

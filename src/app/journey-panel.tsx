@@ -107,10 +107,10 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
       </div>
 
       {j.waypoints.length > 0 && (
-        <div className="keys-row wrap" role="radiogroup" aria-label="When a date slides">
-          <span className="engraved">Later dates</span>
-          <button className="key small" role="radio" aria-checked={carry} onClick={() => setCarry(true)}>Move with it</button>
-          <button className="key small" role="radio" aria-checked={!carry} onClick={() => setCarry(false)}>Stay put</button>
+        <div className="keys-row wrap" role="radiogroup" aria-label="When a date slides, the later dates">
+          <span className="engraved">When a date slides</span>
+          <button className="key small" role="radio" aria-checked={carry} onClick={() => setCarry(true)} title="Later waypoints keep their spacing and slide with it">Later ones follow</button>
+          <button className="key small" role="radio" aria-checked={!carry} onClick={() => setCarry(false)} title="Later waypoints keep their own dates">Later ones stay</button>
         </div>
       )}
 
