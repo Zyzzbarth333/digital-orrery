@@ -13,7 +13,7 @@
 //   flow     line-integral convolution (Cabral and Leedom 1993): noise
 //            averaged along each pixel's field line, with a ripple in the
 //            kernel whose phase runs on, so the grain flows down the lines
-//            (as Forssell 1994 animates it);
+//            (as Forssell and Cohen 1995 animate it);
 //   plane    a disc in the scene through the focus, depth-tested against
 //            the bodies, that shows the two, and in the rotating frame
 //            the contours of the Jacobi constant, bright through L1-L3.

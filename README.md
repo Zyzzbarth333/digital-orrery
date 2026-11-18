@@ -39,7 +39,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
   - real surface maps and relief, Saturn's rings from Cassini measurements, Earth's clouds as satellites saw them that day under a physically based atmosphere;
   - the real star field and Milky Way.
 - **Bodies to visit:** fly the camera to any planet, moon, barycentre or small body, with a data plate whose values open their equation and source.
-- **Guides:** spin axes, Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls.
+- **Guides:** the gravity field of every body as flowing field lines, in four frames, the rotating one with its zero-velocity curves; spin axes and which way each body turns; Earth's and the Moon's real gravity fields; spheres of influence, Lagrange points and the strongest pulls.
 - **Missions:**
   - spacecraft fly under an n-body kernel in a Web Worker, with finite burns, the Earth's and Moon's gravity fields, drag and sunlight pressure;
   - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown.

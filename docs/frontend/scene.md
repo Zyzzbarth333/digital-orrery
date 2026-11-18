@@ -148,6 +148,17 @@ Measured against the ephemeris (DE442 Earth table, 200 instants over 74
 days), the Earth sat up to 5,682 km off its 360-point line, and sits within
 1.1 km of the fine stretch.
 
+Close in, a line recedes. Where it passes the camera at under 5 % of its
+orbit's size (its farthest point from the parent) it fades, to nothing
+under 0.3 % (`orbitTrail.ts`). Zoomed in on a body, its orbit about the
+Sun is a nearly straight bright line through the view that shows nothing
+of the curve; now it fades out near the body while the moons' orbits,
+large against the camera's distance, stay. At 1.3 million km from the
+Earth its own orbit's line is gone and the Moon's stays; at 4 million km
+from Saturn, likewise Saturn's and its moons'. At system scale every line
+is far from the camera against its size and is drawn as before. A craft's
+flown trail fades the same way against its size about its primary.
+
 The line is a faint outline of the whole orbit with a glowing trail behind
 the body (`orbitTrail.ts`). Each vertex carries $u$, its time offset from the
 line's centre in periods; each frame sets

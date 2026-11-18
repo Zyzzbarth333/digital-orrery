@@ -1,11 +1,13 @@
 # Gravity guides
 
-Drawing aids that show how gravity works in the scene: each body's spin
-axis, its real gravity field, its sphere of influence and Hill sphere, the
-Lagrange points, and the strongest pulls on a body. Each has its own switch
-in the rail's **Guides** section and is off until switched on. Code:
-`src/physics/gravityGuides.js` (the physics, tested in
-`gravityGuides.test.mjs`), `src/scene/guides.ts` and `gravityField.ts` (the
+Drawing aids that show how gravity works in the scene: the field of every
+body at once, each body's spin axis and the way it turns, its real gravity
+field on the surface, its sphere of influence and Hill sphere, the Lagrange
+points, and the strongest pulls on a body. Each has its own switch in the
+rail's **Guides** section and is off until switched on. Code:
+`src/physics/gravityGuides.js`, `gravityFlow.js` and `spin.js` (the
+physics, tested in `gravityGuides.test.mjs` and `gravityFlow.test.mjs`),
+`src/scene/guides.ts`, `gravityField.ts` and `gravityFlow.ts` (the
 drawing).
 
 All of them are drawn at a display level, divided by the exposure like the
@@ -14,20 +16,175 @@ so they read the same at any distance from the Sun.
 
 ![The Earth with its gravity field and spin axis switched on as the camera turns about it, then its sphere of influence and the Earth-Moon Lagrange points switched on as the camera pulls back past the Moon's orbit](../clips/guides.webp)
 
-## Spin axes
+## The field of every body
+
+![Jupiter's system with the gravity field less Jupiter's own pull: field lines flow into Io, Europa, Ganymede and Callisto, each a well of its own inside Jupiter's](../images/gravity-field-jupiter.jpg)
+
+The **Gravity field** switch draws the gravitational field of the whole
+solar system the way a physics textbook draws an electric one: field lines
+in a plane through the focused body, running with the pull, brighter where
+it is stronger. Every body with a GM is in the sum, 54 of them: the Sun,
+the planets at their own centres with their own GMs, the Moon and the 43
+moons that have one. At a point $\mathbf p$,
+
+$$
+\mathbf a(\mathbf p) = \sum_i \frac{GM_i\,(\mathbf r_i - \mathbf p)}{\max(|\mathbf r_i - \mathbf p|,\,R_i)^3},
+$$
+
+so inside a body of radius $R_i$ its pull is a uniform sphere's, falling to
+zero at the centre. The positions are the scene's this frame (DE442, the
+moons' tables), so the field moves with the bodies. The planets' system
+GMs are split as the kernel splits them: the planet's own GM from its
+satellite kernel at its centre, and each moon's at the moon. The 33 small
+moons with no GM (Pan, Uranus's irregulars and others) are left out; the
+largest, Puck, would weigh about 10⁻⁶ of Uranus.
+
+![The Earth and the Moon falling with the Earth: the Earth's field lines run inward from every side, and the Moon's well bends them near it](../images/gravity-field-earth-moon.jpg)
+
+**Frames.** The rail's **Frame** picks what is drawn:
+
+- **Inertial:** $\mathbf a(\mathbf p)$ itself. Near the Earth the Sun's
+  pull (5.9 mm/s²) outweighs the Earth's beyond 259,000 km, so at the
+  Moon the field runs sunward.
+- **Falling with focus** (the default): $\mathbf a(\mathbf p) - \mathbf
+  a(\mathbf r_f)$, the field as seen falling freely with the focus $f$,
+  which is what moves things relative to it. The Sun's near-uniform pull
+  drops out, leaving the focus's own pull and the others' tides: the Earth
+  and the Moon with the saddle between them.
+- **Less focus's own pull:** the same, without the focus's own term:
+  what pulls things off their orbits about it. At Jupiter its four large
+  moons' wells fill the view; with its own pull in, each moon outweighs
+  Jupiter only within a few of its own radii (Callisto within 14,000 km).
+- **Rotating with parent:** the circular restricted three-body problem of
+  the focus and its parent (the Sun and Jupiter for the Sun), turning at
+  $n^2 = G(M + m)/d^3$ about their barycentre $B$ at their present
+  separation $d$, in their orbit's plane. Its effective potential is
+  $$
+  \Phi = -\frac{GM}{|\mathbf p - \mathbf r_P|} - \frac{Gm}{|\mathbf p - \mathbf r_S|} - \tfrac12 n^2 \rho^2,
+  $$
+  with $\rho$ the distance from the axis through $B$, and the lines follow
+  $-\nabla\Phi$ (gravity and the centrifugal pull; the Coriolis term needs
+  a velocity, which a field has none of). Contours of the Jacobi constant
+  $C = -2\Phi d/G(M + m)$ are drawn every 0.2 in $\log_{10}(C - C_4)$,
+  between half a decade below $C_3$ and above $C_1$, and the three through
+  L1, L2 and L3 in amber: the zero-velocity curves that open the necks
+  between the bodies and the outside. L1–L3 are $\Phi$'s saddles, L4 and
+  L5 its peaks. The pair's GMs are the ones the Lagrange guide uses, so
+  the saddles fall on its markers. The other bodies are not in this sum:
+  the frame belongs to the pair.
+
+![The Earth-Moon rotating frame: amber zero-velocity curves through L1, L2 and L3 make a figure of eight about the Earth and the Moon and a horseshoe round to L3, with the Lagrange markers on their saddles and the tadpoles about L4 and L5](../images/gravity-field-rotating.jpg)
+
+**Plane.** In the rotating frame, the pair's orbit. Otherwise the rail's
+**Plane** chooses:
+- **Orbit:** the focus's system: the orbit of its largest moon (the
+  Moon's for the Earth, Ganymede's for Jupiter, Titan's for Saturn), its
+  own orbit about its parent for a moon or a planet without moons, and
+  the ecliptic for the Sun.
+- **View:** square to the line of sight, through the focus. It never
+  goes edge-on, but bodies off it show only their pull at that distance.
+
+The field is drawn in the plane, $\mathbf a$'s part along it; the
+brightness is $|\mathbf a|$ on a log scale over four and a half decades,
+topped by the focus's pull at 3 % of the camera's distance (or at its
+surface, if that is farther). The legend gives the scale's ends and middle.
+
+**On the GPU.** Three passes a frame, at half the screen's resolution:
+1. **Field:** each pixel's ray from the camera meets the plane, and the
+   sum above is worked out there in single precision. Positions are
+   relative to the focus, so single precision holds at any scale: the
+   largest error in the tests' six places, from the main belt to Charon,
+   is 2.3 × 10⁻⁷ of the field. The pull's direction in the plane is
+   carried to the screen through the projection's derivative at that
+   point, and stored with $\log_{10}|\mathbf a|$ and, rotating,
+   $\log_{10}(C - C_4)$, in a half-float target.
+2. **Flow:** line-integral convolution (Cabral and Leedom [10]): each
+   pixel averages a fixed noise texture along its own field line, 20
+   pixels each way, so the grain lines up with the field. A ripple in the
+   averaging kernel whose phase runs on makes the grain flow down the
+   lines toward the masses, as Forssell and Cohen animate it [11]. The
+   flow's speed is for display only, and it stands still with reduced
+   motion.
+3. **Plane:** a disc 40 times the camera's distance across, through the
+   focus, depth-tested against the bodies, shows the flow and the
+   brightness, and the contours in the rotating frame.
+
+**Check.** `gravityFlow.test.mjs` compares the sum with the kernel's own
+force sum (`nbody.js`, written separately) at six places, from 100 km
+above Ganymede to the main belt: within 4.5 × 10⁻¹⁶ of it, and within
+1.7 × 10⁻¹⁵ in the falling frame. The same sum in float32, as the GPU does
+it, is within 2.3 × 10⁻⁷. In the app, the GPU's field, read back from its
+target at 144 pixels, matches the same sum done in double precision from
+the same uniforms in six views (Jupiter in three frames, the Earth, the
+Earth–Moon rotating frame, Saturn in the view plane): $\log_{10}|\mathbf
+a|$ within 0.0039 (0.0076 at the Sun's scale; the half-float target's
+step, under 1 % and 2 % in $|\mathbf a|$), the direction on screen within
+0.02°, $\log_{10}(C - C_4)$ within 0.001. For the rotating frame, Newton's
+method on $-\nabla\Phi = 0$ from 1 % off each point finds the L1–L5 that
+`lagrangePoints` solves for, to 10⁻¹⁰ of the separation or better, for
+Sun–Earth, Earth–Moon, Sun–Jupiter, Jupiter–Ganymede and Saturn–Titan;
+the Hessian there makes L1–L3 saddles and L4 and L5 peaks. The Earth–Moon
+Jacobi constants 3.1883, 3.1722, 3.0121 and 2.9880 at L1–L4 match Koon,
+Lo, Marsden and Ross [9].
+
+**Cost.** Interleaved runs on the Intel UHD iGPU and the RTX 5070 Ti, a
+1440 × 900 window, median frame:
+
+| View | Intel, before → after | RTX, before → after |
+| --- | --- | --- |
+| Jupiter at 6 million km, field (falling) and spin arrows | 12.7 → 14.7 ms | 6.3 → 6.9 ms |
+| Earth and Moon at 1.3 million km, field (rotating) | 13.4 → 15.2 ms | 6.4 → 6.9 ms |
+| The Sun at 1.2 billion km, field (inertial) | 15.1 → 15.3 ms | 7.8 → 8.1 ms |
+| Earth, Saturn and Jupiter, guides off (the orbit lines' fade) | 13.2, 12.2, 12.8 → 12.9, 11.5, 12.6 ms | 6.8, 6.1, 6.3 → 6.0, 6.0, 6.1 ms |
+
+The field costs about 2 ms a frame on the iGPU and under 1 ms on the RTX,
+and nothing while it is off.
+
+## Spin axes and direction
 
 A faint grey line through each body's poles, 1.5 radii from its centre each
 way, the north half brighter and tagged **N** once the disc is more than 12
 pixels across. The axis is the body-fixed Z of [body orientation](orientation.md):
 the IAU pole for the Sun and planets (Archinal et al. [1]), Earth's of date from
-precession and nutation, and the synchronous moons' own. "North" is the
-IAU's, so Venus, whose prime meridian angle decreases, turns backwards
-about it.
+precession and nutation, and the synchronous moons' own.
+
+![Venus with its spin arrow: an amber arc over the north pole turning clockwise seen from above, tagged N · retrograde](../images/spin-venus.jpg)
+
+Over the north pole, 1.2 radii from the centre, a curved arrow 0.45 radii
+across shows which way the body turns: an arc of 270° fading from its tail
+to an arrowhead, going round as the body does. The sense is the sign of the
+IAU rate $W_1$ of the prime meridian angle $W = W_0 + W_1 d$ [1] (`spin.js`:
+the Sun, planets, Moon and Pluto from the 2015 report, the planets' moons
+from NAIF's pck00011), or, for a moon with no IAU model, which the app
+turns with its orbit, the orbit's sense. The arrow turns at a display rate,
+from 0.3 to 1.6 radians a second on a log scale of $|W_1|$, so Jupiter's
+goes faster than Venus's without either being a blur or still.
+
+A body that turns against its own orbit about its parent (the angle
+between its spin and its orbit's pole over 90°) is **retrograde**: its
+arrow is amber and its tag reads **N · retrograde**. Among the planets
+these are Venus (177.4°), Uranus (97.8°) and Pluto (119.6°). The IAU's
+"north" for planets and moons is the pole on the north side of the
+invariable plane, so Venus's and Uranus's $W_1$ are negative. For dwarf
+planets it uses the right-hand rule instead, the positive pole: Pluto's
+$W_1$ is positive but its pole lies south of the ecliptic, so it is tagged
+**+** rather than N. Triton, whose orbit is retrograde, turns with that
+orbit and so is prograde by this measure. Each tag's title gives the
+sidereal period and the rate.
+
+**Check.** `gravityFlow.test.mjs` differences the app's own orientation
+(`orientation.js`) a minute either side of the date to get each body's
+angular velocity, $\boldsymbol\omega = \tfrac12 \sum_i \mathbf e_i \times
+\dot{\mathbf e}_i$ over its axes. For all 61 bodies with an IAU rate, the
+sign of $\boldsymbol\omega$ along the pole is the sign of $W_1$ and its
+size is within 2 % of $|W_1|$ (the worst, Phobos at 0.65 %, is its forced
+libration); the 26 moons with no model turn with their orbits; and
+exactly Venus, Uranus and Pluto are retrograde.
 
 ## Gravity fields
 
-The free-air gravity anomaly on the surface, from the same coefficients the
-kernel flies with, as a diverging colour map (blue low, amber high) with a
+The rail's **Surface gravity** switch: the free-air gravity anomaly on the
+surface, from the same coefficients the kernel flies with, as a diverging colour map (blue low, amber high) with a
 contour every half of the scale's end and a legend giving the unit, the
 range and the source:
 
@@ -161,3 +318,7 @@ the difference of a pull across the pair, which the kernel integrates
 [8] V. Szebehely, *Theory of Orbits: The Restricted Problem of Three Bodies*. New York, NY, USA: Academic Press, 1967.
 
 [9] W. S. Koon, M. W. Lo, J. E. Marsden, and S. D. Ross, *Dynamical Systems, the Three-Body Problem and Space Mission Design*, 2011.
+
+[10] B. Cabral and L. C. Leedom, "Imaging vector fields using line integral convolution," in *Proc. 20th Annu. Conf. Comput. Graph. Interact. Techn. (SIGGRAPH '93)*, 1993, pp. 263–270, doi: 10.1145/166117.166151.
+
+[11] L. K. Forssell and S. D. Cohen, "Using line integral convolution for flow visualization: Curvilinear grids, variable-speed animation, and unsteady flows," *IEEE Trans. Vis. Comput. Graphics*, vol. 1, no. 2, pp. 133–141, 1995, doi: 10.1109/2945.468406.

@@ -47,6 +47,14 @@ once it has releases. Until then, everything sits under Unreleased.
 - Every barycentre can be flown to, with orbits about the SSB (#38).
 - Guides for spin axes, real gravity fields, spheres of influence,
   Lagrange points and the strongest pulls (#43).
+- The gravity field of every body at once, as field lines flowing toward
+  the masses in a plane through the focus: inertial, falling with the
+  focus, less its own pull (Jupiter's moons' wells), or in the rotating
+  frame of the focus and its parent, with the zero-velocity curves through
+  L1–L3. The spin axes show which way each body turns, with Venus, Uranus
+  and Pluto marked retrograde. Orbit lines fade where they pass close to
+  the camera against their size, so a body's own orbit no longer cuts
+  across the view when zoomed in on it (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The

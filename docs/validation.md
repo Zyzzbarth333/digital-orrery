@@ -581,6 +581,21 @@ published equations and Fortran listings
 | Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
 | Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |
 
+## The field of every body and spin directions (`gravityFlow.test.mjs`)
+
+[Gravity guides](physics/gravity-guides.md#the-field-of-every-body).
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| The summed pull of 54 bodies at six places, 100 km above Ganymede to the main belt | the kernel's force sum (`nbody.js`) | within 4.5 × 10⁻¹⁶ |
+| The same, falling with the Earth and with Jupiter | the kernel's sum, differenced | within 1.7 × 10⁻¹⁵ |
+| The sum in float32, as the GPU does it | the double-precision sum | within 2.3 × 10⁻⁷ |
+| The GPU's field read back in the app, 144 pixels in each of six views | the same sum in double precision | log₁₀\|a\| within 0.0076 (the half-float step), direction within 0.02° |
+| The rotating frame's stationary points, five pairs from Sun–Earth to Saturn–Titan | L1–L5 from `lagrangePoints` | within 1.2 × 10⁻¹⁰ of the separation; L1–L3 saddles, L4 and L5 peaks |
+| Earth–Moon Jacobi constants at L1–L4 | Koon, Lo, Marsden and Ross: 3.1883, 3.1722, 3.0121, 2.9880 | 3.1883, 3.1722, 3.0121, 2.9880 |
+| Spin sense of 61 bodies, from the app's orientation differenced | the sign of each IAU rate $W_1$ | all 61; size within 2 % (Phobos 0.65 %, its libration) |
+| Retrograde rotation | Venus 177°, Uranus 98°, Pluto 120° from their orbits' poles | exactly those three: 177.4°, 97.8°, 119.6° |
+
 ## References
 
 [1] JPL Solar System Dynamics, "Horizons System" API. Vectors for Juno (-61), from JPL's reconstructed trajectory `spk_rec_110805_*_260824`, and for Cassini (-82), from its final post-mission reconstruction. [Online]. Available: https://ssd.jpl.nasa.gov/api/horizons.api
