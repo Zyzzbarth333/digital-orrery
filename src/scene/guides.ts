@@ -6,7 +6,8 @@
 //   axes      each body's spin axis, a faint grey line through its poles,
 //             north brighter and marked N, and a curved arrow about the
 //             north pole turning the way the body does (spin.js), amber
-//             and marked retrograde for Venus, Uranus and Pluto;
+//             and marked retrograde for Venus, Uranus and Pluto; strokes
+//             a constant width on screen with a filled head (screenLines.ts);
 //   field     the real gravity field on the surface (gravityField.ts);
 //   spheres   each body's sphere of influence (solid ring) and Hill sphere
 //             (dashed), about its parent, from its osculating orbit;
@@ -27,6 +28,7 @@ import { rvToElements } from '../physics/orbital.js';
 import { GravityFieldLayer } from './gravityField';
 import { GravityFlowLayer, type FlowFrame, type FlowPlane } from './gravityFlow';
 import { spinRate } from '../physics/spin.js';
+import { ScreenLines } from './screenLines';
 
 export type GuideKey = 'axes' | 'field' | 'spheres' | 'lagrange' | 'pulls' | 'flow';
 type Vec3 = [number, number, number];
@@ -37,10 +39,13 @@ const AXIS_EXTENT = 1.5;              // the axis reaches 1.5 radii from the cen
 const SOI_COLOUR = new THREE.Color(0xffb22e), HILL_COLOUR = new THREE.Color(0x9fc9b8);
 const PAIRS: [BodyKey, BodyKey][] = [['sun', 'earth'], ['earth', 'moon'], ['sun', 'jupiter']];
 // The spin arrow: an arc of 270 degrees about the axis, 0.45 radii across,
-// 1.2 radii above the centre, fading from its tail to an arrowhead.
-const ARC_SEGMENTS = 32, ARC_SPAN = 1.5 * Math.PI, ARC_RADIUS = 0.45, ARC_HEIGHT = 1.2;
-const ARROW_VERTS = 2 * ARC_SEGMENTS + 4;
-const RETRO_COLOUR = 0xff7a3d;
+// 1.2 radii above the centre, fading in from its tail to a filled head.
+// Strokes are 1.5 CSS px (half width 0.75); the head 12 px long and 8 px
+// across its base, or 30 degrees of the arc on a small disc.
+const ARC_SEGMENTS = 40, ARC_SPAN = 1.5 * Math.PI, ARC_RADIUS = 0.45, ARC_HEIGHT = 1.2;
+const ARROW_SEGS = ARC_SEGMENTS + 1;          // the arc and its head
+const STROKE = 0.75, HEAD_PX = 12, HEAD_HALF = 4;
+const AXIS_COLOUR = 0xc8c2b4, RETRO_COLOUR = 0xff7a3d;
 // How fast the arrows turn on screen, rad/s: not the real rate (Jupiter's
 // would be a blur, Venus's still), but faster for faster spinners, on a
 // log scale of the IAU rate in degrees a day.
@@ -126,12 +131,12 @@ function fmtAccel(kms2: number): string {
 export class GuideLayer {
   readonly on: Record<GuideKey, boolean> = { axes: false, field: false, spheres: false, lagrange: false, pulls: false, flow: false };
   private field: GravityFieldLayer;
-  private axes: THREE.LineSegments;
+  private axes: ScreenLines;
   private axisKeys = BODIES.map((b) => b.key);
   private shells = new Map<BodyKey, [THREE.Mesh, THREE.Mesh]>();
   private shellGeometry = new THREE.SphereGeometry(1, 96, 48);
   private pulls: THREE.LineSegments;
-  private arrows: [THREE.LineSegments, THREE.LineSegments];      // prograde, retrograde
+  private arrows: [ScreenLines, ScreenLines];      // prograde, retrograde
   readonly flow: GravityFlowLayer;
   private reduced = matchMedia('(prefers-reduced-motion: reduce)');
   private tags: HTMLDivElement[] = [];
@@ -148,34 +153,15 @@ export class GuideLayer {
     this.flow = new GravityFlowLayer(scene, overlay);
     // Spin axes: two segments a body (south half, north half).
     const n = this.axisKeys.length;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 12), 3));
-    const alpha = new Float32Array(n * 4);
-    for (let i = 0; i < n; i++) alpha.set([0.22, 0.22, 0.6, 0.6], 4 * i);
-    g.setAttribute('alpha', new THREE.BufferAttribute(alpha, 1));
-    this.axes = new THREE.LineSegments(g, lineMaterial(0xc8c2b4));
-    this.axes.frustumCulled = false;
-    this.axes.visible = false;
-    this.axes.renderOrder = 3;
-    scene.add(this.axes);
-    // Spin arrows: per body an arc of segments and a two-stroke head, one
-    // set grey (prograde), one amber (retrograde).
-    const arrowAlpha = new Float32Array(n * ARROW_VERTS);
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < ARC_SEGMENTS; j++) arrowAlpha.set([0.04 + 0.7 * (j / ARC_SEGMENTS) ** 1.5, 0.04 + 0.7 * ((j + 1) / ARC_SEGMENTS) ** 1.5], i * ARROW_VERTS + 2 * j);
-      arrowAlpha.fill(0.74, i * ARROW_VERTS + 2 * ARC_SEGMENTS, (i + 1) * ARROW_VERTS);
+    this.axes = new ScreenLines(2 * n, AXIS_COLOUR);
+    // Spin arrows: per body an arc and a filled head, one set grey
+    // (prograde), one amber (retrograde).
+    this.arrows = [new ScreenLines(n * ARROW_SEGS, AXIS_COLOUR), new ScreenLines(n * ARROW_SEGS, RETRO_COLOUR)];
+    for (const l of [this.axes, ...this.arrows]) {
+      l.mesh.visible = false;
+      l.mesh.renderOrder = 3;
+      scene.add(l.mesh);
     }
-    this.arrows = [0xc8c2b4, RETRO_COLOUR].map((colour) => {
-      const ag = new THREE.BufferGeometry();
-      ag.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * ARROW_VERTS * 3), 3));
-      ag.setAttribute('alpha', new THREE.BufferAttribute(arrowAlpha, 1));
-      const a = new THREE.LineSegments(ag, lineMaterial(colour));
-      a.frustumCulled = false;
-      a.visible = false;
-      a.renderOrder = 3;
-      scene.add(a);
-      return a;
-    }) as unknown as [THREE.LineSegments, THREE.LineSegments];
     // Pulls: up to four lines from the focused body.
     const pg = new THREE.BufferGeometry();
     pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(4 * 6), 3));
@@ -225,35 +211,32 @@ export class GuideLayer {
     this.flow.update({ camera, states: f.states, cam: f.cam, focus: f.focus, pivot: f.pivot, level: f.level, width, height });
 
     // Spin axes, from the surface materials' body-fixed Z (render frame).
-    this.axes.visible = this.arrows[0].visible = this.arrows[1].visible = this.on.axes;
+    this.axes.mesh.visible = this.arrows[0].mesh.visible = this.arrows[1].mesh.visible = this.on.axes;
     if (this.on.axes) {
-      (this.axes.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
-      for (const a of this.arrows) (a.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
-      const pos = this.axes.geometry.getAttribute('position') as THREE.BufferAttribute;
-      const arrowPos = this.arrows.map((a) => a.geometry.getAttribute('position') as THREE.BufferAttribute);
+      for (const l of [this.axes, ...this.arrows]) { l.material.uniforms.level.value = f.level; l.setViewWidth(width); }
       const t = this.reduced.matches ? 0 : performance.now() / 1000;
       if (!(Math.abs(f.date.getTime() - this.sunAxisT) < 864e5)) { this.sunAxis.copy(this.sunAxisRender(f.date)); this.sunAxisT = f.date.getTime(); }
       this.axisKeys.forEach((k, i) => {
         const c = meshes.get(k)!.position;
         const m = f.materials.get(k);
         const px = radiusPx(k);
-        for (const ap of arrowPos) for (let j = 0; j < ARROW_VERTS; j++) ap.setXYZ(i * ARROW_VERTS + j, c.x, c.y, c.z);
-        if (px < 4) { for (let j = 0; j < 4; j++) pos.setXYZ(4 * i + j, c.x, c.y, c.z); return; }
+        for (const a of this.arrows) for (let j = 0; j < ARROW_SEGS; j++) a.clear(i * ARROW_SEGS + j);
+        if (px < 4) { this.axes.clear(2 * i); this.axes.clear(2 * i + 1); return; }
         const e = m ? this.v.set(0, 0, 1).applyMatrix3(this.w3(m)) : this.v.copy(this.sunAxis);
         const spin = this.spinOf(k, e, f.states);
         const L = (BODY_BY_KEY[k].radiusKm / UNIT_KM) * AXIS_EXTENT;
-        pos.setXYZ(4 * i, c.x - e.x * L, c.y - e.y * L, c.z - e.z * L);
-        pos.setXYZ(4 * i + 1, c.x, c.y, c.z);
-        pos.setXYZ(4 * i + 2, c.x, c.y, c.z);
-        pos.setXYZ(4 * i + 3, c.x + e.x * L, c.y + e.y * L, c.z + e.z * L);
-        if (px > 10) this.drawArrow(arrowPos[spin.retro ? 1 : 0], i, c, e, BODY_BY_KEY[k].radiusKm / UNIT_KM, spin.sense * spin.shown * t, spin.sense);
+        const south = this.ap.copy(c).addScaledVector(e, -L), north = this.ah.copy(c).addScaledVector(e, L);
+        this.axes.set(2 * i, south, c, STROKE, STROKE, 0.22, 0.22);
+        this.axes.set(2 * i + 1, c, north, STROKE, STROKE, 0.6, 0.6);
+        // Pixels per render unit at the body, for the head's size.
+        const pxPerUnit = pxPerRad / Math.max(c.length(), 1e-9);
+        if (px > 10) this.drawArrow(this.arrows[spin.retro ? 1 : 0], i, c, e, BODY_BY_KEY[k].radiusKm / UNIT_KM, spin.sense * spin.shown * t, spin.sense, pxPerUnit);
         if (px > 12) {
           const s = screen(this.w.set(c.x + e.x * L, c.y + e.y * L, c.z + e.z * L));
           if (onScreen(s)) this.tag(s!, spin.retro ? `${spin.pole} · retrograde` : spin.pole, `guide-tag axis-n${spin.retro ? ' retro' : ''}`, spin.title);
         }
       });
-      pos.needsUpdate = true;
-      for (const ap of arrowPos) ap.needsUpdate = true;
+      for (const l of [this.axes, ...this.arrows]) l.commit();
     }
 
     // Spheres of influence and Hill spheres, about each body's parent.
@@ -384,8 +367,9 @@ export class GuideLayer {
   }
 
   // An arrow about the pole e, centred on c (render units, radius R),
-  // starting at angle phase and running `sense` ways round.
-  private drawArrow(ap: THREE.BufferAttribute, i: number, c: THREE.Vector3, e: THREE.Vector3, R: number, phase: number, sense: number): void {
+  // its tail at angle phase and running `sense` ways round: the arc fading
+  // in from its tail, then a filled head along the arc's last stretch.
+  private drawArrow(lines: ScreenLines, i: number, c: THREE.Vector3, e: THREE.Vector3, R: number, phase: number, sense: number, pxPerUnit: number): void {
     const u = this.au.set(1, 0, 0);
     if (Math.abs(e.x) > 0.9) u.set(0, 1, 0);
     u.sub(this.aw.copy(e).multiplyScalar(u.dot(e))).normalize();
@@ -393,24 +377,24 @@ export class GuideLayer {
     const centre = this.ac.copy(c).addScaledVector(e, ARC_HEIGHT * R);
     const r = ARC_RADIUS * R;
     const at = (phi: number, out: THREE.Vector3) => out.copy(centre).addScaledVector(u, r * Math.cos(phi)).addScaledVector(w, r * Math.sin(phi));
-    const o = i * ARROW_VERTS;
-    const p = this.ap;
+    // The head's length along the arc, as an angle: HEAD_PX on screen, at
+    // most 30 degrees of it on a small disc.
+    const head = Math.min(HEAD_PX / (pxPerUnit * r), Math.PI / 6);
+    const body = ARC_SPAN - head;
+    const o = i * ARROW_SEGS;
+    const alpha = (f: number) => 0.04 + 0.7 * f ** 1.5;
     for (let j = 0; j < ARC_SEGMENTS; j++) {
-      at(phase + (sense * ARC_SPAN * j) / ARC_SEGMENTS, p); ap.setXYZ(o + 2 * j, p.x, p.y, p.z);
-      at(phase + (sense * ARC_SPAN * (j + 1)) / ARC_SEGMENTS, p); ap.setXYZ(o + 2 * j + 1, p.x, p.y, p.z);
+      const f0 = j / ARC_SEGMENTS, f1 = (j + 1) / ARC_SEGMENTS;
+      at(phase + sense * body * f0, this.ap); at(phase + sense * body * f1, this.ah);
+      lines.set(o + j, this.ap, this.ah, STROKE, STROKE, alpha(f0), alpha(f1));
     }
-    // The head: two strokes back from the tip, either side of the arc.
-    const phi = phase + sense * ARC_SPAN;
-    const tip = at(phi, this.ah);
-    const back = this.ab.copy(u).multiplyScalar(Math.sin(phi)).addScaledVector(w, -Math.cos(phi)).multiplyScalar(sense * 0.16 * R);   // minus the tangent
-    const out = this.ao.copy(u).multiplyScalar(Math.cos(phi)).addScaledVector(w, Math.sin(phi)).multiplyScalar(0.09 * R);
-    ap.setXYZ(o + 2 * ARC_SEGMENTS, tip.x, tip.y, tip.z);
-    ap.setXYZ(o + 2 * ARC_SEGMENTS + 1, tip.x + back.x + out.x, tip.y + back.y + out.y, tip.z + back.z + out.z);
-    ap.setXYZ(o + 2 * ARC_SEGMENTS + 2, tip.x, tip.y, tip.z);
-    ap.setXYZ(o + 2 * ARC_SEGMENTS + 3, tip.x + back.x - out.x, tip.y + back.y - out.y, tip.z + back.z - out.z);
+    // The head: from the arc's end to the tip, its half width tapering
+    // from HEAD_HALF to nothing.
+    at(phase + sense * body, this.ap); at(phase + sense * ARC_SPAN, this.ah);
+    lines.set(o + ARC_SEGMENTS, this.ap, this.ah, HEAD_HALF, 0, 0.85, 0.85);
   }
   private au = new THREE.Vector3(); private aw = new THREE.Vector3(); private ac = new THREE.Vector3(); private ap = new THREE.Vector3();
-  private ah = new THREE.Vector3(); private ab = new THREE.Vector3(); private ao = new THREE.Vector3();
+  private ah = new THREE.Vector3();
 
   // The rotation of a surface material (render -> body-fixed) transposed:
   // its third row is the pole in render coordinates.
@@ -453,7 +437,8 @@ export class GuideLayer {
     this.flow.dispose();
     for (const [a, b] of this.shells.values()) { this.scene.remove(a, b); (a.material as THREE.Material).dispose(); (b.material as THREE.Material).dispose(); }
     this.shellGeometry.dispose();
-    for (const o of [this.axes, this.pulls, ...this.arrows]) { this.scene.remove(o); o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
+    for (const l of [this.axes, ...this.arrows]) { this.scene.remove(l.mesh); l.dispose(); }
+    this.scene.remove(this.pulls); this.pulls.geometry.dispose(); (this.pulls.material as THREE.Material).dispose();
     for (const t of this.tags) t.remove();
   }
 }
