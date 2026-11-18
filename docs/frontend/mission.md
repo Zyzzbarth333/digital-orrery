@@ -64,8 +64,17 @@ that can't be taken back ([DESIGN.md](../../DESIGN.md#what-real-panels-do)):
 ARM turns into a caution-yellow ARMED key (an ink legend, unlike the dark
 key of a chosen option) and says what will fly (the orbit or departure,
 6-DOF or a point mass, and the time), LAUNCH fires it, and DISARM, Esc or
-any change to the form stands it down. It adds one press and no waiting. Removing a craft is guarded the same way:
-REMOVE CRAFT asks to confirm (Remove Orbiter 1, or Keep, or Esc).
+any change to the form stands it down. It adds one press and no waiting. REMOVE CRAFT is not guarded: it acts at
+once, and the notice at the top of the tab restores the craft.
+
+Once a craft flies, the tab is short. The craft's readout (motion,
+altitude, speed, the orbit's elements, propellant and delta-v left) and
+its status line stay on top. ENGINE and MANOEUVRE NODE stay open, the
+controls used most; ATTITUDE, TRACKING and the LOG fold. Every section's
+header says what it holds, so a folded one still reads: "Holding
+prograde · 0.06°/s", "fix every 24 h · aimed", "off · 500.0 kg left",
+"none planned" or "1 planned, next 14:20 UTC", and the log's count and
+last line.
 
 - **Orbit.** A circular orbit at a chosen altitude, inclined to Earth's
   J2000 equator, starting at the ascending node.
@@ -253,11 +262,14 @@ node's burn).
 
 ## Attitude
 
-A 6-DOF craft's ATTITUDE section, above the engine:
+A 6-DOF craft's ATTITUDE section, folded above the engine:
 
-- **Mode keys,** a radio group: PROGRADE, RETROGRADE, NORMAL, ANTI-NORMAL,
-  RADIAL OUT, RADIAL IN, NODE, HOLD (the attitude it has now, fixed among
-  the stars) and FREE (thrusters off). A new craft holds prograde.
+- **Mode keys,** one radio group laid out as three opposed pairs,
+  PROGRADE and RETROGRADE, NORMAL and ANTI-NORMAL, RADIAL OUT and RADIAL
+  IN, then a row of the modes that aren't a direction: NODE, HOLD (the
+  attitude it has now, fixed among the stars) and FREE (thrusters off). A
+  new craft holds prograde. The section is folded; its header says the
+  pointing and the turn rate.
 - **Pointing:** "Holding prograde" once settled, or "Turning to prograde:
   42.1° to go" while turning. **Turn left:** the controller's own time for
   the turn still to go, from rest. **Turning:** the body rate.

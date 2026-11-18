@@ -387,6 +387,12 @@ kbd {
    legend (about 11:1), unlike the dark pressed-in look of a chosen key. */
 .key.arm[aria-pressed='true'], .key.arm[aria-pressed='true']:disabled { background: var(--caution); color: var(--ink); border-color: var(--ink); box-shadow: 0 2px 0 var(--ink); opacity: 1; }
 .guarded { display: inline-flex; gap: 6px; }
+/* MISSION's attitude keys: three opposed pairs, then the modes that aren't a
+   direction, each pair sharing its row's width. */
+.att-grid { display: grid; gap: 6px; margin-bottom: var(--u); }
+.att-grid .keys-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; }
+.att-grid .keys-row.att-modes { grid-template-columns: 1fr 1fr 1fr; }
+.att-grid .key { min-width: 0; padding: 0 6px; }
 .launch-row .hint { flex: 1 1 14em; }
 .key.primary:hover { filter: brightness(1.06); }
 
