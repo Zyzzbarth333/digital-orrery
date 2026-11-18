@@ -626,6 +626,13 @@ export const TAG_INFO = {
     where: 'i: the orbit\'s inclination to the planet\'s equator; the rate scaled by the orbit flown ten turns in the J2 field (0.15 to 0.6 % faster at 400 km over Mars); the burn the cheapest single one from the circular orbit onto the way out',
     source: 'Curtis, 4th ed., §4.7, eq. 4.52 (Example 4.8) · docs/physics/journey.md#the-parking-orbits-plane',
   },
+  // journey.js planeAt at the Moon, lunarPlane.js moonPlaneTrack
+  'journey-plane-moon': {
+    what: 'About the Moon J2 alone does not turn a low orbit\'s plane: the Moon\'s lumpy field and the Earth\'s pull do too. So the circular orbit\'s plane is flown through the stay, averaged over each turn: the field\'s even degrees at the orbit\'s pole, and the tides of the Earth and the Sun. Up to 30 days the capture is aimed for it; beyond, the plane is priced on the day, and the best day near it suggested.',
+    tex: ['\\frac{d\\hat{\\mathbf n}}{dt} = \\frac{1}{\\omega a^2}\\,\\hat{\\mathbf n}\\times\\nabla_{\\hat{\\mathbf n}}\\bar{U}', '\\bar{U}(\\hat{\\mathbf n}) = \\frac{\\mu}{a}\\sum_{n} P_n(0)\\left(\\frac{R}{a}\\right)^{n} \\sum_m \\bar{P}_{nm}(\\sin\\phi)\\,(C_{nm}\\cos m\\lambda + S_{nm}\\sin m\\lambda) - \\sum_{3} \\frac{\\mu_3 a^2}{4 d^3}\\left(3(\\hat{\\mathbf d}\\cdot\\hat{\\mathbf n})^2 - 1\\right)'],
+    where: 'n even; n̂: the orbit\'s normal, at latitude φ and longitude λ in the Moon\'s principal axes; GRAIL GL0660B to degree 30; the third bodies the Earth and the Sun; within a degree of the kernel\'s plane over 90 days 200 km up',
+    source: 'Tremaine, Touma & Namouni 2009, AJ 137, 3706, eq. 19 · Jackson, Classical Electrodynamics, 3rd ed., §3.6 · GRAIL GL0660B (Konopliv et al. 2013) · docs/physics/journey.md#the-plane-at-the-moon',
+  },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
     tex: ['\\Delta v = \\sum \\Delta v_\\text{burn}'],

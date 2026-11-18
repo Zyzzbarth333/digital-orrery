@@ -110,7 +110,10 @@ function periapsisOffset(sol, k, info = {}) {
   // 30 days at a planet): the plane it prices from, the pole and the node's
   // rate, for which the trims aim the node on the planned day.
   const pl = outLeg?.plane;
-  if (info.wayOut && pl?.priced && !pl.aimed && pl.normal && Math.abs(dot(unit(pl.normal), unit(pl.pole))) < 0.98) {
+  // At the Moon the plan flies the plane through the stay (lunarPlane.js)
+  // from its capture's plane, so the trims put the capture in that plane.
+  if (info.wayOut && pl?.priced && !pl.aimed && pl.normal && pl.model === 'moon') info.planeHold = unit(ecl(pl.normal));
+  else if (info.wayOut && pl?.priced && !pl.aimed && pl.normal && Math.abs(dot(unit(pl.normal), unit(pl.pole))) < 0.98) {
     const pole = unit(ecl(pl.pole)), f1 = unit(cross(pole, Math.abs(pole[2]) < 0.9 ? Z : [1, 0, 0]));
     info.planeTurn = { n0: unit(ecl(pl.normal)), pole, f1, f2: cross(pole, f1), rate: pl.rate, stayS: (outLeg.depMs - pl.arrMs) / 1000 };
   }
@@ -284,7 +287,7 @@ export function planFlight(sol) {
     events.push(...aims);
     // Inside the target's sphere: trim the periapsis radius alone (two-body
     // about the target, where its pull is most of the force).
-    if (without) events.push({ kind: 'approach', ms: leg.arrMs - 0.6 * tIn, body: Q.body, rp: norm(off), ...(offInfo.wayOut ? { wayOutEqj: ecl(offInfo.wayOut), untilMs: offInfo.untilMs } : {}), ...(offInfo.planeTurn ? { planeTurn: offInfo.planeTurn } : {}) });
+    if (without) events.push({ kind: 'approach', ms: leg.arrMs - 0.6 * tIn, body: Q.body, rp: norm(off), ...(offInfo.wayOut ? { wayOutEqj: ecl(offInfo.wayOut), untilMs: offInfo.untilMs } : {}), ...(offInfo.planeTurn ? { planeTurn: offInfo.planeTurn } : {}), ...(offInfo.planeHold ? { planeHold: offInfo.planeHold } : {}) });
     const wMs = leg.ringArr ? 0.25 * DAY * 1000 : Math.min(3 * DAY * 1000, Math.max(2 * 3600e3, 0.5 * (crossing(Q.body, vinQ) || DAY * 1000)));
     events.push({ kind: 'arrive', ms: leg.arrMs, body: Q.body, waypoint: k, plannedRp: norm(off), central: !!leg.ringArr, windowMs: wMs });
     // Home to the central body: how far the craft is from the aimed point.
@@ -751,8 +754,11 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       let tb = s.t + best.dt;
       if (tb - (best.m * 1000) / accel / 2 < s.t) tb += best.T;
       const from = orbitShape(e.body);
+      // How far the orbit's plane is off the way out as it leaves (for the
+      // record: the plan prices it, journey.js planeAt).
+      const { r: rNow, v: vNow } = rel(e.body, s.t), offDeg = Math.asin(Math.min(1, Math.abs(dot(unit(cross(rNow, vNow)), unit(departWant(e, s.t)))))) * 180 / Math.PI;
       burn(tb, best.d, best.m, null, null, accel);
-      out.log.push(`depart ${e.body}: ${(best.m * 1000).toFixed(0)} m/s${accel > PLAN_ACCEL ? ` (at ${accel.toFixed(0)} m/s^2)` : ''}, ${((tb - kernelSeconds(new Date(e.ms))) / 3600).toFixed(1)} h after the planned time${best.offMs !== undefined ? ` (the excess about ${bodyInfo(e.via).name} first matched to ${best.offMs.toFixed(1)} m/s${best.aimedKm !== undefined ? `, then aimed to ${best.aimedKm.toFixed(0)} km` : ''})` : ''}${bestAt !== t0 && onDay ? ` (${(onDay * 1000).toFixed(0)} m/s on the planned day)` : ''}${from ? `; from an orbit of mean a ${from.aMean.toFixed(1)} km, e ${from.e.toFixed(4)}` : ''}`);
+      out.log.push(`depart ${e.body}: ${(best.m * 1000).toFixed(0)} m/s${accel > PLAN_ACCEL ? ` (at ${accel.toFixed(0)} m/s^2)` : ''}, ${((tb - kernelSeconds(new Date(e.ms))) / 3600).toFixed(1)} h after the planned time${best.offMs !== undefined ? ` (the excess about ${bodyInfo(e.via).name} first matched to ${best.offMs.toFixed(1)} m/s${best.aimedKm !== undefined ? `, then aimed to ${best.aimedKm.toFixed(0)} km` : ''})` : ''}${bestAt !== t0 && onDay ? ` (${(onDay * 1000).toFixed(0)} m/s on the planned day)` : ''}${from ? `; from an orbit of mean a ${from.aMean.toFixed(1)} km, e ${from.e.toFixed(4)}` : ''}, the plane ${offDeg.toFixed(2)} deg off the way out`);
       continue;
     }
     if (e.kind === 'depart-ring') {
@@ -1049,11 +1055,17 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         // comes to the plan's on the planned day. Over a long stay the
         // inclination's share of the node grows (a year at Mars, 30 degrees
         // of node a degree), so an inclination within a few hundredths of a
-        // degree of the plan's does it. Otherwise (a short stay, or a stay
-        // the plan does not price) the plane holds the way out.
-        const pt = e.planeTurn;
+        // degree of the plan's does it. At the Moon (planeHold), where the
+        // plan flies the plane through the stay from its capture's, the plane
+        // is turned about the position to the nearest to the plan's: the
+        // plan's, less its part along the position. Otherwise (a short stay,
+        // or a stay the plan does not price) the plane holds the way out.
+        const pt = e.planeTurn, ph = e.planeHold;
         let cond = null;
-        if (pt && Math.abs(dot(unit(r), pt.pole)) < 0.98) {
+        if (ph) {
+          const ru = unit(r), np = unit(sub(ph, scale(ru, dot(ph, ru)))), c = unit(cross(ru, np));
+          cond = (h) => dot(unit(h), c);
+        } else if (pt && Math.abs(dot(unit(r), pt.pole)) < 0.98) {
           const nodeOf = (n) => { const q = cross(pt.pole, n); return Math.atan2(dot(q, pt.f2), dot(q, pt.f1)); };
           const c0 = dot(pt.n0, pt.pole), node0 = nodeOf(pt.n0);
           cond = (h) => {
@@ -1081,14 +1093,14 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
           // plane the other way up.
           const f = F(x), d = add(scale(bh, x[0]), scale(e2, x[1]));
           const h0 = unit(cross(r, add(v, dv))), h1 = unit(cross(r, add(v, d))), turn = Math.acos(Math.max(-1, Math.min(1, dot(h0, h1))));
-          const cap = pt ? Math.sqrt(B.mu / e.rp) * turn : Math.sqrt(B.mu / e.rp) * Math.abs(Math.asin(Math.max(-1, Math.min(1, dot(h0, w ?? h0)))));
+          const cap = pt || ph ? Math.sqrt(B.mu / e.rp) * turn : Math.sqrt(B.mu / e.rp) * Math.abs(Math.asin(Math.max(-1, Math.min(1, dot(h0, w ?? h0)))));
           if (Math.abs(f[0]) < 1e-4 && Math.abs(f[1]) < 1e-5 && turn < Math.PI / 2 && norm(d) - norm(dv) < cap) dv = d;
         }
         const m = norm(dv);
         if (m > 1e-7) {
           burn(s.t + durOf(m) / 2, dv, m);
           const nodeOff = (q) => (cond && pt ? (cond(cross(r, q)) * 180 / Math.PI).toFixed(3) : '');
-          out.log.push(`trim at ${e.body}: ${(m * 1000).toFixed(2)} m/s, periapsis ${rpOf([0, 0, 0]).toFixed(0)} to ${rpOf(dv).toFixed(0)} km${w ? `, the plane ${(Math.asin(Math.max(-1, Math.min(1, dot(unit(cross(r, v)), w)))) * 180 / Math.PI).toFixed(2)} to ${(Math.asin(Math.max(-1, Math.min(1, dot(unit(cross(r, add(v, dv))), w)))) * 180 / Math.PI).toFixed(2)} deg off the way out` : ''}${cond && pt ? `, the node on the planned day ${nodeOff(v)} to ${nodeOff(add(v, dv))} deg off the plan's` : ''}`);
+          out.log.push(`trim at ${e.body}: ${(m * 1000).toFixed(2)} m/s, periapsis ${rpOf([0, 0, 0]).toFixed(0)} to ${rpOf(dv).toFixed(0)} km${w ? `, the plane ${(Math.asin(Math.max(-1, Math.min(1, dot(unit(cross(r, v)), w)))) * 180 / Math.PI).toFixed(2)} to ${(Math.asin(Math.max(-1, Math.min(1, dot(unit(cross(r, add(v, dv))), w)))) * 180 / Math.PI).toFixed(2)} deg off the way out` : ''}${cond && pt ? `, the node on the planned day ${nodeOff(v)} to ${nodeOff(add(v, dv))} deg off the plan's` : ''}${ph ? `, the plane ${(Math.acos(Math.max(-1, Math.min(1, dot(unit(cross(r, v)), ph)))) * 180 / Math.PI).toFixed(3)} to ${(Math.acos(Math.max(-1, Math.min(1, dot(unit(cross(r, add(v, dv))), ph)))) * 180 / Math.PI).toFixed(3)} deg off the plan's` : ''}`);
         }
         const tp = s.t + timeToPeriapsis(r, add(v, dv), B.mu);
         peri.set(e.body, tp);

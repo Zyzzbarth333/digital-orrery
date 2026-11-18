@@ -475,12 +475,8 @@ up to about 19,600 km over Mars and 21,000 km over the Earth (the limits
 set by the Sun and the Moon), and 320,000 km over Jupiter (by Io). The leg
 says why when it is not priced.
 
-**The Moon is not priced.** The Earth's pull and the Moon's own field
-turn a low lunar orbit's plane, not J2 alone. When the flight first tried
-a J2-only rate there, a week turned the plane 4° the other way. For a stay
-of up to a month the flight flies the stay to aim the capture (the plane
-is then held). Beyond that the departure waits for the plane, and the plan
-does not price it.
+**At the Moon** the plane is priced another way:
+[below](#the-plane-at-the-moon).
 
 The case in the tests is a year in Mars orbit, then home: 400 km up,
 arriving 7 Sep 2027, a 364-day stay. The orbit is 150.6° to Mars's
@@ -509,6 +505,123 @@ the plan's (151.1° for 150.6°). Its node turned 0.3 % faster, 11° over the
 year, and the departures were 3.5 % (planned day) and 4.3 % (lamp's day)
 over the plan. The rate model itself was right: `flownNodeRate` from the
 flown orbit gives the kernel's rate over the year to 0.0001° a day.
+
+### The plane at the Moon
+
+About the Moon, J2 alone does not turn a low orbit's plane. The Moon's
+J2 is a tenth of the Earth's, its $C_{22}$ is a tenth of its J2 and turns
+with the Moon once a month, its field is lumpy (the mascons), and the
+Earth's tide is a few per cent of J2's pull 100 km up. When the flight
+first tried a J2-only rate there, a week turned the plane 4° the other
+way. So `lunarPlane.js` flies the plane through the stay, averaged over
+each turn of the orbit, in the Moon's whole field and the Earth's and the
+Sun's tides.
+
+- **The averaged motion.** For a circular orbit of radius $a$ and unit
+  normal $\hat{\mathbf n}$, the force function $U$ ($\mathbf F = \nabla U$)
+  averaged over a turn is a function of $\hat{\mathbf n}$ alone,
+  $\bar U(\hat{\mathbf n})$. The torque on the orbit,
+  $\langle\mathbf r\times\nabla U\rangle$, turns its angular momentum
+  $\sqrt{\mu a}\,\hat{\mathbf n}$:
+  $$\frac{d\hat{\mathbf n}}{dt} = \frac{1}{\omega a^2}\,\hat{\mathbf n}\times\nabla_{\hat{\mathbf n}}\bar U,\qquad \omega = \sqrt{\mu/a^3}.$$
+  This is the secular equation for the angular momentum vector of
+  Tremaine, Touma and Namouni [10, eq. (19)] at zero eccentricity, there
+  for J2 and a tide, here for any field.
+- **The field.** Averaged round a great circle, a spherical harmonic
+  $Y_{nm}$ is $P_n(0)\,Y_{nm}$ at the circle's pole (the addition theorem
+  for spherical harmonics [11, Sec. 3.6]). So
+  $$\bar U_\text{field}(\hat{\mathbf n}) = \frac{\mu}{a}\sum_{n\ \text{even}} P_n(0)\Big(\frac{R}{a}\Big)^n\sum_m \bar P_{nm}(\sin\phi)\,(\bar C_{nm}\cos m\lambda + \bar S_{nm}\sin m\lambda),$$
+  at the normal's latitude $\phi$ and longitude $\lambda$ in the Moon's
+  principal axes: the field itself, its odd degrees gone ($P_n(0) = 0$)
+  and each even one weighed by $P_n(0)(R/a)^n$. Its gradient over the
+  sphere is that field's acceleration (`geopotential.js`) at radius $R$
+  along $\hat{\mathbf n}$, times $R^2/a$; the radial part drops out of the
+  cross product. The field is GRAIL GL0660B [12] to degree 30, in the
+  kernel's frame (`environment.js`: the principal axes from the
+  mean-Earth ones of `orientation.js`). With J2 alone it is Curtis
+  eq. (4.52) [1] (CASE 18, to $10^{-9}$).
+- **The tides** of the Earth and the Sun, $\mu_3$ at $\mathbf d$ from the
+  Moon:
+  $\bar U_\text{tide} = -\tfrac{\mu_3 a^2}{4d^3}\big(3(\hat{\mathbf d}\cdot\hat{\mathbf n})^2 - 1\big)$,
+  the quadrupole tide [10, Sec. 2] averaged round the circle (CASE 18,
+  against the torque summed round it, to $10^{-6}$).
+- **Flown through the stay** by RK4 in 12-hour steps (the fastest part,
+  $C_{22}$ and the Earth's tide as the Moon turns, has a period of half a
+  month: 3-hour steps give the same plane to 0.001° over 90 days). The
+  Moon's axes and the Earth and the Sun are taken from the ephemeris at
+  each half step and kept, so every trial plane of one stay shares them.
+  A journey with a 75-day stay solves in about 10 ms (60 ms the first
+  time).
+- **The price** is then as at a planet: the angle off the way out on the
+  day, the cheapest burn from the circular orbit in that plane
+  (`leaveCircularDv`), and the day near it the plane holds the way out
+  (`planeOption`, about 0.2 s, in the worker). Leaving the Moon for
+  another planet (via the Earth), the flight does not wait for the plane,
+  so neither does the plan's estimate of it. Up to 30 days the flight
+  still aims the capture for the stay (`stayTurned`), and the plan marks
+  the plane held.
+- **Quick, for the searches.** The window strip, the porkchop and the
+  best phase price thousands of days and flight times, each with its own
+  capture plane. They take the field's degree 2 and the tides alone, one
+  3 × 3 tensor a step shared by every trial: 0.5 ms for 120 days, against
+  8 ms at degree 30 (degree 2 is within 0.7 to 2° of the kernel over 90
+  days, the table below). `planeOption` scans its days so, and prices its
+  three cheapest and the planned day again at degree 30. Leaving the Moon
+  for Mars, the leg's options take 3.9 s instead of 2.7 (23 s with
+  degree 30 throughout).
+- **Up to 120 days.** Beyond, the eccentricity the stay raises (which the
+  model leaves out) has grown to several hundredths, many low orbits have
+  fallen, and the plane is not priced.
+- **The capture's plane.** The trims at the approach put the capture in
+  the plan's plane, or the nearest to it that holds the craft's position
+  ([Flying it](#flying-it), step 3). The kernel's way in at the Moon is
+  close to the patched conics': in the case below its plane was 0.06° off
+  the plan's, and the trims brought it to 0.05°, the nearest that holds
+  the position.
+
+Against the kernel, a circular orbit flown in the full model (Earth's and
+the Moon's fields, GRAIL to degree 50, the tides, sunlight), its plane
+compared with the averaged one at degree 30:
+
+| The orbit (from 10 Jan 2027, or 5 Dec 2026) | The plane moved | Degree 30 off the kernel's, at most | Degree 2 (quick) |
+| --- | --- | --- | --- |
+| 100 km up, 60° to the equator, 90 d | 48.3° | 0.08° | 0.66° |
+| 100 km up, 85°, 90 d | 7.6° | 0.05° | 2.1° |
+| 100 km up, 30°, 90 d | 45.4° | 1.9° | 2.2° |
+| 200 km up, 173° (as Earth to the Moon comes in), 90 d | 9.8° | 0.73° | 1.1° |
+| 300 km up, 173°, 90 d | 8.7° | 0.24° | 0.73° |
+
+Each row is one run of `lunarPlane.js` against a kernel flight, made
+while building it, not in the tests (the kernel takes a minute a row);
+CASE 18 checks the first row's kind for 30 days at degree 10 in both.
+Keeping only the zonal terms beyond degree 2 does not do: the 60° orbit
+is then 0.70° off, so the tesseral terms matter.
+
+What it leaves out is the eccentricity the field's odd degrees raise, to
+0.01 to 0.07 over three months, and what that couples into the plane,
+most where the orbit is near the equator. Near the equator, 100 km up,
+that eccentricity brings the orbit down: 13 days at 7°, 48 days at 173°,
+and 74 days at 150°; 200 km up, it holds three months. The plan does not
+warn of it.
+
+The case in the tests is the Earth to the Moon, 75 days 200 km up from
+5 Dec 2026, and home. A journey from the Earth comes in near the Moon's
+orbit plane, so the orbit is 172.9° to the Moon's equator (retrograde).
+Its node turns 0.927° a day on average (J2 alone: 0.990), and its
+inclination comes to 172.5°. On the planned day the plane is 8.04° off
+the way out (J2 alone: 8.40°), and the departure costs 921 m/s instead
+of 831 in the plane.
+
+| | The plan | Flown (full model) |
+| --- | --- | --- |
+| The plane on the planned day | 8.04° off the way out | 8.09° off |
+| The departure on the planned day | 921 m/s | 908 m/s (1.4 %) |
+| Re-timed a day earlier (planeOption) | 7.72° off, 912 m/s | on time, 7.80° off, 899 m/s (1.5 %) |
+
+Before, the plan said "not priced" and charged the burn in the plane,
+831 m/s: 9 % under the flight. What is left is the eccentricity: the
+flight leaves an orbit the stay has made eccentric (e 0.044), which the
+plan's circular orbit does not have.
 
 ## The options for a leg, compared
 
@@ -690,6 +803,11 @@ Each step, in time order:
      the periapsis and the node. A year at Mars, the trims come to 0.44 m/s
      (holding the way out, 0.59), and the node on the planned day is
      within 0.001° of the plan's.
+   - **The plane, over a long stay at the Moon:** there the plan flies the
+     plane through the stay from its capture's plane
+     ([above](#the-plane-at-the-moon)), so the trim turns the plane about
+     the position to the nearest to the plan's: the plan's normal less its
+     part along the position. It is Newton on the same two components.
    - **Taken only if worth it:** the plane is changed only if that costs
      less extra than the same turn of the circular orbit's plane would,
      about the circular speed times the angle [1, eq. (6.20)] (holding the
@@ -1195,13 +1313,17 @@ orbits, waits 454 days.
 | The same: the plane on the planned day, priced and flown | the flight's departure (within 1 %) | 23.1° off, 2,829 m/s; flown 2,840 (0.4 %; 3.5 % with the trims holding only the way out, 4.5 % before the capture was circular) |
 | The same: the flight's wait for the plane, planned and flown | the flight's departure (half a day, 1 %) | 13.24 d and 2,027 m/s; flown 13.23 d and 2,022 (0.2 %) |
 | The same, leaving on the parking orbit lamp's day (6 d later) | the plan (on time, 1 %) | leaves on time, 2,004 m/s against 2,008 (0.2 %; 4.3 % with the trims holding only the way out); Mars 0.6 km, Earth 24 km |
+| The plane at the Moon, averaged (`lunarPlane.js`): J2 alone; GRAIL's degree 2 as one tensor; the Earth's tide | Curtis eq. (4.52); the addition theorem's averaged field; the tide's torque summed round 3,600 points | the node to 10⁻⁹ (0.59947° a day at 60°, 100 km up), the inclination held; the tensor the field's gradient to 10⁻¹⁵; the tide to 10⁻¹⁴ |
+| The same, against the kernel: 100 km up at 60°, 30 days, both at degree 10 | the kernel (0.1°, a tenth of J2 alone's miss) | the plane moved 16.08°; the model 0.018° off, J2 alone 0.58° |
+| 75 days 200 km over the Moon from 5 Dec 2026, then home, flown | the full-model flight (the plane 0.5°, the burn 2 %) | the plan 8.04° off the way out on the planned day (J2 alone 8.40°), 921 m/s; flown 8.09°, 908 m/s (1.4 %); the capture's plane 0.05° off the plan's; Earth reached |
+| The same, leaving on the plan's day for the plane (1 d earlier) | the plan (on time, 0.5°, 2 %) | 7.72° off, 912 m/s; flown on time, 7.80°, 899 m/s (1.5 %) |
 | The node's J2 regression, 280 by 400 km at 51.43° | Curtis Ex 4.8, eq. (4.52) | −1.0465 × 10⁻⁶ rad/s, 5.181° a day west |
 | The node 400 km over Mars at 150.6°, ten days in the kernel, from the node and 90° past it | the kernel | eq. (4.52) 0.58 and 0.15 % slow (within 1 %); flown ten turns in the J2 field, 0.06 and 0.04 % (within 0.25 %) |
 | The same orbit, the trial at the mean radius, started 0 to 135° past the node | its mean semi-major axis; the starts tilted 0.03° | the mean semi-major axis the planned one to 1 m; node rates 0.06 % apart (within 0.1 %; started circular, 0.46 %); the rest the inclination's term within a turn (tilted, 0.001 %, within 0.005 %) |
 | The node 1.5 Jupiter radii out at 30°, three days in the kernel (its field to J12, its moons), averaged over a turn at each end | the kernel | flown in the same zonal field, 0.03 % (within 0.25 %); in J2 alone, 2.5 % slow |
 | A stay 36,000 km over Jupiter, priced with and without the terms beyond J2 | the plan's own rate | ×1.076 of eq. (4.52) in the full field, ×1.026 in J2 alone: the planner takes the field |
 | The burn from a circular orbit 400 km over Mars onto 2.48 km/s, 0 to 45° out of its plane | Curtis eq. (8.42); a scan of 7,200 points; burning at the planes' node | 2,000.4 m/s in the plane (eq. (8.42) to 1 mm/s); 2,057, 2,420, 2,931, 4,044 m/s at 5, 15, 25, 45°, the scan to 0.1 m/s, never over the node bound |
-| Where the plane is priced | the rules above | a month at Mars and 3 d at the Moon held; 40 d at the Moon and 30,000 km over Mars not priced, and why |
+| Where the plane is priced | the rules above | a month at Mars and 3 d at the Moon held; 40 d at the Moon priced by its field; 30,000 km over Mars not priced, and why |
 | The strip leaving Mars after a year, and the parking orbit lamp | the leg solved there | every 2 days, each point with its plane; the lamp at the day the profile names |
 | The descent orbit burn, 100 to 15 km over the Moon | a Hohmann transfer's first burn (Curtis 6.2) | equal to 10⁻¹² |
 | An entry periapsis at 3 km/s over Mars | geometry (h = R v_R cos γ) | the hyperbola meets the ground at 12° to 10⁻⁹ |
@@ -1279,8 +1401,11 @@ orbits, waits 454 days.
   circular orbits. "As scheduled" and the porkchop optimum use the real
   ones.
 - **The parking orbit's plane:** J2 alone, about a planet, for a circular
-  orbit. The plane is not priced at the Moon, high over a planet, or after
-  an orbit change, a landing or a moon's orbit. A year at Mars carries the
+  orbit; at the Moon, the field and the tides averaged over a circular
+  orbit, without the eccentricity the stay raises (up to 2° of plane and
+  1.5 % of the departure over three months). The plane is not priced high
+  over a planet, or after an orbit change, a landing or a moon's orbit
+  other than the Moon. A year at Mars carries the
   node to within about 5° of the flight's, and so the parking orbit lamp's day to
   within a day or so.
 
@@ -1303,3 +1428,9 @@ orbits, waits 454 days.
 [8] P. M. Lion and M. Handelsman, "Primer vector on fixed-time impulsive trajectories," *AIAA J.*, vol. 6, no. 1, pp. 127–132, 1968, doi: 10.2514/3.4452. The cost's gradient with an interior burn's place and time.
 
 [9] D. J. Jezewski, "Primer vector theory and applications," NASA, Houston, TX, USA, Tech. Rep. NASA TR R-454, 1975. [Online]. Available: https://ntrs.nasa.gov/citations/19760004112. The same, and its use in searching.
+
+[10] S. Tremaine, J. Touma, and F. Namouni, "Satellite dynamics on the Laplace surface," *Astron. J.*, vol. 137, no. 3, p. 3706, 2009, doi: 10.1088/0004-6256/137/3/3706. The secular equations of a satellite's angular momentum and eccentricity vectors under a quadrupole and a tide, eq. (19).
+
+[11] J. D. Jackson, *Classical Electrodynamics*, 3rd ed. New York, NY, USA: Wiley, 1999. The addition theorem for spherical harmonics, Sec. 3.6.
+
+[12] A. S. Konopliv *et al.*, "The JPL lunar gravity field to spherical harmonic degree 660 from the GRAIL Primary Mission," *J. Geophys. Res. Planets*, vol. 118, no. 7, pp. 1415–1434, 2013, doi: 10.1002/jgre.20097.
