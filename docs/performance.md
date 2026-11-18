@@ -203,6 +203,36 @@ the overview of a low orbit:
 What remains is mostly the GPU, which half the frame waits on near the
 Earth (the atmosphere fills the view).
 
+### Earth satellites
+
+Measured on 18 November 2026: main at the branch point (39fd9ca) and
+feat/satellites, production builds, interleaved, headless as above at
+1920 × 1080 and DPR 1. The view is the Earth from 51,000 km, at real time
+unless marked, with the layer switched off and on in the same page. Median
+frame, ms:
+
+| Scene | Intel | RTX |
+| --- | ---: | ---: |
+| Earth, main | 14.7–16.0 | 6.9–7.0 |
+| Earth, satellites off | 15.0–15.9 | 6.4–6.6 |
+| Earth, all 16,892 on | 18.1–19.5 | 6.6–6.7 |
+| the same at an hour a second | 19.4–19.5 | 7.1 |
+| the same at a day a second (main: Intel 15.9–16.0, RTX 8.2) | 20.0–20.5 | 7.5 |
+| following the ISS | 15.1 (a second run, 24.6, shared the GPU with another session's browser) | 6.8 |
+
+The first timing had the layer at 4–6 ms on the Intel GPU at real time and
+10 ms at a day a second. Switching parts off in turn found three costs:
+
+- **The markers, about 4 ms.** 85 markers moved every frame, though their
+  script took 0.5 ms. Now a constellation member's marker shows only
+  within 20,000 km of the camera, or when it is focused.
+- **The orbits, about 3.6 ms.** 85 lines, mostly in draw calls. Now the
+  constellations' 82 are one line set, drawn at once.
+- **The points, about 2 ms**, as they are.
+
+At high rates the worker's results also went to the GPU every frame (0.7 MB
+each). They are now sent at most ten times a second.
+
 ### The panels
 
 The panels read the clock through `useSyncExternalStore`, which re-renders

@@ -615,4 +615,43 @@ export const TAG_INFO = {
     where: 'û: the axis, turning into the wind with a 0.1 s lag; C_D by Mach number M from the record',
     source: 'checked against OpenRocket and RocketPy · docs/physics/rocket.md',
   },
+  // satellites.js stateEqj (SGP4 via satellite.js, then temeToEqj)
+  'sat-position': {
+    what: 'Where the satellite is now: SGP4 run from its element set, the theory the elements were fitted with, then turned from SGP4\'s TEME frame into J2000.',
+    tex: ['\\mathbf r_\\text{J2000} = P^\\text{T} N^\\text{T} R_3(-E_q)\\,\\mathbf r_\\text{TEME}', 'E_q = \\Delta\\psi\\cos\\varepsilon'],
+    where: 'P: IAU 1976 precession; N: IAU 1980 nutation; E_q: the equation of the equinoxes without its 1994 terms. An element set is good to about a kilometre at its epoch, and drifts by a few kilometres a day from it (more in low orbit, with the drag)',
+    source: 'Hoots and Roehrich, Spacetrack Report No. 3 (1980); Vallado et al., AIAA 2006-6753, eq. C-3; satellite.js (MIT) · docs/frontend/satellites.md',
+  },
+  'sat-elements': {
+    what: 'The satellite\'s general perturbations (GP) element set, as the US Space Force publishes it: SGP4 mean elements at the epoch, not the osculating ellipse.',
+    tex: [],
+    where: 'mean motion in revolutions a day; B*: SGP4\'s drag term, per Earth radius',
+    source: 'CelesTrak GP data (celestrak.org), from the US Space Force via Space-Track.org',
+  },
+  // satellites.js meanOrbit
+  'sat-orbit': {
+    what: 'The orbit\'s size from SGP4\'s mean elements: its semi-major axis from the mean motion, and the heights of perigee and apogee above the Earth\'s equatorial radius.',
+    tex: ['a = \\left(\\frac{\\mu}{n^2}\\right)^{1/3},\\quad h_p = a(1 - e) - R_\\oplus,\\quad h_a = a(1 + e) - R_\\oplus'],
+    where: 'μ and R⊕ = 6,378.135 km from WGS-72, SGP4\'s own constants; n Brouwer\'s mean motion (SGP4\'s initialisation)',
+    source: 'Hoots and Roehrich, Spacetrack Report No. 3 (1980)',
+  },
+  'sat-epoch': {
+    what: 'When the element set is for, and how far the clock is from it. SGP4\'s error grows with the time from epoch: element sets are refitted every few hours to days.',
+    tex: [],
+    source: 'CelesTrak GP data, EPOCH (UTC)',
+  },
+  // satellites.js inShadow
+  'sat-shadow': {
+    what: 'Whether the Sun lights the satellite or the Earth hides it: behind the Earth and within the Earth\'s radius of the line through the Earth\'s centre from the Sun.',
+    tex: ['\\mathbf r\\cdot\\hat{\\mathbf s} < 0,\\quad |\\mathbf r - (\\mathbf r\\cdot\\hat{\\mathbf s})\\,\\hat{\\mathbf s}| < R_\\oplus'],
+    where: 'ŝ: the Sun\'s direction from the Earth (DE442). A cylinder: the umbra\'s cone narrows by 0.27° of its own, and the penumbra is left out (a few seconds in low orbit)',
+    source: 'docs/frontend/satellites.md',
+  },
+  // satellite-plate.tsx height
+  'sat-height': {
+    what: 'Height above the WGS-84 ellipsoid, at the satellite\'s geocentric latitude.',
+    tex: ['h = |\\mathbf r| - \\frac{ab}{\\sqrt{b^2\\cos^2\\phi + a^2\\sin^2\\phi}}'],
+    where: 'a = 6,378.137 km, b = 6,356.752 km; φ: geocentric latitude, from the equator of J2000 (the pole of date is 0.3° from it: under a kilometre of height)',
+    source: 'WGS-84 (NIMA TR8350.2)',
+  },
 };
