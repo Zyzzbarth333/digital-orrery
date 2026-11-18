@@ -152,6 +152,23 @@ check(Math.abs((360 - J.dipole.lonEast) - 196.38) < 0.005, `  toward ${(360 - J.
   // "approach a maximum of 20 Gauss in the north ... and 12 Gauss in the south".
   check(Math.abs(peakN[0] - 20) < 1.5 && Math.abs(peakS[0] - 12) < 1, `|B| along the Io footprint peaks at ${peakN[0].toFixed(1)} G north and ${peakS[0].toFixed(1)} G south (paper: about 20 and 12)`);
 }
+// Europa's (9.4 R_J) and Ganymede's (15 R_J) footprints against the same
+// tables, where the current sheet matters more.
+{
+  const fx = fixture('jrm33_io_footprints.json'), surf = { eq: 1, pol: 1 - 1 / 15.4 };
+  for (const [moon, r, limit] of [['europa', 9.4, 1.5], ['ganymede', 15.0, 2.5]]) {
+    let worst = 0, sum2 = 0, n = 0;
+    for (const hemi of ['north', 'south']) for (const [wl, lat, wlon] of fx[moon][hemi]) {
+      const e = -wl * DEG, p = [r * Math.cos(e), r * Math.sin(e), 0];
+      const fp = [footprint(J, p, 1, surf), footprint(J, p, -1, surf)].find((q) => q && (hemi === 'north') === (q[2] > 0));
+      const la = Math.atan2(fp[2], Math.hypot(fp[0], fp[1])) / DEG, lw = (((-Math.atan2(fp[1], fp[0])) / DEG) % 360 + 360) % 360;
+      let dl = Math.abs(lw - wlon); dl = Math.min(dl, 360 - dl);
+      const err = Math.hypot(la - lat, dl * Math.cos(lat * DEG));
+      worst = Math.max(worst, err); sum2 += err * err; n++;
+    }
+    check(worst < limit, `${moon[0].toUpperCase() + moon.slice(1)}'s footprints at ${n} longitudes: within ${worst.toFixed(2)} deg of arc of the paper's, rms ${Math.sqrt(sum2 / n).toFixed(2)} (limit ${limit})`);
+  }
+}
 // The current sheet: Edwards et al.'s forms are smooth across rho = r0 and
 // the field is divergence-free away from the sheet's edges.
 {

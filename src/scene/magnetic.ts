@@ -203,7 +203,8 @@ export class MagneticLayer {
   private earthAurora: THREE.Mesh | null = null;
   private earthKey = '';
   private giant = new Map<BodyKey, { mesh: THREE.Mesh | null; jobs: (() => void)[]; done: boolean }>();
-  private io: { table: { north: (V3 | null)[]; south: (V3 | null)[] } | null; next: number; mesh: THREE.Mesh | null } = { table: null, next: 0, mesh: null };
+  // The moons' footprint spots: a table of footprints every 5 deg of the moon's longitude, and the mesh.
+  private spots = new Map<string, { table: { north: (V3 | null)[]; south: (V3 | null)[] }; next: number; mesh: THREE.Mesh | null; key: number }>();
   private kpNow: { kp: number; source: string } = { kp: 2, source: 'assumed' };
 
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, private baseUrl: string) {
@@ -300,7 +301,7 @@ export class MagneticLayer {
       if (k === 'earth' && !this.on.aurora) { if (this.earthAurora) this.earthAurora.visible = false; if (this.ovationMesh) this.ovationMesh.visible = false; }
       const gi = this.giant.get(k);
       if (gi?.mesh) gi.mesh.visible = this.on.aurora;
-      if (this.io.mesh && k === 'jupiter') this.io.mesh.visible = this.on.aurora;
+      for (const [m, sp] of this.spots) if (sp.mesh && this.aur!.FOOTPRINT_MOONS[m as keyof typeof this.aur.FOOTPRINT_MOONS].planet === k) sp.mesh.visible = this.on.aurora;
 
       // A tag at the dipole's end for the focused body.
       if (k === f.focus && px > 10 && this.on.magnetic) this.poleTag(k, L, g, f.camera, f.width, f.height);
@@ -315,7 +316,7 @@ export class MagneticLayer {
       const m = k === 'earth' ? this.earthAurora : this.giant.get(k)?.mesh;
       if (m) (m.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     }
-    if (this.io.mesh) (this.io.mesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
+    for (const sp of this.spots.values()) if (sp.mesh) (sp.mesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     if (this.ovationMesh) (this.ovationMesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     for (const b of this.beltMeshes.values()) for (const sh of b.shells) (sh.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
 
@@ -559,22 +560,25 @@ export class MagneticLayer {
       this.giant.set(k, gi);
     }
     while (gi.jobs.length && spare() > 0) gi.jobs.shift()!();
-    if (k !== 'jupiter' || !gi.mesh) return;
-    // Io's footprint table, every 5 deg of Io's System III longitude.
-    if (!this.io.table) this.io.table = { north: [], south: [] };
-    const tbl = this.io.table;
-    while (this.io.next < 72 && spare() > 0) {
-      const f = aur.ioFootprint(L.model, this.io.next * 5, L.surface);
-      tbl.north.push(f.north as V3 | null); tbl.south.push(f.south as V3 | null);
-      this.io.next++;
+    if (!gi.mesh) return;
+    // The moons' footprint spots, each from a table of its footprints every
+    // 5 deg of its System III longitude, filled a few traces a frame.
+    for (const [moon, info] of Object.entries(aur.FOOTPRINT_MOONS)) {
+      if (info.planet !== k) continue;
+      let sp = this.spots.get(moon);
+      if (!sp) { sp = { table: { north: [], south: [] }, next: 0, mesh: null, key: NaN }; this.spots.set(moon, sp); }
+      while (sp.next < 72 && spare() > 0) {
+        const f = aur.moonFootprint(L.model, sp.next * 5, L.surface, info.r);
+        sp.table.north.push(f.north as V3 | null); sp.table.south.push(f.south as V3 | null);
+        sp.next++;
+      }
+      if (sp.next < 72) continue;
+      // The moon's longitude now, in the planet's frame.
+      const mm = meshes.get(moon as BodyKey), pm = meshes.get(k)!;
+      if (!mm) continue;
+      const rel = this.w.copy(mm.position).sub(pm.position).applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3);
+      this.moonSpot(moon, sp, ((Math.atan2(rel.y, rel.x) * 180) / Math.PI + 360) % 360, g);
     }
-    if (this.io.next < 72) return;
-    // Io's longitude now, in Jupiter's frame.
-    const ioMesh = meshes.get('io' as BodyKey), jm = meshes.get('jupiter')!;
-    if (!ioMesh) return;
-    const rel = this.w.copy(ioMesh.position).sub(jm.position).applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3);
-    const lon = ((Math.atan2(rel.y, rel.x) * 180) / Math.PI + 360) % 360;
-    this.ioSpot(tbl, lon, g);
   }
 
   private bandMesh(edges: { north: (V3 | null)[]; south: (V3 | null)[] }[], intensity: number): THREE.Mesh {
@@ -616,59 +620,64 @@ export class MagneticLayer {
     return mesh;
   }
 
-  // Io's spot and its tail: the footprints of Io's last 60 deg of System
-  // III longitude (Jupiter turns faster than Io orbits, so Io's longitude
-  // falls; the plasma it has disturbed lies at the larger longitudes).
-  private ioKey = -1;
-  private ioSpot(tbl: { north: (V3 | null)[]; south: (V3 | null)[] }, lon: number, g: THREE.Group): void {
+  // A moon's spot and its tail. The spot sits downstream of the moon's
+  // instantaneous footprint by Hue et al.'s lead angle; the tail runs on
+  // from it over the footprints of the moon's earlier longitudes (the planet
+  // turns faster than the moon orbits, so the moon's east longitude falls and
+  // the plasma it disturbed lies at larger ones): 60 deg for Io's long tail,
+  // 20 for the others'.
+  private moonSpot(moon: string, sp: { table: { north: (V3 | null)[]; south: (V3 | null)[] }; mesh: THREE.Mesh | null; key: number }, lon: number, g: THREE.Group): void {
     const key = Math.round(lon * 4);
-    if (key === this.ioKey && this.io.mesh) return;
-    this.ioKey = key;
+    if (key === sp.key && sp.mesh) return;
+    sp.key = key;
+    const tbl = sp.table, aur = this.aur!;
     const at = (h: 'north' | 'south', L: number): V3 | null => {
       const f = (((L % 360) + 360) % 360) / 5, i = Math.floor(f), u = f - i, a = tbl[h][i % 72], b = tbl[h][(i + 1) % 72];
       if (!a || !b) return a ?? b;
       const p: V3 = [a[0] + u * (b[0] - a[0]), a[1] + u * (b[1] - a[1]), a[2] + u * (b[2] - a[2])], r = Math.hypot(...p);
       return [(p[0] / r) * 1.006, (p[1] / r) * 1.006, (p[2] / r) * 1.006];
     };
+    const bright = moon === 'io' ? 1.6 : moon === 'enceladus' ? 0.6 : 1, tail = moon === 'io' ? 60 : 20;
+    const SPOT = moon === 'io' ? 0.006 : 0.004, STEPS = 24;
     const pos: number[] = [], em: number[] = [], idx: number[] = [];
-    const SPOT = 0.006, STEPS = 24;
     for (const h of ['north', 'south'] as const) {
-      // The spot: a small diamond facing out.
-      const c = at(h, lon);
+      const lead = aur.leadAngle(moon, h, (360 - lon) % 360), lon0 = lon + lead;
+      // The spot: a small disc facing out.
+      const c = at(h, lon0);
       if (!c) continue;
       const n = new THREE.Vector3(...c).normalize(), t1 = new THREE.Vector3(0, 0, 1).cross(n).normalize(), t2 = n.clone().cross(t1);
       const base = pos.length / 3;
       pos.push(...c);
-      em.push(UV.r * 1.6, UV.g * 1.6, UV.b * 1.6);
+      em.push(UV.r * bright, UV.g * bright, UV.b * bright);
       for (let j = 0; j < 8; j++) {
         const a = (j / 8) * 2 * Math.PI;
         pos.push(c[0] + SPOT * (Math.cos(a) * t1.x + Math.sin(a) * t2.x), c[1] + SPOT * (Math.cos(a) * t1.y + Math.sin(a) * t2.y), c[2] + SPOT * (Math.cos(a) * t1.z + Math.sin(a) * t2.z));
         em.push(0, 0, 0);
       }
       for (let j = 0; j < 8; j++) idx.push(base, base + 1 + j, base + 1 + ((j + 1) % 8));
-      // The tail, a ribbon fading over 60 deg.
+      // The tail, a ribbon fading downstream.
       const tb = pos.length / 3;
-      for (let s = 0; s <= STEPS; s++) {
-        const p = at(h, lon + (60 * s) / STEPS);
+      for (let st = 0; st <= STEPS; st++) {
+        const p = at(h, lon0 + (tail * st) / STEPS);
         if (!p) continue;
-        const q = new THREE.Vector3(...p), w = 0.8 * (1 - s / STEPS) ** 1.5, side = new THREE.Vector3(0, 0, 1).cross(q).normalize().multiplyScalar(SPOT * 0.35);
+        const q = new THREE.Vector3(...p), w = 0.5 * bright * (1 - st / STEPS) ** 1.5, side = new THREE.Vector3(0, 0, 1).cross(q).normalize().multiplyScalar(SPOT * 0.35);
         pos.push(q.x - side.x, q.y - side.y, q.z - side.z, q.x + side.x, q.y + side.y, q.z + side.z);
         em.push(UV.r * w, UV.g * w, UV.b * w, UV.r * w, UV.g * w, UV.b * w);
       }
       const nT = (pos.length / 3 - tb) / 2;
-      for (let s = 0; s < nT - 1; s++) { const i0 = tb + 2 * s; idx.push(i0, i0 + 2, i0 + 1, i0 + 1, i0 + 2, i0 + 3); }
+      for (let st = 0; st < nT - 1; st++) { const i0 = tb + 2 * st; idx.push(i0, i0 + 2, i0 + 1, i0 + 1, i0 + 2, i0 + 3); }
     }
-    if (!this.io.mesh) {
-      this.io.mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.ShaderMaterial({
+    if (!sp.mesh) {
+      sp.mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.ShaderMaterial({
         vertexShader: auroraVertex, fragmentShader: auroraFragment, transparent: true, depthWrite: false, toneMapped: false,
         blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
         uniforms: { level: { value: 1 }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, dayFade: { value: 0 } },
       }));
-      this.io.mesh.frustumCulled = false;
-      this.io.mesh.renderOrder = 4;
-      g.add(this.io.mesh);
+      sp.mesh.frustumCulled = false;
+      sp.mesh.renderOrder = 4;
+      g.add(sp.mesh);
     }
-    const geo = this.io.mesh.geometry;
+    const geo = sp.mesh.geometry;
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('emission', new THREE.Float32BufferAttribute(em, 3));
     geo.setIndex(idx);
@@ -805,7 +814,7 @@ export class MagneticLayer {
   dispose(): void {
     for (const k of [...this.lines.keys()]) this.drop(k);
     for (const gi of this.giant.values()) if (gi.mesh) { gi.mesh.geometry.dispose(); (gi.mesh.material as THREE.Material).dispose(); }
-    if (this.io.mesh) { this.io.mesh.geometry.dispose(); (this.io.mesh.material as THREE.Material).dispose(); }
+    for (const sp of this.spots.values()) if (sp.mesh) { sp.mesh.geometry.dispose(); (sp.mesh.material as THREE.Material).dispose(); }
     for (const b of this.beltMeshes.values()) for (const sh of b.shells) { sh.mesh.geometry.dispose(); (sh.mesh.material as THREE.Material).dispose(); }
     if (this.ovationMesh) { this.ovationMesh.geometry.dispose(); (this.ovationMesh.material as THREE.Material).dispose(); }
     for (const g of this.groups.values()) this.scene.remove(g);
