@@ -543,7 +543,7 @@ export const TAG_INFO = {
     what: 'How far the craft is from where the real one was at this time.',
     tex: ['d = |\\mathbf r(t) - \\mathbf r_\\text{flown}(t)|'],
     where: '𝐫_flown: the mission\'s reconstructed trajectory, interpolated between its points',
-    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno, DART and LRO: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
+    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno, DART, LRO and MESSENGER: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
   },
   'next-burn': {
     what: 'The real mission\'s next burn, as it was flown.',
@@ -625,6 +625,13 @@ export const TAG_INFO = {
     tex: ['\\dot\\Omega = -\\frac{3}{2}\\,\\frac{\\sqrt{\\mu}\\,J_2 R^2}{(1-e^2)^2\\,a^{7/2}}\\cos i'],
     where: 'i: the orbit\'s inclination to the planet\'s equator; the rate scaled by the orbit flown ten turns in the J2 field (0.15 to 0.6 % faster at 400 km over Mars); the burn the cheapest single one from the circular orbit onto the way out',
     source: 'Curtis, 4th ed., §4.7, eq. 4.52 (Example 4.8) · docs/physics/journey.md#the-parking-orbits-plane',
+  },
+  // journey.js planeAt at the Moon, lunarPlane.js moonPlaneTrack
+  'journey-plane-moon': {
+    what: 'About the Moon J2 alone does not turn a low orbit\'s plane: the Moon\'s lumpy field and the Earth\'s pull do too. So the circular orbit\'s plane is flown through the stay, averaged over each turn: the field\'s even degrees at the orbit\'s pole, and the tides of the Earth and the Sun. Up to 30 days the capture is aimed for it; beyond, the plane is priced on the day, and the best day near it suggested.',
+    tex: ['\\frac{d\\hat{\\mathbf n}}{dt} = \\frac{1}{\\omega a^2}\\,\\hat{\\mathbf n}\\times\\nabla_{\\hat{\\mathbf n}}\\bar{U}', '\\bar{U}(\\hat{\\mathbf n}) = \\frac{\\mu}{a}\\sum_{n} P_n(0)\\left(\\frac{R}{a}\\right)^{n} \\sum_m \\bar{P}_{nm}(\\sin\\phi)\\,(C_{nm}\\cos m\\lambda + S_{nm}\\sin m\\lambda) - \\sum_{3} \\frac{\\mu_3 a^2}{4 d^3}\\left(3(\\hat{\\mathbf d}\\cdot\\hat{\\mathbf n})^2 - 1\\right)'],
+    where: 'n even; n̂: the orbit\'s normal, at latitude φ and longitude λ in the Moon\'s principal axes; GRAIL GL0660B to degree 30; the third bodies the Earth and the Sun; within a degree of the kernel\'s plane over 90 days 200 km up',
+    source: 'Tremaine, Touma & Namouni 2009, AJ 137, 3706, eq. 19 · Jackson, Classical Electrodynamics, 3rd ed., §3.6 · GRAIL GL0660B (Konopliv et al. 2013) · docs/physics/journey.md#the-plane-at-the-moon',
   },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
@@ -772,6 +779,20 @@ export const TAG_INFO = {
     what: 'Whether the Sun lights the satellite or the Earth hides it: behind the Earth and within the Earth\'s radius of the line through the Earth\'s centre from the Sun.',
     tex: ['\\mathbf r\\cdot\\hat{\\mathbf s} < 0,\\quad |\\mathbf r - (\\mathbf r\\cdot\\hat{\\mathbf s})\\,\\hat{\\mathbf s}| < R_\\oplus'],
     where: 'ŝ: the Sun\'s direction from the Earth (DE442). A cylinder: the umbra\'s cone narrows by 0.27° of its own, and the penumbra is left out (a few seconds in low orbit)',
+    source: 'docs/frontend/satellites.md',
+  },
+  // passes.js findPasses, lookAngles
+  'sat-pass': {
+    what: 'Where the satellite is in the sky from the place: SGP4\'s position turned from TEME into the Earth\'s own frame, then seen from the place on the WGS-84 ellipsoid. Azimuth is clockwise from north, elevation above the horizon, without refraction.',
+    tex: ['\\mathbf r_\\text{ITRF} = W\\,R_3(\\theta_\\text{GMST})\\,\\mathbf r_\\text{TEME}', '\\sin h = \\hat{\\mathbf u}\\cdot\\frac{\\mathbf r_\\text{ITRF} - \\mathbf r_\\text{site}}{|\\mathbf r_\\text{ITRF} - \\mathbf r_\\text{site}|}'],
+    where: 'θ_GMST: IAU 1982, from UT1; W: polar motion; û: the ellipsoid\'s normal at the place. Rise and set at 0°, the peak by golden-section search, each to a millisecond. Within a second and their whole degree of Heavens-Above\'s 90 ISS passes for the same element set',
+    source: 'Vallado et al., AIAA 2006-6753, eq. (1); Heavens-Above (check) · docs/frontend/satellites.md',
+  },
+  // passes.js visibleWindow
+  'sat-visible': {
+    what: 'When it can be seen: sunlit (out of the Earth\'s shadow) while the Sun is 6° or more below the place\'s horizon, civil twilight\'s end, the sky dark enough for a sunlit satellite to show.',
+    tex: ['h_\\odot < -6°\\quad\\text{and}\\quad\\text{out of the shadow}'],
+    where: 'h⊙: the Sun\'s geometric elevation (DE442); the shadow a cylinder of the Earth\'s radius. Judged from rise to set, as Heavens-Above does; how bright it is is left out',
     source: 'docs/frontend/satellites.md',
   },
   // satellite-plate.tsx height

@@ -48,6 +48,7 @@ import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { IrregularMoonLayer, type IrregularPlanet } from './irregularMoons';
 import { SatelliteLayer } from './satellites';
+import { GroundTrack } from './groundTrack';
 import { SpacecraftLayer } from './spacecraftLayer';
 import { GuideLayer } from './guides';
 import { MagneticLayer } from './magnetic';
@@ -312,6 +313,7 @@ export class OrreryScene {
   // The irregular moons of Jupiter, Saturn and Neptune (irregularMoons.ts).
   irregulars!: IrregularMoonLayer;
   satellites!: SatelliteLayer;   // Earth satellites, for the rail's switch
+  groundTrack!: GroundTrack;     // the plate's satellite's ground track and place (satellite-passes.tsx)
   spacecraft!: SpacecraftLayer;  // spacecraft beyond Earth orbit, from JPL Horizons
   guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
   magnetic!: MagneticLayer;      // magnetic field lines and auroras
@@ -562,6 +564,7 @@ export class OrreryScene {
     this.satellites = new SatelliteLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.satellites.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.satellites.onPick = (id) => this.focusOnSatellite(id);
+    this.groundTrack = new GroundTrack(BODY_BY_KEY.earth.radiiKm);
     this.spacecraft = new SpacecraftLayer(this.scene, this.overlay,
       (key) => (key === 'sun' ? [0, 0, 0] : (this.states[key as BodyKey]?.r as Vec3 | undefined) ?? null), import.meta.env.BASE_URL);
     this.spacecraft.onPick = (key) => this.focusOnProbe(key);
@@ -1000,6 +1003,7 @@ export class OrreryScene {
     this.irregulars.update(tMs, cam, (p: IrregularPlanet) => this.states[p].r, 1 / this.renderer.toneMappingExposure,
       this.focusCraftId === null ? systemOf(this.focus) : null);
     this.satellites.update(tMs, cam, this.states.earth.r, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.groundTrack.update(tMs, this.meshes.get('earth'), 1 / this.renderer.toneMappingExposure);
     this.spacecraft.update(tMs, cam, 1 / this.renderer.toneMappingExposure);
     this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
@@ -1280,6 +1284,7 @@ export class OrreryScene {
     this.smallBodies.dispose();
     this.irregulars.dispose();
     this.satellites.dispose();
+    this.groundTrack.dispose();
     this.spacecraft.dispose();
     this.guides.dispose();
     this.magnetic.dispose();

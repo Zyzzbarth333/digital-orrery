@@ -249,10 +249,12 @@ by several degrees a day. **C22** describes how a body's equator is
 stretched into an ellipse, which matters for moons that always face their
 planet.
 
-**Gravity field (EGM2008, GRAIL).** A body's full gravity as a sum of
-spherical harmonics:
+**Gravity field (EGM2008, GRAIL, JGMESS160A, MGNP180U).** A body's full
+gravity as a sum of spherical harmonics:
 - **EGM2008:** the Earth's.
 - **GRAIL:** the Moon's, from NASA's twin probes.
+- **JGMESS160A:** Mercury's, from MESSENGER's tracking in orbit.
+- **MGNP180U:** Venus's, from Magellan's.
 
 [The space environment](physics/environment.md),
 [Gravity guides](physics/gravity-guides.md)
@@ -327,10 +329,27 @@ other planets' are their internal fields, with Jupiter's current sheet and
 Saturn's ring current. [Magnetic fields and auroras](physics/magnetic-fields.md#the-earths-magnetosphere)
 
 **Magnetopause.** The boundary where a magnetosphere's field pressure
-balances the solar wind's, about 10 $R_E$ toward the Sun for the Earth.
-Currents on it compress the field inside. T89 includes their field but not
-a sharp boundary, so the app does not end lines there.
-[Magnetic fields and auroras](physics/magnetic-fields.md#the-earths-magnetosphere)
+balances the solar wind's, about 10 $R_E$ toward the Sun for the Earth,
+nearer when the wind blows harder. Currents on it compress the field
+inside. The app draws the Earth's (Shue et al.), Jupiter's and Saturn's,
+and ends the Earth's field lines there.
+[Magnetic fields and auroras](physics/magnetic-fields.md#magnetopauses-and-bow-shocks)
+
+**Bow shock.** Where the supersonic solar wind slows abruptly ahead of a
+magnetosphere, as water does ahead of a boat's bow: about 3 $R_E$ beyond
+the Earth's magnetopause, farther when the wind's Mach number is low.
+[Magnetic fields and auroras](physics/magnetic-fields.md#magnetopauses-and-bow-shocks)
+
+**Parker spiral.** The shape of the Sun's field carried out by the solar
+wind: the wind flows out radially while the Sun turns, so each field line
+winds into a spiral, about 45° from the radial at the Earth.
+[Magnetic fields and auroras](physics/magnetic-fields.md#the-suns-field)
+
+**Heliospheric current sheet.** The surface where the Sun's outward
+field meets its inward field, carried out from the source surface's
+neutral line by the solar wind. It is warped like a twirling skirt, and
+reaches higher latitudes near solar maximum.
+[Magnetic fields and auroras](physics/magnetic-fields.md#the-suns-field)
 
 **Ring current.** Charged particles drifting round a planet in its field
 carry a current that weakens the field inside the ring and stretches the

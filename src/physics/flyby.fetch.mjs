@@ -13,6 +13,8 @@
 //             from Saturn's centre (a planet, not a moon: no implied moon)
 //   triton    Voyager 2 (-32) past Neptune (29,240 km) and Triton (39,783 km),
 //             25 August 1989
+//   miranda   Voyager 2 past Miranda (28,243 km) and Uranus (107,153 km),
+//             24 January 1986
 //
 // Each writes fixtures/flyby_<craft>_<target>.json:
 //   craft      the craft about its planet's system barycentre (5, 6)
@@ -56,6 +58,7 @@ const STEP = '10 m';
 
 const JUPITER = { bary: 5, centre: 599, moons: [['io', 501], ['europa', 502], ['ganymede', 503], ['callisto', 504]] };
 const SATURN = { bary: 6, centre: 699, moons: [['mimas', 601], ['enceladus', 602], ['tethys', 603], ['dione', 604], ['rhea', 605], ['titan', 606], ['iapetus', 608]] };
+const URANUS = { bary: 7, centre: 799, moons: [['ariel', 701], ['umbriel', 702], ['titania', 703], ['oberon', 704], ['miranda', 705]] };
 const NEPTUNE = { bary: 8, centre: 899, moons: [['triton', 801]] };
 const CASES = {
   // Raw file names as first fetched (juno_5_wide.txt and so on).
@@ -79,6 +82,12 @@ const CASES = {
   triton: { craft: ['voyager2', -32], moon: 801, system: NEPTUNE, span: ['1989-08-24 21:00', '1989-08-25 15:00'],
     wide: ['1989-08-24 19:00', '1989-08-25 22:00'], close: ['1989-08-25 09:02:00', '1989-08-25 09:22:00'], prefix: 'vgr2spk_',
     spk: ['lsk/naif0012.tls', 'spk/missions/voyager2/vgr2_nep097.bsp'] },
+  // The same at Uranus: vgr2.ura182.bsp (R. Jacobson, 2025, with URA182's
+  // Uranus and moons merged in by NAIF). Twelve hours either side of
+  // Uranus's closest approach (18:00 TDB); Miranda's is at 17:04.
+  miranda: { craft: ['voyager2', -32], moon: 705, system: URANUS, span: ['1986-01-24 10:00', '1986-01-25 06:00'],
+    wide: ['1986-01-24 04:00', '1986-01-25 13:00'], close: ['1986-01-24 16:54:00', '1986-01-24 17:14:00'], prefix: 'vgr2ura_',
+    spk: ['lsk/naif0012.tls', 'spk/missions/voyager2/vgr2.ura182.bsp'] },
   titan: { craft: ['cassini', -82], moon: 606, system: SATURN, span: ['2008-07-30 17:10', '2008-07-31 11:10'],
     wide: ['2008-07-30 15:00', '2008-07-31 18:00'], close: ['2008-07-31 02:04:00', '2008-07-31 02:24:00'], prefix: 't45_' },
 };

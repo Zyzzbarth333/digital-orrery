@@ -74,16 +74,20 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   (`craft-far` with the clock at a day a second), the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`),
   the Earth with all 16,892 satellites on (`sats`, 20,000 km) and the ISS
-  followed from 0.1 km (`sat-near`, its close-up orbit drawn) run by name,
-  and `all` runs every one; `--list` lists them. A scenario can run a
-  setup expression once the page is up (the satellites' switch).
+  followed from 0.1 km (`sat-near`, its close-up orbit drawn) and from
+  20,000 km with its passes and ground track (`sat-track`, and
+  `sat-track-warp` at an hour a second) run by name, and `all` runs every
+  one; `--list` lists them. A scenario can run a setup expression once the
+  page is up (the satellites' switch).
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
   is the time from one callback to the next, 16.7 ms when the frame fits
   the display's 60 Hz. The render scale is held (`?scale=fixed`).
-- **Rounds.** Each round loads every scenario afresh in each build, the
-  builds alternating which goes first, then waits `--settle` seconds (8)
+- **Rounds.** Each round loads every scenario afresh in each build, in a
+  browser of its own (one browser on the Intel GPU grows past 8 GB over a
+  run's page loads, since its textures are system memory), the builds
+  alternating which goes first, then waits `--settle` seconds (8)
   and times `--seconds` (4). The table gives the median of each round's
   median over `--rounds` (3); each round's numbers, with the 90th
   percentile and the worst frame, go to stderr, and all of them to
@@ -100,10 +104,27 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   leaves its profile behind; the next launch removes any over ten minutes
   old that no running process names.
 
-The machine is shared: two browsers on one GPU time each other, so run
-one benchmark at a time, and read the before and after of one run rather
-than numbers from different runs. On a busy machine repeat runs differ by
-10 to 20 %.
+- **Sharing the machine.** Two browsers on one GPU time each other, so a
+  run first takes the lock that GPU benchmarks share
+  (`~/.cache/digital-orrery/gpu-bench.lock`, through `flock`) and says so
+  if it has to wait; `npm run docs:clips` takes it too. Each browser's GPU
+  and page processes run in a systemd scope of their own capped at 10 GB
+  (`ORRERY_BROWSER_MEMORY`), so a page that grows too big is killed alone
+  (and its sample retried) rather
+  than systemd-oomd killing everything that shares the terminal's or the
+  editor's cgroup. `ORRERY_GPU_LOCK=0` and `ORRERY_BROWSER_MEMORY=0` turn
+  them off; without `flock` or `systemd-run` (CI, macOS) both are skipped.
+  `npm run bench:textures` holds the same lock. A wait names who holds
+  the lock: one of these scripts by its folder and pid, a run wrapped in
+  `flock` by hand by its command line (from `/proc/locks`). Once it has
+  the lock, a run refuses to start with less memory available
+  (`MemAvailable`) than the cap and 4 GiB to spare, 14 GiB by default,
+  unless given `--force`. A browser the cap stops is reported as such,
+  and its failed scope reset, so `systemctl --user --failed` stays
+  clear.
+
+Read the before and after of one run rather than numbers from different
+runs. On a busy machine repeat runs differ by 10 to 20 %.
 
 ## Rendering
 
@@ -243,7 +264,8 @@ The sky was the last part to appear: decoding the 8192 × 4096 WebP takes
 seconds. A 2048-wide copy (0.57 MB, the same mean light to 0.04 %) is shown
 first and the full map put in its place when it is up.
 
-**Not done.** A smaller belt file (23 MB at 16 bytes a body; 12 would do).
+**Since then.** The belt file is 17.4 MB at 12 bytes a body, down from
+23.1 MB at 16 ([the faint belt's file](frontend/small-bodies.md#the-data)).
 KTX2 textures came later ([below](#gpu-compressed-maps)).
 
 ### A craft at high warp
@@ -398,6 +420,28 @@ stays at 16.7 ms throughout, and the Earth close-up does not run the new
 code, so its differences are noise. In one page, with the close-up
 stretch switched on and off every 4.5 s six times on the Intel GPU, the
 frame was 31.6 ms on and 32.4 ms off, and `placeNear` took 0.1 ms.
+
+### Satellite passes and the ground track
+
+The passes run in a worker (about 50 ms for three days of the ISS, four
+times a day of clock). The ground track is two lines and a point on the
+Earth, resampled by SGP4 on the main thread (241 calls, about 2 ms) once
+the clock has moved a two-hundredth of a period, at most every 50 ms
+([satellites.md](frontend/satellites.md#passes-over-a-place)).
+`npm run bench:frames -- --gpu intel,nvidia sat-track sat-track-warp earth`
+on 18 November 2026, main (52a371f) against the branch, 3 rounds
+interleaved, load average 11–15, median frame, ms:
+
+| Scenario | Intel | RTX |
+| --- | ---: | ---: |
+| The ISS followed, its passes and ground track, 20,000 km | 30.3 → 22.2 | 7.8 → 6.7 |
+| The same at an hour a second | 27.1 → 24.8 | 9.6 → 9.4 |
+| Earth close-up (no satellites), 20,000 km | 26.8 → 22.8 | 7.4 → 7.5 |
+
+Every difference is the machine's load: the Earth close-up runs none of
+the new code and moved as much, and the Intel rounds swung 20–35 ms in
+both builds. The RTX's frame gap stayed at 16.7 ms throughout. The ground
+track costs nothing measurable.
 
 ### GPU-compressed maps
 

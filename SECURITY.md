@@ -22,6 +22,13 @@ Data scripts run by a developer (`npm run fetch:…`) also read public JPL,
 NAIF, NASA and CelesTrak services. They write only under the repository and
 `~/.cache/digital-orrery/`.
 
+## What it keeps
+
+- **The place for satellite passes:** the latitude, longitude and height
+  typed on the satellite plate, or given by the browser when **Locate** is
+  pressed (the browser asks first), are kept in this browser's
+  `localStorage` and used only in the page. They are sent nowhere.
+
 ## Files it reads
 
 - **OpenRocket designs:** the ROCKET tab opens `.ork` files you choose, and

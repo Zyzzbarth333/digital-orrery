@@ -79,9 +79,12 @@ export class RealMission {
     if (ms < f[0][0] || ms > f.at(-1)[0]) return null;
     let lo = 0, hi = f.length - 1;
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (f[m][0] <= ms) lo = m; else hi = m; }
-    const a = f[lo], b = f[hi], h = (b[0] - a[0]) / 1000;
+    // In seconds as they passed (TT): across a leap second (MESSENGER's
+    // 2005 and 2008 New Year's Eves) UTC's milliseconds run a second short,
+    // 38 km at its 38 km/s.
+    const a = f[lo], b = f[hi], ta = kernelSeconds(new Date(a[0])), h = kernelSeconds(new Date(b[0])) - ta;
     if (!(h > 0)) return { r: a.slice(1, 4), v: a.slice(4, 7) };
-    const u = (ms - a[0]) / 1000 / h;
+    const u = (kernelSeconds(new Date(ms)) - ta) / h;
     const h00 = 2 * u ** 3 - 3 * u * u + 1, h10 = u ** 3 - 2 * u * u + u, h01 = -2 * u ** 3 + 3 * u * u, h11 = u ** 3 - u * u;
     const d00 = (6 * u * u - 6 * u) / h, d10 = 3 * u * u - 4 * u + 1, d01 = (-6 * u * u + 6 * u) / h, d11 = 3 * u * u - 2 * u;
     const r = [0, 1, 2].map((k) => h00 * a[1 + k] + h10 * h * a[4 + k] + h01 * b[1 + k] + h11 * h * b[4 + k]);

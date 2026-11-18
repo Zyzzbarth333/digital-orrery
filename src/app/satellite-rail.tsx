@@ -5,7 +5,8 @@
 // and the analyst objects), the named ones and the debris clouds to fly
 // to, a search over every loaded one by name, NORAD catalogue number or
 // international designator, and the key that asks CelesTrak for its latest
-// element sets for the active ones.
+// element sets for the active ones, and one to the ISS's passes over a
+// place (satellite-passes.tsx).
 //
 // Each set loads its data the first time it is switched on: the active
 // satellites 2.5 MB (0.9 MB compressed), the rest 0.8 MB together.
@@ -28,6 +29,8 @@ export interface SatelliteApi {
   latest: () => Promise<string>;
 }
 
+// The ISS (Zarya), whose passes the Passes key shows when no satellite is in view.
+const ISS = 25544;
 const day = (iso: string) => iso.slice(0, 16).replace('T', ' ');
 
 export function SatelliteRail({ api }: { api: SatelliteApi }) {
@@ -81,6 +84,8 @@ export function SatelliteRail({ api }: { api: SatelliteApi }) {
                 setAsking(true);
                 void api.latest().then(setStatus, (err) => setStatus(`Not fetched: ${err instanceof Error ? err.message : err}`)).finally(() => setAsking(false));
               }} title="Fetch CelesTrak's current element sets for every active satellite (2.5 MB), at most once every 2 hours: they change no more often. The debris, rocket bodies and analyst objects stay the snapshot's">Latest</button>
+              <button className="key small" onClick={() => api.fly(api.current ?? ISS)}
+                title="Its passes over a place, on its plate: the ISS, or the satellite in view">Passes</button>
               <span role="status">{asking ? 'Asking CelesTrak…' : status}</span>
             </div>
           )}
