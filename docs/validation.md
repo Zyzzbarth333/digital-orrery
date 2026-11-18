@@ -500,6 +500,34 @@ navigation's as-flown ephemeris (through JPL Horizons). See
 | Joins between NASA's navigation solutions | 67; velocity steps median 0.074 m/s, position median 49 m |
 | The app's mission file (`public/missions/artemis1.json`), flown as the app flies it: full environment and random vent, through the Craft model and kernel host | its 18 burns within 1 % of NASA's; with a fix every 12 h, never more than 275 km off, 6 km at the end, flybys 130.3 and 129.0 km; with no fixes and the burns aimed from the craft, never more than 238 km off, 0.9 km at the end, flybys 124.6 and 130.6 km, for 31.8 m/s more than the flown burns (blind: 712,000 km at the end) |
 
+## Real flight: Juno's Earth flyby (`missions.validate.mjs`)
+
+Juno from 25 August 2012 to 30 November 2013 against JPL's navigation
+reconstruction (through JPL Horizons). See
+[Juno 2012–13](validation/juno2013.md).
+
+| Check | Result |
+| --- | --- |
+| DSM-1 and DSM-2, found in the trajectory | 344.28 m/s in 1,780 s and 387.94 m/s in 1,770 s (NASA: about 344 m/s in 29 min 39 s, about 388 m/s in 30 min); DSM-2 lit at NASA's 22:30:00 UTC |
+| 10 coast arcs, 6–210 days, about the Sun | gravity alone rms 2,062 km at the ends; with sunlight on the arrays fitted (91 % of the craft as built), rms 139 km, worst 398 km (the 210-day arc); under 5 km for the first three weeks |
+| The Earth flyby | 561.1 km above the ellipsoid at 19:21:25 UTC (559 km, 19:21 published); the kernel through the pass ends 35 m and 1.8 mm/s off (J2 alone: 0.72 km, 36 mm/s); 125,531 to 139,377 km/h about the Sun (126,000 to 140,000) |
+| The flyby anomaly | Anderson's formula predicts 6.4 mm/s; the kernel's v∞ after the pass is 0.47 mm/s from the reconstruction's |
+| The app's file (`public/missions/juno2013.json`), flown as the app flies it | aimed: perigee 561.7 km (flown 561.8), 0.1 km off at the end, 157 km at worst, for 0.29 m/s more than the flown burns; blind, it hits the Earth |
+
+## Real flight: DART's impact on Dimorphos (`missions.validate.mjs`)
+
+DART from 20 August 2022 to its impact on 26 September against its
+navigation reconstruction and final solution (through JPL Horizons). See
+[DART](validation/dart.md).
+
+| Check | Result |
+| --- | --- |
+| SMART Nav's terminal guidance, found in the trajectory | toward Dimorphos 22:24:50 to 23:11:50 UTC (Daly et al.: from 50 minutes before the impact, 22:24:24, to 23:11:52), 0.586 m/s |
+| LICIACube's release | a 33 mm/s step at 23:13:50 on 11 September (published 23:14 UTC) |
+| 4 coast arcs, 4–19 days, about the Sun | gravity alone rms 179 km at the ends; with sunlight on the arrays fitted (72 % of a flat plate), rms 11.6 km, worst 20.4 km |
+| The impact, on the final solution | 23.6 m from Dimorphos's centre at 6.14478 km/s, the centre's closest point 14 ms after the impact (Daly et al.: 25 ± 1 m, 6.1449 ± 0.0003 km/s, 23:14:24.183 at the surface) |
+| The app's file (`public/missions/dart.json`), flown as the app flies it | aimed: 23 m from Dimorphos's centre, for 2.59 m/s more than the flown burns; blind, 180 km |
+
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 
 NASA's orbital check cases for 6-DOF simulations (NESC,

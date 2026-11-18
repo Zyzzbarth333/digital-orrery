@@ -518,14 +518,14 @@ export const TAG_INFO = {
   // mission.ts distanceFromFlown
   'flown-path': {
     what: 'How far the craft is from where the real one was at this time.',
-    tex: ['d = |\\mathbf r(t) - \\mathbf r_\\text{BET}(t)|'],
-    where: '𝐫_BET: JSC\'s reconstructed trajectory, interpolated between its points',
-    source: 'NASA JSC Best Estimated Trajectory (BET revF) · docs/validation.md',
+    tex: ['d = |\\mathbf r(t) - \\mathbf r_\\text{flown}(t)|'],
+    where: '𝐫_flown: the mission\'s reconstructed trajectory, interpolated between its points',
+    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno and DART: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
   },
   'next-burn': {
     what: 'The real mission\'s next burn, as it was flown.',
     tex: ['1\\ \\text{ft/s} = 0.3048\\ \\text{m/s}'],
-    source: 'NASA JSC Best Estimated Trajectory (BET revF); NASA\'s mission blogs for the burns\' names',
+    source: 'The mission\'s reconstructed trajectory (as for the flown path); NASA\'s mission blogs and releases for the burns\' names and figures',
   },
   closest: {
     what: 'The closest the craft has come to its planned target so far.',
