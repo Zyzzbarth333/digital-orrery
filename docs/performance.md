@@ -74,12 +74,9 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   (`craft-far` with the clock at a day a second), the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`),
   the Earth with all 16,892 satellites on (`sats`, 20,000 km) and the ISS
-  followed from 0.1 km (`sat-near`, its close-up orbit drawn), and the
-  gravity guides' field (`field-jupiter`, `field-rotating`, `field-belt`)
-  beside the same views without it (`jupiter-far`, `earth-moon`, `belt`)
-  run by name, and `all` runs every one; `--list` lists them. A scenario
-  can run a setup expression once the page is up (the satellites' switch,
-  the field's).
+  followed from 0.1 km (`sat-near`, its close-up orbit drawn) run by name,
+  and `all` runs every one; `--list` lists them. A scenario can run a
+  setup expression once the page is up (the satellites' switch).
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
@@ -115,6 +112,14 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   than systemd-oomd killing everything that shares the terminal's or the
   editor's cgroup. `ORRERY_GPU_LOCK=0` and `ORRERY_BROWSER_MEMORY=0` turn
   them off; without `flock` or `systemd-run` (CI, macOS) both are skipped.
+  `npm run bench:textures` holds the same lock. A wait names who holds
+  the lock: one of these scripts by its folder and pid, a run wrapped in
+  `flock` by hand by its command line (from `/proc/locks`). Once it has
+  the lock, a run refuses to start with less memory available
+  (`MemAvailable`) than the cap and 4 GiB to spare, 14 GiB by default,
+  unless given `--force`. A browser the cap stops is reported as such,
+  and its failed scope reset, so `systemctl --user --failed` stays
+  clear.
 
 Read the before and after of one run rather than numbers from different
 runs. On a busy machine repeat runs differ by 10 to 20 %.

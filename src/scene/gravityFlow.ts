@@ -16,11 +16,7 @@
 //            (as Forssell and Cohen 1995 animate it);
 //   plane    a disc in the scene through the focus, depth-tested against
 //            the bodies, that shows the two, and in the rotating frame
-//            the contours of the Jacobi constant, bright through L1-L3,
-//            worked out again at each screen pixel so they stay sharp.
-//
-// Under the cursor a tag gives the field there exactly: the same sum in
-// double precision (gravityFlow.js) where the cursor's ray meets the plane.
+//            the contours of the Jacobi constant, bright through L1-L3.
 //
 // Frames: inertial (the plain sum), falling with the focus (its own
 // acceleration taken away: its pull and the others' tides), the same less
@@ -30,7 +26,7 @@
 
 import * as THREE from 'three';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
-import { fieldAccel, frameAccel, rotatingFrame, criticalLevels, effectiveAccel, jacobi } from '../physics/gravityFlow.js';
+import { frameAccel, rotatingFrame, criticalLevels } from '../physics/gravityFlow.js';
 
 export type FlowFrame = 'inertial' | 'falling' | 'others' | 'rotating';
 export type FlowPlane = 'orbit' | 'view';
@@ -184,22 +180,8 @@ uniform float contours;   // 1 in the rotating frame
 uniform float level;
 uniform vec3 centre;
 uniform float reach;      // the disc's radius, render units
-// Rotating: the pair (from the origin, km; GM) and the frame, as the field
-// pass has them, for the Jacobi constant at full resolution.
-uniform vec4 pairP;
-uniform vec4 pairS;
-uniform vec2 pairR;
-uniform vec3 bary;
-uniform vec3 axis;
-uniform float n2;
-uniform float jacobiScale;
-uniform float jacobiMin;
 varying vec4 vClip;
 varying vec3 vWorld;
-float pot(vec4 b, float R, vec3 p) {
-  float r = length(b.xyz - p);
-  return r >= R ? -b.w / r : -b.w * (3.0 * R * R - r * r) / (2.0 * R * R * R);
-}
 float line(float s, float w) { return 1.0 - smoothstep(0.5, 1.5, abs(s) / max(fwidth(s), 1e-6) / w); }
 void main() {
   #include <logdepthbuf_fragment>
@@ -208,25 +190,13 @@ void main() {
   float b = f.y;
   vec3 c = (colour * b * b * (0.12 + 0.88 * f.x) + vec3(1.0, 0.97, 0.9) * pow(b, 5.0) * f.x * 0.25) * (contours > 0.5 ? 0.5 : 0.85);
   if (contours > 0.5) {
-    // The Jacobi constant at this pixel (km from the origin; a render unit
-    // is 1000 km), not the half-resolution target's, so the lines are a
-    // pixel wide and unbroken.
-    vec3 p = (vWorld - centre) * 1000.0;
-    vec3 q = p - bary;
-    q -= dot(q, axis) * axis;
-    float phi = pot(pairP, pairR.x, p) + pot(pairS, pairR.y, p) - 0.5 * n2 * dot(q, q);
-    float s = log(max(jacobiScale * phi - jacobiMin, 1e-9)) * 0.4342945;
     // Minor contours every 0.2 in log10(C - C4), only from half a decade
     // below L3's to half a decade above L1's (beyond, they crowd about the
     // bodies and the peaks at L4 and L5 and say nothing new).
-    // The width comes from u's own derivative: fract() jumps by one at
-    // every contour, and its derivative there would break the line into
-    // dashes wherever a 2 x 2 block of pixels straddles the jump.
-    float u = s / 0.2;
-    float du = max(fwidth(u), 1e-6);
-    c += contour * 0.3 * (1.0 - smoothstep(0.5, 1.5, abs(fract(u + 0.5) - 0.5) / du))
-      * (1.0 - smoothstep(levels.x + 0.3, levels.x + 0.5, s)) * smoothstep(levels.z - 0.5, levels.z - 0.3, s);
-    float k = max(max(line(s - levels.x, 1.3), line(s - levels.y, 1.3)), line(s - levels.z, 1.3));
+    float u = f.z / 0.2;
+    c += contour * 0.3 * line(fract(u + 0.5) - 0.5, 1.0)
+      * (1.0 - smoothstep(levels.x + 0.3, levels.x + 0.5, f.z)) * smoothstep(levels.z - 0.5, levels.z - 0.3, f.z);
+    float k = max(max(line(f.z - levels.x, 1.3), line(f.z - levels.y, 1.3)), line(f.z - levels.z, 1.3));
     c += critical * 0.85 * k;
   }
   c *= 1.0 - smoothstep(0.5 * reach, reach, length(vWorld - centre));
@@ -234,12 +204,12 @@ void main() {
 }
 `;
 
-function fmtAccel(kms2: number, digits = 2): string {
+function fmtAccel(kms2: number): string {
   const ms2 = kms2 * 1000;
-  if (ms2 >= 0.1) return `${ms2.toPrecision(digits)} m/s²`;
-  if (ms2 >= 1e-4) return `${(ms2 * 1e3).toPrecision(digits)} mm/s²`;
-  if (ms2 >= 1e-7) return `${(ms2 * 1e6).toPrecision(digits)} µm/s²`;
-  return `${(ms2 * 1e9).toPrecision(digits)} nm/s²`;
+  if (ms2 >= 0.1) return `${ms2.toPrecision(2)} m/s²`;
+  if (ms2 >= 1e-4) return `${(ms2 * 1e3).toPrecision(2)} mm/s²`;
+  if (ms2 >= 1e-7) return `${(ms2 * 1e6).toPrecision(2)} µm/s²`;
+  return `${(ms2 * 1e9).toPrecision(2)} nm/s²`;
 }
 
 const FRAME_NAME: Record<FlowFrame, string> = { inertial: 'inertial frame', falling: 'falling with', others: 'less', rotating: 'rotating with' };
@@ -264,14 +234,8 @@ export class GravityFlowLayer {
   private last = performance.now();
   private reduced = matchMedia('(prefers-reduced-motion: reduce)');
   private t = new THREE.Vector3();
-  // The cursor's readout: where the pointer is over the view, and what the
-  // last frame summed.
-  private readout: HTMLDivElement;
-  private pointer: [number, number] | null = null;
-  private probe: { originKm: Vec3; list: { key: BodyKey; gm: number; r: Vec3; radius: number }[]; mode: number;
-    frameAcc: Vec3; F: ReturnType<typeof rotatingFrame> | null } | null = null;
 
-  constructor(private scene: THREE.Scene, private overlay: HTMLElement) {
+  constructor(private scene: THREE.Scene, overlay: HTMLElement) {
     const target = () => new THREE.WebGLRenderTarget(2, 2, {
       type: THREE.HalfFloatType, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
       depthBuffer: false, generateMipmaps: false,
@@ -316,9 +280,6 @@ export class GravityFlowLayer {
         flow: { value: this.flowRT.texture }, colour: { value: COLOUR }, contour: { value: CONTOUR }, critical: { value: CRITICAL },
         levels: { value: new THREE.Vector3(9, 9, 9) }, contours: { value: 0 }, level: { value: 1 },
         centre: { value: new THREE.Vector3() }, reach: { value: 1 },
-        pairP: { value: new THREE.Vector4() }, pairS: { value: new THREE.Vector4() }, pairR: { value: new THREE.Vector2() },
-        bary: { value: new THREE.Vector3() }, axis: { value: new THREE.Vector3() }, n2: { value: 0 },
-        jacobiScale: { value: 0 }, jacobiMin: { value: 0 },
       },
     }));
     this.disc.frustumCulled = false;
@@ -330,23 +291,6 @@ export class GravityFlowLayer {
     this.legend.className = 'field-legend flow-legend';
     this.legend.hidden = true;
     overlay.appendChild(this.legend);
-    this.readout = document.createElement('div');
-    this.readout.className = 'guide-tag flow-read';
-    this.readout.hidden = true;
-    overlay.appendChild(this.readout);
-  }
-
-  // The pointer, from the view's own element (the overlay lets it through).
-  private listening = false;
-  private listen(): void {
-    const el = this.overlay.parentElement;
-    if (this.listening || !el) return;
-    this.listening = true;
-    el.addEventListener('pointermove', (e) => {
-      const r = this.overlay.getBoundingClientRect();
-      this.pointer = [e.clientX - r.left, e.clientY - r.top];
-    });
-    el.addEventListener('pointerleave', () => { this.pointer = null; });
   }
 
   // Everything the GPU needs this frame, worked out in double precision.
@@ -355,9 +299,7 @@ export class GravityFlowLayer {
     this.ready = false;
     this.disc.visible = false;
     this.legend.hidden = true;
-    this.readout.hidden = true;
     if (!this.on) return;
-    this.listen();
     const { states, camera } = f;
     const focus = f.focus;
     const originKm = focus ? states[focus].r : f.pivot;
@@ -370,11 +312,9 @@ export class GravityFlowLayer {
     const all: B[] = BODIES.filter((b) => b.gm).map((b) => ({ key: b.key, gm: b.planetGm ?? b.gm!, r: states[b.key].r, v: states[b.key].v, radius: b.radiusKm }));
     let list = all;
     let mode = 0, pair: [BodyKey, BodyKey] | null = null;
-    let frameAccEcl: Vec3 = [0, 0, 0], F: ReturnType<typeof rotatingFrame> | null = null;
     if ((this.frame === 'falling' || this.frame === 'others') && focus) {
       const fi = all.findIndex((b) => b.key === focus);
-      frameAccEcl = frameAccel(all, fi) as Vec3;
-      const a = axesOf(frameAccEcl);
+      const a = axesOf(frameAccel(all, fi));
       (u.frameAcc.value as THREE.Vector3).set(a[0], a[1], a[2]);
       mode = 1;
       if (this.frame === 'others') { list = all.filter((_, i) => i !== fi); mode = 3; }
@@ -384,25 +324,18 @@ export class GravityFlowLayer {
       const fb = focus ? BODY_BY_KEY[focus] : null;
       pair = !fb || !fb.parent || !fb.gm ? ['sun', 'jupiter'] : [fb.parent, fb.key];
       const [P, S] = pair.map((k) => ({ key: k, gm: BODY_BY_KEY[k].gm!, r: states[k].r, v: states[k].v, radius: BODY_BY_KEY[k].radiusKm }));
-      F = rotatingFrame(P, S);
+      const F = rotatingFrame(P, S);
       list = [P, S];
       mode = 2;
       const toO = (r: number[]) => axesOf([r[0] - originKm[0], r[1] - originKm[1], r[2] - originKm[2]]);
+      (u.bary.value as THREE.Vector3).set(...toO(F.bary));
+      (u.axis.value as THREE.Vector3).set(...axesOf(F.axis));
+      u.n2.value = F.n2;
       const L = criticalLevels(F) as Record<'L1' | 'L2' | 'L3' | 'L4' | 'L5', { r: Vec3; C: number }>;
+      u.jacobiScale.value = (-2 * F.sep) / F.gm;
+      u.jacobiMin.value = L.L4.C;
       const lg = (c: number) => Math.log10(Math.max(c - L.L4.C, 1e-9));
-      // The same frame for the field pass and, at full resolution, the disc.
-      const du = (this.disc.material as THREE.ShaderMaterial).uniforms;
-      for (const v of [u, du]) {
-        (v.bary.value as THREE.Vector3).set(...toO(F.bary));
-        (v.axis.value as THREE.Vector3).set(...axesOf(F.axis));
-        v.n2.value = F.n2;
-        v.jacobiScale.value = (-2 * F.sep) / F.gm;
-        v.jacobiMin.value = L.L4.C;
-      }
-      (du.pairP.value as THREE.Vector4).set(...toO(P.r), P.gm);
-      (du.pairS.value as THREE.Vector4).set(...toO(S.r), S.gm);
-      (du.pairR.value as THREE.Vector2).set(P.radius, S.radius);
-      (du.levels.value as THREE.Vector3).set(lg(L.L1.C), lg(L.L2.C), lg(L.L3.C));
+      ((this.disc.material as THREE.ShaderMaterial).uniforms.levels.value as THREE.Vector3).set(lg(L.L1.C), lg(L.L2.C), lg(L.L3.C));
     }
     u.mode.value = mode;
     const shown = mode === 3 ? 'others' : mode === 1 ? 'falling' : mode === 2 ? 'rotating' : 'inertial';
@@ -479,44 +412,6 @@ export class GravityFlowLayer {
     const key = `${frameText}|${planeName}|${hi.toFixed(1)}|${u.count.value}`;
     this.legend.hidden = false;
     if (key !== this.legendKey) { this.legendKey = key; this.drawLegend(frameText, planeName, 10 ** (hi - DECADES), 10 ** hi, list.length, mode); }
-
-    // The readout under the cursor: its ray meets the plane at p, and the
-    // field there is summed in double precision.
-    this.probe = { originKm: originKm as Vec3, list, mode, frameAcc: frameAccEcl, F };
-    if (this.pointer) this.read(camera, origin, normal, f.width, f.height, reach * UNIT_KM);
-  }
-
-  private read(camera: THREE.PerspectiveCamera, origin: THREE.Vector3, normal: THREE.Vector3, width: number, height: number, reachKm: number): void {
-    const [mx, my] = this.pointer!, P = this.probe!;
-    const e = camera.projectionMatrix.elements;
-    const d = this.t.set(((mx / width) * 2 - 1) / e[0], (1 - (my / height) * 2) / e[5], -1)
-      .applyMatrix3(new THREE.Matrix3().setFromMatrix4(camera.matrixWorld)).normalize();
-    const t = origin.dot(normal) / d.dot(normal);
-    if (!(t > 0) || !Number.isFinite(t)) return;
-    const pr = [d.x * t - origin.x, d.y * t - origin.y, d.z * t - origin.z];       // render axes, km from the origin
-    if (Math.hypot(pr[0], pr[1], pr[2]) > 0.5 * reachKm) return;
-    const p: Vec3 = [P.originKm[0] + pr[0], P.originKm[1] - pr[2], P.originKm[2] + pr[1]];  // back to ecliptic km
-    let a: number[], extra = '';
-    if (P.mode === 2) {
-      a = effectiveAccel(p, P.F!);
-      extra = ` · C ${jacobi(p, P.F!).toFixed(5)}`;
-    } else {
-      a = fieldAccel(p, P.list);
-      if (P.mode !== 0) a = [a[0] - P.frameAcc[0], a[1] - P.frameAcc[1], a[2] - P.frameAcc[2]];
-    }
-    // The strongest single pull there.
-    let best = P.list[0], most = 0;
-    for (const b of P.list) {
-      const g = b.gm / Math.max(Math.hypot(b.r[0] - p[0], b.r[1] - p[1], b.r[2] - p[2]), b.radius) ** 2;
-      if (g > most) { most = g; best = b; }
-    }
-    const text = `${fmtAccel(Math.hypot(a[0], a[1], a[2]), 4)}${extra} · ${BODY_BY_KEY[best.key].name} pulls most`;
-    if (this.readout.textContent !== text) this.readout.textContent = text;
-    // Beside the cursor, on its left near the view's right edge.
-    const left = mx > width - 320;
-    this.readout.style.transform = `translate(${Math.round(left ? mx - 14 : mx + 14)}px, ${Math.round(my + 14)}px)`;
-    this.readout.style.translate = left ? '-100% 0' : '0 0';
-    this.readout.hidden = false;
   }
 
   render(renderer: THREE.WebGLRenderer): void {
@@ -559,6 +454,5 @@ export class GravityFlowLayer {
     this.flowRT.dispose();
     this.noise.dispose();
     this.legend.remove();
-    this.readout.remove();
   }
 }

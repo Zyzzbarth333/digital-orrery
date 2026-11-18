@@ -91,7 +91,6 @@ run outside tools, and need a network or an installed tool:
 | `npm run oracle:openrocket` | the ROCKET tab's ascent against OpenRocket (needs Java and OpenRocket) |
 | `npm run build:textures` | the maps, as WebP and GPU-compressed KTX2, from their sources (needs KTX-Software's `ktx`) |
 | `npm run bench` | the kernel's speed |
-| `npm run docs:clips` | films the docs' clips (`docs/clips/`) from a build, after `npm run build` (needs ffmpeg, Playwright's Chromium and about 2 GB of memory) |
 
 A check that needs local data it can't find skips itself and says so.
 `npm test` never needs a network.

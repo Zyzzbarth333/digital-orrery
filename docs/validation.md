@@ -120,7 +120,6 @@ other planets (`public/trajbrowser/planets.json`).
 | Hermite interpolation, 30 days | direct ephemeris calls (DE442 table) | worst 20 m (Mercury, the cubic's own error at 6-hour nodes) |
 | 400 km orbit, real Sun/Moon/planets, point masses, 1 day | two-body about Earth | within 0.2 km |
 | Earth's J2: node of a 400 km, 51.6° orbit, 3 days | $-\tfrac32 nJ_2(R/p)^2\cos i$ | −5.0305°/day against −5.0060°/day (0.49 %, the mean-versus-osculating offset); Encke and Cowell agree to 10⁻⁴°/day |
-| a year 400 km over Mars at 150.6°, with its J2, moons and the Sun (case 8c) | Brouwer's short-period term in $a$ [kernel](physics/nbody-kernel.md#oblateness-j2) | the osculating $a$ every 30 days falls 2.8 km (3,789.93 to 3,787.10), each sample the mean plus $\tfrac32 J_2R^2/\bar a\,\sin^2 i\cos 2u$ (2.15 km) to 46 m; the turn-averaged $a$ holds to 14 m |
 | finite burn, no gravity | rocket equation | Δv 5×10⁻¹⁴ km/s; position 3.5×10⁻⁸ km after 10 days (Yoshida: 2.8×10⁻⁹, 2.4×10⁻³) |
 | kernel GMs | SPICE `gm_de442.tpc` | 5.9×10⁻¹⁶ |
 | Worker message handling | direct advance | identical |
@@ -890,18 +889,6 @@ torque, and burns along the body axis to the kernel
 | Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
 | Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |
 
-## The faint belt's file (`smallbodies.test.mjs`)
-
-The faint belt's 12-byte packing ([small bodies](frontend/small-bodies.md#the-data)), tried on the bright main belt's 65,032 bodies packed as the faint file is, against their 16-byte pack.
-
-| Check | Reference | Result |
-| --- | --- | --- |
-| Positions at the epoch | the 16-byte pack | 50,000 km rms, 152,000 km worst (limits 100,000 and 300,000; a grid cell is 6.5 million km) |
-| Positions ten years on | the 16-byte pack | 68,000 km rms, 177,000 km worst |
-| Their light | the unpacked magnitudes | kept to 0.11 % |
-| The grid's binning of them | their own light and light-weighted centre | light to 1 part in 10⁵; centre 11 km apart |
-| `smallbodies-belt.bin` | `smallbodies.json`'s `beltCount` | 12 bytes a body, 17.36 MB |
-
 ## Earth satellites (`satellites.test.mjs`)
 
 SGP4 and SDP4 (satellite.js, opsmode a), the TEME to J2000 turn, and the
@@ -978,8 +965,6 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 | Earth–Moon Jacobi constants at L1–L4 | Koon, Lo, Marsden and Ross: 3.1883, 3.1722, 3.0121, 2.9880 | 3.1883, 3.1722, 3.0121, 2.9880 |
 | Spin sense of 61 bodies, from the app's orientation differenced | the sign of each IAU rate $W_1$ | all 61; size within 2 % (Phobos 0.65 %, its libration) |
 | Retrograde rotation | Venus 177°, Uranus 98°, Pluto 120° from their orbits' poles | exactly those three: 177.4°, 97.8°, 119.6° |
-| The cursor's readout on the Earth–Moon L1 marker, in the app | C1 from `criticalLevels`, 3.188341 | C 3.18834, the pull 5.7 µm/s² |
-| The rotating frame's contours worked out per pixel, after the change | the double-precision sum, read back at 144 pixels | Jacobi within 0.001 in log₁₀(C − C₄), \|a\| within the half-float step |
 
 ## References
 
