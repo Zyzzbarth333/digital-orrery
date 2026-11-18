@@ -17,17 +17,46 @@
 //   torque       fixed in body axes
 //   gravity gradient  the point-mass torque 3 mu / r^3 (r_b x I r_b), r_b the
 //                unit vector to the vehicle in body axes
+//   aerodynamic torque  the drag force acting at a centre of pressure cp
+//                (body axes, m from the centre of mass): tau = cp x F_b
+//   control      a torque of the state, control(t, r, v, q, omega), body axes
+//                (an attitude controller: attitude.js)
+//
+// The app's attitude (attitude.js) runs the rotational half of this model,
+// rotationalRates, on a translation given to it: the same torques and
+// Euler's equations, so the check cases cover both.
 //
 // Integration: classical 4th-order Runge-Kutta at a fixed step, with steps
 // cut to end exactly on output times and breakpoints (the edges of a burn or
 // a torque), so a pulse switches on and off at its stated time.
 
 import { geopotential } from './geopotential.js';
-import { quatMul, quatNormalize, quatToMatrix, matVec, matTVec, invert3 } from './rigidbody.js';
+import { quatNormalize, quatToMatrix, matVec, matTVec, invert3, attitudeRates } from './rigidbody.js';
 
 export { geopotential };
 
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+// The point-mass gravity-gradient torque (body axes, N m) on a body of
+// inertia I (kg m^2) at r (m) from a centre of gravitational parameter mu
+// (m^3/s^2), attitude q (body to inertial): 3 mu / r^3 (r_b x I r_b), r_b
+// the unit vector to the body in body axes.
+export function gravityGradientTorque(mu, r, q, inertia) {
+  const rn = Math.hypot(...r), rb = matTVec(quatToMatrix(q), r).map((x) => x / rn);
+  const g = cross(rb, matVec(inertia, rb)), k = 3 * mu / rn ** 3;
+  return [k * g[0], k * g[1], k * g[2]];
+}
+
+// The aerodynamic torque (body axes, N m) of drag acting at the centre of
+// pressure cp (body axes, m from the centre of mass): the drag force
+// F = -rho |v| v CdA / 2 along the air-relative velocity vAir (inertial,
+// m/s), taken into body axes, and tau = cp x F. Behind the centre of mass
+// (a negative cp along the direction of flight) it turns the body into the
+// airflow, as a shuttlecock's skirt does.
+export function aeroTorque(rho, vAir, q, cdA, cp) {
+  const vb = matTVec(quatToMatrix(q), vAir), vn = Math.hypot(...vb), k = -0.5 * rho * vn * cdA;
+  return cross(cp, [k * vb[0], k * vb[1], k * vb[2]]);
+}
 
 // model:
 //   mu                    m^3/s^2
@@ -38,8 +67,12 @@ const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a
 //   drag                  { cdAOverM (m^2/kg), density(t, rEci, rEcef), omegaEarth }
 //   force(t)              body-axis force, N (or null)
 //   torque(t)             body-axis torque, N m (or null)
+//   control(t, r, v, q, omega)  body-axis torque of the state, N m (or null)
 //   gravityGradient       true for the point-mass gravity-gradient torque
+//   aero                  { cp (body m), cdA (m^2) }: the drag's torque about
+//                         the centre of mass (needs drag for its density)
 //   mass, inertia         kg; 3x3 kg m^2 about the centre of mass, body axes
+//   massAt(t)             kg, in place of mass, for a body losing propellant
 //   breakpoints           times (s) a step must end on
 export function makeModel(m) {
   const inertiaInv = invert3(m.inertia);
@@ -77,19 +110,38 @@ export function makeModel(m) {
       for (let i = 0; i < 3; i++) a[i] += k * vr[i];
     }
     const F = m.force?.(tPulse);
-    if (F) { const f = matVec(quatToMatrix(q), F); for (let i = 0; i < 3; i++) a[i] += f[i] / m.mass; }
+    if (F) { const f = matVec(quatToMatrix(q), F), mass = m.massAt ? m.massAt(t) : m.mass; for (let i = 0; i < 3; i++) a[i] += f[i] / mass; }
     return a;
   }
-  function torque(t, r, q, tPulse) {
+  // The air's velocity relative to the vehicle's, for drag and its torque.
+  function airVelocity(t, r, v) {
+    const M = earthFixed(t), pole = M[2];
+    const w = [pole[0] * m.drag.omegaEarth, pole[1] * m.drag.omegaEarth, pole[2] * m.drag.omegaEarth];
+    const wr = cross(w, r);
+    return { vr: [v[0] - wr[0], v[1] - wr[1], v[2] - wr[2]], M };
+  }
+  function torque(t, r, v, q, w, tPulse) {
     const tau = [0, 0, 0];
     const T = m.torque?.(tPulse);
     if (T) for (let i = 0; i < 3; i++) tau[i] += T[i];
     if (m.gravityGradient) {
-      const rn = Math.hypot(...r), rb = matTVec(quatToMatrix(q), r).map((x) => x / rn);
-      const g = cross(rb, matVec(m.inertia, rb)), k = 3 * m.mu / rn ** 3;
-      for (let i = 0; i < 3; i++) tau[i] += k * g[i];
+      const g = gravityGradientTorque(m.mu, r, q, m.inertia);
+      for (let i = 0; i < 3; i++) tau[i] += g[i];
     }
+    if (m.aero && m.drag) {
+      const { vr, M } = airVelocity(t, r, v), g = aeroTorque(m.drag.density(t, r, matVec(M, r)), vr, q, m.aero.cdA, m.aero.cp);
+      for (let i = 0; i < 3; i++) tau[i] += g[i];
+    }
+    const C = m.control?.(t, r, v, q, w);
+    if (C) for (let i = 0; i < 3; i++) tau[i] += C[i];
     return tau;
+  }
+  // The rotational half of the state's rates, [q'(4), omega'(3)], at
+  // position r and velocity v: what attitude.js integrates on a
+  // translation it is given.
+  function rotationalRates(t, r, v, q, w, tPulse = t) {
+    const { qDot, wDot } = attitudeRates(q, w, m.inertia, inertiaInv, torque(t, r, v, q, w, tPulse));
+    return [qDot[0], qDot[1], qDot[2], qDot[3], wDot[0], wDot[1], wDot[2]];
   }
   // y = [r(3), v(3), q(4), omega(3)]. tPulse: the time at which a force or
   // torque pulse is judged on or off, the middle of the current step, so
@@ -98,13 +150,10 @@ export function makeModel(m) {
   function deriv(t, y, tPulse = t) {
     const r = y.slice(0, 3), v = y.slice(3, 6), q = y.slice(6, 10), w = y.slice(10, 13);
     const g = gravitation(t, r), o = other(t, r, v, q, tPulse);
-    const tau = torque(t, r, q, tPulse);
-    const Iw = matVec(m.inertia, w), gyro = cross(w, Iw);
-    const wDot = matVec(inertiaInv, [tau[0] - gyro[0], tau[1] - gyro[1], tau[2] - gyro[2]]);
-    const qDot = quatMul(q, [0, w[0], w[1], w[2]]);
-    return [v[0], v[1], v[2], g[0] + o[0], g[1] + o[1], g[2] + o[2], qDot[0] / 2, qDot[1] / 2, qDot[2] / 2, qDot[3] / 2, wDot[0], wDot[1], wDot[2]];
+    const rot = rotationalRates(t, r, v, q, w, tPulse);
+    return [v[0], v[1], v[2], g[0] + o[0], g[1] + o[1], g[2] + o[2], ...rot];
   }
-  return { ...m, deriv, gravitation, other, torque, earthFixed };
+  return { ...m, deriv, gravitation, other, torque, rotationalRates, earthFixed, inertiaInv };
 }
 
 // Propagate from state { t, r, v, q, omega } to tEnd, with step h (s),

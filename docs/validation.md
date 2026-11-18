@@ -507,6 +507,25 @@ published equations and Fortran listings
 | Temperature along the same | sim B | within 0.7 mK |
 | Density along cases 5A–C against the other tools (one-off) | sims C (MET-1999), D (MET-1995), A (MET-2007) | 4.6×10⁻⁴, 4.1 %, 13 % |
 
+## Attitude in the app (`attitude.test.mjs`)
+
+A craft's attitude as the app carries it: the rotational half of
+`sixdof.js` on a translation it is given, a sampled controller with finite
+torque, and burns along the body axis to the kernel
+([Attitude in the app](physics/sixdof.md#attitude-in-the-app)).
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| NESC rotation cases 8A, 8B (torque-free), 9A, 9B (torque pulse), 10A–D (gravity gradient), through the app's stepper on the case's own translation, 8 h | the closest NASA tool | within 5×10⁻¹⁴ rad/s and 3.4×10⁻⁹ deg (tolerance 10⁻¹⁰ rad/s, 10⁻⁶ deg); 2.6×10⁻¹⁶ rad/s from `sixdof.js` integrating both |
+| Turns of 10°, 45°, 90°, 120° and 170° about fixed axes, to settled | the bang-coast-bang least time under the torque and rate limits | never faster; 2.8–30 % slower (the margin and the final approach weigh most in short turns) |
+| The same turns | the controller's closed-form time (`slewTime`) | within 0.6–4.6 % |
+| A 90° slew to prograde in a 400 km orbit, by the app's craft at 60 fps through the kernel | the controller's time; the least time | 33.82 s against 34.12 s (0.9 %) and 32.13 s; settled within 0.01° of prograde |
+| A 428 m/s burn along the body axis held prograde, 600 s | the kernel's point-mass burn steered prograde | 0 m |
+| The same, about a point-mass Earth | `sixdof.js` with translation and attitude together, the app's controller in the loop | 0.21 m (the kernel's point-mass burn: 0.42 m, the Sun's and Moon's tides) |
+| The same burn begun 30° off prograde, turning as it burns | the same coupled run | 2.0 m, of the 7.5 km the turn costs |
+| A weathervane: 2° in pitch at 7.8 km/s in air of 2.5×10⁻¹⁰ kg/m³, the centre of pressure 0.3 m aft | the small-angle period $2\pi/\sqrt{q C_D A\,|r_{cp}|/I}$ | 1,598.9 s against 1,598.8 s |
+| A craft held prograde, two days at a day a second | its point-mass twin's frame | no attitude steps; no slower |
+
 ## Not yet validated
 
 - Against JPL Horizons, GMAT or Orekit trajectories.
