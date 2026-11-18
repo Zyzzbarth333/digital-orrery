@@ -94,6 +94,11 @@ export const TAG_INFO = {
     where: 'R: the mean radius; the planet\'s own GM, not its system\'s',
     source: 'from the GM and the mean radius above',
   },
+  clouds: {
+    what: 'The Earth\'s day side as polar-orbiting satellites saw it: one true-colour mosaic a day, each place imaged once at about 13:30 local time (10:30 for Terra), so the weather that day, not live. Within two days of now each place shows the newest of the last three days that has it, as the day\'s mosaic fills in some hours behind the passes.',
+    tex: [],
+    source: 'NASA GIBS / EOSDIS near-real-time corrected reflectance: VIIRS on NOAA-21, NOAA-20 and Suomi NPP; MODIS on Terra',
+  },
   albedo: {
     what: 'How bright the full disc is, against a white disc of the same size.',
     tex: [],

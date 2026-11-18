@@ -10,6 +10,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { loadManifest, type Manifest } from '../scene/surfaces';
+import { dailyEarthInfo } from '../scene/clouds';
 import { useClock, useClockValue, type SimClock } from './clock';
 import type { Mission } from './mission';
 import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf, type BaryKey, type BodyKey, type FocusKey, type MoonKey } from '../scene/catalogue';
@@ -574,6 +575,7 @@ export const HINTS: Record<string, string> = {
   'Axial tilt': 'Angle between the spin axis and the orbit\'s axis (obliquity)',
   'Mean density': 'Mass over volume',
   'Escape speed': 'Speed needed at the surface to leave for good, without further push',
+  'Clouds': 'The weather drawn on the Earth: NASA satellites\' daily true-colour image, the newest pass each place has. One look a day, not live',
   'At the equator': 'The Sun is gas: its equator turns faster than its poles',
   'Near the poles': 'The Sun is gas: its poles turn slower than its equator',
   'From the barycentre': 'How far the solar system\'s centre of mass is from the Sun\'s centre: the Sun wanders round it as the giant planets go round',
@@ -634,6 +636,7 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
   const rSun = norm(st.r);
   const fromEarth = norm([st.r[0] - earth.r[0], st.r[1] - earth.r[1], st.r[2] - earth.r[2]]);
   const ownGm = b.planetGm ?? b.gm;
+  const clouds = useSyncExternalStore(dailyEarthInfo.subscribe, dailyEarthInfo.get);
   const rows: Row[] = [];
   // Every planet, Pluto and the Moon come from DE442's table where it covers
   // the date (2000-2050), else from astronomy-engine; a planet's moon rides on
@@ -704,6 +707,18 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     rows.push(pm
       ? { label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(2), src: 'JPL', info: 'moon-albedo', detail: `NAIF ${pm.naif}` }
       : { label: 'Geometric albedo', value: b.geometricAlbedo.toFixed(3), src: 'NSSDCA', info: 'albedo' });
+  }
+  // The weather drawn on the Earth: the day (or days) of GIBS's mosaic.
+  if (focus === 'earth' && clouds) {
+    const [newest, ...older] = clouds.days;
+    const pct = (x: number) => `${Math.round(x * 100)} %`;
+    const sat = clouds.layer.replace(/_CorrectedReflectance_TrueColor$/, '').replace(/_/g, ' ').replace('NOAA', 'NOAA-').replace('SNPP', 'Suomi NPP');
+    rows.push({
+      label: 'Clouds', value: newest.day, src: 'GIBS', info: 'clouds',
+      alt: older.length ? `newest pass; ${older.map((d) => d.day.slice(5)).join(', ')} under it` : 'that day, not live',
+      detail: `${sat}, about ${sat.startsWith('MODIS Terra') ? '10:30' : '13:30'} local time at each place`
+        + (older.length && Number.isFinite(newest.share) ? `. ${clouds.days.map((d) => `${d.day} ${pct(d.share)}`).join(', ')} of the globe; the rest shows the Blue Marble (polar night, gaps between passes)` : ''),
+    });
   }
   if (focus !== 'sun' && (b.gm || pm)) {
     // The period of the osculating orbit at this instant, from the state:
