@@ -137,6 +137,7 @@ once it has releases. Until then, everything sits under Unreleased.
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
   (#113).
+- Voyager 2's Uranus encounter is checked too, past Miranda and Uranus on 24 January 1986 against NAIF's reconstruction: 2.3 km off twelve hours on, and 0.30 km with the reconstruction's thruster firings put back. Craft near Uranus and Neptune now feel the fields those reconstructions were fitted with: Uranus's J2 to J6 and its five moons' GMs from URA182 (Oberon's 214.2 km³/s², not 205.3), Neptune's J2 to J6 and pole from nep097. Neptune's new pole takes Voyager 2 at Triton from 3.2 km off to 2.6 km; the J2 two sigma larger that had brought it to 1.6 km only made up for those firings (this pull request).
 - MESSENGER's cruise to Mercury, 2004 to 2011, flies in the app against
   JHU/APL's reconstruction (`?mission=messenger`): six flybys, every burn
   within 1.1 % and 1.7° of APL's record, and the sunlight it steered by
