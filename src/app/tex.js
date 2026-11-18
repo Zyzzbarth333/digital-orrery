@@ -24,8 +24,8 @@ const GREEK = {
   phi: 'ϕ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω',
   Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
 };
-// Identifiers that are symbols: the Sun's and the Earth's, infinity.
-const SYMBOLS = { odot: '⊙', oplus: '⊕', infty: '∞', partial: '∂', ell: 'ℓ' };
+// Identifiers that are symbols: the Sun's and the Earth's, infinity, nabla.
+const SYMBOLS = { odot: '⊙', oplus: '⊕', infty: '∞', partial: '∂', ell: 'ℓ', nabla: '∇' };
 const OPERATORS = {
   cdot: '·', times: '×', le: '≤', leq: '≤', ge: '≥', geq: '≥', approx: '≈', pm: '±', mp: '∓',
   neq: '≠', to: '→', propto: '∝', equiv: '≡', lvert: '|', rvert: '|', sum: '∑', int: '∫', otimes: '⊗',
