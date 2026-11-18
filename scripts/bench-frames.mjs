@@ -42,19 +42,33 @@ import { loadavg } from 'node:os';
 import { GPUS, launch, pageApi, serve } from './lib/chromium.mjs';
 
 // ---- Scenarios ------------------------------------------------------------
-// A URL query (App.tsx's initialState documents it) and a camera distance
-// from what it shows, in km. A past date keeps the sky the same each run.
+// A URL query (App.tsx's initialState documents it), an expression to run
+// once the page is up (setup), a camera distance from what it shows, in
+// km, and a clock rate (sim seconds a second) if not real time. A past
+// date keeps the sky the same each run.
 
 const DATE = 't=2026-11-10T15:00Z';
 const CRAFT = 'orrery.focusCraftId !== null';
+// Earth satellites switched on (all 16,892 points), and the ISS followed.
+const SATS_ON = '(async () => { const L = orrery.satellites; L.setOn(true); while (!L.count) await new Promise((r) => setTimeout(r, 100)); return true; })()';
+const ISS = SATS_ON.replace('return true;', 'orrery.focusOnSatellite(25544); return true;');
 const SCENARIOS = {
   'overview': { label: 'Overview (the Sun)', query: `?focus=sun&${DATE}`, km: 1.6e9 },
   'earth': { label: 'Earth close-up', query: `?focus=earth&${DATE}`, km: 20000 },
+  'earth-fill': { label: 'Earth filling the view', query: `?focus=earth&${DATE}`, km: 9000 },
   'belt': { label: 'The asteroid belt', query: `?focus=sun&${DATE}`, km: 9e8 },
   'craft-near': { label: 'Craft in LEO (6-DOF)', query: `?craft=orbit,400,51.6&${DATE}`, km: 0.4, ready: CRAFT },
   'craft-far': { label: 'Craft in LEO (6-DOF)', query: `?craft=orbit,400,51.6&${DATE}`, km: 3000, ready: CRAFT },
+  'craft-warp': { label: 'Craft in LEO (6-DOF) at 1 d/s', query: `?craft=orbit,400,51.6&${DATE}`, km: 3000, ready: CRAFT, rate: 86400 },
   'point-near': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 0.4, ready: CRAFT },
   'point-far': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 3000, ready: CRAFT },
+  'sats': { label: 'Earth satellites, all on', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON },
+  'sat-near': { label: 'The ISS followed', query: `?focus=earth&${DATE}`, km: 0.1, setup: ISS },
+  'saturn': { label: 'Saturn and its rings', query: `?focus=saturn&${DATE}`, km: 500000 },
+  'jupiter': { label: 'Jupiter and its rings', query: `?focus=jupiter&${DATE}`, km: 700000 },
+  'jupiter-in': { label: 'Inside Jupiter\'s rings', query: `?focus=jupiter&${DATE}`, km: 200000 },
+  'uranus': { label: 'Uranus and its rings', query: `?focus=uranus&${DATE}`, km: 200000 },
+  'neptune': { label: 'Neptune and its rings', query: `?focus=neptune&${DATE}`, km: 250000 },
 };
 const DEFAULTS = ['earth', 'belt', 'craft-near', 'craft-far', 'point-near', 'point-far'];
 const GPU_NAME = { intel: 'Intel', nvidia: 'NVIDIA' };
@@ -100,10 +114,12 @@ async function measure(p, base, sc, opts) {
   await p.open(`${base}/${sc.query}`);
   try {
     await p.eval(HOOK);
+    if (sc.setup) await p.eval(sc.setup);
     if (sc.ready) await p.waitFor(sc.ready);
     await p.waitFor('!orrery.flying');
     await p.zoomTo(sc.km);
     await p.waitFor(`Math.abs(Math.log(orrery.rig.dist / ${sc.km})) < 0.02`, 15000);
+    if (sc.rate) await p.setRate(sc.rate);
     await p.wait(opts.settle * 1000);
     await p.eval(RESET);
     await p.wait(opts.seconds * 1000);

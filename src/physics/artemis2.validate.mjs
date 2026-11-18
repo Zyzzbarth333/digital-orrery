@@ -24,6 +24,8 @@
 //  6. The app's own path: the mission file (public/missions/artemis2.json)
 //     flown by the Craft model through the kernel host, frame by frame,
 //     as the app flies it.
+//     Its injection burn flown in one kernel request, in a step to each
+//     5-second interval, against the same burn at 0.01 s steps.
 //  7. Our own plan, independent of the flown data after the start:
 //     artemis2.design.mjs designs the injection burn from NASA's published
 //     targets (about a minute; its result is fixtures/artemis2_design.json).
@@ -33,9 +35,9 @@
 //   node src/physics/artemis2.validate.mjs [--json out.json]
 
 import fs from 'node:fs';
-import { advance } from './nbody.js';
+import { advance, createState } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
-import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs, stepCraft, vnbDirection } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
 import { Craft } from './craft.js';
 import { ORION_CRAFT } from './orion.js';
@@ -214,6 +216,45 @@ const app = await flyApp(null), app12 = await flyApp(12);
 const appBlind = await flyApp(null, { env: true }), appAimed = await flyApp(null, { env: true, aimed: true });
 const appAimedAsync = await flyApp(null, { env: true, aimed: true, viaClient: true });
 
+// The injection burn as the kernel host flies it: steered in the orbital
+// frame, one request, a step to each 5-second interval (the error-controlled
+// steps see each stage's own velocity), against the same burn flown here by
+// advance() with a step ending every 0.01 s and its own steering. Gravity
+// and J2 alone, so the difference is the steps'. Until 18 November 2026 the
+// host cut a steered burn's steps at 0.25 s, a rule from the symplectic
+// integrator before.
+const tliSteps = (() => {
+  const s0 = file.startState(), tEnd = kernelSeconds(new Date(file.burns[0].intervals.at(-1)[1])) + 60;
+  const c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, bare: true });
+  c.setScript(file.script());
+  c.advanceClock(tEnd);
+  const req = { ...c.buildRequest(), maxSteps: 1e7 };
+  const one = stepCraft(sys, req);
+  const list = req.burns.filter((b) => b.frame === 'vnb' && b.about === 'earth').sort((x, y) => x.t0 - y.t0);
+  const breaks = [...new Set(list.flatMap((b) => {
+    const n = Math.ceil((b.t1 - b.t0) / 0.01);
+    return Array.from({ length: n + 1 }, (_, k) => (k === n ? b.t1 : b.t0 + (b.t1 - b.t0) * k / n));
+  }))].sort((x, y) => x - y);
+  const vE = [0, 0, 0];
+  const thrust = (t, r, out, mid, v) => {
+    out[0] = out[1] = out[2] = 0;
+    let lo = 0, hi = list.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (list[m].t1 <= mid) lo = m + 1; else hi = m; }
+    const b = list[lo];
+    if (!b || !(mid >= b.t0 && mid < b.t1)) return out;
+    const E = sys.bodyAt('earth', t);
+    E.eph.velocity(t, vE);
+    const d = vnbDirection(b.dir, sub(r, E.r), sub(v, vE)), k = b.F / 1000;
+    out[0] = k * d[0]; out[1] = k * d[1]; out[2] = k * d[2];
+    return out;
+  };
+  const st = createState(req.r, req.v, req.t);
+  const fine = advance(st, tEnd, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, extraAccel: thrust, breakpoints: breaks, maxSteps: 1e7 });
+  const out = { steps: one.steps, fineSteps: fine.steps, km: norm(sub(one.r, st.r)), kms: norm(sub(one.v, st.v)), complete: one.complete && fine.complete };
+  console.log(`  the injection burn in one request: ${out.steps} steps, ${(out.km * 1e6).toFixed(1)} mm and ${(out.kms * 1e9).toFixed(1)} um/s from the same burn at 0.01 s steps (${out.fineSteps} steps)`);
+  return out;
+})();
+
 // ---------------- 7. our own plan ----------------
 const plan = JSON.parse(fs.readFileSync(new URL('./fixtures/artemis2_design.json', import.meta.url)));
 const pf = flyDesign(plan.dvKms, plan.ignitionMs), pc = plan.comparison;
@@ -255,6 +296,7 @@ check(`the aimed corrections add under 10 m/s to the flown ones (${appAimed.aime
 // The extra frame held at each burn splits the kernel's steps differently:
 // a few tenths of a metre by entry.
 check(`aimed as the app aims them, through the kernel client a frame later, the same flight (${(Math.abs(appAimedAsync.end - appAimed.end) * 1000).toFixed(2)} m apart at entry, ${Math.abs(appAimedAsync.aimedDv - appAimed.aimedDv).toExponential(1)} m/s in the aims)`, Math.abs(appAimedAsync.end - appAimed.end) < 0.01 && Math.abs(appAimedAsync.aimedDv - appAimed.aimedDv) < 0.01);
+check(`the injection burn's steps: within 2 cm and 0.02 mm/s of 0.01 s steps, in under 400 steps (${tliSteps.steps})`, tliSteps.complete && tliSteps.km < 2e-5 && tliSteps.kms < 2e-8 && tliSteps.steps < 400);
 check('our plan still meets NASA\'s flyby (1 km, 5 s) and entry time (5 s)', Math.abs(pf.flyby.altitude - TARGETS.flybyAltKm) < 1 && Math.abs(Date.parse(pf.flyby.utc) - TARGETS.flybyMs) < 5e3 && Math.abs(pf.ei.ms - TARGETS.eiMs) < 5e3);
 check('our plan\'s injection burn within 1 % of NASA\'s planned 1,274 ft/s and 3 s of its 349 s, igniting within 2 min of 23:49', Math.abs(ftps(pf.mag) / 1274 - 1) < 0.01 && Math.abs(pf.seconds - 349) < 3 && Math.abs(plan.ignitionMs - TARGETS.planIgnitionMs) < 120e3);
 check('our plan stays within 300 km of the flown path, and its farthest from Earth within 10 km of the flown', pc.max < 300 && Math.abs(pc.farthest.ours.km - pc.farthest.flown.km) < 10);

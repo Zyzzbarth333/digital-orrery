@@ -19,13 +19,16 @@
 //   magnitude gets H 18, faint.
 // The named ones (dwarf planets, mission targets, famous comets; NOTABLE in
 // smallBodies.js, by designation) go to the JSON at full precision, for
-// labels. Every kept body's designation, name and diameter go to
+// labels. The faint main belt (smallbodies-belt.bin, the haze) is packed
+// in 12 bytes instead, without the class (packBelt in beltGrid.js). Every
+// kept body's designation, name and diameter go to
 // smallbodies-index.txt, line for line with the .bin, for the search.
 
 import fs from 'node:fs';
 import { GROUPS, CACHE } from './smallbodies.fetch.mjs';
 import zlib from 'node:zlib';
 import { SB_CLASSES, SB_EPOCH_JD, SB_K1, NOTABLE, encodeIndex } from './smallBodies.js';
+import { packBelt } from './beltGrid.js';
 
 const K = 0.01720209895;                     // Gaussian gravitational constant, rad/day (au, solar masses)
 const D2R = Math.PI / 180, TAU = 2 * Math.PI;
@@ -106,7 +109,7 @@ function pack(list) {
   });
   return buf;
 }
-const buf = pack(kept), beltBuf = pack(faint);
+const buf = pack(kept), beltBuf = packBelt(faint);
 console.log(`${read} rows read`);
 fs.mkdirSync(new URL('../../public/data/', import.meta.url), { recursive: true });
 fs.writeFileSync(new URL('../../public/data/smallbodies.bin', import.meta.url), buf);

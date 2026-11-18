@@ -42,7 +42,7 @@
 // can pass straight through it.
 
 import { advanceEncke, perturbationRatio, ENCKE_IN, DP45, outOfTime } from './encke.js';
-import { addJ2, below } from './zonal.js';
+import { addJ2, addTide, below } from './zonal.js';
 import { locateImpact, dp45Dense, hermiteAt } from './impact.js';
 
 // The Cowell integrator unless asked for another: error-controlled
@@ -78,7 +78,10 @@ export function accelHeliocentric(r, bodies, muSun, out = [0, 0, 0], indirect = 
     out[0] += kd * dx - kp * p[0];
     out[1] += kd * dy - kp * p[1];
     out[2] += kd * dz - kp * p[2];
-    if (b.j2 && d2 < b.j2Cut2) addJ2(-dx, -dy, -dz, d2, b, out);
+    if (b.j2 && d2 < b.j2Cut2) {
+      addJ2(-dx, -dy, -dz, d2, b, out);
+      if (b.tide) addTide(-dx, -dy, -dz, d2, b, bodies, out);
+    }
   }
   return out;
 }

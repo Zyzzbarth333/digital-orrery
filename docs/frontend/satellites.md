@@ -13,6 +13,8 @@ off until then, and its data loads the first time.
 | ![The Earth from 51,000 km with the satellites on: a dense shell of low-orbit points close round it, Hubble's marker, and the faint orbits of the GPS, Galileo and geostationary weather satellites crossing the view](satellites-earth.jpg) | ![Further out: the GPS and Galileo shells as rings of orbits about the Earth, and the geostationary ring in green](satellites-shells.jpg) |
 | The Earth with all 16,892 on, 17 Nov 2026 12:00 UTC | Further out: the GPS and Galileo shells and the geostationary ring |
 
+![Every active satellite round the Earth at a minute a second and then an hour a second: the low-orbit shell sweeps round under the camera as it turns, with the GPS and Galileo orbits and the geostationary ring further out](../clips/satellites.webp)
+
 Code: [`src/physics/satellites.js`](../../src/physics/satellites.js) (the
 physics), [`src/scene/satellites.ts`](../../src/scene/satellites.ts) and
 [`satellites.worker.ts`](../../src/scene/satellites.worker.ts) (drawing),
@@ -189,6 +191,30 @@ units away, to it.
   resampled once the clock has moved 0.3 of a period, so a low orbit's
   turning plane (the ISS's node moves 5° a day) stays under it. The
   constellations' outlines are fainter than the stations'.
+- **The focused one's orbit, close up.** The 129 samples leave each chord
+  of a low orbit 330 km long, bowed 2 km off the path, so from closer than
+  a few hundred kilometres the line would pass beside the satellite: 0.5
+  to 1.4 km off the ISS, followed from 100 m to 700 km. Float32 about the
+  Earth adds about a metre. Within a tenth of its distance from the Earth
+  of the camera (680 km for the ISS), the stretch of 12 samples either
+  side of it (a fifth of the orbit) is drawn every frame by SGP4 relative
+  to the satellite, which is a vertex, in 32 steps each way that grow as
+  the square of the step count. That keeps the chords' bow under 3 × 10⁻⁴
+  rad seen from the satellite all along it, under a pixel, and the far
+  line's 2 km bow outside the stretch is at least half the orbit's radius
+  from the camera. The stretch ends on samples of the far line (within a
+  metre), which leaves it to the stretch: the orbit shader's gap for a
+  line of its own, the segments blacked out of the line set for a
+  constellation's member. It is SGP4, not the osculating ellipse of the
+  satellite's state now, because the ellipse strays from SGP4's path by
+  the Earth's oblateness: 0.6 km a twentieth of an orbit on, 2 km at the
+  stretch's ends and 10 to 20 km half an orbit on, for the ISS and Hubble,
+  so it would not meet the far line. The 65 SGP4 calls take about 0.14 ms
+  a frame (2.1 µs each, in Node), and only for the focused one.
+
+| Before | Now |
+| --- | --- |
+| ![The ISS followed from 400 m: its orbit line, a chord of the far line, passes 0.8 km beside the marker](satellite-close-up-before.jpg) | ![The same view now: the orbit line runs into the marker, its glowing trail behind the ISS and the faint outline ahead](satellite-close-up-after.jpg) |
 
 ## Flying to one
 
@@ -278,6 +304,8 @@ The layer costs about 3.5 ms a frame on an integrated GPU with all 16,892
 on, and nothing measurable on a discrete one. It is off until switched on,
 and costs nothing then. The numbers, and the two fixes the first timing
 called for, are in [performance.md](../performance.md#earth-satellites).
+The focused one's close-up orbit costs nothing measurable on either GPU
+(the same section).
 
 ## References
 

@@ -2,7 +2,9 @@
 
 Reads originals from a source folder (default ~/.cache/digital-orrery/
 textures-src, never committed) and writes public/textures/<body>/*.webp plus
-public/textures/manifest.json. See docs/frontend/textures.md.
+public/textures/manifest.json, with a lossless master of each map in the
+source folder's _work/masters for build_ktx2.py. See
+docs/frontend/textures.md.
 
 Every output map has the same layout: equirectangular, west edge at -180 deg
 east longitude, top row at +90 deg latitude (the browser flips it so v = 0 is
@@ -30,6 +32,8 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+import masters
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -78,8 +82,7 @@ def roll_to_minus180(img: Image.Image, west_edge_deg: float) -> Image.Image:
 
 
 def save_webp(img: Image.Image, path: Path, quality: int = 88) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(path, "WEBP", quality=quality, method=6)
+    masters.save_webp(img, path, quality)
     print(f"  wrote {path.relative_to(REPO)}  {img.size[0]}x{img.size[1]}  {path.stat().st_size / 1e6:.1f} MB")
 
 
@@ -141,6 +144,7 @@ def main() -> int:
     ap.add_argument("--src", type=Path, default=DEFAULT_SRC)
     ap.add_argument("--only", default="")
     args = ap.parse_args()
+    masters.set_source(args.src)
     from sources import BODIES  # noqa: E402  (python/textures/sources.py)
 
     only = set(filter(None, args.only.split(",")))
@@ -151,7 +155,9 @@ def main() -> int:
             continue
         print(key)
         entry = build(args.src, OUT, colour_map, heights_km, normal_map)
-        if key in ("rings", "stars"):
+        if key == "uranus_rings":
+            manifest["rings"] = {**manifest.get("rings", {}), **entry}
+        elif key in ("rings", "stars"):
             # Replaced, not merged: a field a newer build drops must not linger.
             manifest[key] = {**manifest.get(key, {}), **entry} if key == "rings" else entry
         else:

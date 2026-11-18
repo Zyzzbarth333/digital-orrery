@@ -190,11 +190,18 @@ smaller thrust (settling pulses of up to a seventh of the main engine's),
 which the replay flies too.
 
 Two corrections were made in getting here:
-- **Steps inside a steered burn are capped at 0.25 s,** in the app's kernel
-  as well. The symplectic integrator follows a thrust that turns with the
-  velocity only to first order. Against RK4 at 0.01 s, 5-second steps were
-  0.13 m/s off per minute of burning near perigee; 0.25-second steps are
-  0.0065 m/s off.
+- **Steps inside a steered burn were capped at 0.25 s,** in the app's kernel
+  as well. The symplectic integrator of the time followed a thrust that
+  turns with the velocity only to first order. Against RK4 at 0.01 s,
+  5-second steps were 0.13 m/s off per minute of burning near perigee;
+  0.25-second steps were 0.0065 m/s off. The kernel's error-controlled
+  integrator, which followed, sees each stage's own velocity, so the cap
+  went with it on 18 November 2026. Flown through the app's kernel host
+  with Orion's whole environment, the 23-minute injection burn (settling
+  pulses included) ends 2.4 mm and 0.0044 mm/s from the same burn with
+  steps capped at 0.01 s, in 276 steps. With the 0.25 s cap it took 5,480
+  steps and ended 1.6 mm and 0.0046 mm/s from it. At the 0.01 s cap a
+  burn takes 136,885 steps, and the rounding of that many sets the floor.
 - **Each interval's thrust is expressed in the orbital frame at its
   midpoint,** where the mean of a thrust turning with the frame points. It
   was at the interval's start, and near perigee the frame turns 0.24° in

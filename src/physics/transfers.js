@@ -18,7 +18,8 @@
 //     aimingRadius, turnAngle, hyperbolaEccentricity
 //     flyby, flybyFromB, poweredFlyby, bPlane    gravity assists (8.7, Ex 8.6)
 //   Leaving a moon for another planet
-//     asymptoteVelocities, moonExcess    the hyperbola about the planet from the moon's place
+//     asymptoteVelocities, moonExcess, moonRoots   the hyperbola about the planet from the moon's place
+//     swingbyMargin                      the charge on a swing-by that comes near the planet
 
 const TWO_PI = 2 * Math.PI;
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -318,24 +319,51 @@ export function asymptoteVelocities(r, vinf, mu) {
 // vinf about the planet. Leaving, the craft is at the moon's place on a
 // hyperbola about the planet that leaves along vinf; arriving
 // (arrive: true), on one that came in along vinf (time reversed: the state
-// (r, -v) leaves along -vinf). Of the two such hyperbolas the one nearer the
-// moon's own velocity is kept, unless it swings in past the planet on the
-// way (still falling inward, its periapsis under rMin): that is a flyby of
-// the planet, which the flight does not aim. Returns { vinf (vector about
-// the moon), speed, vAbout (the craft's velocity about the planet), rp (that
-// hyperbola's periapsis), swingby (true if only such a one was left) }.
-export function moonExcess({ rm, vm, vinf, mu, arrive = false, rMin = 0 }) {
+// (r, -v) leaves along -vinf).
+//
+// Of the two such hyperbolas the cheaper is taken. One still falling inward
+// (leaving; still rising, arriving) passes its periapsis on the way: a
+// swing-by of the planet. That is a path like any other unless it comes
+// near the planet (of radius rPlanet), so a periapsis under twice the
+// planet's radius is charged a margin that grows without bound towards the
+// surface (swingbyMargin): a root that dives is given up for the other one
+// smoothly, and the price never jumps as the moon moves. Returns { vinf
+// (vector about the moon), speed (its size), margin (the charge, km/s:
+// the price is speed + margin), cost (that sum), vAbout (the craft's
+// velocity about the planet), rp (that hyperbola's periapsis), ahead (true
+// if the periapsis is passed on the way), swingby (ahead, with the
+// periapsis under rSwing: a pass the flight aims early for) }.
+export function moonExcess(args) {
+  let best = null;
+  for (const x of moonRoots(args)) if (!best || x.cost < best.cost || (!Number.isFinite(best.cost) && !Number.isFinite(x.cost) && x.speed < best.speed)) best = x;
+  // (If both dive into the planet, which needs the moon nearly behind the
+  // planet from the way out, the cheaper, charged nothing: the price stays
+  // a number, and the flight's aims find the planet in the way.)
+  if (best && !Number.isFinite(best.cost)) { best.margin = 0; best.cost = best.speed; }
+  return best;
+}
+// Both hyperbolas, each as moonExcess returns the one it takes.
+export function moonRoots({ rm, vm, vinf, mu, arrive = false, rPlanet = 0, rSwing = 0 }) {
   const list = arrive ? asymptoteVelocities(rm, scale(vinf, -1), mu).map((v) => scale(v, -1)) : asymptoteVelocities(rm, vinf, mu);
-  let best = null, fallback = null;
-  for (const v of list) {
+  return list.map((v) => {
     const d = sub(v, vm), m = norm(d), h = norm(cross(rm, v)), en = dot(v, v) / 2 - mu / norm(rm);
     const rp = (h * h / mu) / (1 + Math.sqrt(Math.max(0, 1 + 2 * en * h * h / (mu * mu))));
     // Leaving, the periapsis is ahead if the craft is falling inward;
     // arriving, if it was rising (it has passed it on the way in).
     const ahead = arrive ? dot(rm, v) > 0 : dot(rm, v) < 0;
-    const x = { vinf: d, speed: m, vAbout: v, rp, swingby: ahead && rp < rMin };
-    if (!x.swingby && (!best || m < best.speed)) best = x;
-    if (!fallback || m < fallback.speed) fallback = x;
-  }
-  return best ?? fallback;
+    const margin = ahead ? swingbyMargin(rp, rPlanet) : 0;
+    return { vinf: d, speed: m, margin, cost: m + margin, vAbout: v, rp, ahead, swingby: ahead && rp < rSwing };
+  });
+}
+
+// The charge on a swing-by (km/s) whose periapsis rp passes a planet of
+// radius R: none from 2R out; under that, V (1 - u)^2 / u, with u = rp/R - 1
+// the periapsis's height in planet radii, so it starts flat (its slope is
+// zero at 2R) and grows without bound at the surface; at or under it,
+// Infinity. V = 0.1 km/s: 0.81 at a tenth of a radius up, 0.05 at half.
+export const SWINGBY_MARGIN = 0.1;
+export function swingbyMargin(rp, R) {
+  if (!(R > 0) || rp >= 2 * R) return 0;
+  const u = rp / R - 1;
+  return u > 0 ? SWINGBY_MARGIN * (1 - u) ** 2 / u : Infinity;
 }
