@@ -105,7 +105,10 @@ once it has releases. Until then, everything sits under Unreleased.
   rail switches on: points, labels and orbit lines, and each one to fly
   to with a plate of its orbit, sense, size, GM and discovery. From 2000
   to 2049 they come from JPL's satellite kernels for them, within 0.51 km
-  (this pull request).
+  (#80). Each has a real size, measured by NEOWISE for 13 and estimated
+  from its brightness for the rest, and the 23 whose shape is known are
+  drawn as ellipsoids turning at their measured periods (this pull
+  request).
 - Bodies are drawn as their IAU ellipsoids (#47). Fourteen moons have USGS
   surface maps (#42).
 - 135,353 asteroids and comets (#27), the faint main belt as a haze from
