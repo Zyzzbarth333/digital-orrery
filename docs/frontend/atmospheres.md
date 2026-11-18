@@ -22,10 +22,9 @@ scattering model [2] (`demo.cc`). The ozone peak coefficients are Hillaire's
 
 ## Sky light along a view ray
 
-Each pixel of the shell around the planet marches its view ray from where
-it enters the atmosphere (or from the camera, inside it) to where it leaves
-or meets the ground, in 32 steps. At each point $\mathbf q$ the sunlight
-scattered toward the camera is
+Each view ray is marched from where it enters the atmosphere (or from the
+camera, inside it) to where it leaves or meets the ground, in 32 steps. At
+each point $\mathbf q$ the sunlight scattered toward the camera is
 
 $$
 dL = T_v(\mathbf q)\,T_\odot(\mathbf q)\left[\beta_R\,\rho_R(h)\,P_R(\theta) + \beta_{M,s}\,\rho_M(h)\,P_M(\theta)\right] ds,
@@ -40,6 +39,43 @@ irradiance. What lies behind the air is dimmed by the view ray's
 transmittance (its luminance, since blending has one alpha). Even steps are
 enough: along a grazing ray the altitude changes over about
 $\sqrt{2RH} \approx 320$ km, much longer than a step.
+
+### The view table
+
+From one camera, a view ray is fixed by two angles: its angle from the
+zenith and its azimuth from the Sun's. So the rays are not marched pixel
+by pixel. Each frame, a table of 128 × 256 rays from the camera is marched
+(`renderViewTable` in `atmosphere.ts`), and each pixel of the shell looks
+its ray up in it, as in Hillaire's sky-view table [4]. A pixel then costs a
+few square roots and two texture reads instead of 32 steps of sunlight
+lookups and exponentials, and the table costs the same at any distance.
+
+- **Light without its phase.** The table keeps the Rayleigh and Mie
+  integrals apart, without $P_R$ and $P_M$, and each pixel applies them for
+  its own angle from the Sun, so the Mie forward peak stays sharp. Its
+  alpha is the view ray's transmittance.
+- **Rows** are the angle from the zenith, in two halves: rays that meet the
+  ground and rays that miss it, so no lookup mixes the two across the
+  planet's edge. Within each half the rows are spaced as in Bruneton's
+  tables [2], by the distance along the ray to the ground or to the top of
+  the atmosphere, which crowds them towards the horizon. From outside the
+  atmosphere, the rays that miss the ground are spaced by the square root
+  of how close they pass to it instead. That puts the most rows at the
+  limb's bright lower edge (a row every 0.006 km of closest approach
+  there, against 0.8 km if evenly spread).
+- **Columns** are the azimuth from the Sun's, 0 to 180° (1.4° a column):
+  the light is symmetric about the Sun's vertical.
+- **One sphere.** The table is worked in the ground sphere's space, the
+  ellipsoid scaled to a sphere, as the march was. Its lengths are not
+  converted back to kilometres along each ray, as the per-pixel march's
+  were. For the Earth that scale differs from 1 by 0.3 % at most, and so
+  does the light.
+
+Screenshots against the per-pixel march, at the same time and view on the
+NVIDIA GPU, differ by at most 1 of 255 at the 99.9th percentile of pixels:
+the full disc, the terminator, the day and twilight limbs from 15,000 km,
+and from 60 km up, inside the air. The mean levels match to 0.14 of 255.
+The frame times are in [performance](../performance.md#the-atmosphere-near-the-earth).
 
 The ground and cloud images (Blue Marble, GIBS corrected reflectance) have
 the atmosphere's own haze removed, so this adds it back rather than
@@ -81,3 +117,5 @@ terminator reddens; at a thin crescent only the sunlit limb glows.
 [2] E. Bruneton and F. Neyret, "Precomputed atmospheric scattering," *Comput. Graph. Forum*, vol. 27, no. 4, pp. 1079–1086, 2008, doi: 10.1111/j.1467-8659.2008.01245.x.
 
 [3] A. Bucholtz, "Rayleigh-scattering calculations for the terrestrial atmosphere," *Appl. Opt.*, vol. 34, no. 15, p. 2765, 1995, doi: 10.1364/AO.34.002765.
+
+[4] S. Hillaire, "A scalable and production ready sky and atmosphere rendering technique," *Comput. Graph. Forum*, vol. 39, no. 4, pp. 13–22, 2020, doi: 10.1111/cgf.14050.

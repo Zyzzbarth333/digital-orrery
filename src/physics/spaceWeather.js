@@ -11,7 +11,9 @@ let table = null;
 const DAY_MS = 86400e3;
 
 export function installSpaceWeather(json) {
-  table = { start: Date.parse(`${json.start}T00:00:00Z`), days: json.days, lastObserved: json.lastObserved };
+  // The end of the last observed day, parsed once (each density asks).
+  const observedEnd = json.lastObserved ? Date.parse(`${json.lastObserved}T00:00:00Z`) + DAY_MS : -Infinity;
+  table = { start: Date.parse(`${json.start}T00:00:00Z`), days: json.days, lastObserved: json.lastObserved, observedEnd };
 }
 export const spaceWeatherInstalled = () => table !== null;
 
@@ -26,6 +28,6 @@ export function spaceWeatherAt(ms) {
   const i = Math.floor((ms - table.start) / DAY_MS);
   if (i < 1 || i >= table.days.length) return { ...MEAN_ACTIVITY, source: 'mean' };
   const [, fbar, ap] = table.days[i], [fPrev] = table.days[i - 1];
-  const observed = table.lastObserved && ms < Date.parse(`${table.lastObserved}T00:00:00Z`) + DAY_MS;
+  const observed = ms < table.observedEnd;
   return { f107: fPrev, f107bar: fbar, ap, source: observed ? 'observed' : 'predicted' };
 }
