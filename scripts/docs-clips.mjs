@@ -87,22 +87,25 @@ const CLIPS = {
       await p.wait(3800);
     },
   },
-  // The rail's guides: the Earth's EGM2008 gravity field and spin axis,
-  // then its sphere of influence and the Earth-Moon Lagrange points.
+  // The rail's guides: the Earth's EGM2008 surface gravity and spin axis,
+  // then the summed gravity field flowing in the frame turning with the
+  // Moon, and the Earth-Moon Lagrange points.
   'guides': {
     query: `?focus=earth&${DATE}`,
-    settle: 7000,
+    settle: 15000, // the Earth's maps loaded before filming
     async play(p) {
       await p.zoomTo(32000, 400);
-      await p.button('Gravity field');
+      await p.button('Surface gravity');
       await p.button('Spin axes');
       await p.wait(500);
       await p.drag([620, 420], [440, 380], 2600);
       await p.wait(400);
-      await p.button('SOI and Hill');
+      await p.button('Surface gravity');
+      await p.button('Gravity field');
+      await p.selectOption('.flow-opts select', 'Rotating');
       await p.button('Lagrange');
-      await p.zoomTo(2.6e6, 2200);
-      await p.wait(1800);
+      await p.zoomTo(1.3e6, 2200);
+      await p.wait(2200);
     },
   },
   // The ROCKET tab: Saturn V from Apollo 11's figures, its ascent, and a
@@ -147,8 +150,64 @@ const CLIPS = {
       await p.wait(2500);
     },
   },
+  // Every active satellite CelesTrak lists, moved by SGP4: a minute a
+  // second, then an hour a second, as the camera turns.
+  'satellites': {
+    quality: 60, // 17,000 moving points: the WebP is kept near 2 MB
+    query: `?focus=earth&${DATE}`,
+    settle: 15000, // the Earth's maps loaded before filming
+    async setup(p) {
+      await p.button('All active');
+      await p.wait(2500);
+      await p.zoomTo(90000, 0);
+      await p.wait(1500);
+    },
+    async play(p) {
+      await p.setRate(60);
+      await p.drag([600, 300], [520, 330], 3000);
+      await p.setRate(3600);
+      await p.drag([520, 330], [430, 360], 4000);
+      await p.wait(500);
+    },
+  },
+  // The Earth's magnetic field (IGRF-14) as field lines, and its auroral
+  // ovals, as the camera goes round from the day side to the night side.
+  'magnetic-field': {
+    query: `?focus=earth&${DATE}`,
+    settle: 15000, // the Earth's maps loaded before filming
+    async setup(p) {
+      await p.zoomTo(60000, 0);
+      await p.wait(1000);
+    },
+    async play(p) {
+      await p.wait(400);
+      await p.button('Magnetic fields');
+      await p.button('Auroras');
+      await p.wait(900);
+      await p.drag([660, 360], [380, 300], 5000);
+      await p.wait(1500);
+    },
+  },
+  // Jupiter's irregular moons at a month a second: far out, tilted, most of
+  // them going round backwards.
+  'irregular-moons': {
+    query: `?focus=jupiter&${DATE}`,
+    settle: 8000,
+    async setup(p) {
+      await p.click('.body-row', /^\d+ moons/);
+      await p.wait(2000);
+      await p.zoomTo(5e7, 0);
+      await p.wait(1500);
+    },
+    async play(p) {
+      await p.wait(400);
+      await p.setRate(30 * DAY);
+      await p.wait(7000);
+    },
+  },
   // Artemis II from ten minutes before its translunar injection to its
-  // return, a day a second, against NASA's reconstructed trajectory.
+  // return, straight to a day a second, against NASA's reconstructed
+  // trajectory.
   'artemis2': {
     query: '?mission=artemis2',
     settle: 9000,
@@ -160,10 +219,8 @@ const CLIPS = {
     },
     async play(p) {
       await p.wait(400);
-      await p.setRate(3600); // through the injection burn, then a day a second
-      await p.wait(1500);
       await p.setRate(DAY);
-      await p.wait(7400);
+      await p.wait(8400);
     },
   },
 };

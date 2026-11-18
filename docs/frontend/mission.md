@@ -123,7 +123,7 @@ terminal guidance ends two minutes before the impact, where an impulse at
 its start would miss by 0.6 km. A file with flybys aims at a flyby's
 perigee rather than across it.
 
-![Artemis II about the Earth, from translunar injection at an hour a second and then a day a second: the craft climbs out, loops round the Moon and falls back, its flown path drawn beside the real one, while the readout gives its distance from the flown path](../clips/artemis2.webp)
+![Artemis II about the Earth at a day a second from just before translunar injection: the craft climbs out, loops round the Moon and falls back, its flown path drawn beside NASA's, while the readout gives its distance from the flown path](../clips/artemis2.webp)
 
 - **Fly it:** sets the clock to the mission's start (BACK undoes it). For
   Artemis II that's 2 April 2026, 23:39:59 UTC, ten minutes before

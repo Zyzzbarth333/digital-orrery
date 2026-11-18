@@ -418,6 +418,8 @@ and Nereid are full moons, above.
 
 ![Jupiter's irregular moons, 18 November 2026, about 34 million km out: points, labels and the orbit lines of the 64 numbered ones, each with a trail behind it](moons-irregular-jupiter.jpg)
 
+![Jupiter's irregular moons at a month a second, seen from 50 million km: points with short trails go round on tilted orbits far outside the Galilean moons, most of them backwards](../clips/irregular-moons.webp)
+
 They are a layer, not bodies in the rail: off by default, switched on under
 **Irregular moons** in the rail, which also has a **Fly to** list of them by
 planet, nearest first, with (r) for the retrograde ones. Clicking one's
