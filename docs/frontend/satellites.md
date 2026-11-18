@@ -5,8 +5,12 @@ round the Earth, moved by SGP4 from their published element sets. The
 named ones carry a marker, a label and their orbit, and can be flown to.
 They are the ISS, Tiangong, Hubble, the GPS and Galileo constellations
 and the weather satellites in geostationary orbit, plus any found by
-search. The rail's **Satellites** section switches the layer on; it is
-off until then, and its data loads the first time.
+search. Three more sets have switches of their own, each drawn dimmer and
+in its own colour: the tracked debris of the three breakups CelesTrak keeps
+as groups (2,679 pieces), the spent rocket bodies (2,194) and the analyst
+objects (573, tracked but not identified). The debris clouds can be flown
+to as groups. The rail's **Satellites** section has the four switches; all
+are off until then, and each set's data loads the first time.
 
 | | |
 | --- | --- |
@@ -35,14 +39,42 @@ These are SGP4's own mean elements, not an osculating ellipse: they give
 the right positions only through SGP4 [3], [4].
 
 **The snapshot.** `npm run fetch:satellites`
-([`satellites.fetch.mjs`](../../src/physics/satellites.fetch.mjs)) asks
-CelesTrak for four groups: `active` (every satellite: 16,892 on
-17 November 2026), `gps-ops`, `galileo` and `weather`. It writes:
+([`satellites.fetch.mjs`](../../src/physics/satellites.fetch.mjs)) makes
+nine queries, each of a kind CelesTrak's GP documentation gives [2]:
+
+| Query | What | Objects, 18 Nov 2026 |
+| --- | --- | ---: |
+| `GROUP=active` | every active satellite | 16,892 |
+| `GROUP=gps-ops`, `galileo`, `weather` | the named constellations (below) | |
+| `GROUP=fengyun-1c-debris` | the debris of Fengyun-1C, destroyed by a Chinese anti-satellite missile on 11 January 2007 [8] | 1,988 |
+| `GROUP=cosmos-2251-debris` | the debris of Cosmos 2251 … | 582 |
+| `GROUP=iridium-33-debris` | … and of Iridium 33, which collided on 10 February 2009 at 790 km [9] | 109 |
+| `NAME=R/B` | rocket bodies: every object with "R/B" in its name | 2,194 |
+| `GROUP=analyst` | analyst objects: tracked, but not tied to a launch, with catalogue numbers in the US Space Force's analyst ranges (81011 to 270449 here) | 573 |
+
+The groups are those CelesTrak's Current Data page lists [10]. It has none
+for rocket bodies, so they come from the `NAME` query, which matches part
+of a name (its documentation's own example is `NAME=COSMOS 2251 DEB`). The
+catalogue names every spent stage "… R/B", and the script keeps only names
+with "R/B" as a word. The debris of COSMOS 1408, the Russian test of
+November 2021, is no longer a group there, and isn't fetched.
+
+Each object is kept once, in the first file it falls in. The script writes:
 
 - `public/data/satellites.csv`, the `active` group as CelesTrak sends it
   (2.5 MB, 0.9 MB compressed);
-- `public/data/satellites.json`, with when it was fetched, the spread of
-  the epochs (median 17 November 06:00 UTC), and the named ones.
+- `public/data/satellites-debris.csv`, `satellites-rocket-bodies.csv` and
+  `satellites-analyst.csv`: CelesTrak's CSV, one header and the queries'
+  rows (0.4, 0.3 and 0.08 MB);
+- `public/data/satellites.json`, with when each was fetched, the spread of
+  the epochs (the active ones' median 17 November 13:36 UTC), the named
+  ones, and the debris clouds: each one's group, event and parent's
+  international designator.
+
+Every piece of a breakup is catalogued under its parent's international
+designator (Fengyun-1C's is 1999-025A, its pieces 1999-025-something), so
+the app tells the three clouds apart by it. The script stops if a group
+holds a piece of another launch.
 
 The named ones are 85. Three are chosen by catalogue number: the ISS
 (25544, the Zarya module), Tiangong (48274, its core module Tianhe) and
@@ -60,13 +92,16 @@ Hubble (20580). The rest are every member of `gps-ops` (32) and
   policy asks for it.
 - Any answer but HTTP 200 stops at once, with no retry: the script prints
   CelesTrak's message for a person to read.
+- Only what is used: the nine queries, none of them repeated. Nothing is
+  scraped or asked for one object at a time.
 
 **Live refresh.** The rail's **Latest** key fetches CelesTrak's current
 `active` CSV from the browser (2.5 MB), at most once in 2 hours from the
 same browser (a timestamp in `localStorage`), and replaces the snapshot
 until the page is reloaded. An answer other than 200 is reported and not
-retried. Nothing else in the layer talks to CelesTrak, and SECURITY.md
-lists the request.
+retried. The debris, rocket bodies and analyst objects stay the snapshot's.
+Nothing else in the layer talks to CelesTrak, and SECURITY.md lists the
+request.
 
 ## Moving them: SGP4
 
@@ -146,7 +181,25 @@ arrives centred.
   6 minutes of sim time, and the ellipse is up to a few kilometres off.
   At a day a second the low orbits are a blur.
 
-Each refresh sends 0.7 MB to the GPU.
+Each refresh sends 0.7 MB to the GPU for the active satellites, and
+0.2 MB more with the other three sets on.
+
+**The four sets.** Each switch has its own points: a buffer, a draw call
+and a material of its own, sharing the rest of the uniforms. The worker
+holds every set it has been given, and steps only those whose switches are
+on, so a set that is off costs neither the worker nor the GPU. A set
+switched on is stepped at once.
+
+| Set | Sunlit | In shadow | Peak |
+| --- | --- | --- | ---: |
+| active | warm white (0.95, 0.93, 0.86) | blue-grey (0.55, 0.62, 0.80) | 1 |
+| debris | rust (0.86, 0.50, 0.38) | (0.50, 0.44, 0.56) | 0.55 |
+| rocket bodies | sea green (0.52, 0.80, 0.74) | (0.40, 0.52, 0.66) | 0.6 |
+| analyst objects | lavender (0.70, 0.64, 0.88) | (0.46, 0.46, 0.66) | 0.5 |
+
+The colours are display values, and none is amber, which is the craft's
+([DESIGN.md](../../DESIGN.md)). They tell the sets apart; they don't say
+what the objects look like.
 
 Each point is a Gaussian of fixed width in device pixels, as the stars'
 and the small bodies' are, so it neither shimmers nor vanishes as the
@@ -218,6 +271,25 @@ units away, to it.
 
 ## Flying to one
 
+**A debris cloud.** With the debris on, the rail's **Fly to** list has the
+three clouds. Choosing one flies the camera to the Earth, three times the
+cloud's median orbit radius out (21,600 km for Fengyun-1C). It draws that
+cloud's pieces at 2.2 times their brightness and every other point at
+0.35 times. Each point carries its cloud's number, set from its designator.
+A plate gives:
+
+- the breakup's date and what happened;
+- the pieces in the snapshot and their parent's designator;
+- the median perigee and apogee and the median inclination, each with
+  its 10th to 90th percentiles. The heights come from each piece's mean
+  motion and eccentricity, as the satellite plate's do;
+- the epochs' median and the oldest.
+
+Choosing a body or a satellite leaves the cloud. Search finds its pieces
+one at a time.
+
+**A satellite.**
+
 Choose a marker, the rail's **Fly to** list, or a search result. The
 camera flies to the satellite, 200 km out (or the distance last zoomed
 to), and follows it as it does a craft: its anchor is SGP4's position each
@@ -234,7 +306,11 @@ catalogue in three ways:
   old TLE format can't hold);
 - by international designator ("1998-067A").
 
-The one chosen joins the named ones, with a marker, an orbit and a plate.
+The search covers every set that has loaded. A piece of debris, a rocket
+body or an analyst object says so in the results. Analyst objects have no
+name in the catalogue ("UNKNOWN"), so one is named by its number. The one
+chosen joins the named ones, with a marker, an orbit and a plate; its marker
+shows while its set's switch is on.
 
 **The data plate**
 ([`satellite-plate.tsx`](../../src/app/satellite-plate.tsx)) shows:
@@ -291,6 +367,17 @@ Starlink keeps station) jump to a new track with each new element set.
   - 802 are deep-space.
   - All 85 named ones are in it.
   - The ISS's elements give 414 × 424 km and 92.94 minutes.
+- **The debris, rocket bodies and analyst objects** (2,679, 2,194 and 573):
+  - each file holds the count `satellites.json` gives;
+  - SGP4 places every object at the time its query was fetched;
+  - all are above the WGS-84 ellipsoid: the lowest debris 232 km up, the
+    lowest rocket body 234 km and analyst object 427 km. The farthest is
+    367,000 km out: the Long March 3B stage that launched Chang'e 3
+    (2013-070B), whose orbit reaches 486,000 km;
+  - no object is in two files, or among the active ones;
+  - each cloud's pieces, picked out by its parent's designator, number what
+    `satellites.json` says, and together they are the whole file;
+  - every rocket body's name holds "R/B".
 - **The shadow test:** points on and off the axis, the edge at the Earth's
   radius, and the ISS in shadow for 39 % of an orbit at its epoch.
 
@@ -322,3 +409,9 @@ The focused one's close-up orbit costs nothing measurable on either GPU
 [6] S. Kandadai *et al.*, "satellite.js," v7.1.0, MIT licence, 2026. [Online]. Available: https://github.com/shashwatak/satellite-js
 
 [7] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544). [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[8] NASA Orbital Debris Program Office, "Chinese anti-satellite test creates most severe orbital debris cloud in history," *Orbital Debris Q. News*, vol. 11, no. 2, pp. 2–3, Apr. 2007. [Online]. Available: https://orbitaldebris.jsc.nasa.gov/quarterly-news/pdfs/odqnv11i2.pdf
+
+[9] NASA Orbital Debris Program Office, "Satellite collision leaves significant debris clouds," *Orbital Debris Q. News*, vol. 13, no. 2, pp. 1–2, Apr. 2009. [Online]. Available: https://orbitaldebris.jsc.nasa.gov/quarterly-news/pdfs/odqnv13i2.pdf
+
+[10] T. S. Kelso, "NORAD GP element sets: current data," CelesTrak, 2026. [Online]. Available: https://celestrak.org/NORAD/elements/

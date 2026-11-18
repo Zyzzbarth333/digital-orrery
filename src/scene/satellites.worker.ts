@@ -8,17 +8,21 @@
 // axes P and Q, a, e, the mean anomaly at the time and the mean motion.
 // 16,892 satellites take about 8 ms once the code is warm.
 //
+// The catalogue comes in sets, one per rail switch (the active satellites,
+// the debris, the rocket bodies, the analyst objects), each given once and
+// stepped only while its switch is on.
+//
 // It also samples the named satellites' orbits by SGP4 over one period
 // centred on a time, for their orbit lines.
 //
-// Messages in:  { type: 'gp', csv } | { type: 'step', t } | { type: 'orbits', t, ids, samples }
-// Messages out: { type: 'ready', count } | { type: 'step', t, buf } | { type: 'orbits', t, ids, buf, periods }
+// Messages in:  { type: 'gp', set, csv } | { type: 'step', t, sets } | { type: 'orbits', t, ids, samples }
+// Messages out: { type: 'ready', set, count } | { type: 'step', t, sets, bufs } | { type: 'orbits', t, ids, buf, periods }
 
 import { parseGpCsv, satrecOf, stateTeme, temeToEqj, apply } from '../physics/satellites.js';
 
 const MU = 398600.8;                 // km^3/s^2: WGS-72's, SGP4's own
 type Sat = ReturnType<typeof satrecOf>;
-let sats: Sat[] = [];
+const sets = new Map<string, Sat[]>();
 const byId = new Map<number, Sat>();
 
 // The ellipse through (r, v), as the shader reads it: 10 floats from o.
@@ -49,17 +53,22 @@ function ellipse(r: number[], v: number[], out: Float32Array, o: number): void {
 self.onmessage = (ev: MessageEvent) => {
   const m = ev.data;
   if (m.type === 'gp') {
-    sats = parseGpCsv(m.csv).map(satrecOf);
-    byId.clear();
+    for (const s of sets.get(m.set) ?? []) byId.delete(s.omm.NORAD_CAT_ID);
+    const sats = parseGpCsv(m.csv).map(satrecOf);
+    sets.set(m.set, sats);
     for (const s of sats) byId.set(s.omm.NORAD_CAT_ID, s);
-    (self as unknown as Worker).postMessage({ type: 'ready', count: sats.length });
+    (self as unknown as Worker).postMessage({ type: 'ready', set: m.set, count: sats.length });
   } else if (m.type === 'step') {
-    const t: number = m.t, M = temeToEqj(t), buf = new Float32Array(sats.length * 10);
-    for (let k = 0; k < sats.length; k++) {
-      const s = stateTeme(sats[k], t);
-      if (s) ellipse(apply(M, s.r), apply(M, s.v), buf, k * 10);
+    const t: number = m.t, M = temeToEqj(t), names: string[] = m.sets.filter((k: string) => sets.has(k)), bufs: Float32Array[] = [];
+    for (const name of names) {
+      const sats = sets.get(name)!, buf = new Float32Array(sats.length * 10);
+      for (let k = 0; k < sats.length; k++) {
+        const s = stateTeme(sats[k], t);
+        if (s) ellipse(apply(M, s.r), apply(M, s.v), buf, k * 10);
+      }
+      bufs.push(buf);
     }
-    (self as unknown as Worker).postMessage({ type: 'step', t, buf }, [buf.buffer]);
+    (self as unknown as Worker).postMessage({ type: 'step', t, sets: names, bufs }, bufs.map((b) => b.buffer));
   } else if (m.type === 'orbits') {
     const t: number = m.t, ids: number[] = m.ids, n: number = m.samples, M = temeToEqj(t);
     const buf = new Float32Array(ids.length * n * 3), periods = new Float64Array(ids.length);

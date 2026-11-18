@@ -15,9 +15,9 @@ import type { MagneticKey } from '../scene/magnetic';
 import { BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
 import type { Named } from '../scene/smallBodies';
 import { irregularMoon } from '../scene/irregularMoons';
-import type { NamedSat, SatSource } from '../scene/satellites';
+import type { NamedSat, SatSource, SatCloud, SatLayerKey } from '../scene/satellites';
 import { SatelliteRail, type SatelliteApi } from './satellite-rail';
-import { SatellitePlate } from './satellite-plate';
+import { SatellitePlate, SatCloudPlate } from './satellite-plate';
 import { SpacecraftRail, type SpacecraftApi } from './spacecraft-rail';
 import { SpacecraftPlate } from './spacecraft-plate';
 import type { Probe } from '../scene/spacecraftLayer';
@@ -126,7 +126,10 @@ export function App() {
   // search), by NORAD id: the plate shows it until a body, craft or small
   // body is chosen.
   const [sat, setSat] = useState<number | null>(null);
-  const [satOn, setSatOn] = useState(false);
+  const [satLayers, setSatLayers] = useState<Record<SatLayerKey, boolean>>({ active: false, debris: false, 'rocket-bodies': false, analyst: false });
+  // A debris cloud the camera is framing (the rail's Fly-to list), by key.
+  const [satCloud, setSatCloud] = useState<string | null>(null);
+  const [satClouds, setSatClouds] = useState<readonly SatCloud[]>([]);
   const [satNamed, setSatNamed] = useState<{ named: readonly NamedSat[]; source: SatSource | null }>({ named: [], source: null });
   const satSearch = useMemo(() => ({
     search: (q: string) => Promise.resolve(scene.current?.satellites.search(q) ?? []),
@@ -135,12 +138,14 @@ export function App() {
     get count() { return scene.current?.satellites.count ?? 0; },
   }), []);
   const satApi: SatelliteApi = {
-    on: satOn, setOn: (on) => { setSatOn(on); scene.current?.satellites.setOn(on); },
-    named: satNamed.named, source: satNamed.source, current: sat,
-    fly: (id) => scene.current?.focusOnSatellite(id), search: satSearch,
+    layers: satLayers,
+    setLayer: (k, on) => { setSatLayers((l) => ({ ...l, [k]: on })); scene.current?.satellites.setLayer(k, on); if (k === 'debris' && !on) setSatCloud(null); },
+    named: satNamed.named, source: satNamed.source, current: sat, clouds: satClouds, cloud: satCloud,
+    fly: (id) => scene.current?.focusOnSatellite(id), flyCloud: (key) => scene.current?.focusOnSatCloud(key), search: satSearch,
     latest: () => scene.current?.satellites.fetchLatest() ?? Promise.resolve('The scene is not ready'),
   };
   const satView = sat !== null ? scene.current?.satellites.sat(sat) ?? null : null;
+  const cloudView = satCloud !== null ? scene.current?.satellites.cloudView(satCloud) ?? null : null;
   // A spacecraft beyond Earth orbit the camera is on, by key: it shares the
   // satellite's place on the plate.
   const [probe, setProbe] = useState<string | null>(null);
@@ -156,7 +161,7 @@ export function App() {
   const [flowOpts, setFlowOpts] = useState<{ frame: FlowFrame; plane: FlowPlane }>({ frame: 'falling', plane: 'orbit' });
   // The followed craft's name, kept current (a rocket's climb included).
   const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
-  const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); setSmall(null); setSat(null); setProbe(null); };
+  const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); };
   const onReady = (sc: OrreryScene) => {
     scene.current = sc;
     sc.onFrame = (t, jumps) => mission.frame(t, jumps);
@@ -166,11 +171,13 @@ export function App() {
     sc.setPaused(journey.plotOpen);
     sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
     sc.onFlight = setFlying;
-    sc.onSmallPick = (pdes) => { setFollowing(null); setSmall(pdes); setSat(null); setProbe(null); };
-    sc.onSatPick = (id) => { setFollowing(null); setSmall(null); setSat(id); setProbe(null); };
-    sc.onProbePick = (key) => { setFollowing(null); setSmall(null); setSat(null); setProbe(key); };
+    sc.onSmallPick = (pdes) => { setFollowing(null); setSmall(pdes); setSat(null); setSatCloud(null); setProbe(null); };
+    sc.onSatPick = (id) => { setFollowing(null); setSmall(null); setSat(id); setSatCloud(null); setProbe(null); };
+    sc.onSatCloudPick = (key) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(key); setProbe(null); };
+    sc.onProbePick = (key) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(key); };
     sc.spacecraft.onIndex = (craft, fetched) => setProbes({ craft, fetched });
     sc.satellites.onNamed = (named, source) => setSatNamed({ named, source });
+    sc.satellites.onClouds = setSatClouds;
     sc.smallBodies.onNamed = setNamed;
     if (sc.smallBodies.namedBodies.length) setNamed(sc.smallBodies.namedBodies);
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
@@ -220,7 +227,7 @@ export function App() {
       else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         const k = BODIES[e.key === 'ArrowDown' ? Math.min(BODIES.length - 1, bi + 1) : Math.max(0, bi - 1)].key;
         // From a small body, the scene's focus may already be this one.
-        if (small !== null || sat !== null || probe !== null) { setSmall(null); setSat(null); setProbe(null); scene.current?.focusOn(k); }
+        if (small !== null || sat !== null || satCloud !== null || probe !== null) { setSmall(null); setSat(null); setSatCloud(null); setProbe(null); scene.current?.focusOn(k); }
         setFocus(k);
       }
       else if (e.key === 'n' || e.key === 'N') clock.setTime(Date.now());
@@ -229,17 +236,17 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clock, focus, consoleOpen, small, sat, probe]);
+  }, [clock, focus, consoleOpen, small, sat, satCloud, probe]);
 
   return (
     <div className="app">
-      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setProbe(null); setFocus(k); }} onReady={onReady}
+      <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
         view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: probeView?.name ?? irregularMoonOn?.name ?? satView?.named.name ?? smallBody?.name ?? focusName(focus) }}
         flying={flying} frame={frame} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
-      <BodyRail clock={clock} focus={following === null && small === null && sat === null && probe === null ? focus : null} onSelect={(k) => { setFollowing(null); setSmall(null); setSat(null); setProbe(null); setFocus(k); scene.current?.focusOn(k); }}
+      <BodyRail clock={clock} focus={following === null && small === null && sat === null && satCloud === null && probe === null ? focus : null} onSelect={(k) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); scene.current?.focusOn(k); }}
         named={named} small={small} onSmall={(pdes) => scene.current?.focusOnSmall(pdes)} smallSearch={smallSearch}
         frame={frame} onFrame={setFrame}
         smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }}
@@ -249,7 +256,8 @@ export function App() {
         irregular={{ on: irregularOn, onToggle: (on) => { setIrregularOn(on); scene.current?.irregulars.setOn(on); }, current: irregularMoonOn?.key ?? null, onFly: (key) => scene.current?.focusOnSmall(`irr:${key}`) }} />
       <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={irregularMoonOn}
         sat={probeView && scene.current ? <SpacecraftPlate clock={clock} probe={probeView} layer={scene.current.spacecraft} />
-          : satView ? <SatellitePlate clock={clock} sat={satView} source={satNamed.source} /> : null} />
+          : satView ? <SatellitePlate clock={clock} sat={satView} source={scene.current?.satellites.sourceOf(satView.named.id) ?? satNamed.source} />
+          : cloudView ? <SatCloudPlate cloud={cloudView} /> : null} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>
           <FlightConsole clock={clock} mission={mission} journey={journey} tab={tab} setTab={setTab} onClose={closeConsole}

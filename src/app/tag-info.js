@@ -760,6 +760,13 @@ export const TAG_INFO = {
     tex: [],
     source: 'CelesTrak GP data, EPOCH (UTC)',
   },
+  // satellites.ts cloudView
+  'sat-cloud': {
+    what: 'A debris cloud CelesTrak keeps as a group: the pieces of one breakup the US Space Force still tracks, each with its own element set. Every piece is catalogued under its parent\'s launch, so the cloud is the group\'s pieces with the parent\'s international designator.',
+    tex: ['a = \\left(\\frac{\\mu}{n^2}\\right)^{1/3},\\quad h_p = a(1 - e) - R_\\oplus,\\quad h_a = a(1 + e) - R_\\oplus'],
+    where: 'heights from each piece\'s mean motion n (Kozai, rev/day) and eccentricity e, with WGS-72\'s μ and R⊕; given as the 10th, 50th and 90th percentiles over the pieces',
+    source: 'CelesTrak GP data, the debris groups · docs/frontend/satellites.md',
+  },
   // satellites.js inShadow
   'sat-shadow': {
     what: 'Whether the Sun lights the satellite or the Earth hides it: behind the Earth and within the Earth\'s radius of the line through the Earth\'s centre from the Sun.',
