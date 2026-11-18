@@ -43,6 +43,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 - **Guides:** spin axes, Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls; the planets' magnetic fields as traced field lines (IGRF-14, JRM33, Cassini, Voyager), and the auroras: the Earth's ovals for the day's Kp, Jupiter's and Saturn's main ovals and Io's footprint.
 - **Missions:**
   - spacecraft fly under an n-body kernel in a Web Worker, with finite burns, the Earth's and Moon's gravity fields, drag and sunlight pressure;
+  - the craft you launch carry an attitude: point them prograde, normal, radial, at a node or hold them still, and they turn in the time their thrusters' torque allows, under the gravity gradient and the air's torque, and burn along their body axis ([docs/physics/sixdof.md](docs/physics/sixdof.md#attitude-in-the-app));
   - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown.
 - **Planning:**
   - a journey of any number of legs, each leg's transfers compared, shaped by hand on a plotting table;
@@ -156,7 +157,7 @@ npm run build       # the production build
 - the orbital core against Curtis's worked examples and NAIF CSPICE;
 - the ephemerides against DE442 and JPL Horizons;
 - the n-body kernel's convergence, energy and events;
-- NASA's 6-DOF check cases;
+- NASA's 6-DOF check cases, also through the app's attitude;
 - the ROCKET tab against OpenRocket and RocketPy;
 - Artemis I and II against their flown trajectories;
 - the moons, asteroids, orientation and more.

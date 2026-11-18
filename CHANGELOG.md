@@ -13,6 +13,14 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- Craft launched in the app carry an attitude (6-DOF). The MISSION tab
+  points them prograde, retrograde, normal, radial, along the next node
+  or holds them still, and they turn in the time their thrusters' torque
+  allows, under the gravity gradient and, low in the air, the drag's
+  torque. Burns fire along the body axis. Within 50,000 km the scene draws
+  the craft's attitude at its marker. Real missions and journeys stay
+  point masses. A followed craft's marker no longer vanishes when the
+  camera is under a kilometre away (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
