@@ -148,10 +148,10 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
     }
     if (run) {
       const d = mission.distanceFromFlown(c);
-      rows.push(['From the flown path', d === null ? 'outside the data' : `${fmt(d, 1)} km`, <SourceTag src="BET" info="flown-path" />]);
+      rows.push(['From the flown path', d === null ? 'outside the data' : `${fmt(d, 1)} km`, <SourceTag src={run.m.data.sourceTag ?? 'BET'} info="flown-path" detail={run.m.data.source} />]);
       const nb = run.m.burnAt(s.timeMs);
       const inBurns = run.burns === 'all' || nb?.burn === run.m.burns[0];
-      rows.push(['Next burn', !nb ? 'none left' : nb.on ? `${nb.burn.name}, burning` : `${nb.burn.name} in ${fmtDuration(nb.inMs ?? 0)}${inBurns ? '' : ' (yours to fly)'}`, <SourceTag src="BET" info="next-burn" detail={nb ? `${fmt(nb.burn.mps * 1000 / 304.8, 1)} ft/s (${fmt(nb.burn.mps, 3)} m/s) as flown${nb.burn.nasa ? `; NASA: ${nb.burn.nasa}` : ''}` : 'every burn of the mission is done'} />]);
+      rows.push(['Next burn', !nb ? 'none left' : nb.on ? `${nb.burn.name}, burning` : `${nb.burn.name} in ${fmtDuration(nb.inMs ?? 0)}${inBurns ? '' : ' (yours to fly)'}`, <SourceTag src={run.m.data.sourceTag ?? 'BET'} info="next-burn" detail={nb ? `${fmt(nb.burn.mps * 1000 / 304.8, 1)} ft/s (${fmt(nb.burn.mps, 3)} m/s) as flown${nb.burn.nasa ? `; NASA: ${nb.burn.nasa}` : ''}` : 'every burn of the mission is done'} />]);
     }
     const plan = mission.plan(c);
     if (plan) rows.push([`Closest to ${plan.name}`, `${fmt(plan.closest / 1000, 0)} thousand km`, <SourceTag src="kernel" derived info="closest" detail={`planned arrival ${new Date(plan.arrivalMs).toISOString().slice(0, 10)}`} />]);
@@ -165,7 +165,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         <ul className="legend">
           <li><i className="sw conic" />Amber: the orbit it would follow if only {P ? P.name : 'the Sun'} pulled on it (the osculating orbit)</li>
           <li><i className="sw trail" />Glowing: the path it has flown, brightest at the craft</li>
-          {run && <li><i className="sw flown" />Green: the path the real {run.m.name.replace(/ plan$/, '')} flew{run.plan ? '; amber and the glow are our own plan' : ''}</li>}
+          {run && <li><i className="sw flown" />Green: the path the real {run.m.data.craftModel ? run.m.data.craft : run.m.name.replace(/ plan$/, '')} flew{run.plan ? '; amber and the glow are our own plan' : ''}</li>}
         </ul>
 
         {run && !run.plan && (
@@ -189,8 +189,8 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
                 </select>
               </label>
               <p className="hint">{run.aimed
-                ? `Each correction after the injection burn is worked out from where this craft is, as NASA's were from where Orion was, and added to the burn as flown${run.aimedDv > 0 ? `: ${fmt(run.aimedDv, 2)} m/s so far` : ''}.`
-                : 'The corrections are flown exactly as Orion flew them, without regard to where this craft is. The lunar flyby magnifies small differences, so it ends thousands of kilometres off without fixes.'}</p>
+                ? `Each burn after the first is worked out from where this craft is, as the navigation team's were from where ${run.m.data.craft?.replace(/ \(.*\)$/, '') ?? 'the craft'} was, and added to the burn as flown${run.aimedDv > 0 ? `: ${fmt(run.aimedDv, 2)} m/s so far` : ''}.`
+                : `The burns are flown exactly as ${run.m.data.craft?.replace(/ \(.*\)$/, '') ?? 'the craft'} flew them, without regard to where this craft is. A flyby magnifies small differences, so it ends thousands of kilometres off without fixes.`}</p>
             </>
           )}
           </details>

@@ -23,6 +23,8 @@ import { SourceTag, type TagInfoKey } from './source-tag';
 import { SmallBodyPlate } from './small-body-plate';
 import { SmallBodySearch, type SmallSearch } from './small-body-search';
 import type { Named } from '../scene/smallBodies';
+import { IrregularMoonPlate } from './irregular-moon-plate';
+import { IRREGULAR_MOONS, IRREGULAR_PLANETS, type IrregularMoon } from '../scene/irregularMoons';
 import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
 import type { GuideKey } from '../scene/guides';
@@ -196,6 +198,39 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
   );
 }
 
+// The irregular moons (src/scene/irregularMoons.ts): a layer to show or
+// hide, off by default, and each one to fly to, by planet.
+export interface IrregularRail { on: boolean; onToggle: (on: boolean) => void; current: string | null; onFly: (key: string) => void }
+const PLANET_NAME = { jupiter: 'Jupiter', saturn: 'Saturn', neptune: 'Neptune' } as const;
+function IrregularMoonsRail({ on, onToggle, current, onFly }: IrregularRail) {
+  return (
+    <>
+      <h2 className="strip split"><span>Irregular moons</span><span title="shown">On</span></h2>
+      <ul className="body-list small-bodies">
+        <li>
+          <button className="body-row" role="switch" aria-checked={on} onClick={() => onToggle(!on)}
+            title={`Jupiter's, Saturn's and Neptune's ${IRREGULAR_MOONS.length} small outer moons, as points with their orbits; most go round backwards`}>
+            <span className="lamp-sq" style={{ background: on ? 'var(--phosphor-dim)' : 'transparent', borderColor: 'var(--phosphor-dim)' }} />
+            <span>{IRREGULAR_MOONS.length} moons</span>
+            <span className="dist">{on ? 'on' : 'off'}</span>
+          </button>
+        </li>
+      </ul>
+      <label className="sb-pick">
+        <span className="engraved">Fly to</span>
+        <select className="input select" value={current ?? ''} onChange={(e) => { if (e.target.value) onFly(e.target.value); }}>
+          <option value="">an irregular moon…</option>
+          {IRREGULAR_PLANETS.map((p) => (
+            <optgroup key={p} label={PLANET_NAME[p]}>
+              {IRREGULAR_MOONS.filter((m) => m.planet === p).sort((a, b) => a.a - b.a).map((m) => <option key={m.key} value={m.key}>{m.name}{m.retrograde ? ' (r)' : ''}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
+
 // The small-body populations the rail can show or hide (src/scene/smallBodies.ts).
 // The named small bodies' kinds, in the rail's list order.
 const SMALL_KINDS: [string, string][] = [
@@ -227,7 +262,7 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, satellites }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, satellites, irregular }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail}) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -348,6 +383,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
           {named.length > 0 && smallSearch && <SmallBodySearch api={smallSearch} />}
         </>
       )}
+      {irregular && <IrregularMoonsRail {...irregular} />}
       {satellites}
       {guides && onGuides && (
         <>
@@ -408,6 +444,7 @@ function Credits() {
       used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</>
   );
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
+  items.push(['Flown missions', "Artemis I: NASA/JSC navigation's as-flown ephemeris, via JPL Horizons; Artemis II: NASA JSC/FOD/NAV's reconstruction, via NAIF; Juno: JPL navigation's reconstruction, via JPL Horizons; DART: its navigation's reconstruction and Dimorphos, via JPL Horizons, and Daly et al., Nature 616 (2023), CC BY 4.0"]);
   items.push(['Magnetic fields', 'IGRF-14 (IAGA V-MOD, via NOAA NCEI); JRM33 and con2020 (Connerney et al. 2022, 2020); Cassini 11 (Dougherty et al. 2018, Cao et al. 2020) via libinternalfield (MIT); Voyager 2 dipoles (Ness et al. 1986, 1989); MESSENGER (Anderson et al. 2012)']);
   items.push(['Auroras', 'NOAA SWPC OVATION Prime live aurora forecast (US Government work); Starkov 1994 oval as Sigernes et al. 2011 give it; Kp from GFZ Potsdam via CelesTrak; Badman et al. 2006 (Saturn); Clarke et al. 2004 (Jupiter); Melin et al. 2025 (Neptune)']);
   items.push(['Radiation belts', 'Reeves and Daglis 2016 (Earth); Roussos and Kollmann 2021, Roussos et al. 2018 (Jupiter, Saturn); Cooper and Stone 1991 (Uranus); Mauk et al. 1991 (Neptune)']);
@@ -487,14 +524,14 @@ export function Readout({ rows }: { rows: Row[] }) {
 // covered: the flight console lies over the plate (up to 1680 px wide), so
 // it leaves the tab order and stops re-rendering.
 // sat: the satellite plate (satellite-plate.tsx), when one is in view.
-export function Plate({ clock, focus, frame = 'sun', covered = false, small = null, sat = null }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean; small?: Named | null; sat?: ReactNode }) {
+export function Plate({ clock, focus, frame = 'sun', covered = false, small = null, sat = null, irregular = null }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean; small?: Named | null; sat?: ReactNode ; irregular?: IrregularMoon | null}) {
   const [collapsed, setCollapsed] = useState(true);
   return (
     <aside className="plate screw" aria-label="Target readouts" data-collapsed={collapsed} inert={covered || undefined}>
       <span className="pnl" aria-hidden="true">R1</span>
       <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show data' : 'Hide data'}</button>
       <div className="tab-panel">
-        {!covered && (sat ? sat : small ? <SmallBodyPlate clock={clock} body={small} />
+        {!covered && (irregular ? <IrregularMoonPlate clock={clock} moon={irregular} /> : sat ? sat : small ? <SmallBodyPlate clock={clock} body={small} />
           : isBary(focus) ? <BaryPlate clock={clock} bary={focus} frame={frame} /> : <DataPlate clock={clock} focus={focus} frame={frame} />)}
       </div>
     </aside>

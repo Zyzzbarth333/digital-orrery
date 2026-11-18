@@ -105,8 +105,14 @@ origin, so whatever is near it (the focused body) is drawn with full
 precision; whatever is far away has large coordinates, but its errors are
 far below a pixel.
 
-A logarithmic depth buffer covers the depth range, from a near plane of 1 km
-(10⁻³ render units) to a far plane of $10^{10}$ render units, with no visible z-fighting.
+A logarithmic depth buffer covers the depth range, from the near plane to a
+far plane of $10^{10}$ render units, with no visible z-fighting. Three.js
+writes each fragment's depth as $\log_2(1 + w) / \log_2(\text{far} + 1)$,
+with $w$ its distance along the view axis, so the depth's precision does
+not depend on the near plane, which only decides what is clipped. The near
+plane is a tenth of the camera's distance from its pivot, between 1 m and
+1 km: 1 km for anything followed from beyond 10 km, as before, and 5 m for a
+craft followed from 50 m ([Camera](camera.md#close-to-a-craft)).
 
 ## Camera
 
