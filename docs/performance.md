@@ -116,7 +116,10 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   them off; without `flock` or `systemd-run` (CI, macOS) both are skipped.
   `npm run bench:textures` holds the same lock. A wait names who holds
   the lock: one of these scripts by its folder and pid, a run wrapped in
-  `flock` by hand by its command line (from `/proc/locks`). Once it has
+  `flock` by hand by its command line (from `/proc/locks`). The scripts
+  take the lock themselves, so there is no need to wrap them in `flock`;
+  a run that is wrapped anyway sees that its own parent holds the lock and
+  goes on under it, rather than waiting for itself for ever. Once it has
   the lock, a run refuses to start with less memory available
   (`MemAvailable`) than the cap and 4 GiB to spare, 14 GiB by default,
   unless given `--force`. A browser the cap stops is reported as such,
