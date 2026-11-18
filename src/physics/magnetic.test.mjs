@@ -22,6 +22,9 @@ import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
 import { radialFieldGrid, encodeBr, decodeBr } from './marsCrustal.js';
 import { pfssField, parseWso, carringtonRotation, SOURCE_SURFACE } from './sunField.js';
+import { t89, kpToIopt, gsmFrame, withT89 } from './t89.js';
+import { bodyAxesEqj } from './orientation.js';
+import * as Astronomy from 'astronomy-engine';
 import { SATURN_RC, ellipticKE, loopField, loopSumField, ringCurrentTable, totalCurrentMA, discMoment } from './ringCurrent.js';
 
 let failed = 0;
@@ -98,6 +101,46 @@ for (const r of noaa.rows.filter((x) => year(x.date) < 2015.01)) {
     worstDeg = Math.max(worstDeg, Math.abs(o.D - r.D), Math.abs(o.I - r.I));
   }
   check(worstNT < 0.1 && worstDeg < 0.0002, `IGRF-14 at NOAA's online calculator's 4 points (2025.4-2028.0, 0-400 km): X Y Z F within ${worstNT.toFixed(3)} nT (limit 0.1, its rounding), D and I within ${worstDeg.toFixed(5)} deg`);
+}
+
+// ---- the Earth's magnetosphere: T89 ----
+console.log("The Earth's magnetosphere: Tsyganenko's T89");
+{
+  // Tsyganenko's Fortran T89c, as geopack's tests record it: iopt 2, tilt
+  // -0.533585131 rad, GSM (-5.1, 0.3, 2.8) R_E -> (20.7721329,
+  // -0.646554828, -15.0716438) nT.
+  const b = t89(2, -0.533585131, -5.1, 0.3, 2.8);
+  const want = [20.7721329, -0.646554828, -15.0716438];
+  check(b.every((v, i) => Math.abs(v - want[i]) < 2e-6), `T89 (Kp 1) at GSM (-5.1, 0.3, 2.8): ${b.map((v) => v.toFixed(7)).join(', ')} nT (Fortran ${want.join(', ')})`);
+  check([0, 1 / 3, 2 / 3, 4 / 3, 5 / 3, 3, 17 / 3, 9].map(kpToIopt).join(' ') === '1 1 2 2 3 4 7 7', 'Kp 0, 0+ -> level 1; 1-, 1+ -> 2; 2- -> 3; 3o -> 4; 6- and 9 -> 7');
+  // The dipole tilt from IGRF and the Sun, against geopack's recalc for
+  // 2001-01-01 02:03:04 UT: -0.533585131 rad.
+  const t = new Date(Date.UTC(2001, 0, 1, 2, 3, 4)), E = magneticModel('earth', t);
+  const sun = Astronomy.GeoVector(Astronomy.Body.Sun, t, true), ax = bodyAxesEqj('earth', t);
+  const sb = ax.map((a) => a[0] * sun.x + a[1] * sun.y + a[2] * sun.z);
+  const ps = gsmFrame(E.dipole.m.map((v) => -v), sb).tilt;
+  check(Math.abs(ps + 0.533585131) < 0.002, `dipole tilt at 2001-01-01 02:03:04 UT ${ps.toFixed(5)} rad (geopack -0.53359)`);
+  // The night side is drawn out into the tail: the field line from 68 deg
+  // magnetic latitude at midnight reaches much farther with T89 than with
+  // IGRF alone, far more than its noon twin does, and farther when Kp is
+  // higher; and the external field points north just inside the sub-solar
+  // magnetopause (the compression).
+  const T = withT89(E, sb, 2);
+  // Seeds at 68 deg magnetic latitude in the noon and midnight meridians:
+  // d the dipole's north axis, e square to it toward the Sun.
+  const { X } = T.gsm, surf = { eq: 6378.137 / 6371.2, pol: 6356.752 / 6371.2 };
+  const d = E.dipole.m.map((v) => -v / E.dipole.moment), sd = d[0] * X[0] + d[1] * X[1] + d[2] * X[2];
+  const e0 = X.map((v, i) => v - sd * d[i]), en = Math.hypot(...e0), e = e0.map((v) => v / en);
+  const apex = (model, side) => {
+    const c = Math.cos(68 * DEG), s = Math.sin(68 * DEG), p = [0, 1, 2].map((i) => (side * c * e[i] + s * d[i]) * 1.02);
+    const tl = traceLine(model, p, surf, { rMax: 40, maxSteps: 6000 });
+    let r = 0; for (let i = 0; i < tl.strength.length; i++) r = Math.max(r, Math.hypot(tl.points[3 * i], tl.points[3 * i + 1], tl.points[3 * i + 2]));
+    return r;
+  };
+  const day = apex(T, 1), night = apex(T, -1), d0 = apex(E, 1), n0 = apex(E, -1), night5 = apex(withT89(E, sb, 5), -1);
+  check(night / n0 > 1.1 && Math.abs(day / d0 - 1) < 0.05 && night5 > night, `the 68 deg line reaches ${day.toFixed(1)} R_E at noon and ${night.toFixed(1)} at midnight with T89 at Kp 2 (IGRF alone ${d0.toFixed(1)} and ${n0.toFixed(1)}), ${night5.toFixed(1)} at midnight at Kp 5`);
+  const bs = t89(3, 0, 9, 0, 0);
+  check(bs[2] > 0, `T89's field at 9 R_E toward the Sun points north (${bs[2].toFixed(1)} nT): the compressed day side`);
 }
 
 // The eccentric dipole of IGRF-14 for 2025: the geomagnetic north pole is
