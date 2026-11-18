@@ -242,10 +242,15 @@ softened at 50 km, and stops at the table's ±25,000 km.
 
 These rings are thick, so they are drawn as a volume: a cylinder about
 Jupiter bounds them, and each pixel's ray is integrated through it. The
-main ring, the halo and the extension are uniform in radius between their
-edges, so the column along a ray is exact: its stretches inside each
-cylindrical shell, times the vertical profile integrated in closed form
-between the heights where it enters and leaves. The gossamer rings are
+halo and the extension are uniform in radius between their edges, and the
+main ring is uniform within each of its 14 measured shells, so the column
+along a ray is exact: its stretches inside each cylindrical shell, times
+the vertical profile integrated in closed form between the heights where it
+enters and leaves. A ray crossing the main ring's plane at more than about
+3° meets the thin ring at one radius, so it takes the whole annulus's column
+times the measured depth there; only grazing rays add the 14 shells one by
+one (inside the ring system on the Intel GPU, that keeps the measured shape
+as cheap as the old two-step one). The gossamer rings are
 marched, 16 samples jittered per pixel. From afar the main ring (100 km
 thick) and the gossamer rings' bright edges are thinner than a pixel; their
 vertical profiles are widened to the pixel's footprint there, keeping

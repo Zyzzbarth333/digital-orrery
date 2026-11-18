@@ -490,10 +490,21 @@ void main() {
   vec3 s = normalize(sunPos - vWorld);
   gO = o; gD = d; gRd = rd; gSA = planetAxes * s; gT0 = t0; gT1 = t1;
 
+  // The main ring is thin: a ray that crosses its plane at more than about
+  // 3 deg meets it at one radius, so its column is the whole annulus's,
+  // times the measured depth there. Only grazing rays, which run along it
+  // through several shells, add the shells one by one.
   float mainCol = 0.0;
-  for (int k = 0; k < ${MAIN_SHELLS}; k++) {
-    float ra = ${J.main.inner.toFixed(1)} + float(k) * ${MAIN_STEP.toFixed(4)};
-    mainCol += shell(ra, ra + ${MAIN_STEP.toFixed(4)}, 0) * mainDepth[k];
+  if (abs(d.z) > 0.05) {
+    float tc = clamp(-o.z / d.z, t0, t1);
+    float rc = length((o + tc * d).xy);
+    int k = int(clamp(floor((rc - ${J.main.inner.toFixed(1)}) / ${MAIN_STEP.toFixed(4)}), 0.0, ${(MAIN_SHELLS - 1).toFixed(1)}));
+    mainCol = shell(${J.main.inner.toFixed(1)}, ${J.main.outer.toFixed(1)}, 0) * mainDepth[k];
+  } else {
+    for (int k = 0; k < ${MAIN_SHELLS}; k++) {
+      float ra = ${J.main.inner.toFixed(1)} + float(k) * ${MAIN_STEP.toFixed(4)};
+      mainCol += shell(ra, ra + ${MAIN_STEP.toFixed(4)}, 0) * mainDepth[k];
+    }
   }
   vec2 col = vec2(mainCol * ${f(J.main.tauDust)}, mainCol * ${f(J.main.tauBodies)});
   col.x += shell(${J.halo.inner.toFixed(1)}, ${J.halo.outer.toFixed(1)}, 1) * ${f(J.halo.tau)};
