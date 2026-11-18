@@ -835,6 +835,25 @@ details.section[open] > summary::after { content: '−'; }
 .sat-source .tag { font: 10px var(--mono); border: 1px solid var(--ink); padding: 0 4px; color: var(--ink); }
 .sat-live { display: flex; align-items: center; gap: var(--u); padding: var(--u) calc(1.5 * var(--u)) 0; font-size: 11px; color: var(--ink-muted); }
 .sat-live [role='status'] { min-width: 0; }
+/* The satellite plate's passes over a place (satellite-passes.tsx). */
+.passes { display: flex; flex-direction: column; }
+.passes > .strip { margin: calc(2 * var(--u)) calc(-2.5 * var(--u)) var(--u); }
+.place-grid { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: var(--u); margin: 4px 0 var(--u); }
+.passes .keys-row { display: flex; align-items: center; gap: 6px; }
+.passes .keys-row .hint { min-width: 0; font-variant-numeric: tabular-nums; }
+.pass { margin-top: calc(1.5 * var(--u)); }
+.pass-head { display: flex; align-items: center; gap: var(--u); margin: 0; padding-bottom: 4px; border-bottom: var(--hair) solid var(--seam-strong); }
+.pass-head .engraved { font-size: 10px; }
+.pass-head .key.small { margin-left: auto; }
+.pass-kind { display: inline-flex; align-items: center; gap: 6px; font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); }
+.pass-kind .lamp-sq { width: 9px; height: 9px; border: 1px solid var(--lamp-off); background: var(--lamp-dark); }
+.pass-kind.visible { color: var(--ink); }
+.pass-kind.visible .lamp-sq { background: var(--lamp-on); border-color: var(--lamp-on); box-shadow: 0 0 5px var(--lamp-on); }
+.pass-head > * { white-space: nowrap; }
+.pass-max { font-size: 11px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.pass-now { margin-left: auto; padding: 3px 8px; border-radius: 2px; background: var(--window); color: var(--phosphor); font: 10px var(--display); letter-spacing: 0.12em; text-transform: uppercase; box-shadow: inset 0 2px 4px #000; }
+.pass .readout th, .pass .readout td { padding-top: 5px; padding-bottom: 5px; }
+.passes-note { margin: var(--u) 0 0; }
 
 /* Spacecraft beyond Earth orbit (src/scene/spacecraftLayer.ts): a small
    open square with a cross through it, in its group's colour; the user's

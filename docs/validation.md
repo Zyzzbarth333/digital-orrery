@@ -422,7 +422,7 @@ The span runs from seven hours before Neptune to six hours after Triton.
   astronomy-engine, not DE442's table. Flown about Neptune's barycentre,
   their error enters only through the Sun's tide.
 - **Neptune's field and pole** are nep097's, the solution the
-  reconstruction was fitted with (Brozović et al. 2020 [11]), read from
+  reconstruction was fitted with (Brozović et al. 2020 [12]), read from
   the constants in the kernel's comments: $J_2 = 3{,}536.297\times10^{-6}$,
   $J_4 = -35.952\times10^{-6}$, $J_6 = 0.546\times10^{-6}$ at
   $R = 24{,}764$ km, and a pole that Triton turns by 0.5° about the
@@ -483,14 +483,14 @@ its centre, 20.1 km/s) and Uranus an hour later (18:00 TDB, 107,153 km,
 4.2 Uranus radii). The span runs from 10:00 TDB, eight hours before
 Uranus, to twelve hours after it.
 
-- **Reference:** NAIF's `vgr2.ura182.bsp` [13] (R. Jacobson, JPL, 2025,
+- **Reference:** NAIF's `vgr2.ura182.bsp` [14] (R. Jacobson, JPL, 2025,
   with URA182's Uranus and five major moons merged in by NAIF), sampled by
   `c/flyby_ref` into `fixtures/flyby_voyager2_miranda.json`. The older
   `vgr2.ura111.bsp` is not used: it is labelled J2000, but its Voyager
   about Uranus's barycentre is turned about 78° from ura182's, at the same
   distances.
 - **Uranus's field and the moons' GMs** are URA182's (Jacobson and Park
-  2025 [12]), the solution the reconstruction was fitted with and the one
+  2025 [13]), the solution the reconstruction was fitted with and the one
   in NAIF's `ura184`, which the kernel already took Uranus's own GM from:
   $J_2 = 3{,}508.967\times10^{-6}$, $J_4 = -35.793\times10^{-6}$,
   $J_6 = 0.575\times10^{-6}$ at $R = 25{,}559$ km; Miranda 4.106, Ariel
@@ -695,6 +695,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 21-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 154 m/s of corrections against the direct arc's 1,018 |
 | Burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 0.8 km off |
+| Near 180°, the options after a choice by hand (the direct arc, the broken plane) | the solver: each row priced as the leg it gives | all three listed each time, to 10⁻⁹ km/s; the planner's deep-space burn listed and restored |
 | Near 180°, the deep-space burn: Earth orbit to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026; lunar orbit to Mars, stays of 18 to 30 days | Lawden's conditions on the primer vector (Lawden 1963; Prussing 2010); the primer's jump as the cost's gradient (Lion and Handelsman 1968; Jezewski 1975); a blind 12-start search | p-dot continuous at $B$ to 3 %, $\lvert\mathbf p\rvert \le 1$ to 10⁻⁴, where the broken plane's jumps 128 % and passes 1; nothing cheaper found; never dearer than the direct arc or the broken plane; the excess speed's second difference 4.3 m/s; 20 days at the Moon flown with 198 m/s of corrections, Mars 1.0 km off |
 | Near 180° from a craft's own state: a craft near the Earth, its orbit tilted 1°, to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026 | Abilleira (ISSFD 2007); Lawden (1963); the craft's orbit plane; the full-model flight | direct 12.72 km/s tilted 14.3°, the deep-space burn 5.471; the broken plane's first arc in the craft's plane to 10⁻⁶°; never dearer than either, smooth; flown with 112 m/s of corrections, Mars 1.2 km off, against the direct arc's 687 |
 
@@ -1001,6 +1002,16 @@ shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are))
 | the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
 | the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
 
+Passes over a place (`passes.test.mjs`,
+[passes over a place](frontend/satellites.md#passes-over-a-place)):
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the ISS's passes above 10°, Greenwich and Sydney Observatory, 18–28 Nov 2026 | Heavens-Above [11], its own element set for the ISS | all 90 found, none extra; culminations within 0.70 s, peaks within their whole degree, 10° crossings within 1.3 s |
+| visible, daylight or in shadow (sunlit, Sun below −6°, rise to set) | the same | as they have it for all 90 |
+| seven passes in detail: rise, set, shadow edges, directions, ranges | the same | times within 1.2 s (rise and set within 0.85 s), directions within their rounding, ranges within 0.4 km, the Sun's altitude within 0.06° |
+| TEME to ITRF by GMST and polar motion | the app's J2000 path (TEME to J2000, then ITRF93) | within 1.3 m for the ISS over 10 days (the IERS nutation corrections) |
+
 ## Magnetic fields and auroras (`magnetic.test.mjs`, `aurora.test.mjs`)
 
 The planets' and the Sun's fields, the field-line tracer and the auroral ovals
@@ -1085,8 +1096,10 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 
 [10] R. A. Jacobson, Voyager 2 Neptune encounter trajectory, NAIF SPK `vgr2_nep097.bsp`, JPL Solar System Dynamics, 2022; merged with DE440 and nep097 by NAIF, 30 Aug. 2022. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/
 
-[11] M. Brozović, M. R. Showalter, R. A. Jacobson, R. S. French, J. J. Lissauer, and I. de Pater, "Orbits and resonances of the regular moons of Neptune," *Icarus*, vol. 338, Art. no. 113462, 2020, doi: 10.1016/j.icarus.2019.113462. The NEP097 solution; its Neptune GM, $J_2$, $J_4$, $J_6$ and pole are the constants in the comments of NAIF's `nep097.bsp`.
+[11] C. Peat, "Heavens-Above," Heavens-Above GmbH: ISS (25544) orbit, all passes and pass details over Greenwich and Sydney Observatory, 18–28 Nov. 2026, fetched 18 Nov. 2026. [Online]. Available: https://www.heavens-above.com/orbit.aspx?satid=25544
 
-[12] R. A. Jacobson and R. S. Park, "The orbits of Uranus, its satellites and rings, the gravity field of the Uranian system, and the orientation of the poles of Uranus and its satellites," *Astron. J.*, vol. 169, no. 2, Art. no. 65, 2025, doi: 10.3847/1538-3881/ad99d1. The URA182 solution; its GMs, $J_2$, $J_4$ and $J_6$ are the constants in the comments of NAIF's `ura184` and `vgr2.ura182.bsp`.
+[12] M. Brozović, M. R. Showalter, R. A. Jacobson, R. S. French, J. J. Lissauer, and I. de Pater, "Orbits and resonances of the regular moons of Neptune," *Icarus*, vol. 338, Art. no. 113462, 2020, doi: 10.1016/j.icarus.2019.113462. The NEP097 solution; its Neptune GM, $J_2$, $J_4$, $J_6$ and pole are the constants in the comments of NAIF's `nep097.bsp`.
 
-[13] R. A. Jacobson, Voyager 2 Uranus encounter trajectory, NAIF SPK `vgr2.ura182.bsp`, JPL Solar System Dynamics, 2025; merged with URA182 and DE442 by NAIF, 6 Feb. 2025. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/
+[13] R. A. Jacobson and R. S. Park, "The orbits of Uranus, its satellites and rings, the gravity field of the Uranian system, and the orientation of the poles of Uranus and its satellites," *Astron. J.*, vol. 169, no. 2, Art. no. 65, 2025, doi: 10.3847/1538-3881/ad99d1. The URA182 solution; its GMs, $J_2$, $J_4$ and $J_6$ are the constants in the comments of NAIF's `ura184` and `vgr2.ura182.bsp`.
+
+[14] R. A. Jacobson, Voyager 2 Uranus encounter trajectory, NAIF SPK `vgr2.ura182.bsp`, JPL Solar System Dynamics, 2025; merged with URA182 and DE442 by NAIF, 6 Feb. 2025. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/

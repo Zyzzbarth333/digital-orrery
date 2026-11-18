@@ -60,6 +60,7 @@ Every data source, map, font and library the app uses, with a link to where it c
 | NASA Ames Research Center, [Trajectory Browser](https://trajbrowser.arc.nasa.gov/) | transfer optima to compare against |
 | D. A. Vallado, P. Crawford, R. Hujsak and T. S. Kelso, [*Revisiting Spacetrack Report #3*](https://celestrak.org/publications/AIAA/2006-6753/) (AIAA 2006-6753): its verification set and TEME example | the SGP4 checks |
 | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/): the ISS (−125544) | the satellites' independent check |
+| [Heavens-Above](https://www.heavens-above.com/) (C. Peat, Heavens-Above GmbH): the ISS's element set and its predicted passes over Greenwich and Sydney Observatory, fetched 18 Nov 2026 | the satellite passes' independent check |
 | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/): spacecraft trajectories, each from its mission's navigation team (NASA, ESA, ISRO, KARI, MBRSC, JAXA) as Horizons credits them | the spacecraft beyond Earth orbit, 2026–2027 |
 | NASA SP-2000-4029, [*Apollo by the Numbers*](https://history.nasa.gov/SP-4029.pdf); SpaceX's [*Falcon User's Guide*](https://www.spacex.com/assets/media/falcon-users-guide-2025-05-09.pdf); Rocket Lab's [*Electron Payload User's Guide*](https://rocketlabusa.com/assets/Electron-Payload-User-Guide-7.0-v6.pdf); Crew Dragon Demo-1 webcast telemetry ([shahar603/Telemetry-Data](https://github.com/shahar603/Telemetry-Data), public domain) | the ROCKET tab's real launchers and their flights |
 
