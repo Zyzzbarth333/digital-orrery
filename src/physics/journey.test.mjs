@@ -235,10 +235,29 @@ const MOON_TRIP = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D
 
 header('CASE 5: journeys flown by the n-body kernel');
 {
+  // The capture burn (landing.js designCapture, planCapture), two-body: from
+  // the periapsis of a 2,026 m/s capture 400 km over Mars at 20 m/s^2.
+  // Impulsive, it is vp - sqrt(mu / rp) (Curtis Eq. 8.58); held retrograde
+  // from the periapsis for its 101 s it ends eccentric; steered in two
+  // halves it ends circular, never below the periapsis (no braking before
+  // it lowers the path).
+  {
+    const mu = J.bodyInfo('mars').mu, R = J.bodyInfo('mars').radius, rp = R + 400, vc = Math.sqrt(mu / rp), vp = vc + 2.026, r = [rp, 0, 0], v = [0, vp, 0];
+    const quick = LD.designCapture({ r, v, mu, R, rc: rp, accel: 2, dt: 0.001 });
+    console.log(`  at 2 km/s^2 (1 s): ${(quick.dv * 1000).toFixed(2)} m/s against the impulse ${(quick.impulsive * 1000).toFixed(2)}`);
+    check('a near-impulsive capture costs Curtis Eq. 8.58\'s vp - sqrt(mu / rp), to 0.01 %', rel(quick.dv, vp - vc) < 1e-4 && near(quick.impulsive, vp - vc, 1e-12));
+    const st = LD.designCapture({ r, v, mu, R, rc: rp, accel: 0.02 }), pc = LD.planCapture({ r, v, mu, R, rc: rp, accel: 0.02 });
+    let x = { r, v }; for (let t = 0; t < 101.3; t += 0.1) { const h = Math.min(0.1, 101.3 - t), rn = Math.hypot(...x.r), vn = Math.hypot(...x.v), a = x.r.map((q, i) => -mu * q / rn ** 3 - 0.02 * x.v[i] / vn); x = { r: x.r.map((q, i) => q + h * x.v[i] + 0.5 * h * h * a[i]), v: x.v.map((q, i) => q + h * a[i]) }; }
+    const rr = Math.hypot(...x.r), v2 = x.v.reduce((q, y) => q + y * y, 0), rv = x.r.reduce((q, y, i) => q + y * x.v[i], 0), eRetro = Math.hypot(...x.r.map((q, i) => ((v2 - mu / rr) * q - rv * x.v[i]) / mu));
+    console.log(`  held retrograde from the periapsis: e ${eRetro.toFixed(3)}; steered into ${rp.toFixed(1)} km: ${(st.dv * 1000).toFixed(1)} m/s, pitch ${st.pitch.map((q) => (q / deg).toFixed(1)).join(' then ')} deg, e ${st.e.toExponential(1)}, lowest ${(st.rMin - rp).toFixed(2)} km; the cheapest way in (planCapture): into ${pc.rs.toFixed(1)} km for ${(pc.dv * 1000).toFixed(1)}, Hohmann ${(pc.hohmann.total * 1000).toFixed(2)}, ${(pc.total * 1000).toFixed(1)} m/s`);
+    check('held retrograde from the periapsis, the orbit ends eccentric (e over 0.03); steered, circular at the radius (e under 1e-6, a to 10 m), never more than 200 m below the periapsis, for under 1 % over the impulse', eRetro > 0.03 && st.e < 1e-6 && near(st.a, rp, 0.01) && st.rMin > rp - 0.2 && st.dv < 1.01 * (vp - vc));
+    check('the cheapest way in: a circular orbit near the periapsis and the Hohmann transfer to it (Curtis 6.2), cheaper than holding the radius in the burn, under 0.6 % over the impulse', near(pc.total, pc.dv + X.hohmannCircular(mu, pc.rs, rp).total, 1e-12) && pc.total < st.dv && pc.total < 1.006 * (vp - vc));
+  }
   const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
   const fly = (name, j) => {
     const f = flyJourney(sys, planFlight(J.solveJourney(j)));
     for (const a of f.arrivals) console.log(`  ${name}: ${J.bodyInfo(a.body).name} ${a.central ? `${a.missKm.toFixed(1)} km from the aimed point` : `closest ${a.closest.toFixed(0)} km from its centre, planned ${a.plannedRp.toFixed(0)}: ${a.missKm.toFixed(1)} km off`}`);
+    for (const c of f.captures) console.log(`  ${name}: captured at ${J.bodyInfo(c.body).name} for ${(c.dv * 1000).toFixed(0)} m/s (impulsive ${(c.impulsive * 1000).toFixed(0)}), mean a ${c.a?.toFixed(1)} km for ${c.rc.toFixed(1)}, e ${c.e?.toFixed(4)}`);
     return f;
   };
   // Tolerances: a planet's periapsis within 20 km of plan; the Moon's, whose
@@ -264,24 +283,32 @@ header('CASE 5: journeys flown by the n-body kernel');
   const dep = rtf.log.find((l) => l.startsWith('depart mars'));
   console.log(`  Mars and back: ${dep}; corrections ${(rtf.correctionsDv * 1000).toFixed(0)} m/s (the plan's leave-Mars burn ${(rts.legs[1].depDv * 1000).toFixed(0)} m/s)`);
   check('a year at Mars, then home: Mars within 20 km, Earth within 50 km, corrections under 250 m/s', rtf.arrivals[0].missKm < 20 && rtf.arrivals[1].missKm < 50 && rtf.correctionsDv < 0.25);
-  check('and the departure from the turned orbit within 10 % of the plan\'s burn in the plane', (() => { const m = /mars: (\d+) m\/s/.exec(dep ?? ''); return m && Number(m[1]) < 1.1 * rts.legs[1].plane.inPlaneDv * 1000; })());
+  // The capture ends circular at the planned radius, as the plan prices it
+  // (journeyFlight.js: steered, then a Hohmann transfer on the mean radius),
+  // within 1.5 % of the impulse; held retrograde it left e 0.046, and the
+  // departure a year on cost 3.8 % over the plan.
+  const cap = rtf.captures[0];
+  check('the capture at Mars: e under 0.005 over the orbit, the mean radius within 1 km of the planned 3,790, for within 1.5 % of the impulse', cap && cap.e < 0.005 && Math.abs(cap.a - cap.rc) < 1 && cap.dv < 1.015 * cap.impulsive);
+  check('and the departure from the turned orbit within 2 % of the plan\'s burn in the plane', (() => { const m = /mars: (\d+) m\/s/.exec(dep ?? ''); return m && Number(m[1]) < 1.02 * rts.legs[1].plane.inPlaneDv * 1000; })());
   // The plan prices the plane (journey.js planeAt; docs/physics/journey.md#the-parking-orbits-plane):
   // on the planned day, out of the plane; and what the flight does, waiting
   // for it (planeOption's flight), against what it flew. Tolerances: the
-  // wait within 1.5 days and its burn within 4 %, the planned day's burn
-  // within 6 %. The flight's capture leaves the orbit a little eccentric
-  // (e about 0.04: its burn starts at periapsis, 100 s long), which the
-  // plan's circular orbit does not have, and its node is about 0.15 % off
-  // the plan's after a year (5 degrees).
+  // wait within 1.5 days and its burn within 2 %, the planned day's burn
+  // within 4 %. The capture now leaves the orbit circular at the planned
+  // mean radius (e 0.002; held retrograde it was 0.046, and these were 4 %
+  // and 6 %), but its plane is 0.5 degrees steeper than the plan's (the
+  // kernel's way in is not the patched conics', and the trims keep only the
+  // way out in the plane), so its node turns 0.3 % faster: 11 degrees over
+  // the year, the plane round 1.2 days early.
   const pl = rts.legs[1].plane, po = J.planeOption(rt, 1, { sol: rts });
   const flown = /mars: (\d+) m\/s, ([\d.]+) h after the planned time(?: \((\d+) m\/s on the planned day\))?/.exec(dep ?? '');
   const flownDv = Number(flown?.[1]) / 1000, flownWait = Number(flown?.[2]) / 24, flownOnDay = Number(flown?.[3]) / 1000;
   console.log(`  the plan: on the planned day the plane ${pl.angleDeg.toFixed(1)} deg off the way out (i ${pl.iDeg.toFixed(1)} deg, node ${pl.rateDegDay.toFixed(3)} deg/d, eq. (4.52) ${pl.firstOrderDegDay.toFixed(3)}), ${(pl.dv * 1000).toFixed(0)} m/s for ${(pl.inPlaneDv * 1000).toFixed(0)} in the plane; flown ${(flownOnDay * 1000).toFixed(0)}`);
-  console.log(`  the flight's wait: planned ${po.flight.waitDays.toFixed(1)} d, ${(po.flight.dv * 1000).toFixed(0)} m/s; flown ${flownWait.toFixed(1)} d, ${(flownDv * 1000).toFixed(0)} m/s (within 1.5 d and 4 %)`);
-  check('the plan prices the year\'s turn of the plane: the planned day dear by more than 500 m/s, its burn within 6 % of the flight\'s on that day', !pl.aimed && pl.extraDv > 0.5 && rel(pl.dv, flownOnDay) < 0.06);
-  check('and the flight\'s wait for the plane as the plan has it: the day within 1.5 d, the burn within 4 %', Math.abs(po.flight.waitDays - flownWait) < 1.5 && rel(po.flight.dv, flownDv) < 0.04);
+  console.log(`  the flight's wait: planned ${po.flight.waitDays.toFixed(1)} d, ${(po.flight.dv * 1000).toFixed(0)} m/s; flown ${flownWait.toFixed(1)} d, ${(flownDv * 1000).toFixed(0)} m/s (within 1.5 d and 2 %)`);
+  check('the plan prices the year\'s turn of the plane: the planned day dear by more than 500 m/s, its burn within 4 % of the flight\'s on that day', !pl.aimed && pl.extraDv > 0.5 && rel(pl.dv, flownOnDay) < 0.04);
+  check('and the flight\'s wait for the plane as the plan has it: the day within 1.5 d, the burn within 2 %', Math.abs(po.flight.waitDays - flownWait) < 1.5 && rel(po.flight.dv, flownDv) < 0.02);
   // The day the plan suggests, flown: it leaves on time, for what the plan
-  // prices (within 5 %, the capture's eccentricity again).
+  // prices (within 5 %: 4.3 %, the plane's inclination again).
   const rt2 = J.applyOption(rt, 1, po), rts2 = J.solveJourney(rt2), rtf2 = flyJourney(sys, planFlight(rts2));
   const dep2 = rtf2.log.find((l) => l.startsWith('depart mars')), m2 = /mars: (\d+) m\/s, ([\d.]+) h after/.exec(dep2 ?? '');
   console.log(`  re-timed ${po.waitDays} d (a ${rt2.waypoints[0].stayDays.toFixed(1)} d stay): the plan ${(rts2.legs[1].depDv * 1000).toFixed(0)} m/s, the plane ${rts2.legs[1].plane.angleDeg.toFixed(1)} deg off; flown ${dep2}`);

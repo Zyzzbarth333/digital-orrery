@@ -372,15 +372,21 @@ costs 2,911 m/s instead of 2,000 in the plane. The lamp suggests leaving
 
 | | The plan | Flown (full model) |
 | --- | --- | --- |
-| On the planned day | 24.6° off, 2,911 m/s | 26.0° off, 3,043 m/s |
-| The flight's wait for the plane | 12.5 d, 2,025 m/s | 11.5 d, 2,070 m/s |
-| Re-timed 6.5 d later (a 370.5-day stay) | 0.9° off, 2,008 m/s | leaves 1 h late, 2,086 m/s |
+| On the planned day | 24.6° off, 2,911 m/s | 3,012 m/s (3.5 %) |
+| The flight's wait for the plane | 12.5 d, 2,025 m/s | 11.2 d, 2,016 m/s (0.4 %) |
+| Re-timed 6.5 d later (a 370.5-day stay) | 0.9° off, 2,008 m/s | leaves 2 h late, 2,095 m/s (4.3 %) |
 
-The flight pays 2 to 5 % more than the plan. Most of that is its capture.
-The 2,026 m/s capture burn starts at periapsis and takes 100 s, so it
-leaves the orbit a little eccentric ($e \approx 0.04$), which the plan's
-circular orbit is not. After a year the flight's plane is within 5° of the
-plan's (its node about 0.15 % off).
+The flight's capture leaves the orbit circular at the planned mean radius
+(e 0.0016; [Flying it](#flying-it), step 4). Before it did, the capture
+left e 0.046, and the flight paid 2,070 m/s on the wait and 3,043 on the
+planned day. What is left is the plane. The flown plane holds the way out,
+as planned, but it is 0.5° steeper than the plan's (151.1° for 150.6°).
+The kernel's way in is not quite the patched conics', and the trims hold
+only the way out in the plane. So its node turns 0.3 % faster, 9.095° a
+day for 9.067, which is 11° over the year. The plane comes round 1.2 days
+early, and on a fixed day it is that far off. The rate itself is right:
+`flownNodeRate` from the flown orbit gives the kernel's rate over the year
+to 0.0001° a day.
 
 ## The options for a leg, compared
 
@@ -523,10 +529,47 @@ Each step, in time order:
      less extra than the plane error would cost at the departure, about the
      circular speed times the angle. (Newton can land on a far root: 150
      m/s to fix 0.07°.)
-4. **Captures:**
-   - **The burn:** retrograde, steered with the velocity, from the
-     predicted periapsis (not centred on it; braking before periapsis
-     would drop a 6 km/s capture into Mars) down to the circular speed.
+4. **Captures** (`landing.js designCapture`, `planCapture`):
+   - **Where it starts:** at the predicted periapsis, worked out again from
+     the craft's own state five minutes short of it. Not centred on it:
+     braking before periapsis would drop a 6 km/s capture into Mars.
+   - **Why it is steered:** impulsive, the capture is
+     $v_p - \sqrt{\mu/r_p}$ at the periapsis [1, eq. (8.58)]. Finite, it
+     takes 101 s for 2,026 m/s at Mars at 20 m/s². Held retrograde from
+     the periapsis, the craft climbs while it is still faster than
+     circular and falls after. The orbit ends at e 0.047, and a year
+     on the departure from it cost 3.8 % more than the plan's, which
+     prices a circular orbit.
+   - **The burn:** two halves, each held at its own pitch from retrograde
+     in the orbit's plane. Newton on the two pitches and the length puts
+     the two-body orbit at its end on a circle (e = 0, three conditions,
+     three unknowns), with RK4 about the body.
+   - **The radius:** holding a radius within the burn is dear. Lowering
+     the end by 2 km within a 40 s burn at the Moon takes 14° of pitch
+     and 3 % more. So the circle the burn ends on is chosen for the least
+     delta-v of the burn plus a Hohmann transfer [1, Sec. 6.2] from it to
+     the planned radius. That is a scan over −0.5 to 2 times the burn's
+     own height scale $a\,t^2/8$, then golden section. At Mars the burn
+     ends 4 km up, and burn and transfer together cost 0.5 % over the
+     impulse (holding the radius in the burn, 0.9 %). At the Moon it is
+     0.2 %, and at Jupiter for Galileo 0.3 %.
+   - **The transfer, on the mean radius:** in the body's J2 field the
+     osculating radius of a circular orbit swings by about 2 km round each
+     turn (as $\cos 2u$ from the node, 400 km over Mars). The node's rate
+     goes as $a^{-7/2}$ [1, eq. (4.52)], so 2 km is 0.2 % of it, 13°
+     over a year at Mars. So the transfer is worked out on the orbit's
+     mean semi-major axis: the osculating one averaged over a turn, on a
+     side run. Its two burns go along the velocity, half the transfer's
+     period apart, not at apsides from the two-body orbit, which J2 makes
+     meaningless for a few kilometres. A second pass tidies what J2 left.
+     The transfer is skipped under 100 m, or if the next event comes first
+     (an orbit change straight after). If no steered burn is found, the
+     burn is held retrograde, as before.
+   - **What it leaves:** the log and `captures` give the orbit's mean
+     radius and its eccentricity from the radius over a turn,
+     $(r_\text{max} - r_\text{min})/(r_\text{max} + r_\text{min})$.
+     A year at Mars: 2,038 m/s for an impulse of 2,028, the mean radius
+     3,789.9 km for 3,789.9, e 0.0016, and still 0.0016 at the departure.
    - **The orbit's plane:** the arrival hyperbola's plane holds the next
      departure's excess velocity too, so the parking orbit already contains
      it. Leaving a moon via its planet, that is the excess velocity about
@@ -542,8 +585,10 @@ Each step, in time order:
      the plan prices it, [above](#the-parking-orbits-plane)).
      So, as a mission would, the departure may wait up to 30 days, in
      half-day steps, for the plane to hold the way out, when that saves
-     more than 2 %. The log gives the planned day's burn beside the one
-     made. The excess velocity is re-solved for the later date (a
+     more than 2 %. It takes the cheapest of the half days, then golden
+     section within half a day either side: the plane turns 4.5° in half a
+     day there, which costs per cent. The log gives the planned day's burn
+     beside the one made. The excess velocity is re-solved for the later date (a
      Lambert arc about the leg's central body to the planned arrival).
      The days ahead are looked at on a side run, and only the wait chosen
      is flown. Leaving a moon via its planet, there is no wait: the phase
@@ -563,10 +608,10 @@ Each step, in time order:
    - **On an airless body**, from the low orbit the capture left:
      - **The descent orbit:** retrograde, onto the ellipse down to 15 km,
        the first burn of a Hohmann transfer (17 m/s from 100 km over the
-       Moon). It is worked out from the orbit the craft is really in: a
-       long capture (2 km/s, arriving from Mars) leaves it eccentric. So
-       the burn is the one that puts the two-body periapsis 15 km up, by
-       bisection.
+       Moon). It is worked out from the orbit the craft is really in
+       (circular to a few thousandths, its osculating radius swung by the
+       body's J2). So the burn is the one that puts the two-body periapsis
+       15 km up, by bisection.
      - **The braking burn:** from that periapsis, steered against the
        velocity. Its thrust is found by bisection so that the speed is gone
        1.5 km up, on a two-body run from the craft's own state two minutes
@@ -921,10 +966,11 @@ orbits, waits 454 days.
 | The lamps: leaving Mars after 30 days, at 8 and 5 km/s; leaving at the window | the rules above | window and delta-v lamps lit, then no window; at the window, green with a 368-day wait |
 | Saturn V, Apollo 11's 45.7 t to 185 km and on to the Moon (TLI 3.13 km/s) | the flight | needs 12.03, gives 12.87 km/s: it can, with 0.84 to spare |
 | Falcon 9 expendable, 22.8 t to 200 km; Electron, 300 kg to 500 km | the user's guides | 8.88 needed, 9.43 given; Electron 0.02 km/s short with its kick stage carried as payload (it burns, in fact) |
-| A year in Mars orbit, then home, flown | the plan | departs 11.5 d late for the turned plane, 2,070 m/s against 2,000 in the plane; Mars 0.8 km, Earth 23 km; corrections 189 m/s |
-| The same: the plane on the planned day, priced and flown | the flight's departure (within 6 %) | 24.6° off, 2,911 m/s; flown 3,043 (4.3 %) |
-| The same: the flight's wait for the plane, planned and flown | the flight's departure (1.5 d, 4 %) | 12.5 d and 2,025 m/s; flown 11.5 d and 2,070 (2.2 %) |
-| The same, leaving on the parking orbit lamp's day (6.5 d later) | the plan (on time, 5 %) | leaves 1 h late, 2,086 m/s against 2,008 (3.9 %); Mars 0.6 km, Earth 24 km |
+| The capture burn, two-body: 2,026 m/s 400 km over Mars at 20 m/s² | Curtis eq. (8.58) and Sec. 6.2; an independent integration of the retrograde burn | near-impulsive (2 km/s²) to 10⁻⁴ of eq. (8.58); held retrograde from the periapsis, e 0.047; steered, e 2 × 10⁻¹¹ at the radius, never more than 0.12 km below the periapsis, for 0.9 % over the impulse; the cheapest way in (circular 4 km up, then Hohmann) 0.5 % |
+| A year in Mars orbit, then home, flown | the plan | the capture 2,038 m/s for an impulse of 2,028, its mean radius 3,789.9 km for 3,789.9, e 0.0016 (held retrograde: 0.046); departs 11.2 d late for the turned plane, 2,016 m/s against 2,000 in the plane (before: 2,070); Mars 0.8 km, Earth 23 km; corrections 206 m/s |
+| The same: the plane on the planned day, priced and flown | the flight's departure (within 4 %) | 24.6° off, 2,911 m/s; flown 3,012 (3.5 %; 4.5 % before the capture was circular) |
+| The same: the flight's wait for the plane, planned and flown | the flight's departure (1.5 d, 2 %) | 12.5 d and 2,025 m/s; flown 11.2 d and 2,016 (0.4 %) |
+| The same, leaving on the parking orbit lamp's day (6.5 d later) | the plan (on time, 5 %) | leaves 2 h late, 2,095 m/s against 2,008 (4.3 %: the flown plane 0.5° steeper than the plan's, its node 0.3 % faster); Mars 0.6 km, Earth 24 km |
 | The node's J2 regression, 280 by 400 km at 51.43° | Curtis Ex 4.8, eq. (4.52) | −1.0465 × 10⁻⁶ rad/s, 5.181° a day west |
 | The node 400 km over Mars at 150.6°, ten days in the kernel, from the node and 90° past it | the kernel | eq. (4.52) 0.58 and 0.15 % slow (within 1 %); flown ten turns in the J2 field, 0.06 and 0.04 % (within 0.25 %) |
 | The burn from a circular orbit 400 km over Mars onto 2.48 km/s, 0 to 45° out of its plane | Curtis eq. (8.42); a scan of 7,200 points; burning at the planes' node | 2,000.4 m/s in the plane (eq. (8.42) to 1 mm/s); 2,057, 2,420, 2,931, 4,044 m/s at 5, 15, 25, 45°, the scan to 0.1 m/s, never over the node bound |
