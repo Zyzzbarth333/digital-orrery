@@ -13,7 +13,6 @@ import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { kernelSeconds, kernelMs } from '../physics/kernelHost.js';
 import { heightAbove } from '../physics/entry.js';
 import { SourceTag } from './source-tag';
-import { GuardedKey } from './guarded-key';
 
 const DEG = 180 / Math.PI;
 const fmt = (n: number, d = 1) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -188,8 +187,8 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         </ul>
 
         {run && !run.plan && (
-          <details className="section" open>
-          <summary className="strip">Tracking</summary>
+          <details className="section">
+          <summary className="strip"><span>Tracking</span><span className="sum-note">{run.fixHours ? `fix every ${run.fixHours} h` : 'free flight'}{run.burns === 'all' ? ` · ${run.aimed ? 'aimed' : 'as flown, blind'}` : ''}</span></summary>
           <label className="num">
             <span className="engraved">Fix</span>
             <select className="input select" value={run.fixHours ?? 0} onChange={(e) => mission.setFixHours(c, Number(e.target.value) || null)}>
@@ -222,11 +221,16 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
               : `Turning to ${ATT_LABEL[mode]}: ${fmt((ro.error ?? 0) * DEG, 1)}° to go`;
           const dist = Math.hypot(...ro.disturbance);
           return (
-            <details className="section" open>
-            <summary className="strip">Attitude</summary>
-            <div className="keys-row wrap att-modes" role="radiogroup" aria-label="Attitude mode">
-              {ATT_MODES.map(([k, label, title]) => (
-                <button key={k} className="key" role="radio" aria-checked={mode === k} title={title} onClick={() => c.att?.setMode(k)}>{label}</button>
+            <details className="section">
+            <summary className="strip"><span>Attitude</span><span className="sum-note">{pointing} · {fmt(ro.rate * DEG, 2)}°/s</span></summary>
+            {/* Three opposed pairs, then the modes that aren't a direction. */}
+            <div className="att-grid" role="radiogroup" aria-label="Attitude mode">
+              {[ATT_MODES.slice(0, 2), ATT_MODES.slice(2, 4), ATT_MODES.slice(4, 6), ATT_MODES.slice(6)].map((group, g) => (
+                <div key={g} className={`keys-row att-${g < 3 ? 'pair' : 'modes'}`}>
+                  {group.map(([k, label, title]) => (
+                    <button key={k} className="key" role="radio" aria-checked={mode === k} title={title} onClick={() => c.att?.setMode(k)}>{label}</button>
+                  ))}
+                </div>
               ))}
             </div>
             <table className="readout"><tbody>
@@ -245,14 +249,14 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
           );
         })() : !c.bare && !run && (
           <details className="section">
-          <summary className="strip">Attitude</summary>
+          <summary className="strip"><span>Attitude</span><span className="sum-note">a point mass: no turning</span></summary>
           <p className="hint">A point mass: its burns go along the direction you choose, with no turning.</p>
           <div className="keys-row"><button className="key" onClick={() => c.carryAttitude({ mode: 'prograde' })}>Carry attitude</button></div>
           </details>
         )}
 
         <details className="section" open>
-        <summary className="strip">Engine</summary>
+        <summary className="strip"><span>Engine</span><span className="sum-note">{c.engineOn || c.executing ? 'burning' : 'off'} · {fmt(c.fuel, 1)} kg left</span></summary>
         <p className="status">{c.engineOn || c.executing ? `Burning: ${fmt(c.thrust, 0)} N, ${fmt(c.fuel, 1)} kg left` : run && c.thrusting() ? (() => { const b = run.m.burnAt(s.timeMs); return b?.on ? `Scripted burn as flown: ${b.burn.name}` : `Small thrust as flown${b ? `, before ${b.burn.name}` : ''}`; })() : c.fuel > 0 ? `Off · ${fmt(c.thrust, 0)} N available` : 'Off · tank empty'}</p>
         <div className="keys-row wrap">
           {c.att ? (
@@ -266,7 +270,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         </details>
 
         <details className="section" open>
-        <summary className="strip">Manoeuvre node</summary>
+        <summary className="strip"><span>Manoeuvre node</span><span className="sum-note">{c.nodes.length ? `${c.nodes.length} planned, next ${utc(c.nodes[0].t).slice(11, 16)} UTC` : 'none planned'}</span></summary>
         <div className="form-grid">
           <Num label="In" value={nodeMin} onChange={setNodeMin} unit="min" min={1} />
           <Num label="Radial" value={dvR} onChange={setDvR} unit="m/s" />
@@ -293,7 +297,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
 
         </details>
         <details className="section">
-        <summary className="strip">Log ({c.log.length})</summary>
+        <summary className="strip"><span>Log</span><span className="sum-note">{c.log.length ? `${c.log.length} · ${c.log[c.log.length - 1].text}` : 'nothing yet'}</span></summary>
         <ol className="log">
           {c.log.slice(-6).reverse().map((e: { t: number; text: string }, i: number) => <li key={i}><time>{utc(e.t).slice(5)}</time> {e.text}</li>)}
           {c.log.length === 0 && <li className="hint">Nothing yet.</li>}
@@ -301,7 +305,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         </details>
         <div className="keys-row wrap">
           <button className="key" onClick={() => onFocusCraft(c.id)}>Follow</button>
-          <GuardedKey label="Remove craft" confirm={`Remove ${c.name}`} onConfirm={() => mission.remove(c)} />
+          <button className="key" onClick={() => mission.remove(c)} title="Removes it at once; the notice at the top restores it">Remove craft</button>
         </div>
       </>
     );
@@ -330,7 +334,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       )}
       {readout}
       <details className="section" open={!c && !ascent}>
-      <summary className="strip">Real missions</summary>
+      <summary className="strip"><span>Real missions</span><span className="sum-note">{REAL_MISSIONS.find((m) => m.id === realId)?.label ?? ''}</span></summary>
       <div className="form-grid">
         <label className="num">
           <span className="engraved">Mission</span>
@@ -353,7 +357,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       </details>
 
       <details className="section" open={!c}>
-      <summary className="strip">Launch from Earth</summary>
+      <summary className="strip"><span>Launch from Earth</span><span className="sum-note">{kind === 'orbit' ? `orbit ${alt.toLocaleString('en-AU')} km, ${inc}°` : `departure ${vinf} km/s ${dir}`} · {sixdof ? '6-DOF' : 'point mass'}</span></summary>
       <div className="keys-row" role="radiogroup" aria-label="Launch kind">
         <button className="key" role="radio" aria-checked={kind === 'orbit'} onClick={() => setKind('orbit')}>Orbit</button>
         <button className="key" role="radio" aria-checked={kind === 'departure'} onClick={() => setKind('departure')}>Departure</button>
