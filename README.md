@@ -73,7 +73,8 @@ The physics is checked against references, and each model's page says how and ho
 | Read | For |
 | --- | --- |
 | [docs/](docs/README.md) | every page: the physics with its maths, the front end, performance |
-| [Physics and accuracy](docs/accuracy.md) | what is high-fidelity, what is approximate, and the roadmap |
+| [Physics and accuracy](docs/accuracy.md) | what is high-fidelity, and what is approximate |
+| [Roadmap](docs/roadmap.md) | what comes next: accuracy, missions, the sky, the console and tooling |
 | [Validation](docs/validation.md) | every check, its reference and its result |
 | [How it fits together](docs/architecture.md) | the code's layers, a diagram, and the project's folders |
 | [Glossary](docs/glossary.md) | the terms |

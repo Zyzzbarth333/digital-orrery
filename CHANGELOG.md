@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- One [roadmap](docs/roadmap.md) lists what comes next: the accuracy roadmap from the Physics and accuracy page, merged with the follow-ups each piece of work left, by area (this pull request).
 - `npm test` takes 146 s instead of 461 s on a shared machine. It runs the check files four at a time, with the journey and mission validations in parts, and prints each file's output whole and in order. MESSENGER's blind replay stops a day past the Earth flyby, where it is already lost. Every check prints the same tolerance and value as before ([docs/performance.md](docs/performance.md#the-test-suite), this pull request).
 - A GPU benchmark or docs-clips run started inside `flock ~/.cache/digital-orrery/gpu-bench.lock …` no longer waits for ever on the lock its own wrapper holds: it sees the holder is its parent and goes on under it (this pull request).
 - A git worktree builds and tests without a `node_modules` of its own: `src/physics/sgp4.js` imports satellite.js by name, and a small Vite plugin keeps its WebAssembly build out of the bundles, which come out byte for byte as before (this pull request).
