@@ -22,7 +22,8 @@ import { SatellitePlate } from './satellite-plate';
 // (or &phase=90: the camera at that angle from the Sun, seen from the body).
 // Missions too: &craft=orbit,400,51.6 (altitude km, inclination deg) or
 // &craft=departure,2.95,prograde (v_inf km/s, direction), followed by the
-// camera; &plan=mars opens the planner and computes the grid.
+// camera, carrying an attitude (6-DOF) unless a fourth field says point
+// (&craft=orbit,400,51.6,point); &plan=mars opens the planner and computes the grid.
 // Real missions: &mission=artemis2 (or artemis2,first to fly only the first
 // burn), &fix=12 for a tracking fix every 12 h; with &t= inside the mission
 // the craft starts where the real one was then.
@@ -151,12 +152,13 @@ export function App() {
     sc.smallBodies.onNamed = setNamed;
     if (sc.smallBodies.namedBodies.length) setNamed(sc.smallBodies.namedBodies);
     if (init.sunView) sc.viewFromSun((init.phaseDeg * Math.PI) / 180);
-    const [kind, a, b] = (init.craft ?? '').split(',');
+    const [kind, a, b, flown] = (init.craft ?? '').split(',');
     // React's development double-mount builds the scene twice: a craft
     // launched for the first one is followed by the second too.
     if (launched.current && mission.selected) sc.focusOnCraft(mission.selected.id, true);
     if ((kind === 'orbit' || kind === 'departure') && !launched.current) {
       launched.current = true;                    // once, whatever React's mounts do
+      if (flown === 'point') mission.sixdof = false;
       const c = kind === 'orbit'
         ? mission.launchOrbit(clock.snapshot.timeMs, Number(a) || 400, Number(b) || 0)
         : mission.launchDeparture(clock.snapshot.timeMs, { speed: Number(a) || 3, dir: (['prograde', 'retrograde', 'outward', 'inward'].includes(b) ? b : 'prograde') as 'prograde' });

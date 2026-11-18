@@ -31,6 +31,8 @@ import { accelHeliocentric, primaryOf } from './nbody.js';
 import { eqjToEcl } from './ephemeris.js';
 import { bodyAxesEqj } from './orientation.js';
 import { vnbDirection } from './kernelHost.js';
+import { CraftAttitude } from './craftAttitude.js';
+import { thrustAxis } from './attitude.js';
 
 export const G0 = 9.80665;                 // m/s^2, for Isp
 const MAX_CARRY_S = 30 * 86400;
@@ -110,7 +112,11 @@ export class Craft {
   // scriptIsp: the Isp (s) at which a real mission's scripted burns draw
   // propellant from the dry mass (a spacecraft's own tanks, beyond the
   // player's fuel), or null: they then leave the mass alone.
-  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null), scriptIsp = /** @type {number | null} */ (null), bare = false }) {
+  // attitude: carry an attitude (craftAttitude.js; {} for the app's own
+  // craft, or its spec, with mode the one to hold from the start), so burns
+  // fire along the body axis; null (the default) for a point mass whose
+  // burns go along the direction asked.
+  constructor({ name, r, v, t, sys, dryMass = 1000, fuel = 500, thrust = 5000, isp = 320, area = 5, cr = 1.3, cd = 2.2, earth = /** @type {object | null} */ (null), vent = /** @type {object | null} */ (null), entry = /** @type {object | null} */ (null), scriptIsp = /** @type {number | null} */ (null), bare = false, attitude = /** @type {object | null} */ (null) }) {
     this.id = nextId++;
     this.name = name;
     this.sys = sys.view ? sys.view() : sys;
@@ -156,7 +162,18 @@ export class Craft {
     this.log = [];                   // { t, text } for the app to show
     this.clockJumped = false;
     if (bare) this.note('flown in the planner\'s model: point masses and zonal terms, no drag, full gravity fields or sunlight', t);
+    this.att = null;
+    if (attitude) this.carryAttitude(attitude);
   }
+
+  // Carry an attitude from now on (craftAttitude.js): burns then fire along
+  // the body axis.
+  carryAttitude({ mode = 'prograde', ...spec } = {}) {
+    this.att = new CraftAttitude(this, spec, mode);
+    this.note(`attitude carried: holding ${mode}, burns along the body axis`, this.kState.t);
+  }
+  // The thrust axis (EQJ unit vector), or null for a point mass.
+  get bodyAxis() { return this.att ? thrustAxis(this.att.q) : null; }
 
   // The mass now: the dry mass, less what the mission's scripted burns have
   // drawn from it by the clock, and the player's fuel.
@@ -182,6 +199,7 @@ export class Craft {
       this.burns = [];
       this.prevClockT = tNow;                      // no fuel drawn across the jump
       this.clockJumped = true;
+      jumped = true;
       this.note(`clock set ${(moved / 86400).toFixed(2)} d away; state kept, burns cleared`, tNow);
     }
     this.clockT = tNow;
@@ -192,16 +210,20 @@ export class Craft {
       this.startNode(node);
     }
     this.updateBurns();
+    if (this.att) this.att.step(jumped);
   }
 
   // ---------------- burns ----------------
 
   // Start a burn at t0 along dir (EQJ, any length) at full thrust. Ends after
-  // duration, or when the tank runs dry. Returns the burn or null.
+  // duration, or when the tank runs dry. Returns the burn or null. A craft
+  // carrying an attitude fires along its body axis instead (axis: true;
+  // dir is then only where it was asked to point).
   startBurn({ t0, dir, duration = Infinity, kind = 'manual' }) {
     const mdot = this.thrust / this.ve;
+    if (this.att && !dir) dir = this.bodyAxis;
     if (!(this.fuel > 0) || !(mdot > 0) || !(norm(dir) > 0)) return null;
-    const burn = { t0, t1: t0 + Math.min(duration, this.fuel / mdot), dir: unit(dir), F: this.thrust, m0: this.mass, mdot, kind };
+    const burn = { t0, t1: t0 + Math.min(duration, this.fuel / mdot), dir: unit(dir), F: this.thrust, m0: this.mass, mdot, kind, ...(this.att ? { axis: true } : {}) };
     this.burns.push(burn);
     return burn;
   }
@@ -385,6 +407,11 @@ export class Craft {
     const duration = need / (this.thrust / this.ve);
     const burn = this.startBurn({ t0: node.t, dir: d, duration, kind: 'node' });
     if (!burn) { this.note('node refused: no propellant', node.t); return false; }
+    if (burn.axis) {
+      burn.nodeDir = unit(d);
+      const off = Math.acos(Math.max(-1, Math.min(1, dot(unit(d), this.bodyAxis)))) * 180 / Math.PI;
+      if (off > 1) this.note(`node burning along the body axis, ${off.toFixed(1)}° off the node's direction`, node.t);
+    }
     this.executing = { node, burn };
     this.note(`node burn: ${(dv * 1000).toFixed(1)} m/s over ${duration.toFixed(1)} s`, node.t);
     return true;
@@ -410,9 +437,18 @@ export class Craft {
     const span = tEnd - this.kState.t;
     if (Number.isNaN(span)) { this.error = 'non-finite physics time'; return null; }
     if (!(span > 0)) return null;
-    const burns = [...this.burns, ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
+    if (this.att && this.burns.some((b) => b.axis)) tEnd = Math.min(tEnd, this.att.A.t);
+    if (!(tEnd - this.kState.t > 0)) return null;
+    const burns = [...this.flownBurns(this.kState.t, tEnd), ...this.script].filter((b) => b.t1 > this.kState.t && b.t0 < tEnd)
       .map(({ t0, t1, dir, F, m0, mdot, frame, about, scripted, mass0, massFlow }) => ({ t0, t1, dir, F, m0, mdot, frame, about, scripted, ...(mass0 !== undefined ? { mass0, massFlow } : {}) }));
     return { id: this.id, version: this.version, r: [...this.kState.r], v: [...this.kState.v], t: this.kState.t, tEnd, primary: this.kState.primary, burns, env: this.bare ? null : this.envParams() };
+  }
+
+  // The engine's burns between from and to as the kernel flies them: a
+  // burn along the body axis as the attitude's pieces (craftAttitude.js),
+  // the rest as they are.
+  flownBurns(from, to) {
+    return this.burns.flatMap((b) => (b.axis && this.att ? this.att.pieces(b, from, to) : [b]));
   }
 
   // What the kernel's environment model needs of this craft (its mass as at
@@ -529,10 +565,12 @@ export class Craft {
         const t1 = this.kState.t + dt, dr = sub(E.eph.position(this.clockT), E.eph.position(t1)), dv = sub(E.eph.velocity(this.clockT), E.eph.velocity(t1));
         s = { r: [0, 1, 2].map((i) => s.r[i] + dr[i]), v: [0, 1, 2].map((i) => s.v[i] + dv[i]) };
       }
-      this._shown = { key, from: this.kState, r0: this.kState.r, s };
+      this._shown = { key, t: this.clockT, from: this.kState, r0: this.kState.r, s };
     }
     return { r: [...this._shown.s.r], v: [...this._shown.s.v] };
   }
+  // The state drawn at clock time t, if it was drawn there (else null).
+  shownAt(t) { const sh = this._shown; return sh && sh.t === t ? { r: sh.s.r, v: sh.s.v } : null; }
 
   // How far (s) the drawn state may be carried past the kernel's before the
   // Earth's air: the carry's two-body orbit, its perturbations held, and its
@@ -614,7 +652,7 @@ export class Craft {
       if (!B?.eph) return [0, 0, 0];
       return vnbDirection(b.dir, sub(x.r, B.eph.position(t)), sub(x.v, B.eph.velocity(t)));
     };
-    const parts = [...this.burns, ...this.script]
+    const parts = [...this.flownBurns(t0, t1), ...this.script]
       .map((b) => ({ b, p: Math.max(b.t0, t0), q: Math.min(b.t1, t1) })).filter((x) => x.q > x.p)
       .sort((x, y) => x.p - y.p);
     // The kernel's acceleration holds the thrust at its instant; one set
