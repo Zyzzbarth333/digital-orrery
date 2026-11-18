@@ -21,6 +21,12 @@ once it has releases. Until then, everything sits under Unreleased.
   the craft's attitude at its marker. Real missions and journeys stay
   point masses. A followed craft's marker no longer vanishes when the
   camera is under a kilometre away (this pull request).
+- A 6-DOF craft's attitude thrusters burn propellant from its tank, shown
+  in the ATTITUDE readout; its inertia falls as the tank empties, so it
+  turns faster light; and it turns to each manoeuvre node by itself, in
+  time to settle before the node fires (AUTO NODE TURN), saying in the
+  log when it can't. The node mode now holds the direction it burned
+  along afterwards (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
