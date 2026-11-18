@@ -387,6 +387,12 @@ kbd {
    legend (about 11:1), unlike the dark pressed-in look of a chosen key. */
 .key.arm[aria-pressed='true'], .key.arm[aria-pressed='true']:disabled { background: var(--caution); color: var(--ink); border-color: var(--ink); box-shadow: 0 2px 0 var(--ink); opacity: 1; }
 .guarded { display: inline-flex; gap: 6px; }
+/* MISSION's attitude keys: three opposed pairs, then the modes that aren't a
+   direction, each pair sharing its row's width. */
+.att-grid { display: grid; gap: 6px; margin-bottom: var(--u); }
+.att-grid .keys-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; }
+.att-grid .keys-row.att-modes { grid-template-columns: 1fr 1fr 1fr; }
+.att-grid .key { min-width: 0; padding: 0 6px; }
 .launch-row .hint { flex: 1 1 14em; }
 .key.primary:hover { filter: brightness(1.06); }
 
@@ -737,6 +743,13 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .add-row { margin-top: var(--u); }
 .add-row .input.select { flex: 1 1 7em; min-width: 0; }
 .burn-row th { font: 11px var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink-muted); }
+/* A ledger line that costs nothing (a flyby's credit, a landing through the
+   air): a dashed rule, and its value in ink, prefixed + or "free". */
+.readout tr.credit-row th, .readout tr.credit-row td { border-bottom-style: dashed; }
+.readout tr.credit-row td.value { color: var(--ink); }
+/* A ledger line's note, under it across the ledger's width. */
+.readout tr.has-note th, .readout tr.has-note td { border-bottom: 0; padding-bottom: 0; }
+.readout tr.note-row td { padding-top: 2px; font: 11px/1.35 var(--sans); color: var(--ink-muted); text-align: left; }
 
 /* The stage stack: each stage a sheet-metal block, its dry mass the dark
    band at its foot, the payload in a readout window on top. */

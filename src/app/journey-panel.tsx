@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
-import { useJourney, type JourneyStore, type Waypoint, type Leg, type Flyby } from './journey';
+import { useJourney, ledgerLines, type JourneyStore, type Waypoint, type Leg, type Flyby } from './journey';
 import { SourceTag } from './source-tag';
 import { journeyBodies, legOptions, applyOption, bodyInfo, defaultArrival } from '../physics/journey.js';
 import { assess } from '../physics/feasibility.js';
@@ -158,7 +158,7 @@ export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }
                   <DateField ms={w.dateMs} onChange={(ms) => slide(i, ms)} />
                 </label>
               )}
-              <LegLine leg={leg} fb={fb} last={i === j.waypoints.length - 1} />
+              <LegLine leg={leg} fb={fb} last={i === j.waypoints.length - 1} entry={w.kind === 'land' && !!bodyInfo(w.body).atmosphere} />
               <div className="keys-row">
                 <button className="key small" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)} disabled={!leg}>{open === i ? 'Hide options' : 'Compare options'}</button>
                 {w.chosen && <span className="hint">chosen: {w.chosen}</span>}
@@ -210,13 +210,13 @@ function DateField({ ms, onChange }: { ms: number; onChange: (ms: number) => voi
 }
 
 // The leg into a waypoint, in a line: when, how long, the burns.
-function LegLine({ leg, fb, last }: { leg?: Leg; fb?: Flyby; last: boolean }) {
+function LegLine({ leg, fb, last, entry }: { leg?: Leg; fb?: Flyby; last: boolean; entry?: boolean }) {
   if (!leg) return null;
   if (!leg.ok) return <p className="status bad">No transfer: {leg.error ?? 'no solution for these dates'}. Slide the date or change the stop.</p>;
   return (
     <table className="readout compact"><tbody>
       <tr><th scope="row">Leg</th><td className="value">{iso(leg.depMs)} → {iso(leg.arrMs)} · {fmt(leg.tofDays, leg.tofDays < 10 ? 2 : 0)} d<span className="alt">{leg.geometry === 'local' ? `orbit change about ${nameOf(leg.central)}` : leg.resonance ? `resonant ${leg.resonance.N}:${leg.resonance.M}: back at ${nameOf(leg.to)} after ${leg.resonance.N} of its orbits` : `about ${nameOf(leg.central)}${leg.revs ? `, ${leg.revs} revolution${leg.revs > 1 ? 's' : ''}` : ''}`}</span></td><td className="src"><SourceTag src="Lambert" derived info="journey-leg" /></td></tr>
-      <tr><th scope="row">Δv</th><td className="value">{fmt(leg.depDv + leg.midDv + leg.arrDv, 3)} km/s<span className="alt">{[leg.depDv && `leave ${fmt(leg.depDv, 3)}`, leg.midDv && `on the way ${fmt(leg.midDv, 3)}`, leg.arrDv && `arrive ${fmt(leg.arrDv, 3)}`].filter(Boolean).join(' · ') || 'no burn'}{leg.vinfArr ? ` · v∞ ${fmt(Math.hypot(...leg.vinfArr), 2)} km/s on arrival` : ''}</span></td><td className="src"><SourceTag src="2-body" derived info="journey-leg" /></td></tr>
+      <tr><th scope="row">Δv</th><td className="value">{fmt(leg.depDv + leg.midDv + leg.arrDv, 3)} km/s<span className="alt">{[leg.depDv && `leave ${fmt(leg.depDv, 3)}`, leg.midDv && `on the way ${fmt(leg.midDv, 3)}`, leg.arrDv && `arrive ${fmt(leg.arrDv, 3)}`, entry && 'land by entry and parachutes, no propulsive Δv'].filter(Boolean).join(' · ') || 'no burn'}{leg.vinfArr ? ` · v∞ ${fmt(Math.hypot(...leg.vinfArr), 2)} km/s on arrival` : ''}</span></td><td className="src"><SourceTag src="2-body" derived info="journey-leg" /></td></tr>
       {leg.plane && (
         <tr><th scope="row">Plane</th><td className={`value${leg.plane.priced && !leg.plane.aimed && (leg.plane.extraDv ?? 0) > 0.05 ? ' bad' : ''}`}>{!leg.plane.priced ? 'not priced' : leg.plane.aimed ? 'held' : `${fmt(leg.plane.angleDeg ?? 0, 1)}° off the way out · +${fmt((leg.plane.extraDv ?? 0) * 1000, 0)} m/s`}<span className="alt">{!leg.plane.priced ? leg.plane.why : leg.plane.aimed ? `a ${fmt(leg.plane.stayDays ?? 0, 0)} d stay at ${nameOf(leg.from)}: the capture is aimed so the turned plane holds the way out` : leg.plane.model === 'moon' ? `the parking orbit's plane after ${fmt(leg.plane.stayDays ?? 0, 0)} d at the Moon, turned by its whole field and the Earth's pull: ${fmt(leg.plane.iDeg ?? 0, 1)}° to ${fmt(leg.plane.iEndDeg ?? 0, 1)}° to the equator, the node ${fmt(Math.abs(leg.plane.rateDegDay ?? 0), 2)}° a day (J2 alone ${fmt(Math.abs(leg.plane.firstOrderDegDay ?? 0), 2)})` : `the parking orbit's plane after ${fmt(leg.plane.stayDays ?? 0, 0)} d at ${nameOf(leg.from)}: its node turns ${fmt(Math.abs(leg.plane.rateDegDay ?? 0), 2)}° a day (${fmt(leg.plane.iDeg ?? 0, 1)}° to the equator)`}</span></td><td className="src">{leg.plane.model === 'moon' ? <SourceTag src="GRAIL" derived info="journey-plane-moon" /> : <SourceTag src="J2" derived info="journey-plane" />}</td></tr>
       )}
@@ -228,7 +228,10 @@ function LegLine({ leg, fb, last }: { leg?: Leg; fb?: Flyby; last: boolean }) {
         <tr><th scope="row">Shaped</th><td className={`value${leg.reaches ? '' : ' bad'}`}>{leg.reaches ? 'reaches' : 'misses'} {nameOf(leg.to)} by {fmt(leg.missKm ?? 0, 0)} km<span className="alt">{(leg.nodes ?? []).length} node{(leg.nodes ?? []).length === 1 ? '' : 's'}, {fmt((leg.nodes ?? []).reduce((a, n) => a + n.dv, 0) * 1000, 1)} m/s · flown free from {leg.nodes?.length ? 'the departure through each node' : 'the flyby aimed by hand'}{leg.reaches ? '' : ' · drag a node\'s tabs, or aim the last node'}</span></td><td className="src"><SourceTag src="2-body" derived info="journey-shaped" /></td></tr>
       )}
       {fb && (
-        <tr><th scope="row">Flyby</th><td className="value">{fb.unpoweredOnly ? 'unpowered' : `${fmt(fb.dv * 1000, 0)} m/s`} · turn {fmt(fb.delta * 180 / Math.PI, 1)}°<span className="alt">{fb.byHand ? 'aimed by hand · ' : ''}periapsis {fmt(fb.rp - bodyInfo(fb.body).radius, 0)} km up{fb.byHand && fb.rp < bodyInfo(fb.body).radius ? ' (below the surface!)' : ''} · B·T {fmt(fb.bT, 0)}, B·R {fmt(fb.bR, 0)} km{fb.tooTight ? ' · the turn needs a lower pass: steered at the edge of its sphere' : ''}{last ? '' : ''}</span></td><td className="src"><SourceTag src="B-plane" derived info="flyby" /></td></tr>
+        <tr><th scope="row">Flyby</th><td className="value">{fb.dv > 0 ? `${fmt(fb.dv * 1000, 0)} m/s burn` : 'unpowered, free'} · turn {fmt(fb.delta * 180 / Math.PI, 1)}°<span className="alt">{fb.byHand ? 'aimed by hand · ' : ''}periapsis {fmt(fb.rp - bodyInfo(fb.body).radius, 0)} km up{fb.byHand && fb.rp < bodyInfo(fb.body).radius ? ' (below the surface!)' : ''} · B·T {fmt(fb.bT, 0)}, B·R {fmt(fb.bR, 0)} km{fb.tooTight ? ' · the turn needs a lower pass: steered at the edge of its sphere' : ''}{last ? '' : ''}</span>{fb.dv > 0 && <span className="alt">Why it is paid: the pull turns the path but cannot change the speed about {nameOf(fb.body)} ({fmt(fb.vinf, 2)} km/s in{fb.vinfOut ? `, ${fmt(fb.vinfOut, 2)} out` : ''}), so {fmt(fb.periapsisDv * 1000, 0)} m/s at periapsis makes up the difference{fb.steerDv > 5e-4 ? `, and ${fmt(fb.steerDv * 1000, 0)} m/s steers the turn the pass cannot give` : ''}.</span>}</td><td className="src"><SourceTag src="B-plane" derived info="flyby" /></td></tr>
+      )}
+      {fb && (
+        <tr className="credit-row"><th scope="row">Assist</th><td className="value">+{fmt(fb.gain, 3)} km/s<span className="alt">heliocentric change (v∞ out less in), a credit, not a cost{fb.dv > 0 ? `: ${fmt(Math.max(0, fb.gain - fb.dv), 3)} km/s after the ${fmt(fb.dv * 1000, 0)} m/s burn` : ': free'}</span></td><td className="src"><SourceTag src="assist" derived info="flyby-credit" /></td></tr>
       )}
     </tbody></table>
   );
@@ -280,8 +283,8 @@ function Summary({ store }: { store: JourneyStore }) {
       <table className="readout"><tbody>
         <tr><th scope="row">Δv total</th><td className="value">{sol.ok ? `${fmt(sol.totalDv, 3)} km/s` : '–'}<span className="alt">{sol.burns.length} burns, from the parking orbit on</span></td><td className="src"><SourceTag src="Σ burns" derived info="journey-total" /></td></tr>
         <tr><th scope="row">Duration</th><td className="value">{fmt(sol.durationDays, 0)} d<span className="alt">{store.dates()}</span></td><td className="src"><SourceTag src="dates" derived info="journey-total" /></td></tr>
-        {sol.burns.map((b, i) => (
-          <tr key={i} className="burn-row"><th scope="row">{iso(b.ms)}</th><td className="value">{fmt(b.dv * 1000, 0)} m/s<span className="alt">{b.label}</span></td><td /></tr>
+        {ledgerLines(sol).map((b, i) => (
+          <tr key={i} className={b.paid ? 'burn-row' : 'burn-row credit-row'}><th scope="row">{iso(b.ms)}</th><td className="value">{b.paid ? `${fmt(b.dv * 1000, 0)} m/s` : b.kind === 'assist' ? `+${fmt((b.creditDv ?? 0) * 1000, 0)} m/s credit` : 'no burn'}<span className="alt">{b.label}{b.note ? `: ${b.note}` : ''}</span></td><td /></tr>
         ))}
         <tr><th scope="row">Kernel</th>
           <td className="value">{k.state === 'flying' || (k.state !== 'idle' && !now) ? 'flying it…' : k.state === 'failed' ? <span className="bad">failed: {k.error}</span> : r ? `flown in ${fmt(r.ms / 1000, 1)} s · corrections ${fmt(r.correctionsDv * 1000, 1)} m/s · ${r.model === 'bare' ? 'planner\'s model' : 'full model'}` : 'waits for an edit to settle'}

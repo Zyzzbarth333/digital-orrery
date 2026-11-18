@@ -58,6 +58,10 @@ const Z = [0, 0, 1];
 // these is reached by aims without its pull, approach trims and a capture,
 // and left by a burn onto its own excess velocity.
 const PLANET_MOONS = ['mars', 'jupiter', 'saturn', 'uranus', 'neptune'].flatMap((p) => MAJOR_MOONS_OF[p] ?? []);
+// A craft the air brings down before its entry perigee, falling slower
+// than this (km/s), came down by entry, not by a crash: its speed was the
+// drag's doing, and the plan's parachutes take it from there.
+const ENTRY_FALL_MAX = 0.3;
 const KERNEL = new Set(['mercury', 'venus', 'earth', 'moon', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', ...PLANET_MOONS]);
 const MOON_IN_KERNEL = new Set(PLANET_MOONS);
 // The thrust of a planned burn (m/s^2): short enough to be near impulsive
@@ -183,9 +187,21 @@ export function planFlight(sol) {
     const k = leg.index, P = S[k], Q = S[k + 1];
     if (leg.geometry === 'local') {
       const B = bodyInfo(P.body), r1 = B.radius + P.altKm, r2 = B.radius + Q.altKm, up = r2 >= r1 ? 1 : -1;
-      events.push({ kind: 'tangent', ms: leg.depMs, body: P.body, dv: up * leg.depDv });
+      // Up from the ground first (journey.js solveLocal prices the ascent
+      // into the leg's first burn, and the descent into its last: the
+      // tangent burns are the orbit change's alone).
+      if (P.kind === 'land' && k > 0) events.push({ kind: 'liftoff', ms: Math.max(P.arrMs, leg.depMs - 3 * 3600e3), body: P.body, rOrbit: r1, waypoint: k - 1 });
+      const dep = leg.depDv - (leg.ascentDv ?? 0), arr = leg.arrDv - (leg.descentDv ?? 0);
+      if (dep) events.push({ kind: 'tangent', ms: leg.depMs, body: P.body, dv: up * dep });
       if (leg.midDv) events.push({ kind: 'tangent', ms: leg.arcs[1]?.t1 ?? leg.depMs, body: P.body, dv: up * leg.midDv });
-      events.push({ kind: 'tangent', ms: leg.arrMs, body: P.body, dv: up * leg.arrDv, waypoint: k });
+      if (arr || Q.kind !== 'land') events.push({ kind: 'tangent', ms: leg.arrMs, body: P.body, dv: up * arr, waypoint: k });
+      // Down from the orbit before: powered on an airless body, at the end
+      // of the orbit change; through the air, the first burn's path flown
+      // to its periapsis.
+      if (Q.kind === 'land') {
+        const mode = !KERNEL.has(Q.body) ? 'setdown' : B.atmosphere ? 'entry' : 'descent';
+        events.push({ kind: 'land', ms: mode === 'entry' ? (leg.depMs + leg.arrMs) / 2 : leg.arrMs + 1, body: Q.body, waypoint: k, mode });
+      }
       continue;
     }
     // Leaving a stop where the craft was in orbit.
@@ -832,6 +848,16 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         if (touch) {
           const B = bodyState(e.body, s.t), [X, Y, W] = axesOf(e.body, s.t), d = sub(s.r, B.r);
           const speed = norm(sub(s.v, siteAt({ key: e.body, local: [dot(X, d), dot(Y, d), dot(W, d)] }, s.t).v));
+          // The air brought it down on the way (a low perigee from orbit:
+          // the full model's drag), slowed to a fall the parachutes the
+          // plan assumes would take: an entry, set down there.
+          if (speed < ENTRY_FALL_MAX) {
+            s = touch;
+            setDown(e.body, e.waypoint, 'entry', { entryKm: 0 });
+            landingOn = null; touch = null;
+            out.log.push(`entry at ${e.body}: down through the air before its perigee, falling at ${(speed * 1000).toFixed(0)} m/s, set down there`);
+            continue;
+          }
           out.impact = { body: e.body, t: s.t, speed };
           out.log.push(`entry at ${e.body}: the drag-free path met the ground at ${(speed * 1000).toFixed(0)} m/s before its perigee`);
           landingOn = null; touch = null;
@@ -952,7 +978,10 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
     }
     if (e.kind === 'tangent') {
       flyTo(t - durOf(Math.abs(e.dv)) / 2 - 1);
-      burn(t, [Math.sign(e.dv), 0, 0], Math.abs(e.dv), 'vnb', e.body);
+      // Centred on its time, unless that would start it before the craft
+      // is there (an orbit change that opens the journey): then from now,
+      // or its first half is never flown.
+      burn(Math.max(t, s.t + durOf(Math.abs(e.dv)) / 2), [Math.sign(e.dv), 0, 0], Math.abs(e.dv), 'vnb', e.body);
       continue;
     }
     if (e.kind === 'capture') {

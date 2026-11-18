@@ -7,7 +7,7 @@
 // through useJourney(); the scene through view().
 
 import { useSyncExternalStore } from 'react';
-import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, aimNode as aimNodeJs, type Journey, type Waypoint } from '../physics/journey.js';
+import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, aimNode as aimNodeJs, ledgerLines as ledgerLinesJs, type Journey, type Waypoint } from '../physics/journey.js';
 import type { FlightRequest, FlightReply, ProfilesReply, LegProfile } from './journey.worker';
 
 type V3 = [number, number, number];
@@ -28,10 +28,19 @@ export interface LegPlane { priced: boolean; why?: string; body?: string; aimed?
 // A stay in lunar orbit before the leg: the eccentricity the Moon's field
 // raises over it (journey.js moonStay).
 export interface StayOrbit { altKm: number; stayDays: number; toDays: number; iDeg: number; eMax: number; lowKm: number; lowMs: number; fallMs: number | null; fallDays: number | null; safeAltKm?: number | null }
-export interface Flyby { byHand?: boolean; body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
-export interface Burn { ms: number; body: string; dv: number; kind: string; label: string; leg: number }
-export interface JourneySolution { stops: Stop[]; legs: Leg[]; flybys: (Flyby | undefined)[]; burns: Burn[]; totalDv: number; startMs: number; endMs: number; durationDays: number; ok: boolean; error?: string }
+export interface Flyby { byHand?: boolean; body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; vinfOut?: number; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
+// A burn, and what it pays for (note: a landing's capture and descent, a
+// powered flyby's reason).
+export interface Burn { ms: number; body: string; dv: number; kind: string; label: string; leg: number; note?: string }
+// What costs nothing: a flyby's gravity assist (its heliocentric change and
+// the credit against buying it with the engine) or a landing through the
+// air (journey.js solveJourney).
+export interface Credit { ms: number; body: string; dv: 0; kind: 'assist' | 'entry'; label: string; leg: number; note: string; helioDv?: number; creditDv?: number }
+export type LedgerLine = (Burn & { paid: true }) | (Credit & { paid: false });
+export interface JourneySolution { stops: Stop[]; legs: Leg[]; flybys: (Flyby | undefined)[]; burns: Burn[]; credits: Credit[]; totalDv: number; creditDv: number; startMs: number; endMs: number; durationDays: number; ok: boolean; error?: string }
 const solveJourney = (j: Journey) => solveJs(j) as unknown as JourneySolution;
+// The ledger's lines in time order: the burns (paid) and the credits (free).
+export const ledgerLines = (sol: JourneySolution) => ledgerLinesJs(sol as never) as unknown as LedgerLine[];
 const defaultArrival = (p: Stop, body: string, alt: number, kind: string) => defaultArrivalJs(p as never, body, alt, kind) as number;
 export type { Journey, Waypoint };
 export interface Vehicle { payload: number; booster: 'solid' | 'storable' | 'hydrolox'; upper: 'solid' | 'storable' | 'hydrolox'; isp1: number | null; isp2: number | null; eps1: number; eps2: number; n: number | null }
@@ -105,7 +114,7 @@ export class JourneyStore {
   // Replace the journey and solve it by patched conics.
   set(j: Journey): void {
     this.journey = j;
-    try { this.solution = solveJourney(j); } catch (err) { this.solution = { ...this.solution, ok: false, legs: [], burns: [], error: String(err) } as JourneySolution; }
+    try { this.solution = solveJourney(j); } catch (err) { this.solution = { ...this.solution, ok: false, legs: [], burns: [], credits: [], creditDv: 0, error: String(err) } as JourneySolution; }
     if (this.kernel.state !== 'flying') this.kernel = { state: 'idle' };
     this.bump();
   }

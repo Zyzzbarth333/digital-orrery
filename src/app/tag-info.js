@@ -672,6 +672,18 @@ export const TAG_INFO = {
     where: 'e: the eccentricity vector, its gradient at e = 0; n̂: the orbit\'s normal; n odd, from 3; U_n: the field\'s degree n on the circle\'s radius, its gradient over the sphere at n̂; GRAIL GL0660B to degree 50, J2\'s turn of the periapsis and the Earth\'s and the Sun\'s tides; falls within a day of the kernel\'s flights 100 km up',
     source: 'Tremaine, Touma & Namouni 2009, AJ 137, 3706, eq. 16 · Jackson, Classical Electrodynamics, 3rd ed., §3.6 · GRAIL GL0660B (Konopliv et al. 2013) · docs/physics/journey.md#a-low-orbit-at-the-moon',
   },
+  'flyby-credit': {
+    what: 'What a flyby gives: the change in the craft\'s heliocentric velocity, credited, not spent. The pull turns the excess velocity but leaves its size as it was, and the planet\'s own velocity cancels, so the change is the excess velocity out less in; a burn giving the same change would cost that much. A powered flyby pays only for the difference in speed (at periapsis) and any turn the lowest pass cannot give.',
+    tex: ['\Delta \mathbf v_\odot = \mathbf v_{\infty,\text{out}} - \mathbf v_{\infty,\text{in}},\quad |\Delta \mathbf v_\odot| = 2 v_\infty \sin\frac{\delta}{2}\ \text{(unpowered)}', '\text{credit} = |\Delta \mathbf v_\odot| - \Delta v_\text{burn}'],
+    where: 'δ: the turn; the credit is set beside the total, not taken off it',
+    source: 'Curtis, 4th ed., §8.9 (Example 8.6) · docs/physics/journey.md',
+  },
+  landing: {
+    what: 'How a landing is paid for. Airless (the Moon, Mercury, most moons): capture into the orbit before, then a powered descent of that orbit\'s circular speed, ideal. Through an atmosphere (Venus, Earth, Mars, Titan): entry and parachutes, no propulsive delta-v. Lifting off costs the orbit\'s circular speed again.',
+    tex: ['\Delta v_\text{descent} = \sqrt{\mu / r_p}'],
+    where: 'r_p: the radius of the orbit before (the waypoint\'s altitude); the flight\'s own descent costs more (gravity losses, about 15 % at the Moon)',
+    source: 'Curtis, 4th ed., eq. 8.58 (Example 8.10) · docs/physics/journey.md',
+  },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
     tex: ['\\Delta v = \\sum \\Delta v_\\text{burn}'],
