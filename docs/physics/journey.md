@@ -63,10 +63,27 @@ The burns:
 - **Captured into a circular orbit** (Curtis 8.58, Example 8.10, with
   $e = 0$):
   $$\Delta v = \sqrt{v_\infty^2 + \frac{2\mu}{r_p}} - \sqrt{\frac{\mu(1+e)}{r_p}}$$
-- **Landing:** through the atmosphere where there is one (no burn: the
-  entry and parachutes are not costed). On an airless body, the capture
-  plus the orbit's circular speed, an ideal descent with no losses. Lifting
-  off again costs the same, again with no losses.
+- **Landing:** the waypoint's altitude is the orbit before the landing,
+  and the ledger says how each landing is paid for.
+  - **Airless** (the Moon, Mercury, most moons, small bodies): there is no
+    air to brake in, so the engine takes off the whole speed. The capture
+    into that orbit, then a powered descent of its circular speed,
+    $\Delta v = \sqrt{\mu / r_p}$ (1.63 km/s from 100 km over the Moon),
+    ideal, with no gravity losses. The flight's own descent pays them: from
+    100 km over the Moon it flies 1.87 km/s.
+  - **Through an atmosphere** (Venus, the Earth, Mars, Titan; an entry
+    probe at a giant): entry and parachutes, no propulsive delta-v. The
+    ledger lists it as a free line with the entry speed. A last touchdown
+    burn is not costed or flown. Real Mars landers need one: the thin air
+    leaves them falling fast under the parachute, and they finish on
+    retro-rockets or airbags.
+  - **From an orbit at the same body** (an orbit, then a landing there):
+    the orbit change to the landing's orbit, then the descent as above.
+    Through an atmosphere, the transfer's first burn lowers the periapsis
+    to the landing's height, and nothing circularises there: the ledger
+    calls it a deorbit burn.
+  - **Lifting off again:** an ascent to the orbit's circular speed, again
+    with no losses, then whatever leaving it costs.
 - **A moon of another planet:** its GM and radius are Horizons'. Titan's
   atmosphere takes a landing, as the planets' do. The kernel pulls with
   the major ones, and the flight treats them as it does the Moon (below,
@@ -421,6 +438,35 @@ The aim point is the B vector, in Kizner's B-plane:
 `flybyFromB` goes the other way: from an aim point $(B\cdot T, B\cdot R)$ to
 the periapsis $r_p = \frac{\mu}{v^2}\left(\sqrt{1 + (Bv^2/\mu)^2} - 1\right)$
 and the outgoing excess velocity, turned by $\delta$ about $\mathbf B \times \mathbf S$.
+
+#### What a flyby gives: a credit, not a cost
+
+An unpowered flyby costs nothing. About the planet, the hyperbola keeps
+its energy, so the excess speed is the same out as in; only its direction
+turns. About the Sun, the planet's own velocity is the same either side
+of the pass (patched conics), so the craft's heliocentric velocity changes
+by the excess velocity out less in [1, Sec. 8.9]:
+$$\Delta\mathbf v_\odot = \mathbf v_{\infty,\text{out}} - \mathbf v_{\infty,\text{in}},\qquad
+|\Delta\mathbf v_\odot| = 2v_\infty\sin\frac{\delta}{2}\ \text{(unpowered)}.$$
+The planet pays for it: its orbit changes by an immeasurable amount. An
+engine would have to burn $|\Delta\mathbf v_\odot|$ for the same change.
+
+So the ledger shows each flyby as a credit line ("Gravity assist at
+Venus"): the heliocentric change, and the credit, which is that change less
+the flyby's own burn, $|\Delta\mathbf v_\odot| - \Delta v_\text{burn}$.
+The flyby's leg readout has an Assist row, and GO's Flybys row lists what
+each one gives. The credits are summed beside the total ("Assists"), not
+taken off it. The total is already lower because of them, since the legs
+either side are cheaper than a direct route.
+
+**What a powered flyby pays for.** The pull turns the path but cannot
+change the excess speed. When the legs either side need different speeds
+(5.78 km/s in, 6.76 out at Venus, say), the difference is a burn at
+periapsis, $\Delta v_p$ above. It costs less than the 0.98 km/s of excess
+speed it changes, because the burn is made deep in the planet's well
+(the Oberth effect). A turn wider than the lowest pass can give is
+steered at the edge of the sphere of influence. The burn's ledger line
+says which applies.
 
 When the legs are solved in order, a leg that leaves a flyby prefers arcs
 whose departure excess speed matches the arrival's. A chain of flybys then
@@ -1349,7 +1395,11 @@ Its PLOT station has five parts:
 - **The lamps** (below), in the station's head and listed in full on the
   right.
 - **The delta-v ledger:** every burn against the ship's budget (from the
-  parking orbit on), with the margin.
+  parking orbit on), with the margin. Each line says what the burn pays
+  for: a landing's capture and powered descent, an ascent, or why a flyby
+  is powered. Lines that cost nothing are listed among them with a dashed
+  rule: each flyby's gravity assist as a credit, and each landing through
+  an atmosphere as "free". The flybys' credits are summed under the total.
 - **The timeline:**
   - each leg's window profile as a strip, green where the date fits what
     the budget leaves that leg, amber where it does not; clicking a date
@@ -1375,8 +1425,12 @@ The table's other two stations:
     without hitting anything, and with corrections under 250 m/s or a
     tenth of the plan;
   - **windows** and **delta-v:** from the lamps;
-  - **flybys:** none underground, or N/A, unlit, when the journey has none
-    (a lamp with nothing to report stays dark);
+  - **flybys:** none underground, with what each one gives (its
+    heliocentric change, and for a powered one, its burn and credit); or
+    N/A, unlit, when the journey has none (a lamp with nothing to report
+    stays dark);
+  - **landings** (only when there is one): how each is paid for: the
+    powered descent's delta-v, or entry and parachutes;
   - **orbits** (only when the low orbit lamp is lit): no-go where a stay
     in lunar orbit falls;
   - **vehicle:** a stack exists, and which real launchers could fly it;
@@ -1542,6 +1596,9 @@ orbits, waits 454 days.
 | Earth orbit to a Europa landing, flown | the plan | down at 2.1 m/s, 1,681 m/s for the descent |
 | Earth orbit to Titan, landing through the air, flown | the plan | aimed at Titan; the entry perigee 1,000.01 km for 1,000 (within 5 km) |
 | Earth orbit to a Europa flyby, flown | the plan | aimed at Europa, not Jupiter; 0.0 km off the planned 2,061 km periapsis (within 5 km) |
+| Moon orbit, then a landing there (an orbit change about the Moon), up, home, flown in the full model | the orbit's circular speed; the flight | the descent priced 1.634 km/s (it was 0); flown down at 2.3 m/s for 1,869 m/s; up for 1,759; home by entry |
+| A 400 km Earth orbit straight to a landing | a Hohmann transfer's first burn (Curtis 6.2) | one 81 m/s deorbit burn, no circularising burn; flown, the full model's drag brings it down before perigee, set down by entry |
+| Galileo's first two flybys: Venus (powered) and Earth (unpowered) | $2v_\infty\sin(\delta/2)$ [1, Sec. 8.9]; the arcs' heliocentric velocities | Earth +7.26 km/s free; Venus +3.49 for a 192 m/s burn, the arcs' velocity out less in to 10⁻⁶ km/s, credit 3.30; the total the burns alone |
 | What makes the full model's flight fall back | the rules above | an aim with no burn, a crash, a landing not made and a 400 km miss, each a reason |
 | Earth orbit, 23 days at the Moon, Mars on 20 Aug 2027: the leg at 180.4° | Abilleira [5]: a direct arc near 180° tilts steeply; a burn near halfway breaks the plane | direct 15.69 km/s on a plane tilted 20.1°; broken plane 4.572 km/s, its break at 47.0 % of the flight |
 | The broken plane's arcs and its break | geometry; two-body; Curtis eq. (6.20) on the horizontal speed; Napier's rule | first arc in the Earth's plane to 10⁻⁶°; the arcs join and reach Mars to 1 m; the break 60.869 m/s, the pure plane change to 10⁻³; the turn 0.1452° against Napier's 0.1452° (to 1 %) |
@@ -1563,10 +1620,11 @@ orbits, waits 454 days.
 - **Resonant returns:** circular-orbit physics on the real ephemeris. The
   flown return comes within about 9,000 km of the planet in two years, and
   the kernel's aims take up the rest.
-- **Landings:** the plan does not cost the entry through an atmosphere, or
-  the losses of an ascent or a descent; the flight pays the losses, and
-  sets a craft entering an atmosphere down beneath its perigee without
-  flying the entry. Terrain is a sphere (the Earth's, the WGS-84
+- **Landings:** the plan does not cost the entry through an atmosphere, a
+  last touchdown burn under the parachutes, or the losses of an ascent or
+  a descent; the flight pays the losses, and sets a craft entering an
+  atmosphere down beneath its perigee without flying the entry (or where
+  the air brings it down first, slower than 300 m/s). Terrain is a sphere (the Earth's, the WGS-84
   ellipsoid).
 - **A moon left for a planet:** three levels of patched conics at the
   moon's place. The moon's own pull on the way out of the planet's sphere

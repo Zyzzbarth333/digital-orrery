@@ -607,7 +607,7 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
     const r1 = g.kind === 'fromCentral' ? rRing : mT.r, r2 = g.kind === 'fromCentral' ? mT.r : rRing;
     const cost = (v1, v2) => (g.kind === 'fromCentral'
       ? norm(sub(v1, vcirc(r1))) + arriveCost(Q, norm(sub(v2, mT.v)), M)
-      : departCost(P, norm(sub(v1, mT.v)), M) + (Q.kind === 'land' && C.atmosphere ? 0 : norm(sub(vcirc(r2), v2))));
+      : departCost(P, norm(sub(v1, mT.v)), M) + (Q.kind === 'land' && C.atmosphere ? 0 : norm(sub(vcirc(r2), v2)) + (Q.kind === 'land' ? X.circularSpeed(mu, rc) : 0)));
     const s = bestArc(r1, r2, tof, mu, cost, 0);
     return s ? { ...s, r1, r2, cost: s.cost } : { cost: Infinity };
   };
@@ -620,7 +620,7 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
     out.ringDep = s.r1;
   } else {
     out.vinfDep = sub(s.v1, mT.v); out.depDv = departCost(P, norm(out.vinfDep), M);
-    out.arrDv = Q.kind === 'land' && C.atmosphere ? 0 : norm(sub(vcirc(s.r2), s.v2));
+    out.arrDv = Q.kind === 'land' && C.atmosphere ? 0 : norm(sub(vcirc(s.r2), s.v2)) + (Q.kind === 'land' ? X.circularSpeed(mu, rc) : 0);
     out.ringArr = s.r2;
   }
   return { ...out, ok: true, revs: 0 };
@@ -891,7 +891,20 @@ function solveLocal(P, Q, depMs, g, via, out) {
     t += T * 1000; dir = -dir;
   }
   if (via === 'phasing') arcs.push({ r1: scale(u, r1), v1: scale(w, X.visViva(mu, r1, o.a2)), t1: t, t2: t + o.tof * 1000, mu });
-  return { ...out, arcs, arrMs: depMs + o.tof * 1000, tofDays: o.tof / DAY, depDv: o.dv1, arrDv: o.dvLast, midDv: o.dvMid ?? 0, ok: o.ok, error: o.ok ? undefined : o.error, local: o };
+  const res = { ...out, arcs, arrMs: depMs + o.tof * 1000, tofDays: o.tof / DAY, depDv: o.dv1, arrDv: o.dvLast, midDv: o.dvMid ?? 0, ok: o.ok, error: o.ok ? undefined : o.error, local: o };
+  // Down to the ground from the orbit change's last orbit (the landing's
+  // "orbit before"), or up from it, as arriveCost and departCost price them
+  // after a leg between bodies. Airless: a descent of the orbit's circular
+  // speed, ideal (no gravity losses). Through an atmosphere: the transfer's
+  // first burn already brings the periapsis down to the orbit before's
+  // height, and the entry from there is free, so there is no circularising
+  // burn. An ascent costs the orbit's circular speed either way.
+  if (Q.kind === 'land') {
+    if (B.atmosphere) res.arrDv = 0;
+    else { res.descentDv = X.circularSpeed(mu, r2); res.arrDv += res.descentDv; }
+  }
+  if (P.kind === 'land') { res.ascentDv = X.circularSpeed(mu, r1); res.depDv += res.ascentDv; }
+  return res;
 }
 function localOption(via, mu, r1, r2, Q, B) {
   if (via === 'bielliptic') {
@@ -924,6 +937,64 @@ const stops = (j) => {
   }
   return out;
 };
+
+// ---------------- what each burn pays for, and what is free ----------------
+
+const kms = (x) => `${x.toFixed(2)} km/s`, ms0 = (x) => `${Math.round(x * 1000).toLocaleString('en-AU')} m/s`;
+// A landing on an airless body: the capture (or the orbit change) into the
+// orbit before, then a powered descent of that orbit's circular speed,
+// ideal (arriveCost, solveLocal).
+function descentNote(leg, Q) {
+  const B = bodyInfo(Q.body);
+  if (B.atmosphere) return '';
+  const descent = X.circularSpeed(B.mu, B.radius + Q.altKm), first = leg.arrDv - descent;
+  const before = first > 5e-4 ? `${leg.geometry === 'local' ? 'the orbit change' : `capture into a ${Math.round(Q.altKm)} km orbit`} ${kms(first)}, then ` : '';
+  return `${before}powered descent ${kms(descent)} from ${Math.round(Q.altKm)} km: no air to brake in, so the engine takes off the orbit's speed (ideal, no gravity losses)`;
+}
+// Off the ground: an ascent to the orbit before, of its circular speed
+// (departCost), then whatever leaving it costs.
+function ascentNote(leg, P) {
+  const B = bodyInfo(P.body), up = X.circularSpeed(B.mu, B.radius + P.altKm), rest = leg.depDv - up;
+  return `powered ascent to a ${Math.round(P.altKm)} km orbit ${kms(up)} (ideal, no losses)${rest > 5e-4 ? `, then ${kms(rest)} to leave it` : ''}`;
+}
+// A landing through an atmosphere: the entry and parachutes (or, on a
+// giant, an entry probe) brake it, at no propulsive cost here.
+function entryNote(leg, Q, B) {
+  const v = leg.vinfArr ? Math.sqrt(dot(leg.vinfArr, leg.vinfArr) + 2 * B.mu / (B.radius + Q.altKm)) : null;
+  const at = v ? `in at ${kms(v)}, ` : '';
+  if (['jupiter', 'saturn', 'uranus', 'neptune'].includes(Q.body)) return `${at}an entry probe, no propulsive Δv: the air brakes it, and there is no surface`;
+  const tail = Q.body === 'mars' ? '. The thin air leaves a lander falling fast under its parachute; real ones finish on retro-rockets or airbags, not costed here'
+    : '. A last touchdown burn, if the lander has one, is not costed';
+  return `${at}entry and parachutes, no propulsive Δv${tail}`;
+}
+// A flyby's gravity assist: the heliocentric velocity it changes,
+// |v_inf,out - v_inf,in| (the planet's own velocity cancels: Curtis Sec.
+// 8.9), which a burn would have to buy. The credit is that less the burn
+// at the flyby, if it is powered.
+function assistNote(fb) {
+  const turn = `turns the path ${(fb.delta * 180 / Math.PI).toFixed(1)}°`;
+  return fb.dv > 0
+    ? `${turn}, ${kms(fb.gain)} of heliocentric change for a ${ms0(fb.dv)} burn: ${kms(Math.max(0, fb.gain - fb.dv))} the engine did not have to give`
+    : `${turn}, ${kms(fb.gain)} of heliocentric change, free (unpowered): ${kms(fb.gain)} the engine did not have to give`;
+}
+// Why a flyby is powered: the pull turns the path but cannot change the
+// speed about the planet (a hyperbola's v_inf is the same in and out), so
+// legs whose excess speeds differ need a burn at periapsis for the rest
+// (poweredFlyby); a turn wider than the lowest pass gives is steered at
+// the edge of the sphere of influence.
+function poweredNote(fb, Q) {
+  const out = [];
+  if (fb.periapsisDv > 5e-4) out.push(`v∞ ${kms(fb.vinf)} in, ${fb.vinfOut ? kms(fb.vinfOut) : 'another'} out; the pull turns the path but cannot change that speed, so ${ms0(fb.periapsisDv)} at periapsis makes up the difference`);
+  if (fb.steerDv > 5e-4) out.push(`a pass above ${Math.round(Q.altKm ?? 300).toLocaleString('en-AU')} km cannot turn it far enough, so ${ms0(fb.steerDv)} steers the rest`);
+  return out.join('; ');
+}
+
+// Every line of the delta-v ledger in time order: the burns (paid) and the
+// credits (a flyby's assist, a landing through the air: free).
+export function ledgerLines(sol) {
+  return [...(sol.burns ?? []).map((b) => ({ ...b, paid: true })), ...(sol.credits ?? []).map((c) => ({ ...c, paid: false }))]
+    .sort((a, b) => a.ms - b.ms || (a.paid === b.paid ? 0 : a.paid ? 1 : -1));
+}
 
 // Solve every leg at the waypoints' dates and join them: a flyby between
 // two legs is the powered flyby that turns one leg's arrival excess
@@ -1012,7 +1083,7 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     if (aimed[k - 1]) flybys[k - 1] = { ...aimed[k - 1], body: Q.body, ms: Q.arrMs, vinf: norm(inLeg.vinfArr) };
     else if (outLeg && outLeg.ok && outLeg.vinfDep) {
       const f = X.poweredFlyby({ vinfIn: inLeg.vinfArr, vinfOut: outLeg.vinfDep, mu: B.mu, rpMin });
-      flybys[k - 1] = { ...f, body: Q.body, ms: Q.arrMs, vinf: norm(inLeg.vinfArr) };
+      flybys[k - 1] = { ...f, body: Q.body, ms: Q.arrMs, vinf: norm(inLeg.vinfArr), vinfOut: norm(outLeg.vinfDep) };
     } else {
       // The last stop, or a flyby before a free leg: unpowered at the
       // given altitude, the turn about the ecliptic-most axis.
@@ -1027,17 +1098,29 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     if (!leg.ok) continue;
     const P = S[leg.index], Q = S[leg.index + 1];
     const name = (k) => bodyInfo(k).name;
-    if (leg.depDv > 0) burns.push({ ms: leg.depMs, body: P.body, dv: leg.depDv, kind: P.kind === 'land' ? 'ascend' : 'depart', label: `${P.kind === 'land' ? 'Lift off from' : 'Leave'} ${name(P.body)}`, leg: leg.index });
+    const deorbit = leg.geometry === 'local' && Q.kind === 'land' && bodyInfo(Q.body).atmosphere && P.kind !== 'land';
+    if (leg.depDv > 0) burns.push({ ms: leg.depMs, body: P.body, dv: leg.depDv, kind: P.kind === 'land' ? 'ascend' : 'depart', label: `${P.kind === 'land' ? 'Lift off from' : deorbit ? 'Deorbit at' : 'Leave'} ${name(P.body)}`, leg: leg.index,
+      ...(P.kind === 'land' ? { note: ascentNote(leg, P) } : deorbit ? { note: `lowers the periapsis to ${Math.round(Q.altKm)} km, into the air, for the entry` } : {}) });
     if (leg.midDv > 0) burns.push({ ms: leg.mid?.ms ?? (leg.arcs[1]?.t1 ?? leg.depMs), body: leg.central, dv: leg.midDv, kind: 'mid', label: leg.geometry === 'local' ? 'Transfer burn' : leg.deepSpace ? 'Deep-space burn' : leg.brokenPlane ? 'Plane change' : 'Apoapsis burn', leg: leg.index });
     for (const n of leg.nodes ?? []) if (n.dv > 0) burns.push({ ms: n.ms, body: leg.central, dv: n.dv, kind: 'node', label: 'Node burn', leg: leg.index, node: n.id });
     const fb = flybys[leg.index];
-    if (fb && fb.dv > 0) burns.push({ ms: fb.ms, body: Q.body, dv: fb.dv, kind: 'flyby', label: `Powered flyby of ${name(Q.body)}`, leg: leg.index });
-    if (leg.arrDv > 0) burns.push({ ms: leg.arrMs, body: Q.body, dv: leg.arrDv, kind: Q.kind === 'land' ? 'land' : 'capture', label: `${Q.kind === 'land' ? 'Land on' : leg.geometry === 'local' ? 'Circularise at' : 'Capture at'} ${name(Q.body)}`, leg: leg.index });
+    if (fb && fb.dv > 0) burns.push({ ms: fb.ms, body: Q.body, dv: fb.dv, kind: 'flyby', label: `Powered flyby of ${name(Q.body)}`, leg: leg.index, note: poweredNote(fb, Q) });
+    if (leg.arrDv > 0) burns.push({ ms: leg.arrMs, body: Q.body, dv: leg.arrDv, kind: Q.kind === 'land' ? 'land' : 'capture', label: `${Q.kind === 'land' ? 'Land on' : leg.geometry === 'local' ? 'Circularise at' : 'Capture at'} ${name(Q.body)}`, leg: leg.index, ...(Q.kind === 'land' ? { note: descentNote(leg, Q) } : {}) });
+  }
+  // What costs nothing: each flyby's gravity assist, credited, and each
+  // landing through an atmosphere (credits; ledgerLines puts them among
+  // the burns).
+  const credits = [];
+  for (const leg of legs) {
+    if (!leg.ok) continue;
+    const Q = S[leg.index + 1], fb = flybys[leg.index], B = bodyInfo(Q.body);
+    if (fb) credits.push({ ms: fb.ms, body: Q.body, kind: 'assist', dv: 0, helioDv: fb.gain, creditDv: Math.max(0, fb.gain - fb.dv), label: `Gravity assist at ${B.name}`, leg: leg.index, note: assistNote(fb) });
+    if (Q.kind === 'land' && B.atmosphere) credits.push({ ms: leg.arrMs, body: Q.body, kind: 'entry', dv: 0, label: `Land on ${B.name}`, leg: leg.index, note: entryNote(leg, Q, B) });
   }
   const totalDv = burns.reduce((a, b) => a + b.dv, 0);
   const end = S[S.length - 1];
   return {
-    stops: S, legs, flybys, burns, totalDv,
+    stops: S, legs, flybys, burns, credits, totalDv, creditDv: credits.reduce((a, c) => a + (c.creditDv ?? 0), 0),
     startMs: S[0].depMs, endMs: end.arrMs, durationDays: (end.arrMs - S[0].depMs) / DAY_MS,
     ok: legs.every((l) => l.ok),
   };
