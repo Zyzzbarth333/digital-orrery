@@ -1,11 +1,15 @@
-# The Moon's landing sites
+# Landing sites
 
-Where spacecraft have come down on the Moon, as markers on its surface:
-every soft landing from Luna 9 to Blue Ghost, where three rovers stopped,
-the landers that crashed and were found, and the early craft that never
-were. The rail's **Moon landings** section switches the layer on (it is
-off until then) and flies to any site; the rail's FIND field finds a site
-by name, and switches the layer on if it is off. A flight there frames the site
+Where spacecraft have come down on other worlds, as markers on their
+surfaces. On the Moon: every soft landing from Luna 9 to Blue Ghost,
+where three rovers stopped, the landers that crashed and were found, and
+the early craft that never were. Beyond it ([below](#beyond-the-moon)):
+the landers, crashes and probes on Mars, Venus, Mercury, Titan, Jupiter
+and Saturn, and the touchdowns on Eros, Ryugu and Bennu. The rail's
+**Landings** section switches the layer on (it is off until then) and
+flies to any site, the Moon's by era and each other body's in its own
+group; the rail's FIND field finds a site by its name, its place or its
+body ("Venus"), and switches the layer on if it is off. A flight there frames the site
 from low over the ground, across the sunlight, and the data plate gives
 the mission, when it landed, its crew, where it is and whose measurement
 that is.
@@ -109,6 +113,152 @@ time where it gives that (HAKUTO-R M1, Blue Ghost). No landing after
 June 2025 was found as of 18 November 2026; a new one is a row in
 `landingSites.js` with its source.
 
+## Beyond the Moon
+
+The same layer, the same markers and the same plate, on six more bodies
+and three small ones: 37 sites. Each coordinate is read from a primary
+source, cited on its plate and below.
+
+- **Mars.** The PDS Geosciences Node's landing-site list [25] for the
+  Vikings and Pathfinder (from their radio tracking, Folkner et al.),
+  Spirit and Opportunity (from triangulation on the ground, Arvidson et
+  al.), Phoenix and Curiosity: planetocentric latitude and east longitude
+  in the IAU 2000 / MOLA frame. NASA GISS's Mars24 lander list [26]
+  (which names its own sources: Bridges et al. for Beagle 2, Liu et al.
+  for Zhurong, JPL's navigation for InSight and Perseverance) for the
+  others, the crashes and the Soviet estimates. Beagle 2 is where HiRISE
+  found it [27]. The times are NSSDCA's [28] where it prints one to the
+  second; otherwise the date alone.
+- **Venus.** NSSDCA's page for each lander or probe [29]: its latitude,
+  east longitude and touchdown time as printed (the Pioneer Venus
+  probes' in spacecraft time). They are the tracking estimates of the
+  time, to a degree or so: Venus's cloud hides the hardware from any
+  orbiter's camera. Venera 3's is the middle of NSSDCA's box for it.
+- **Mercury.** MESSENGER's impact as its navigation team determined it
+  [30], to 0.0001° and the millisecond.
+- **Titan.** Huygens as its descent-trajectory working group revised it
+  for Titan's newer pole [31]: 192.335° W, 10.573° S, residuals 0.035°
+  and 0.007°.
+- **Jupiter and Saturn.** Where the Galileo probe went in (System III,
+  from the PDS mission catalogue [32]) and Cassini's estimated entry
+  (NSSDCA [33]). Drawn on the 1-bar ellipsoid. NASA's own release gave
+  Cassini's as 9.4° N, 53° W without naming its longitude system; the
+  table keeps NSSDCA's, which does.
+- **Small bodies.** NEAR Shoemaker on Eros from the navigation team's
+  estimate in NAIF's landed-spacecraft kernel [34]; MASCOT's final place
+  on Ryugu [35]; OSIRIS-REx's touch-and-go in Hokioi crater on Bennu
+  [36]. Each is given in its shape model's own frame.
+
+| | |
+| --- | --- |
+| ![Mars from 14,000 km with the layer on: Phoenix near the north polar cap, Viking 1, Mars Pathfinder and Opportunity's site with Schiaparelli's cross beside it](landing-sites-mars.jpg) | ![Venus from 22,000 km: the Venera 9, 10, 8 and 13 landers and the Pioneer Venus North and Day probes' crosses on the cloud deck](landing-sites-venus.jpg) |
+
+Left out, for want of a primary coordinate found by 18 November 2026:
+Hayabusa's touchdowns on Itokawa and Hayabusa2's on Ryugu, Philae's
+places and Rosetta's impact on comet 67P, Deep Impact's impactor on
+Tempel 1, and where Spirit and Opportunity stopped. Each is a row in
+`landingSites.js` once its source is found.
+
+**Mars**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| Mars 2 | USSR | 27 Nov 1971 | crashed, not found | 45° S | 47° E | [26] |
+| Mars 3 | USSR | 2 Dec 1971 13:50:35 | not found | 45° S | 158° W | [28] |
+| Mars 6 | USSR | 12 Mar 1974 | crashed, not found | 23.9° S | 19.42° W | [26] |
+| Viking 1 | NASA | 20 Jul 1976 11:53:06 | landed | 22.269° N | 47.951° W | [25], [28] |
+| Viking 2 | NASA | 3 Sep 1976 22:58:20 | landed | 47.668° N | 134.28° E | [25], [28] |
+| Mars Pathfinder | NASA | 4 Jul 1997 16:56:55 | landed | 19.095° N | 33.253° W | [25], [28] |
+| Mars Polar Lander | NASA | 3 Dec 1999 | crashed, not found | 76.1° S | 164.7° E | [26] |
+| Beagle 2 | ESA · UK | 25 Dec 2003 | landed | 11.52879° N | 90.43139° E | [27] |
+| Spirit | NASA | 4 Jan 2004 04:35 | landed | 14.5692° S | 175.4729° E | [25], [28] |
+| Opportunity | NASA | 25 Jan 2004 04:54:22 | landed | 1.9462° S | 5.5266° W | [25], [28] |
+| Phoenix | NASA | 25 May 2008 23:53:44 | landed | 68.22° N | 125.75° W | [25], [28] |
+| Curiosity | NASA | 6 Aug 2012 | landed | 4.59° S | 137.44° E | [25] |
+| Schiaparelli | ESA | 19 Oct 2016 | crashed | 2.07° S | 6.21° W | [26] |
+| InSight | NASA | 26 Nov 2018 19:52:59 | landed | 4.5° N | 135.62° E | [26], [28] |
+| Perseverance | NASA | 18 Feb 2021 | landed | 18.44° N | 77.45° E | [26] |
+| Tianwen-1 | CNSA | 14 May 2021 23:18 | landed | 25.07° N | 109.93° E | [26], [28] |
+
+**Venus**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| Venera 3 | USSR | 1 Mar 1966 06:56 | crashed, not found | 5° S | 70° E | [29] |
+| Venera 7 | USSR | 15 Dec 1970 05:34:10 | landed | 5° S | 9° W | [29] |
+| Venera 8 | USSR | 22 Jul 1972 09:32 | landed | 10.7° S | 24.75° W | [29] |
+| Venera 9 | USSR | 22 Oct 1975 05:13 | landed | 31.7° N | 69° W | [29] |
+| Venera 10 | USSR | 25 Oct 1975 02:17 | landed | 16° N | 69° W | [29] |
+| PV Large Probe | NASA | 9 Dec 1978 19:39:55 | impact | 4.4° N | 56° W | [29] |
+| PV North Probe | NASA | 9 Dec 1978 19:42:40 | impact | 59.3° N | 4.8° E | [29] |
+| PV Day Probe | NASA | 9 Dec 1978 19:47:59 | impact | 31.3° S | 43° W | [29] |
+| PV Night Probe | NASA | 9 Dec 1978 19:52:05 | impact | 28.7° S | 56.7° E | [29] |
+| Venera 11 | USSR | 25 Dec 1978 03:24 | landed | 14° S | 61° W | [29] |
+| Venera 13 | USSR | 1 Mar 1982 03:57:21 | landed | 7.5° S | 57° W | [29] |
+| Venera 14 | USSR | 5 Mar 1982 07:00:10 | landed | 13.25° S | 50° W | [29] |
+| Vega 1 | USSR | 11 Jun 1985 03:02:54 | landed | 7.5° N | 177.7° E | [29] |
+| Vega 2 | USSR | 15 Jun 1985 03:00:50 | landed | 8.5° S | 164.5° E | [29] |
+
+**Mercury**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| MESSENGER | NASA | 30 Apr 2015 19:26:01 | impact | 54.4398° N | 149.8795° W | [30] |
+
+**Titan**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| Huygens | ESA | 14 Jan 2005 | landed | 10.573° S | 167.665° E | [31], [33] |
+
+**Jupiter**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| Galileo Probe | NASA | 7 Dec 1995 | entry | 6.54° N | 4.46° W | [32], [33] |
+
+**Saturn**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| Cassini | NASA · ESA · ASI | 15 Sep 2017 10:31 | entry | 9.8° N | 54.6° E | [33] |
+
+**433 Eros**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| NEAR Shoemaker | NASA | 12 Feb 2001 20:01:52 | landed | 40.03° S | 80.66° E | [34], [33] |
+
+**162173 Ryugu**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| MASCOT | DLR · CNES | 3 Oct 2018 | landed | 22.31° S | 42.85° W | [35], [33] |
+
+**101955 Bennu**
+
+| Site | Agency | Landed (UTC) | | Latitude | Longitude | Source |
+| --- | --- | --- | --- | ---: | ---: | --- |
+| OSIRIS-REx | NASA | 20 Oct 2020 22:08 | touch-and-go | 55.8° N | 42.3° E | [36], [33] |
+
+West longitudes are given here as the app holds them, east less 360°
+past 180°; each plate also shows what the source printed.
+
+**On an ellipsoid.** A planet's site is placed on the body's reference
+ellipsoid (NAIF `pck00011`'s radii, as the body is drawn) along its
+planetocentric direction: for a unit vector û,
+$r = (u_x^2/a^2 + u_y^2/b^2 + u_z^2/c^2)^{-1/2}$. Its vertical is the
+ellipsoid's normal, which leans from the radial by up to the flattening
+(0.34° on Mars at mid-latitudes, 2.2° on Saturn at Cassini's). The axes
+are the body's IAU rotation model [37] (orientation.js). A latitude
+printed as planetographic would sit up to 0.3° off on Mars and 3.6° on
+Jupiter; the Galileo probe's source does not say which it is.
+
+**On a small body.** Eros, Ryugu and Bennu are drawn as spheres of their
+size with no rotation model ([small bodies](small-bodies.md)), so a site
+there has no marker: flying to it flies to the body, framed at eight
+radii, and the plate gives the site.
+
 ## Drawing
 
 Each site is a marker in the HTML overlay, as the bodies' are, pinned to
@@ -140,8 +290,12 @@ the height.
   craft crashed (after a craft's struck-through marker), and a dashed
   ring for an estimate, dashed as a worked-out value's source tag is.
 
-The markers are worked out on the CPU, 38 a frame, from one turn of the
-Moon's axes; no GPU work is added.
+The markers are worked out on the CPU for the bodies the camera is
+within 25 radii of (38 a frame at the Moon, 16 at Mars), from one turn of
+that body's axes; no GPU work is added. Beyond the Moon the marks add a
+cross for an impact on purpose (as a crash's), a ring with a dot where a
+probe went into a giant's atmosphere, and a small diamond for a
+touch-and-go.
 
 ## Flying to one
 
@@ -293,3 +447,29 @@ positions a frame on the CPU and no GPU work.
 [23] NASA, "NASA's Lunar Reconnaissance Orbiter views Blue Ghost on Moon's surface," 25 Mar. 2025. [Online]. Available: https://www.nasa.gov/image-article/nasas-lunar-reconnaissance-orbiter-views-blue-ghost-on-moons-surface
 
 [24] NASA NAIF, "Generic kernels: `moon_pa_de440_200625.bpc`, `moon_de440_250416.tf`," 2020, 2025. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/generic_kernels/
+
+[25] PDS Geosciences Node, Mars Orbital Data Explorer, "ODE supported existing and proposed landing sites," Washington Univ. in St. Louis (from W. M. Folkner et al., *Science*, vol. 278, pp. 1749–1752, 1997; R. E. Arvidson et al., *Science*, vol. 305, pp. 821–824, 2004, and vol. 306, pp. 1730–1733, 2004; P. H. Smith et al., *Science*, vol. 325, pp. 58–61, 2009; K. D. Seelos et al., *Geophys. Res. Lett.*, vol. 41, 2014), read Nov. 2026. [Online]. Available: https://ode.rsl.wustl.edu/mars/pagehelp/Content/Missions_Instruments/Landing_Sites.htm
+
+[26] R. B. Schmunk, "Mars24 Sunclock: Mars lander missions," NASA Goddard Institute for Space Studies, updated 9 Dec. 2023. [Online]. Available: https://www.giss.nasa.gov/tools/mars24/help/landers.html
+
+[27] J. C. Bridges et al., "Identification of the Beagle 2 lander on Mars," *R. Soc. Open Sci.*, vol. 4, no. 10, art. 170785, 2017, doi: 10.1098/rsos.170785.
+
+[28] NASA NSSDCA, "Mars 3 Lander" (1971-049F), "Viking 1 Lander" (1975-075C), "Viking 2 Lander" (1975-083C), "Mars Pathfinder" (1996-068A), "Spirit" (2003-027A), "Opportunity" (2003-032A), "Phoenix" (2007-034A), "InSight" (2018-042A), "Tianwen 1" (2020-049A), archived 2024–2026 (the live catalogue was down in Nov. 2026). [Online]. Available: https://web.archive.org/web/2026/https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1975-075C (and the other IDs)
+
+[29] NASA NSSDCA, "Venera 3" (1965-092A), "Venera 7" (1970-060A), "Venera 8" (1972-021A), "Venera 9 Descent Craft" (1975-050D), "Venera 10 Descent Craft" (1975-054D), "Venera 11 Descent Craft" (1978-084D), "Venera 13 Descent Craft" (1981-106D), "Venera 14 Descent Craft" (1981-110D), "Vega 1 Descent Craft" (1984-125E), "Vega 2 Descent Craft" (1984-128E), "Pioneer Venus Large Probe" (1978-078D), "Pioneer Venus Small Probe (North)" (1978-078E), "(Night)" (1978-078F), "(Day)" (1978-078G), archived 2025–2026. [Online]. Available: https://web.archive.org/web/2025/https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1981-106D (and the other IDs)
+
+[30] NASA/JHU APL/Carnegie Institution of Washington, "Best determination of MESSENGER's impact location," NASA Photojournal, 2015. [Online]. Available: https://science.nasa.gov/photojournal/best-determination-of-messengers-impact-location/
+
+[31] D. H. Atkinson, B. Kazeminejad, and J.-P. Lebreton, "The Huygens Descent Trajectory Working Group and the reconstruction of the Huygens probe entry and descent trajectory at Titan," *Geophys. Res. Abstr.*, vol. 17, EGU2015-162-2, 2015. [Online]. Available: https://meetingorganizer.copernicus.org/EGU2015/EGU2015-162-2.pdf
+
+[32] NASA PDS, "Galileo mission description," `MISSION.CAT`, volume GO_1104 of GO-J-NIMS-4-MOSAIC-V1.0. [Online]. Available: https://pds.nasa.gov/data/go-j-nims-4-mosaic-v1.0/go_1104/catalog/mission.cat
+
+[33] NASA NSSDCA, "Cassini Saturn Orbiter" (1997-061A), "Galileo Probe" (1989-084E), "NEAR Shoemaker" (1996-008A), "Hayabusa2" (2014-076A), "OSIRIS-REx" (2016-055A), archived 2025–2026. [Online]. Available: https://web.archive.org/web/2025/https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1997-061A (and the other IDs)
+
+[34] B. Semenov, "Landed NEAR spacecraft location SPK file (`near_eroslanded_nav_v1.bsp`)," comments, NAIF/JPL, 18 Jul. 2001 (the estimate of P. G. Antreasian, NEAR navigation team). [Online]. Available: https://ftp1.gwdg.de/pub/misc/isis/isis3data/data/near/kernels/spk/near_eroslanded_nav_v1.bsp.log
+
+[35] S. E. Schröder et al., "Characterization of the MASCOT landing area by Hayabusa2," *Astron. Astrophys.*, 2022, doi: 10.1051/0004-6361/202244059. [Online]. Available: https://arxiv.org/abs/2209.00856
+
+[36] O. S. Barnouin et al., "Geologic context of the OSIRIS-REx sample site from high-resolution topography and imaging," *Planet. Sci. J.*, vol. 3, no. 4, art. 75, 2022, doi: 10.3847/PSJ/ac5597.
+
+[37] B. A. Archinal et al., "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015," *Celest. Mech. Dyn. Astron.*, vol. 130, no. 3, art. 22, 2018, doi: 10.1007/s10569-017-9805-5.

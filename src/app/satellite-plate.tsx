@@ -10,10 +10,11 @@ import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
 import { bodyState } from '../scene/OrreryScene';
 import { eclToEqj } from '../physics/ephemeris.js';
-import { stateEqj, meanOrbit, inShadow, type satrecOf } from '../physics/satellites.js';
+import { stateTeme, temeToEqj, apply, groundSpeeds, meanOrbit, inShadow, type satrecOf } from '../physics/satellites.js';
 import { orbitClass, SAT_GROUPS, type NamedSat, type SatLayerKey, type SatSource, type SatCloudView } from '../scene/satellites';
 import type { GroundTrack } from '../scene/groundTrack';
 import { SatellitePasses } from './satellite-passes';
+import { MODEL_NOTE, modelOf } from '../scene/satelliteModels';
 
 const WGS84_A = 6378.137, WGS84_B = 6356.752;
 
@@ -28,7 +29,11 @@ function age(ms: number): string {
 
 export function SatellitePlate({ clock, sat, source, track = null }: { clock: SimClock; sat: PlateSat; source: SatSource | null; track?: GroundTrack | null }) {
   const s = useClock(clock);
-  const st = stateEqj(sat.rec, s.timeMs);
+  // SGP4's TEME state, once: J2000 for the place and speed, TEME (which
+  // turns with the Earth's pole of date) for the speed over the ground.
+  const teme = stateTeme(sat.rec, s.timeMs);
+  const M = teme ? temeToEqj(s.timeMs) : null;
+  const st = teme && M ? { r: apply(M, teme.r), v: apply(M, teme.v) } : null;
   const o = meanOrbit(sat.rec);
   const sinceEpoch = s.timeMs - sat.rec.epochMs;
   const group = SAT_GROUPS.find((g) => g.key === sat.named.group)?.label;
@@ -36,6 +41,7 @@ export function SatellitePlate({ clock, sat, source, track = null }: { clock: Si
   const rows: Row[] = [
     { label: 'Catalogue', value: `NORAD ${sat.omm.NORAD_CAT_ID}`, alt: `international designator ${sat.omm.OBJECT_ID}`, src: 'CelesTrak', info: 'sat-elements' },
   ];
+  const g = teme ? groundSpeeds(teme) : null;
   if (st) {
     const d = Math.hypot(...st.r), sinLat = st.r[2] / d;
     const h = d - (WGS84_A * WGS84_B) / Math.hypot(WGS84_B * Math.sqrt(1 - sinLat * sinLat), WGS84_A * sinLat);
@@ -46,7 +52,8 @@ export function SatellitePlate({ clock, sat, source, track = null }: { clock: Si
       { label: 'Motion', value: 'SGP4', alt: `from its element set, ${sat.rec.rec.method === 'd' ? 'deep-space (SDP4)' : 'near-Earth'}`, src: 'SGP4', derived: true, info: 'sat-position' },
       { label: 'Height', value: fmtGroup(h, 1), unit: 'km', alt: 'above the WGS-84 ellipsoid', src: 'SGP4', derived: true, info: 'sat-height' },
       { label: 'From Earth', value: fmtGroup(d, 1), unit: 'km', alt: 'from its centre', src: 'SGP4', derived: true, info: 'sat-position' },
-      { label: 'Speed', value: Math.hypot(...st.v).toFixed(3), unit: 'km/s', alt: 'about the Earth\'s centre', src: 'SGP4', derived: true, info: 'sat-position', hint: 'Speed relative to the centre of the Earth, not to the turning ground' },
+      { label: 'Speed', value: Math.hypot(...st.v).toFixed(3), unit: 'km/s', alt: 'inertial, about the Earth\'s centre', src: 'SGP4', derived: true, info: 'sat-position', hint: 'Speed relative to the centre of the Earth, not to the turning ground; live as the clock runs' },
+      { label: 'Ground speed', value: g!.relative.toFixed(3), unit: 'km/s', alt: `over the turning Earth; its track ${g!.track.toFixed(3)} km/s`, src: 'SGP4', derived: true, info: 'sat-ground-speed', hint: 'Speed seen from the ground as the Earth turns under it, and how fast the point beneath it moves across the map' },
       { label: 'Sunlight', value: dark ? 'in the Earth\'s shadow' : 'lit', src: 'shadow', derived: true, info: 'sat-shadow' },
     );
   } else {
@@ -75,7 +82,8 @@ export function SatellitePlate({ clock, sat, source, track = null }: { clock: Si
       <Readout rows={rows} />
       <SatellitePasses key={sat.omm.NORAD_CAT_ID} clock={clock} sat={sat} track={track} />
       <div className="plate-notes">
-        <p>Moved by SGP4 from its GP element set, as the US Space Force fits them: about a kilometre at the epoch, a few kilometres a day either side. Drawn as a point; the camera can come to within 20 m. Choose a body in the rail to leave it.</p>
+        <p>Moved by SGP4 from its GP element set, as the US Space Force fits them: about a kilometre at the epoch, a few kilometres a day either side. Its speeds update as the clock runs. Far off it is a point; the camera can come to within 20 m.</p>
+        <p>{MODEL_NOTE[modelOf(sat.named.id)]} Choose a body in the rail to leave it.</p>
       </div>
     </div>
   );

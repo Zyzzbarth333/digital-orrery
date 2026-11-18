@@ -14,12 +14,13 @@ import type { Frame, OrreryScene } from '../scene/OrreryScene';
 import type { GuideKey } from '../scene/guides';
 import type { FlowFrame, FlowPlane } from '../scene/gravityFlow';
 import type { MagneticKey } from '../scene/magnetic';
-import { BARYS, BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
+import { BARYS, BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type BodyKey, type FocusKey } from '../scene/catalogue';
 import { SMALL_BODY_GROUPS, type Named, type SmallBodyGroup } from '../scene/smallBodies';
 import { SB_GROUPS } from '../physics/smallBodies.js';
 import { IRREGULAR_MOONS, irregularMoon } from '../scene/irregularMoons';
 import { LANDING_SITES, SITE_BY_KEY } from '../physics/landingSites.js';
-import { LandingSitePlate } from './landing-site-plate';
+import { LandingSitePlate, siteBodyName } from './landing-site-plate';
+import { GuidePlate, OrbitPlate, type GuidePick } from './guide-plate';
 import type { NamedSat, SatSource, SatCloud, SatLayerKey } from '../scene/satellites';
 import { SatelliteRail, type SatelliteApi } from './satellite-rail';
 import { SatellitePlate, SatCloudPlate } from './satellite-plate';
@@ -244,7 +245,11 @@ export function App() {
   const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
   const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); };
   // A body, a moon or a barycentre, from the rail or FIND.
-  const chooseBody = (k: FocusKey) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); scene.current?.focusOn(k); };
+  // A guide's tag or an orbit line clicked (guide-plate.tsx): its plate
+  // shows until the view changes (another body, craft or pick) or a body
+  // is chosen in the rail.
+  const [info, setInfo] = useState<{ guide?: GuidePick; orbit?: BodyKey; view: string } | null>(null);
+  const chooseBody = (k: FocusKey) => { setInfo(null); setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); scene.current?.focusOn(k); };
 
   // The rail's FIND field (find.tsx): every kind the app flies to, in one
   // search. A pick flies as the rail's own controls do; where the found
@@ -313,10 +318,11 @@ export function App() {
             pick: () => { const was = live.current.probeOn; if (!was) setProbeLayer(true); scene.current?.focusOnProbe(c.key); return was ? null : 'Spacecraft shown'; },
           });
         }
-        for (const site of best(LANDING_SITES, q, (s) => [s.name])) {
-          const how = site.kind === 'crash' || site.impact ? 'crashed' : site.kind === 'estimate' ? 'landed, not found' : site.kind === 'crewed' ? 'crewed landing' : site.kind;
+        for (const site of best(LANDING_SITES, q, (s) => [s.name, s.place, siteBodyName(s)])) {
+          const how = site.kind === 'crash' || site.impact ? 'crashed' : site.kind === 'estimate' ? 'landed, not found' : site.kind === 'crewed' ? 'crewed landing'
+            : site.kind === 'entry' ? 'entry' : site.kind === 'touch' ? 'touchdown' : site.kind;
           hits.push({
-            id: `site:${site.key}`, group: 'sites', label: site.name, kind: `${how}, ${site.landed.slice(0, 4)}`,
+            id: `site:${site.key}`, group: 'sites', label: site.name, kind: `${how} on ${siteBodyName(site)}, ${site.landed.slice(0, 4)}`,
             pick: () => { const was = live.current.sitesOn; if (!was) setSitesLayer(true); scene.current?.focusOnSite(site.key); return was ? null : 'Landing sites shown'; },
           });
         }
@@ -349,6 +355,8 @@ export function App() {
     sc.setPaused(journey.plotOpen);
     sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
     sc.onFlight = setFlying;
+    sc.onGuidePick = (guide) => setInfo({ guide, view: viewKey.current });
+    sc.onOrbitPick = (orbit) => setInfo({ orbit, view: viewKey.current });
     sc.onSmallPick = (pdes) => { setFollowing(null); setSmall(pdes); setSat(null); setSatCloud(null); setProbe(null); };
     sc.onSatPick = (id) => { setFollowing(null); setSmall(null); setSat(id); setSatCloud(null); setProbe(null); };
     sc.onSatCloudPick = (key) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(key); setProbe(null); };
@@ -440,6 +448,11 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [clock, focus, consoleOpen, small, sat, satCloud, probe, journey]);
 
+  const view = [focus, small, sat, satCloud, probe, following].join('|');
+  const viewKey = useRef(view);
+  viewKey.current = view;
+  const infoView = info && info.view === view ? info : null;
+
   return (
     <div className="app">
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); }} onReady={onReady}
@@ -458,8 +471,10 @@ export function App() {
         flow={flowOpts} onFlow={(o) => { setFlowOpts(o); scene.current?.guides.setFlow(o.frame, o.plane); }}
         irregular={{ on: irregularOn, onToggle: setIrregularLayer }}
         sites={{ on: sitesOn, onToggle: setSitesLayer, current: siteView?.key ?? null, onFly: (key) => scene.current?.focusOnSite(key) }} />
-      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={irregularMoonOn}
-        sat={siteView ? <LandingSitePlate clock={clock} site={siteView} />
+      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={infoView ? null : irregularMoonOn}
+        sat={infoView?.guide ? <GuidePlate clock={clock} pick={infoView.guide} />
+          : infoView?.orbit ? <OrbitPlate clock={clock} body={infoView.orbit} />
+          : siteView ? <LandingSitePlate clock={clock} site={siteView} />
           : probeView && scene.current ? <SpacecraftPlate clock={clock} probe={probeView} layer={scene.current.spacecraft} />
           : satView ? <SatellitePlate clock={clock} sat={satView} source={scene.current?.satellites.sourceOf(satView.named.id) ?? satNamed.source} track={scene.current?.groundTrack ?? null} />
           : cloudView ? <SatCloudPlate cloud={cloudView} /> : null} />

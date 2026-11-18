@@ -164,6 +164,25 @@ export function stateEqj(sat, utcMs, M = temeToEqj(utcMs)) {
   return s && { r: apply(M, s.r), v: apply(M, s.v) };
 }
 
+// Speeds against the turning Earth (the data plate's ground speed). TEME's
+// z is the true pole of date, so the Earth turns about it at the WGS-84
+// rate, and v - w x r is the velocity seen from the ground (polar motion,
+// 0.3" of the pole, is left out: under 0.1 m/s). `relative`: that
+// velocity's size, km/s, the speed through still air; `track`: the
+// sub-satellite point's speed over a sphere of the Earth's mean radius,
+// the horizontal part scaled down to the ground, km/s.
+export const EARTH_RATE = 7.292115e-5;   // rad/s, WGS-84 (NIMA TR8350.2)
+const R_MEAN_KM = 6371.0088;
+export function groundSpeeds(s) {
+  const [x, y, z] = s.r;
+  const vr = [s.v[0] + EARTH_RATE * y, s.v[1] - EARTH_RATE * x, s.v[2]];
+  const d = Math.hypot(x, y, z);
+  const radial = (vr[0] * x + vr[1] * y + vr[2] * z) / d;
+  const rel = Math.hypot(...vr);
+  const horiz = Math.sqrt(Math.max(0, rel * rel - radial * radial));
+  return { relative: rel, track: (horiz * R_MEAN_KM) / d };
+}
+
 // What the element set says of the orbit, for the data plate: SGP4's mean
 // elements at epoch (Kozai mean motion turned to Brouwer's by sgp4init:
 // rec.no is the un-Kozai'd mean motion in rad/min, rec.a in Earth radii).

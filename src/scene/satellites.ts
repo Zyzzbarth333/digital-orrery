@@ -38,6 +38,7 @@ import * as THREE from 'three';
 import { eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
 import { parseGpCsv, satrecOf, stateEqj, stateTeme, temeToEqj, apply, inShadow, R_EARTH_KM } from '../physics/satellites.js';
 import { orbitTrailMaterial } from './orbitTrail';
+import { SatelliteModel } from './satelliteModels';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000;
@@ -246,6 +247,11 @@ export class SatelliteLayer {
   private sunEqj: V3 = [1, 0, 0];
   private fade = 1;
   private focusId: number | null = null;
+  // The focused one's model close up (satelliteModels.ts), and the view's
+  // pixels per radian it is sized against.
+  private model: SatelliteModel;
+  private pxPerRad = 1000;
+  get modelShown(): boolean { return this.model.shown; }
   private tmp = new THREE.Vector3();
   private disposed = false;
   source: SatSource | null = null;
@@ -258,6 +264,7 @@ export class SatelliteLayer {
   onClouds: (clouds: readonly SatCloud[]) => void = () => {};
 
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, private baseUrl = '') {
+    this.model = new SatelliteModel(scene);
     // The uniforms every set shares (the same objects in each material);
     // uDt, uFade, uLit, uDark, uGain and uPick are each set's own.
     this.uniforms = {
@@ -572,7 +579,7 @@ export class SatelliteLayer {
     this.timeMs = timeMs;
     this.cam = [cam[0], cam[1], cam[2]];
     this.earth = [earth[0], earth[1], earth[2]];
-    if (!this.on || !this.sets.size) return;
+    if (!this.on || !this.sets.size) { this.model.hide(); return; }
     this.labelDue = true;
     this.ask();
     this.askOrbits();
@@ -617,7 +624,11 @@ export class SatelliteLayer {
     const fRel: V3 | null = f && [earth[0] + f[0] - cam[0], earth[1] + f[1] - cam[1], earth[2] + f[2] - cam[2]];
     u.uHide.value = fRel ? 2 * Math.hypot(fRel[0], fRel[1], fRel[2]) / UNIT_KM + 0.001 : 0;
     this.placeNear(timeMs, fs, fRel, M, level);
+    this.model.update(this.focusId, fs, fRel, this.sunEqj, this.toRenderM, this.pxPerRad);
   }
+
+  // The view's scale, for sizing the model: pixels per radian at the centre.
+  setView(pxPerRad: number): void { this.pxPerRad = pxPerRad; }
 
   // Close to the focused satellite: its orbit's stretch about it, from SGP4
   // this frame, placed at its render position (rel, km from the camera);
@@ -881,6 +892,7 @@ export class SatelliteLayer {
       el.classList.toggle('quiet', quiet);
       if (!quiet) placed.push([x, y]);
       el.classList.toggle('shadow', inShadow(s.r, this.sunEqj));
+      el.classList.toggle('modelled', focused && this.model.shown);
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
     }
@@ -888,6 +900,7 @@ export class SatelliteLayer {
 
   dispose(): void {
     this.disposed = true;
+    this.model.dispose();
     this.worker?.terminate();
     for (const set of this.sets.values()) { this.scene.remove(set.points); set.points.geometry.dispose(); set.material.dispose(); }
     for (const o of this.orbits.values()) { this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose(); }

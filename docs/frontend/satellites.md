@@ -327,7 +327,9 @@ shows while its set's switch is on.
 ([`satellite-plate.tsx`](../../src/app/satellite-plate.tsx)) shows:
 
 - where SGP4 puts the satellite now: height above the WGS-84 ellipsoid,
-  distance from the Earth's centre and speed;
+  distance from the Earth's centre and speed, inertial (about the
+  Earth's centre) and over the ground ([below](#ground-speed)), all
+  updating as the clock runs;
 - whether it is in sunlight;
 - its element set: the epoch and the clock's distance from it, perigee and
   apogee heights, period, eccentricity, the angles and B\*;
@@ -337,6 +339,64 @@ shows while its set's switch is on.
 
 Each value has its source tag: CelesTrak for the elements, SGP4 for what
 is worked out from them.
+
+### Ground speed
+
+The plate's second speed is the satellite's against the turning Earth.
+SGP4's velocity is in TEME, whose z axis is the true pole of date, the
+axis the Earth turns about, so the velocity seen from the ground is
+
+$$\mathbf v_\text{g} = \mathbf v_\text{TEME} - \boldsymbol\omega_\oplus \times \mathbf r_\text{TEME},$$
+
+with ω⊕ = 7.292115 × 10⁻⁵ rad/s (WGS-84 [11]); polar motion, 0.3″ of
+the pole, is left out (under 0.1 m/s). Its size is the speed through
+still air. The ground track's speed is its horizontal part scaled down
+to the ground, $v_\text{track} = (R_\oplus/r)\,|\mathbf v_\text{g} - (\mathbf v_\text{g}\cdot\hat{\mathbf r})\hat{\mathbf r}|$,
+with R⊕ the mean radius, 6,371.0 km. The ISS moves at 7.67 km/s
+inertially, 7.34 km/s over the ground, and its track at 6.87 km/s; a
+geostationary satellite hardly moves over the ground at all.
+`satellites.test.mjs` checks both against the Earth-fixed frame
+(`earthFixedMatrix`) differenced over a second: within 2 m/s.
+
+### Close-up models
+
+Far off, a satellite is a point and its marker. Once the satellite the
+camera is on spans 3 pixels, it is drawn as a small model at its true
+size, and its marker's dot gives way ([`satelliteModels.ts`](../../src/scene/satelliteModels.ts)):
+
+| | Model | Its sizes |
+| --- | --- | --- |
+| ISS | the integrated truss, eight array wings on four alpha joints, the pressurised modules as cylinders, Kibo and Columbus out to the sides | the truss 94 m, the arrays' wingspan 109 m and 73 m tip to tip across each pair, the pressurised modules 67 m end to end, from NASA [14]; the wings' width (about 12 m) and the modules' (4.2 m) are taken to fit them |
+| Tiangong | the Tianhe core along the flight direction, Wentian and Mengtian at its two side ports in a T, each lab's two wings at its far end | Tianhe 16.6 m by 4.2 m, the labs 17.9 m by 4.2 m, the labs' wings 27 m long and over 110 m² each, from the station's designers [15], [16]; the wings' width, 4.1 m, is the area over the length |
+| Hubble | a tube with its aperture forward, two arrays out to the sides | 13.2 m by 4.2 m, the arrays 2.45 m by 7.56 m, from ESA [17] (NASA gives 4.3 m and 2.44 by 7.54 m [18]) |
+| any other | a stand-in: a 2 m bus with an Earth-facing antenna and two wings 12 m across | not its own shape, and the plate says so |
+
+The radiators and the ISS's Russian segment's own arrays are left out,
+and Tianhe's own smaller wings, since moved to the labs.
+
+**Attitude.** Each model flies in the local vertical, local horizontal
+(LVLH) frame of its SGP4 state: x along the horizontal part of the
+velocity (the ram direction), z down to the Earth's centre, y opposite
+the orbit's angular momentum. That is the ISS's usual attitude (+XVV,
+its truss across the orbit plane). Tiangong's is not published; it is
+drawn in the same frame. The arrays turn about the body's y axis to face
+the Sun as nearly as one axis can, as the ISS's alpha joints do. Hubble
+points wherever its observing schedule says, which the app does not
+have: it is drawn along its flight direction, its arrays turned to the
+Sun, and its plate says so.
+
+**Light.** Each face is Lambertian, ρEμ₀ with E the sunlight at the
+Earth relative to 1 AU, as the bodies are lit; dark in the Earth's
+shadow (the points' cylinder, `inShadow`); and filled from below by
+Earthshine, the Earth's Bond albedo 0.30 times a downward face's view
+factor $(R_\oplus/r)^2$ times how high the Sun stands under the
+satellite. The cells have a small glint. The model is built in metres
+and placed camera-relative, so float32 holds it to well under a
+millimetre at 20 m.
+
+| | |
+| --- | --- |
+| ![The ISS from 180 m in sunlight: the long truss with its eight blue-black array wings turned to the Sun, the modules below it, the plate showing its speed 7.668 km/s inertial and 7.362 km/s over the ground](satellite-model-iss.jpg) | ![Tiangong from 110 m over the Earth's day side: the T of the core and two labs, the labs' long wings at their ends](satellite-model-tiangong.jpg) |
 
 ## Passes over a place
 
@@ -565,3 +625,13 @@ Nor do the passes and the ground track
 [12] US Naval Observatory, Astronomical Applications Dept., "Rise, set, and twilight definitions." [Online]. Available: https://aa.usno.navy.mil/faq/RST_defs
 
 [13] C. Peat, "Heavens-Above," Heavens-Above GmbH: ISS (25544) orbit, all passes and pass details over Greenwich and Sydney Observatory, 18–28 Nov. 2026, fetched 18 Nov. 2026. [Online]. Available: https://www.heavens-above.com/orbit.aspx?satid=25544
+
+[14] NASA, "Space station facts and figures." [Online]. Available: https://www.nasa.gov/international-space-station/space-station-facts-and-figures/
+
+[15] X. Wang and W. Wang, "Development and construction progress of the Tiangong space station in China" (in Chinese), *Chin. Sci. Bull.*, vol. 67, no. 34, pp. 4017–4028, 2022, doi: 10.1360/TB-2022-0499. [Online]. Available: https://www.sciengine.com/doi/pdf/68D833E4DA154D26A0B8EC0EA3E4C0F1
+
+[16] J. Zhou, "Tiangong space station: China's space home" (in Chinese), *People's Daily*, 22 Apr. 2024. [Online]. Available: https://paper.people.com.cn/hwbwap/html/2024-04/22/content_26053796.htm
+
+[17] ESA/Hubble, "Fact sheet." [Online]. Available: https://esahubble.org/about/general/fact_sheet/
+
+[18] NASA, "About Hubble." [Online]. Available: https://science.nasa.gov/mission/hubble/overview/about-hubble/
