@@ -294,6 +294,11 @@ once it has releases. Until then, everything sits under Unreleased.
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- A gravity field asked for past degree 85 no longer comes out wrong. At
+  degree 100 it was off by up to 0.07 % (Venus, 300 km up); now it is
+  within 7×10⁻¹⁵ of an independent oracle, and to the Moon's pole.
+  Mercury's and Venus's fields now go to degree 100, as the Moon's does,
+  and each call is 6 to 10 % faster (#140).
 - A craft's orbit line and flown trail run up to and through it from any
   distance. Followed from under a kilometre they used to stop a kilometre
   short, and from 10 km the orbit line passed about 500 m beside the craft
