@@ -395,6 +395,14 @@ numerals, an engraved label above, and the unit beside.
 - **Porkchop:** shaded on the console's own ramp, from sheen through amber,
   key orange and engraving to window black, so low C3 glows. The minimum is
   outlined in ink and the picked cell in lamp green.
+- **Magnetic field lines:** the same ramp, by field strength: sheen where
+  the surface field is strongest, through amber and key orange to
+  engraving a thousand times weaker. The dipole's axis is a brighter line
+  through its own centre, tagged with its tilt.
+- **Auroras:** the Earth's in their real colours, oxygen green (557.7 nm)
+  low and red (630.0 nm) above, on the night side only; Jupiter's and
+  Saturn's, which shine in the ultraviolet, in a pale violet false colour
+  the rail's switch says is false.
 
 ### Navigation
 

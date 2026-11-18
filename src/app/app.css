@@ -613,6 +613,8 @@ details.section[open] > summary::after { content: '−'; }
   content: ''; width: 6px; height: 6px; transform: rotate(45deg); border: 1px solid var(--phosphor-dim); flex: none;
 }
 .guide-tag.pull { color: #ff9a66; translate: -50% -50%; }
+.guide-tag.mag-pole { color: var(--sheen); text-transform: none; letter-spacing: 0.06em; font-size: 9px; translate: -50% -110%; }
+.guide-tag.mag-kp { color: #8dffa0; text-transform: none; letter-spacing: 0.06em; font-size: 9px; translate: -50% 20%; }
 .field-legend {
   position: absolute; left: calc(2 * var(--u)); bottom: calc(7 * var(--u)); width: 292px; pointer-events: auto;
   background: rgba(18, 17, 16, 0.86); border: 1px solid var(--seam-strong); border-radius: 2px;
@@ -624,6 +626,9 @@ details.section[open] > summary::after { content: '−'; }
 .field-legend .field-ticks { display: flex; justify-content: space-between; font: 9px var(--mono); margin: 2px 0 4px; }
 .field-legend .field-unit { font: 9px var(--mono); }
 .field-legend .field-source { color: var(--label-dim); font-size: 9px; margin-top: 3px; }
+/* The magnetic field's legend sits above the gravity field's (src/scene/magnetic.ts). */
+.field-legend.mag-legend { bottom: calc(7 * var(--u) + 104px); }
+.field-legend .field-bar.mag-bar { background: linear-gradient(to right, #9a3216, #d9531f 33%, #ffb22e 67%, #f5f0e4); }
 .small-bodies .lamp-sq { border: 1px solid; }
 /* The guides never scroll: five short rows, the body list gives way. */
 .body-list.guides { flex: none; overflow: visible; padding-bottom: var(--u); }
@@ -752,6 +757,7 @@ details.section[open] > summary::after { content: '−'; }
 .tl-stay { fill: none; stroke: var(--phosphor-dim); stroke-dasharray: 4 3; }
 .tl-burn { stroke: var(--sheen); stroke-width: 1.5; }
 .tl-cursor { stroke: var(--key-lit); stroke-width: 2; } .tl-cursor-grip { fill: var(--key-lit); cursor: ew-resize; }
+.tl-phase path { fill: var(--key-lit); cursor: pointer; } .tl-phase path:hover { fill: var(--phosphor); }
 /* Narrower: one scrolling column, the scope first after the head. */
 @media (max-width: 1100px) {
   .plot-table { display: flex; flex-direction: column; overflow-y: auto; }

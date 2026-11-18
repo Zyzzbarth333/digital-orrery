@@ -198,13 +198,18 @@ export function stepCraft(sys, req, deadline = null) {
 // kernel worker ({ type: 'aim' }), off the page's thread. dv0: a first
 // guess (the journey planner's two-body Lambert arc); rounds, how many
 // Newton rounds at most; damped, a step that hits a body or misses by more
-// is halved (up to five times) rather than ending the search.
-export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds = 4, damped = false }) {
+// is halved (up to five times) rather than ending the search. env: the
+// craft as the environment model sees it (as stepCraft takes it), so the
+// aim is flown in the full model; without it, gravity alone. envJ: a
+// cheaper one for the sensitivities alone (lower degrees of the fields):
+// Newton's steps are then a little less exact, but every run that is kept
+// is flown with env, so the aim is still the full model's.
+export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds = 4, damped = false, env = null, envJ = env }) {
   const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
   const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
   const list = burns.filter((b) => !b.aimed && b.t1 > t0 && b.t0 < T);
-  const fly = (vv) => {
-    const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: vv, t: t0, tEnd: T, primary: null, burns: list.map((b) => ({ ...b })), maxSteps: 1e6 });
+  const fly = (vv, e = env) => {
+    const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: vv, t: t0, tEnd: T, primary: null, burns: list.map((b) => ({ ...b })), maxSteps: 1e6, ...(e ? { env: e } : {}) });
     return res.complete && !res.events.some((e) => e.type === 'impact') ? res.r : null;
   };
   const plain = fly([...v]);
@@ -217,7 +222,11 @@ export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds
   if (!base) return null;
   for (let round = 0; round < rounds && best.after > 0.01; round++) {
     const miss = sub3(base, target), h = 1e-5;
-    const cols = [0, 1, 2].map((j) => { const vv = add3(v, dv); vv[j] += h; const q = fly(vv); return q && sub3(q, base).map((d) => d / h); });
+    // (With a cheaper envJ, the nudged runs are differenced against a base
+    // run of their own in it.)
+    const baseJ = envJ === env ? base : fly(add3(v, dv), envJ);
+    if (!baseJ) break;
+    const cols = [0, 1, 2].map((j) => { const vv = add3(v, dv); vv[j] += h; const q = fly(vv, envJ); return q && sub3(q, baseJ).map((d) => d / h); });
     if (cols.some((c) => !c)) break;
     const A = [0, 1, 2].map((i) => [cols[0][i], cols[1][i], cols[2][i]]), D = det3(A);
     if (!(Math.abs(D) > 0)) break;

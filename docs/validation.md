@@ -411,7 +411,9 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Restricted and optimal staging | Ex 13.4, 13.5 | to the book's figures |
 | Mariner 10, Earth to Mars, a lunar free return, a Moon round trip, flown | the plan | every periapsis within 17 km, home within 3 km |
 | Resonant returns: the 2:1 cone; Galileo's Earth to Earth on NASA's dates; Galileo's whole route flown | geometry; PDS mission catalogue | 2:1 chosen, back on 8 Dec 1992, Earth flybys 0 and 70 m/s; flown within 20 km at Venus and Earth, 1.4 % at Jupiter |
-| Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft; lunar orbit to Mars, flown | Curtis 6.2; geometry; the plan | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.8 m/s, the entry perigee 118 km for 120; Mars 1.4 km off |
+| Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 60 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 47 m/s) |
+| Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,257 (1.4 %, within 3 %); lows a month apart; the best day priced 1,657, flown 1,666 |
+| The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
@@ -616,6 +618,27 @@ shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are))
 | the ISS, ±6 h of its epoch | JPL Horizons, the ISS (−125544) [6], geocentric ICRF | within 106 m and 0.12 m/s (TEME as J2000 would be 25.8 km off) |
 | the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
 | the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
+
+## Magnetic fields and auroras (`magnetic.test.mjs`, `aurora.test.mjs`)
+
+The planets' internal fields, the field-line tracer and the auroral ovals
+([magnetic fields and auroras](physics/magnetic-fields.md#validation), whose
+references these are).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| spherical-harmonic sum, IGRF-13 | NOAA Geomag 7.0's 20 published sample points (2015–2024.5, 0–30,000 ft, geodetic and geocentric) | X Y Z H F within 0.054 nT (its 0.1 nT printout), D and I within its minute |
+| IGRF-14, 2015.0 | the same, where IGRF-14 keeps IGRF-13's DGRF 2015 | within 0.04 nT |
+| JRM33 dipole | Connerney et al. 2022: 4.177 G R_J³, 10.25° toward 196.38° W | 4.1766, 10.250°, 196.379° |
+| JRM33 surface field, 1/15.4 spheroid | the same: just under 2 to almost 22 G (to degree 18) | 1.77 to 21.9 G (degree 13) |
+| Io's footprints, JRM33 + con2020, 144 longitudes | the paper's Tables S2 and S3 (degree 18) | within 1.17° of arc, rms 0.34°; peak \|B\| 19.8 G north, 12.3 G south (paper about 20 and 12) |
+| Cassini 11 | Cao et al. 2020, Table 5; magnetic equator about 2,300 km north | coefficients as tabled; eccentric dipole 2,254 km north |
+| Uranus and Neptune offset tilted dipoles | Ness et al. 1986, 1989, as JPL Publications 15-7 and 17-2 table them; Connerney's Q3 | moments, tilts and offsets as published; Uranus's moment within 4.9° of Q3's dipole |
+| field-line tracer | a centred dipole's $L = 1/\cos^2\lambda$ | apex to 10⁻⁴, lands at −λ to 0.004° |
+| Starkov's oval | Sigernes et al. 2011, eqs. 1–3, Table 1 | 84 coefficients as published; wider at midnight than noon; equatorward with Kp; diffuse edge equatorward of the oval. No published table of evaluated latitudes found to check against |
+| Kp | CelesTrak SW-All.csv, 10–11 May 2024 | every three-hour value, the 9o included |
+| corrected geomagnetic coordinates | a pure centred dipole (identity) | within 0.004° |
+| Saturn's northern oval | Cassini 11 conjugate of 15° south | 13.3° from the north pole |
 
 ## References
 
