@@ -1,0 +1,1036 @@
+{
+ "source": "JPL Horizons (ssd.jpl.nasa.gov/horizons), states about each centre, ICRF, UT",
+ "fetched": "2026-11-18T02:11:27.412Z",
+ "span": [
+  "2026-01-01T00:00:00.000Z",
+  "2028-01-01T00:00:00.000Z"
+ ],
+ "tolKm": 2,
+ "centres": [
+  {
+   "key": "sun",
+   "naif": 10,
+   "mu": 132712440041.25331
+  },
+  {
+   "key": "mercury",
+   "naif": 199,
+   "mu": 22031.868551400003
+  },
+  {
+   "key": "venus",
+   "naif": 299,
+   "mu": 324858.592
+  },
+  {
+   "key": "earth",
+   "naif": 399,
+   "mu": 398600.4355435308
+  },
+  {
+   "key": "moon",
+   "naif": 301,
+   "mu": 4902.800104141349
+  },
+  {
+   "key": "mars",
+   "naif": 499,
+   "mu": 42828.37485735626
+  },
+  {
+   "key": "jupiter",
+   "naif": 599,
+   "mu": 126686531.9003704
+  }
+ ],
+ "craft": [
+  {
+   "key": "bepicolombo",
+   "name": "BepiColombo (MPO)",
+   "short": "BepiColombo",
+   "id": -121,
+   "group": "mercury",
+   "centre": "mercury",
+   "target": "MPO-BepiColombo (Spacecraft) (-121)",
+   "revised": "Nov 11, 2026",
+   "days": 464,
+   "nodes": 4524,
+   "spacingMin": [
+    4,
+    1440
+   ],
+   "maxErrKm": 1.99,
+   "daysAllSamples": 0,
+   "conicDays": 33,
+   "legs": [
+    {
+     "name": "bc_mpo_fcp_00241_20181020_20270411_v01",
+     "start": "2018-Oct-20 02:14",
+     "stop": "2027-Apr-10 23:59"
+    }
+   ]
+  },
+  {
+   "key": "lro",
+   "name": "Lunar Reconnaissance Orbiter",
+   "short": "LRO",
+   "id": -85,
+   "group": "moon",
+   "centre": "moon",
+   "target": "LRO (spacecraft) (-85)",
+   "revised": "Oct 07, 2026",
+   "days": 730,
+   "nodes": 5438,
+   "spacingMin": [
+    10,
+    1440
+   ],
+   "maxErrKm": 1.997,
+   "daysAllSamples": 0,
+   "conicDays": 386,
+   "legs": [
+    {
+     "name": "Reconstructed trajectory",
+     "start": "2009-Jun-18 22:16",
+     "stop": "2026-Jun-15 00:01"
+    },
+    {
+     "name": "Concatenated predict updates",
+     "start": "2026-Jun-15 00:01",
+     "stop": "2026-Oct-07 00:01"
+    },
+    {
+     "name": "558day_20261007_01",
+     "start": "2026-Oct-07 00:01",
+     "stop": "2028-Apr-16 23:59"
+    }
+   ]
+  },
+  {
+   "key": "chandrayaan2",
+   "name": "Chandrayaan-2 orbiter",
+   "short": "Chandrayaan-2",
+   "id": -152,
+   "group": "moon",
+   "centre": "moon",
+   "target": "Chandrayaan-2 (ORBITER) (spacecraft) (-152)",
+   "revised": "Nov 03, 2026",
+   "days": 344,
+   "nodes": 5151,
+   "spacingMin": [
+    10,
+    1440
+   ],
+   "maxErrKm": 1.997,
+   "daysAllSamples": 0,
+   "conicDays": 1,
+   "legs": [
+    {
+     "name": "ch2o_spk_190722-[200901_od*]_v*_dsn.V0.*",
+     "start": "2019-Jul-22 09:31",
+     "stop": "2020-Jun-01 09:01"
+    },
+    {
+     "name": "ISRO_CH2*-OD*",
+     "start": "2020-Jun-01 09:01",
+     "stop": "2026-Dec-11 21:00"
+    }
+   ]
+  },
+  {
+   "key": "danuri",
+   "name": "Danuri (KPLO)",
+   "short": "Danuri",
+   "id": -155,
+   "group": "moon",
+   "centre": "moon",
+   "target": "Danuri (spacecraft) (-155)",
+   "revised": "Nov 10, 2026",
+   "days": 518,
+   "nodes": 6230,
+   "spacingMin": [
+    10,
+    720
+   ],
+   "maxErrKm": 1.999,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "Concatenated trajectory solutions (1019)",
+     "start": "2022-Aug-04 23:19",
+     "stop": "2027-Jun-03 08:36"
+    }
+   ]
+  },
+  {
+   "key": "capstone",
+   "name": "CAPSTONE",
+   "short": "CAPSTONE",
+   "id": -1176,
+   "group": "moon",
+   "centre": "moon",
+   "target": "CAPSTONE (spacecraft) (-1176)",
+   "revised": "Jul 20, 2026",
+   "days": 225,
+   "nodes": 2499,
+   "spacingMin": [
+    10,
+    720
+   ],
+   "maxErrKm": 1.982,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "photon_capstone_full_mission",
+     "start": "2022-Jun-28 10:07",
+     "stop": "2022-Jul-04 17:15"
+    },
+    {
+     "name": "Merge of 140 files (od007 to od332)",
+     "start": "2022-Jul-04 17:15",
+     "stop": "2026-Aug-14 11:56"
+    }
+   ]
+  },
+  {
+   "key": "mro",
+   "name": "Mars Reconnaissance Orbiter",
+   "short": "MRO",
+   "id": -74,
+   "group": "mars",
+   "centre": "mars",
+   "target": "Mars Reconnaissance Orbiter (spacecraft) (-74)",
+   "revised": "Nov 03, 2026",
+   "days": 333,
+   "nodes": 24309,
+   "spacingMin": [
+    20,
+    20
+   ],
+   "maxErrKm": 1.752,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "mro_cruise",
+     "start": "2005-Aug-12 12:42",
+     "stop": "2006-Mar-10 22:06"
+    },
+    {
+     "name": "mro_ab",
+     "start": "2006-Mar-10 22:06",
+     "stop": "2006-Sep-12 06:40"
+    },
+    {
+     "name": "misc reconstruction (mro_psp1-80)",
+     "start": "2006-Sep-12 06:40",
+     "stop": "2026-Oct-01 01:01"
+    },
+    {
+     "name": "mro_psp_rec",
+     "start": "2026-Oct-01 01:01",
+     "stop": "2026-Oct-25 22:49"
+    },
+    {
+     "name": "mro_psp",
+     "start": "2026-Oct-25 22:49",
+     "stop": "2026-Nov-30 12:48"
+    }
+   ]
+  },
+  {
+   "key": "odyssey",
+   "name": "2001 Mars Odyssey",
+   "short": "Mars Odyssey",
+   "id": -53,
+   "group": "mars",
+   "centre": "mars",
+   "target": "Mars Odyssey (spacecraft) (-53)",
+   "revised": "Nov 03, 2026",
+   "days": 389,
+   "nodes": 26633,
+   "spacingMin": [
+    20,
+    24
+   ],
+   "maxErrKm": 1.999,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "maven",
+   "name": "MAVEN",
+   "short": "MAVEN",
+   "id": -202,
+   "group": "mars",
+   "centre": "mars",
+   "target": "MAVEN (spacecraft) (-202)",
+   "revised": "Feb 13, 2026",
+   "days": 59,
+   "nodes": 3599,
+   "spacingMin": [
+    24,
+    24
+   ],
+   "maxErrKm": 1.904,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "trj_c_131118-140923_rec_v1",
+     "start": "2013-Nov-18 19:22",
+     "stop": "2014-Sep-23 12:00"
+    },
+    {
+     "name": "maven_orb_rec_******-******_v*",
+     "start": "2014-Sep-23 12:00",
+     "stop": "2025-Oct-01 00:00"
+    },
+    {
+     "name": "maven_orb_rec (current reconstruction)",
+     "start": "2025-Oct-01 00:01",
+     "stop": "2025-Dec-06 01:40"
+    }
+   ]
+  },
+  {
+   "key": "mex",
+   "name": "Mars Express",
+   "short": "Mars Express",
+   "id": -41,
+   "group": "mars",
+   "centre": "mars",
+   "target": "Mars Express (spacecraft) (-41)",
+   "revised": "Nov 03, 2026",
+   "days": 730,
+   "nodes": 37265,
+   "spacingMin": [
+    4,
+    60
+   ],
+   "maxErrKm": 1.995,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "ORHM_______________00030",
+     "start": "2003-Jun-02 19:13",
+     "stop": "2003-Dec-22 18:09"
+    },
+    {
+     "name": "ORMM_031222180906-261101",
+     "start": "2003-Dec-22 18:09",
+     "stop": "2026-Nov-19 11:40"
+    },
+    {
+     "name": "ORMF_______________01965",
+     "start": "2026-Nov-19 11:40",
+     "stop": "2032-Dec-31 23:59"
+    }
+   ]
+  },
+  {
+   "key": "tgo",
+   "name": "ExoMars Trace Gas Orbiter",
+   "short": "TGO",
+   "id": -143,
+   "group": "mars",
+   "centre": "mars",
+   "target": "ExoMars16 TGO (spacecraft) (-143)",
+   "revised": "Jan 13, 2026",
+   "days": 730,
+   "nodes": 47206,
+   "spacingMin": [
+    20,
+    24
+   ],
+   "maxErrKm": 1.999,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "fsp_048_01_20160314_20181231_v02",
+     "start": "2016-Mar-14 08:14",
+     "stop": "2018-Nov-20 23:38"
+    },
+    {
+     "name": "fsp_065_01_20181120_20190429_v02",
+     "start": "2018-Nov-20 23:38",
+     "stop": "2019-Mar-18 18:41"
+    },
+    {
+     "name": "fsp_082_01_20190318_20190903_v02",
+     "start": "2019-Mar-18 18:41",
+     "stop": "2019-Jul-16 23:51"
+    },
+    {
+     "name": "fsp_099_01_20190716_20191228_v01",
+     "start": "2019-Jul-16 23:51",
+     "stop": "2019-Nov-11 23:53"
+    },
+    {
+     "name": "fsp_116_01_20191111_20200425_v01",
+     "start": "2019-Nov-11 23:53",
+     "stop": "2020-Mar-09 23:48"
+    },
+    {
+     "name": "fsp_133_01_20200309_20200822_v01",
+     "start": "2020-Mar-09 23:48",
+     "stop": "2020-Jul-06 23:33"
+    },
+    {
+     "name": "fsp_150_01_20200706_20201219_v01",
+     "start": "2020-Jul-06 23:33",
+     "stop": "2020-Nov-02 22:29"
+    },
+    {
+     "name": "fsp_167_01_20201102_20210417_v01",
+     "start": "2020-Nov-02 22:29",
+     "stop": "2021-Mar-01 23:55"
+    },
+    {
+     "name": "fsp_184_01_20210301_20211002_v01",
+     "start": "2021-Mar-01 23:55",
+     "stop": "2021-Apr-27 23:52"
+    },
+    {
+     "name": "fsp_201_01_20210628_20211211_v01",
+     "start": "2021-Jun-28 23:59",
+     "stop": "2021-Oct-25 23:54"
+    },
+    {
+     "name": "fsp_218_01_20211025_20220409_v01",
+     "start": "2021-Oct-25 23:54",
+     "stop": "2022-Feb-21 23:50"
+    },
+    {
+     "name": "fsp_235_01_20220221_20220806_v01",
+     "start": "2022-Feb-21 23:50",
+     "stop": "2022-May-28 00:00"
+    },
+    {
+     "name": "fsp_252_01_20220620_20221203_v01",
+     "start": "2022-Jun-20 23:59",
+     "stop": "2022-Sep-26 22:57"
+    },
+    {
+     "name": "fsp_267_01_20221004_20230318_v01",
+     "start": "2022-Oct-04 21:48",
+     "stop": "2023-Jan-24 12:26"
+    },
+    {
+     "name": "fsp_284_01_20230124_20230805_v01",
+     "start": "2023-Jan-24 12:26",
+     "stop": "2023-May-27 00:00"
+    },
+    {
+     "name": "fsp_301_01_20230527_20231111_v01",
+     "start": "2023-May-27 00:00",
+     "stop": "2023-Sep-25 12:37"
+    },
+    {
+     "name": "fsp_318_01_20230925_20240309_v01",
+     "start": "2023-Sep-25 12:37",
+     "stop": "2023-Jan-13 00:00"
+    },
+    {
+     "name": "fsp_335_01_20240113_20240706_v01",
+     "start": "2024-Jan-13 00:00",
+     "stop": "2024-May-20 22:46"
+    },
+    {
+     "name": "fsp_352_01_20240520_20241102_v01",
+     "start": "2024-May-20 22:46",
+     "stop": "2024-Sep-16 22:51"
+    },
+    {
+     "name": "fsp_369_01_20240916_20250301_v01",
+     "start": "2024-Sep-16 22:51",
+     "stop": "2024-Dec-30 23:36"
+    },
+    {
+     "name": "fsp_384_01_20241230_20250621_v01",
+     "start": "2024-Dec-30 23:36",
+     "stop": "2025-Jun-21 16:14"
+    },
+    {
+     "name": "flp_011_01_20250203_20390104_v01",
+     "start": "2025-Jun-21 16:14",
+     "stop": "2039-Jan-04 06:29"
+    }
+   ]
+  },
+  {
+   "key": "hope",
+   "name": "Hope (Emirates Mars Mission)",
+   "short": "Hope",
+   "id": -62,
+   "group": "mars",
+   "centre": "mars",
+   "target": "EMM (spacecraft) (-62)",
+   "revised": "Nov 03, 2026",
+   "days": 469,
+   "nodes": 1313,
+   "spacingMin": [
+    10,
+    1440
+   ],
+   "maxErrKm": 1.984,
+   "daysAllSamples": 0,
+   "conicDays": 424,
+   "legs": [
+    {
+     "name": "EMM_20200719-20270415_od03-198",
+     "start": "2020-Jul-19 23:07",
+     "stop": "2026-Apr-15 00:00"
+    }
+   ]
+  },
+  {
+   "key": "juno",
+   "name": "Juno",
+   "short": "Juno",
+   "id": -61,
+   "group": "jupiter",
+   "centre": "jupiter",
+   "target": "Juno (spacecraft) (-61)",
+   "revised": "Nov 03, 2026",
+   "days": 730,
+   "nodes": 7217,
+   "spacingMin": [
+    10,
+    720
+   ],
+   "maxErrKm": 1.988,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "spk_rec_110805_*_260824",
+     "start": "2011-Aug-05 17:19",
+     "stop": "2026-Sep-26 15:04"
+    },
+    {
+     "name": "juno_pred_orbit",
+     "start": "2026-Sep-26 15:04",
+     "stop": "2027-Jan-20 23:15"
+    },
+    {
+     "name": "spk_ref_260808_280902_260926",
+     "start": "2027-Jan-20 23:15",
+     "stop": "2028-Sep-02 01:37"
+    }
+   ]
+  },
+  {
+   "key": "jwst",
+   "name": "James Webb Space Telescope",
+   "short": "JWST",
+   "id": -170,
+   "group": "lagrange",
+   "centre": "earth",
+   "target": "James Webb Space Telescope (spacecraft) (-170)",
+   "revised": "Nov 10, 2026",
+   "days": 730,
+   "nodes": 1460,
+   "spacingMin": [
+    1440,
+    1440
+   ],
+   "maxErrKm": 1.868,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "DEFINITIVE_EPHEMERIS_202135913-2026305",
+     "start": "2021-Dec-25 13:01",
+     "stop": "2026-Nov-09 00:01"
+    },
+    {
+     "name": "28D_NOBURN_PREDICT_SK_2026313000000_01U",
+     "start": "2026-Nov-09 00:01",
+     "stop": "2026-Dec-07 00:01"
+    },
+    {
+     "name": "5Y_SCHEDULE_2026313000000_01U.V0.1",
+     "start": "2026-Dec-07 00:01",
+     "stop": "2031-Nov-08 23:59"
+    }
+   ]
+  },
+  {
+   "key": "roman",
+   "name": "Nancy Grace Roman Space Telescope",
+   "short": "Roman",
+   "id": -211,
+   "group": "lagrange",
+   "centre": "earth",
+   "target": null,
+   "revised": "Nov 10, 2026",
+   "days": 488,
+   "nodes": 1027,
+   "spacingMin": [
+    60,
+    1440
+   ],
+   "maxErrKm": 1.825,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "RST_EPH_PRED_NOMNVR_2026242_2026270_01",
+     "start": "2026-Aug-30 12:00",
+     "stop": "2026-Aug-31 04:34"
+    },
+    {
+     "name": "RST_EPH_PRED_2026243_2026341 (merge)",
+     "start": "2026-Aug-31 04:34",
+     "stop": "2026-Dec-07 13:00"
+    },
+    {
+     "name": "RST_EPH_PRED_LONG_2026313_2028313_01",
+     "start": "2026-Dec-07 13:00",
+     "stop": "2028-Nov-08 13:00"
+    }
+   ]
+  },
+  {
+   "key": "euclid",
+   "name": "Euclid",
+   "short": "Euclid",
+   "id": -680,
+   "group": "lagrange",
+   "centre": "earth",
+   "target": "Euclid (spacecraft) (-680)",
+   "revised": "Nov 03, 2026",
+   "days": 730,
+   "nodes": 1460,
+   "spacingMin": [
+    1440,
+    1440
+   ],
+   "maxErrKm": 0.897,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "gaia",
+   "name": "Gaia",
+   "short": "Gaia",
+   "id": -139479,
+   "group": "lagrange",
+   "centre": "earth",
+   "target": "Gaia (spacecraft) (-139479)",
+   "revised": "May 16, 2025",
+   "days": 730,
+   "nodes": 1460,
+   "spacingMin": [
+    1440,
+    1440
+   ],
+   "maxErrKm": 0.08,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "soho",
+   "name": "SOHO",
+   "short": "SOHO",
+   "id": -21,
+   "group": "lagrange",
+   "centre": "earth",
+   "target": null,
+   "revised": "Nov 03, 2026",
+   "days": 347,
+   "nodes": 856,
+   "spacingMin": [
+    60,
+    1440
+   ],
+   "maxErrKm": 1.989,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "dscovr",
+   "name": "DSCOVR",
+   "short": "DSCOVR",
+   "id": -78,
+   "group": "lagrange",
+   "centre": "earth",
+   "target": null,
+   "revised": "Nov 10, 2026",
+   "days": 332,
+   "nodes": 1390,
+   "spacingMin": [
+    60,
+    1440
+   ],
+   "maxErrKm": 1.976,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "DSCO-2015-02-11-Nominal_withMCC.V0.1",
+     "start": "2015-Feb-11 23:50",
+     "stop": "2015-Feb-13 07:01"
+    },
+    {
+     "name": "3day_20150213_01",
+     "start": "2015-Feb-13 07:01",
+     "stop": "2015-Feb-15 00:01"
+    },
+    {
+     "name": "7day_20150215_01",
+     "start": "2015-Feb-15 00:01",
+     "stop": "2015-Feb-16 00:01"
+    },
+    {
+     "name": "7day_20150216_01",
+     "start": "2015-Feb-16 00:01",
+     "stop": "2015-Feb-17 00:01"
+    },
+    {
+     "name": "14day_20150217_01",
+     "start": "2015-Feb-17 00:01",
+     "stop": "2015-Feb-23 00:01"
+    },
+    {
+     "name": "21day_20150223-20261109 (615 merged)",
+     "start": "2015-Feb-23 00:01",
+     "stop": "2026-Nov-30 00:00"
+    }
+   ]
+  },
+  {
+   "key": "parker",
+   "name": "Parker Solar Probe",
+   "short": "Parker",
+   "id": -96,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "Parker Solar Probe (spacecraft) (-96)",
+   "revised": "Nov 03, 2026",
+   "days": 730,
+   "nodes": 1818,
+   "spacingMin": [
+    30,
+    1440
+   ],
+   "maxErrKm": 1.97,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "spp_nom_20180812_20251001_v041_RO8",
+     "start": "2018-Aug-12 08:17",
+     "stop": "2025-Jun-25 06:00"
+    },
+    {
+     "name": "spp_pred_20250625_20251030_od242_V0.2",
+     "start": "2025-Jun-25 06:00",
+     "stop": "2025-Oct-08 12:00"
+    },
+    {
+     "name": "spp_pred_20251008_20251231_od247_V0.1",
+     "start": "2025-Oct-08 12:00",
+     "stop": "2025-Nov-24 18:00"
+    },
+    {
+     "name": "spp_pred_20251124_20260526_od254_V0.1",
+     "start": "2025-Nov-24 18:00",
+     "stop": "2026-Jan-15 00:00"
+    },
+    {
+     "name": "spp_pred_20260115_20260409_od257_V0.1",
+     "start": "2026-Jan-15 00:00",
+     "stop": "2026-Jan-28 16:44"
+    },
+    {
+     "name": "spp_pred_20260128_20260617_od258_V0.1",
+     "start": "2026-Jan-28 16:44",
+     "stop": "2026-May-26 00:00"
+    },
+    {
+     "name": "spp_pred_20260902_20270120_od267_V0.1",
+     "start": "2026-Sep-02 00:00",
+     "stop": "2026-Sep-30 00:00"
+    },
+    {
+     "name": "spp_pred_20260930_20270217_od268_v001",
+     "start": "2026-Sep-30 00:00",
+     "stop": "2027-Feb-17 00:00"
+    },
+    {
+     "name": "spp_nom_20180812_20300101_v044_PostV7",
+     "start": "2027-Jan-20 00:00",
+     "stop": "2030-Jan-01 00:00"
+    }
+   ]
+  },
+  {
+   "key": "solo",
+   "name": "Solar Orbiter",
+   "short": "Solar Orbiter",
+   "id": -144,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "Solar Orbiter (spacecraft) (-144)",
+   "revised": "Nov 03, 2026",
+   "days": 730,
+   "nodes": 1626,
+   "spacingMin": [
+    30,
+    1440
+   ],
+   "maxErrKm": 1.897,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "juice",
+   "name": "JUICE",
+   "short": "JUICE",
+   "id": -28,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "JUICE (spacecraft) (-28)",
+   "revised": "Nov 03, 2026",
+   "days": 730,
+   "nodes": 1541,
+   "spacingMin": [
+    30,
+    1440
+   ],
+   "maxErrKm": 1.943,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "clipper",
+   "name": "Europa Clipper",
+   "short": "Europa Clipper",
+   "id": -159,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "Europa Clipper (spacecraft) (-159)",
+   "revised": "Nov 02, 2026",
+   "days": 730,
+   "nodes": 1619,
+   "spacingMin": [
+    30,
+    1440
+   ],
+   "maxErrKm": 1.958,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "psyche",
+   "name": "Psyche",
+   "short": "Psyche",
+   "id": -255,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "Psyche (spacecraft) (-255)",
+   "revised": "Nov 03, 2026",
+   "days": 730,
+   "nodes": 1724,
+   "spacingMin": [
+    30,
+    1440
+   ],
+   "maxErrKm": 1.991,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "lucy",
+   "name": "Lucy",
+   "short": "Lucy",
+   "id": -49,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "Lucy (spacecraft) (-49)",
+   "revised": "Nov 03, 2026",
+   "days": 730,
+   "nodes": 1659,
+   "spacingMin": [
+    30,
+    1440
+   ],
+   "maxErrKm": 0.646,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "hera",
+   "name": "Hera",
+   "short": "Hera",
+   "id": -91,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "Hera (spacecraft) (-91)",
+   "revised": "Nov 03, 2026",
+   "days": 376,
+   "nodes": 1250,
+   "spacingMin": [
+    30,
+    1440
+   ],
+   "maxErrKm": 1.991,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "hera_fsp_000106_241007_270113_v01",
+     "start": "2024-Oct-07 16:10",
+     "stop": "2027-Jan-13 00:00"
+    }
+   ]
+  },
+  {
+   "key": "newhorizons",
+   "name": "New Horizons",
+   "short": "New Horizons",
+   "id": -98,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "New Horizons (spacecraft) (-98)",
+   "revised": "Sep 01, 2026",
+   "days": 730,
+   "nodes": 1460,
+   "spacingMin": [
+    1440,
+    1440
+   ],
+   "maxErrKm": 0.003,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": [
+    {
+     "name": "nh_pred_20060119_20070101_od021",
+     "start": "2006-Jan-19 19:52",
+     "stop": "2006-Dec-31 23:58"
+    },
+    {
+     "name": "nh_ref_20060119_20150925_v04",
+     "start": "2007-Dec-31 23:58",
+     "stop": "2007-Mar-19 00:00"
+    },
+    {
+     "name": "98_pred_20070319_20150101_od070",
+     "start": "2007-Mar-19 00:00",
+     "stop": "2012-May-01 13:47"
+    },
+    {
+     "name": "98_pred_20120501_20160913_od117",
+     "start": "2012-May-01 13:47",
+     "stop": "2014-Dec-08 05:13"
+    },
+    {
+     "name": "nh_recon_pluto_od122_v01",
+     "start": "2014-Dec-08 05:13",
+     "stop": "2015-Sep-27 06:13"
+    },
+    {
+     "name": "nh_recon_arrokoth_od147_v01",
+     "start": "2015-Sep-27 06:13",
+     "stop": "2019-Feb-07 00:00"
+    },
+    {
+     "name": "nh_pred_alleph_od151",
+     "start": "2019-Feb-07 00:00",
+     "stop": "2021-Oct-01 00:00"
+    },
+    {
+     "name": "98_pred_20211001_20500101_od165_v2",
+     "start": "2021-Oct-01 00:00",
+     "stop": "2024-Jun-05 05:58"
+    },
+    {
+     "name": "98_pred_20240605_20500101_od166",
+     "start": "2024-Jun-05 05:58",
+     "stop": "2050-Jan-01 00:00"
+    }
+   ]
+  },
+  {
+   "key": "voyager1",
+   "name": "Voyager 1",
+   "short": "Voyager 1",
+   "id": -31,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "Voyager 1 (spacecraft) (-31)",
+   "revised": "Aug 19, 2022",
+   "days": 730,
+   "nodes": 1460,
+   "spacingMin": [
+    1440,
+    1440
+   ],
+   "maxErrKm": 0,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  },
+  {
+   "key": "voyager2",
+   "name": "Voyager 2",
+   "short": "Voyager 2",
+   "id": -32,
+   "group": "cruise",
+   "centre": "sun",
+   "target": "Voyager 2 (spacecraft) (-32)",
+   "revised": "Aug 19, 2022",
+   "days": 730,
+   "nodes": 1460,
+   "spacingMin": [
+    1440,
+    1440
+   ],
+   "maxErrKm": 0,
+   "daysAllSamples": 0,
+   "conicDays": 0,
+   "legs": []
+  }
+ ],
+ "months": [
+  "2026-01",
+  "2026-02",
+  "2026-03",
+  "2026-04",
+  "2026-05",
+  "2026-06",
+  "2026-07",
+  "2026-08",
+  "2026-09",
+  "2026-10",
+  "2026-11",
+  "2026-12",
+  "2027-01",
+  "2027-02",
+  "2027-03",
+  "2027-04",
+  "2027-05",
+  "2027-06",
+  "2027-07",
+  "2027-08",
+  "2027-09",
+  "2027-10",
+  "2027-11",
+  "2027-12"
+ ]
+}

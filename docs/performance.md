@@ -288,6 +288,28 @@ The first timing had the layer at 4–6 ms on the Intel GPU at real time and
 At high rates the worker's results also went to the GPU every frame (0.7 MB
 each). They are now sent at most ten times a second.
 
+### Spacecraft beyond Earth orbit
+
+Measured on 18 November 2026 on feat/deep-space-craft, a production
+build, headless as above at 1920 × 1080 and DPR 1, the layer switched off
+and on in the same page, interleaved. The machine was loaded (load
+average 12), so the Intel figures swing by several ms. Median frame, ms:
+
+| Scene | Intel | RTX |
+| --- | ---: | ---: |
+| Mars (four orbiters in view), off | 17.7 | 5.0–5.7 |
+| Mars, on | 19.3 | 5.6–5.7 |
+| the overview (the probes in cruise), off | 16.3–19.9 | 4.9–5.4 |
+| the overview, on | 16.1–19.2 | 5.1–5.2 |
+| Mars at a day a second, off | 31.4–32.6 | 10.1–10.6 |
+| Mars at a day a second, on | 32.1–39.5 | 10.6–12.8 |
+
+At real time the layer costs about 1.6 ms on the Intel GPU and nothing
+measurable on the RTX. At a day a second a low orbiter's path fell due
+every frame, so a path is now resampled at most every 250 ms of real
+time. That leaves up to 2 ms on the RTX, where the app at that rate already
+takes 10 ms.
+
 ### The panels
 
 The panels read the clock through `useSyncExternalStore`, which re-renders

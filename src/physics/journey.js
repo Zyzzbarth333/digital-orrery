@@ -172,7 +172,7 @@ export function legGeometry(aKey, bKey, resonant = false) {
 // distance less the moon's own, as if the moon moved the way out.
 function moonSpeed(vinf, B, via, arrive) {
   const P = bodyInfo(B.parent);
-  if (via && typeof via === 'object' && Array.isArray(vinf)) return X.moonExcess({ rm: via.r, vm: via.v, vinf, mu: P.mu, arrive, rMin: 0.5 * norm(via.r) }).speed;
+  if (via && typeof via === 'object' && Array.isArray(vinf)) return X.moonExcess({ rm: via.r, vm: via.v, vinf, mu: P.mu, arrive, rMin: 0.5 * norm(via.r) })?.speed ?? Infinity;
   const w = Array.isArray(vinf) ? norm(vinf) : vinf, vm = Math.sqrt(P.mu / B.a);
   return Math.abs(Math.sqrt(w * w + 2 * P.mu / B.a) - vm);
 }
@@ -380,7 +380,7 @@ const isResonant = (P, Q) => P.body === Q.body && (P.kind === 'flyby' || Q.kind 
 // vinfIn: the excess speed arriving at P when P is a flyby; arcs whose
 // departure excess speed differs from it cost that much more (the powered
 // flyby's burn, roughly), so a chain of flybys picks matching arcs.
-export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, maxRevs = 0, vinfIn = null, resonance = null, resonantPhi = 0 } = {}) {
+export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, maxRevs = 0, vinfIn = null, resonance = null, resonantPhi = 0, dsm = true } = {}) {
   const g = legGeometry(P.body, Q.body, isResonant(P, Q)), C = bodyInfo(g.central), mu = C.mu;
   const tof = (arrMs - depMs) / 1000;
   const out = { geometry: g.kind, central: g.central, from: P.body, to: Q.body, depMs, arrMs, tofDays: tof / DAY, arcs: [], vinfDep: null, vinfArr: null, depDv: 0, arrDv: 0, midDv: 0, ok: false };
@@ -392,26 +392,35 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
   if (g.kind === 'between') {
     const a = relState(g.endA, g.central, depMs), b = relState(g.endB, g.central, arrMs);
     const mA = moonAt(g.viaA, P.body, depMs), mB = moonAt(g.viaB, Q.body, arrMs);
-    const cost = (v1, v2) => departCost(P, sub(v1, a.v), g.A, mA) + arriveCost(Q, sub(v2, b.v), g.B, mB) + (P.kind === 'flyby' ? (vinfIn !== null ? Math.abs(norm(sub(v1, a.v)) - vinfIn) : norm(sub(v1, a.v)) * 1e-3) : 0) + (Q.kind === 'flyby' ? norm(sub(v2, b.v)) * 1e-3 : 0);
+    // cost: the end burns, the moons where they are on the day. mean: the
+    // same with each moon at its best phase (moonSpeed), smooth in the
+    // excess velocity, which shapes the deep-space burn.
+    const ends = (mAt, mBt) => (v1, v2) => departCost(P, sub(v1, a.v), g.A, mAt) + arriveCost(Q, sub(v2, b.v), g.B, mBt) + (P.kind === 'flyby' ? (vinfIn !== null ? Math.abs(norm(sub(v1, a.v)) - vinfIn) : norm(sub(v1, a.v)) * 1e-3) : 0) + (Q.kind === 'flyby' ? norm(sub(v2, b.v)) * 1e-3 : 0);
+    const cost = ends(mA, mB), mean = g.viaA || g.viaB ? ends(g.viaA || null, g.viaB || null) : cost;
     if (via === 'bielliptic') return solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out, mA, mB);
     const s = bestArc(a.r, b.r, tof, mu, cost, pick ? pick.revs : g.resonant ? Math.max(2, maxRevs) : maxRevs, pick);
     // Near 180 degrees round the central body the direct arc's plane is
-    // ill-defined: a broken plane, where it costs less (or there is no
+    // ill-defined: a deep-space burn (or a broken plane: with dsm false, for
+    // a quick scan, or by choice), where it costs less (or there is no
     // direct arc at all).
     const angle = transferAngle(a.r, b.r);
     out.transferDeg = angle * 180 / Math.PI;
     if (via !== 'direct' && (!pick || pick.revs === 0) && Math.abs(angle - Math.PI) < BROKEN_BAND) {
       const bp = brokenPlane(a, b, depMs, arrMs, mu, cost);
-      if (bp && (!s || via === 'brokenplane' || bp.cost < s.cost || Math.abs(angle - Math.PI) < BROKEN_ALWAYS)) {
-        out.arcs.push({ r1: a.r, v1: bp.v1, t1: depMs, t2: bp.ms, mu }, { r1: bp.r, v1: bp.v1b, t1: bp.ms, t2: arrMs, mu });
-        out.vinfDep = sub(bp.v1, a.v); out.vinfArr = sub(bp.v2, b.v);
+      const ds = bp && via !== 'brokenplane' && dsm ? deepSpaceBurn(a, b, depMs, arrMs, mu, mean, cost, bp) : null;
+      const x = ds ?? bp;
+      if (x && (!s || via === 'brokenplane' || via === 'deepspace' || x.cost < s.cost || Math.abs(angle - Math.PI) < BROKEN_ALWAYS)) {
+        out.arcs.push({ r1: a.r, v1: x.v1, t1: depMs, t2: x.ms, mu }, { r1: x.r, v1: x.v1b, t1: x.ms, t2: arrMs, mu });
+        out.vinfDep = sub(x.v1, a.v); out.vinfArr = sub(x.v2, b.v);
         out.depDv = departCost(P, out.vinfDep, g.A, mA);
         out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
-        out.midDv = bp.midDv;
-        out.mid = { ms: bp.ms, r: bp.r };
+        out.midDv = x.midDv;
+        out.mid = { ms: x.ms, r: x.r };
         out.moonDep = P.kind === 'flyby' ? null : moonEnd(mA, out.vinfDep, P.body, false);
         out.moonArr = Q.kind === 'flyby' ? null : moonEnd(mB, out.vinfArr, Q.body, true);
-        out.brokenPlane = { ms: bp.ms, r: bp.r, dv: bp.midDv, turnDeg: bp.turnDeg, angleDeg: angle * 180 / Math.PI, directDv: s ? s.cost : Infinity, directIncDeg: s ? arcTilt(a, s.v1) : null };
+        const info = { ms: x.ms, r: x.r, dv: x.midDv, turnDeg: x.turnDeg, angleDeg: angle * 180 / Math.PI, directDv: s ? s.cost : Infinity, directIncDeg: s ? arcTilt(a, s.v1) : null };
+        if (ds) out.deepSpace = { ...info, heightDeg: ds.heightDeg, brokenDv: bp.cost, brokenMeanDv: ds.brokenMean, meanDv: ds.mean };
+        else out.brokenPlane = info;
         return { ...out, revs: 0, branch: 'single', ok: true, endA: g.endA, endB: g.endB };
       }
     }
@@ -516,8 +525,70 @@ function brokenPlane(a, b, depMs, arrMs, mu, cost) {
   }
   const s = at((lo + hi) / 2);
   if (!s) return null;
-  const turn = Math.acos(Math.max(-1, Math.min(1, dot(unit(cross(s.r, s.v2a)), unit(cross(s.r, s.v1b))))));
-  return { ...s, tau: (lo + hi) / 2, turnDeg: turn * 180 / Math.PI };
+  return { ...s, tau: (lo + hi) / 2, turnDeg: planeTurn(s) };
+}
+// The angle between the arcs' planes either side of a burn at r.
+const planeTurn = (s) => Math.acos(Math.max(-1, Math.min(1, dot(unit(cross(s.r, s.v2a)), unit(cross(s.r, s.v1b)))))) * 180 / Math.PI;
+
+// ---------------- the deep-space burn ----------------
+
+// The broken plane keeps B on the arc in the departure body's plane, so
+// its burn can only turn the plane. Set free, B can go anywhere about the
+// central body, and its burn reshapes the transfer too: a deep-space
+// manoeuvre, two Lambert arcs joined by one impulse. B is four numbers: its
+// angle along the departure body's orbit plane from r1, its distance and its
+// height off that plane (both over |r1|), and the fraction of the flight
+// time when it is reached. Nelder-Mead finds the cheapest, from the broken
+// plane's B (so it never costs more), in rounds until a round saves under
+// 0.1 m/s.
+//
+// The search prices the ends with each moon at its best phase (mean), not
+// where it is on the day (cost). Leaving the Moon, the day's price jumps
+// with the Moon's phase: its two hyperbolas out to the same excess
+// velocity swap as one of them starts to swing in past the Earth
+// (transfers.js moonExcess), by 0.7 km/s from one day of stay to the next.
+// A search on that price rides the jump: it bends the excess velocity at
+// the Earth to whichever side of it is cheaper that day, and the plan's
+// excess speed leaps by 0.2 km/s a day. On the mean price the shape is the
+// heliocentric optimum, smooth in the dates; the day's phase is priced on
+// top, and the best day for it is the phase option's job (phaseOption).
+// For legs with no moon end the two prices are the same.
+//
+// At the optimum the burn meets Lawden's conditions for an optimal
+// impulse, which the broken plane's does not (journey.test.mjs, primer
+// vector). Returns brokenPlane's fields and { mean (its mean price),
+// brokenMean (the broken plane's), heightDeg (B above the departure
+// body's plane) }, or null.
+const DSM_SCALE = [0.05, 0.02, 0.003, 0.03];
+function deepSpaceBurn(a, b, depMs, arrMs, mu, mean, cost, bp) {
+  const tof = (arrMs - depMs) / 1000, R = norm(a.r);
+  const n = unit(cross(a.r, a.v)), u1 = unit(a.r), u2 = cross(n, u1);
+  const at = (x) => {
+    const [th, rho, z, tau] = x.map((v, i) => v * DSM_SCALE[i]);
+    if (!(tau > 0.02 && tau < 0.98 && rho > 0.2)) return null;
+    const B = scale(add(add(scale(u1, rho * Math.cos(th)), scale(u2, rho * Math.sin(th))), scale(n, z)), R), tB = tau * tof;
+    const s1 = lambert(a.r, B, tB, mu, true), s2 = s1 && lambert(B, b.r, tof - tB, mu, true);
+    if (!s2) return null;
+    const midDv = norm(sub(s2.v1, s1.v2)), m = mean(s1.v1, s2.v2) + midDv;
+    return Number.isFinite(m) ? { v1: s1.v1, v2: s2.v2, v1b: s2.v1, v2a: s1.v2, r: B, ms: depMs + tB * 1000, midDv, mean: m, tau } : null;
+  };
+  const f = (x) => at(x)?.mean ?? Infinity;
+  const x0 = [Math.atan2(dot(bp.r, u2), dot(bp.r, u1)), Math.hypot(dot(bp.r, u1), dot(bp.r, u2)) / R, dot(bp.r, n) / R, bp.tau].map((v, i) => v / DSM_SCALE[i]);
+  const brokenMean = f(x0);
+  if (!Number.isFinite(brokenMean)) return null;
+  let x = x0, v = brokenMean;
+  for (let round = 0, step = 1; round < 4; round++, step *= 0.3) {
+    const y = nelderMead(f, x, [step, step, step, step], { iterations: 50 }), w = f(y);
+    if (!(w < v)) break;
+    const saved = v - w;
+    x = y; v = w;
+    if (saved < 1e-4) break;
+  }
+  const s = at(x);
+  if (!s) return null;
+  const c = cost(s.v1, s.v2) + s.midDv;
+  if (!Number.isFinite(c)) return null;
+  return { ...s, cost: c, brokenMean, turnDeg: planeTurn(s), heightDeg: Math.asin(Math.max(-1, Math.min(1, dot(s.r, n) / norm(s.r)))) * 180 / Math.PI };
 }
 
 // The ratios a resonant return can take: N of the body's periods for M of
@@ -772,7 +843,7 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     const P = S[leg.index], Q = S[leg.index + 1];
     const name = (k) => bodyInfo(k).name;
     if (leg.depDv > 0) burns.push({ ms: leg.depMs, body: P.body, dv: leg.depDv, kind: P.kind === 'land' ? 'ascend' : 'depart', label: `${P.kind === 'land' ? 'Lift off from' : 'Leave'} ${name(P.body)}`, leg: leg.index });
-    if (leg.midDv > 0) burns.push({ ms: leg.mid?.ms ?? (leg.arcs[1]?.t1 ?? leg.depMs), body: leg.central, dv: leg.midDv, kind: 'mid', label: leg.geometry === 'local' ? 'Transfer burn' : leg.brokenPlane ? 'Plane change' : 'Apoapsis burn', leg: leg.index });
+    if (leg.midDv > 0) burns.push({ ms: leg.mid?.ms ?? (leg.arcs[1]?.t1 ?? leg.depMs), body: leg.central, dv: leg.midDv, kind: 'mid', label: leg.geometry === 'local' ? 'Transfer burn' : leg.deepSpace ? 'Deep-space burn' : leg.brokenPlane ? 'Plane change' : 'Apoapsis burn', leg: leg.index });
     for (const n of leg.nodes ?? []) if (n.dv > 0) burns.push({ ms: n.ms, body: leg.central, dv: n.dv, kind: 'node', label: 'Node burn', leg: leg.index, node: n.id });
     const fb = flybys[leg.index];
     if (fb && fb.dv > 0) burns.push({ ms: fb.ms, body: Q.body, dv: fb.dv, kind: 'flyby', label: `Powered flyby of ${name(Q.body)}`, leg: leg.index });
@@ -819,7 +890,8 @@ export function nodeFrame(r, v) {
 // planned arc's velocity, or, after a flyby aimed by hand, the flyby's own
 // outgoing velocity), two-body about the central body, with each node's
 // burn (prograde, normal, radial km/s) at its time. A leg of two arcs (a
-// broken plane, or a bi-elliptic leg) keeps its burn at the break: there
+// deep-space burn, a broken plane, or a bi-elliptic leg) keeps its burn at
+// the break: there
 // the craft is put on the planned second arc's velocity, whatever it came
 // in with, so the burn costs what the nodes before it left it to do. It
 // arrives where it arrives: the miss from the target at the arrival date
@@ -866,6 +938,7 @@ export function shapeLeg(leg, Q, nodes, from = null) {
   out.arrDv = leg.ringArr ? leg.arrDv : arriveCost(Q, out.vinfArr, B, moonAt(g.viaB, leg.to, leg.arrMs));
   out.midDv = midDv;
   if (out.brokenPlane) out.brokenPlane = { ...out.brokenPlane, dv: midDv };
+  if (out.deepSpace) out.deepSpace = { ...out.deepSpace, dv: midDv };
   out.reaches = out.missKm < (leg.ringArr ? 0.05 * norm(target) : Math.max(sphereOfInfluence(leg.endB ?? leg.to), B.radius * 2));
   out.shaped = true;
   return { leg: out, flyby };
@@ -915,8 +988,10 @@ const lon = (key, central, ms) => { const s = relState(key, central, ms); return
 //               next window (Curtis 8.13-8.16)
 //   bielliptic  three burns via a far apoapsis, flagged where it beats Hohmann
 //   planechange Hohmann with the planes' angle split between its burns
-//   direct      near 180 degrees, where the leg is flown on a broken plane:
-//               the direct arc on one plane, for comparison
+//   brokenplane near 180 degrees, where the leg is flown with a deep-space
+//               burn: the broken plane, for comparison
+//   direct      near 180 degrees (a deep-space burn or a broken plane): the
+//               direct arc on one plane, for comparison
 //   porkchop    the cheapest departure and flight time near the window
 //               (a Lambert grid refined by Nelder-Mead, as trajsearch.js)
 //   phasing     an orbit change in the same orbit: to a point leadDeg ahead
@@ -941,11 +1016,23 @@ export function legOptions(journey, k, { search = true } = {}) {
   // already.
   const plane = planePricer(sol, k);
   const legDv = (L) => L.depDv + L.arrDv + L.midDv + joinIn(L) + (plane && L !== asIs ? plane(L) : 0);
-  if (asIs.ok && g.kind !== 'local') options.push({ type: 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : asIs.brokenPlane ? 'Broken plane, as scheduled' : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch, ...(asIs.brokenPlane ? { note: `${asIs.brokenPlane.angleDeg.toFixed(1)}° round the ${C.name}: the plane turned ${asIs.brokenPlane.turnDeg.toFixed(2)}° on the way, for ${(asIs.brokenPlane.dv * 1000).toFixed(0)} m/s` } : {}) });
-  // Near 180 degrees, the direct arc on one plane, for comparison.
-  if (asIs.ok && asIs.brokenPlane) {
-    const D = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'direct', vinfIn: inbound?.ok && inbound.vinfArr && P.kind === 'flyby' ? norm(inbound.vinfArr) : null });
-    if (D.ok) options.push({ type: 'direct', name: 'Direct, one plane', dv: legDv(D), tofDays: D.tofDays, depMs: D.depMs, arrMs: D.arrMs, revs: D.revs, branch: D.branch, note: `its plane tilted ${asIs.brokenPlane.directIncDeg?.toFixed(1)}° to the departure's: ill-defined this near 180°, and dear to fly` });
+  const ds = asIs.ok ? asIs.deepSpace : null, bpl = asIs.ok ? asIs.brokenPlane : null, near = ds ?? bpl, ms = (x) => `${(x * 1000).toFixed(0)} m/s`;
+  if (asIs.ok && g.kind !== 'local') options.push({ type: 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : ds ? 'Deep-space burn, as scheduled' : bpl ? 'Broken plane, as scheduled' : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch,
+    ...(ds ? { note: `${ds.angleDeg.toFixed(1)}° round the ${C.name}: ${ms(ds.dv)} on ${new Date(ds.ms).toISOString().slice(0, 10)}, ${ds.heightDeg.toFixed(2)}° off the departure's plane, reshapes the transfer` } : bpl ? { note: `${bpl.angleDeg.toFixed(1)}° round the ${C.name}: the plane turned ${bpl.turnDeg.toFixed(2)}° on the way, for ${ms(bpl.dv)}` } : {}) });
+  // Near 180 degrees, the broken plane (beside a deep-space burn) and the
+  // direct arc on one plane, for comparison.
+  const vinIn = inbound?.ok && inbound.vinfArr && P.kind === 'flyby' ? norm(inbound.vinfArr) : null;
+  if (ds) {
+    const B = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'brokenplane', vinfIn: vinIn });
+    if (B.ok && B.brokenPlane) {
+      const d = legDv(B) - legDv(asIs), mean = ds.brokenMeanDv - ds.meanDv;
+      options.push({ type: 'brokenplane', name: 'Broken plane', dv: legDv(B), tofDays: B.tofDays, depMs: B.depMs, arrMs: B.arrMs, revs: 0, branch: 'single',
+        note: `the plane turned ${B.brokenPlane.turnDeg.toFixed(2)}° on the way, for ${ms(B.brokenPlane.dv)}; ${d >= 0 ? `${ms(d)} dearer` : `${ms(-d)} cheaper on the day, for the ${bodyInfo(P.body).name}'s phase`}${g.viaA || g.viaB ? `, ${ms(mean)} dearer at the mean phase` : ''}` });
+    }
+  }
+  if (near) {
+    const D = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'direct', vinfIn: vinIn });
+    if (D.ok) options.push({ type: 'direct', name: 'Direct, one plane', dv: legDv(D), tofDays: D.tofDays, depMs: D.depMs, arrMs: D.arrMs, revs: D.revs, branch: D.branch, note: `its plane tilted ${near.directIncDeg?.toFixed(1)}° to the departure's: ill-defined this near 180°, and dear to fly` });
   }
 
   if (g.kind === 'local') {
@@ -1069,8 +1156,11 @@ const assistOption = (fb, Q) => ({ type: 'assist', name: `Gravity assist at ${bo
 
 // A grid of departure (span days from the earliest; none if fixed) by
 // flight time (tMin to tMax days), then Nelder-Mead from the best cell.
+// (The grid and the search price a leg near 180 degrees on its broken
+// plane, a fortieth of the cost; the optimum found is priced with its
+// deep-space burn.)
 function porkchopSearch(P, Q, g, earliest, fixed, tMin, tMax, legDv, span = 0, nDep = null) {
-  const legAt = (dep, tofD) => solveLeg(P, Q, dep, dep + tofD * DAY_MS, { maxRevs: g.kind === 'between' ? 1 : 0 });
+  const legAt = (dep, tofD, dsm = false) => solveLeg(P, Q, dep, dep + tofD * DAY_MS, { maxRevs: g.kind === 'between' ? 1 : 0, dsm });
   const f = (dep, tofD) => { if (!(tofD > 0.5) || dep < earliest || dep > earliest + span * DAY_MS + 1) return Infinity; const L = legAt(dep, tofD); return L.ok ? legDv(L) : Infinity; };
   if (fixed) span = 0;
   const nD = span > 0 ? (nDep ?? (g.kind === 'between' ? 28 : 10)) : 1, nT = g.kind === 'between' ? 24 : 10;
@@ -1084,7 +1174,7 @@ function porkchopSearch(P, Q, g, earliest, fixed, tMin, tMax, legDv, span = 0, n
   const dT = (tMax - tMin) / nT;
   const p = nD === 1 ? nelderMead(([t]) => f(earliest, t), [best.tofD], [dT]) : nelderMead(([d, t]) => f(d * DAY_MS, t), [best.dep / DAY_MS, best.tofD], [span / nD, dT]);
   const dep = nD === 1 ? earliest : p[0] * DAY_MS, tofD = nD === 1 ? p[0] : p[1];
-  const L = legAt(dep, tofD);
+  const L = legAt(dep, tofD, true);
   return L.ok ? { type: 'porkchop', name: 'Porkchop optimum', dv: legDv(L), tofDays: tofD, depMs: dep, arrMs: dep + tofD * DAY_MS, revs: L.revs, branch: L.branch } : null;
 }
 
@@ -1103,7 +1193,7 @@ export function applyOption(journey, k, o) {
   if (o.type === 'resonance') w.resonance = o.resonance;
   w.chosen = o.type;
   w.revs = o.revs; w.branch = o.branch;
-  if (o.type === 'lambert' || o.type === 'direct') return j;
+  if (o.type === 'lambert' || o.type === 'direct' || o.type === 'brokenplane') return j;
   const sol = solveJourney(journey), P = sol.stops[k];
   if (k === 0) j.start.dateMs = o.depMs;
   else if (P.kind !== 'flyby') j.waypoints[k - 1].stayDays = Math.max(0, (o.depMs - P.arrMs) / DAY_MS);

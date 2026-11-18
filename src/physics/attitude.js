@@ -50,8 +50,24 @@
 // fired as couples, each thruster rcsArm[i] from axis i, so a torque tau_i
 // takes |tau_i| / rcsArm[i] of thrust between them. A.rcsImpulse (N s)
 // adds that up: the held torque over each controlled step, and while
-// locked the disturbance it is held against. The craft turns it into
+// locked the hold's limit cycle (holdThrust). The craft turns it into
 // propellant at the thrusters' Isp (craftAttitude.js).
+//
+// The hold: on-off thrusters keep the attitude within +-deadband (rad) of
+// the reference by pulses of at least impulseBit (N s a thruster), each a
+// couple's rate change dw = 2 impulseBit L / I about its axis. Per axis,
+// with the disturbance tau there and eps = (|tau| / L) / R2, where R2 =
+// impulseBit^2 L / (deadband I) is the centred two-sided cycle's mean
+// thrust (Jackson et al.'s worst case without a disturbance), the cycle
+// the deadband controller settles into costs, on average:
+//   eps < 2/9         two-sided, its drift rates walked across by the
+//                     disturbance: 2/3 R2 (the centred cycle's 4x(1-x)
+//                     averaged over a uniform phase x)
+//   2/9 <= eps < 3/4  two pulses downwind to one upwind: 3 |tau| / L
+//   eps >= 3/4        one-sided, against the disturbance: |tau| / L
+// in closed form, since a locked hold is not integrated
+// (docs/physics/sixdof.md#the-holds-limit-cycle). Without a deadband or a
+// bit, the hold pays the disturbance alone.
 //
 // Steps: under control, one RK4 step per control period (cut at frame
 // edges and breakpoints, the held torque carried across); without it, RK4
@@ -153,12 +169,14 @@ export function slewTime(spec, theta, e, thetaEnd = LOCK_ANGLE) {
 // A craft's attitude. spec: { inertia (3x3 kg m^2, body axes), torqueMax
 // ([N m] per body axis), rateMax (rad/s), cp (body m, the centre of
 // pressure from the centre of mass), cdA (m^2), rcsArm ([m] per body
-// axis, or null: no propellant counted) }; q, omega the start;
+// axis, or null: no propellant counted), deadband (rad, the hold's half
+// width) and impulseBit (N s a thruster, or [N s] per body axis), or
+// null: the hold pays only the disturbance }; q, omega the start;
 // mode. For checks: torque(t) (body-axis torque pulses), breakpoints,
 // fixedStep (s, every step without control).
-export function makeAttitude({ inertia, torqueMax, rateMax = 0.05, cp = [0, 0, 0], cdA = 0, rcsArm = null, q = [1, 0, 0, 0], omega = [0, 0, 0], mode = 'off', t = 0, gravityGradient = true, torque = null, breakpoints = [], fixedStep = null, hMax = 30 }) {
+export function makeAttitude({ inertia, torqueMax, rateMax = 0.05, cp = [0, 0, 0], cdA = 0, rcsArm = null, deadband = null, impulseBit = null, q = [1, 0, 0, 0], omega = [0, 0, 0], mode = 'off', t = 0, gravityGradient = true, torque = null, breakpoints = [], fixedStep = null, hMax = 30 }) {
   return {
-    spec: { inertia, torqueMax, rateMax, cp, cdA, rcsArm },
+    spec: { inertia, torqueMax, rateMax, cp, cdA, rcsArm, deadband, impulseBit },
     q: quatNormalize(q), omega: [...omega], mode, t,
     holdQ: quatNormalize(q),          // the inertial mode's attitude
     held: [0, 0, 0],                  // the controller's torque, held to nextSample
@@ -177,6 +195,32 @@ export function makeAttitude({ inertia, torqueMax, rateMax = 0.05, cp = [0, 0, 0
 export function rcsThrust(spec, tau) {
   const L = spec.rcsArm;
   return L ? Math.abs(tau[0]) / L[0] + Math.abs(tau[1]) / L[1] + Math.abs(tau[2]) / L[2] : 0;
+}
+
+// The limit cycles of a hold within the deadband against the disturbance
+// tau (body axes, N m), axis by axis: [{ eps (the disturbance's thrust
+// over R2), regime ('drift', 'two-one' or 'one-sided'), thrust (N, the
+// cycle's mean), dw (rad/s, a pulse's rate change), period (s, the
+// centred two-sided cycle's: 8 deadband / dw) }], or null without a
+// deadband, a bit or arms. The inertia's diagonal is taken as principal.
+export function limitCycle(spec, tau) {
+  const { rcsArm: L, impulseBit: bit, deadband: d, inertia: I } = spec;
+  const bits = Array.isArray(bit) ? bit : [bit, bit, bit];
+  if (!L || !bits.every((x) => x > 0) || !(d > 0)) return null;
+  return [0, 1, 2].map((i) => {
+    const b = bits[i], Ii = I[i][i], R2 = b * b * L[i] / (d * Ii), Rd = Math.abs(tau[i]) / L[i], eps = Rd / R2, dw = 2 * b * L[i] / Ii;
+    const regime = eps < 2 / 9 ? 'drift' : eps < 3 / 4 ? 'two-one' : 'one-sided';
+    const thrust = regime === 'drift' ? 2 / 3 * R2 : regime === 'two-one' ? 3 * Rd : Rd;
+    return { eps, regime, thrust, dw, period: 8 * d / dw };
+  });
+}
+
+// The mean thrust (N) a locked hold costs against the disturbance tau:
+// the limit cycles' (limitCycle), or without them the disturbance's,
+// sum |tau_i| / rcsArm[i].
+export function holdThrust(spec, tau) {
+  const c = limitCycle(spec, tau);
+  return c ? c[0].thrust + c[1].thrust + c[2].thrust : rcsThrust(spec, tau);
 }
 
 // A new inertia tensor (kg m^2, body axes), as propellant is drawn: the
@@ -318,8 +362,9 @@ function freeStep(A, t, env) {
 // { dir }, or null for an inertial hold, its axis d0). Returns the steps
 // taken.
 export function advanceAttitude(A, t1, env, record = null) {
-  const model = modelFor(A, env);
-  let steps = 0;
+  // (The sixdof model only when a step is integrated: a locked hold whose
+  // inertia falls with its tank each frame doesn't build it again.)
+  let model = null, steps = 0;
   if (!(t1 > A.t)) return 0;
   // Locked: still held if the disturbance is well inside the limit.
   if (A.locked) {
@@ -332,7 +377,7 @@ export function advanceAttitude(A, t1, env, record = null) {
       A.q = ref.q;
       A.omega = matTVec(quatToMatrix(ref.q), ref.w);
       A.t = t1;
-      A.rcsImpulse += rcsThrust(A.spec, A.disturbance) * (t1 - t0);
+      A.rcsImpulse += holdThrust(A.spec, A.disturbance) * (t1 - t0);
       record?.({ t0, t1, d0, d1: thrustAxis(A.q), lock: ref.frame });
       break;
     }
@@ -357,7 +402,7 @@ export function advanceAttitude(A, t1, env, record = null) {
       end = Math.min(A.t + (A.fixedStep ?? freeStep(A, A.t, env)), t1, nb);
     }
     const t0 = A.t, d0 = thrustAxis(A.q);
-    rk4(model, A, t0, end - t0, env.at);
+    rk4(model ??= modelFor(A, env), A, t0, end - t0, env.at);
     A.t = Math.abs(end - t1) < 1e-9 ? t1 : end;
     if (A.mode !== 'off') A.rcsImpulse += rcsThrust(A.spec, A.held) * (A.t - t0);
     steps++;

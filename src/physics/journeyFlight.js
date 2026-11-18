@@ -229,10 +229,10 @@ export function planFlight(sol) {
     // a quarter of the way round.
     const back = (leg.endB ?? Q.body) === (leg.endA ?? P.body);
     const first = Math.max(afterNodes, leg.mid ? leg.mid.ms : leg.depMs + (back ? 0.25 * dur : Math.min(clearP, 0.3 * dur)));
-    // A broken plane: aimed at its break point first, while the craft is
+    // A broken plane or a deep-space burn: aimed at its point B first, while the craft is
     // near the departure (from there the target is near 180 degrees away),
     // unless nodes before the break shape the way there.
-    if (leg.brokenPlane && !nodes.some((n) => n.ms < leg.mid.ms)) events.push({ kind: 'aim', ms: leg.depMs + Math.min(clearP, 0.3 * (leg.mid.ms - leg.depMs)), body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central });
+    if ((leg.brokenPlane || leg.deepSpace) && !nodes.some((n) => n.ms < leg.mid.ms)) events.push({ kind: 'aim', ms: leg.depMs + Math.min(clearP, 0.3 * (leg.mid.ms - leg.depMs)), body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central });
     const aims = [{ kind: 'aim', ms: first, ...target }];
     // Reaching a moon via its planet, the way in falls through the planet's
     // well, where a miss grows fast: more aims on the way down, at a few

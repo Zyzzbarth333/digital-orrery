@@ -30,6 +30,11 @@
 //      the same bodies summed point by point, the tank's volume, the
 //      thrusters' sizing, and a turn by the stage the app flies; the
 //      MISSION tab's craft unchanged.
+//  10. The hold's limit cycle: the closed-form mean against a pulse-by-
+//      pulse simulation of the deadband controller on the default craft,
+//      without a disturbance and with one (two-sided, two pulses to one,
+//      one-sided), and against Jackson et al.'s centred two-sided cycle
+//      (AIAA GN&C 2007, NTRS 20080000345, eqs. (1)-(3)).
 //
 // Fixture: fixtures/nesc_orbital.json (npm run fetch:nesc).
 
@@ -38,8 +43,8 @@ import fs from 'node:fs';
 import { runCase, CASES, VEHICLES, MU } from './nesc.lib.mjs';
 import { euler321, makeModel, propagate6dof } from './sixdof.js';
 import { transpose, quatToMatrix } from './rigidbody.js';
-import { makeAttitude, advanceAttitude, setMode, setInertia, rcsThrust, slewTime, minSlewTime, alphaAbout, attitudeError, pointing, orbitalFrame, controlTorque, thrustAxis, CONTROL_PERIOD } from './attitude.js';
-import { DEFAULT_ATTITUDE, propellantInertia, inertiaFor, AUTO_MARGIN, AUTO_PAD, stageAttitude, STAGE_DENSITY } from './craftAttitude.js';
+import { makeAttitude, advanceAttitude, setMode, setInertia, rcsThrust, holdThrust, limitCycle, slewTime, minSlewTime, alphaAbout, attitudeError, pointing, orbitalFrame, controlTorque, thrustAxis, CONTROL_PERIOD } from './attitude.js';
+import { DEFAULT_ATTITUDE, propellantInertia, inertiaFor, AUTO_MARGIN, AUTO_PAD, stageAttitude, STAGE_DENSITY, RCS_MIN_ON } from './craftAttitude.js';
 import { LAUNCHERS } from './launchers.js';
 import { Craft } from './craft.js';
 import { createKernelHost, stepCraft, KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
@@ -192,6 +197,10 @@ header('3. A BURN ALONG THE BODY AXIS HELD PROGRADE');
     // At the frame that reaches the burn's start: the turn and the burn
     // (along the body axis) from there.
     if (k === tb0 * 4) {
+      // (The point mass burns from the held craft's mass: the hold's limit
+      // cycle has taken 78 mg from its tank by then, which alone would put
+      // them 1 cm apart at 600 s.)
+      pm.burns[0].m0 = sx.mass;
       for (const c of [sx, sl]) { if (c === sl) c.att.setMode('prograde'); c.burns.push({ t0: t, t1: T0 + tb1, dir: c.bodyAxis, F: c.thrust, m0: c.mass, mdot: c.thrust / c.ve, kind: 'manual', axis: true }); }
     }
   }
@@ -350,16 +359,17 @@ const G0 = 9.80665;
   console.log(`  90 deg slew to prograde in low orbit: ${J.toFixed(2)} N s (closed form ${want.toFixed(2)} N s), ${(used * 1e3).toFixed(2)} g from the tank, ${(c.att.rcsSpent * 1e3).toFixed(2)} g counted`);
   check('the craft\'s slew to prograde within 1 % of 2 I omega_max / arm (the orbital frame turning under it)', Math.abs(J / want - 1) < 0.01);
   check('the tank loses J / (Isp g0), to 1e-12 kg', Math.abs(used - J / (DEFAULT_ATTITUDE.rcsIsp * G0)) < 1e-12);
-  // Held there, against the gravity gradient: the impulse is the
-  // disturbance it holds against, |tau_i| / arm_i, each frame's (found at
-  // the frame's start) for its second.
+  // Held there, against the gravity gradient: the impulse is the hold's
+  // limit cycle (section 9), each frame's (its disturbance found at the
+  // frame's start) for its second.
   const Jl = c.att.A.rcsImpulse, tl = c.clockT;
-  let wantHeld = 0;
-  for (let k = 1; k <= 60; k++) { frame(tl + k); wantHeld += rcsThrust({ rcsArm: DEFAULT_ATTITUDE.rcsArm }, c.att.A.disturbance); }
-  const held = c.att.A.rcsImpulse - Jl;
-  console.log(`  held prograde for 60 s: ${held.toExponential(3)} N s against ${norm(c.att.A.disturbance).toExponential(1)} N m of gravity gradient (sum |tau_i| / arm_i dt: ${wantHeld.toExponential(3)} N s)`);
+  let wantHeld = 0, wantDist = 0;
+  for (let k = 1; k <= 60; k++) { frame(tl + k); wantHeld += holdThrust(c.att.A.spec, c.att.A.disturbance); wantDist += rcsThrust(c.att.A.spec, c.att.A.disturbance); }
+  const held = c.att.A.rcsImpulse - Jl, hold = c.att.hold();
+  console.log(`  held prograde for 60 s: ${held.toExponential(3)} N s (the limit cycle's mean: ${wantHeld.toExponential(3)} N s; the ${norm(c.att.A.disturbance).toExponential(1)} N m of gravity gradient alone: ${wantDist.toExponential(3)} N s); ${(hold.rate * 86400).toFixed(3)} kg a day, regimes ${hold.axes.map((a) => a.regime).join(', ')}`);
   // (to 1e-6: a frame's second is the difference of clock times near 1e9 s)
-  check('held, it pays only for the disturbance it holds against (to 1e-6 relative)', c.att.locked && wantHeld > 0 && Math.abs(held / wantHeld - 1) < 1e-6);
+  check('held, it pays the limit cycle\'s mean (to 1e-6 relative), far more than the disturbance alone', c.att.locked && wantHeld > 0 && Math.abs(held / wantHeld - 1) < 1e-6 && held > 100 * wantDist);
+  check('the readout\'s hold rate is the same impulse at the thrusters\' Isp', Math.abs(hold.rate * 60 / (wantHeld / (DEFAULT_ATTITUDE.rcsIsp * G0)) - 1) < 1e-6);
   // An empty tank: the thrusters stop and the engine is cut.
   c.fuel = 1e-6; c.att.setMode('radial');
   frame(c.clockT + 1);
@@ -470,8 +480,9 @@ header('9. A STAGE\'S ATTITUDE');
 // m (R^2 / 4 + h^2 / 12). Checked here against the bodies themselves,
 // their mass summed point by point (midpoint rule) as sum dm r_perp^2.
 {
-  // The MISSION tab's craft is as it was.
-  const was = { inertia: [[1000, 0, 0], [0, 1625, 0], [0, 0, 1625]], propellant: 500, torqueMax: [20, 40, 40], rcsArm: [0.5, 1, 1], rcsIsp: 290, rateMax: 3 * D2R, cp: [-0.3, 0, 0], tanks: { offset: 0.6, radius: 0.37 } };
+  // The MISSION tab's craft is as it was (with its hold's deadband and
+  // impulse bit, section 10).
+  const was = { inertia: [[1000, 0, 0], [0, 1625, 0], [0, 0, 1625]], propellant: 500, torqueMax: [20, 40, 40], rcsArm: [0.5, 1, 1], rcsIsp: 290, deadband: 0.5 * D2R, impulseBit: 0.29, rateMax: 3 * D2R, cp: [-0.3, 0, 0], tanks: { offset: 0.6, radius: 0.37 } };
   check('the MISSION tab\'s craft keeps its spec (the 2 x 2 x 3 m box, its tanks and thrusters)', JSON.stringify(DEFAULT_ATTITUDE) === JSON.stringify(was));
   const START = new Date('2026-11-04T00:00:00Z'), T0 = kernelSeconds(START);
   const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), host = createKernelHost();
@@ -521,6 +532,12 @@ header('9. A STAGE\'S ATTITUDE');
   console.log(`  thrusters: ${sp.torqueMax.map((x) => (x / 1e3).toFixed(1)).join(', ')} kN m on arms ${sp.rcsArm.map((x) => x.toFixed(2)).join(', ')} m: ${f.map((x) => (x / 1e3).toFixed(2)).join(', ')} kN a thruster`);
   check(`full, alpha = tau / I matches the MISSION craft's on every axis (${a1.map((x) => (x * R2D).toFixed(3)).join(', ')} deg/s^2)`, a1.every((x, i) => Math.abs(x / a0[i] - 1) < 1e-12) && sp.rateMax === DEFAULT_ATTITUDE.rateMax);
   check('roll pairs at the skirt (R), pitch and yaw couples at the ends (L / 2); centre of pressure L / 10 behind', sp.rcsArm[0] === R && sp.rcsArm[1] === L / 2 && sp.rcsArm[2] === L / 2 && sp.cp[0] === -L / 10);
+  // Their least pulse: the default's on-time (0.29 N s at 20 N) of their
+  // own thrust, axis by axis, in the default's deadband; held without a
+  // disturbance, the stage pays its two-sided cycles.
+  const hold = holdThrust({ ...sp, inertia: inertiaFor(sp, st.fuel) }, [0, 0, 0]);
+  console.log(`  bits ${sp.impulseBit.map((x) => x.toFixed(1)).join(', ')} N s (${(RCS_MIN_ON * 1e3).toFixed(1)} ms of each thruster's thrust); held without a disturbance at 70 %, ${(hold / (sp.rcsIsp * G0) * 86400).toFixed(1)} kg a day`);
+  check('the stage\'s bits are its thrusters\' thrust times the default\'s 14.5 ms, in the same 0.5 deg deadband', sp.impulseBit.every((x, i) => Math.abs(x / (f[i] * 0.29 / 20) - 1) < 1e-12) && sp.deadband === DEFAULT_ATTITUDE.deadband && hold > 0);
   const el = LAUNCHERS.find((x) => x.key === 'electron') ?? LAUNCHERS.at(-1), et = el.stages.at(-1);
   const es = stageAttitude({ dryMass: (el.payload + et.dry) * 1000, fuel: et.prop * 1000, diameter: el.diameter, isp: et.isp });
   console.log(`  ${el.label}'s top: ${es.length.toFixed(2)} m long at ${es.density} kg/m^3, full diag(${es.inertia[0][0].toFixed(0)}, ${es.inertia[1][1].toFixed(0)}) kg m^2`);
@@ -546,6 +563,100 @@ header('9. A STAGE\'S ATTITUDE');
   console.log(`  90 deg slew: ${took.toFixed(2)} s, controller ${p.toFixed(2)} s; thrusters ${J.toFixed(0)} N s (2 I omega_max / arm ${wantJ.toFixed(0)}), ${(m0 - c.fuel).toFixed(2)} kg of propellant`);
   check('the stage settles within 6 % of slewTime for its inertia', Math.abs(took / p - 1) < 0.06);
   check('its thrusters\' impulse within 1 % of 2 I omega_max / arm (the orbital frame turning under it)', Math.abs(J / wantJ - 1) < 0.01);
+}
+
+header('10. THE HOLD\'S LIMIT CYCLE');
+// A locked hold is not integrated, so its thrusters are charged the limit
+// cycle's mean in closed form (attitude.js limitCycle). Here the deadband
+// controller is flown pulse by pulse instead, an axis at a time: sampled
+// every CONTROL_PERIOD, it fires one minimum bit (a couple, both
+// thrusters: the rate changes by dw = 2 b L / I) whenever the error is
+// past the deadband and still growing, under a constant disturbance
+// torque. Its mean thrust over the last 60 % of the run (the rest left to
+// settle) is compared with the closed form, for the default craft's pitch
+// and roll axes, from random starts within the deadband. With
+// 1/4 < eps < 3/4 some starts ride a one-sided cycle for hundreds of
+// cycles before the sampling tips them into two pulses to one, so those
+// run 3,000 cycles (a week of holding).
+//
+// The reference: Jackson, Gonzalez and Sims [AIAA GN&C 2007, NTRS
+// 20080000345], the centred two-sided cycle with no disturbance, a firing
+// every 4 theta_DB / (theta'' t_min) (their eq. (1)) and the propellant
+// rate n f theta'' t_min^2 / (4 Isp theta_DB) (eq. (2)), with n = 2
+// thrusters a firing, f t_min = b and theta'' t_min = dw.
+{
+  const sp = { ...DEFAULT_ATTITUDE, inertia: DEFAULT_ATTITUDE.inertia };
+  const b = sp.impulseBit, d = sp.deadband;
+  // Pulse by pulse: { thrust (N, the mean), gap (s, the mean time between
+  // firings) } over T s, the first 40 % left out.
+  const fly = (ax, tau, th0, w0, T) => {
+    const I = sp.inertia[ax][ax], L = sp.rcsArm[ax], dw = 2 * b * L / I, a = tau / I, h = CONTROL_PERIOD;
+    let th = th0, w = w0, n = 0, n0 = 0, t = 0, t0 = 0;
+    const N = Math.round(T / h), N0 = Math.round(0.4 * N);
+    for (let k = 0; k < N; k++) {
+      if (k === N0) { n0 = n; t0 = t; }
+      if (th > d && w > 0) { w -= dw; n++; } else if (th < -d && w < 0) { w += dw; n++; }
+      th += w * h + a * h * h / 2; w += a * h; t += h;
+    }
+    return { thrust: (n - n0) * 2 * b / (t - t0), gap: (t - t0) / (n - n0) };
+  };
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const G0s = DEFAULT_ATTITUDE.rcsIsp * G0;
+  // No disturbance, centred: the textbook's worst case.
+  for (const ax of [1, 0]) {
+    const I = sp.inertia[ax][ax], L = sp.rcsArm[ax], dw = 2 * b * L / I, cyc = limitCycle(sp, [0, 0, 0])[ax];
+    const R2 = 1.5 * cyc.thrust;
+    const sim = fly(ax, 0, 0, dw / 2, 20 * cyc.period);
+    // (eq. (2) in SI: n f theta'' t_min^2 / (4 Isp g0 theta_DB) kg/s, so
+    // n b dw / (4 theta_DB) of thrust)
+    const gapJ = 4 * d / dw, mdotJ = 2 * b * dw / (4 * G0s * d);
+    console.log(`  ${'xyz'[ax]}: centred, no disturbance: a firing every ${sim.gap.toFixed(2)} s (Jackson eq. (1): ${gapJ.toFixed(2)} s), ${(sim.thrust / G0s * 86400).toFixed(4)} kg a day (eq. (2): ${(mdotJ * 86400).toFixed(4)} kg a day)`);
+    check(`${'xyz'[ax]}: the centred cycle flown pulse by pulse is Jackson et al.'s, eqs. (1) and (2), to 0.5 %`, Math.abs(sim.gap / gapJ - 1) < 5e-3 && Math.abs(sim.thrust / G0s / mdotJ - 1) < 5e-3);
+    check(`${'xyz'[ax]}: the closed form without a disturbance is 2/3 of eq. (2), whose thrust is b^2 L / (deadband I)`, Math.abs(cyc.thrust / G0s / (2 / 3 * mdotJ) - 1) < 1e-12 && Math.abs(R2 / (b * b * L / (d * I)) - 1) < 1e-12);
+  }
+  // A disturbance eps R2 / L: the mean of six starts against the closed
+  // form. Two-sided drifting (eps < 2/9) and one-sided (eps >= 3/4):
+  // within 6 %. In the band 9/64 < eps < 1/4, where the drifting cycle
+  // gives way to two pulses to one and their mixtures, within 50 %. Two
+  // pulses to one (2/9 <= eps < 3/4): flown from that cycle (leaving the
+  // upwind edge at dw / 2), within 1 %; from random starts, between the
+  // one-sided cycle's third of it and all of it.
+  console.log('  axis  eps     regime     closed form   flown (mean of 6, min-max)  kg a day');
+  let worstOut = 0, worstIn = 0, worstTwo = 0, twoOk = true;
+  for (const ax of [1, 0]) {
+    const I = sp.inertia[ax][ax], L = sp.rcsArm[ax], dw = 2 * b * L / I, R2 = b * b * L / (d * I);
+    for (const eps of [0.003, 0.03, 0.1, 0.15, 0.2, 0.4, 0.6, 0.9, 2, 5]) {
+      const tau = [0, 0, 0]; tau[ax] = eps * R2 * L;
+      const cyc = limitCycle(sp, tau)[ax];
+      const T = (cyc.regime === 'drift' ? Math.max(300, 20 / eps) : cyc.regime === 'two-one' ? 1000 : 100) * cyc.period;
+      const runs = Array.from({ length: 6 }, () => fly(ax, tau[ax], (2 * rnd() - 1) * d, (2 * rnd() - 1) * dw, T).thrust);
+      const mean = runs.reduce((x, y) => x + y) / runs.length, err = Math.abs(mean / cyc.thrust - 1);
+      const band = eps > 9 / 64 && eps < 1 / 4;
+      let own = '';
+      if (cyc.regime === 'two-one') {
+        const f = fly(ax, tau[ax], -d, dw / 2, 200 * cyc.period).thrust;
+        worstTwo = Math.max(worstTwo, Math.abs(f / cyc.thrust - 1));
+        twoOk &&= runs.every((x) => x > cyc.thrust / 3 * 0.97 && x < cyc.thrust * 1.03);
+        own = `; from its own cycle ${(f / cyc.thrust).toFixed(3)}`;
+      } else if (band) worstIn = Math.max(worstIn, err); else worstOut = Math.max(worstOut, err);
+      console.log(`  ${'xyz'[ax]}     ${String(eps).padEnd(6)}  ${cyc.regime.padEnd(9)}  ${cyc.thrust.toExponential(3)} N   ${mean.toExponential(3)} N (${(Math.min(...runs) / cyc.thrust).toFixed(2)}-${(Math.max(...runs) / cyc.thrust).toFixed(2)})${band ? ' band' : ''}${own}   ${(cyc.thrust / G0s * 86400).toFixed(3)}`);
+    }
+  }
+  check(`two-sided drifting and one-sided: the closed form is the flown cycles' mean within 6 % (worst ${(worstOut * 100).toFixed(1)} %)`, worstOut < 0.06);
+  check(`two pulses to one, 3 |tau| / L: its own cycle flown within 1 % (worst ${(worstTwo * 100).toFixed(2)} %), and every random start between a third of it and all of it`, worstTwo < 0.01 && twoOk);
+  check(`in the band 9/64 < eps < 1/4, within 50 % (worst ${(worstIn * 100).toFixed(1)} %)`, worstIn < 0.50);
+  // Disturbance-dominated: exactly the disturbance's thrust.
+  const big = limitCycle(sp, [0, 0.05, 0])[1];
+  check('a disturbance past 3/4 of R2 is paid alone: one-sided, |tau| / L', big.regime === 'one-sided' && Math.abs(big.thrust - 0.05) < 1e-15);
+  // The default craft's hold, no disturbance, by hand: pitch and yaw
+  // R2 = 0.29^2 x 1 / (0.008727 x 1,625) = 5.93e-3 N, roll 0.29^2 x 0.5 /
+  // (0.008727 x 1,000) = 4.82e-3 N; 2/3 of the sum 1.112e-2 N, 0.338 kg a
+  // day at 290 s.
+  const all = holdThrust(sp, [0, 0, 0]);
+  console.log(`  the default craft held without a disturbance: ${all.toExponential(4)} N, ${(all / G0s * 86400).toFixed(3)} kg a day`);
+  check('held without a disturbance, the default craft pays 1.112e-2 N (0.338 kg a day)', Math.abs(all - 1.112e-2) < 1e-5);
+  check('without a deadband or a bit, a hold pays the disturbance alone', holdThrust({ ...sp, deadband: null }, [0, 1e-3, 0]) === rcsThrust(sp, [0, 1e-3, 0]));
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
