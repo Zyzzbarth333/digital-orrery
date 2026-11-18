@@ -220,7 +220,7 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
   { key: 'pulls', label: 'Pulls', colour: '#ff7a3d', title: 'The four strongest gravitational pulls on the focused body, GM / d²' },
   { key: 'magnetic', label: 'Magnetic fields', colour: '#f5f0e4', title: 'Field lines of Mercury (MESSENGER), Earth (IGRF-14), Ganymede (Juno), Jupiter (JRM33 and its current sheet), Saturn (Cassini 11), Uranus and Neptune (Voyager), shaded by field strength' },
   { key: 'aurora', label: 'Auroras', colour: '#52ff73', title: "The Earth's auroras: NOAA's live OVATION Prime map near now, Starkov's oval for the day's Kp otherwise; Jupiter's, Saturn's, Uranus's, Neptune's and Ganymede's auroral zones and the moons' footprints, in false colour" },
-  { key: 'belts', label: 'Radiation belts', colour: '#7fb8c9', title: "The Earth's inner and outer Van Allen belts, Jupiter's and Saturn's radiation belts, as shells along their L-shells in each planet's own field" },
+  { key: 'belts', label: 'Radiation belts', colour: '#7fb8c9', title: "The Earth's inner and outer Van Allen belts and the radiation belts of Jupiter, Saturn, Uranus and Neptune, as shells along their L-shells in each planet's own field" },
 ];
 
 // The moons each planet has in the rail (Earth's Moon is always shown).

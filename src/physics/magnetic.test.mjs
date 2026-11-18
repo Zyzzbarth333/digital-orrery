@@ -292,6 +292,14 @@ console.log('Radiation belts');
   const r = resample(line.points, 41, model), ends = [r.lat[0], r.lat[40]].map(Math.abs);
   check(Math.abs(rmax - 4) < 1e-6 && ends.every((l) => Math.abs(l - 60) < 0.01) && Math.abs(r.lat[20]) < 0.5,
     `dipole L = 4 shell: apex ${rmax.toFixed(6)}, feet at ${ends.map((l) => l.toFixed(3)).join(' and ')} deg (60), middle ${r.lat[20].toFixed(2)} deg`);
+  check(['earth', 'jupiter', 'saturn', 'uranus', 'neptune'].every((k) => BELTS[k]?.length) && !BELTS.mercury && !BELTS.ganymede,
+    'belts for the five planets that hold them; none for Mercury or Ganymede');
+  // Uranus's offset dipole brings its L = 5 shell nearer the planet on one side.
+  {
+    const U = magneticModel('uranus'), lines = traceShell(U, 5, 24, { eq: 1, pol: 24973 / 25559 });
+    const eqR = lines.map((l) => { let k = 0; for (let i = 1; i < l.strength.length; i++) if (l.strength[i] < l.strength[k]) k = i; return Math.hypot(l.points[3 * k], l.points[3 * k + 1], l.points[3 * k + 2]); });
+    check(Math.max(...eqR) - Math.min(...eqR) > 0.4, `Uranus's L = 5 shell crosses its magnetic equator between ${Math.min(...eqR).toFixed(2)} and ${Math.max(...eqR).toFixed(2)} R_U from the planet's centre (the dipole sits 0.31 R_U off)`);
+  }
   check(beltWeight(BELTS.earth[1], 4.6) === 1 && beltWeight(BELTS.earth[1], 3) === 0 && beltWeight(BELTS.earth[0], 2.5) === 0, 'belt weights: 1 at the peak, 0 at the edges and in the slot');
   // The inner belt comes nearest the Earth over the South Atlantic, where
   // the dipole's offset and tilt bring it down (the South Atlantic Anomaly):
