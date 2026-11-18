@@ -19,6 +19,7 @@ import {
   eccentricDipole, dipoleAngles, coeffIndex, OTD,
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
+import { BELTS, beltWeight, traceShell, resample } from './belts.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -234,6 +235,49 @@ console.log('Field lines');
   c[0] = g10; c[3] = 2 * g10 * z0;
   const e = eccentricDipole(c);
   check(Math.abs(e.centre[2] - z0) < 1e-12, `eccentric dipole of an axial offset: ${e.centre[2].toFixed(6)} (set ${z0})`);
+}
+
+// ---- Mercury: MESSENGER's offset dipole ----
+console.log("Mercury: MESSENGER (Anderson et al. 2012)");
+{
+  const M = magneticModel('mercury');
+  check(Math.abs(M.dipole.moment - 190) < 1e-9 && M.dipole.m[2] < 0 && Math.abs(M.dipole.centre[2] * 2440 - 479) < 1e-9,
+    `Mercury: 190 nT R_M^3, moment southward, centre 479 km north (Anderson et al.: 190, southward, 479 +- 6 km)`);
+  // An axial dipole moved z0 along its axis has g_n0 = n g10 z0^(n-1): the
+  // terms libinternalfield's anderson2012 file lists (-190, -74.6, -22.0, -5.7 nT).
+  const z0 = 479 / 2440, want = [-190, -74.6, -22.0, -5.7];
+  const got = want.map((_, i) => (i + 1) * -190 * z0 ** i);
+  check(got.every((g, i) => Math.abs(g - want[i]) < 0.06), `its expansion g10..g40 ${got.map((g) => g.toFixed(1)).join(', ')} nT (libinternalfield: ${want.join(', ')})`);
+  const c = new Array(24).fill(0);
+  want.forEach((g, i) => { c[coeffIndex(i + 1, 0)] = g; });
+  check(Math.abs(eccentricDipole(c).centre[2] * 2440 - 479) < 1, `the eccentric dipole of those terms sits ${(eccentricDipole(c).centre[2] * 2440).toFixed(0)} km north`);
+}
+
+// ---- radiation belts ----
+console.log('Radiation belts');
+{
+  // A centred dipole's L-shell reaches L at the equator and the surface at
+  // cos^2 lambda = 1 / L.
+  const model = { field: offsetDipole([0, 0, -30000], [0, 0, 0]), dipole: { m: [0, 0, -30000], centre: [0, 0, 0] }, rMax: 20 };
+  const [line] = traceShell(model, 4, 1, { eq: 1, pol: 1 });
+  let rmax = 0;
+  for (let i = 0; i < line.strength.length; i++) rmax = Math.max(rmax, Math.hypot(line.points[3 * i], line.points[3 * i + 1], line.points[3 * i + 2]));
+  const r = resample(line.points, 41, model), ends = [r.lat[0], r.lat[40]].map(Math.abs);
+  check(Math.abs(rmax - 4) < 1e-6 && ends.every((l) => Math.abs(l - 60) < 0.01) && Math.abs(r.lat[20]) < 0.5,
+    `dipole L = 4 shell: apex ${rmax.toFixed(6)}, feet at ${ends.map((l) => l.toFixed(3)).join(' and ')} deg (60), middle ${r.lat[20].toFixed(2)} deg`);
+  check(beltWeight(BELTS.earth[1], 4.6) === 1 && beltWeight(BELTS.earth[1], 3) === 0 && beltWeight(BELTS.earth[0], 2.5) === 0, 'belt weights: 1 at the peak, 0 at the edges and in the slot');
+  // The inner belt comes nearest the Earth over the South Atlantic, where
+  // the dipole's offset and tilt bring it down (the South Atlantic Anomaly):
+  // along the L = 1.25 shell, the lowest point of each line's weakest field.
+  const E = magneticModel('earth', new Date('2025-01-01T00:00:00Z'));
+  let low = [Infinity, 0, 0];
+  for (const l of traceShell(E, 1.25, 72, { eq: 6378.137 / 6371.2, pol: 6356.752 / 6371.2 })) {
+    let k = 0;
+    for (let i = 1; i < l.strength.length; i++) if (l.strength[i] < l.strength[k]) k = i;
+    const p = [l.points[3 * k], l.points[3 * k + 1], l.points[3 * k + 2]], h = (Math.hypot(...p) - 1) * 6371.2;
+    if (h < low[0]) low = [h, Math.asin(p[2] / Math.hypot(...p)) / DEG, Math.atan2(p[1], p[0]) / DEG];
+  }
+  check(low[2] > -80 && low[2] < -10 && low[1] < 0, `IGRF-14's L = 1.25 shell is lowest, ${low[0].toFixed(0)} km up, at ${low[1].toFixed(1)} N ${low[2].toFixed(1)} E: over the South Atlantic`);
 }
 
 if (failed) { console.log(`\n${failed} check(s) failed`); process.exit(1); }
