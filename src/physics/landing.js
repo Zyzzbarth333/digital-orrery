@@ -19,11 +19,24 @@
 //   entryPeriapsis({ mu, R, vinf, gammaDeg })
 //                                    the periapsis a drag-free hyperbola
 //                                    needs to meet the ground at gammaDeg
+//   designCapture({ r, v, mu, R, rc, accel })
+//                                    the capture before them: from the
+//                                    arrival hyperbola's periapsis into the
+//                                    circular orbit of radius rc, a finite
+//                                    burn in two halves, each at its own
+//                                    pitch from retrograde
+//   planCapture({ r, v, mu, R, rc, accel })
+//                                    the cheapest way into the circular
+//                                    orbit rc: that burn into a circular
+//                                    orbit near the periapsis, then a
+//                                    Hohmann transfer to rc
 //
 // The model is the one the patched conics price (an ideal descent costs the
 // circular speed of the low orbit) made flyable: a descent orbit, a braking
 // burn and a short last fall and stop, paying the losses a real descent
 // pays for slowing in a gravity field.
+
+import { hohmannCircular } from './transfers.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -49,6 +62,13 @@ export const DESCENT_PERIAPSIS_KM = 15;
 export function deorbitDv(mu, r0, rp) {
   const a = (r0 + rp) / 2;
   return Math.sqrt(mu / r0) - Math.sqrt(mu * (2 / r0 - 1 / a));
+}
+
+// The osculating semi-major axis and eccentricity vector of (r, v) about mu
+// (Curtis 4th ed. Eqs. 2.71 and 4.10).
+function elements(r, v, mu) {
+  const rn = norm(r), v2 = dot(v, v);
+  return { a: 1 / (2 / rn - v2 / mu), ev: scale(sub(scale(r, v2 - mu / rn), scale(v, dot(r, v))), 1 / mu) };
 }
 
 // Two-body flight with a steady thrust accel (km/s^2) along dirOf(r, v, t)
@@ -174,4 +194,104 @@ export function entryPeriapsis({ mu, R, vinf, gammaDeg = 12 }) {
   const vR = Math.sqrt(vinf * vinf + 2 * mu / R), h = R * vR * Math.cos(gammaDeg * Math.PI / 180);
   const e = Math.sqrt(1 + (vinf * h / mu) ** 2);
   return (h * h / mu) / (1 + e);
+}
+
+// The capture burn from the arrival hyperbola's periapsis (r, v there) into
+// the circular orbit of radius rc, at a steady thrust accel (km/s^2).
+// Impulsive, it is vp - sqrt(mu / rp) at the periapsis (Curtis 4th ed.
+// Eq. 8.58). Finite, it cannot be centred on the periapsis on a fast
+// capture (braking before it lowers the periapsis: a 6 km/s capture takes
+// minutes), and started there and held retrograde it ends eccentric (e about
+// 0.04 for 2 km/s at Mars, 100 s): the craft climbs while it is still faster
+// than circular and falls after. So the burn starts at the periapsis and is
+// flown in two halves, each held at its own pitch from retrograde in the
+// orbit's plane (negative: down, towards the body), and Newton on the two
+// pitches and the length puts the osculating orbit at its end on a = rc,
+// e = 0: three conditions, three unknowns. The loss over the impulse
+// (about 1 % at Mars) is paid in the burn, where it was meant to be.
+// Returns { dur, pitch: [p1, p2] (rad), dv, impulsive, end: { r, v }, a, e,
+// rMin, rc } or null (no such burn: too slow already, or Newton does not
+// converge within a pitch of 60 degrees). guess: [p1, p2, dur] to start
+// Newton from (by default retrograde, for the impulse's length).
+export function designCapture({ r, v, mu, R, rc, accel, dt = 0.5, guess = null }) {
+  const impulsive = norm(v) - Math.sqrt(mu / norm(r));
+  if (!(norm(v) > Math.sqrt(mu / rc))) return null;
+  const N = unit(cross(r, v)), P = unit(r), Q = cross(N, P);
+  const dirAt = (p) => (rr, vv) => { const V = unit(vv), I = unit(cross(V, unit(cross(rr, vv)))); return add(scale(V, -Math.cos(p)), scale(I, Math.sin(p))); };
+  const flown = ([p1, p2, dur]) => {
+    let rMin = norm(r);
+    const track = (rr) => { rMin = Math.min(rMin, norm(rr)); return false; };
+    const a = fly({ r, v, mu, R, accel, dirOf: dirAt(p1), stop: track, tMax: dur / 2, dt });
+    const b = a.ok ? fly({ r: a.r, v: a.v, mu, R, accel, dirOf: dirAt(p2), stop: track, tMax: dur / 2, dt }) : a;
+    track(b.r);
+    const el = elements(b.r, b.v, mu);
+    return { f: [(el.a - rc) / rc, dot(el.ev, P), dot(el.ev, Q)], end: { r: b.r, v: b.v }, ok: b.ok, rMin, a: el.a, e: norm(el.ev) };
+  };
+  const size = (f) => Math.hypot(f[0], f[1], f[2]);
+  let x = guess ? [...guess] : [0, 0, (norm(v) - Math.sqrt(mu / rc)) / accel], cur = flown(x);
+  for (let it = 0; it < 30 && cur.ok && size(cur.f) > 1e-10; it++) {
+    const hs = [1e-6, 1e-6, 1e-4 * x[2]], J = hs.map((h, j) => { const y = [...x]; y[j] += h; const g = flown(y).f; return g.map((gi, i) => (gi - cur.f[i]) / h); });
+    // J[j][i] = d f_i / d x_j; solve sum_j J[j][i] s_j = -f_i (Cramer).
+    const M = [0, 1, 2].map((i) => [J[0][i], J[1][i], J[2][i]]);
+    const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    const D = det(M);
+    if (!(Math.abs(D) > 0)) return null;
+    const step = [0, 1, 2].map((k) => det(M.map((row, i) => row.map((c, j) => (j === k ? -cur.f[i] : c)))) / D);
+    // Halved while it makes things worse.
+    let lam = 1, next = null;
+    for (let h = 0; h < 8; h++, lam /= 2) {
+      const y = x.map((xi, k) => xi + lam * step[k]);
+      if (!(y[2] > 0)) continue;
+      const c = flown(y);
+      if (c.ok && size(c.f) < size(cur.f)) { next = { y, c }; break; }
+    }
+    if (!next) break;
+    x = next.y; cur = next.c;
+  }
+  if (!cur.ok || cur.e > 1e-6 || Math.abs(cur.a - rc) > 0.01 || Math.abs(x[0]) > Math.PI / 3 || Math.abs(x[1]) > Math.PI / 3) return null;
+  return { dur: x[2], pitch: [x[0], x[1]], dv: accel * x[2], impulsive, end: cur.end, a: cur.a, e: cur.e, rMin: cur.rMin, rc };
+}
+
+// Into the circular orbit rc from the arrival hyperbola's periapsis (r, v),
+// for the least delta-v: designCapture's burn into the circular orbit of
+// radius rs, then a Hohmann transfer from rs to rc (Curtis 4th ed. Sec. 6.2)
+// if they differ. Holding a radius within the burn is dear: lowering the
+// end by 2 km within a 40 s burn at the Moon takes 14 degrees of pitch and
+// 3 % more. The Hohmann transfer is about v dr / 2r (a metre a second a
+// kilometre at Mars). rs: scanned over -0.5 to 2 times the burn's own
+// scale about the periapsis (accel dur^2 / 8, the height a burn that long
+// moves it), then golden section about the cheapest. Returns designCapture's
+// burn with rs, hohmann ({ dv1, dv2, total } or null when rs is within
+// 0.1 km of rc) and total (km/s), or null. The steps: 100 to the burn, from
+// 0.25 to 2 s (the orbit turns a few degrees over the burn: RK4 is good to
+// millimetres there).
+export function planCapture({ r, v, mu, R, rc, accel }) {
+  const rp = norm(r), d0 = (norm(v) - Math.sqrt(mu / rp)) / accel, L = accel * d0 * d0 / 8;
+  if (!(d0 > 0)) return null;
+  const dt = Math.min(2, Math.max(0.25, d0 / 100));
+  const memo = new Map();
+  let warm = null;
+  const at = (rs) => {
+    if (memo.has(rs)) return memo.get(rs);
+    const c = rs > R ? (designCapture({ r, v, mu, R, rc: rs, accel, dt, guess: warm }) ?? (warm ? designCapture({ r, v, mu, R, rc: rs, accel, dt }) : null)) : null;
+    if (c) warm = [c.pitch[0], c.pitch[1], c.dur];
+    const h = c && Math.abs(rs - rc) > 0.1 ? hohmannCircular(mu, rs, rc) : null;
+    const res = c ? { ...c, rs, hohmann: h && { dv1: h.dv1, dv2: h.dv2, total: h.total }, total: c.dv + (h ? h.total : 0) } : null;
+    memo.set(rs, res);
+    return res;
+  };
+  const cost = (rs) => at(rs)?.total ?? Infinity;
+  const xs = [];
+  for (let k = 0; k <= 10; k++) xs.push(rp + L * (-0.5 + 0.25 * k));
+  // (rc itself too, which a capture already near it often is best at.)
+  let best = xs.concat([rc]).reduce((b, x) => (cost(x) < cost(b) ? x : b), rp);
+  if (!Number.isFinite(cost(best))) return null;
+  const g = (Math.sqrt(5) - 1) / 2;
+  let a = best - 0.25 * L, b = best + 0.25 * L, c1 = b - g * (b - a), c2 = a + g * (b - a);
+  for (let i = 0; i < 14; i++) {
+    if (cost(c1) < cost(c2)) { b = c2; c2 = c1; c1 = b - g * (b - a); }
+    else { a = c1; c1 = c2; c2 = a + g * (b - a); }
+  }
+  for (const x of [c1, c2]) if (cost(x) < cost(best)) best = x;
+  return at(best);
 }

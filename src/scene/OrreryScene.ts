@@ -36,6 +36,8 @@ import type { SimClock } from '../app/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, systemOf, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, shadowAxes } from './bodyMaterial';
 import { makeRings, tauTexture, type RingProfile } from './rings';
+import { JupiterRings, makeNeptuneRings, makeUranusRings, type PpsFile, type RingFrame } from './ringSystems';
+import { jdFromTt } from '../physics/rings.js';
 import { makeStarPoints, makeStars, resetStars, setStarScale, setStarTwinkle } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
@@ -86,6 +88,9 @@ const TONE: Record<string, [THREE.ToneMapping, number]> = {
 // drawn well below white beside the point stars.
 const MILKY_WAY_GAIN = 0.5;
 const [TONE_MAPPING, EXPOSURE_1AU] = TONE[new URLSearchParams(location.search).get('tone') ?? 'neutral'] ?? TONE.neutral;
+// ?exposure=N lengthens the exposure N times, as faint rings are imaged
+// (docs/frontend/rings.md#seeing-them).
+const EXPOSURE_GAIN = Math.max(1e-3, Number(new URLSearchParams(location.search).get('exposure')) || 1);
 // Bodies whose surfaces are bare regolith (Lommel-Seeliger scattering):
 // these, and every moon but Titan, which is wrapped in haze.
 const AIRLESS: ReadonlySet<BodyKey> = new Set<BodyKey>(['mercury', 'moon', 'pluto',
@@ -219,6 +224,8 @@ export class OrreryScene {
   private surfaces: SurfaceLoader;
   private uploader: TextureUploader;
   private rings: THREE.Mesh | null = null;
+  // Jupiter's, Uranus's and Neptune's rings (ringSystems.ts).
+  private planetRings: { key: BodyKey; mesh: THREE.Mesh; update: (f: RingFrame) => void }[] = [];
   private stars: THREE.Mesh | null = null;
   private starPoints: THREE.Points | null = null;
   readonly dailyEarth = new DailyEarth();
@@ -480,6 +487,14 @@ export class OrreryScene {
           applyRingShadow(this.materials.get('saturn')!, tex, profile.innerKm / UNIT_KM, outerKm / UNIT_KM);
         });
       }
+      const addRings = (key: BodyKey, sys: { mesh: THREE.Mesh; update: (f: RingFrame) => void }) => {
+        this.planetRings.push({ key, mesh: sys.mesh, update: (f) => sys.update(f) });
+        this.scene.add(sys.mesh);
+      };
+      addRings('jupiter', new JupiterRings(UNIT_KM));
+      addRings('neptune', makeNeptuneRings(UNIT_KM));
+      const pps = m.rings?.uranus?.pps;
+      if (pps) void loadJson<PpsFile>(pps).then((file) => addRings('uranus', makeUranusRings(file, UNIT_KM)));
       const stars = m.stars;
       if (stars) {
         // The light between the stars, then the stars as points over it.
@@ -1089,7 +1104,7 @@ export class OrreryScene {
     // Meter for sunlight where the camera is (no closer than 0.2 AU, so the
     // view from beside the Sun is not exposed for its photosphere).
     const dCamAu = Math.max(0.2, Math.hypot(cam[0], cam[1], cam[2]) / AU_KM);
-    this.renderer.toneMappingExposure = EXPOSURE_1AU * dCamAu * dCamAu;
+    this.renderer.toneMappingExposure = EXPOSURE_1AU * EXPOSURE_GAIN * dCamAu * dCamAu;
     const inv = 1 / this.renderer.toneMappingExposure;
     for (const m of this.materials.values()) m.uniforms.invExposure.value = inv;
     // Drawings at a display level (orbit lines, craft lines, the star
@@ -1137,6 +1152,20 @@ export class OrreryScene {
       const c = caster('saturn');
       (u.planetAxes.value as THREE.Matrix3).copy(c.A);
       u.planetK.value = c.k;
+    }
+    if (this.planetRings.length) {
+      const jd = jdFromTt(ttSeconds(date.getTime()));
+      for (const r of this.planetRings) {
+        r.update({
+          planetPos: this.meshes.get(r.key)!.position,
+          poleEqj: bodyAxesEqj(r.key, date)[2] as Vec3,
+          toRender: (v) => toRender(eqjToEcl(v) as Vec3, new THREE.Vector3()),
+          sunPos, sunRadius: SUN_RADIUS_KM / UNIT_KM,
+          irradiance: this.materials.get(r.key)!.uniforms.irradiance.value as number,
+          caster: caster(r.key), jd,
+          pxAngle: (2 * Math.tan((this.camera.fov * Math.PI) / 360)) / Math.max(1, this.renderer.domElement.height),
+        });
+      }
     }
   }
 

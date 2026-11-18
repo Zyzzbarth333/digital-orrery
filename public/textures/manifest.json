@@ -157,6 +157,10 @@
       "innerKm": 70385.0,
       "outerKm": 141375.0,
       "credit": "Cassini UVIS 126 Tau occultation optical depth (Colwell et al.): NASA PDS Ring-Moon Systems Node."
+    },
+    "uranus": {
+      "pps": "uranus/rings_pps.json",
+      "credit": "Voyager 2 PPS occultation profiles (Esposito et al.): NASA PDS Ring-Moon Systems Node; orbits from French et al. 2024."
     }
   },
   "stars": {
