@@ -84,6 +84,8 @@ once it has releases. Until then, everything sits under Unreleased.
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
   Sun's corona shows when a body covers its disc (#63). The glare and the
   sky's dimming are checked from other planets and in transits (#67).
+- The faint belt's file is a quarter smaller, 17.4 MB instead of 23.1 MB,
+  so the haze loads sooner on a slow link (this pull request).
 
 ### The console
 - Source tags open each value's equation and source, set in a bundled
