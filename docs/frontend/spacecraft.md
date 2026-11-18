@@ -127,8 +127,11 @@ loads the clock's month (and the next or last near its ends), 0.1 to
   within 20 m. A day without data hands the camera back to the body in view.
 - **The plate:** distance from its centre (and height over its mean
   radius), speed about it, distance from the Sun and the Earth, light time,
-  which trajectory the clock is in, Horizons' revision date, and how the
-  app holds it, each with its source tag.
+  its sunlight (lit, a partial eclipse, or in eclipse and whose,
+  [lighting](lighting.md#objects-in-shadow)), which trajectory the clock is
+  in, Horizons' revision date, and how the app holds it, each with its
+  source tag. In a body's penumbra its marker dims a little, in its umbra
+  more.
 
 ## Performance
 

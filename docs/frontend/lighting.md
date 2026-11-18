@@ -372,13 +372,93 @@ display level as the night lights are: the totally eclipsed Moon shows dark
 copper, its colour and its brightening toward the umbra's edge kept. The
 direct sunlight of the penumbra is drawn as it is.
 
-**What is left out:** clouds, which cut off the lowest rays, and volcanic
-aerosols, which darken some eclipses by several magnitudes (the Danjon
-scale's range); sunlight scattered rather than refracted into the shadow,
-which García Muñoz and Pallé [10] show matters most after eruptions; the
-umbra's enlargement by the upper atmosphere (about 2 %); and refraction
-by other bodies' air (Titan's haze, Mars's thin air). The rays are
-treated as straight for their transmittance.
+**What is left out:** sunlight scattered rather than refracted into the
+shadow, which García Muñoz and Pallé [10] show matters most after
+eruptions, and refraction by other bodies' air (Titan's haze, Mars's thin
+air). The rays are treated as straight for their transmittance.
+
+**Danjon darkening is not modelled.** How dark a total lunar eclipse is
+(the Danjon scale, L = 0 to 4) is set mainly by aerosol in the
+stratosphere from volcanic eruptions, which can darken one by several
+magnitudes, and by clouds along the terminator, which cut off the lowest
+rays. A defensible model would need the stratospheric aerosol optical
+depth for the date, a record the app does not carry (the GloSSAC
+climatology would serve, a download), and cloud tops along the
+terminator, which no source gives for every past date. Without them the
+app draws a clear sky, so its eclipses are as bright as an atmosphere free
+of clouds and volcanic aerosol allows: brighter than most real ones.
+
+### The shadow's size
+
+The Earth's shadow on the Moon is larger than the solid Earth's: the air
+is opaque to grazing rays up to some height. Chauvenet's rule enlarged
+the shadow by 2 %, Danjon's by a 75 km layer [12]; Herald and Sinnott fit
+22,539 crater timings from 94 eclipses to an oblate Earth with a uniform
+layer 87 km high [13], the rule current predictions use. The Earth casts
+its shadow here as its ellipsoid with 87 km added to each semi-axis
+(`EARTH_OCCULTING_KM`). For 7 September 2025 at greatest eclipse that
+gives the umbra 0.7390° and the penumbra 1.2679° in radius, against
+EclipseWise's 0.7400° and 1.2691° by the same rule [14], and without the
+layer the umbra would be 1.8 % small (`umbra.test.mjs`; the rest is the
+oblate figure, here a sphere of the mean radius).
+
+### Every case
+
+Each kind of eclipse and shadow, and where it was checked on the GPU at a
+dated event:
+
+| Case | How | Checked |
+| --- | --- | --- |
+| A moon's shadow on its planet | the four casters whose penumbra reaches it, each frame | Galilean triple transit 24 Jan 2015; Tethys on Saturn 6 May 2025 |
+| The Moon's shadow on the Earth, a solar eclipse | the Moon as a caster on the ground, and on the air above it (below) | 8 Apr 2024, 18:17 UTC, over northern Mexico; 12 Aug 2026, 17:46 UTC, by Greenland |
+| A planet's shadow on its moons | the parent as a caster | 7 Sep 2025 (the Moon, copper); Mimas in Saturn's shadow |
+| Moons on each other (mutual events) | sibling moons as casters | Europa on Io, 15 Oct 2026, 15:58 UTC (608 km off centre); Ganymede on Callisto, 29 Oct 2026, 02:08 UTC |
+| Pluto and Charon | each the other's caster | none in the ephemeris's range: their mutual events ran 1985–1990 and return half of Pluto's 248-year orbit later, early in the 2100s |
+| Moons' shadows on rings | up to four moons on Saturn's, Uranus's and Neptune's flat rings (below) | Tethys across Saturn's rings, 21 Apr 2025, 10:00 UTC |
+| Rings' shadow on moons | the ring plane through the planet's centre, on its moons too | Mimas in the B ring's shadow, 4 Mar 2025, 23:00 UTC |
+| The planet's shadow on its rings | the planet as the rings' caster | Saturn's, Jupiter's, Uranus's and Neptune's |
+| The Earth from the Moon, eclipsing the Sun | the Earth's disc drawn over the Sun, the glare by the share of the Sun left | 7 Sep 2025: from the Moon's place the Sun is hidden and its glare off; the lit ring of air is under a pixel at that distance |
+| Craft, probes, satellites | the share of the Sun at their place (below) | `satellites.test.mjs`, `discs.test.mjs` |
+| Asteroids, comets, irregular moons | a focused one's sphere takes any body's shadow that reaches it | by construction: an irregular moon or a near-Earth asteroid passing through a planet's shadow |
+| Transits and occultations | the depth test and the glare's overlap | sub-pixel at the app's fixed 45° field of view: Venus in transit is 58″, a fifth of a pixel, the Moon over a planet the same |
+
+![Three cases before and after: the Moon's shadow on the Earth on 8 April 2024, hidden before by the air drawn over it; Tethys's shadow across Saturn's rings near the 2025 equinox; Mimas dark in the B ring's shadow](../images/eclipse-cases.jpg)
+
+**The air in a solar eclipse.** The Earth's atmosphere is drawn as a shell
+over the ground ([atmospheres](atmospheres.md)), and its scattered light
+had no shadow in it: the Moon's umbra and penumbra on the ground were
+hidden under air still lit as if the Sun were whole. Each view ray's
+scattered light is now dimmed by the share of the Sun the Moon leaves
+where the ray meets the ground, or at its lowest point if it misses it.
+
+**Moons on rings, rings on moons.** Saturn's, Uranus's and Neptune's flat
+rings take up to four moons' shadows, picked as the bodies' are with the
+rings' outer radius as the receiver's, each the overlap of the moon's disc
+and the Sun's. A moon's shadow reaches the rings only when the Sun is
+within a few degrees of their plane, near equinox, so it falls as a long
+spike across them, as Cassini saw in 2009; the rings are then dim, lit at
+a grazing angle. The rings' shadow on Saturn now uses the planet's centre
+and pole for the ring plane, so it falls on Saturn's moons too: a moon
+whose path to the Sun crosses the B ring near equinox goes dark, the slant
+optical depth through the ring tens of times its normal one. Jupiter's
+dust rings take no moons' shadows (moons of 8 to 80 km on rings thousands
+of km thick), and the narrow rings of Uranus and Neptune cast none on
+their moons (tens of km wide, under a pixel).
+
+### Objects in shadow
+
+Craft, probes and satellites are points, markers or small models, not
+bodies with a surface, so they take the share of the Sun's disc left at
+their place, $\nu$ (`discs.js sunlight`, Montenbruck and Gill [15]): the
+overlap of the Sun's disc and each body's seen from there, the deepest
+counting. The satellites take the Earth and the Moon (in the shader and
+on their models); a mission craft the kernel's bodies, as its solar
+pressure does; a probe beyond Earth orbit every body large enough, seen
+from it, to hide a twentieth of the Sun. Markers of craft and probes in a
+penumbra dim a little, in an umbra more, as the satellites' do, and their
+plates and the mission readout have a **Sunlight** row: *lit*, the share
+of the Sun in a penumbra (*43 % of the Sun, in the Earth's penumbra*), or
+*in eclipse, the Moon's umbra*.
 
 ## Saturn's rings
 
@@ -410,11 +490,8 @@ Jupiter's, Uranus's and Neptune's rings use the same layer photometry with
 $A$ split between dark particles and forward-scattering dust
 ([rings](rings.md#light)). Saturn's keeps a constant $A$ of 1.
 
-Not modelled yet: the moons' shadows on the rings (near equinox), the
-rings' shadows on Jupiter, Uranus and Neptune (their rings are too thin to
-show one at the scales drawn), and shadows on spacecraft and satellites
-(markers, not lit models; the satellites dim in a cylinder of the Earth's
-shadow, [satellites](satellites.md)). Earth's atmosphere is in
+Not modelled: the rings' shadows on Jupiter, Uranus and Neptune (their
+rings are too thin to show one at the scales drawn). Earth's atmosphere is in
 [atmospheres](atmospheres.md); surface maps, relief and night lights in
 [textures](textures.md).
 
@@ -441,3 +518,11 @@ shadow, [satellites](satellites.md)). Earth's atmosphere is in
 [10] A. García Muñoz and E. Pallé, "Lunar eclipse theory revisited: Scattered sunlight in both the quiescent and the volcanically perturbed atmosphere," *J. Quant. Spectrosc. Radiat. Transf.*, vol. 112, no. 10, pp. 1609–1621, 2011, doi: 10.1016/j.jqsrt.2011.03.017.
 
 [11] G. G. Bennett, "The calculation of astronomical refraction in marine navigation," *J. Navig.*, vol. 35, no. 2, pp. 255–259, 1982, doi: 10.1017/S0373463300022037.
+
+[12] A. Danjon, "Les éclipses de Lune par la pénombre en 1951," *L'Astronomie*, vol. 65, pp. 51–53, 1951.
+
+[13] D. Herald and R. W. Sinnott, "Analysis of lunar crater timings, 1842–2011," *J. Br. Astron. Assoc.*, vol. 124, no. 5, p. 247, 2014.
+
+[14] F. Espenak, "Total lunar eclipse of 2025 Sep 07," EclipseWise. [Online]. Available: https://eclipsewise.com/lunar/LEprime/2001-2100/LE2025Sep07Tprime.html
+
+[15] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, doi: 10.1007/978-3-642-58351-3.

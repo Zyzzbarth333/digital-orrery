@@ -211,16 +211,23 @@ view turns.
   at 40,000 km, capped at 1.2). That is a magnitude range halved, as the
   small bodies' is. The layer fades out between 1 and 3 million km from
   the Earth, where 17,000 points would sum to a glowing dot.
-- **Shadow.** A satellite in the Earth's shadow is drawn at a fifth of
-  that, a dim blue-grey against the sunlit ones' warm white. The shadow is
-  a cylinder of the Earth's radius behind it:
+- **Shadow.** A satellite in shadow is dimmed toward a fifth of that, and
+  toward a dim blue-grey from the sunlit ones' warm white, by $\nu$, the
+  share of the Sun's disc the Earth and the Moon leave it
+  (`satellites.js sunFraction`, the shader the same):
 
-  $$\mathbf r\cdot\hat{\mathbf s} < 0\quad\text{and}\quad |\mathbf r - (\mathbf r\cdot\hat{\mathbf s})\,\hat{\mathbf s}| < R_\oplus$$
+  $$\nu = 1 - \frac{A_\text{overlap}(a, b, c)}{\pi a^2}$$
 
-  Here ŝ is the Sun's direction from the Earth (DE442). The real umbra is
-  a cone narrowing by 0.27° of its own, so at GEO it is 1,300 km under
-  the cylinder's 6,378 km. The penumbra lasts a few seconds in low orbit.
-  Both are left out.
+  with $a$ the Sun's angular radius, $b$ the Earth's (or the Moon's) and
+  $c$ their separation, all seen from the satellite, the Sun 1 AU along
+  its direction from the Earth (DE442) [19, Sec. 3.4.2]. The
+  umbra and penumbra are true cones: at GEO each lies about 200 km either
+  side of the Earth's radius, and in low orbit the penumbra takes a few
+  seconds. Until November 2026 the shadow was a cylinder of the Earth's
+  radius with no penumbra and no Moon; in a solar eclipse the Moon's
+  shadow now dims the satellites it passes over too. The plate's
+  **Sunlight** row says *lit*, the share of the Sun in a penumbra, or *in
+  eclipse* in an umbra, and whose ([lighting](lighting.md#objects-in-shadow)).
 - **Depth.** The points are drawn after the bodies, with the depth test on
   the logarithmic depth buffer, so the Earth hides those behind it.
 
@@ -386,8 +393,9 @@ have: it is drawn along its flight direction, its arrays turned to the
 Sun, and its plate says so.
 
 **Light.** Each face is Lambertian, ρEμ₀ with E the sunlight at the
-Earth relative to 1 AU, as the bodies are lit; dark in the Earth's
-shadow (the points' cylinder, `inShadow`); and filled from below by
+Earth relative to 1 AU, as the bodies are lit; dimmed by the share of
+the Sun the Earth and the Moon leave it (`sunFraction`, as the points);
+and filled from below by
 Earthshine, the Earth's Bond albedo 0.30 times a downward face's view
 factor $(R_\oplus/r)^2$ times how high the Sun stands under the
 satellite. The cells have a small glint. The model is built in metres
@@ -466,8 +474,8 @@ pass rises.
 
 **Visible.** A pass can be seen while both of these hold:
 
-- the satellite is sunlit, outside the Earth's shadow (the cylinder
-  above);
+- the satellite is sunlit: over half the Sun's disc in view past the
+  Earth (`inShadow`, the cone above);
 - the Sun is 6° or more below the place's horizon, the end of civil
   twilight [12], so the sky is dark enough for it to show.
 
@@ -635,3 +643,5 @@ Nor do the passes and the ground track
 [17] ESA/Hubble, "Fact sheet." [Online]. Available: https://esahubble.org/about/general/fact_sheet/
 
 [18] NASA, "About Hubble." [Online]. Available: https://science.nasa.gov/mission/hubble/overview/about-hubble/
+
+[19] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, doi: 10.1007/978-3-642-58351-3.

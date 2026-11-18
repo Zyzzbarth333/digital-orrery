@@ -705,6 +705,28 @@ in both builds: its rounds read 6.8, 2.8, 2.7 before and 7.0, 6.8, 2.9
 after, so its median moved with which loads came out low, not with the
 change. Within that noise, nothing here costs a frame.
 
+### Every eclipse and shadow
+
+The satellite points now work out the share of the Sun the Earth and the
+Moon leave each one (two disc overlaps a vertex), Saturn's, Uranus's and
+Neptune's rings take up to four moons' shadows a pixel, and the Earth's
+air its Moon's shadow a pixel. Frame cost against main, `npm run
+bench:frames`, 19 November 2026 (medians, ms):
+
+| Scenario | Intel | NVIDIA |
+| --- | ---: | ---: |
+| Earth close-up, 20,000 km | 14.9 → 14.8 | 3.8 → 5.8 * |
+| Saturn and its rings, 500,000 km | 14.3 → 14.4 | 6.4 → 7.1 * |
+| Earth satellites, all on | 20.7 → 20.4 | 7.3 → 6.9 |
+| The Moon in the Earth's shadow, 2025-09-07 | 14.4 → 14.1 | 6.5 → 6.8 |
+
+1920 × 1080 at DPR 1, 3 rounds interleaved, load average 2–5. On Intel,
+where a cost would show first, every round is within 0.6 ms of main's
+either way. The NVIDIA rows marked * moved with the load from round to
+round in both builds (Earth 3.7, 6.6, 3.8 before and 5.8, 7.3, 3.7 after;
+Saturn 8.5, 5.9, 6.4 before and 8.4, 7.1, 5.7 after), not with the change.
+The satellites' shade per vertex costs nothing measurable.
+
 ### The panels
 
 The panels read the clock through `useSyncExternalStore`, which re-renders
