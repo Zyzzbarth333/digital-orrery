@@ -498,8 +498,19 @@ export const TAG_INFO = {
   'attitude-rcs': {
     what: 'The propellant the attitude thrusters have burned: pairs fired as couples, so a torque takes its size over the arm in thrust, drawn from the engine\'s tank at their specific impulse.',
     tex: ['m = \\frac{1}{I_{sp}\\,g_0}\\int \\sum_i \\frac{|\\tau_i|}{L_i}\\,dt'],
-    where: 'τ_i: the torque about body axis i (held against the disturbance while locked); L_i: the thrusters\' arm about it; I_sp = 290 s; g₀ = 9.80665 m/s²',
+    where: 'τ_i: the torque about body axis i (while locked, the hold\'s limit cycle instead); L_i: the thrusters\' arm about it; I_sp = 290 s; g₀ = 9.80665 m/s²',
     source: 'Curtis, 4th ed., §13.3; ArianeGroup 10 N bipropellant thruster (292 s) · docs/physics/sixdof.md',
+  },
+  // attitude.js limitCycle, holdThrust; craftAttitude.js hold
+  'attitude-hold': {
+    what: 'The propellant a held attitude costs. On-off thrusters keep it within a deadband by their smallest pulses, so it drifts across, a pulse turns it back, and so on: a limit cycle. A steady disturbance pushes it to one side, and then the pulses just cancel the disturbance.',
+    tex: [
+      '\\dot J_i = \\tfrac{2}{3}\\,\\frac{b^2 L_i}{\\theta_d I_i}\\quad \\text{for } \\varepsilon_i < \\tfrac{2}{9}',
+      '\\dot J_i = 3\\,\\frac{|\\tau_i|}{L_i}\\quad \\text{to } \\tfrac{3}{4},\\qquad \\frac{|\\tau_i|}{L_i}\\quad \\text{beyond}',
+      '\\varepsilon_i = \\frac{|\\tau_i|\\,\\theta_d I_i}{b^2 L_i^2},\\qquad \\dot m = \\frac{\\sum_i \\dot J_i}{I_{sp}\\,g_0}',
+    ],
+    where: 'b = 0.29 N s: the least pulse a thruster gives (a pair fires, so the rate changes by 2bL/I); θ_d = 0.5°: the deadband; τ_i: the disturbance about axis i; L_i: the thrusters\' arm; I_i: the moment of inertia. With no disturbance, 2/3 of the centred cycle\'s b²L/(θ_d I)',
+    source: 'Jackson, Gonzalez and Sims, AIAA GN&C 2007 (NTRS 20080000345), eqs. (1)–(3); AJ10-220 data sheet (0.898 N s at 62.3 N) · docs/physics/sixdof.md',
   },
   // craftAttitude.js propellantInertia, inertiaFor
   'attitude-inertia': {

@@ -29,6 +29,12 @@ once it has releases. Until then, everything sits under Unreleased.
   time to settle before the node fires (AUTO NODE TURN), saying in the
   log when it can't. The node mode now holds the direction it burned
   along afterwards (this pull request).
+- A held attitude costs propellant as a real one does: the thrusters keep
+  it within a 0.5° deadband by pulses of their minimum impulse bit, and
+  the hold pays that limit cycle (about 0.34 kg a day for the app's
+  craft, where it paid almost nothing), or the disturbance it holds
+  against when that is larger. The ATTITUDE readout shows what holding
+  costs a day (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table

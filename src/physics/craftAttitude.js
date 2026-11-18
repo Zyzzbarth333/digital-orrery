@@ -26,6 +26,9 @@
 //   their total impulse at their Isp (attitude.js rcsThrust), frame by
 //   frame after the engine's own draw (craft.js updateBurns). An empty tank
 //   switches control off and cuts the engine.
+// - Held locked, the thrusters pay the hold's limit cycle within the
+//   deadband, its mean in closed form (attitude.js limitCycle): the
+//   attitude shown and burned along is the cycle's centre, the reference.
 // - The inertia follows the propellant: the dry craft's tensor plus the
 //   propellant's, two equal spherical tanks on the thrust axis either side
 //   of the centre of mass (propellantInertia), made again each frame the
@@ -35,7 +38,7 @@
 //   back to the mode it had once the burn is done. The log says when it
 //   cannot settle in time.
 
-import { makeAttitude, advanceAttitude, setMode, setInertia, thrustAxis, pointingError, referenceNow, alphaAbout, slewTime, attitudeError, orbitalFrame, vnbToInertial, pointing, referenceAt } from './attitude.js';
+import { makeAttitude, advanceAttitude, limitCycle, setMode, setInertia, thrustAxis, pointingError, referenceNow, alphaAbout, slewTime, attitudeError, orbitalFrame, vnbToInertial, pointing, referenceAt } from './attitude.js';
 import { propagate } from './orbital.js';
 import { density } from './atmosphere.js';
 import { bodyAxesEqj } from './orientation.js';
@@ -55,7 +58,12 @@ const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 // the roll axis and 1 m from the pitch and yaw axes (rcsArm), so 20 N m in
 // roll and 40 N m in pitch and yaw; bipropellant from the main tank at an
 // Isp of 290 s (the class of ArianeGroup's 10 N thruster, 292 s); a
-// 3 deg/s rate limit. The centre of pressure 0.3 m behind the centre of
+// 3 deg/s rate limit. Held, they keep it within a 0.5 deg deadband (the
+// rotational deadband Jackson et al. assume for Orion) by pulses of at
+// least 0.29 N s a thruster: the AJ10-220's minimum impulse bit, 0.898 N s
+// at 62.3 N, scaled to 20 N by thrust (the bit is about the thrust times
+// the least on-time, 14 ms here), so the hold pays its limit cycle
+// (attitude.js limitCycle). The centre of pressure 0.3 m behind the centre of
 // mass, so it noses into the airflow.
 // Tanks: the propellant in two equal spheres of radius 0.37 m (250 kg of
 // MMH and NTO at about 1.2 t/m^3 each), centred 0.6 m fore and aft of the
@@ -66,6 +74,8 @@ export const DEFAULT_ATTITUDE = {
   torqueMax: [20, 40, 40],
   rcsArm: [0.5, 1, 1],
   rcsIsp: 290,
+  deadband: 0.5 * D2R,
+  impulseBit: 0.29,
   rateMax: 3 * D2R,
   cp: [-0.3, 0, 0],
   tanks: { offset: 0.6, radius: 0.37 },
@@ -394,8 +404,19 @@ export class CraftAttitude {
     return out;
   }
 
+  // The hold's limit cycle while locked: { rate (kg/s of propellant),
+  // axes (limitCycle's) }, or null.
+  hold() {
+    const A = this.A;
+    if (!A.locked || A.mode === 'off' || !this.rcsIsp) return null;
+    const axes = limitCycle(A.spec, A.disturbance);
+    if (!axes) return null;
+    return { rate: (axes[0].thrust + axes[1].thrust + axes[2].thrust) / (this.rcsIsp * G0), axes };
+  }
+
   // For the panel: the error from the reference (rad), the rates (rad/s),
-  // the disturbance (N m), and the controller's time for the turn left.
+  // the disturbance (N m), the controller's time for the turn left, and the
+  // hold's limit cycle.
   readout() {
     const env = this.env(), err = pointingError(this.A, env), ref = referenceNow(this.A, env);
     const turn = ref && err > 1e-3 ? attitudeError(this.A.q, ref) : null;
@@ -403,7 +424,7 @@ export class CraftAttitude {
       mode: this.A.mode, locked: this.A.locked, error: err, rate: norm(this.A.omega), disturbance: this.A.disturbance,
       turnLeft: turn ? slewTime(this.A.spec, turn.theta, turn.e) : 0,
       alpha: alphaAbout(this.A.spec, [0, 0, 1]), ref,
-      rcsSpent: this.rcsSpent, inertia: this.A.spec.inertia,
+      rcsSpent: this.rcsSpent, inertia: this.A.spec.inertia, hold: this.hold(),
       autoNode: this.autoNode, auto: !!this.auto, autoPlan: this.autoPlan(),
     };
   }

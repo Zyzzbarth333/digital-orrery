@@ -28,6 +28,8 @@ const ATT_MODES: [string, string, string][] = [
   ['radial', 'Radial out', 'Outward, square to the velocity in the orbit plane'], ['antiradial', 'Radial in', 'Inward, square to the velocity in the orbit plane'],
   ['node', 'Node', 'Along the next manoeuvre node\'s burn'], ['inertial', 'Hold', 'Hold the attitude it has now, fixed among the stars'], ['off', 'Free', 'Thrusters off: it turns under the gravity gradient and the air alone'],
 ];
+// The hold's limit cycle on each axis (attitude.js limitCycle).
+const HOLD_REGIME: Record<string, string> = { drift: 'two-sided', 'two-one': 'two pulses to one', 'one-sided': 'one-sided' };
 const ATT_LABEL: Record<string, string> = Object.fromEntries(ATT_MODES.map(([k, l]) => [k, l.toLowerCase()]));
 
 const utc = (tKernel: number) => new Date(kernelMs(tKernel)).toISOString().slice(0, 19).replace('T', ' ');
@@ -216,6 +218,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
               <tr><th scope="row">Turning</th><td className="value">{fmt(ro.rate * DEG, 2)}°/s</td><td className="src"><SourceTag src="6-DOF" info="attitude-rate" /></td></tr>
               <tr><th scope="row">Disturbance</th><td className="value">{dist > 0 ? `${dist.toExponential(1)} N m` : 'none'}</td><td className="src"><SourceTag src="6-DOF" info="attitude-torque" detail={ro.locked ? 'held against it: well inside the thrusters\' torque' : undefined} /></td></tr>
               <tr><th scope="row">Thruster fuel</th><td className="value">{ro.rcsSpent < 1 ? `${fmt(ro.rcsSpent * 1000, 1)} g used` : `${fmt(ro.rcsSpent, 2)} kg used`}</td><td className="src"><SourceTag src="6-DOF" derived info="attitude-rcs" detail={`from the engine's tank, ${fmt(c.fuel, 1)} kg left; ${fmt(spec.rcsArm?.[1] ?? 0, 1)} m arms in pitch and yaw, ${fmt(spec.rcsArm?.[0] ?? 0, 1)} m in roll`} /></td></tr>
+              {ro.hold && <tr><th scope="row">Holding costs</th><td className="value">{(() => { const d = ro.hold.rate * 86400; return d < 1 ? `${fmt(d * 1000, 0)} g a day` : `${fmt(d, 2)} kg a day`; })()}</td><td className="src"><SourceTag src="6-DOF" derived info="attitude-hold" detail={`a limit cycle within ±${fmt((spec.deadband ?? 0) * DEG, 1)}°, pulses of ${fmt(spec.impulseBit ?? 0, 2)} N s: ${['pitch', 'yaw', 'roll'].map((n, k) => `${n} ${HOLD_REGIME[ro.hold!.axes[[1, 2, 0][k]].regime]}`).join(', ')}`} /></td></tr>}
               <tr><th scope="row">Inertia</th><td className="value">{fmt(ro.inertia[1][1], 0)} kg m² pitch · {fmt(ro.inertia[0][0], 0)} roll</td><td className="src"><SourceTag src="6-DOF" derived info="attitude-inertia" detail={`with ${fmt(c.fuel, 1)} kg of propellant in the tanks`} /></td></tr>
               {(ro.auto || ro.autoPlan) && <tr><th scope="row">Node turn</th><td className="value">{(() => { const p = ro.autoPlan; return ro.auto || !p ? 'Turned for the node' : p.start > 0 ? `Starts in ${p.start < 120 ? `${fmt(p.start, 0)} s` : fmtDuration(p.start * 1000)}, ${fmt(p.theta * DEG, 0)}° in ${fmt(p.need, 0)} s` : 'Starting'; })()}</td><td className="src"><SourceTag src="6-DOF" derived info="attitude-auto" /></td></tr>}
             </tbody></table>

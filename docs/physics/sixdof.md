@@ -297,7 +297,9 @@ usual choice for their predictable path.
 reference, with the disturbances under a quarter of the torque limit, the
 attitude locks: it is the reference from then on, without integration,
 until the mode changes or a disturbance grows past half the limit. A craft
-holding prograde at a day a second costs nothing to carry.
+holding prograde at a day a second costs nothing to carry. Its thrusters
+still pay the limit cycle a real hold pays, in closed form
+([below](#the-holds-limit-cycle)).
 
 ### The thrusters' propellant
 
@@ -309,9 +311,10 @@ is the total impulse over the exhaust velocity [14, §13.3]:
 $$J = \int \sum_i \frac{|\tau_i|}{L_i}\,dt,\qquad \Delta m = \frac{J}{I_{sp}\,g_0}$$
 
 - **The torque counted** is the controller's, held over each control
-  period. Locked on its reference, the craft is charged for the
-  disturbance it holds against (the gravity gradient, the air), found at
-  the start of each frame.
+  period. Locked on its reference, the craft is charged its hold's limit
+  cycle within the deadband, against the disturbance found at the start
+  of each frame (the gravity gradient, the air):
+  [below](#the-holds-limit-cycle).
 - **The default craft:** $L = (0.5, 1, 1)$ m and $I_{sp}$ = 290 s,
   bipropellant from the main tank. That is the class of ArianeGroup's
   10 N bipropellant thruster, 292 s at its nominal point [15].
@@ -324,10 +327,93 @@ $$J = \int \sum_i \frac{|\tau_i|}{L_i}\,dt,\qquad \Delta m = \frac{J}{I_{sp}\,g_
   torque gives the body all its angular momentum and takes it back. A 90°
   pitch turn at the 3°/s limit is
   $2 \times 1625 \times 0.0524 / 1 = 170.2$ N s, 59.8 g.
-- **Left out:** the thrusters' minimum impulse bit and the deadband limit
-  cycle a real hold pays for (here the hold pays only for the torque it
-  cancels), and the propellant they use during a burn, which the engine's
+- **Left out:** the propellant they use during a burn, which the engine's
   mass flow does not include (a few grams against kilograms).
+
+### The hold's limit cycle
+
+A locked hold is not integrated, but its thrusters are on-off: they keep
+the craft within a deadband $\pm\theta_d$ of its reference by their
+smallest pulses. On each axis a pulse fires the couple's two thrusters
+for their least on-time, each giving the minimum impulse bit $b$, so the
+body rate changes by $\Delta\omega = 2bL/I$. With nothing else acting,
+the craft drifts across the deadband, a pulse at the edge turns it back,
+it drifts across again: a two-sided limit cycle [16]. A steady
+disturbance pushes it to one side. The hold is charged the cycle's mean
+thrust in closed form, axis by axis, from the disturbance $\tau$ about
+that axis:
+
+$$\varepsilon = \frac{|\tau|/L}{R_2},\qquad R_2 = \frac{b^2 L}{\theta_d I}$$
+
+$$\dot J = \begin{cases} \tfrac{2}{3}R_2 & \varepsilon < \tfrac{2}{9}\ \text{(two-sided)} \\ 3\,|\tau|/L & \tfrac{2}{9} \le \varepsilon < \tfrac{3}{4}\ \text{(two pulses to one)} \\ |\tau|/L & \varepsilon \ge \tfrac{3}{4}\ \text{(one-sided)} \end{cases}$$
+
+- **Two-sided.** Centred, drifting at $\Delta\omega/2$ each way, the
+  cycle fires every $4\theta_d/\Delta\omega$ and costs $R_2$: Jackson,
+  Gonzalez and Sims's worst case for a hold without a disturbance
+  [16, eqs. (1)–(3)], with their $n = 2$ thrusters a firing and
+  $f\,t_\text{min} = b$. Off centre, drifting at $x\,\Delta\omega$ one way
+  and $(1-x)\,\Delta\omega$ back, it costs $4x(1-x)R_2$. Without any
+  disturbance $x$ stays where the hold began. A weak one walks it: in
+  units of $\Delta\omega$ and $2\theta_d/\Delta\omega$, each round trip
+  lowers $x$ by about $\varepsilon/[2x(1-x)]$ and takes $1/[x(1-x)]$, so
+  the cycle spends the same time at every $x$ and costs, on average,
+  $\int_0^1 4x(1-x)\,dx = \tfrac{2}{3}$ of $R_2$. Jackson et al.'s
+  simulated holds also came in below the worst case, the off-centre
+  cycles firing less often [16].
+- **Two pulses to one.** Leaving the upwind edge at $\Delta\omega/2$, the
+  craft reaches the downwind edge, a pulse turns it back, the disturbance
+  brings it back before it crosses, and a second pulse sends it across.
+  Two pulses downwind to one upwind: the net pulse cancels the
+  disturbance, so the three cost $3|\tau|/L$. It needs the second pulse
+  to send the craft back across, which ends at $\varepsilon = 3/4$, and
+  the first one's rebound not to reach the far edge, which starts at
+  $\varepsilon = 9/64$.
+- **One-sided.** From $\varepsilon = 3/4$ on, no pulse can send the craft
+  back across: it rides the downwind edge, and the pulses just cancel the
+  disturbance, $|\tau|/L$. That was the hold's whole charge before.
+
+The default craft holds within $\theta_d$ = 0.5°, the rotational deadband
+Jackson et al. assume for Orion [16]. Its bit is $b$ = 0.29 N s: the
+AJ10-220 bipropellant thruster's 0.898 N s at 62.3 N [17], scaled to the
+craft's 20 N by thrust. The bit is about the thrust times the least
+on-time [16], 14 ms here.
+- **In pitch and yaw** $\Delta\omega = 3.57\times10^{-4}$ rad/s, a firing
+  every 97.8 s when centred, $R_2 = 5.93\times10^{-3}$ N. **In roll**
+  $2.90\times10^{-4}$ rad/s, every 120.4 s, $R_2 = 4.82\times10^{-3}$ N.
+- **Held without a disturbance,** the craft pays
+  $\tfrac{2}{3}(2 \times 5.93 + 4.82)\times10^{-3} = 1.112\times10^{-2}$ N:
+  0.338 kg a day at 290 s, where it paid $10^{-5}$ N s a minute before.
+  The 500 kg tank would last four years of holding. Held prograde in low
+  orbit, the gravity gradient is $10^{-7}$ N m, far inside the two-sided
+  regime.
+- **The disturbance matters** from $\tfrac{2}{9}R_2 L$: 1.3 mN m in pitch
+  and yaw, 0.54 mN m in roll. An inertial hold in low orbit meets up to
+  1.2 mN m of gravity gradient, and low in the air the drag's torque is
+  more.
+
+Checked against a pulse-by-pulse simulation of the deadband controller
+on the default craft: sampled every 0.1 s, it fires one bit whenever the
+error is past the deadband and still growing
+([Validation](../validation.md#attitude-in-the-app-attitudetestmjs)).
+- Centred, with no disturbance, it is Jackson et al.'s cycle to 0.5 %.
+- Two-sided ($\varepsilon \le 0.1$) and one-sided ($\varepsilon \ge 0.9$)
+  from random starts, the closed form is the flown mean within 5 %.
+- In two pulses to one, the cycle flown from itself costs $3|\tau|/L$ to
+  0.35 %. From some starts the craft first rides a one-sided cycle, a
+  third of the cost, for hundreds of cycles (days) before the sampling
+  tips it over. The closed form charges the cycle it settles in.
+- Between $\varepsilon$ = 9/64 and 1/4 the cycles mix (two-sided, two to
+  one, and three to two at $5|\tau|/L$), and the closed form is within
+  30 % of the flown mean.
+
+**Left out:** the thrusters' lower specific impulse in pulses (the
+AJ10-220's 268 s pulsed against 285 s steady [17]). The attitude shown
+and burned along is the cycle's centre, the reference, not its wander of
+up to 0.5°. The axes are taken apart, the inertia's diagonal as its
+principal axes, without their gyroscopic coupling at the orbital rate.
+The disturbance is taken as steady over a frame, from the frame's start:
+at high warp a frame spans orbits, and a torque that turns with the
+orbit is sampled, not averaged.
 
 ### Inertia and the propellant
 
@@ -475,3 +561,7 @@ in a frame, while a locked burn goes to the kernel steered exactly.
 [14] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. §13.3 (specific impulse), ch. 9 (moments of inertia, the parallel-axis theorem).
 
 [15] ArianeGroup, "Chemical bi-propellant thruster family," product brochure. [Online]. Available: https://ariane.group/app/uploads/2024/09/ArianeGroup_Chemical_Bipropellant_Thruster_Family.pdf
+
+[16] M. Jackson, R. Gonzalez and C. Sims, "Orion orbit control design and analysis," presented at the AIAA Guidance, Navigation, and Control Conf., Hilton Head, SC, USA, Aug. 2007, preprint, NTRS 20080000345. [Online]. Available: https://ntrs.nasa.gov/citations/20080000345
+
+[17] Aerojet Rocketdyne, "AJ10-220 62.3 N (14.0 lbf) reaction control thruster," data sheet. [Online]. Available: https://satcatalog.s3.amazonaws.com/components/1012/SatCatalog_-_Aerojet_Rocketdyne_-_AJ10-220_62.3N_-_Datasheet.pdf
