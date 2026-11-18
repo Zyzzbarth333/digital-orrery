@@ -62,6 +62,12 @@ once it has releases. Until then, everything sits under Unreleased.
   request).
 - Guides for spin axes, real gravity fields, spheres of influence,
   Lagrange points and the strongest pulls (#43).
+- Magnetic fields and auroras, two new guides. Field lines traced through
+  the Earth's (IGRF-14), Jupiter's (JRM33 with its current sheet),
+  Saturn's (Cassini) and Uranus's and Neptune's (Voyager) measured fields,
+  shaded by strength, with each dipole's tilt and offset. The Earth's
+  auroral ovals for the day's Kp, green below red on the night side;
+  Jupiter's and Saturn's main ovals and Io's footprint (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The

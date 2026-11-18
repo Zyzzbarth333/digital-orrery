@@ -26,6 +26,7 @@ import type { Named } from '../scene/smallBodies';
 import { craftStateWord } from './craft-state.js';
 import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDays, galacticYears } from '../physics/bodyfacts.js';
 import type { GuideKey } from '../scene/guides';
+import type { MagneticKey } from '../scene/magnetic';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -211,19 +212,21 @@ const SMALL_BODY_ROWS: { key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets'; l
 ];
 
 // Drawing aids for gravity (src/scene/guides.ts), each off until switched on.
-const GUIDE_ROWS: { key: GuideKey; label: string; colour: string; title: string }[] = [
+const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; title: string }[] = [
   { key: 'axes', label: 'Spin axes', colour: '#c8c2b4', title: "Each body's spin axis through its poles (IAU rotation models), north marked N" },
   { key: 'field', label: 'Gravity field', colour: '#2f8fb0', title: 'The real gravity field on the surface: EGM2008 for Earth, GRAIL for the Moon, J2 for the planets' },
   { key: 'spheres', label: 'SOI and Hill', colour: '#ffb22e', title: "Each body's sphere of influence (solid) and Hill sphere (dashed) about its parent" },
   { key: 'lagrange', label: 'Lagrange', colour: '#ecd9b0', title: 'L1 to L5 of Sun-Earth, Earth-Moon, Sun-Jupiter and the focused body with its parent' },
   { key: 'pulls', label: 'Pulls', colour: '#ff7a3d', title: 'The four strongest gravitational pulls on the focused body, GM / d²' },
+  { key: 'magnetic', label: 'Magnetic fields', colour: '#f5f0e4', title: 'Field lines of Earth (IGRF-14), Jupiter (JRM33 and its current sheet), Saturn (Cassini 11), Uranus and Neptune (Voyager), shaded by field strength' },
+  { key: 'aurora', label: 'Auroras', colour: '#52ff73', title: "The Earth's auroral ovals for the day's Kp (Starkov's model), and Jupiter's and Saturn's main ovals and Io's footprint in false colour" },
 ];
 
 // The moons each planet has in the rail (Earth's Moon is always shown).
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, satellites }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey, boolean>; onGuides?: (key: GuideKey, on: boolean) => void; satellites?: ReactNode }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, satellites }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -404,6 +407,8 @@ function Credits() {
       used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</>
   );
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
+  items.push(['Magnetic fields', 'IGRF-14 (IAGA V-MOD, via NOAA NCEI); JRM33 and con2020 (Connerney et al. 2022, 2020); Cassini 11 (Dougherty et al. 2018, Cao et al. 2020) via libinternalfield (MIT); Voyager 2 dipoles (Ness et al. 1986, 1989)']);
+  items.push(['Auroras', 'Starkov 1994 oval as Sigernes et al. 2011 give it; Kp from GFZ Potsdam via CelesTrak; Badman et al. 2006 (Saturn); Clarke et al. 2004 (Jupiter)']);
   items.push(['Equation font', 'DejaVu Math TeX Gyre, from the DejaVu fonts: Bitstream Vera licence, its DejaVu and math additions public domain']);
   return (
     <details className="credits">

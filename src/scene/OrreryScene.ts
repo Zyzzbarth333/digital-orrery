@@ -46,6 +46,7 @@ import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { SatelliteLayer } from './satellites';
 import { GuideLayer } from './guides';
+import { MagneticLayer } from './magnetic';
 import { orbitTrailMaterial } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
@@ -291,6 +292,7 @@ export class OrreryScene {
   smallBodies!: SmallBodyLayer;
   satellites!: SatelliteLayer;   // Earth satellites, for the rail's switch
   guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
+  magnetic!: MagneticLayer;      // magnetic field lines and auroras
 
   private bodyAnchor(key: FocusKey): Anchor {
     // A barycentre is a point: the camera may close to a kilometre.
@@ -478,6 +480,7 @@ export class OrreryScene {
     this.smallBodies = new SmallBodyLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.guides = new GuideLayer(this.scene, this.overlay, toRender,
       (date) => toRender(eqjToEcl(bodyAxesEqj('sun', date)[2]) as Vec3, new THREE.Vector3()).normalize());
+    this.magnetic = new MagneticLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     this.satellites = new SatelliteLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
@@ -903,6 +906,9 @@ export class OrreryScene {
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
       focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
       level: 1 / this.renderer.toneMappingExposure, date });
+    this.magnetic.update({ camera: this.camera, meshes: this.meshes, materials: this.materials,
+      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
+      level: 1 / this.renderer.toneMappingExposure, date });
 
     this.smallBodies.renderHaze(this.renderer, this.camera);
     this.surfacePatch.update(SurfacePatch.nearest(this.meshes, (k) => k === 'sun'));
@@ -1162,6 +1168,7 @@ export class OrreryScene {
     this.smallBodies.dispose();
     this.satellites.dispose();
     this.guides.dispose();
+    this.magnetic.dispose();
     for (const el of this.labels.values()) el.remove();
     for (const el of this.baryLabels.values()) el.remove();
     this.post.dispose();
