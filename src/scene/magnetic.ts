@@ -503,7 +503,7 @@ export class MagneticLayer {
   private bnds = new Map<BodyKey, { mesh: THREE.LineSegments; key: string; sun: V3; noseMp: V3; noseBs: V3 | null; r0: number; bs: number | null; text: string }>();
   private bndMat = new THREE.ShaderMaterial({
     vertexShader: lineVertex, fragmentShader: lineFragment, transparent: true, depthWrite: false, toneMapped: false,
-    blending: THREE.AdditiveBlending, uniforms: { level: { value: 1 }, opacity: { value: 0.32 } },
+    blending: THREE.AdditiveBlending, uniforms: { level: { value: 1 }, opacity: { value: 0.45 } },
   });
 
   private earthWind(date: Date): { wind: { dp: number; bz: number; v: number; mach: number }; mp: ReturnType<Bnd['shue98']>; live: boolean; n: number; when: string } {
@@ -550,7 +550,7 @@ export class MagneticLayer {
     }
     // Faded out as the camera comes inside the magnetopause's nose.
     const t = Math.min(Math.max((camR / r0 - 0.8) / 0.7, 0), 1), fade = t * t * (3 - 2 * t);
-    if (old) (old.mesh.material as THREE.ShaderMaterial).uniforms.opacity.value = 0.32 * fade;
+    if (old) (old.mesh.material as THREE.ShaderMaterial).uniforms.opacity.value = 0.45 * fade;
     const turned = !old || old.sun[0] * sun[0] + old.sun[1] * sun[1] + old.sun[2] * sun[2] < COS_BND;
     if (old && !turned && old.key === key) { old.mesh.visible = fade > 0; return; }
     const pos: number[] = [], str: number[] = [], idx: number[] = [];
@@ -591,7 +591,7 @@ export class MagneticLayer {
     };
     if (old) { old.mesh.geometry.dispose(); old.mesh.geometry = geo; old.mesh.visible = fade > 0; Object.assign(old, { key, sun, noseMp: nose(r0), noseBs: flank(bs), r0, bs: rbs, text }); return; }
     const mat = this.bndMat.clone();
-    mat.uniforms.opacity.value = 0.32 * fade;
+    mat.uniforms.opacity.value = 0.45 * fade;
     const m = new THREE.LineSegments(geo, mat);
     m.frustumCulled = false; m.renderOrder = 3;
     g.add(m);
