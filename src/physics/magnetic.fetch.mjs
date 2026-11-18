@@ -15,6 +15,11 @@
 //   - Saturn, Cassini 11 (Dougherty et al. 2018, Cao et al. 2020) to degree
 //     11, axisymmetric, from the coefficient file of libinternalfield
 //     (M. James, MIT licence), which transcribes the papers' table.
+// - Mars's crustal field, Langlais et al. 2019 to degree 134 (from
+//   libinternalfield's transcription): its coefficients as a test fixture
+//   (src/physics/fixtures/langlais2019.json), and the app's map of the
+//   radial field on the 3,393.5 km sphere, 720 x 360 cells, one signed byte
+//   each on marsCrustal.js's asinh scale (public/data/mars-crustal-br.bin).
 // - public/data/kp.json: the planetary Kp index every three hours from 2000,
 //   observed and then CelesTrak's 45-day prediction, from the same SW-All.csv
 //   as the atmosphere's space weather (environment.fetch.mjs), read from its
@@ -108,6 +113,22 @@ export const CASSINI11 = { a: 60268, n: 11, coeffs: ${fmt(cassini11)} };
 `;
 fs.writeFileSync(new URL('./magnetic.data.js', import.meta.url), js);
 console.log(`magnetic.data.js: IGRF-14 ${epochs[0]}-${epochs.at(-1)}, JRM33 to 13, Cassini 11 to 11 (${(js.length / 1024).toFixed(0)} kB)`);
+
+// ---- Mars's crustal field ----
+{
+  const { radialFieldGrid, encodeBr } = await import('./marsCrustal.js');
+  const NM = 134, mars = readDat(await cached(`${LIF}/mars/langlais2019.dat`, 'magnetic/langlais2019.dat'), NM);
+  fs.writeFileSync(new URL('./fixtures/langlais2019.json', import.meta.url), JSON.stringify({
+    source: 'Langlais et al. 2019 (doi:10.1029/2018JE005854), via libinternalfield (MIT): Schmidt g/h (nT) to degree 134 in magnetic.js order, reference radius 3393.5 km',
+    a: 3393.5, n: NM, coeffs: mars,
+  }));
+  const grid = radialFieldGrid(mars, NM, 1, 720, 360), bytes = new Int8Array(grid.length);
+  for (let i = 0; i < grid.length; i++) bytes[i] = encodeBr(grid[i]);
+  fs.writeFileSync(new URL('../../public/data/mars-crustal-br.bin', import.meta.url), bytes);
+  let lo = Infinity, hi = -Infinity;
+  for (const v of grid) { if (v < lo) lo = v; if (v > hi) hi = v; }
+  console.log(`mars-crustal-br.bin: 720 x 360, Br ${lo.toFixed(0)} to ${hi.toFixed(0)} nT`);
+}
 
 // ---- Kp ----
 const SW_URL = 'https://celestrak.org/SpaceData/SW-All.csv';

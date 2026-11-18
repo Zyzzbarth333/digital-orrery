@@ -198,6 +198,10 @@ export const JUPITER_MAIN = { r: [20, 30] };
 // southern oval at ~14 and ~16 deg colatitude.
 export const SATURN_MAIN = { colat: [14, 16] };
 export const IO_ORBIT_RJ = 5.9;
+// Feldman et al. 2000 (HST/STIS): Ganymede's oxygen aurora is confined to
+// latitudes above +-40 deg, along the boundary of its open field lines; the
+// ovals are drawn from 40 to 48 deg in each hemisphere.
+export const GANYMEDE_OVAL = { lat: [40, 48] };
 // Melin et al. 2025: Neptune's southern H3+ aurora maps to L from under 3
 // to 20 R_N (the northern to 3-5).
 export const ICE_GIANT_AURORA = { L: [3, 20] };
@@ -228,6 +232,36 @@ export function magneticEquatorFrame(model) {
   return { u, e1, e2 };
 }
 
+// ---- moons' auroral footprints ----
+//
+// Io, Europa and Ganymede each leave a spot on Jupiter where their field
+// lines meet it, Enceladus one on Saturn (Pryor et al. 2011). The spot sits
+// downstream of the moon's instantaneous footprint by the equatorial lead
+// angle delta, the travel time of the Alfven wave the moon launches: Hue et
+// al. 2023 fitted it from Juno-UVS, against lambda the moon's System III
+// west longitude (deg),
+//   delta = a0 + a1 cos(w lambda) + b1 sin(w lambda) + a2 cos(2 w lambda) + b2 sin(2 w lambda)
+// (their Table 1, [a0, a1, b1, a2, b2, w]). Downstream is toward smaller west
+// longitude: the plasma corotates past the slower moon.
+export const LEAD_ANGLE = {
+  io: { north: [4.26, 2.64, 0.50, 0.20, 0.126, 1], south: [4.14, -1.89, -0.70, 0.22, -0.12, 1] },
+  europa: { north: [5.78, 3.29, 1.41, 0, 0, 0.99], south: [7.06, -3.37, 0.15, 0, 0, 1] },
+  ganymede: { north: [12.45, 6.16, 3.64, 0, 0, 0.98], south: [12.97, -5.39, -4.50, 0, 0, 0.99] },
+};
+export function leadAngle(moon, hemisphere, westLonDeg) {
+  const c = LEAD_ANGLE[moon]?.[hemisphere];
+  if (!c) return 0;
+  const [a0, a1, b1, a2, b2, w] = c, x = w * westLonDeg * DEG;
+  return a0 + a1 * Math.cos(x) + b1 * Math.sin(x) + a2 * Math.cos(2 * x) + b2 * Math.sin(2 * x);
+}
+// The moons whose footprints are drawn, and their orbits' radii (planet radii):
+// Io, Europa and Ganymede as JRM33's footprint tables take them, Enceladus's
+// 238,000 km over Saturn's 60,268.
+export const FOOTPRINT_MOONS = {
+  io: { planet: 'jupiter', r: 5.9 }, europa: { planet: 'jupiter', r: 9.4 }, ganymede: { planet: 'jupiter', r: 15.0 },
+  enceladus: { planet: 'saturn', r: 3.95 },
+};
+
 // Io's footprints, north and south, for Io at System III east longitude
 // lonDeg in Jupiter's equator: the field line through Io traced down.
 export function ioFootprint(model, lonDeg, surface, r = IO_ORBIT_RJ) {
@@ -255,3 +289,7 @@ export function saturnOval(model, colat, dLon, surface) {
   }
   return { north, south };
 }
+
+// Any moon's magnetic footprints, for the moon at east longitude lonDeg in
+// its planet's equator, r planet radii out.
+export const moonFootprint = (model, lonDeg, surface, r) => ioFootprint(model, lonDeg, surface, r);
