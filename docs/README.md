@@ -43,6 +43,7 @@ they come from, and how each part is checked.
 | [Earth satellites](frontend/satellites.md) | 16,892 active satellites from CelesTrak's GP elements, SGP4 via satellite.js, TEME to J2000, the GPU's points, the named ones' orbits, search and data plate; checked against Vallado's verification set and Horizons |
 | [Atmospheres](frontend/atmospheres.md) | Rayleigh, Mie and ozone single scattering along the view ray, sunlight reddening on the ground, checks |
 | [Surface maps, rings, stars and daily Earth](frontend/textures.md) | Every source and its credit, map layout, relief from elevation, night lights, GIBS daily imagery, the Cassini ring profile, the star map |
+| [The other planets' rings](frontend/rings.md) | Jupiter's, Uranus's and Neptune's rings from occultations and ring tables: orbits, arcs, dust and forward scattering, and drawing rings narrower than a pixel |
 
 ## Usability
 

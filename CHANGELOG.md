@@ -15,6 +15,7 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
 - Craft launched in the app carry an attitude (6-DOF). The MISSION tab
   points them prograde, retrograde, normal, radial, along the next node
   or holds them still, and they turn in the time their thrusters' torque
@@ -75,7 +76,7 @@ once it has releases. Until then, everything sits under Unreleased.
   request).
 - Journeys to and from the planets' major moons (Europa, Ganymede, Titan
   and the rest) are flown with those moons' gravity, as the kernel gives
-  it. Earth orbit to Europa orbit is captured 1.2 km off its planned
+  it. Earth orbit to Europa orbit is captured 0.1 km off its planned
   periapsis, where it came in 300 km low and hit Europa. A descent lands on
   Europa, Titan is entered at its planned height, a moon flyby is aimed at
   the moon, not its planet, and leaving Europa for Earth is flown within
@@ -147,6 +148,7 @@ once it has releases. Until then, everything sits under Unreleased.
   (this pull request).
 
 ### The sky and its bodies
+- Jupiter, Uranus and Neptune have their rings. Uranus's ten narrow rings run on their measured orbits (French et al. 2024), eccentric, tilted and precessing, with depths and shapes from Voyager's occultations; its dust bands, ν and μ are there too. Neptune's Adams arc sits where it was last measured, with Le Verrier, Lassell and Galle. Jupiter's main ring, halo and gossamer rings are dust: faint, and brightest from Jupiter's shadow. Rings narrower than a pixel stay one steady line. They are as faint as the real ones; `?exposure=N` lengthens the exposure, as ring photographs do ([rings](docs/frontend/rings.md); this pull request).
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
   come from JPL's satellite ephemerides to within a kilometre, 76 of them
   (#33, #56). The Earth turns on UT1 with polar motion (#50).
