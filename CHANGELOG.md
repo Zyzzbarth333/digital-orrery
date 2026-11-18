@@ -9,7 +9,8 @@ once it has releases. Until then, everything sits under Unreleased.
 ### The project
 - `npm run bench:frames` times the app's frames on the integrated and the discrete GPU, a build against main, and prints the table a pull request needs (this pull request).
 - The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
-- Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (this pull request).
+- The clips are filmed again from the app as it is now, with three more: the Earth's satellites, its magnetic field and auroras, and Jupiter's irregular moons (this pull request).
+- Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (#76).
 - Screenshots in the README, a glossary, an architecture diagram, and the credits as tables (this pull request).
 - CI, a contributing guide, a security policy, this changelog and a citation (#68).
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
