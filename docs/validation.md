@@ -24,6 +24,7 @@ tests (it shares no code with the models).
 | `lambert`, 920-cell Earth to Mars grid (461 Type II) | independent RK4 | every cell solved; worst endpoint 5.5×10⁻⁹ |
 | `lambert`, real MSL dates | DE442 states, RK4 | reaches Mars to 2×10⁻¹¹; C3 = 10.69 km²/s² |
 | `lambertRevs`, 300 random geometries, 1 and 2 revolutions, both branches | flown by `propagate` | every one reaches r₂; worst 5.8×10⁻⁹ relative |
+| `timeToRadius` (first descent to a radius: ellipse in and out, hyperbola, parabola) | flown by `propagate` | at the radius to under 1 mm, above it at 400 times before; never (∞) above periapsis or leaving |
 
 ## Ephemeris and porkchop (`porkchop.test.mjs`)
 
@@ -357,6 +358,7 @@ them, is unchanged to its printed digits or within a step's rounding.
 | craft driven through the Worker client vs stepped directly | identical |
 | drawn position vs exact state (results a frame late) | 0.02 km in low orbit, 0.38 km in cruise; up to ~11,000 km during a close Earth pass at 100 days/s |
 | drawn position carried forward while the kernel lags | low orbit (two-body plus J2): 5×10⁻⁵ km at 10 min, 6.5 m at 1 h; GEO 0.74 km at 6 h; cruise 0.03 km at 1.7 days |
+| Artemis II drawn while the kernel lags at a day a second (`warp.test.mjs`) | from before the injection, 15 h on: 6.8 km from the flown path (was 17,052 km); a day past separation: held at the entry interface (120.3 km up, 11.0 km/s; was 191 million km out), then the kernel's splashdown, where it stays |
 | burn during a request in flight; dropped request | burn kept; nothing lost |
 | manual burn to empty, hour vs day frames | same state within the kernel's accuracy |
 | manoeuvre node | 415.816 kg drawn = rocket equation |

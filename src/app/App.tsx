@@ -89,6 +89,9 @@ export function App() {
     return () => ro.disconnect();
   }, [consoleOpen]);
   const mission = useMemo(() => new Mission(), []);
+  // ?debug exposes the mission as window.mission (as the scene's
+  // window.orrery), for headless checks of the craft's state.
+  if (new URLSearchParams(window.location.search).has('debug')) (window as unknown as { mission: Mission }).mission = mission;
   const journey = useMemo(() => new JourneyStore(init.timeMs), [init]);
   const scene = useRef<OrreryScene | null>(null);
   // The plotting table covers the sky, which pauses behind it.
