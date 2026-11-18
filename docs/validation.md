@@ -847,6 +847,13 @@ torque, and burns along the body axis to the kernel
 | Arcs' mean motion | 820.11213 °/day (1989–2007), 820.11178 (1989–2016) | 820.11204, 820.11168 |
 | The arcs' span and separations | 40°; 10.7°, 12°, 7.3° | 38.3°; as tabled |
 | Jupiter's gossamer rings' thickness from Amalthea's and Thebe's inclinations | ~2,300 and ~8,500 km | 2,532 and 8,520 km |
+| All ten Uranian normal modes; γ's width round the ring | French et al. 2024, Table 6; NSSDC 1–4 km | drawn; 2.9–3.6 km |
+| Uranian ring particles' albedo; ε's depth at apoapse | Voyager photometry (Svitek and Danielson 1987): Lambert albedo 3.9 ± 0.6 %, τ 0.40 ± 0.05 | 2/3 × 3.9 % = 0.026; 0.47 |
+| The Adams ring | 62,932.37 km, 42 lobes of 29.6 ± 1.5 km (Porco 1991) | as given; a × 4.7×10⁻⁴ = 29.6 km |
+| Galatea's longitude (the lobes turn with it) | Souami et al. 2022 against JPL's ephemeris | within 0.65° (2016), 0.37° (2026) |
+| The arcs' depths by date | Égalité/Fraternité 1.17 (2002), 0.93 (2003), 0.8 (2007, 2009), 76/84 (2016); Liberté 30 % (2003); Liberté and Courage gone (2009) | as measured |
+| Voyager PPS crossing of the Adams ring, arc material | within 1.5° of Liberté | 1.43° past its leading edge |
+| The arcs' reflectivity | Voyager 0.055 ± 0.004 at 0.5 µm | 0.0550 |
 | Dust phase function | averages 1; Throop et al. 2004: flat to 130°, few 10⁻⁶ I/F forward, ~10⁻⁷ back | 1.0000; 1.93×; 3.5×10⁻⁶ at 178°, 2.6×10⁻⁷ at 5° |
 
 ## How much of the Sun is in view (`discs.test.mjs`)

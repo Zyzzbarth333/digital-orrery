@@ -13,8 +13,8 @@ photometry.
 
 | | Measured, from the source | Modelled |
 | --- | --- | --- |
-| Uranus | every narrow ring's orbit: inner and outer edges, eccentricity, inclination, periapse and node and their precession, normal modes [1]; each ring's equivalent depth, and for α, β and ε the shape of its optical depth across it, from the Voyager 2 PPS occultation profiles [2]; the broad and dust rings' radii, widths and optical depths [3], [4], [5] | the broad rings' edges (smoothed over a tenth of their width) |
-| Neptune | the rings' radii, widths, optical depths and dust fractions [6], [7]; Fraternité's longitude at three epochs [8], [9], [10]; the arcs' separations and lengths [6], [7], [11], [12] | the longitude between and beyond the three epochs (straight lines between them); Égalité's split into two parts |
+| Uranus | every narrow ring's orbit: inner and outer edges, eccentricity, inclination, periapse and node and their precession, and all ten normal modes [1]; each ring's equivalent depth, and for α, β and ε the shape of its optical depth across it, from the Voyager 2 PPS occultation profiles [2]; the broad and dust rings' radii, widths and optical depths [3], [4], [5]; the particles' albedo [18] | the broad rings' edges (smoothed over a tenth of their width); the phase of γ's $m = 0$ mode's time term |
+| Neptune | the rings' radii, widths, optical depths and dust fractions [6], [7]; the Adams ring's radius and its 29.6 km, 42-lobed distortion [6], turning with Galatea at its measured longitude [9]; Fraternité's longitude at three epochs [8], [9], [10]; the arcs' separations and lengths [6], [7], [11], [12], and their brightness and positions in 1998, 2002, 2003, 2007, 2009 and 2016 [6], [8], [9]; the arcs' reflectivity [6] | the longitudes and brightnesses between and beyond the measured dates (straight lines between them); Égalité's split into two parts; the distortion's phase, from resonance theory [1], [19] |
 | Jupiter | each ring's radial extent, thickness and normal optical depth [13]; the main ring's split into dust and parent bodies, and the level of its phase curve [14]; the halo's power-law fall-off with height [13]; Amalthea's and Thebe's inclinations (JPL) | the main ring's bright outer annulus as a step (twice the depth over its outer 800 km); the gossamer rings' vertical profile from the dynamics that explains them [15]; the dust's phase function as a smooth curve fitted to the measured levels |
 
 PDS has no tabulated radial profile of Jupiter's rings, only raw images
@@ -37,9 +37,14 @@ r(\lambda, t) = \frac{a(1-e^2)}{1 + e\cos(\lambda - \varpi_0 - \dot\varpi\,t)} -
 $$
 
 with the precession rate $\dot\varpi$ (the ε ring's periapse turns
-1.363°/day) and, for η, γ and δ, the largest normal mode at the ring's
-centre from their Table 6 ($m$ = 3, 0 and 2; amplitudes 0.6, 5.5 and
-3.2 km; for $m = 0$ the term is $A_0\cos(\Omega_p t + \delta_0)$). Rings 6,
+1.363°/day), less every normal mode fitted at the ring's centre in their
+Table 6: η's $m$ = 3 (0.6 km), γ's $m$ = 0, 3, 6, −2 and −1 (5.5, 0.6,
+0.6, 0.7 and 1.8 km), δ's $m$ = 2 and 23 (3.2 and 0.3 km) and ε's
+$m$ = 14 and −24 (0.4 km each). Each is $-A_m\cos(m(\lambda - \delta_m -
+\Omega_p t))$, $\delta_m$ the longitude of a radial minimum (their Eqs.
+5–6). The paper gives no separate form for $m = 0$; its limit,
+$-A_0\cos(\Omega_p t + \delta_0)$, is assumed, which sets when γ is
+widest. Rings 6,
 5, 4, α and β are inclined to the equator by up to 0.061°, about a node
 that regresses as fast as the periapse advances; in 3D that lifts ring 6
 up to 45 km from the equator, so each ring is drawn in its own plane.
@@ -85,12 +90,24 @@ The rings are de Pater et al.'s Table 5.1 [6], from Porco et al. [7]:
 | Galle | 42,000 | 2,000 | $10^{-4}$ | all |
 | Le Verrier | 53,200 | 100 | 0.003 | 50 % |
 | Lassell | 55,200 | 4,000 | $10^{-4}$ | all |
-| Adams | 62,932.7 | 15 | 0.003; 0.1 in the arcs | 30 %; 50 % in the arcs |
+| Adams | 62,932.37 | 15 | 0.003; 0.1 in the arcs | 30 %; 50 % in the arcs |
 
 Arago (no measured depth) is left out. Le Verrier's τ × width, 0.30 km,
 agrees with the 0.25 km equivalent depth in the Voyager PPS profile [2].
-The Adams ring's eccentricity (about $3\times10^{-4}$) and its 42:43
-wiggles forced by Galatea are not drawn.
+
+The Adams ring is not circular. Galatea's 42:43 Lindblad resonance, 1.5 km
+inside it, forces a radial distortion of 29.6 ± 1.5 km (a forced
+eccentricity of $4.7\times10^{-4}$) with 42 lobes that turn with Galatea
+[6]. Outside such a resonance a forced distortion's apoapse points at the
+satellite [1], [19], so the ring is furthest out at Galatea's longitude:
+
+$$
+r(\lambda, t) = a + 29.6\ \text{km}\,\cos\big(42(\lambda - \lambda_G(t))\big),
+$$
+
+with Galatea's longitude 259.58 ± 0.30° on 2016 August 23 (moved back by
+the light time) and its mean motion 839.66134 °/day [9]. That agrees with
+JPL's ephemeris of Galatea to 0.65° in 2016 and 0.37° in 2026.
 
 ### The arcs
 
@@ -111,8 +128,31 @@ Courage 7.3° ahead of Liberté [3], [6]. Fraternité is 9.6° long [6];
 split 3° trailing and 1° leading [12], so the arcs span 38° from
 Fraternité's trailing edge. In the arcs τ rises to 0.1 [6].
 
-Since 2009 Liberté and Courage have faded from view [6], [9]. They are
-drawn at their 1989 strength at every date.
+Voyager's PPS crossed the Adams ring on 1989 August 24 at ring longitude
+191.57° (the PDS geometry file [2]), 28.6° ahead of Fraternité, and found
+arc material there (an equivalent depth of 0.85 km, against 0.045 km for
+the ring between arcs). That is 1.4° past Liberté's leading edge in this
+layout; Porco's Voyager ranges [12] put the edge about 0.9° further ahead.
+The arcs' places are known to about a degree.
+
+The arcs have changed since Voyager [6], [8], [9], and each one's depth
+follows the measurements, as a multiple of 1989's 0.1:
+
+| Date | Fraternité | Égalité | Liberté | Courage |
+| --- | --- | --- | --- | --- |
+| 1989 Aug (Voyager) | 1 | 1 | 1 | 0.3 ("usually a low-intensity arc") |
+| 1998 (HST/NICMOS) | | | 25 % down on Fraternité, 3° ahead | flared to Liberté's level |
+| 2002 Jul (Keck) | | 1.17 × Fraternité | | |
+| 2003 Oct (Keck) | 0.75 (25 % below Voyager) | 0.93 × Fraternité | 0.3, back in place | 0.3, 8° ahead |
+| 2007 Aug (VLT) | unchanged (EW 65–71 m) | 0.8 × Fraternité | | |
+| 2009 Jul (Keck) | | 0.8 × Fraternité | gone | gone |
+| 2016 Aug (VLT) | unchanged (EW 84 ± 18 m) | 76/84 of Fraternité | gone | gone |
+
+Between dates the depth runs in a straight line; after 2016 it holds.
+Courage's 0.3 in 1989 follows from the 2003 Keck images, where Liberté had
+fallen to 30 % of its 1989 brightness and both arcs to Courage's 1989
+level. The later measurements are near-infrared (2.1 µm); the depths scale
+by them unchanged in visible light.
 
 ## Jupiter
 
@@ -168,8 +208,14 @@ $$
 
 - **Parent bodies:** Lambert spheres of geometric albedo $p$, phase law
   $\Phi_\text{L}(\alpha) = [\sin\alpha + (\pi - \alpha)\cos\alpha]/\pi$:
-  $p$ = 0.015 for Uranus's and Neptune's rings [17], 0.05 for Jupiter's
-  (Adrastea's) [13]. They are dark, and darker still lit from behind.
+  each a measurement. Uranus's are 0.026: Voyager photometry of the ε ring
+  gives Lambert surfaces of single-scattering albedo 3.9 ± 0.6 % [18], and
+  a Lambert sphere's geometric albedo is 2/3 of that. Neptune's are 0.069:
+  with half the arcs' depth in dust, that gives the arcs Voyager's measured
+  reflectivity, 0.055 ± 0.004 at 0.5 µm and 8° phase [6]. Jupiter's are
+  0.05, Adrastea's [13]. (NASA's fact sheets give 0.015 for both ice
+  giants' rings [17], which these measurements supersede.) They are dark,
+  and darker still lit from behind.
 - **Dust:** single-scattering albedo $\varpi_0$ = 0.3 and a phase function
   of the scattering angle $\theta$ (0 when the Sun is straight behind the
   ring) that is half isotropic and half a Henyey–Greenstein lobe with
@@ -217,6 +263,7 @@ production build's exposure times the factor given, on the Intel GPU:
 | ![Uranus from inside its shadow on 24 January 1986, 236,000 km out, 100 times the exposure: the planet black, the rings and dust bands bright around it](rings-uranus-shadow.jpg) | Voyager 2 from Uranus's shadow, 236,000 km, a 96 s exposure: dust throughout the ring system, and dust lanes brighter than the rings ([PIA00142](https://photojournal.jpl.nasa.gov/catalog/PIA00142)). The app has the dust as the tables give it, in broad bands; Voyager resolved them into many fine lanes. |
 | ![Uranus at low phase on 24 January 1986, 60 times the exposure: the planet saturated, the narrow rings faint lines round it](rings-uranus-lowphase.jpg) | At low phase the dark narrow rings are thin, faint lines, as in Voyager 2's mosaic of them on 23 January 1986 from 1.12 million km, in which the λ ring was found ([PIA00035](https://photojournal.jpl.nasa.gov/catalog/PIA00035)). |
 | ![Neptune from above its pole on 23 August 1989, 1000 times the exposure: the Adams ring's arcs as five bright pieces upper right](rings-neptune-arcs.jpg) | Voyager 2's wide-angle camera, 23 August 1989: the arc region, "three distinct features" over about 35° of longitude ([PIA00053](https://photojournal.jpl.nasa.gov/catalog/PIA00053)). Here five pieces over 38°, Égalité's two parts and Courage separated. |
+| ![Neptune from above its pole on 10 November 2026, 1000 times the exposure: only two arcs left, fainter, at a different place on the ring](rings-neptune-arcs-2026.jpg) | The same view in 2026: Liberté and Courage gone since 2009, Fraternité and Égalité fainter, as Keck and the VLT measured them [6], [9]. |
 | ![Neptune from 280,000 km behind it on 26 August 1989, 1000 times the exposure: the two main rings as thin lines round the crescent, with glare](rings-neptune-1989.jpg) | Two 591 s Voyager 2 exposures from 280,000 km: the Adams and Le Verrier rings complete round the planet, glare from the over-exposed crescent ([PIA01997](https://photojournal.jpl.nasa.gov/catalog/PIA01997)). |
 | ![Jupiter from inside its shadow on 9 November 1996, 900,000 km out, 3000 times the exposure: the main ring as a thin bright ellipse on either side of the black disc, cut by the shadow near the planet](rings-jupiter-shadow.jpg) | Galileo in Jupiter's shadow, November 1996, looking back at the Sun: the main ring bright in forward-scattered light ([PIA01621](https://photojournal.jpl.nasa.gov/catalog/PIA01621)). The halo and gossamer rings, ten and a hundred times fainter, need a longer exposure than the planet's limb allows here. |
 
@@ -234,10 +281,19 @@ and independent ones:
   0.47 to 2.30, against the tables' 0.5 to 2.3; the other rings' mean
   depths within a factor of 2.2 of the tables' approximate values; the
   pole, the longitude frame and a year's periapse precession.
+- Uranus, more: all ten normal modes, δ's minimum at $\delta_m$ as French
+  et al. define it, and γ's width round the ring (2.9–3.6 km, NSSDC 1–4);
+  the particles' albedo, and ε's depth at apoapse, 0.47 against Voyager
+  photometry's 0.40 ± 0.05 [18] (within 0.08).
 - Neptune: radii against NSSDC [17]; Le Verrier's depth against the PPS
-  profile; Fraternité at the three epochs within their errors; the
-  1989–2007 and 1989–2016 rates against the published mean motions; the
-  arcs' separations, their 40° span and their 1989 longitudes [12].
+  profile; the Adams ring's radius and its 42 lobes of 29.6 km; Galatea's
+  longitude against JPL's ephemeris in 2016 and 2026 (within 0.7°);
+  Fraternité at the three epochs within their errors; the 1989–2007 and
+  1989–2016 rates against the published mean motions; the arcs'
+  separations, their 40° span and their 1989 longitudes [12]; their depths
+  in 2002, 2003, 2007, 2009 and 2016 against the measured ratios; Voyager's
+  PPS crossing within 1.5° of Liberté; and the arcs' reflectivity against
+  Voyager's 0.055 ± 0.004.
 - Jupiter: the main ring's outer edge against NSSDC, the gossamer rings'
   ends at Amalthea's and Thebe's orbits, their thicknesses from the moons'
   inclinations against the table's (within 15 % and 5 %), the main ring's
@@ -258,9 +314,9 @@ shapes). Everything else is in `src/physics/rings.js`.
 
 ## Not modelled
 
-- Uranus's other normal modes (all but the largest per ring, under 2 km)
-  and the rings' particle colours; Neptune's ring eccentricities and the
-  Adams ring's 42:43 wiggles; the arcs' fading since 2003.
+- The rings' particle colours; the modes fitted only to ring edges (each
+  under 2 km, Table 6); Neptune's other rings' shapes; the arcs' clumps,
+  and their state between and after the measured dates.
 - Jupiter's halo bloom, the main ring's fine structure near Metis and
   Adrastea, and the gossamer rings' radial structure beyond a uniform
   depth; the moons' shadows on the rings.
@@ -303,3 +359,7 @@ shapes). Everything else is in `src/physics/rings.js`.
 [16] M. E. Ockert-Bell *et al.*, "The structure of Jupiter's ring system as revealed by the Galileo imaging experiment," *Icarus*, vol. 138, pp. 188–213, 1999, doi: [10.1006/icar.1998.6072](https://doi.org/10.1006/icar.1998.6072).
 
 [17] D. R. Williams, "Uranus rings fact sheet," "Neptunian rings fact sheet" and "Jupiter rings fact sheet," NASA NSSDCA. [Online]. Available: https://nssdc.gsfc.nasa.gov/planetary/factsheet/uranringfact.html, https://nssdc.gsfc.nasa.gov/planetary/factsheet/nepringfact.html, https://nssdc.gsfc.nasa.gov/planetary/factsheet/jupringfact.html
+
+[18] T. Svitek and G. E. Danielson, "Azimuthal brightness variation and albedo measurements of the Uranian rings," *J. Geophys. Res.*, vol. 92, no. A13, pp. 14979–14986, 1987, doi: [10.1029/JA092iA13p14979](https://doi.org/10.1029/JA092iA13p14979).
+
+[19] C. D. Murray and S. F. Dermott, *Solar System Dynamics*. Cambridge, U.K.: Cambridge Univ. Press, 1999, doi: [10.1017/CBO9781139174817](https://doi.org/10.1017/CBO9781139174817).

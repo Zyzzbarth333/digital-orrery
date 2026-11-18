@@ -22,14 +22,17 @@ const D = Math.PI / 180;
 // observations (1977-2006): rings, pole direction, gravity field, and masses
 // of Cressida, Cordelia, and Ophelia", Icarus 411, 115957, Table 5 (keplerian
 // elements of each ring's centre (COR) and inner and outer edges (IER, OER))
-// and Table 6 (normal modes; the largest at the centre is kept). Epoch TDB
+// and Table 6 (every normal mode fitted at the ring's centre). Epoch TDB
 // 1986 Jan 19 12:00. Rings with no fitted eccentricity or inclination
 // (eta, delta, lambda; epsilon's and gamma's inclination) had them held at 0.
 export const URANUS_EPOCH_JD = 2446450.0;
 
 // Edge: [a, a e, varpi0, varpi-dot]. Centre adds [a sin i, Omega0, Omega-dot].
-// mode: [m, A_m (km), delta_m (deg), Omega_p (deg/day)], r -= A_m cos(m (lambda - delta_m - Omega_p t)),
-// for m = 0 r -= A_0 cos(Omega_p t + delta_0).
+// modes: [m, A_m (km), delta_m (deg), Omega_p (deg/day)] each, French et
+// al.'s Eqs. (5)-(6): r -= A_m cos(m (lambda - delta_m - Omega_p t)), delta_m
+// the longitude of a radial minimum at epoch. For m = 0 (gamma's breathing)
+// the paper gives no separate form; its m -> 0 limit, r -= A_0 cos(Omega_p t
+// + delta_0), is assumed. Gamma's are the fit that includes its m = 3 mode.
 export const URANUS_NARROW = [
   { name: '6', ier: [41835.920, 42.068, 181.733, 2.7620198], oer: [41838.237, 42.930, 181.526, 2.7619237],
     cor: [41837.092, 42.499, 181.657, 2.7619579, 44.643, 89.727, -2.7565287] },
@@ -42,15 +45,18 @@ export const URANUS_NARROW = [
   { name: 'beta', ier: [45656.770, 18.573, 319.589, 2.0309488], oer: [45665.286, 21.745, 316.622, 2.0308319],
     cor: [45661.056, 20.106, 317.925, 2.0308229, 4.004, 232.878, -2.0279790] },
   { name: 'eta', ier: [47174.853, 0, 0, 0], oer: [47177.080, 0, 0, 0], cor: [47176.009, 0, 0, 0, 0, 0, 0],
-    mode: [3, 0.600, 75.901, 776.584048] },
+    modes: [[3, 0.600, 75.901, 776.584048]] },
   { name: 'gamma', ier: [47624.606, 5.016, 47.274, 1.7516631], oer: [47627.865, 5.470, 47.145, 1.7524301],
-    cor: [47626.170, 5.306, 48.720, 1.7514650, 0, 0, 0], mode: [0, 5.509, 311.695, 1145.576845] },
+    cor: [47626.170, 5.306, 48.720, 1.7514650, 0, 0, 0],
+    modes: [[0, 5.509, 311.695, 1145.576845], [3, 0.577, 54.989, 765.399832], [6, 0.637, 32.518, 956.419622],
+      [-2, 0.690, 26.843, 1720.117977], [-1, 1.822, 25.852, 2292.904186]] },
   { name: 'delta', ier: [48297.775, 0, 0, 0], oer: [48302.752, 0, 0, 0], cor: [48300.227, 0, 0, 0, 0, 0, 0],
-    mode: [2, 3.169, 170.383, 562.516205] },
+    modes: [[2, 3.169, 170.383, 562.516205], [23, 0.339, 6.844, 1074.523021]] },
   // Lambda: centre only (Table 5); its width is the Ring-Moon Systems Node's 2.3 km.
   { name: 'lambda', ier: [50026.557 - 1.15, 0, 0, 0], oer: [50026.557 + 1.15, 0, 0, 0], cor: [50026.557, 0, 0, 0, 0, 0, 0] },
   { name: 'epsilon', ier: [51120.014, 386.530, 307.089, 1.3632690], oer: [51178.588, 425.242, 307.061, 1.3632618],
-    cor: [51149.279, 405.894, 307.076, 1.3632575, 0, 0, 0] },
+    cor: [51149.279, 405.894, 307.076, 1.3632575, 0, 0, 0],
+    modes: [[14, 0.383, 14.105, 956.418015], [-24, 0.443, 2.828, 1074.522703]] },
 ];
 
 // Fraction of each ring's optical depth in micron dust, which scatters
@@ -82,9 +88,27 @@ export const NEPTUNE_BROAD = [
 export const NEPTUNE_NARROW = [
   { name: 'Le Verrier', a: 53200, width: 100, tau: 0.003, dust: 0.5 },
   // The Adams ring outside the arcs; the arcs themselves are ADAMS_ARCS.
-  // a = 62932.7 km (Porco 1991, via Giuliatti Winter et al. 2020, Table 2).
-  { name: 'Adams', a: 62932.7, width: 15, tau: 0.003, dust: 0.3 },
+  // a = 62,932.37 km (Porco 1991, via de Pater et al. 2018, Sect. 5.5).
+  { name: 'Adams', a: 62932.37, width: 15, tau: 0.003, dust: 0.3 },
 ];
+
+// The Adams ring's radial distortion: 29.6 +/- 1.5 km (forced eccentricity
+// 4.7e-4) from Galatea's 42:43 Lindblad resonance 1.5 km inside it (Porco
+// 1991, via de Pater et al. 2018, Sect. 5.5.2 and Table 5.4): 42 lobes
+// turning with Galatea. Outside a Lindblad resonance a forced distortion's
+// apoapse points at the satellite (French et al. 2024, Sect. 9.1, after
+// Murray and Dermott 1999), so the ring is furthest out at Galatea's
+// longitude and every 360/42 deg from it.
+export const ADAMS_WIGGLE = { m: 42, amplitudeKm: 29.6 };
+
+// Galatea's longitude in the ring plane: 259.58 +/- 0.30 deg on 2016 Aug 23
+// at 04:25:22.52 UT as seen from 28.959 au, and its mean motion,
+// 839.66134 deg/day (Souami et al. 2022, Sect. 3.2).
+export const GALATEA_N = 839.66134;
+export function galateaLongitude(jd) {
+  const lon = 259.58 + GALATEA_N * (jd - GALATEA_EPOCH_JD);
+  return ((lon % 360) + 360) % 360;
+}
 export const ADAMS_ARC_TAU = 0.1, ADAMS_ARC_DUST = 0.5;
 
 // The arcs, at Voyager 2 (1989): leading offsets of each arc's centre from
@@ -102,6 +126,60 @@ export const ADAMS_ARCS = [
   { name: 'Liberte', offset: 25.2, length: 4 },
   { name: 'Courage', offset: 32.5, length: 2 },
 ];
+
+// How the arcs have changed since Voyager, from de Pater et al. 2018,
+// Sect. 5.2.1 (HST/NICMOS 1998; Keck 2002, 2003 and 2009, after de Pater et
+// al. 2005), Renner et al. 2014 (VLT 2007) and Souami et al. 2022 (VLT
+// 2016). Each arc's optical depth is a multiple of the 1989 arcs' 0.1, at
+// the dates measured, straight-line between them and held after the last:
+//  - Fraternite: 25 % below Voyager by 2003, unchanged 2003-2007 (EW about
+//    65-71 m) and in 2016 (84 +/- 18 m);
+//  - Egalite (both parts): 17 % brighter than Fraternite in July 2002, 7 %
+//    fainter in Oct 2003, about 20 % fainter in 2007 and 2009, and 76/84 of
+//    Fraternite in 2016;
+//  - Liberte: 25 % fainter relative to Fraternite and 3 deg ahead in 1998;
+//    back at its Voyager place at about 30 % of its 1989 brightness in Oct
+//    2003; essentially gone by July 2009;
+//  - Courage: "usually a low-intensity arc": in 2003 both it and Liberte had
+//    fallen to Courage's 1989 level, so it starts at 30 % of the others; it
+//    flared to nearly Liberte's brightness in 1998, was about 8 deg ahead (one
+//    resonance site) by Oct 2003, and was essentially gone by July 2009.
+// Fraternite between 1989 and 2003, and every arc before 1989, are not
+// measured: straight lines, and held at 1989.
+const jdOfDate = (y, m, d) => Date.UTC(y, m - 1, d, 12) / 86400000 + 2440587.5;
+const VOYAGER = 2447757.0, NICMOS = jdOfDate(1998, 10, 15), KECK02 = jdOfDate(2002, 7, 25),
+  KECK03 = jdOfDate(2003, 10, 3), VLT07 = jdOfDate(2007, 8, 31), KECK09 = jdOfDate(2009, 7, 15),
+  VLT16 = jdOfDate(2016, 8, 23);
+const lerp = (pts, jd) => {
+  if (jd <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    if (jd <= pts[i][0]) return pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * (jd - pts[i - 1][0]) / (pts[i][0] - pts[i - 1][0]);
+  }
+  return pts[pts.length - 1][1];
+};
+const FRAT = [[VOYAGER, 1], [KECK03, 0.75]];
+const frat = (jd) => lerp(FRAT, jd);
+export const ARC_HISTORY = {
+  Fraternite: { depth: FRAT, shift: [[VOYAGER, 0]] },
+  Egalite: {
+    depth: [[VOYAGER, 1], [KECK02, 1.17 * frat(KECK02)], [KECK03, 0.93 * frat(KECK03)], [VLT07, 0.8 * frat(VLT07)],
+      [KECK09, 0.8 * frat(KECK09)], [VLT16, (76 / 84) * frat(VLT16)]],
+    shift: [[VOYAGER, 0]],
+  },
+  Liberte: { depth: [[VOYAGER, 1], [NICMOS, 0.75 * frat(NICMOS)], [KECK03, 0.3], [KECK09, 0]],
+    shift: [[VOYAGER, 0], [NICMOS, 3], [KECK03, 0]] },
+  Courage: { depth: [[VOYAGER, 0.3], [NICMOS, 0.75 * frat(NICMOS)], [KECK03, 0.3], [KECK09, 0]],
+    shift: [[VOYAGER, 0], [NICMOS, 0], [KECK03, 8]] },
+};
+
+/** The arcs at a JD: each one's offset ahead of Fraternite's centre (deg),
+ * length (deg) and optical depth. */
+export function arcsAt(jd) {
+  return ADAMS_ARCS.map((a) => {
+    const h = ARC_HISTORY[a.name.startsWith('Egalite') ? 'Egalite' : a.name];
+    return { name: a.name, offset: a.offset + lerp(h.shift, jd), length: a.length, tau: ADAMS_ARC_TAU * lerp(h.depth, jd) };
+  });
+}
 
 // Fraternite's centre, measured: [JD TDB at Neptune, longitude deg].
 //  - Voyager 2: 251.88 deg at JD 2447757.0 (Porco et al. 1995, as given by
@@ -123,6 +201,7 @@ export const FRATERNITE_FIXES = [
   { jd: earthEpochToNeptune(54343.00767, 29.079, 65.184), lon: 349.01, sigma: 0.6, source: 'VLT/NACO (Renner et al. 2014)' },
   { jd: earthEpochToNeptune(57623.23185137, 28.959, 68.184), lon: 217.43, sigma: 0.3, source: 'VLT/SPHERE (Souami et al. 2022)' },
 ];
+const GALATEA_EPOCH_JD = earthEpochToNeptune(57623 + (4 * 3600 + 25 * 60 + 22.5202) / 86400, 28.959, 68.184);
 const ARC_N0 = 820.1118;      // deg/day, near every published value; only picks the whole turns
 
 // The unwrapped segment rates between successive fixes.
@@ -178,7 +257,7 @@ export function edgeAt(edge, jd) {
 export function edgeRadius(ring, which, lambda, jd) {
   const { a, e, varpi } = edgeAt(ring[which], jd);
   let r = (a * (1 - e * e)) / (1 + e * Math.cos((lambda - varpi) * D));
-  if (ring.mode) r -= modeOffset(ring.mode, lambda, jd);
+  for (const mode of ring.modes ?? []) r -= modeOffset(mode, lambda, jd);
   return r;
 }
 
@@ -228,12 +307,6 @@ export const jdFromTt = (tt) => 2451545.0 + tt / 86400;
 
 // ------------------------------------------------------------ photometry
 
-// Ring particles: geometric albedo, the A of the ring layer's
-// single-scattering reflectance (docs/frontend/lighting.md#saturns-rings):
-// Uranus's and Neptune's about 0.015 (NASA NSSDC ring fact sheets), the
-// parent bodies of Jupiter's main ring 0.05, Adrastea's (de Pater et al. 2018).
-export const PARTICLE_ALBEDO = { jupiter: 0.05, uranus: 0.015, neptune: 0.015 };
-
 // Dust: micron grains, single-scattering albedo DUST.albedo, phase function
 // P(theta) (theta the scattering angle, 0 straight on; normalised so its
 // mean over the sphere is 1) half isotropic, half a Henyey-Greenstein lobe of
@@ -255,3 +328,36 @@ export function dustPhase(thetaDeg) {
 export function dustNormalIF(tau, alphaDeg) {
   return (DUST.albedo * dustPhase(180 - alphaDeg) / 4) * tau;
 }
+
+/** A Lambert sphere's phase law, 1 at zero phase. */
+export function lambertPhase(alphaDeg) {
+  const a = alphaDeg * D;
+  return (Math.sin(a) + (Math.PI - a) * Math.cos(a)) / Math.PI;
+}
+
+/** A ring's A at phase alpha (deg) for particles of geometric albedo p and
+ * a dust fraction f: (1 - f) p Phi_L(alpha) + f albedo P(180 - alpha) / 4. */
+export function ringReflectivity(p, f, alphaDeg) {
+  return (1 - f) * p * lambertPhase(alphaDeg) + f * DUST.albedo * dustPhase(180 - alphaDeg) / 4;
+}
+
+// Ring particles' geometric albedo, the p above, each from a measurement:
+//  - Uranus: the epsilon ring's particles scatter as Lambert surfaces of
+//    single-scattering albedo 3.9 +/- 0.6 % (Voyager photometry, Svitek and
+//    Danielson 1987); a Lambert sphere's geometric albedo is 2/3 of that.
+//  - Neptune: the arcs' reflectivity, Voyager at 0.5 um and its lowest phase
+//    (about 8 deg), is 0.055 +/- 0.004 (de Pater et al. 2018, Table 5.3, from
+//    Porco et al. 1995 and Karkoschka 2003); with half their depth in dust,
+//    p follows.
+//  - Jupiter's main ring's parent bodies: 0.05, Adrastea's (de Pater et al.
+//    2018).
+// NASA's NSSDC fact sheets give about 0.015 for both ice giants' rings, a
+// figure these measurements supersede.
+export const URANUS_LAMBERT_ALBEDO = 0.039;
+export const NEPTUNE_ARC_REFLECTIVITY = { value: 0.055, sigma: 0.004, phaseDeg: 8 };
+export const PARTICLE_ALBEDO = {
+  jupiter: 0.05,
+  uranus: (2 / 3) * URANUS_LAMBERT_ALBEDO,
+  neptune: (NEPTUNE_ARC_REFLECTIVITY.value - ADAMS_ARC_DUST * DUST.albedo * dustPhase(180 - NEPTUNE_ARC_REFLECTIVITY.phaseDeg) / 4)
+    / ((1 - ADAMS_ARC_DUST) * lambertPhase(NEPTUNE_ARC_REFLECTIVITY.phaseDeg)),
+};
