@@ -951,6 +951,8 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 | Earth–Moon Jacobi constants at L1–L4 | Koon, Lo, Marsden and Ross: 3.1883, 3.1722, 3.0121, 2.9880 | 3.1883, 3.1722, 3.0121, 2.9880 |
 | Spin sense of 61 bodies, from the app's orientation differenced | the sign of each IAU rate $W_1$ | all 61; size within 2 % (Phobos 0.65 %, its libration) |
 | Retrograde rotation | Venus 177°, Uranus 98°, Pluto 120° from their orbits' poles | exactly those three: 177.4°, 97.8°, 119.6° |
+| The cursor's readout on the Earth–Moon L1 marker, in the app | C1 from `criticalLevels`, 3.188341 | C 3.18834, the pull 5.7 µm/s² |
+| The rotating frame's contours worked out per pixel, after the change | the double-precision sum, read back at 144 pixels | Jacobi within 0.001 in log₁₀(C − C₄), \|a\| within the half-float step |
 
 ## References
 
