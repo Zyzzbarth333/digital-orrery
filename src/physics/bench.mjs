@@ -86,3 +86,30 @@ for (const [name, r, v] of scenarios) {
     console.log(`kernel ${name.padEnd(26)} Cowell ${c.toFixed(0).padStart(7)} sim days/s | hybrid ${e.toFixed(0).padStart(7)} sim days/s`);
   }
 }
+
+// Artemis II's injection burn as the app flies it at a day a second: one
+// kernel request through the 23-minute burn, steered in the orbital frame
+// (273 five-second intervals), with Orion's whole environment (degree-20
+// field, tide, drag through MET from 186 km, sunlight, venting). Wall time
+// of the median of seven, after two to compile.
+{
+  const { readFileSync } = await import('node:fs');
+  const { Craft } = await import('./craft.js');
+  const { RealMission } = await import('./realMission.js');
+  const { ORION_CRAFT } = await import('./orion.js');
+  const { createKernelHost, KERNEL_EPOCH_MS, kernelSeconds } = await import('./kernelHost.js');
+  const m = new RealMission(JSON.parse(readFileSync(new URL('../../public/missions/artemis2.json', import.meta.url), 'utf8')));
+  const s = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), host = createKernelHost();
+  const tEnd = kernelSeconds(new Date(m.burns[0].intervals.at(-1)[1])) + 60;
+  const ms = [];
+  let steps = 0;
+  for (let k = 0; k < 9; k++) {
+    const s0 = m.startState(), c = new Craft({ name: m.name, r: s0.r, v: s0.v, t: s0.t, sys: s, ...ORION_CRAFT });
+    c.setScript(m.script());
+    c.advanceClock(tEnd);
+    const req = c.buildRequest(), w = performance.now();
+    steps = host.handle({ type: 'step', crafts: [{ ...req, maxSteps: 1e6 }] }).crafts[0].steps;
+    if (k >= 2) ms.push(performance.now() - w);
+  }
+  console.log(`kernel Artemis II injection burn (23 min)     ${ms.sort((a, b) => a - b)[3].toFixed(0)} ms wall, ${steps} steps`);
+}

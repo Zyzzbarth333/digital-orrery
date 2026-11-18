@@ -202,7 +202,11 @@ running), which the injection burn grew to 180 km by the next day.
 The kernel learned two things for this:
 - **Steered burns:** a burn can be steered in the orbital frame about a
   body (`frame: 'vnb'`). The integrator passes the craft's velocity to the
-  thrust (in Encke too), and steps inside such a burn are capped at 0.25 s.
+  thrust (in Encke too). Steps inside such a burn were capped at 0.25 s
+  while the kernel's Cowell steps were symplectic. The error-controlled
+  steps follow the turn on their own: one step to each 5-second interval
+  ends the injection burn within millimetres of 0.01 s steps
+  ([Artemis II check](../validation/artemis2.md#3-the-whole-mission-with-orions-burns)).
 - **Tracking fixes:** `Craft.setState` takes a fix.
 
 ## Manoeuvre nodes and the engine
