@@ -1047,6 +1047,13 @@ references these are).
 | Saturn's ring current, summed loops | Bunce and Cowley 2003: 11.5 MA; on-axis integral; the disc's dipole at 200 R_S | 11.50 MA; centre 10.531 vs 10.532 nT; dipole within 1 %; table within 0.17 nT of the sum |
 | Ganymede in Jupiter's field | the flux function's open/closed boundary for a dipole in a uniform field | 58.48° colatitude, as the flux function |
 | the Sun's PFSS field | radial at the source surface; potential inside; WSO's measured polar fields | radial to 10⁻¹²; curl and divergence under 2 × 10⁻⁹; g₁⁰'s sign as the poles' at 739 of 739 dates, 2000–2026 |
+| the heliospheric current sheet | WSO's computed tilts (radial model, 3.25 R☉), every fourth rotation | farthest north and south: median 1.43°, 80 % within 3.27° (70 rotations) |
+| Carrington rotations | WSO's start dates, CR 1642–2302 | all 661 within 2.3 h |
+| Shue et al. 1998 magnetopause | the paper: no geosynchronous crossing below 7 nPa | nearest 6.70 R⊕ at 6.99 nPa; inside at 8 nPa, Bz −18 |
+| Farris and Russell bow shock standoff | its high-Mach limit 0.81 (γ − 1)/(γ + 1) | 0.2025 |
+| Jupiter's magnetopause (Rutala et al. 2025) | the paper: 89 and 51 R_J at 0.02 and 0.22 nPa; 13 % polar flattening | 89.1 and 48.9 R_J; 13.7 % |
+| the Earth's lines at the magnetopause | Shue's surface | line ends within 10⁻¹⁰ R⊕ of it |
+| Jupiter's main oval | Hubble's reference ovals' centres (Bonfond et al. 2012, via Head et al. 2024) | 3.7° of arc in the north, 0.5° in the south |
 
 ## Spacecraft beyond Earth orbit (`spacecraft.test.mjs`)
 

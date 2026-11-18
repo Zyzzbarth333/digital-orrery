@@ -342,6 +342,19 @@ function traceHalf(model, start, sign, surface, rMax, maxSteps) {
     for (let j = 0; j < 3; j++) q[j] = p[j] + h * k[2][j];
     dir(q, k[3]);
     for (let j = 0; j < 3; j++) next[j] = p[j] + (h / 6) * (k[0][j] + 2 * k[1][j] + 2 * k[2][j] + k[3][j]);
+    // A magnetopause (model.within, if set): bisect to it and stop there.
+    if (model.within && !model.within(next[0], next[1], next[2])) {
+      let lo = 0, hi = 1;
+      for (let it = 0; it < 24; it++) {
+        const mid = (lo + hi) / 2;
+        for (let j = 0; j < 3; j++) q[j] = p[j] + mid * (next[j] - p[j]);
+        if (model.within(q[0], q[1], q[2])) lo = mid; else hi = mid;
+      }
+      for (let j = 0; j < 3; j++) q[j] = p[j] + lo * (next[j] - p[j]);
+      pts.push(q[0], q[1], q[2]); str.push(dir(q, k[0]));
+      end = 'boundary';
+      break;
+    }
     if (inside(next, surface.eq, surface.pol)) {
       // Bisect to the surface.
       let lo = 0, hi = 1;

@@ -249,7 +249,13 @@ once it has releases. Until then, everything sits under Unreleased.
   Ganymede's close inside Jupiter's field and open into it, and the Sun
   has field lines too, from the Wilcox Solar Observatory's model for the
   date's Carrington rotation: loops over the streamer belt and open lines
-  from the polar holes (this pull request).
+  from the polar holes (#118).
+- The Earth's magnetopause and bow shock are drawn for the solar wind
+  NOAA measured, when the clock is within the last week, and the Earth's
+  field lines end at the magnetopause. Jupiter's and Saturn's
+  magnetopauses and Jupiter's bow shock are drawn too. With the Sun
+  focused, its current sheet and Parker spiral reach out to 6 AU, in
+  amber and blue sectors (this pull request).
 - The gravity field of every body at once, as field lines flowing toward
   the masses in a plane through the focus: inertial, falling with the
   focus, less its own pull (Jupiter's moons' wells), or in the rotating

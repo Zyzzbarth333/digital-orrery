@@ -28,6 +28,7 @@ type Belts = typeof import('../physics/belts.js');
 type RC = typeof import('../physics/ringCurrent.js');
 type SunMod = typeof import('../physics/sunField.js');
 type T89 = typeof import('../physics/t89.js');
+type Bnd = typeof import('../physics/boundaries.js');
 type Ovation = ReturnType<typeof import('../physics/ovation.js')['parseOvation']>;
 type Model = NonNullable<ReturnType<Mag['magneticModel']>>;
 type V3 = [number, number, number];
@@ -77,6 +78,31 @@ void main() {
 `;
 
 // Auroral emission: a colour per vertex, faded on the day side for Earth.
+// The Sun's current sheet and spiral lines: a colour per vertex, scaled
+// by the display level like the field lines.
+const tintVertex = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_vertex>
+attribute vec3 tint;
+varying vec3 vT;
+void main() {
+  vT = tint;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  #include <logdepthbuf_vertex>
+}
+`;
+const tintFragment = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
+uniform float level;
+uniform float opacity;
+varying vec3 vT;
+void main() {
+  #include <logdepthbuf_fragment>
+  gl_FragColor = vec4(vT * opacity * level, opacity);
+}
+`;
+
 const auroraVertex = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_vertex>
@@ -214,13 +240,17 @@ interface BodyLines {
 
 // Past a planet's own field, what each body's lines include.
 const EXTERNAL: Partial<Record<BodyKey, string>> = {
-  earth: 'T89 bends the lines with the magnetopause, tail and ring currents, but has no sharp magnetopause; lines are cut at 40 R⊕.',
-  jupiter: 'Internal field and the current sheet: no magnetopause.',
-  saturn: 'Internal field and the ring current: no magnetopause.',
+  earth: 'T89 bends the lines with the magnetopause, tail and ring currents; they end at the magnetopause of the date’s solar wind (Shue et al. 1998), drawn with the bow shock ahead of it.',
+  jupiter: 'Internal field and the current sheet; the magnetopause and bow shock drawn for a quiet solar wind (Rutala et al. 2025).',
+  saturn: 'Internal field and the ring current; the magnetopause drawn for a quiet solar wind (Pilkington et al. 2015).',
   ganymede: 'Its own dipole in a uniform field, Jupiter’s at its place.',
 };
 // The Earth's T89 lines are retraced after it has turned 7.5 deg under the Sun.
 const COS_RETRACE = Math.cos((7.5 * Math.PI) / 180);
+// Sun-fixed boundaries are redrawn after the body turns a quarter degree.
+const COS_BND = Math.cos((0.25 * Math.PI) / 180);
+
+const t2 = (deg: number) => `${deg.toFixed(0)}°`;
 
 const fmtGauss = (nT: number) => {
   const G = nT / 1e5;
@@ -292,8 +322,8 @@ export class MagneticLayer {
   set(key: MagneticKey, on: boolean): void {
     this.on[key] = on;
     if (on && !this.loading) {
-      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js'), import('../physics/ovation.js'), import('../physics/ringCurrent.js'), import('../physics/sunField.js'), import('../physics/t89.js')])
-        .then(([m, a, b, o, r, sf, t]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; this.rc = r; this.sf = sf; this.t89 = t; });
+      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js'), import('../physics/ovation.js'), import('../physics/ringCurrent.js'), import('../physics/sunField.js'), import('../physics/t89.js'), import('../physics/boundaries.js')])
+        .then(([m, a, b, o, r, sf, t, bd]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; this.rc = r; this.sf = sf; this.t89 = t; this.bnd = bd; });
     }
     // Kp drives the Earth's ovals and its T89 magnetosphere.
     if ((key === 'aurora' || key === 'magnetic') && on && !this.kpLoaded) {
@@ -309,7 +339,7 @@ export class MagneticLayer {
   }): void {
     this.tagCount = 0;
     const any = this.on.magnetic || this.on.aurora || this.on.belts;
-    if (!any || !this.mag || !this.aur || !this.belts || !this.ov || !this.rc || !this.sf || !this.t89) {
+    if (!any || !this.mag || !this.aur || !this.belts || !this.ov || !this.rc || !this.sf || !this.t89 || !this.bnd) {
       for (const g of this.groups.values()) g.visible = false;
       if (this.sun) this.sun.group.visible = false;
       if (this.mars) this.mars.group.visible = false;
@@ -366,15 +396,20 @@ export class MagneticLayer {
       // fixed to the Sun: a new set is traced once the Earth has turned
       // 7.5 degrees under it (half an hour) or Kp has changed level, and
       // the last set stays up meanwhile.
+      // The lines end at the magnetopause (Shue et al. 1998 for the
+      // solar wind of the date), retraced when it moves by 2 %.
       if (k === 'earth' && this.on.magnetic) {
-        const kp = aur.kpAt(f.date.getTime()).kp, u = L.lineSun;
+        const kp = aur.kpAt(f.date.getTime()).kp, u = L.lineSun, mp = this.earthWind(f.date).mp;
         const turned = !u || u[0] * sunB.x + u[1] * sunB.y + u[2] * sunB.z < COS_RETRACE;
-        if ((turned || this.t89.kpToIopt(kp) !== L.lineModel.iopt) && (L.built || L.lineModel === L.model)) {
+        const moved = !L.lineModel.mp || Math.abs(mp.r0 / L.lineModel.mp.r0 - 1) > 0.02 || Math.abs(mp.alpha - L.lineModel.mp.alpha) > 0.01;
+        if ((turned || moved || this.t89.kpToIopt(kp) !== L.lineModel.iopt) && (L.built || L.lineModel === L.model)) {
           L.lineSun = [sunB.x, sunB.y, sunB.z];
-          L.lineModel = this.t89.withT89(L.model, L.lineSun, kp);
+          const T = this.t89.withT89(L.model, L.lineSun, kp);
+          L.lineModel = { ...T, mp, within: this.bnd.insideBoundary(T.gsm, mp.r) };
           L.next = 0; L.pos = []; L.str = []; L.index = []; L.built = false;
         }
       }
+      if (k === 'earth' || k === 'jupiter' || k === 'saturn') this.boundary(k, L, g, sunB, sunPos ? (mesh.position.distanceTo(sunPos) * UNIT_KM) / 149597870.7 : 1, (mesh.position.length() * UNIT_KM) / L.model.a, f);
 
       // Field lines, traced a few at a time.
       if (this.on.magnetic) {
@@ -405,10 +440,13 @@ export class MagneticLayer {
 
       // A tag at the dipole's end for the focused body.
       if (k === f.focus && px > 10 && this.on.magnetic) this.poleTag(k, L, g, f.camera, f.width, f.height);
+      if (k === f.focus && this.on.magnetic) this.boundaryTags(k, g, f.camera, f.width, f.height);
       if (k === f.focus && px > 10 && this.on.aurora && k === 'earth' && (this.earthAurora || this.ovationMesh)) this.kpTag(g, sunB, L, f.camera, f.width, f.height);
     }
     this.lineMat.uniforms.level.value = f.level;
     this.axisMat.uniforms.level.value = f.level;
+    for (const b of this.bnds.values()) (b.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+    this.sun?.hcs?.children.forEach((o) => { ((o as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.level.value = f.level; });
     // Auroras give their own light: the display level may dim them near the
     // Sun but never brightens them past their emission far from it.
     const glow = Math.min(f.level, 1);
@@ -425,7 +463,7 @@ export class MagneticLayer {
 
     // The legend: the focused body's, else none.
     if (f.focus === 'sun' && this.on.magnetic && this.sun?.mesh) {
-      const key = `sun ${this.sun.cr}`;
+      const key = `sun ${this.sun.cr} ${this.sun.tilt ? 'hcs' : ''}`;
       if (this.legendFor !== key) { this.legendFor = key; this.legend.hidden = false; this.drawSunLegend(); }
       this.hideTags();
       return;
@@ -451,10 +489,133 @@ export class MagneticLayer {
   private rc: RC | null = null;
   private sf: SunMod | null = null;
   private t89: T89 | null = null;
+  private bnd: Bnd | null = null;
+
+  // ---- magnetopauses and bow shocks ----
+  //
+  // The Earth's from the solar wind NOAA propagated to it (the last week),
+  // else a quiet wind; Jupiter's and Saturn's from a quiet wind thinned as
+  // 1/r^2. Drawn as rings round the Sun line and meridians, sun-fixed, so
+  // their points are recomputed in the turning body's frame as it turns.
+  private windRows: ReturnType<Bnd['parsePropagated']> | null = null;
+  private windAsked = 0;
+  private windLive: { at: number; w: ReturnType<Bnd['windNear']> } = { at: NaN, w: null };
+  private bnds = new Map<BodyKey, { mesh: THREE.LineSegments; key: string; sun: V3; noseMp: V3; noseBs: V3 | null; r0: number; bs: number | null; text: string }>();
+  private bndMat = new THREE.ShaderMaterial({
+    vertexShader: lineVertex, fragmentShader: lineFragment, transparent: true, depthWrite: false, toneMapped: false,
+    blending: THREE.AdditiveBlending, uniforms: { level: { value: 1 }, opacity: { value: 0.45 } },
+  });
+
+  private earthWind(date: Date): { wind: { dp: number; bz: number; v: number; mach: number }; mp: ReturnType<Bnd['shue98']>; live: boolean; n: number; when: string } {
+    const B = this.bnd!, ms = date.getTime(), now = Date.now();
+    // NOAA's file covers the last 7 days; ask for it when the clock is in
+    // them, again every 10 minutes while it is.
+    if (ms > now - 7 * 864e5 && ms < now + 2 * 3600e3 && now - this.windAsked > 10 * 60e3) {
+      this.windAsked = now;
+      void fetch(B.PROPAGATED_URL).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((j) => { this.windRows = B.parsePropagated(j); this.windLive.at = NaN; }).catch((e) => console.warn('solar wind:', e));
+    }
+    if (!(Math.abs(this.windLive.at - ms) < 60e3)) this.windLive = { at: ms, w: B.windNear(this.windRows, ms) };
+    const w = this.windLive.w, wind = B.solarWind(w ?? B.QUIET_WIND);
+    // Kept to the ranges Shue et al. fitted.
+    const mp = B.shue98(Math.min(Math.max(wind.dp, 0.5), 8.5), Math.min(Math.max(wind.bz, -18), 15));
+    return { wind, mp, live: !!w, n: w?.n ?? B.QUIET_WIND.n, when: w ? new Date(ms).toISOString().slice(0, 16).replace('T', ' ') : '' };
+  }
+
+  private boundary(k: BodyKey, L: BodyLines, g: THREE.Group, sunB: THREE.Vector3, au: number, camR: number, f: { date: Date }): void {
+    const B = this.bnd!, old = this.bnds.get(k);
+    if (!this.on.magnetic) { if (old) old.mesh.visible = false; return; }
+    const sun: V3 = [sunB.x, sunB.y, sunB.z];
+    type R = (c: number, phi: number) => number;
+    let F: { X: number[]; Y: number[]; Z: number[] }, mp: R, bs: R | null = null, r0: number, rbs: number | null = null, flatten = 0, xMp: number, xBs = 0, key: string, text: string;
+    if (k === 'earth') {
+      const e = this.earthWind(f.date), m = L.model.dipole.m as number[];
+      F = this.t89!.gsmFrame([-m[0], -m[1], -m[2]], sun);
+      const shock = B.bowShock(e.mp.r0, e.wind.mach);
+      mp = e.mp.r; bs = shock.r; r0 = e.mp.r0; rbs = shock.nose; xMp = -30; xBs = -25;
+      key = `${r0.toFixed(2)} ${e.mp.alpha.toFixed(3)} ${shock.nose.toFixed(2)}`;
+      text = `${e.live ? `NOAA's solar wind at the Earth, ${e.when} UTC` : 'a quiet solar wind (no measurement for the date)'}: ${e.n.toFixed(1)} cm⁻³ at ${e.wind.v.toFixed(0)} km/s, ${e.wind.dp.toFixed(2)} nPa, Bz ${e.wind.bz.toFixed(1)} nT, Mach ${e.wind.mach.toFixed(1)}`;
+    } else {
+      const wind = B.solarWind(B.windAt(B.QUIET_WIND, au));
+      F = B.sunFrame(sun);
+      if (k === 'jupiter') {
+        const m = B.rutala(B.RUTALA.magnetopause, wind.dp), s = B.rutala(B.RUTALA.bowShock, wind.dp);
+        mp = m.r; bs = s.r; r0 = m.r0; rbs = s.r0; xMp = -90; xBs = -120;
+      } else {
+        const m = B.pilkington(wind.dp);
+        mp = m.r; r0 = m.r0; flatten = m.flatten; xMp = -50;
+      }
+      key = `${r0.toFixed(2)}`;
+      text = `a quiet solar wind thinned to ${au.toFixed(2)} AU: ${wind.dp.toFixed(3)} nPa`;
+    }
+    // Faded out as the camera comes inside the magnetopause's nose.
+    const t = Math.min(Math.max((camR / r0 - 0.8) / 0.7, 0), 1), fade = t * t * (3 - 2 * t);
+    if (old) (old.mesh.material as THREE.ShaderMaterial).uniforms.opacity.value = 0.45 * fade;
+    const turned = !old || old.sun[0] * sun[0] + old.sun[1] * sun[1] + old.sun[2] * sun[2] < COS_BND;
+    if (old && !turned && old.key === key) { old.mesh.visible = fade > 0; return; }
+    const pos: number[] = [], str: number[] = [], idx: number[] = [];
+    const add = (rows: (number[] | null)[][], s: number, closed: boolean) => {
+      for (const row of rows) {
+        let prev = -1;
+        for (let j = 0; j < row.length; j++) {
+          const q = row[j];
+          if (!q) { prev = -1; continue; }
+          const i = pos.length / 3; pos.push(q[0], q[1], q[2]); str.push(s);
+          if (prev >= 0) idx.push(prev, i);
+          prev = i;
+        }
+        void closed;
+      }
+    };
+    const sweep = (r: R, x: number, s: number) => {
+      // Rings 30 deg apart round the Sun line, meridians every 45 deg.
+      const rings = B.boundaryMesh(F, r, { thetas: [10, 30, 60, 90, 120, 150], nPhi: 72, xMin: x, flatten });
+      const ths: number[] = []; for (let t = 0; t <= 172; t += 2) ths.push(t);
+      const mer = B.boundaryMesh(F, r, { thetas: ths, nPhi: 8, xMin: x, flatten });
+      add(rings, s, true);
+      // Transpose: one polyline per meridian.
+      add(Array.from({ length: 8 }, (_, j) => mer.map((row) => row[j])), s, false);
+    };
+    sweep(mp, xMp, 0.55);
+    if (bs) sweep(bs, xBs, 0.2);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('strength', new THREE.Float32BufferAttribute(str, 1));
+    geo.setIndex(idx);
+    const nose = (r: number): V3 => [F.X[0] * r, F.X[1] * r, F.X[2] * r];
+    // The bow shock's tag on its dawn flank, 60 deg from the Sun line.
+    const flank = (r: R | null): V3 | null => {
+      if (!r) return null;
+      const R0 = r(0.5, Math.PI / 2), gx = R0 * 0.5, gy = -R0 * Math.sin(Math.PI / 3);
+      return [F.X[0] * gx + F.Y[0] * gy, F.X[1] * gx + F.Y[1] * gy, F.X[2] * gx + F.Y[2] * gy];
+    };
+    if (old) { old.mesh.geometry.dispose(); old.mesh.geometry = geo; old.mesh.visible = fade > 0; Object.assign(old, { key, sun, noseMp: nose(r0), noseBs: flank(bs), r0, bs: rbs, text }); return; }
+    const mat = this.bndMat.clone();
+    mat.uniforms.opacity.value = 0.45 * fade;
+    const m = new THREE.LineSegments(geo, mat);
+    m.frustumCulled = false; m.renderOrder = 3;
+    g.add(m);
+    this.bnds.set(k, { mesh: m, key, sun, noseMp: nose(r0), noseBs: flank(bs), r0, bs: rbs, text });
+  }
+
+  private boundaryTags(k: BodyKey, g: THREE.Group, camera: THREE.PerspectiveCamera, width: number, height: number): void {
+    const b = this.bnds.get(k);
+    if (!b?.mesh.visible) return;
+    const unit = k === 'earth' ? 'R⊕' : k === 'jupiter' ? 'R♃' : 'R♄', name = BODY_BY_KEY[k].name;
+    const src = k === 'earth' ? 'Shue et al. 1998' : k === 'jupiter' ? 'Rutala et al. 2025' : 'Pilkington et al. 2015';
+    const s = this.screen(this.v.set(...b.noseMp).applyMatrix4(g.matrix), camera, width, height);
+    if (s) this.tag(s, `MP ${b.r0.toFixed(1)} ${unit}`, 'guide-tag mag-pole', `${name}'s magnetopause (${src}), ${b.r0.toFixed(1)} ${unit} toward the Sun, for ${b.text}. Field lines past it are cut there`);
+    if (b.noseBs && b.bs) {
+      const s2 = this.screen(this.v.set(...b.noseBs).applyMatrix4(g.matrix), camera, width, height);
+      const bsrc = k === 'earth' ? "its standoff from Farris and Russell 1994, its shape a hyperboloid flaring to the Mach cone" : 'Rutala et al. 2025';
+      if (s2) this.tag(s2, `BS ${b.bs.toFixed(1)} ${unit}`, 'guide-tag mag-pole', `${name}'s bow shock (${bsrc}), ${b.bs.toFixed(1)} ${unit} toward the Sun at its nose (tagged on its dawn flank), where the solar wind slows to below its magnetosonic speed`);
+    }
+  }
   // The Sun's field lines: WSO's coefficients (loaded once), the rotation
   // they are for, the seeds still to trace and the lines' mesh.
   private sun: { data: { first: number; rows: (number[] | null)[] } | null; asked: boolean; cr: number; jobs: (() => void)[]; pos: number[]; str: number[]; idx: number[];
-    bRef: number; mesh: THREE.LineSegments | null; group: THREE.Group; axesAt: number; m: THREE.Matrix3 } | null = null;
+    bRef: number; mesh: THREE.LineSegments | null; group: THREE.Group; axesAt: number; m: THREE.Matrix3;
+    hcs: THREE.Group | null; tilt: { north: number; south: number } | null } | null = null;
   private rcTable: ReturnType<RC['ringCurrentTable']> | null = null;
   // Jupiter's field (JRM33 + con2020) at a moon's place, in the moon's frame (nT).
   private jupiterFieldAt(moon: THREE.Mesh, meshes: Map<BodyKey, THREE.Mesh>, mats: Map<BodyKey, THREE.ShaderMaterial>, moonMat: THREE.ShaderMaterial): V3 | null {
@@ -967,11 +1128,15 @@ export class MagneticLayer {
   // lines from the polar holes. Retraced when the rotation changes.
   private sunLines(f: { camera: THREE.PerspectiveCamera; meshes: Map<BodyKey, THREE.Mesh>; focus: BodyKey | null; height: number; date: Date }, spare: () => number): void {
     const mesh = f.meshes.get('sun');
-    if (!this.sun) { if (!this.on.magnetic || !mesh) return; const group = new THREE.Group(); group.matrixAutoUpdate = false; this.scene.add(group); this.sun = { data: null, asked: false, cr: NaN, jobs: [], pos: [], str: [], idx: [], bRef: 1, mesh: null, group, axesAt: NaN, m: new THREE.Matrix3() }; }
+    if (!this.sun) { if (!this.on.magnetic || !mesh) return; const group = new THREE.Group(); group.matrixAutoUpdate = false; this.scene.add(group); this.sun = { data: null, asked: false, cr: NaN, jobs: [], pos: [], str: [], idx: [], bRef: 1, mesh: null, group, axesAt: NaN, m: new THREE.Matrix3(), hcs: null, tilt: null }; }
     const S = this.sun, sf = this.sf!;
     const px = mesh ? ((BODY_BY_KEY.sun.radiusKm / UNIT_KM / mesh.position.length()) * f.height) / (2 * Math.tan((f.camera.fov * Math.PI) / 360)) : 0;
-    S.group.visible = this.on.magnetic && !!mesh && px > 1.5;
+    // The lines once the Sun is more than a dot; the current sheet and the
+    // spiral out to 6 AU whenever the Sun is focused.
+    S.group.visible = this.on.magnetic && !!mesh && (px > 1.5 || f.focus === 'sun');
     if (!S.group.visible || !mesh) return;
+    if (S.mesh) S.mesh.visible = px > 1.5;
+    if (S.hcs) S.hcs.visible = f.focus === 'sun';
     if (!S.asked) {
       S.asked = true;
       void fetch(`${this.baseUrl}data/sun-pfss.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((j) => { S.data = j; }).catch((e) => console.warn('sun-pfss.json:', e));
@@ -985,6 +1150,7 @@ export class MagneticLayer {
     if (row && cr !== S.cr) {
       S.cr = cr;
       if (S.mesh) { S.group.remove(S.mesh); S.mesh.geometry.dispose(); S.mesh = null; }
+      if (S.hcs) { S.group.remove(S.hcs); S.hcs.traverse((o) => { const m = o as THREE.Mesh; if (m.geometry) { m.geometry.dispose(); (m.material as THREE.Material).dispose(); } }); S.hcs = null; S.tilt = null; }
       const field = sf.pfssField(row), model = { field, rMax: 3.5, dipole: { m: [0, 0, 1], centre: [0, 0, 0] } } as unknown as Model;
       S.pos = []; S.str = []; S.idx = [];
       const N = 300, golden = Math.PI * (3 - Math.sqrt(5)), b: V3 = [0, 0, 0];
@@ -1011,6 +1177,11 @@ export class MagneticLayer {
         S.mesh.renderOrder = 3;
         S.group.add(S.mesh);
       });
+      // The current sheet: Br on the source surface a few rows a frame,
+      // then its neutral line swept out along the Parker spiral.
+      const grid = sf.sourceSurfaceGrid(field, sf.SOURCE_SURFACE, { dLat: 1, dLon: 2 });
+      const gridJob = (): void => { if (!grid.step(Math.max(0.5, spare()))) S.jobs.unshift(gridJob); };
+      S.jobs.push(gridJob, () => { const h = this.currentSheet(grid); S.hcs = h.group; S.tilt = h.tilt; S.group.add(h.group); this.legendFor = null; });
     }
     while (S.jobs.length && spare() > 0) S.jobs.shift()!();
     // The Sun's axes, refreshed every simulated minute.
@@ -1018,6 +1189,48 @@ export class MagneticLayer {
     const e = S.m.elements, sc = SUN_KM / UNIT_KM;
     S.group.matrix.set(e[0] * sc, e[3] * sc, e[6] * sc, mesh.position.x, e[1] * sc, e[4] * sc, e[7] * sc, mesh.position.y, e[2] * sc, e[5] * sc, e[8] * sc, mesh.position.z, 0, 0, 0, 1);
     S.group.matrixWorldNeedsUpdate = true;
+  }
+
+  // The sheet as its neutral line swept out along 400 km/s spirals and
+  // drawn where it crosses spheres every half AU out to 6 AU (a filled
+  // sheet, folded over itself many times, cost the integrated GPU 28 ms a
+  // frame), and 12 spiral field lines in the Sun's equator coloured by
+  // their polarity (amber outward, blue inward).
+  private currentSheet(grid: ReturnType<SunMod['sourceSurfaceGrid']>): { group: THREE.Group; tilt: { north: number; south: number } } {
+    const sf = this.sf!, D = Math.PI / 180, Rs = sf.SOURCE_SURFACE, rOut = (6 * sf.AU_KM) / sf.SUN_RADIUS_KM;
+    const segs = sf.neutralSegments(grid), tilt = sf.sheetTilt(segs);
+    const rs: number[] = [Rs * 2]; for (let au = 0.5; au <= 6 + 1e-9; au += 0.5) rs.push((au * sf.AU_KM) / sf.SUN_RADIUS_KM);
+    const P = (lat: number, lon: number, r: number): V3 => { const ph = sf.spiralLongitude(lon * D, r), c = Math.cos(lat * D); return [r * c * Math.cos(ph), r * c * Math.sin(ph), r * Math.sin(lat * D)]; };
+    const pos: number[] = [], idx: number[] = [];
+    for (const [a, b] of segs) for (const r of rs) { const k = pos.length / 3; pos.push(...P(a[0], a[1], r), ...P(b[0], b[1], r)); idx.push(k, k + 1); }
+    const group = new THREE.Group();
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('tint', new THREE.Float32BufferAttribute(new Array(pos.length).fill(0).map((_, i) => [0.925, 0.851, 0.69][i % 3]), 3));
+    geo.setIndex(idx);
+    const tint = (opacity: number, side: THREE.Side) => new THREE.ShaderMaterial({ vertexShader: tintVertex, fragmentShader: tintFragment, transparent: true, depthWrite: false, toneMapped: false, side, blending: THREE.AdditiveBlending, uniforms: { level: { value: 1 }, opacity: { value: opacity } } });
+    const sheet = new THREE.LineSegments(geo, tint(0.35, THREE.FrontSide));
+    sheet.frustumCulled = false; sheet.renderOrder = 2;
+    group.add(sheet);
+    // Spirals: the sign of Br at the source surface in the Sun's equator.
+    const row = grid.lats.indexOf(0), W = grid.lons.length, lp: number[] = [], lc: number[] = [];
+    for (let lon = 0; lon < 360; lon += 30) {
+      const j = Math.round(lon / (grid.lons[1] - grid.lons[0])), out = grid.br[row * W + j] > 0;
+      const c = out ? [1.0, 0.698, 0.18] : [0.184, 0.561, 0.69];
+      let prev: V3 | null = null;
+      for (let i = 0; i <= 400; i++) {
+        const r = Rs * (rOut / Rs) ** (i / 400), q = P(0, lon, r);
+        if (prev) { lp.push(...prev, ...q); lc.push(...c, ...c); }
+        prev = q;
+      }
+    }
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.Float32BufferAttribute(lp, 3));
+    lg.setAttribute('tint', new THREE.Float32BufferAttribute(lc, 3));
+    const spirals = new THREE.LineSegments(lg, tint(0.5, THREE.FrontSide));
+    spirals.frustumCulled = false; spirals.renderOrder = 3;
+    group.add(spirals);
+    return { group, tilt };
   }
 
   private drawSunLegend(): void {
@@ -1030,7 +1243,8 @@ export class MagneticLayer {
     lo.textContent = fmtGauss(S.bRef / 10 ** DECADES); hi.textContent = fmtGauss(S.bRef);
     ticks.append(lo, hi);
     const unit = document.createElement('p'); unit.className = 'field-unit';
-    unit.textContent = `Carrington rotation ${S.cr}: closed loops and the open field of the polar holes, radial past the source surface at 2.5 solar radii`;
+    const t = S.tilt ? `; the current sheet reaches ${t2(S.tilt.north)} N and ${t2(-S.tilt.south)} S, swept out along a 400 km/s Parker spiral (amber outward, blue inward)` : '';
+    unit.textContent = `Carrington rotation ${S.cr}: closed loops and the open field of the polar holes, radial past the source surface at 2.5 solar radii${t}`;
     const src = document.createElement('p'); src.className = 'field-source';
     src.textContent = "Wilcox Solar Observatory's PFSS model from its magnetograms, degree 9. Large scale only: no active-region detail.";
     this.legend.append(h, bar, ticks, unit, src);
@@ -1099,7 +1313,8 @@ export class MagneticLayer {
     for (const b of this.beltMeshes.values()) for (const sh of b.shells) { sh.mesh.geometry.dispose(); (sh.mesh.material as THREE.Material).dispose(); }
     if (this.ovationMesh) { this.ovationMesh.geometry.dispose(); (this.ovationMesh.material as THREE.Material).dispose(); }
     for (const g of this.groups.values()) this.scene.remove(g);
-    this.lineMat.dispose(); this.axisMat.dispose();
+    for (const b of this.bnds.values()) { b.mesh.geometry.dispose(); (b.mesh.material as THREE.Material).dispose(); }
+    this.lineMat.dispose(); this.axisMat.dispose(); this.bndMat.dispose();
     this.legend.remove();
     for (const t of this.tags) t.remove();
   }
