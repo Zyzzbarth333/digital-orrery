@@ -10,10 +10,18 @@
 // closed, on an error or on Ctrl-C; the profile is removed once the browser
 // has exited.
 //
+// The machine is shared. gpuLock() queues a run behind any other GPU
+// benchmark (the flock that sessions share, ~/.cache/digital-orrery/
+// gpu-bench.lock), and each browser runs in its own systemd scope with a
+// memory cap (ORRERY_BROWSER_MEMORY, 10G), so a browser that grows too big
+// is killed alone rather than taking the desktop with it (systemd-oomd
+// kills the whole cgroup of whatever started it). Without flock or
+// systemd-run (CI, macOS) both are skipped.
+//
 // Needs Node 22 (or Node 20 with --experimental-websocket).
 
-import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -97,12 +105,61 @@ function sweepProfiles() {
   for (const d of old) if (!cmdlines.includes(d)) rmSync(d, { recursive: true, force: true });
 }
 
+// ---- Sharing the machine --------------------------------------------------
+
+const LOCK = join(homedir(), '.cache/digital-orrery/gpu-bench.lock');
+
+// The shared GPU lock, held until release() or this process ends: a
+// flock(1) holding it runs cat on a pipe from here, so the lock goes when
+// the pipe closes, however this process ends. Resolves once held; says so
+// if it has to wait. ORRERY_GPU_LOCK=0 skips it.
+export async function gpuLock({ log = (s) => console.error(s) } = {}) {
+  const none = { release: async () => {} };
+  if (process.env.ORRERY_GPU_LOCK === '0') return none;
+  mkdirSync(join(LOCK, '..'), { recursive: true });
+  const proc = spawn('flock', [LOCK, 'sh', '-c', 'echo held; exec cat >/dev/null'], { stdio: ['pipe', 'pipe', 'ignore'] });
+  const held = await new Promise((ok) => {
+    const t = setTimeout(() => log(`Waiting for the GPU: another benchmark holds ${LOCK}`), 1000);
+    proc.stdout.once('data', () => { clearTimeout(t); ok(true); });
+    proc.once('error', () => { clearTimeout(t); ok(false); }); // no flock(1)
+    proc.once('exit', () => { clearTimeout(t); ok(false); });
+  });
+  if (!held) { log('No flock: running without the shared GPU lock'); return none; }
+  let released = null;
+  const release = () => released ??= new Promise((done) => {
+    untrack();
+    if (proc.exitCode !== null) return done();
+    proc.once('exit', done);
+    proc.stdin.end();
+  });
+  const untrack = track({ stop: release, kill: () => { try { proc.kill('SIGKILL'); } catch { /* gone */ } } });
+  return { release };
+}
+
+// The command that starts a browser in its own memory-capped scope, or
+// none if systemd-run cannot make one here (checked once). Chromium moves
+// its small browser process into a scope of its own as it starts; the GPU
+// and page processes, which hold the memory, stay under the cap.
+export const browserMemory = () => process.env.ORRERY_BROWSER_MEMORY ?? '10G';
+let scopeCmd;
+function scope() {
+  if (scopeCmd !== undefined) return scopeCmd;
+  const cap = browserMemory();
+  const cmd = ['systemd-run', '--user', '--scope', '--quiet', '-p', `MemoryMax=${cap}`, '-p', 'MemorySwapMax=0'];
+  const ok = process.platform === 'linux' && cap !== '0' && spawnSync(cmd[0], [...cmd.slice(1), 'true'], { stdio: 'ignore', timeout: 10000 }).status === 0;
+  if (!ok && cap !== '0') console.error('No systemd user scope: the browser runs without its memory cap');
+  return scopeCmd = ok ? cmd : [];
+}
+
 // A headless browser on its first page: { proc, cdp, profile, close }.
 // close() is safe to call twice and never throws.
 export async function launch({ gpu = 'intel', width = 1200, height = 750 } = {}) {
   sweepProfiles();
   const profile = mkdtempSync(join(tmpdir(), PROFILE));
-  const proc = spawn(findChrome(), [
+  // In scope mode systemd-run becomes the browser (the same pid and
+  // process group), so stopping the group still stops it.
+  const [cmd, ...pre] = [...scope(), findChrome()];
+  const proc = spawn(cmd, [...pre,
     '--headless=new', '--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist',
     '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
     '--hide-scrollbars', '--mute-audio', `--window-size=${width},${height}`,

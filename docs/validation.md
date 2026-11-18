@@ -120,6 +120,7 @@ other planets (`public/trajbrowser/planets.json`).
 | Hermite interpolation, 30 days | direct ephemeris calls (DE442 table) | worst 20 m (Mercury, the cubic's own error at 6-hour nodes) |
 | 400 km orbit, real Sun/Moon/planets, point masses, 1 day | two-body about Earth | within 0.2 km |
 | Earth's J2: node of a 400 km, 51.6° orbit, 3 days | $-\tfrac32 nJ_2(R/p)^2\cos i$ | −5.0305°/day against −5.0060°/day (0.49 %, the mean-versus-osculating offset); Encke and Cowell agree to 10⁻⁴°/day |
+| a year 400 km over Mars at 150.6°, with its J2, moons and the Sun (case 8c) | Brouwer's short-period term in $a$ [kernel](physics/nbody-kernel.md#oblateness-j2) | the osculating $a$ every 30 days falls 2.8 km (3,789.93 to 3,787.10), each sample the mean plus $\tfrac32 J_2R^2/\bar a\,\sin^2 i\cos 2u$ (2.15 km) to 46 m; the turn-averaged $a$ holds to 14 m |
 | finite burn, no gravity | rocket equation | Δv 5×10⁻¹⁴ km/s; position 3.5×10⁻⁸ km after 10 days (Yoshida: 2.8×10⁻⁹, 2.4×10⁻³) |
 | kernel GMs | SPICE `gm_de442.tpc` | 5.9×10⁻¹⁶ |
 | Worker message handling | direct advance | identical |
@@ -595,7 +596,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 56 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 39 m/s) |
 | Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown; the cheaper hyperbola taken, a swing-by near the planet charged a margin, so the price moves only as the Moon does | the eccentricity vector (Curtis Sec. 2.5); the full-model flight; the Moon's motion, an hour at a time | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,222 (0.2 % under, within 3 %); lows a month apart; the best day priced 1,657, flown 1,660; over stays of 18 to 30 days the largest hourly step 39 m/s, where the old rule jumped 707 |
 | Mars orbit to the Moon, flown: lunar orbit and a landing | the plan | 1.3 km off the planned periapsis; capture within 3 % of its price; down at 2.2 m/s |
-| The planets' major moons, flown with their gravity: Earth orbit to Europa orbit and home; to a Europa landing; to Titan through the air; a Europa flyby | the plan, Europa and Titan reached and left via their planets | Europa 0.1 km off the planned periapsis (within 5 km), capture within 0.4 % of its price; left for 5,607 m/s against 5,557 (0.9 %, within 3 %), the first aim after it 1.3 m/s; down on Europa at 2.1 m/s; Titan's entry perigee 1,000.01 km for 1,000; the flyby 0.0 km off |
+| The planets' major moons, flown with their gravity: Earth orbit to Europa orbit and home; to a Europa landing; to Titan through the air; a Europa flyby | the plan, Europa and Titan reached and left via their planets | Europa 0.1 km off the planned periapsis (within 5 km), capture within 0.4 % of its price; left for 5,575 m/s against 5,557 (0.3 %, within 3 %; the parking orbit's plane 0.04° off the way out, within 0.5°), the first aim after it 1.3 m/s; down on Europa at 2.1 m/s; Titan's entry perigee 1,000.01 km for 1,000; the flyby 0.0 km off |
 | The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's, at Mars and at Jupiter (to J12); the trial orbit at the mean radius; the burn out of the plane; a year at Mars priced and flown, the node aimed at the approach, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % at Mars and 0.03 % at Jupiter (within 0.25 %; J2 alone 2.5 % off there); the trial at the mean radius to 1 m, its node's rate 0.06 % apart from where it starts (started circular, 0.46 %); to 0.1 m/s; the node 0.000° off the plan's for 0.44 m/s; the planned day 2,829 m/s, flown 2,840 (0.4 %); the wait 13.24 d, flown 13.23 (2,027 against 2,022 m/s); the parking orbit lamp's day 2,008, flown 2,004 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 21-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 154 m/s of corrections against the direct arc's 1,018 |
@@ -889,6 +890,18 @@ torque, and burns along the body axis to the kernel
 | Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
 | Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |
 
+## The faint belt's file (`smallbodies.test.mjs`)
+
+The faint belt's 12-byte packing ([small bodies](frontend/small-bodies.md#the-data)), tried on the bright main belt's 65,032 bodies packed as the faint file is, against their 16-byte pack.
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Positions at the epoch | the 16-byte pack | 50,000 km rms, 152,000 km worst (limits 100,000 and 300,000; a grid cell is 6.5 million km) |
+| Positions ten years on | the 16-byte pack | 68,000 km rms, 177,000 km worst |
+| Their light | the unpacked magnitudes | kept to 0.11 % |
+| The grid's binning of them | their own light and light-weighted centre | light to 1 part in 10⁵; centre 11 km apart |
+| `smallbodies-belt.bin` | `smallbodies.json`'s `beltCount` | 12 bytes a body, 17.36 MB |
+
 ## Earth satellites (`satellites.test.mjs`)
 
 SGP4 and SDP4 (satellite.js, opsmode a), the TEME to J2000 turn, and the
@@ -965,6 +978,8 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 | Earth–Moon Jacobi constants at L1–L4 | Koon, Lo, Marsden and Ross: 3.1883, 3.1722, 3.0121, 2.9880 | 3.1883, 3.1722, 3.0121, 2.9880 |
 | Spin sense of 61 bodies, from the app's orientation differenced | the sign of each IAU rate $W_1$ | all 61; size within 2 % (Phobos 0.65 %, its libration) |
 | Retrograde rotation | Venus 177°, Uranus 98°, Pluto 120° from their orbits' poles | exactly those three: 177.4°, 97.8°, 119.6° |
+| The cursor's readout on the Earth–Moon L1 marker, in the app | C1 from `criticalLevels`, 3.188341 | C 3.18834, the pull 5.7 µm/s² |
+| The rotating frame's contours worked out per pixel, after the change | the double-precision sum, read back at 144 pixels | Jacobi within 0.001 in log₁₀(C − C₄), \|a\| within the half-float step |
 
 ## References
 

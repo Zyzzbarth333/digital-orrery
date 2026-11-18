@@ -74,16 +74,21 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   (`craft-far` with the clock at a day a second), the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`),
   the Earth with all 16,892 satellites on (`sats`, 20,000 km) and the ISS
-  followed from 0.1 km (`sat-near`, its close-up orbit drawn) run by name,
-  and `all` runs every one; `--list` lists them. A scenario can run a
-  setup expression once the page is up (the satellites' switch).
+  followed from 0.1 km (`sat-near`, its close-up orbit drawn), and the
+  gravity guides' field (`field-jupiter`, `field-rotating`, `field-belt`)
+  beside the same views without it (`jupiter-far`, `earth-moon`, `belt`)
+  run by name, and `all` runs every one; `--list` lists them. A scenario
+  can run a setup expression once the page is up (the satellites' switch,
+  the field's).
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
   is the time from one callback to the next, 16.7 ms when the frame fits
   the display's 60 Hz. The render scale is held (`?scale=fixed`).
-- **Rounds.** Each round loads every scenario afresh in each build, the
-  builds alternating which goes first, then waits `--settle` seconds (8)
+- **Rounds.** Each round loads every scenario afresh in each build, in a
+  browser of its own (one browser on the Intel GPU grows past 8 GB over a
+  run's page loads, since its textures are system memory), the builds
+  alternating which goes first, then waits `--settle` seconds (8)
   and times `--seconds` (4). The table gives the median of each round's
   median over `--rounds` (3); each round's numbers, with the 90th
   percentile and the worst frame, go to stderr, and all of them to
@@ -100,10 +105,19 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   leaves its profile behind; the next launch removes any over ten minutes
   old that no running process names.
 
-The machine is shared: two browsers on one GPU time each other, so run
-one benchmark at a time, and read the before and after of one run rather
-than numbers from different runs. On a busy machine repeat runs differ by
-10 to 20 %.
+- **Sharing the machine.** Two browsers on one GPU time each other, so a
+  run first takes the lock that GPU benchmarks share
+  (`~/.cache/digital-orrery/gpu-bench.lock`, through `flock`) and says so
+  if it has to wait; `npm run docs:clips` takes it too. Each browser's GPU
+  and page processes run in a systemd scope of their own capped at 10 GB
+  (`ORRERY_BROWSER_MEMORY`), so a page that grows too big is killed alone
+  (and its sample retried) rather
+  than systemd-oomd killing everything that shares the terminal's or the
+  editor's cgroup. `ORRERY_GPU_LOCK=0` and `ORRERY_BROWSER_MEMORY=0` turn
+  them off; without `flock` or `systemd-run` (CI, macOS) both are skipped.
+
+Read the before and after of one run rather than numbers from different
+runs. On a busy machine repeat runs differ by 10 to 20 %.
 
 ## Rendering
 

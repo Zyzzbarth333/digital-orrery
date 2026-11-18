@@ -646,6 +646,18 @@ Each step, in time order:
      trims 2 more. (Not the Moon: its sphere is a sixth of its distance from
      the Earth, and a point aim with its pull from a day and a half out
      does not converge.)
+   - **The parking orbit's plane, set there:** into an orbit the craft will
+     leave again, that last aim's point is made afresh. A side run without
+     the moon gives the way in as the craft now has it, and the planned
+     way out is turned back by the stay's turn of the plane (`stayTurned`,
+     flown from the planned periapsis). The point is then where the
+     hyperbola in the plane of the two has its periapsis. At Europa the six
+     days' stay turns the plane ten degrees (Jupiter's pull and Europa's own
+     field). Left to the trims inside the moon's sphere, minutes out, the
+     plane stayed ten degrees off the way out: turning it there would cost
+     169 m/s, more than the departure saves. Set two days out, it costs
+     2 m/s more on the aim, the plane ends 0.04° off, and the departure
+     from Europa is 31 m/s cheaper.
    - **Trouble:** an aim that ends more than 50 km from its point is
      trouble only if it is the leg's last. The aims after it correct what
      it leaves: Earth to Europa's first aim, four years out, comes within
@@ -854,8 +866,8 @@ Each step, in time order:
      cheapest in the burn itself. An aim half a day on cost 120 m/s;
      folded into the burn, 5.
    - **Europa to Earth** (the best phase in a 30-day stay, 16 Feb 2031,
-     with a deep-space burn): flown at 5,607 m/s against the plan's 5,557
-     (0.9 %). On a leg of two arcs the burn is aimed at the break point, as
+     with a deep-space burn): flown at 5,575 m/s against the plan's 5,557
+     (0.3 %; 0.9 % before the plane was set down the well). On a leg of two arcs the burn is aimed at the break point, as
      the leg's first aim is; the aim after it is 1.3 m/s, then the
      deep-space burn (179 m/s planned, 348 flown as the aim from there) and
      the last aim at the Earth; the Earth 3.1 km off.
@@ -1219,7 +1231,8 @@ orbits, waits 454 days.
 | The swing-by margin | its formula | none from two planet radii out, flat there; 50 m/s at half a radius up, 810 at a tenth, without bound at the surface |
 | Ten days into the stay | the Earth's radius | the cheaper hyperbola dives to a 673 km perigee and is not taken; the other, 3.814 km/s about the Moon, is, with no margin |
 | The price an hour at a time, stays of 18 to 30 days (the 21-day leg's excess velocity) | the Moon's motion | largest step 39 m/s, near day 22, where the Moon passes nearly opposite the way out and the two hyperbolas swap; the old rule (no swing-by under half the Moon's distance unless both were) jumped 707 m/s on day 20.8 |
-| Earth orbit to Europa orbit, 30 days, home, flown (porkchop from 1 Jan 2027, the best phase leaving) | the plan, Europa reached and left via Jupiter | every aim at Europa (but the first, at the deep-space burn's point); 0.1 km off the planned periapsis (within 5 km); capture 5,810 m/s against 5,787 (within 3 %); left for 5,607 against 5,557 (0.9 %, within 3 %), the first aim after it 1.3 m/s; Earth 3.1 km off |
+| Earth orbit to Europa orbit, 30 days, home, flown (porkchop from 1 Jan 2027, the best phase leaving) | the plan, Europa reached and left via Jupiter | every aim at Europa (but the first, at the deep-space burn's point); 0.1 km off the planned periapsis (within 5 km); capture 5,810 m/s against 5,787 (within 3 %); left for 5,575 against 5,557 (0.3 %, within 3 %), the first aim after it 1.3 m/s; Earth 3.1 km off |
+| The same: the parking orbit's plane | the way out, as the stay turns it | 0.04° off at the trims (within 0.5°; 10° when left to them); the departure 0.3 % over its price (within 1 %) |
 | Earth orbit to a Europa landing, flown | the plan | down at 2.1 m/s, 1,681 m/s for the descent |
 | Earth orbit to Titan, landing through the air, flown | the plan | aimed at Titan; the entry perigee 1,000.01 km for 1,000 (within 5 km) |
 | Earth orbit to a Europa flyby, flown | the plan | aimed at Europa, not Jupiter; 0.0 km off the planned 2,061 km periapsis (within 5 km) |

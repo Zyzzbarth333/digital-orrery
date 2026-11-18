@@ -29,7 +29,7 @@ above Mercury, and a 862 m/s capture burn that turned 30° as it fired.
 ## The reference
 
 - **Trajectory:** JHU/APL's reconstruction `msgr_20040803_20150501_od423sc_0`,
-  through [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/), object −236.
+  through [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/), object −236 [2].
   Horizons' notes say the planets behind it are DE405 until
   7 December 2009 and DE423 after.
 - **Sampling:** `npm run build:missions -- messenger` fetches MESSENGER
@@ -150,7 +150,7 @@ sample.
 The fitted push is sunlight on this craft:
 - **Up to mid-2007** it is steady: Cr·A from 15.5 to 18.6 m², tilted
   under 5° from the Sun line, against Cr 1.3 on the 9.95 m² sunshade and
-  arrays as built (12.9 m²) [2], [4].
+  arrays as built (12.9 m²) [4], [5].
 - **From July 2007**, sailing, it ranges from 3.5 to 17 m² and tilts up
   to 24°. Near Mercury's distance, where the arrays turn from the Sun, it
   is about 9 m².
@@ -162,13 +162,13 @@ more; every tilt under 30°.
 
 ## The flybys
 
-The heights on APL's flyby page [5] are above a sphere at Mercury
+The heights on APL's flyby page [6] are above a sphere at Mercury
 (2,439.4 km) and Venus (6,051.8 km): its distances from the centre less
 its heights give those radii. At the Earth the height is above the
 WGS-84 ellipsoid: the radius it implies, 6,366.7 km, is the ellipsoid's
 at the pass's 47° N.
 
-| Flyby | Published [5] | The trajectory | Kernel's closest | 12 h on, off by |
+| Flyby | Published [6] | The trajectory | Kernel's closest | 12 h on, off by |
 | --- | --- | --- | --- | --- |
 | Earth, 2 Aug 2005 | 2,347.5 km, 19:13:08 | 2,347.49 km (ellipsoid), 19:13:08 | 0 m | 0.15 km, 2.8 mm/s |
 | Venus, 24 Oct 2006 | 2,987.3 km, 08:34:00 | 2,987.28 km, 08:34:00 | 8 m | 0.16 km, 3.2 mm/s |
@@ -179,13 +179,13 @@ at the pass's 47° N.
 
 - **The trajectory** puts every closest approach within 0.04 km and a
   second of APL's figures (checked within 3 km and a minute). The MOI
-  press kit gives the Mercury heights 0.3 km lower [2].
+  press kit gives the Mercury heights 0.3 km lower [4].
 - **The kernel,** flown from 12 h before each pass, keeps close to the
   closest approach, within 163 m (checked within 200 m). The two close
   passes of Venus and three of Mercury end 1.7 to 4.0 km off half a day
   later, the field beyond J2 that the app leaves out (checked within
   5 km).
-- **The flyby anomaly:** at the Earth, Anderson et al.'s formula [6]
+- **The flyby anomaly:** at the Earth, Anderson et al.'s formula [7]
   would give 0.06 mm/s for MESSENGER's asymptotes (32° in, −33° out). The
   kernel ends the pass 0.70 mm/s from the reconstruction's v∞, so it can't
   settle one this small. Reported, not checked.
@@ -201,7 +201,7 @@ Checked within 5 %.
 
 Choose **MESSENGER · cruise to Mercury, 2004–11** under Real missions, or
 `?mission=messenger`. The craft starts on 5 August 2004 with the press
-kit's 1,107 kg [2] and the main engine as APL's record has it at MOI
+kit's 1,107 kg [4] and the main engine as APL's record has it at MOI
 (646 N, Isp 314 s) [1]. It flies with a tracking fix every 24 h by
 default (`fixHours` in the file).
 
@@ -229,32 +229,18 @@ default (`fixHours` in the file).
   (TT), not UTC's milliseconds, which run a second short across one: at
   MESSENGER's 38 km/s that was 38 km.
 
-## Sources
+## References
 
-1. JHU/APL, *MESSENGER: Mission Design*: the DSM and TCM tables
-   ("DSM-1 ... 315.6", "MOI ... 861.7") and each burn's details: start
-   time, initial and final mass, thrust duration, effective thrust and
-   Isp, and its "Cartesian ΔV in EME2000". The "solar sailing" strategy
-   after TCM-19.
-   <https://messenger.jhuapl.edu/About/Mission-Design.html>
-2. NASA and JHU/APL, *MESSENGER Mercury Orbit Insertion* press kit, March
-   2011: "Approximately 1,107 kilograms", "599.4 kilograms ... of
-   propellant", "507.6 kilograms ... of 'dry' spacecraft"; the Mercury
-   flybys at 201.4, 199.2 and 227.5 km.
-   <https://www.nasa.gov/pdf/525164main_MercuryMOI_PK.pdf>
-3. J. V. McAdams et al., "Spacecraft trajectory planning and execution
-   for the MESSENGER mission," *Johns Hopkins APL Tech. Dig.*, vol. 34,
-   no. 1, 2017: Table 10, MOI's result (12.071 h, 206.77 km, 82.522°,
-   861.714 m/s).
-   <https://jhuapl.edu/sites/default/files/2024-09/34-01-McAdams.pdf>
-4. JHU/APL, *MESSENGER: Spacecraft and Instruments*: the "2.5-meter by
-   2-meter" sunshade and two arrays "each about 1.5 meters ... by 1.65
-   meters".
-   <https://messenger.jhuapl.edu/About/Spacecraft-and-Instruments.html>
-5. JHU/APL, *MESSENGER: Flyby Information*: each flyby's "Date and time",
-   "Spacecraft distance to planet center" and "Altitude".
-   <https://messenger.jhuapl.edu/Resources/Flyby-Information.html>
-6. J. D. Anderson, J. K. Campbell, J. E. Ekelund, J. Ellis and J. F.
-   Jordan, "Anomalous orbital-energy changes observed during spacecraft
-   flybys of Earth," *Phys. Rev. Lett.*, vol. 100, 091102, 2008.
-   <https://doi.org/10.1103/PhysRevLett.100.091102>
+[1] Johns Hopkins University Applied Physics Laboratory, "MESSENGER: Mission design," the DSM and TCM tables and each burn's details (start time, masses, thrust duration, effective thrust and Isp, Cartesian ΔV in EME2000). [Online]. Available: https://messenger.jhuapl.edu/About/Mission-Design.html
+
+[2] JHU/APL MESSENGER reconstruction `msgr_20040803_20150501_od423sc_0`, via JPL Horizons, object −236. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[3] J. V. McAdams *et al.*, "Spacecraft trajectory planning and execution for the MESSENGER mission," *Johns Hopkins APL Tech. Dig.*, vol. 34, no. 1, 2017, Table 10. [Online]. Available: https://jhuapl.edu/sites/default/files/2024-09/34-01-McAdams.pdf
+
+[4] NASA and Johns Hopkins University Applied Physics Laboratory, "MESSENGER Mercury orbit insertion," press kit, Mar. 2011. [Online]. Available: https://www.nasa.gov/pdf/525164main_MercuryMOI_PK.pdf
+
+[5] Johns Hopkins University Applied Physics Laboratory, "MESSENGER: Spacecraft and instruments." [Online]. Available: https://messenger.jhuapl.edu/About/Spacecraft-and-Instruments.html
+
+[6] Johns Hopkins University Applied Physics Laboratory, "MESSENGER: Flyby information." [Online]. Available: https://messenger.jhuapl.edu/Resources/Flyby-Information.html
+
+[7] J. D. Anderson, J. K. Campbell, J. E. Ekelund, J. Ellis and J. F. Jordan, "Anomalous orbital-energy changes observed during spacecraft flybys of Earth," *Phys. Rev. Lett.*, vol. 100, no. 9, art. no. 091102, 2008, doi: 10.1103/PhysRevLett.100.091102.
