@@ -64,8 +64,10 @@ once it has releases. Until then, everything sits under Unreleased.
   after which every step ran on the page's thread (#82).
 - The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
   to 10 m instead of 100 m, so a slow pass is followed more closely:
-  Cassini's over Titan to 4 m nine hours on, from 93 m (this pull
-  request).
+  Cassini's over Titan to 4 m nine hours on, from 93 m (#86).
+- Jupiter, Saturn, Uranus and Neptune pull with their J4 as well as their
+  J2, from the same published solutions: Juno's pass over Io is followed
+  to 40 m an hour on, from 51 m (this pull request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons

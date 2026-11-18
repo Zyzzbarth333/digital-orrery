@@ -128,10 +128,31 @@ table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
+**The giants' $J_4$.** Jupiter, Saturn, Uranus and Neptune also carry
+their $J_4$, from the same solutions as their $J_2$ and referred to the
+same radius. With $s = z/d$ and $P_4(s) = (35s^4 - 30s^2 + 3)/8$, its
+potential is $-\mu J_4 R^4 P_4(s)/d^5$, and
+
+$$
+\mathbf a_{J_4} = -\mu J_4 R^4\left[\frac{P_4'(s)}{d^6}\,\hat{\mathbf p}
+- \frac{s\,P_4'(s) + 5P_4(s)}{d^7}\,\mathbf d\right],
+\qquad P_4'(s) = \frac{140s^3 - 60s}{8}.
+$$
+
+`flyby.test.mjs` case 5 checks it against the potential's gradient
+($2\times10^{-10}$ relative). At five Jupiter radii it is $5\times10^{-7}$
+of Jupiter's pull. On Juno's pass of Io, 4.7 to 11 Jupiter radii out, it
+takes the error an hour on from 0.051 km to 0.040 km, and the kernel's
+term matches the same term written out separately as an outside force to
+0.1 m (case 3b). The rocky planets' $J_4$ is left out: about $10^{-3}$ of
+the Earth's $J_2$ and $10^{-2}$ of Mars's, and the app's craft carry the
+Earth's and the Moon's full fields.
+
 The forces beyond these (the Earth's and Moon's higher harmonics, the
 Earth's tides, drag, sunlight pressure, venting and relativity) come from
 [the space environment](environment.md), through the `extraAccel` hook. Not
-yet modelled: the planets' harmonics beyond $J_2$, the moons' fields beyond
+yet modelled: the planets' harmonics beyond $J_2$ (beyond $J_4$ for the
+giants), the moons' fields beyond
 degree 2 ([moons](#the-moons-own-fields)), and the asteroids.
 
 ## Integrators
@@ -634,9 +655,8 @@ over Ganymede the kernel follows JPL's trajectory to 0.09 km after nine
 hours with JPL's moons (Ganymede where Juno's own track puts it), 22.7 km
 with `moons.js`'s (22.9 km with the Ganymede Horizons serves; 323 km with
 the fallback's), and 9,300 km with no moons. Juno's pass 1,496 km over
-Io on 30 December 2023 is followed to 0.051 km an hour on, and Io's $J_2$
-and $C_{22}$ take that from 0.198 km; a fifth of what is left is Jupiter's
-$J_4$, which the kernel leaves out. Cassini's T45 pass 1,613 km over Titan
+Io on 30 December 2023 is followed to 0.040 km an hour on; Io's $J_2$
+and $C_{22}$ take that from 0.184 km, and Jupiter's $J_4$ from 0.051 km. Cassini's T45 pass 1,613 km over Titan
 is followed to 4 m nine hours on, with Titan's nodes two hours apart
 ([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
 
@@ -848,9 +868,9 @@ relative).
 - **Not modelled:** the moons' fields beyond degree 2, and their tides.
 - **Effect:** small on most flybys, measurable on the close ones. On
   Juno's pass 1,046 km over Ganymede it moves the kernel's Juno by 0.2 km
-  after nine hours. Over Io (1,496 km up) it is 0.15 km an hour on, and
-  over Titan (1,613 km) 0.37 km nine hours on; with it, the Io pass is
-  followed four times more closely and the Titan pass ninety times (`flyby.test.mjs` cases 3b
+  after nine hours. Over Io (1,496 km up) it is 0.14 km an hour on, and
+  over Titan (1,613 km) 0.36 km nine hours on; with it, the Io pass is
+  followed five times more closely and the Titan pass seventy times (`flyby.test.mjs` cases 3b
   and 3c). For a craft orbiting a moon it is what turns the orbit.
 
 ## References
