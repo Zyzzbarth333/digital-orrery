@@ -456,9 +456,10 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
     out.depDv = departCost(P, out.vinfDep, g.A, mA);
     out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
     // Leaving (or reaching) a moon via its planet: the excess velocity about
-    // the moon, where the moon is on the day.
-    out.moonDep = P.kind === 'flyby' ? null : moonEnd(mA, out.vinfDep, P.body, false);
-    out.moonArr = Q.kind === 'flyby' ? null : moonEnd(mB, out.vinfArr, Q.body, true);
+    // the moon, where the moon is on the day. (At a flyby too: nothing is
+    // priced from it there, but the flight aims the flyby at the moon.)
+    out.moonDep = moonEnd(mA, out.vinfDep, P.body, false);
+    out.moonArr = moonEnd(mB, out.vinfArr, Q.body, true);
     return { ...out, revs: s.revs, branch: s.branch, ok: true, endA: g.endA, endB: g.endB };
   }
 

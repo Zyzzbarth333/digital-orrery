@@ -606,6 +606,60 @@ header('CASE 12: reaching a moon via its planet: Mars orbit to the Moon, flown')
   check('Mars orbit to a Moon landing, flown: down under 3 m/s, no trouble', down?.body === 'moon' && down.speed < 0.003 && flightTrouble(l.p, l.f).length === 0);
 }
 
+header('CASE 15: the planets\' major moons, flown with their gravity: Europa, Titan');
+{
+  // The kernel pulls with the planets' major moons (bodies.js splits a
+  // planet's system near it), so the flight treats them as it does the
+  // Moon: aims without the moon's pull, approach trims, a capture, a
+  // descent or an entry, and a departure onto the moon's own excess
+  // velocity. Before, a moon had no gravity in the flight: one aim, a
+  // rendezvous, and Earth orbit to Europa orbit came in 300 km low and hit
+  // Europa. Each journey from Earth orbit on 1 January 2027, on the
+  // planner's porkchop option (and the best phase, leaving Europa).
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const fly = (waypoints, phase = false) => {
+    let j = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2027-01-01T00:00:00Z') }, waypoints };
+    j = J.applyOption(j, 0, J.legOptions(j, 0).options.find((x) => x.type === 'porkchop'));
+    if (phase) j = J.applyOption(j, 1, J.legOptions(j, 1).options.find((x) => x.type === 'phase'));
+    const s = J.solveJourney(j), p = planFlight(s), f = flyJourney(sys, p);
+    return { s, p, f, trouble: flightTrouble(p, f) };
+  };
+  const num = (re, log) => Number(re.exec(log.join('\n'))?.[1] ?? NaN) / 1000;
+
+  // Earth orbit to Europa orbit and home, leaving on the best day of a
+  // 30-day stay.
+  const rt = fly([{ id: 1, body: 'europa', kind: 'orbit', altKm: 300, stayDays: 30, dateMs: D('2030-01-01T00:00:00Z') },
+    { id: 2, body: 'earth', kind: 'orbit', altKm: 300, dateMs: D('2034-01-01T00:00:00Z') }], true);
+  const L0 = rt.s.legs[0], L1 = rt.s.legs[1], eu = rt.f.arrivals[0], home = rt.f.arrivals[1];
+  const cap = num(/capture at europa: (\d+) m\/s/, rt.f.log), dep = num(/depart europa: (\d+) m\/s/, rt.f.log);
+  // (A leg of two arcs, a deep-space burn's, aims first at its break point,
+  // about the Sun.)
+  const aimsIn = rt.p.events.filter((e) => e.kind === 'aim' && e.ms < L0.arrMs && e.body !== L0.central);
+  console.log(`  Earth ${new Date(L0.depMs).toISOString().slice(0, 10)} to Europa ${new Date(L0.arrMs).toISOString().slice(0, 10)}: ${L0.moonArr.speed.toFixed(3)} km/s about Europa, ${aimsIn.length} aims; Europa ${eu.missKm.toFixed(1)} km off the planned periapsis (tolerance 5 km); capture ${(cap * 1000).toFixed(0)} m/s against the plan's ${(L0.arrDv * 1000).toFixed(0)}, ${(100 * (cap / L0.arrDv - 1)).toFixed(1)} % (tolerance 3 %)`);
+  check('Earth orbit to Europa orbit, flown in the full model: every aim at Europa, its periapsis within 5 km of plan, the capture within 3 % of its price, the orbit held through the stay', aimsIn.every((e) => e.body === 'europa') && eu.missKm < 5 && Math.abs(cap / L0.arrDv - 1) < 0.03 && !rt.f.impact);
+  const aimsOut = rt.f.log.slice(rt.f.log.findIndex((l) => l.startsWith('depart europa'))).filter((l) => l.startsWith('aim at')).map((l) => Number(/: ([\d.]+) m\/s/.exec(l)[1]));
+  console.log(`  leaving Europa ${new Date(L1.depMs).toISOString().slice(0, 16)}: ${rt.f.log.find((l) => l.startsWith('depart europa'))}; the plan's ${(L1.depDv * 1000).toFixed(0)} for ${L1.moonDep.speed.toFixed(3)} km/s about Europa: ${(100 * (dep / L1.depDv - 1)).toFixed(1)} % (tolerance 3 %); the aims after it ${aimsOut.map((x) => x.toFixed(1)).join(', ')} m/s; Earth ${home.missKm.toFixed(1)} km off (tolerance 20 km)`);
+  check('leaving Europa for Earth via Jupiter: the burn flown within 3 % of the plan\'s price (by Europa\'s real place), the first aim after it under 10 m/s, Earth within 20 km of plan, no trouble', Math.abs(dep / L1.depDv - 1) < 0.03 && aimsOut[0] < 10 && home.missKm < 20 && rt.trouble.length === 0);
+
+  // Down on Europa, from the low orbit.
+  const ld = fly([{ id: 1, body: 'europa', kind: 'land', altKm: 300, stayDays: 3, dateMs: D('2030-01-01T00:00:00Z') }]);
+  const down = ld.f.landings[0];
+  console.log(`  down on Europa: ${ld.f.log.find((x) => x.startsWith('landed')) ?? ld.f.log.find((x) => x.startsWith('descent'))} (tolerance 3 m/s)`);
+  check('Earth orbit to a Europa landing, flown: a descent, down under 3 m/s, no trouble', down?.body === 'europa' && down.how === 'descent' && down.speed < 0.003 && ld.trouble.length === 0);
+
+  // Titan: through its atmosphere, the entry at the planned height.
+  const ti = fly([{ id: 1, body: 'titan', kind: 'land', altKm: 1000, stayDays: 3, dateMs: D('2030-01-01T00:00:00Z') }]);
+  const entry = ti.f.landings[0];
+  console.log(`  Titan entry ${new Date(ti.s.legs[0].arrMs).toISOString().slice(0, 10)}: ${ti.s.legs[0].moonArr.speed.toFixed(3)} km/s about Titan; perigee ${entry?.entryKm?.toFixed(2)} km up against 1000 planned (tolerance 5 km)`);
+  check('Earth orbit to Titan, flown: aimed at Titan, an entry at the planned height within 5 km, no trouble', ti.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'titan') && entry?.how === 'entry' && Math.abs(entry.entryKm - 1000) < 5 && ti.trouble.length === 0);
+
+  // A flyby of Europa reached via Jupiter: aimed at Europa (by the excess
+  // velocity about it, journey.js moonArr), not at Jupiter.
+  const fb = fly([{ id: 1, body: 'europa', kind: 'flyby', altKm: 500, dateMs: D('2030-01-01T00:00:00Z') }]);
+  console.log(`  Europa flyby: ${fb.p.events.filter((e) => e.kind === 'aim').map((e) => e.body).join(', ')}; closest ${fb.f.arrivals[0].closest.toFixed(1)} km from Europa's centre, planned ${fb.f.arrivals[0].plannedRp.toFixed(1)} (tolerance 5 km)`);
+  check('a flyby of Europa via Jupiter is aimed at Europa and passes within 5 km of the planned periapsis, no trouble', fb.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'europa') && fb.f.arrivals[0].missKm < 5 && fb.trouble.length === 0);
+}
+
 header('CASE 11: the full model, or the bare one as a fallback');
 {
   // flightTrouble: what keeps a flight from being taken in the full model.
