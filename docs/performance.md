@@ -18,6 +18,7 @@ parts fast.
 | Kernel, cruise | about 36,000 sim days per second (was 15,000) | about one step a day; 5 m in 300 days (was 8.4 km) |
 | Kernel, among Jupiter's moons (1.5 million km orbit) | about 970 sim days per second (unchanged) | Cowell, 25 steps per sim day (was 61); 1.2 m in 30 days (was 207 m). Each step costs about 3 times a step near the Earth (13 bodies, each moon a sum of two cubics) |
 | Kernel, Jupiter with its moons folded up | about 4,000 sim days per second (was 5,000) | the one case the error-controlled steps are slower than Yoshida's: a smooth field where the old fixed fraction was already accurate |
+| Kernel, Artemis II's injection burn (23 min, one request) | 35–80 ms wall (was 1.5–2.6 s) | 276 steps (was 5,480) with Orion's whole environment ([a steered burn](#a-steered-burn-at-a-day-a-second)) |
 | Splitting systems near the craft (`focus`) | within the ±5 % noise away from them | the same steps as before; the check is skipped until the craft could reach a threshold |
 | Ephemeris for the kernel | under 1.6 ms per sim day | the Moon at hourly nodes, now from the DE442 table |
 
@@ -257,6 +258,59 @@ the overview of a low orbit:
 
 What remains is mostly the GPU, which half the frame waits on near the
 Earth (the atmosphere fills the view).
+
+### A steered burn at a day a second
+
+`?mission=artemis2` starts ten minutes before the translunar injection.
+Switched straight from real time to a day a second, the clock passes the
+whole 23-minute burn (its settling pulses included) in a frame. The kernel
+worker then took 4–5 s of wall time to fly it, against its 200 ms budget
+a request. For those seconds the LAG lamp was lit and the kernel fell 2–5
+days behind the clock. The burn was the cost, not the coast after it:
+- **The steps.** A burn steered in the orbital frame had its steps capped
+  at 0.25 s, a rule from the symplectic integrator before the
+  error-controlled one. That made 5,480 steps where the burn's 273
+  five-second intervals need 276. The cap is gone, and the burn ends 2 mm
+  from the same burn at 0.01 s steps
+  ([Artemis II check](validation/artemis2.md#3-the-whole-mission-with-orions-burns)).
+- **The environment at each stage.** It was 88 % of a step: the MET
+  density through the eight altitude bands between 186 and 2,100 km, the
+  degree-20 field, the solid tide, and a scan of all 273 intervals for the
+  thrust and the mass. Each is now cheaper and gives the same numbers to
+  the bit (checked over seven days of Artemis II and 9,906 MET points):
+  - MET's quadrature nodes are worked out once a band, and a band two
+    integrals cover is summed once (2.2 times faster).
+  - The field runs on flat arrays.
+  - The tide works out each body's place once rather than for each of its
+    seven terms.
+  - The space weather's dates are parsed once.
+  - The burn on, and the mass, are kept per interval between burn edges.
+  - The Earth's rotation and the time scale are kept for a stage's repeated
+    asks.
+
+Node, warm, the burn in one request with Orion's whole environment
+(interleaved runs, the machine heavily loaded by other work):
+
+| | Steps | Wall time |
+| --- | ---: | ---: |
+| Before | 5,480 | 1.5–2.6 s |
+| Without the cap | 276 | 70–120 ms |
+| And the cheaper environment | 276 | 35–70 ms |
+
+In the app (production build, headless Chromium on the Intel GPU, five
+runs each, interleaved, the machine at a load of 25–31 on 32
+threads):
+
+| | LAG lamp lit | Kernel behind the clock, worst | First burn request in the worker |
+| --- | ---: | ---: | ---: |
+| Before | 72–110 frames | 55–115 h | cut by the budget |
+| After | none in four runs, 2 frames in one | 3.6–9.3 h | 109–127 ms |
+
+The kernel is now a frame or two (24–48 min) behind on the coast. Through
+the burn it falls about 4 h behind for 0.2 s, the time the worker takes to
+fly it, and is back within two frames 0.25 s after the switch. Later
+jumps of 3–6 frames are the holds at the aimed corrections, while the
+worker aims each one (`RealMission.aimStep`).
 
 ### Earth satellites
 
