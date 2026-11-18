@@ -303,6 +303,8 @@ export class OrreryScene {
   // An Earth satellite the camera is on (satellites.ts), by NORAD id.
   focusSat: number | null = null;
   onSatPick: (id: number) => void = () => {};
+  // A debris cloud picked (satellites.ts): the camera is on the Earth.
+  onSatCloudPick: (key: string) => void = () => {};
   private satDist: number | null = null;
   // A spacecraft beyond Earth orbit the camera is on (spacecraftLayer.ts).
   focusProbe: string | null = null;
@@ -426,13 +428,31 @@ export class OrreryScene {
     if (this.rig.flying && this.rig.destination.id === `sat:${id}`) return;
     this.focusCraftId = null;
     this.clearSmall();
+    this.satellites.setCloud(null);
     this.focusSat = id;
     this.satellites.setFocus(id);
     this.rig.flyTo({ id: `sat:${id}`, pos: () => this.satellites.positionKm(id, this.clock.snapshot.timeMs, this.states.earth.r), minDist: 0.02 }, this.satDist ?? 200);
     this.onFlight(this.rig.flying);
     this.onSatPick(id);
   }
+  // Fly to a debris cloud: the Earth, framed at three times the cloud's
+  // median orbit radius, with its pieces drawn brighter than the rest.
+  focusOnSatCloud(key: string): void {
+    const c = this.satellites.cloudView(key);
+    if (!c) return;
+    this.focusCraftId = null;
+    this.clearSmall();
+    this.clearSat();
+    this.focus = 'earth';
+    this.loadSurfaces('earth');
+    this.satellites.setCloud(key);
+    this.rig.flyTo(this.bodyAnchor('earth'), 3 * c.aKm);
+    this.onFlight(this.rig.flying);
+    this.onFocusChange('earth');
+    this.onSatCloudPick(key);
+  }
   private clearSat(): void {
+    this.satellites.setCloud(null);
     if (this.focusSat !== null) { this.focusSat = null; this.satellites.setFocus(null); }
     if (this.focusProbe !== null) { this.focusProbe = null; this.spacecraft.setFocus(null); }
   }

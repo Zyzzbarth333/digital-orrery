@@ -1018,6 +1018,7 @@ shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are))
 | TEME to J2000, "of date" | [4, App. C, eq. (C-3)], satellite 00005 | position within 0.82 m (the turn moves it 1,154 m), velocity within 0.50 mm/s, matrix as eq. (C-2) to 10⁻⁷ |
 | the ISS, ±6 h of its epoch | JPL Horizons, the ISS (−125544) [5], geocentric ICRF | within 106 m and 0.12 m/s (TEME as J2000 would be 25.8 km off) |
 | the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
+| the snapshot's debris (2,679), rocket bodies (2,194) and analyst objects (573) | placed at each query's fetch time, above the WGS-84 ellipsoid | all; the lowest 232 km up, the farthest 367,019 km out; none in two files; the three clouds by designator, 1,988 + 582 + 109 |
 | the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
 
 Passes over a place (`passes.test.mjs`,

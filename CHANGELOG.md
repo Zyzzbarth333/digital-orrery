@@ -223,6 +223,13 @@ once it has releases. Until then, everything sits under Unreleased.
   geostationary weather satellites have their orbits. Any satellite can be
   found by name, NORAD number or designator and flown to, with a data
   plate. A **Latest** key fetches CelesTrak's current elements (#79).
+- Tracked debris and spent rocket bodies round the Earth, each on a switch
+  of its own in the rail and drawn dimmer, in a colour of its own: the
+  2,679 pieces of the three breakups CelesTrak keeps as groups (Fengyun-1C
+  in 2007, Cosmos 2251 and Iridium 33 in 2009), 2,194 rocket bodies and 573
+  analyst objects. A debris cloud can be flown to from the rail, which
+  draws its pieces brighter and gives its breakup and orbits on a plate.
+  Search finds any of them (this pull request).
 - Spacecraft beyond Earth orbit: the orbiters of Mercury, the Moon, Mars
   and Jupiter, the observatories about the Sun-Earth L1 and L2 points (JWST,
   Roman, Euclid and others) and the probes in cruise, on JPL Horizons'

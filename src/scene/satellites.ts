@@ -4,7 +4,11 @@
 // every active satellite in CelesTrak's catalogue as a point, the named ones
 // (the ISS, Tiangong, Hubble, GPS, Galileo, the geostationary weather
 // satellites, and any found by search) with a marker, a label and their
-// orbit.
+// orbit. Three more sets have switches of their own, each drawn dimmer and
+// in its own colour: the debris of the breakups CelesTrak keeps as groups,
+// the spent rocket bodies, and the analyst objects (tracked, not
+// identified). A debris cloud can be picked: its pieces are drawn brighter
+// and everything else dimmer.
 //
 // Motion: a worker (satellites.worker.ts) runs SGP4 for all of them at a
 // time t0 and hands back, for each, the two-body ellipse through its state
@@ -61,6 +65,9 @@ const CLOSE_SHARE = 0.1, NEAR_SPAN = 12, NEAR_STEPS = 32, NEAR_N = 2 * NEAR_STEP
 // and the shadow's share.
 const PEAK_REF = 0.35, D_REF_KM = 40000, PEAK_MAX = 1.2, SHADOW = 0.2;
 const FADE_NEAR_KM = 1e6, FADE_FAR_KM = 3e6;
+// A picked debris cloud's pieces, and everything else, as a share of their
+// own brightness.
+const PICK_GAIN = 2.2, PICK_DIM = 0.35;
 // The live refresh: CelesTrak's GP data changes once every 2 hours
 // (https://celestrak.org/usage-policy.php), so a browser asks no more often.
 export const LIVE_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=csv';
@@ -78,8 +85,41 @@ export const SAT_GROUPS: { key: SatGroup; label: string; colour: string }[] = [
 ];
 const COLOUR_OF = Object.fromEntries(SAT_GROUPS.map((g) => [g.key, g.colour])) as Record<SatGroup, string>;
 
+// The rail's switches, one point set each: its file, its colour in sunlight
+// and in the Earth's shadow (display values), and its brightness against
+// the active satellites'. The active ones are a warm white, sunlit metal and
+// panels, and the Earth's blue glow in its shadow; the rest are dimmer, and
+// none is amber, which is the craft's.
+export type SatLayerKey = 'active' | 'debris' | 'rocket-bodies' | 'analyst';
+type Rgb = [number, number, number];
+export const SAT_LAYERS: { key: SatLayerKey; label: string; file: string; lit: Rgb; dark: Rgb; gain: number; hint: string }[] = [
+  { key: 'active', label: 'All active', file: 'satellites.csv', lit: [0.95, 0.93, 0.86], dark: [0.55, 0.62, 0.80], gain: 1,
+    hint: 'Every active satellite CelesTrak lists, moved by SGP4; the named ones with their orbits. Dimmer in the Earth\'s shadow' },
+  { key: 'debris', label: 'Debris clouds', file: 'satellites-debris.csv', lit: [0.86, 0.50, 0.38], dark: [0.50, 0.44, 0.56], gain: 0.55,
+    hint: 'The tracked pieces of the three breakups CelesTrak keeps as groups: Fengyun-1C (2007), and Cosmos 2251 and Iridium 33 (2009)' },
+  { key: 'rocket-bodies', label: 'Rocket bodies', file: 'satellites-rocket-bodies.csv', lit: [0.52, 0.80, 0.74], dark: [0.40, 0.52, 0.66], gain: 0.6,
+    hint: 'Spent rocket stages left in orbit: every object named R/B in the catalogue' },
+  { key: 'analyst', label: 'Analyst objects', file: 'satellites-analyst.csv', lit: [0.70, 0.64, 0.88], dark: [0.46, 0.46, 0.66], gain: 0.5,
+    hint: 'Objects the US Space Force tracks but has not identified, with element sets in its analyst range' },
+];
+export const SAT_LAYER_KEYS = SAT_LAYERS.map((l) => l.key);
+const LAYER_OF = Object.fromEntries(SAT_LAYERS.map((l) => [l.key, l])) as Record<SatLayerKey, (typeof SAT_LAYERS)[number]>;
+const css = (c: Rgb) => `rgb(${c.map((x) => Math.round(x * 255)).join(' ')})`;
+const LAYER_NOUN: Record<SatLayerKey, string> = { active: 'satellite', debris: 'debris', 'rocket-bodies': 'rocket body', analyst: 'analyst object' };
+export const layerColour = (k: SatLayerKey): string => css(LAYER_OF[k].lit);
+
 type Omm = ReturnType<typeof parseGpCsv>[number];
-export interface NamedSat { id: number; name: string; group: SatGroup }
+export interface NamedSat { id: number; name: string; group: SatGroup; layer?: SatLayerKey }
+// A debris cloud CelesTrak keeps as a group (satellites.json): the breakup,
+// its parent's international designator, and the pieces in the snapshot.
+export interface SatCloud { key: string; name: string; intdes: string; event: string; date: string; query: string; count: number }
+// What the cloud's pieces' element sets say of it, for its plate.
+export interface SatCloudView extends SatCloud {
+  tracked: number; fetched: string;
+  perigee: [number, number, number]; apogee: [number, number, number];   // km: 10th, 50th and 90th percentiles
+  incl: [number, number, number]; aKm: number;                         // deg; the median semi-major axis
+  epochs: { first: string; median: string };
+}
 export interface SatSource { label: string; fetched: string; live: boolean }
 export interface SatHit { j: number; des: string; label: string; kind: string }
 
@@ -99,11 +139,14 @@ const VERTEX = /* glsl */ `
   attribute vec3 aP;           // perifocal axes, J2000
   attribute vec3 aQ;
   attribute vec4 aK;           // a (km), e, M at t0 (rad), n (rad/s); a = 0: not placed
+  attribute float aTag;        // its debris cloud (1, 2, ...), or 0
   uniform float uDt;           // s since t0
   uniform vec3 uEarth;         // the Earth, camera-relative, render units
   uniform mat3 uToRender;      // J2000 equatorial -> render axes
   uniform vec3 uSun;           // unit vector Earth -> Sun, J2000
   uniform float uLevel, uVis, uSize, uPeakScale, uFade, uHide;
+  uniform vec3 uLit, uDark;    // the set's colour, sunlit and in shadow
+  uniform float uGain, uPick;  // its brightness; the picked cloud's tag, or 0
   varying vec3 vColour;
   varying float vSize;
   void main() {
@@ -126,12 +169,12 @@ const VERTEX = /* glsl */ `
     float along = dot(r, uSun);
     vec3 off = r - along * uSun;
     float lit = along < 0.0 && dot(off, off) < ${(R_EARTH_KM * R_EARTH_KM).toFixed(1)} ? ${SHADOW.toFixed(2)} : 1.0;
-    float peak = min(${PEAK_REF.toFixed(3)} * ${D_REF_KM.toFixed(1)} / max(d * ${UNIT_KM.toFixed(1)}, 1.0), ${PEAK_MAX.toFixed(2)}) * lit * uFade * uVis;
+    float gain = uPick > 0.5 ? uGain * (abs(aTag - uPick) < 0.5 ? ${PICK_GAIN.toFixed(2)} : ${PICK_DIM.toFixed(2)}) : uGain;
+    float peak = min(${PEAK_REF.toFixed(3)} * ${D_REF_KM.toFixed(1)} / max(d * ${UNIT_KM.toFixed(1)}, 1.0), ${PEAK_MAX.toFixed(2)}) * lit * uFade * uVis * gain;
     if (peak < 1.0 / 512.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vColour = vec3(0.0); return; }
     gl_PointSize = peak < 0.3 ? min(uSize, 3.0) : uSize;
     vSize = gl_PointSize;
-    // Sunlit metal and panels: a warm white; in shadow, the Earth's blue glow.
-    vec3 col = lit < 1.0 ? vec3(0.55, 0.62, 0.80) : vec3(0.95, 0.93, 0.86);
+    vec3 col = lit < 1.0 ? uDark : uLit;
     vColour = col * (peak * uLevel * uPeakScale);
   }`;
 
@@ -157,14 +200,26 @@ const isCrowd = (g: SatGroup) => g === 'gps' || g === 'galileo' || g === 'weathe
 // A constellation's outline, as a display level.
 const CROWD_OPACITY = 0.08;
 
+// One switch's points: its rows, in the worker's order, and the time the
+// worker's last ellipses are for.
+interface PointSet { rows: Omm[]; material: THREE.ShaderMaterial; points: THREE.Points; buffer: THREE.InterleavedBuffer; t0: number }
+
 export class SatelliteLayer {
-  private on = false;
-  private loading: Promise<void> | null = null;
+  private layerOn: Record<SatLayerKey, boolean> = { active: false, debris: false, 'rocket-bodies': false, analyst: false };
+  private loading = new Map<SatLayerKey, Promise<void>>();
+  private meta: Promise<{ named: NamedSat[]; fetched: string; layers: Record<string, { fetched: string; clouds?: SatCloud[] }> }> | null = null;
+  private metaNamed: NamedSat[] = [];
+  private sets = new Map<SatLayerKey, PointSet>();
   private worker: Worker | null = null;
-  private busy = false;
+  private pending = 0;                               // messages the worker has yet to answer
+  private stale = false;                             // a set is new or newly on: step now
   private orbitBusy = false;
-  private rows: Omm[] = [];
+  private rows: Omm[] = [];                          // every loaded set's, in SAT_LAYERS' order
+  private rowLayer: SatLayerKey[] = [];
   private index = new Map<number, number>();         // NORAD id -> row
+  private snapshotAt: Partial<Record<SatLayerKey, string>> = {};
+  private cloudList: SatCloud[] = [];
+  private pick = 0;                                  // the picked cloud's tag, or 0
   private sats = new Map<number, ReturnType<typeof satrecOf>>();   // the named ones' SGP4 records
   private named: NamedSat[] = [];
   private markers = new Map<number, HTMLDivElement>();
@@ -179,9 +234,7 @@ export class SatelliteLayer {
   private nearTrail: THREE.ShaderMaterial | null = null;
   private nearPlain: THREE.LineBasicMaterial | null = null;
   private crowdHidden: { row: number; lo: number; hi: number } | null = null;
-  private material: THREE.ShaderMaterial;
-  private points: THREE.Points | null = null;
-  private buffer: THREE.InterleavedBuffer | null = null;
+  private uniforms: Record<string, THREE.IUniform>;   // shared by every set's material, but their own
   private t0 = NaN;
   private timeMs = 0;
   private cam: V3 = [0, 0, 0];
@@ -198,16 +251,16 @@ export class SatelliteLayer {
   onPick: (id: number) => void = () => {};
   // The named list and the data's source, once they are known.
   onNamed: (named: readonly NamedSat[], source: SatSource | null) => void = () => {};
+  // The debris clouds, once the debris is loaded.
+  onClouds: (clouds: readonly SatCloud[]) => void = () => {};
 
   constructor(private scene: THREE.Scene, private overlay: HTMLElement, private baseUrl = '') {
-    this.material = new THREE.ShaderMaterial({
-      vertexShader: VERTEX, fragmentShader: FRAGMENT,
-      transparent: true, depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      uniforms: {
-        uDt: { value: 0 }, uEarth: { value: new THREE.Vector3() }, uToRender: { value: new THREE.Matrix3() }, uSun: { value: new THREE.Vector3(1, 0, 0) },
-        uLevel: { value: 1 }, uVis: { value: 1 }, uSigma: { value: 1 }, uSize: { value: 7 }, uPeakScale: { value: 1 }, uFade: { value: 1 }, uHide: { value: 0 },
-      },
-    });
+    // The uniforms every set shares (the same objects in each material);
+    // uDt, uFade, uLit, uDark, uGain and uPick are each set's own.
+    this.uniforms = {
+      uEarth: { value: new THREE.Vector3() }, uToRender: { value: new THREE.Matrix3() }, uSun: { value: new THREE.Vector3(1, 0, 0) },
+      uLevel: { value: 1 }, uVis: { value: 1 }, uSigma: { value: 1 }, uSize: { value: 7 }, uPeakScale: { value: 1 }, uHide: { value: 0 },
+    };
     // J2000 equatorial -> render: through the ecliptic (eqjToEcl), then
     // render (x, y, z) = ecliptic (x, z, -y).
     const cols = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map((b) => eqjToEcl(b) as V3);
@@ -216,55 +269,80 @@ export class SatelliteLayer {
       cols[0][2], cols[1][2], cols[2][2],
       -cols[0][1], -cols[1][1], -cols[2][1],
     );
-    (this.material.uniforms.uToRender.value as THREE.Matrix3).copy(this.toRenderM);
+    (this.uniforms.uToRender.value as THREE.Matrix3).copy(this.toRenderM);
   }
 
+  // Any switch on.
+  private get on(): boolean { return SAT_LAYER_KEYS.some((k) => this.layerOn[k]); }
   get shown(): boolean { return this.on; }
+  // A named one's marker and orbit show while its set's switch is on.
+  private namedOn(n: NamedSat): boolean { return this.layerOn[n.layer ?? 'active']; }
 
-  setOn(on: boolean): void {
-    this.on = on;
-    if (on) this.loading ??= this.load();
-    if (this.points) this.points.visible = on;
-    for (const o of this.orbits.values()) o.line.visible = on;
-    if (this.crowdLines) this.crowdLines.visible = on;
-    if (this.near && !on) this.near.visible = false;
-    if (!on) for (const el of this.markers.values()) el.style.display = 'none';
+  // The whole layer, as it was before there were sets: the active ones.
+  setOn(on: boolean): void { this.setLayer('active', on); }
+
+  setLayer(k: SatLayerKey, on: boolean): void {
+    this.layerOn[k] = on;
+    if (on && !this.loading.has(k)) this.loading.set(k, this.load(k));
+    const set = this.sets.get(k);
+    if (set) set.points.visible = on;
+    if (on) this.stale = true;
+    if (k === 'debris' && !on) this.setCloud(null);
+    for (const [id, o] of this.orbits) { const n = this.named.find((x) => x.id === id); o.line.visible = !!n && this.namedOn(n); }
+    if (this.crowdLines) this.crowdLines.visible = this.layerOn.active;
+    if (this.near && !this.on) this.near.visible = false;
+    for (const n of this.named) if (!this.namedOn(n)) this.markers.get(n.id)!.style.display = 'none';
   }
 
-  private async load(): Promise<void> {
+  private async load(k: SatLayerKey): Promise<void> {
     try {
+      this.meta ??= fetch(`${this.baseUrl}data/satellites.json`).then((r) => { if (!r.ok) throw new Error(`satellites.json: HTTP ${r.status}`); return r.json(); });
       const [csv, meta] = await Promise.all([
-        fetch(`${this.baseUrl}data/satellites.csv`).then((r) => { if (!r.ok) throw new Error(`satellites.csv: HTTP ${r.status}`); return r.text(); }),
-        fetch(`${this.baseUrl}data/satellites.json`).then((r) => r.json()),
+        fetch(`${this.baseUrl}data/${LAYER_OF[k].file}`).then((r) => { if (!r.ok) throw new Error(`${LAYER_OF[k].file}: HTTP ${r.status}`); return r.text(); }),
+        this.meta,
       ]);
       if (this.disposed) return;
-      this.named = (meta.named as NamedSat[]).map((n) => ({ ...n }));
-      this.setGp(csv, { label: 'CelesTrak GP, snapshot', fetched: meta.fetched, live: false });
+      if (!this.metaNamed.length) {
+        this.metaNamed = meta.named.map((n) => ({ ...n, layer: 'active' as const }));
+        this.source ??= { label: 'CelesTrak GP, snapshot', fetched: meta.fetched, live: false };
+      }
+      this.snapshotAt[k] = k === 'active' ? meta.fetched : meta.layers[k]?.fetched ?? meta.fetched;
+      if (k === 'debris') this.cloudList = meta.layers.debris?.clouds ?? [];
+      this.setRows(k, csv);
+      if (k === 'debris') this.onClouds(this.cloudList);
     } catch (err) {
-      console.warn(`satellites not loaded: ${err}`);
-      this.loading = null;
+      console.warn(`satellites (${k}) not loaded: ${err}`);
+      this.loading.delete(k);
+      this.meta = null;
     }
   }
 
-  // New element sets (the snapshot, or the live ones): the worker and the
-  // named ones' records start again from them.
-  private setGp(csv: string, source: SatSource): void {
-    this.rows = parseGpCsv(csv);
+  // New element sets for one switch (the snapshot, or the live ones for
+  // the active satellites): its points, the worker's copy and the named
+  // ones' records start again from them.
+  private setRows(k: SatLayerKey, csv: string): void {
+    const rows = parseGpCsv(csv);
+    this.makePoints(k, rows);
+    this.rows = []; this.rowLayer = [];
+    for (const key of SAT_LAYER_KEYS) {
+      const set = this.sets.get(key);
+      if (!set) continue;
+      for (const r of set.rows) { this.rows.push(r); this.rowLayer.push(key); }
+    }
     this.index = new Map(this.rows.map((r, j) => [r.NORAD_CAT_ID, j]));
     this.count = this.rows.length;
-    this.source = source;
-    this.named = this.named.filter((n) => this.index.has(n.id));
+    const found = this.named.filter((n) => n.group === 'found');
+    this.named = [...this.metaNamed, ...found.filter((f) => !this.metaNamed.some((n) => n.id === f.id))].filter((n) => this.index.has(n.id));
     this.sats.clear();
     for (const n of this.named) this.sats.set(n.id, satrecOf(this.rows[this.index.get(n.id)!]));
     for (const n of this.named) if (!this.markers.has(n.id)) this.makeMarker(n);
     for (const [id, el] of this.markers) if (!this.sats.has(id)) { el.remove(); this.markers.delete(id); }
-    this.makePoints();
-    this.t0 = NaN;
     for (const o of this.orbits.values()) o.tc = NaN;
     this.orbitAt.clear();
     this.worker ??= this.startWorker();
-    this.busy = true;
-    this.worker.postMessage({ type: 'gp', csv });
+    this.pending++;
+    this.stale = true;
+    this.worker.postMessage({ type: 'gp', set: k, csv });
     this.onNamed(this.named, this.source);
   }
 
@@ -272,30 +350,54 @@ export class SatelliteLayer {
     const w = new Worker(new URL('./satellites.worker.ts', import.meta.url), { type: 'module' });
     w.onmessage = (ev: MessageEvent) => {
       const m = ev.data;
-      if (m.type === 'ready') { this.busy = false; this.ask(); }
-      else if (m.type === 'step') { this.busy = false; this.takeStep(m.t, m.buf); this.ask(); }
+      if (m.type === 'ready') { this.pending--; this.ask(); }
+      else if (m.type === 'step') { this.pending--; this.takeStep(m.t, m.sets, m.bufs); this.ask(); }
       else if (m.type === 'orbits') { this.orbitBusy = false; this.takeOrbits(m.t, m.ids, m.buf, m.periods); }
     };
     return w;
   }
 
-  private makePoints(): void {
-    const n = this.rows.length;
-    this.buffer = new THREE.InterleavedBuffer(new Float32Array(n * 10), 10);
-    this.buffer.setUsage(THREE.DynamicDrawUsage);
+  // One switch's points: a material of its own (its colour and brightness,
+  // and its clock) sharing the rest of the uniforms, and its debris cloud
+  // tags.
+  private makePoints(k: SatLayerKey, rows: Omm[]): void {
+    const n = rows.length, L = LAYER_OF[k];
+    const buffer = new THREE.InterleavedBuffer(new Float32Array(n * 10), 10);
+    buffer.setUsage(THREE.DynamicDrawUsage);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Uint8Array(n), 1));
-    g.setAttribute('aP', new THREE.InterleavedBufferAttribute(this.buffer, 3, 0));
-    g.setAttribute('aQ', new THREE.InterleavedBufferAttribute(this.buffer, 3, 3));
-    g.setAttribute('aK', new THREE.InterleavedBufferAttribute(this.buffer, 4, 6));
+    g.setAttribute('aP', new THREE.InterleavedBufferAttribute(buffer, 3, 0));
+    g.setAttribute('aQ', new THREE.InterleavedBufferAttribute(buffer, 3, 3));
+    g.setAttribute('aK', new THREE.InterleavedBufferAttribute(buffer, 4, 6));
+    const tag = new Float32Array(n);
+    if (k === 'debris') rows.forEach((r, j) => { tag[j] = this.cloudList.findIndex((c) => r.OBJECT_ID.startsWith(c.intdes)) + 1; });
+    g.setAttribute('aTag', new THREE.BufferAttribute(tag, 1));
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e12);
-    if (this.points) { this.points.geometry.dispose(); this.points.geometry = g; return; }
-    this.points = new THREE.Points(g, this.material);
-    this.points.frustumCulled = false;
-    this.points.visible = this.on;
-    this.points.onBeforeRender = (_r, _s, camera) => this.label(camera);
-    this.scene.add(this.points);
+    const old = this.sets.get(k);
+    if (old) {
+      old.points.geometry.dispose();
+      old.points.geometry = g;
+      Object.assign(old, { rows, buffer, t0: NaN });
+      return;
+    }
+    const material = new THREE.ShaderMaterial({
+      vertexShader: VERTEX, fragmentShader: FRAGMENT,
+      transparent: true, depthTest: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: {
+        ...this.uniforms,
+        uDt: { value: 0 }, uFade: { value: 0 }, uLit: { value: new THREE.Vector3(...L.lit) }, uDark: { value: new THREE.Vector3(...L.dark) },
+        uGain: { value: L.gain }, uPick: { value: 0 },
+      },
+    });
+    const points = new THREE.Points(g, material);
+    points.frustumCulled = false;
+    points.visible = this.layerOn[k];
+    // The markers are placed once a frame, before whichever set draws first.
+    points.onBeforeRender = (_r, _s, camera) => { if (this.labelDue) { this.labelDue = false; this.label(camera); } };
+    this.scene.add(points);
+    this.sets.set(k, { rows, material, points, buffer, t0: NaN });
   }
+  private labelDue = false;
 
   // Ask the worker for the next ellipses when it is free and the clock has
   // moved: for the time now plus the time it took last (at the clock's
@@ -304,21 +406,29 @@ export class SatelliteLayer {
   private lastAskT = 0;
   private lag = 30;
   private rate = 0;
+  // Only the sets whose switches are on are stepped (and sent to the GPU).
   private ask(): void {
-    if (!this.worker || this.busy || !this.on) return;
-    if (Math.abs(this.timeMs - this.t0) < REFRESH_S * 1000) return;
-    if (Number.isFinite(this.t0) && performance.now() - this.lastAsk < REFRESH_MIN_MS) return;
-    this.busy = true;
+    if (!this.worker || this.pending > 0 || !this.on) return;
+    if (!this.stale && Math.abs(this.timeMs - this.t0) < REFRESH_S * 1000) return;
+    if (!this.stale && Number.isFinite(this.t0) && performance.now() - this.lastAsk < REFRESH_MIN_MS) return;
+    const sets = SAT_LAYER_KEYS.filter((k) => this.layerOn[k] && this.sets.has(k));
+    if (!sets.length) return;
+    this.pending++;
+    this.stale = false;
     this.lastAsk = performance.now();
     this.lastAskT = this.timeMs;
-    this.worker.postMessage({ type: 'step', t: this.timeMs + this.rate * this.lag });
+    this.worker.postMessage({ type: 'step', t: this.timeMs + this.rate * this.lag, sets });
   }
 
-  private takeStep(t: number, buf: Float32Array): void {
+  private takeStep(t: number, keys: SatLayerKey[], bufs: Float32Array[]): void {
     this.lag = Math.min(500, performance.now() - this.lastAsk);
-    if (!this.buffer || buf.length !== this.buffer.array.length) return;
-    this.buffer.array = buf;
-    this.buffer.needsUpdate = true;
+    keys.forEach((k, j) => {
+      const set = this.sets.get(k), buf = bufs[j];
+      if (!set || buf.length !== set.buffer.array.length) return;
+      set.buffer.array = buf;
+      set.buffer.needsUpdate = true;
+      set.t0 = t;
+    });
     this.t0 = t;
   }
 
@@ -360,7 +470,7 @@ export class SatelliteLayer {
         g.setAttribute('u', new THREE.BufferAttribute(u, 1));
         const line = new THREE.Line(g, orbitTrailMaterial(new THREE.Color(COLOUR_OF[n.group]).getHex(), 0.22, 0.12));
         line.frustumCulled = false;
-        line.visible = this.on;
+        line.visible = this.namedOn(n);
         this.scene.add(line);
         o = { line, tc: t, period: periods[j] };
         this.orbits.set(id, o);
@@ -393,7 +503,7 @@ export class SatelliteLayer {
       const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending });
       this.crowdLines = new THREE.LineSegments(new THREE.BufferGeometry(), m);
       this.crowdLines.frustumCulled = false;
-      this.crowdLines.visible = this.on;
+      this.crowdLines.visible = this.layerOn.active;
       this.scene.add(this.crowdLines);
     }
     const g = this.crowdLines.geometry;
@@ -417,7 +527,7 @@ export class SatelliteLayer {
 
   // The width of the points, as the small bodies' (smallBodies.ts setScale).
   setScale(deviceRatio: number, renderRatio: number): void {
-    const u = this.material.uniforms;
+    const u = this.uniforms;
     const want = (0.55 + 0.35 * deviceRatio) * (renderRatio / deviceRatio), sigma = Math.max(0.8, want);
     u.uSigma.value = sigma;
     u.uSize.value = Math.ceil(7 * sigma) + 1;
@@ -435,16 +545,24 @@ export class SatelliteLayer {
     this.timeMs = timeMs;
     this.cam = [cam[0], cam[1], cam[2]];
     this.earth = [earth[0], earth[1], earth[2]];
-    if (!this.on || !this.points) return;
+    if (!this.on || !this.sets.size) return;
+    this.labelDue = true;
     this.ask();
     this.askOrbits();
-    const u = this.material.uniforms;
-    u.uDt.value = Number.isFinite(this.t0) ? (timeMs - this.t0) / 1000 : 0;
+    const u = this.uniforms;
     const rel: V3 = [earth[0] - cam[0], earth[1] - cam[1], earth[2] - cam[2]];
     const er = (u.uEarth.value as THREE.Vector3).set(rel[0] / UNIT_KM, rel[2] / UNIT_KM, -rel[1] / UNIT_KM);
     const dE = Math.hypot(rel[0], rel[1], rel[2]);
     this.fade = Math.max(0, Math.min(1, (FADE_FAR_KM - dE) / (FADE_FAR_KM - FADE_NEAR_KM)));
-    u.uFade.value = Number.isFinite(this.t0) ? this.fade : 0;
+    // Each set from its own last ellipses; a picked cloud's pieces brighter
+    // (the debris shader picks them out by tag), and the other sets dimmer.
+    for (const [k, set] of this.sets) {
+      const su = set.material.uniforms;
+      su.uDt.value = Number.isFinite(set.t0) ? (timeMs - set.t0) / 1000 : 0;
+      su.uFade.value = Number.isFinite(set.t0) ? this.fade : 0;
+      su.uPick.value = k === 'debris' ? this.pick : 0;
+      su.uGain.value = LAYER_OF[k].gain * (this.pick && k !== 'debris' ? PICK_DIM : 1);
+    }
     const s = eclToEqj([-earth[0], -earth[1], -earth[2]]) as V3, sn = Math.hypot(s[0], s[1], s[2]);
     this.sunEqj = [s[0] / sn, s[1] / sn, s[2] / sn];
     (u.uSun.value as THREE.Vector3).set(...this.sunEqj);
@@ -452,14 +570,15 @@ export class SatelliteLayer {
     u.uVis.value = visibility;
     for (const [id, o] of this.orbits) {
       o.line.position.copy(er);
-      o.line.visible = this.fade > 0 && Number.isFinite(o.tc);
+      const n = this.named.find((x) => x.id === id);
+      o.line.visible = !!n && this.namedOn(n) && this.fade > 0 && Number.isFinite(o.tc);
       const m = o.line.material as THREE.ShaderMaterial;
       m.uniforms.now.value = (timeMs - o.tc) / o.period;
       m.uniforms.level.value = level * (id === this.focusId ? 1.6 : 1);
     }
     if (this.crowdLines) {
       this.crowdLines.position.copy(er);
-      this.crowdLines.visible = this.fade > 0;
+      this.crowdLines.visible = this.layerOn.active && this.fade > 0;
       const m = this.crowdLines.material as THREE.LineBasicMaterial;
       m.color.setScalar(CROWD_OPACITY * level);
     }
@@ -608,7 +727,8 @@ export class SatelliteLayer {
       const r = this.rows[j];
       const n = this.named.find((x) => x.id === r.NORAD_CAT_ID);
       const name = n && n.name.toUpperCase() !== r.OBJECT_NAME.toUpperCase() ? `${n.name} (${r.OBJECT_NAME})` : r.OBJECT_NAME;
-      return { j, des: String(r.NORAD_CAT_ID), label: `${name} · ${r.NORAD_CAT_ID}`, kind: orbitClass(r) };
+      const layer = this.rowLayer[j];
+      return { j, des: String(r.NORAD_CAT_ID), label: `${name} · ${r.NORAD_CAT_ID}`, kind: layer === 'active' ? orbitClass(r) : `${LAYER_NOUN[layer]}, ${orbitClass(r)}` };
     });
   }
 
@@ -618,7 +738,8 @@ export class SatelliteLayer {
     if (!r) return null;
     const id = r.NORAD_CAT_ID;
     if (!this.sats.has(id)) {
-      const n: NamedSat = { id, name: r.OBJECT_NAME.replace(/\s+/g, ' ').trim(), group: 'found' };
+      const layer = this.rowLayer[j], name = r.OBJECT_NAME.replace(/\s+/g, ' ').trim();
+      const n: NamedSat = { id, name: name && name !== 'UNKNOWN' ? name : `Object ${id}`, group: 'found', layer };
       this.named = [...this.named, n];
       this.sats.set(id, satrecOf(r));
       this.makeMarker(n);
@@ -641,8 +762,55 @@ export class SatelliteLayer {
     if (res.status !== 200) return `CelesTrak answered HTTP ${res.status}: not asked again`;
     const text = await res.text();
     if (parseGpCsv(text).length < 1000) return 'CelesTrak\'s answer held no catalogue';
-    this.setGp(text, { label: 'CelesTrak GP, live', fetched: new Date().toISOString(), live: true });
-    return `${this.count.toLocaleString('en-AU')} element sets from CelesTrak`;
+    this.source = { label: 'CelesTrak GP, live', fetched: new Date().toISOString(), live: true };
+    this.setRows('active', text);
+    return `${this.sets.get('active')!.rows.length.toLocaleString('en-AU')} element sets from CelesTrak`;
+  }
+
+  // Where a named one's elements came from: the live ones are the active
+  // satellites'; the debris, rocket bodies and analyst objects are always
+  // the snapshot's.
+  sourceOf(id: number): SatSource | null {
+    const layer = this.named.find((n) => n.id === id)?.layer ?? 'active';
+    if (layer === 'active') return this.source;
+    const at = this.snapshotAt[layer];
+    return at ? { label: 'CelesTrak GP, snapshot', fetched: at, live: false } : null;
+  }
+
+  // ----- The debris clouds -----
+  get clouds(): readonly SatCloud[] { return this.cloudList; }
+
+  // Pick a cloud (its pieces brighter, the rest dimmer), or none.
+  setCloud(key: string | null): void {
+    this.pick = key === null ? 0 : this.cloudList.findIndex((c) => c.key === key) + 1;
+  }
+
+  // The cloud's pieces' orbits, from their element sets (worked out once
+  // for each set of rows).
+  private views = new Map<string, { rows: Omm[]; view: SatCloudView }>();
+  cloudView(key: string): SatCloudView | null {
+    const c = this.cloudList.find((x) => x.key === key), set = this.sets.get('debris');
+    if (!c || !set) return null;
+    const kept = this.views.get(key);
+    if (kept?.rows === set.rows) return kept.view;
+    const rows = set.rows.filter((r) => r.OBJECT_ID.startsWith(c.intdes));
+    const q = (a: number[]): [number, number, number] => {
+      const s = a.slice().sort((x, y) => x - y), at = (f: number) => s[Math.min(s.length - 1, Math.floor(f * s.length))];
+      return [at(0.1), at(0.5), at(0.9)];
+    };
+    // SGP4's mean semi-major axis from the Kozai mean motion (rev/day),
+    // with WGS-72's mu and radius: within a few kilometres of its own.
+    const MU = 398600.8, RE = 6378.135;
+    const a = rows.map((r) => Math.cbrt(MU / (r.MEAN_MOTION * 2 * Math.PI / 86400) ** 2));
+    const epochs = rows.map((r) => r.EPOCH).sort();
+    const view: SatCloudView = {
+      ...c, tracked: rows.length, fetched: this.snapshotAt.debris ?? '',
+      perigee: q(rows.map((r, j) => a[j] * (1 - r.ECCENTRICITY) - RE)), apogee: q(rows.map((r, j) => a[j] * (1 + r.ECCENTRICITY) - RE)),
+      incl: q(rows.map((r) => r.INCLINATION)), aKm: q(a)[1],
+      epochs: { first: epochs[0] ?? '', median: epochs[epochs.length >> 1] ?? '' },
+    };
+    this.views.set(key, { rows: set.rows, view });
+    return view;
   }
 
   // ----- Labels -----
@@ -660,7 +828,7 @@ export class SatelliteLayer {
       const el = this.markers.get(n.id)!;
       const focused = n.id === this.focusId;
       el.classList.toggle('focused', focused);
-      const s = this.on || focused ? stateEqj(this.sats.get(n.id)!, this.timeMs, M) : null;
+      const s = this.namedOn(n) || focused ? stateEqj(this.sats.get(n.id)!, this.timeMs, M) : null;
       if (!s) { el.style.display = 'none'; continue; }
       const rEcl = eqjToEcl(s.r) as V3;
       const rel: V3 = [e[0] + rEcl[0] - cam[0], e[1] + rEcl[1] - cam[1], e[2] + rEcl[2] - cam[2]];
@@ -688,8 +856,7 @@ export class SatelliteLayer {
   dispose(): void {
     this.disposed = true;
     this.worker?.terminate();
-    if (this.points) { this.scene.remove(this.points); this.points.geometry.dispose(); }
-    this.material.dispose();
+    for (const set of this.sets.values()) { this.scene.remove(set.points); set.points.geometry.dispose(); set.material.dispose(); }
     for (const o of this.orbits.values()) { this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose(); }
     if (this.crowdLines) { this.scene.remove(this.crowdLines); this.crowdLines.geometry.dispose(); (this.crowdLines.material as THREE.Material).dispose(); }
     if (this.near) { this.scene.remove(this.near); this.near.geometry.dispose(); this.nearTrail?.dispose(); this.nearPlain?.dispose(); }

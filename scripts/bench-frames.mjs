@@ -56,6 +56,10 @@ const CRAFT = 'orrery.focusCraftId !== null';
 // Earth satellites switched on (all 16,892 points), and the ISS followed.
 const SATS_ON = '(async () => { const L = orrery.satellites; L.setOn(true); while (!L.count) await new Promise((r) => setTimeout(r, 100)); return true; })()';
 const ISS = SATS_ON.replace('return true;', 'orrery.focusOnSatellite(25544); return true;');
+// Sets of them by switch (the active ones, the debris clouds, the rocket
+// bodies, the analyst objects), loaded before the timing.
+const setsOn = (keys) => `(async () => { const L = orrery.satellites; for (const k of ${JSON.stringify(keys)}) L.setLayer(k, true); while (L.sets.size < ${keys.length}) await new Promise((r) => setTimeout(r, 100)); return true; })()`;
+const ALL_SETS = ['active', 'debris', 'rocket-bodies', 'analyst'];
 // The Moon's landing sites switched on, and Apollo 11's flown to.
 const SITES_ON = '(orrery.sites?.setOn(true), true)';
 const SITE_NEAR = "(orrery.sites.setOn(true), orrery.focusOnSite('apollo11'), true)";
@@ -71,6 +75,9 @@ const SCENARIOS = {
   'point-far': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 3000, ready: CRAFT },
   'sats': { label: 'Earth satellites, all on', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON },
   'sat-near': { label: 'The ISS followed', query: `?focus=earth&${DATE}`, km: 0.1, setup: ISS },
+  'sats-all': { label: 'Earth satellites, every set on', query: `?focus=earth&${DATE}`, km: 20000, setup: setsOn(ALL_SETS) },
+  'sats-all-hour': { label: 'Earth satellites, every set on, 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: setsOn(ALL_SETS), rate: 3600 },
+  'sats-hour': { label: 'Earth satellites, all on, 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON, rate: 3600 },
   'sat-track': { label: 'The ISS followed, its passes and ground track', query: `?focus=earth&${DATE}`, km: 20000, setup: ISS },
   'sat-track-warp': { label: 'The same at 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: ISS, rate: 3600 },
   'saturn': { label: 'Saturn and its rings', query: `?focus=saturn&${DATE}`, km: 500000 },

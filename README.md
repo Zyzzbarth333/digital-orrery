@@ -38,7 +38,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 
 - **The sky:**
   - the Sun, planets, 76 moons (and 381 irregular moons of Jupiter, Saturn and Neptune as a layer) and 135,353 asteroids and comets, at their real positions for any date, at true scale;
-  - 16,892 Earth satellites from CelesTrak's element sets, moved by SGP4, with the ISS, Tiangong, Hubble, GPS, Galileo and the weather satellites' orbits, and any one's passes over a place: rise, peak and set, whether it can be seen, and its ground track on the Earth;
+  - 16,892 Earth satellites from CelesTrak's element sets, moved by SGP4, with the ISS, Tiangong, Hubble, GPS, Galileo and the weather satellites' orbits, and any one's passes over a place: rise, peak and set, whether it can be seen, and its ground track on the Earth; on switches of their own, the tracked debris of three breakups (Fengyun-1C, Cosmos 2251 and Iridium 33), 2,194 spent rocket bodies and 573 unidentified analyst objects;
   - the spacecraft at Mercury, the Moon, Mars and Jupiter, about the Sun-Earth L1 and L2 points and in cruise, on JPL Horizons' trajectories for 2026 and 2027;
   - the Moon's 38 landing sites, from Luna 2 to Blue Ghost, the Apollo landings among them, where the LROC team measured them, as a layer;
   - real surface maps and relief, Saturn's rings from Cassini measurements, Jupiter's, Uranus's and Neptune's from occultations and ring tables (their faint dust bright in forward scattering, Neptune's arcs where they were last measured), Earth's clouds as satellites saw them that day under a physically based atmosphere; the planets' and moons' maps load GPU-compressed (KTX2), in a quarter of the video memory, where the GPU can take them;
