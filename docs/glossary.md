@@ -8,6 +8,7 @@ where it helps. Each entry links to the page that covers it in depth.
 [Orbits](#orbits) · [Transfers and journeys](#transfers-and-journeys) ·
 [Forces and integration](#forces-and-integration) ·
 [Rockets and missions](#rockets-and-missions) ·
+[Magnetic fields and auroras](#magnetic-fields-and-auroras) ·
 [The sky and drawing](#the-sky-and-drawing)
 
 ## Time and frames
@@ -286,6 +287,40 @@ what the app is checked against.
 **Skip entry.** A returning capsule dipping into the atmosphere, lifting
 out, then coming down for good, to reach its splashdown point. Artemis I
 flew one. [Atmospheric entry](physics/entry.md)
+
+## Magnetic fields and auroras
+
+**Magnetosphere.** The region around a planet where its own magnetic field,
+not the Sun's, controls the charged particles. The solar wind squeezes it
+on the day side and draws it out into a long tail on the night side. The
+app draws the planets' internal fields only, with no magnetopause.
+[Magnetic fields and auroras](physics/magnetic-fields.md)
+
+**Dipole tilt.** The angle between a planet's magnetic dipole and its spin
+axis: 9° for the Earth, 10° for Jupiter, under 0.01° for Saturn, and 60°
+and 47° for Uranus and Neptune, whose dipoles also sit far off their
+centres (0.31 and 0.55 of a radius).
+[Magnetic fields and auroras](physics/magnetic-fields.md#the-dipole-its-tilt-and-its-centre)
+
+**L-shell.** The set of dipole field lines that cross the magnetic equator
+$L$ planet radii out. A line from magnetic latitude $\lambda$ on the surface
+has $L = 1/\cos^2\lambda$, so the Earth's auroral zone, near 67°, sits on
+about $L = 6.5$. [Magnetic fields and auroras](physics/magnetic-fields.md)
+
+**Aurora.** Light from the upper atmosphere where charged particles from
+the magnetosphere rain in along field lines, in an oval round each
+magnetic pole. On the Earth the oxygen glows green (557.7 nm) near 110 km
+and red (630.0 nm) higher up; the oval swells toward the equator as the
+Kp index rises. Jupiter's and Saturn's shine mostly in the ultraviolet, and
+Io leaves its own spot where its field line meets Jupiter.
+[Magnetic fields and auroras](physics/magnetic-fields.md#auroras)
+
+**Kp.** A planetary index of geomagnetic disturbance every three hours,
+from 0 (quiet) to 9 (an extreme storm), in thirds (3−, 3o, 3+).
+
+**Corrected geomagnetic coordinates (CGM).** Latitude and longitude
+measured along the real field's lines rather than about the spin axis, the
+coordinates the auroral ovals are given in.
 
 ## The sky and drawing
 

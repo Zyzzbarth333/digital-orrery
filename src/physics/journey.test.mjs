@@ -18,7 +18,7 @@ import { restrictedStaging, restrictedPayloadRatio, sizeLauncher, launchBudget, 
 import { LAUNCHERS } from './launchers.js';
 import * as J from './journey.js';
 import { propagate } from './orbital.js';
-import { planFlight, flyJourney } from './journeyFlight.js';
+import { planFlight, flyJourney, flightTrouble, JOURNEY_CRAFT } from './journeyFlight.js';
 import * as F from './feasibility.js';
 import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS, createKernelHost, kernelSeconds } from './kernelHost.js';
@@ -403,22 +403,38 @@ header('CASE 9: landings, flown: down to the Moon, a stay, up and home; and a mo
   check('up into orbit for under 10 % over its speed, then home: through the air at Earth, no impact', down.ascentDv < 1.1 * Math.sqrt(muM / (RM + 100)) && home?.body === 'earth' && home.how === 'entry' && !f.impact);
   check('the way home within 10 km of the aimed point, the entry perigee within 5 km of the planned 120 km', f.arrivals[1].missKm < 10 && near(home.entryKm, 120, 5));
 
-  // The same journey flown live by the app's Craft (bare, as the app flies
-  // a journey: the model the burns were worked out in): the planned burns
-  // and landings, ten-minute frames through the kernel host.
+  check('flown in the full model (the Moon\'s GRAIL field to degree 50, mascons and all; the Earth\'s field, drag and sunlight), with no trouble: no fallback to the bare model', f.model === 'full' && flightTrouble(plan, f).length === 0);
+
+  // The same journey flown live by the app's Craft, in the full model as
+  // the app now flies a journey (not bare): the planned burns and landings,
+  // ten-minute frames through the kernel host. It comes down on the site
+  // the headless flight landed on.
   const host = createKernelHost();
-  const c = new Craft({ name: 'lander', r: plan.start.r, v: plan.start.v, t: kernelSeconds(new Date(plan.start.ms)), sys, bare: true });
-  c.addPlanned(f.burns); c.addLandings(f.landings);
-  const seen = { ground: false, up: false };
-  for (let t = c.clockT + 600; t <= home.t + 3600; t += 600) {
-    c.advanceClock(t);
-    const req = c.buildRequest();
-    if (req) c.applyResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]);
-    if (c.landed?.key === 'moon' && t > down.t + DAY && t < down.until - DAY) seen.ground = norm(c.displayState().r.map((x, i) => x - sys.bodiesAt(t).find((b) => b.key === 'moon').r[i])) < RM + 0.01;
-    if (!c.landed && t > down.until + 2 * 3600 && t < down.until + 3 * 3600) seen.up = norm(c.kState.r.map((x, i) => x - sys.bodiesAt(c.kState.t).find((b) => b.key === 'moon').r[i])) > RM + 80;
-  }
-  console.log(`  flown live: ${c.log.filter((l) => /landed|lift off|impact/.test(l.text)).map((l) => l.text).join('; ')}`);
-  check('flown live by the Craft: down on the Moon and held, up into orbit after the stay, down at Earth, never crashed', seen.ground && seen.up && c.landed?.key === 'earth' && !c.crashed);
+  const live = (burnsFrom, landingsFrom) => {
+    const c = new Craft({ name: 'lander', r: plan.start.r, v: plan.start.v, t: kernelSeconds(new Date(plan.start.ms)), sys, ...JOURNEY_CRAFT });
+    c.addPlanned(burnsFrom); c.addLandings(landingsFrom);
+    const seen = { ground: false, up: false, site: null };
+    for (let t = c.clockT + 600; t <= home.t + 3600 && !c.crashed; t += 600) {
+      c.advanceClock(t);
+      const req = c.buildRequest();
+      if (req) c.applyResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]);
+      if (c.landed?.key === 'moon' && !seen.site) seen.site = [...c.landed.local];
+      if (c.landed?.key === 'moon' && t > down.t + DAY && t < down.until - DAY) seen.ground = norm(c.displayState().r.map((x, i) => x - sys.bodiesAt(t).find((b) => b.key === 'moon').r[i])) < RM + 0.01;
+      if (!c.landed && t > down.until + 2 * 3600 && t < down.until + 3 * 3600) seen.up = norm(c.kState.r.map((x, i) => x - sys.bodiesAt(c.kState.t).find((b) => b.key === 'moon').r[i])) > RM + 80;
+    }
+    return { c, seen };
+  };
+  const { c, seen } = live(f.burns, f.landings);
+  const siteKm = seen.site ? norm(seen.site.map((x, i) => x / norm(seen.site) - down.local[i] / norm(down.local))) * RM : Infinity;
+  console.log(`  flown live in the full model: ${c.log.filter((l) => /landed|lift off|impact/.test(l.text)).map((l) => l.text).join('; ')}; down ${(siteKm * 1000).toFixed(0)} m from the headless flight's site`);
+  check('flown live by the Craft in the full model: down on the Moon within 100 m of the headless site and held, up into orbit after the stay, down at Earth, never crashed', !c.bare && siteKm < 0.1 && seen.ground && seen.up && c.landed?.key === 'earth' && !c.crashed);
+  // As it was: burns worked out in the bare model, flown live with the
+  // mascons on. The descent, flown open loop in a field it was not designed
+  // in, does not come down on its site.
+  const fb = flyJourney(sys, plan, { model: 'bare' }), old = live(fb.burns, fb.landings);
+  const oldKm = old.seen.site ? norm(old.seen.site.map((x, i) => x / norm(old.seen.site) - fb.landings[0].local[i] / norm(fb.landings[0].local))) * RM : null;
+  console.log(`  the bare model's burns flown live in the full one: ${old.c.log.filter((l) => /landed|lift off|impact|came down/.test(l.text)).map((l) => l.text).join('; ')}${oldKm !== null ? `; ${oldKm.toFixed(1)} km from its site` : ''}`);
+  check('the bare model\'s burns, flown live with the mascons on, miss their site (a crash, or kilometres off): why the craft no longer flies bare', old.c.crashed || (oldKm !== null && oldKm > 1));
 
   // A planned landing is a landing only if the craft meets the ground
   // slowly: one falling onto the Moon at 1 km/s within the hour of a
@@ -446,7 +462,73 @@ header('CASE 9: landings, flown: down to the Moon, a stay, up and home; and a mo
   const dep = mf.log.find((l) => l.startsWith('depart moon'));
   console.log(`  Moon orbit to Mars: ${dep}, the plan's ${(ms.legs[1].depDv * 1000).toFixed(0)}; Mars ${mf.arrivals[1].missKm.toFixed(1)} km off the planned periapsis, corrections ${(mf.correctionsDv * 1000).toFixed(0)} m/s`);
   check('leaving the Moon for Mars is flown (no unsupported note), Mars captured within 20 km of plan, no impact', mp.unsupported.length === 0 && mf.arrivals[1].missKm < 20 && !mf.impact);
-  check('its departure costs no less than the plan\'s (which takes the Moon as moving the way out) and the corrections under 250 m/s', (() => { const m = /moon: (\d+) m\/s/.exec(dep ?? ''); return m && Number(m[1]) >= ms.legs[1].depDv * 1000 - 1 && mf.correctionsDv < 0.25; })());
+  const flownDep = Number(/moon: (\d+) m\/s/.exec(dep ?? '')?.[1] ?? NaN) / 1000, best = ms.legs[1].moonDep;
+  console.log(`  priced by where the Moon is: ${(ms.legs[1].depDv * 1000).toFixed(0)} m/s for ${best.speed.toFixed(3)} km/s about the Moon, its velocity ${best.angleDeg.toFixed(0)} deg off the way out (as if it moved the way out: ${(X.departureDv(best.bestSpeed, muM, RM + 100) * 1000).toFixed(0)} m/s); flown ${(flownDep * 1000).toFixed(0)}, ${(100 * (flownDep / ms.legs[1].depDv - 1)).toFixed(1)} % more`);
+  check('leaving the Moon for Mars: the plan\'s price, by the Moon\'s real place and velocity, within 3 % of what the kernel flies in the full model', Math.abs(flownDep / ms.legs[1].depDv - 1) < 0.03);
+  check('and the corrections under 250 m/s', mf.correctionsDv < 0.25);
+}
+
+header('CASE 10: leaving a moon by where it is: the phase, the strips and the best day');
+{
+  // The hyperbola about the planet from the moon's place: both velocities
+  // that leave on a given excess velocity, against the asymptote of the
+  // orbit they start (from its eccentricity vector), over random states.
+  const asym = (r, v, mu) => {
+    const rn = norm(r), v2 = v[0] ** 2 + v[1] ** 2 + v[2] ** 2, en = v2 / 2 - mu / rn, rv = r[0] * v[0] + r[1] * v[1] + r[2] * v[2];
+    const h = [r[1] * v[2] - r[2] * v[1], r[2] * v[0] - r[0] * v[2], r[0] * v[1] - r[1] * v[0]];
+    const ev = r.map((x, i) => ((v2 - mu / rn) * x - rv * v[i]) / mu), e = norm(ev), P = ev.map((x) => x / e);
+    const Q0 = [h[1] * P[2] - h[2] * P[1], h[2] * P[0] - h[0] * P[2], h[0] * P[1] - h[1] * P[0]], Q = Q0.map((x) => x / norm(Q0)), th = Math.acos(-1 / e);
+    return P.map((x, i) => (x * Math.cos(th) + Q[i] * Math.sin(th)) * Math.sqrt(2 * en));
+  };
+  let worst = 0, seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+  for (let i = 0; i < 500; i++) {
+    const r = [rnd(), rnd(), rnd()].map((x) => x * 800000), w = [rnd(), rnd(), rnd()].map((x) => x * 8);
+    for (const v of X.asymptoteVelocities(r, w, MU_E)) worst = Math.max(worst, norm(asym(r, v, MU_E).map((x, k) => x - w[k])) / norm(w));
+  }
+  console.log(`  asymptoteVelocities over 500 random states: worst ${worst.toExponential(1)} of the excess velocity`);
+  check('the two hyperbolas from a point onto a given excess velocity leave along it (to 1e-9)', worst < 1e-9);
+
+  // Earth orbit, a week in lunar orbit, then Mars: the price of leaving the
+  // Moon by the day, over a month of stays (the leg's arrival held).
+  const mm = (stay) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: stay, dateMs: D('2026-10-24T00:00:00Z') },
+    { id: 2, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z') }] });
+  const j7 = mm(7), s7 = J.solveJourney(j7);
+  const p = F.legProfile(j7, 1, { sol: s7 }), month = p.points.slice(0, 35).map((q) => q.dv);
+  const lowest = (a, b) => { let k = a; for (let i = a; i < b; i++) if (month[i] < month[k]) k = i; return k; };
+  const mins = [lowest(0, 15), lowest(15, 35)];
+  console.log(`  the strip leaving the Moon, a day a step: ${month.slice(0, 32).map((x) => x.toFixed(2)).join(' ')} km/s; lowest on days ${mins.join(' and ')}`);
+  check('the window strip shows the Moon\'s phase: a point a day, the price swinging by more than 1 km/s over a month, its lows a month apart', p.stepDays === 1 && Math.max(...month) - Math.min(...month) > 1 && mins[1] - mins[0] >= 25 && mins[1] - mins[0] <= 32);
+  const o = J.phaseOption(j7, 1, { sol: s7 }), asIs = s7.legs[1].depDv + s7.legs[1].arrDv;
+  console.log(`  best day in the stay: ${new Date(o.depMs).toISOString().slice(0, 16)}, ${o.dv.toFixed(3)} km/s for the leg against ${asIs.toFixed(3)} as scheduled (${o.note})`);
+  check('the planner suggests the best day in the stay: within it, cheaper than leaving as scheduled by over 0.5 km/s, listed with the leg\'s options', o.depMs >= s7.stops[1].arrMs && o.depMs <= s7.stops[1].depMs && asIs - o.dv > 0.5 && J.legOptions(j7, 1).options.some((x) => x.type === 'phase'));
+  const lamps = F.assess(j7, s7, { profiles: [null, p] });
+  check('and the phase lamp says so', lamps.some((l) => l.key === 'phase' && l.level === 'caution' && Math.abs(l.bestMs - o.depMs) < 1));
+  // Taking it: the journey re-timed to that day, priced, and flown.
+  const jb = J.applyOption(j7, 1, o), sb = J.solveJourney(jb), pb = planFlight(sb);
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), fb = flyJourney(sys, pb);
+  const depB = Number(/moon: (\d+) m\/s/.exec(fb.log.find((l) => l.startsWith('depart moon')) ?? '')?.[1] ?? NaN) / 1000;
+  console.log(`  leaving on that day: planned ${(sb.legs[1].depDv * 1000).toFixed(0)} m/s, flown ${(depB * 1000).toFixed(0)}; Mars ${fb.arrivals[1].missKm.toFixed(1)} km off, corrections ${(fb.correctionsDv * 1000).toFixed(0)} m/s`);
+  check('flown on the suggested day: the departure within 3 % of its price, Mars within 20 km of plan', Math.abs(depB / sb.legs[1].depDv - 1) < 0.03 && fb.arrivals[1].missKm < 20 && !fb.impact);
+  // A hyperbola that would swing in close past the Earth is not taken: the
+  // flight does not aim that pass.
+  // Ten days in: the hyperbola nearer the Moon's velocity dives to a
+  // perigee inside the Earth on its way out; the other is taken.
+  const L10 = J.solveJourney(mm(10)).legs[1], m10 = J.relState('moon', 'earth', L10.depMs), muE = J.bodyInfo('earth').mu;
+  const any = X.moonExcess({ rm: m10.r, vm: m10.v, vinf: L10.vinfDep, mu: muE }), kept = X.moonExcess({ rm: m10.r, vm: m10.v, vinf: L10.vinfDep, mu: muE, rMin: 0.5 * norm(m10.r) });
+  console.log(`  ten days in: the nearer hyperbola ${any.speed.toFixed(3)} km/s about the Moon, perigee ${any.rp.toFixed(0)} km; taken instead ${kept.speed.toFixed(3)} km/s, perigee behind it at ${kept.rp.toFixed(0)} km`);
+  check('a way out that swings in past the planet (falling inward, periapsis under half the moon\'s distance) is not taken while another is', any.rp < J.bodyInfo('earth').radius && !kept.swingby && kept.speed > any.speed && Math.abs(L10.moonDep.speed - kept.speed) < 1e-12);
+}
+
+header('CASE 11: the full model, or the bare one as a fallback');
+{
+  // flightTrouble: what keeps a flight from being taken in the full model.
+  const plan = { events: [{ kind: 'land', body: 'moon', waypoint: 0 }] };
+  const ok = flightTrouble(plan, { trouble: [], impact: null, landings: [{ waypoint: 0 }], arrivals: [{ body: 'moon', missKm: 3, plannedRp: 1838 }] });
+  const bad = flightTrouble(plan, { trouble: ['the aim at Mars found no burn'], impact: { body: 'moon' }, landings: [], arrivals: [{ body: 'mars', missKm: 400, plannedRp: 3790 }] });
+  console.log(`  trouble: ${bad.join('; ')}`);
+  check('a flight with no trouble is taken in the full model; an aim with no burn, a crash, a landing not made and a 400 km miss are each reasons to fall back', ok.length === 0 && bad.length === 4);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');

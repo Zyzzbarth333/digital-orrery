@@ -19,6 +19,7 @@
 //   solveJourney(journey)        every leg at the waypoints' dates, the flybys
 //                                that join them, the burns, totals and a path
 //   legOptions(journey, k)       the transfers that apply to leg k, compared
+//   phaseOption(journey, k)      leaving a moon: the best day in the stay
 //   applyOption(journey, k, o)   the journey re-timed to option o
 //   defaultArrival(...)          a first guess at a new waypoint's date
 //   journeyPath(solution)        points along every arc, for drawing
@@ -151,36 +152,51 @@ export function legGeometry(aKey, bKey, resonant = false) {
 
 // ---------------- the burns at each end ----------------
 
-// From a stop onto an excess speed vinf (km/s) about its body.
+// From a stop onto an excess velocity vinf (km/s: a vector, or a speed)
+// about its body.
 //   orbit (and the start's parking orbit): from a circular orbit at altKm;
 //   land: an ideal ascent to that orbit (its circular speed: no gravity or
 //   drag losses), then the departure;
 //   flyby: nothing here (the flyby joins the legs).
-// via: the body is a moon and vinf is about its planet: the speed needed at
-// the moon's distance, less the moon's own, is the excess about the moon.
-function departCost(stop, vinf, B, via = false) {
+// via: the body is a moon and vinf is about its planet. With the moon's
+// state about its planet on the day (via = { r, v }) and vinf a vector, the
+// excess about the moon is three-level patched conics at the moon's real
+// place (transfers.js moonExcess); with via = true (the ideal options, on
+// mean circular orbits), its best phase: the speed needed at the moon's
+// distance less the moon's own, as if the moon moved the way out.
+function moonSpeed(vinf, B, via, arrive) {
+  const P = bodyInfo(B.parent);
+  if (via && typeof via === 'object' && Array.isArray(vinf)) return X.moonExcess({ rm: via.r, vm: via.v, vinf, mu: P.mu, arrive, rMin: 0.5 * norm(via.r) }).speed;
+  const w = Array.isArray(vinf) ? norm(vinf) : vinf, vm = Math.sqrt(P.mu / B.a);
+  return Math.abs(Math.sqrt(w * w + 2 * P.mu / B.a) - vm);
+}
+const speedOf = (vinf) => (Array.isArray(vinf) ? norm(vinf) : vinf);
+function departCost(stop, vinf, B, via = null) {
   if (stop.kind === 'flyby') return 0;
-  let v = vinf;
-  if (via) {
-    const P = bodyInfo(B.parent), vm = Math.sqrt(P.mu / B.a);
-    v = Math.abs(Math.sqrt(vinf * vinf + 2 * P.mu / B.a) - vm);
-  }
+  const v = via ? moonSpeed(vinf, B, via, false) : speedOf(vinf);
   const rp = B.radius + stop.altKm;
   return X.departureDv(v, B.mu, rp) + (stop.kind === 'land' ? X.circularSpeed(B.mu, rp) : 0);
 }
-// Arriving with excess speed vinf: orbit, a circular capture at altKm;
+// Arriving with excess velocity vinf: orbit, a circular capture at altKm;
 // land, through the atmosphere if it has one (no burn), else captured into
 // that orbit and down from it (its circular speed); flyby: nothing here.
-function arriveCost(stop, vinf, B, via = false) {
+// via: as departCost, the hyperbola about the planet coming in to the moon.
+function arriveCost(stop, vinf, B, via = null) {
   if (stop.kind === 'flyby') return 0;
-  let v = vinf;
-  if (via) {
-    const P = bodyInfo(B.parent), vm = Math.sqrt(P.mu / B.a);
-    v = Math.abs(Math.sqrt(vinf * vinf + 2 * P.mu / B.a) - vm);
-  }
   if (stop.kind === 'land' && B.atmosphere) return 0;
+  const v = via ? moonSpeed(vinf, B, via, true) : speedOf(vinf);
   const rp = B.radius + stop.altKm;
   return X.captureDv(v, B.mu, rp, 0) + (stop.kind === 'land' ? X.circularSpeed(B.mu, rp) : 0);
+}
+// A moon's state about its planet on the day, for a leg that leaves it or
+// reaches it via the planet (null otherwise).
+const moonAt = (isVia, key, ms) => (isVia ? relState(key, bodyInfo(key).parent, ms) : null);
+// The excess velocity about the moon for the planet's vinf (vector), and the
+// angle between the moon's velocity and the craft's about the planet there.
+function moonEnd(m, vinf, key, arrive) {
+  if (!m || !vinf) return null;
+  const x = X.moonExcess({ rm: m.r, vm: m.v, vinf, mu: bodyInfo(bodyInfo(key).parent).mu, arrive, rMin: 0.5 * norm(m.r) });
+  return { vinf: x.vinf, speed: x.speed, rp: x.rp, swingby: x.swingby, angleDeg: Math.acos(Math.max(-1, Math.min(1, dot(unit(x.vAbout), unit(m.v))))) * 180 / Math.PI, bestSpeed: moonSpeed(norm(vinf), bodyInfo(key), true, arrive) };
 }
 
 // ---------------- one leg ----------------
@@ -232,14 +248,19 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
   if (g.resonant) return solveResonantLeg(P, Q, depMs, arrMs, g, out, { resonance, vinf: vinfIn, phi: resonantPhi });
   if (g.kind === 'between') {
     const a = relState(g.endA, g.central, depMs), b = relState(g.endB, g.central, arrMs);
-    const cost = (v1, v2) => departCost(P, norm(sub(v1, a.v)), g.A, g.viaA) + arriveCost(Q, norm(sub(v2, b.v)), g.B, g.viaB) + (P.kind === 'flyby' ? (vinfIn !== null ? Math.abs(norm(sub(v1, a.v)) - vinfIn) : norm(sub(v1, a.v)) * 1e-3) : 0) + (Q.kind === 'flyby' ? norm(sub(v2, b.v)) * 1e-3 : 0);
-    if (via === 'bielliptic') return solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out);
+    const mA = moonAt(g.viaA, P.body, depMs), mB = moonAt(g.viaB, Q.body, arrMs);
+    const cost = (v1, v2) => departCost(P, sub(v1, a.v), g.A, mA) + arriveCost(Q, sub(v2, b.v), g.B, mB) + (P.kind === 'flyby' ? (vinfIn !== null ? Math.abs(norm(sub(v1, a.v)) - vinfIn) : norm(sub(v1, a.v)) * 1e-3) : 0) + (Q.kind === 'flyby' ? norm(sub(v2, b.v)) * 1e-3 : 0);
+    if (via === 'bielliptic') return solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out, mA, mB);
     const s = bestArc(a.r, b.r, tof, mu, cost, pick ? pick.revs : g.resonant ? Math.max(2, maxRevs) : maxRevs, pick);
     if (!s) return { ...out, error: 'no Lambert arc between these dates' };
     out.arcs.push({ r1: a.r, v1: s.v1, t1: depMs, t2: arrMs, mu });
     out.vinfDep = sub(s.v1, a.v); out.vinfArr = sub(s.v2, b.v);
-    out.depDv = departCost(P, norm(out.vinfDep), g.A, g.viaA);
-    out.arrDv = arriveCost(Q, norm(out.vinfArr), g.B, g.viaB);
+    out.depDv = departCost(P, out.vinfDep, g.A, mA);
+    out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
+    // Leaving (or reaching) a moon via its planet: the excess velocity about
+    // the moon, where the moon is on the day.
+    out.moonDep = P.kind === 'flyby' ? null : moonEnd(mA, out.vinfDep, P.body, false);
+    out.moonArr = Q.kind === 'flyby' ? null : moonEnd(mB, out.vinfArr, Q.body, true);
     return { ...out, revs: s.revs, branch: s.branch, ok: true, endA: g.endA, endB: g.endB };
   }
 
@@ -345,7 +366,7 @@ function solveResonantLeg(P, Q, depMs, arrMs, g, out, { resonance = null, vinf =
 // A bi-elliptic leg between two bodies about the Sun (or a planet): out to
 // a far apoapsis opposite the departure, a burn there, then on to the
 // target: two Lambert arcs, the second ending at the target's position.
-function solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out) {
+function solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out, mA = null, mB = null) {
   const C = bodyInfo(g.central), mu = C.mu, rA = norm(a.r), rC = norm(b.r);
   const rB = biEllipticApoapsis(g.central, rA, rC);
   const T1 = Math.PI * Math.sqrt(((rA + rB) / 2) ** 3 / mu), tMid = depMs + T1 * 1000;
@@ -359,8 +380,8 @@ function solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out) {
   if (!s1 || !s2) return { ...out, error: 'no bi-elliptic arcs between these dates' };
   out.arcs.push({ r1: a.r, v1: s1.v1, t1: depMs, t2: tMid, mu }, { r1: apoPt, v1: s2.v1, t1: tMid, t2: arrMs, mu });
   out.vinfDep = sub(s1.v1, a.v); out.vinfArr = sub(s2.v2, b.v);
-  out.depDv = departCost(P, norm(out.vinfDep), g.A, g.viaA);
-  out.arrDv = arriveCost(Q, norm(out.vinfArr), g.B, g.viaB);
+  out.depDv = departCost(P, out.vinfDep, g.A, mA);
+  out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
   out.midDv = norm(sub(s2.v1, s1.v2));
   out.mid = { ms: tMid, r: apoPt };
   return { ...out, ok: true, revs: 0, endA: g.endA, endB: g.endB };
@@ -540,10 +561,11 @@ function solveCraftLeg(P, Q, depMs, arrMs, w) {
   const r1 = sub(s.r, c.r), v0 = sub(s.v, c.v), mu = bodyInfo(central).mu, tof = (arrMs - depMs) / 1000;
   const b = Q.body === central ? null : relState(Q.body === central ? central : (g.endB ?? Q.body), central, arrMs);
   const B = bodyInfo(Q.body);
-  const sol = b && bestArc(r1, b.r, tof, mu, (v1, v2) => norm(sub(v1, v0)) + arriveCost(Q, norm(sub(v2, b.v)), B, g.viaB), w.revs ?? 0);
+  const mB = moonAt(g.viaB, Q.body, arrMs);
+  const sol = b && bestArc(r1, b.r, tof, mu, (v1, v2) => norm(sub(v1, v0)) + arriveCost(Q, sub(v2, b.v), B, mB), w.revs ?? 0);
   const base = { geometry: 'craft', central, from: P.body, to: Q.body, depMs, arrMs, tofDays: tof / DAY, arcs: [], vinfDep: null, vinfArr: null, depDv: 0, arrDv: 0, midDv: 0 };
   if (!sol) return { ...base, ok: false, error: 'no Lambert arc from the craft between these dates' };
-  return { ...base, arcs: [{ r1, v1: sol.v1, t1: depMs, t2: arrMs, mu }], vinfArr: sub(sol.v2, b.v), depDv: norm(sub(sol.v1, v0)), arrDv: arriveCost(Q, norm(sub(sol.v2, b.v)), B, g.viaB), ok: true, revs: sol.revs, branch: sol.branch, endB: g.endB ?? Q.body };
+  return { ...base, arcs: [{ r1, v1: sol.v1, t1: depMs, t2: arrMs, mu }], vinfArr: sub(sol.v2, b.v), depDv: norm(sub(sol.v1, v0)), arrDv: arriveCost(Q, sub(sol.v2, b.v), B, mB), ok: true, revs: sol.revs, branch: sol.branch, endB: g.endB ?? Q.body };
 }
 
 // ---------------- shaping a leg: burn nodes and an aimed flyby ----------------
@@ -591,7 +613,7 @@ export function shapeLeg(leg, Q, nodes, from = null) {
   out.missKm = norm(sub(end.r, target));
   out.vinfArr = sub(end.v, leg.ringArr ? [0, 0, 0] : atEnd.v);
   const B = bodyInfo(leg.to), g = legGeometry(leg.from, leg.to, leg.from === leg.to);
-  out.arrDv = leg.ringArr ? leg.arrDv : arriveCost(Q, norm(out.vinfArr), B, g.viaB);
+  out.arrDv = leg.ringArr ? leg.arrDv : arriveCost(Q, out.vinfArr, B, moonAt(g.viaB, leg.to, leg.arrMs));
   out.midDv = (leg.midDv ?? 0);
   out.reaches = out.missKm < (leg.ringArr ? 0.05 * norm(target) : Math.max(sphereOfInfluence(leg.endB ?? leg.to), B.radius * 2));
   out.shaped = true;
@@ -641,6 +663,8 @@ const lon = (key, central, ms) => { const s = relState(key, central, ms); return
 //   porkchop    the cheapest departure and flight time near the window
 //               (a Lambert grid refined by Nelder-Mead, as trajsearch.js)
 //   phasing     an orbit change in the same orbit: to a point leadDeg ahead
+//   phase       leaving a moon via its planet: the best day in the stay for
+//               the moon's phase
 //   assist      for a leg that ends at a flyby: the flyby, not selectable
 export function legOptions(journey, k, { search = true } = {}) {
   const sol = solveJourney(journey);
@@ -729,9 +753,16 @@ export function legOptions(journey, k, { search = true } = {}) {
   // synodic period, or fixed after a flyby) by flight time (0.5 to 1.6 of
   // Hohmann's), then Nelder-Mead from the best cell.
   if (search) {
-    const tH = h.tof / DAY, o = porkchopSearch(P, Q, g, earliest, fixed, tH * 0.5, tH * 1.6, legDv, g.kind === 'between' ? Math.min(win.synodic / DAY, 800) : 30);
+    // (Leaving a moon via its planet, a departure every day: its phase
+    // ripples the price over a month.)
+    const span = g.kind === 'between' ? Math.min(win.synodic / DAY, 800) : 30;
+    const tH = h.tof / DAY, o = porkchopSearch(P, Q, g, earliest, fixed, tH * 0.5, tH * 1.6, legDv, span, g.viaA || g.viaB ? Math.ceil(span) : null);
     if (o) options.push(o);
   }
+
+  // Leaving a moon via its planet: the best day in the stay for the moon's
+  // phase (phaseOption).
+  if (search) { const o = phaseOption(journey, k, { sol, legDv }); if (o) options.push(o); }
 
   // The assist at a flyby this leg ends in.
   const fb = sol.flybys[k];
@@ -740,15 +771,40 @@ export function legOptions(journey, k, { search = true } = {}) {
   flagBiElliptic(options);
   return { leg: asIs, options, geometry: g.kind, central: g.central };
 }
+
+// Leaving a moon for another planet, the price swings with the moon's phase
+// over a month (where the moon is, and which way it is going, against the
+// way out), so the best day to leave in the stay: from the arrival (or the
+// start date) to the planned departure, or a whole turn of the moon if the
+// stay is shorter, every day's best flight time (the porkchop search over
+// that span). Returns the option, or null for a leg that does not leave a
+// moon via its planet or whose departure is fixed.
+export function phaseOption(journey, k, { sol = null, legDv = null } = {}) {
+  sol ??= solveJourney(journey);
+  const P = sol.stops[k], Q = sol.stops[k + 1];
+  if (!P || !Q || P.kind === 'flyby' || P.kind === 'craft') return null;
+  const g = legGeometry(P.body, Q.body, isResonant(P, Q));
+  if (g.kind !== 'between' || !g.viaA || g.resonant) return null;
+  const C = bodyInfo(g.central), [r1, r2] = legRadii(g, P, Q), tH = X.hohmannCircular(C.mu, r1, r2).tof / DAY;
+  const from = k === 0 ? P.depMs : P.arrMs, month = bodyPeriod(P.body, g.A.parent, from) / DAY;
+  const span = Math.max((P.depMs - from) / DAY_MS, month);
+  const dvOf = legDv ?? ((L) => L.depDv + L.arrDv + L.midDv);
+  const o = porkchopSearch(P, Q, g, from, false, tH * 0.5, tH * 1.6, dvOf, span, Math.ceil(span * 2));
+  if (!o) return null;
+  const L = solveLeg(P, Q, o.depMs, o.arrMs, { maxRevs: 1, revs: o.revs, branch: o.branch });
+  const name = bodyInfo(P.body).name, d = Math.round((o.depMs - P.depMs) / DAY_MS);
+  return { ...o, type: 'phase', name: `Best phase of the ${name === 'Moon' ? 'Moon' : name}`, depDv: L.ok ? L.depDv : null, moonAngleDeg: L.moonDep?.angleDeg ?? null,
+    note: `leave ${d === 0 ? 'as planned' : d > 0 ? `${d} d later` : `${-d} d earlier`}: ${name}'s velocity ${L.moonDep ? L.moonDep.angleDeg.toFixed(0) : '?'}° off the way out` };
+}
 const assistOption = (fb, Q) => ({ type: 'assist', name: `Gravity assist at ${bodyInfo(Q.body).name}`, selectable: false, dv: fb.dv, gain: fb.gain, delta: fb.delta, rp: fb.rp, bT: fb.bT, bR: fb.bR, tooTight: fb.tooTight, vinf: fb.vinf });
 
 // A grid of departure (span days from the earliest; none if fixed) by
 // flight time (tMin to tMax days), then Nelder-Mead from the best cell.
-function porkchopSearch(P, Q, g, earliest, fixed, tMin, tMax, legDv, span = 0) {
+function porkchopSearch(P, Q, g, earliest, fixed, tMin, tMax, legDv, span = 0, nDep = null) {
   const legAt = (dep, tofD) => solveLeg(P, Q, dep, dep + tofD * DAY_MS, { maxRevs: g.kind === 'between' ? 1 : 0 });
   const f = (dep, tofD) => { if (!(tofD > 0.5) || dep < earliest || dep > earliest + span * DAY_MS + 1) return Infinity; const L = legAt(dep, tofD); return L.ok ? legDv(L) : Infinity; };
   if (fixed) span = 0;
-  const nD = span > 0 ? (g.kind === 'between' ? 28 : 10) : 1, nT = g.kind === 'between' ? 24 : 10;
+  const nD = span > 0 ? (nDep ?? (g.kind === 'between' ? 28 : 10)) : 1, nT = g.kind === 'between' ? 24 : 10;
   let best = null;
   for (let i = 0; i < nD; i++) for (let j = 0; j < nT; j++) {
     const dep = earliest + (nD > 1 ? (span * i) / (nD - 1) : 0) * DAY_MS, tofD = tMin + ((tMax - tMin) * j) / (nT - 1);
@@ -774,7 +830,7 @@ function flagBiElliptic(options) {
 export function applyOption(journey, k, o) {
   const j = { start: { ...journey.start }, waypoints: journey.waypoints.map((w) => ({ ...w })) };
   const w = j.waypoints[k];
-  w.via = o.type === 'porkchop' || o.type === 'hohmann' || o.type === 'planechange' || o.type === 'resonance' ? 'lambert' : o.type;
+  w.via = o.type === 'porkchop' || o.type === 'phase' || o.type === 'hohmann' || o.type === 'planechange' || o.type === 'resonance' ? 'lambert' : o.type;
   if (o.type === 'resonance') w.resonance = o.resonance;
   w.chosen = o.type;
   w.revs = o.revs; w.branch = o.branch;

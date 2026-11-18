@@ -40,7 +40,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
   - real surface maps and relief, Saturn's rings from Cassini measurements, Earth's clouds as satellites saw them that day under a physically based atmosphere;
   - the real star field and Milky Way.
 - **Bodies to visit:** fly the camera to any planet, moon, barycentre, small body or Earth satellite, with a data plate whose values open their equation and source.
-- **Guides:** spin axes, Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls.
+- **Guides:** spin axes, Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls; the planets' magnetic fields as traced field lines (IGRF-14, JRM33, Cassini, Voyager), and the auroras: the Earth's ovals for the day's Kp, Jupiter's and Saturn's main ovals and Io's footprint.
 - **Missions:**
   - spacecraft fly under an n-body kernel in a Web Worker, with finite burns, the Earth's and Moon's gravity fields, drag and sunlight pressure;
   - the craft you launch carry an attitude: point them prograde, normal, radial, at a node or hold them still, and they turn in the time their thrusters' torque allows, under the gravity gradient and the air's torque, and burn along their body axis ([docs/physics/sixdof.md](docs/physics/sixdof.md#attitude-in-the-app));
@@ -70,7 +70,7 @@ What is high-fidelity today:
 
 What is still approximate:
 
-- **Journeys are planned by patched conics.** Each leg uses the verified Lambert solver, and flybys a B-plane aim. The kernel then flies the plan, landings, stays and liftoffs included, and reports how close it comes to each waypoint. A journey's craft flies in the planner's model: point masses and zonal terms, without drag, the full gravity fields or sunlight pressure.
+- **Journeys are planned by patched conics.** Each leg uses the verified Lambert solver, and flybys a B-plane aim. The kernel then flies the plan, landings, stays and liftoffs included, and reports how close it comes to each waypoint. It is flown in the full model, with the Earth's and the Moon's gravity fields (the Moon's mascons included), drag and sunlight, so the journey's craft in the app lands where the plan's flight did. Leaving a moon for another planet is priced by where the moon is on the day, and the planner suggests the best day in the stay.
 - **The ascent has no closed-loop guidance.** The ROCKET tab's gravity turn ends its orbits higher than real launches, which are steered ([docs/physics/rocket.md](docs/physics/rocket.md#real-launchers)).
 
 In short, the constants, ephemerides, n-body integration and the Kepler/Lambert core are checked against references. The planning layers on top of them are where the remaining approximations live, and each says so in its docs.
@@ -193,7 +193,8 @@ Every data source, with what the app uses it for. Each map's details are in [doc
 | JPL Solar System Dynamics: [satellite mean elements](https://ssd.jpl.nasa.gov/sats/elem/); [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/); [satellite discovery circumstances](https://ssd.jpl.nasa.gov/sats/discovery.html); the [Small-Body Database](https://ssd.jpl.nasa.gov/tools/sbdb_query.html) | moons outside their tables' years, radii, GMs and albedos; the irregular moons' discoveries; the 135,353 asteroids and comets |
 | [astronomy-engine](https://github.com/cosinekitty/astronomy) (MIT) | positions outside 2000–2050, and the Galilean moons' fallback |
 | EGM2008 (NGA), via [GFZ ICGEM](https://icgem.gfz-potsdam.de/); GRAIL GL0660B (NASA/JPL), via the [PDS Geosciences Node](https://pds-geosciences.wustl.edu/missions/grail/default.htm) | the Earth's and the Moon's gravity fields |
-| [CelesTrak](https://celestrak.org/SpaceData/) (NOAA SWPC, GFZ) | space weather for the upper atmosphere's density |
+| [CelesTrak](https://celestrak.org/SpaceData/) (NOAA SWPC, GFZ) | space weather for the upper atmosphere's density; the Kp index for the auroras |
+| [IGRF-14](https://www.ngdc.noaa.gov/IAGA/vmod/igrf.html) (IAGA V-MOD, via NOAA NCEI); JRM33 ([Connerney et al. 2022](https://doi.org/10.1029/2021JE007055), its supporting tables via [Caltech](https://authors.library.caltech.edu/records/dds0z-2vx98)); Cassini 11 ([Cao et al. 2020](https://doi.org/10.1016/j.icarus.2019.113541)), via [libinternalfield](https://github.com/mattkjames7/libinternalfield) (MIT); Voyager's dipoles ([Ness et al. 1986](https://doi.org/10.1126/science.233.4759.85), [1989](https://doi.org/10.1126/science.246.4936.1473)) as tabled in [JPL Publication 15-7](https://ntrs.nasa.gov/citations/20160009378) and [17-2](https://ntrs.nasa.gov/citations/20170006886); Starkov's auroral oval as [Sigernes et al. 2011](https://folk.uib.no/st07350/papers/sigernes2011OPA599.pdf) give it | the planets' magnetic fields and auroras ([magnetic fields](docs/physics/magnetic-fields.md)) |
 | [CelesTrak GP data](https://celestrak.org/NORAD/elements/) (T. S. Kelso), from the US Space Force via [Space-Track.org](https://www.space-track.org/); fetched under CelesTrak's [usage policy](https://celestrak.org/usage-policy.php) | the 16,892 active Earth satellites' element sets (a dated snapshot, and the Latest key) |
 
 **Missions and validation**

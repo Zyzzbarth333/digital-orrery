@@ -132,10 +132,13 @@ export class Craft {
     this.entryState = null;          // the entry guidance's, from the kernel
     this.vent = vent;
     // bare: flown in the kernel's point masses and zonal terms alone, without
-    // the environment (environment.js): a journey's craft, whose burns were
-    // worked out and flown headless in that model (journeyFlight.js), so the
-    // app flies the very flight the planner did, landings and all.
+    // the environment (environment.js): a journey's craft whose burns could
+    // only be worked out in that model (journeyFlight.js flyPlanned, a
+    // fallback), so the app flies the very flight the planner did. bareWhy:
+    // what the full model's flight could not do, for the Model row.
     this.bare = bare;
+    /** @type {string | null} */
+    this.bareWhy = null;
     this.sys.focus?.(r, t);
     const bodies = this.sys.bodiesAt(t);
     this.kState = { r: [...r], v: [...v], t, primary: primaryOf(r, bodies, sys.muSun), accel: accelHeliocentric(r, bodies, sys.muSun) };
