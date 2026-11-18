@@ -147,10 +147,11 @@ const differenced = (key, tt0) => (t) => {
 // The satellite tables' node velocities are a few cm/s off their
 // positions' slope, so a cubic between nodes errs by that times the
 // spacing: on 6-hour nodes Jupiter's centre was 100 m off, carrying its
-// moons with it. Its nodes are an hour apart, 10 m; the other centres,
-// whose moons swing them far less, keep 6 hours (Saturn's 29 m, the rest
-// under 20 m). docs/physics/nbody-kernel.md#moons has the measured errors.
-const CENTRE_SPACING = { jupiter: 3600 };
+// moons with it. Its nodes are an hour apart, 10 m; Saturn's two hours,
+// 9 m (34 m on 6-hour nodes); the other centres, whose moons swing them
+// far less, keep 6 hours (under 20 m).
+// docs/physics/nbody-kernel.md#moons has the measured errors.
+const CENTRE_SPACING = { jupiter: 3600, saturn: 7200 };
 const centreSpacing = (planet) => CENTRE_SPACING[planet] ?? 6 * 3600;
 const NODE_TOL = 0.01;              // km
 const divisors = (D) => { const out = []; for (let d = 1; d <= D; d++) if (D % d === 0) out.push(d); return out; };
@@ -216,13 +217,15 @@ class SumEphemeris {
 //            J3 to J12 from the same table (J4 = -586.6085e-6, C40 =
 //            +5.866085e-4; J6 = 34.2007e-6; J8 = -2.422e-6), R = 71492 km.
 //   Saturn:  Cassini's Grand Finale (Iess et al. 2019, Science 364,
-//            eaat2965): J2 = 16290.573e-6, J4 = -935.314e-6, R = 60330 km.
+//            eaat2965), Table 1: J2 = 16290.573e-6, and J3 to J12 (J4 =
+//            -935.314e-6, J6 = 86.340e-6), R = 60330 km.
 //   Uranus:  Jacobson 2014, AJ 148, 76, Table 12: J2 = 3510.7e-6,
 //            J4 = -34.2e-6, R = 25559 km.
 //   Neptune: Jacobson 2009, AJ 137, 4322, Table 5: J2 = 3408.43e-6,
 //            J4 = -33.40e-6, R = 25225 km.
 // The giants' higher zonals are from the same solution as their J2 and
-// referred to the same radius (zonal.js): Jupiter's to J12, the others' J4. The rocky bodies' J4 is left out: about 1e-3 of
+// referred to the same radius (zonal.js): Jupiter's and Saturn's to J12,
+// Uranus's and Neptune's J4. The rocky bodies' J4 is left out: about 1e-3 of
 // the Earth's J2 and 1e-2 of Mars's, and the app's craft carry the Earth's
 // and the Moon's full fields (environment.js).
 // Pluto and the moons have none here. A split system's J2 stays with the
@@ -238,7 +241,9 @@ export const ZONAL = {
   // Jupiter's J3 to J12: the table's C(n,0) with the sign changed (J9,
   // J11 and J12 are within their 3-sigma uncertainties).
   jupiter: { j2: 14696.5735e-6, jn: { 3: -0.045e-6, 4: -586.6085e-6, 5: -0.0723e-6, 6: 34.2007e-6, 7: 0.120e-6, 8: -2.422e-6, 9: -0.113e-6, 10: 0.181e-6, 11: 0.016e-6, 12: 0.062e-6 }, rJ2: 71492 },
-  saturn: { j2: 16290.573e-6, jn: { 4: -935.314e-6 }, rJ2: 60330 },
+  // Saturn's J3 to J12 from the same table (J7 and J11 within their
+  // 3-sigma uncertainties).
+  saturn: { j2: 16290.573e-6, jn: { 3: 0.059e-6, 4: -935.314e-6, 5: -0.224e-6, 6: 86.340e-6, 7: 0.108e-6, 8: -14.624e-6, 9: 0.369e-6, 10: 4.672e-6, 11: -0.317e-6, 12: -0.997e-6 }, rJ2: 60330 },
   uranus: { j2: 3510.7e-6, jn: { 4: -34.2e-6 }, rJ2: 25559 },
   neptune: { j2: 3408.43e-6, jn: { 4: -33.40e-6 }, rJ2: 25225 },
 };
@@ -256,6 +261,10 @@ export const ZONAL = {
 //             10.2e-6; R = 2410.3 km, as the same review tabulates them.
 //   Titan:    Iess et al. 2010, Science 327, 1367, Table 1 (SOL1):
 //             J2 = 31.808e-6, C22 = 9.983e-6; R = 2575 km.
+//   Enceladus: Iess et al. 2014, Science 344, 78 (Cassini's E9, E12 and
+//             E19): J2 = 5435.2e-6, C22 = 1549.8e-6 (1-sigma 34.9 and 15.6);
+//             R = 252.3 km, its mean radius (the paper's reference radius
+//             was not read; a few kilometres changes the term by about 2 %).
 // Each turns with its orbit (x toward the planet, z the orbit's pole).
 const MOON_ZONAL = {
   io: { j2: 1834.6e-6, c22: 549.6e-6, rJ2: 1821.6 },
@@ -263,7 +272,13 @@ const MOON_ZONAL = {
   ganymede: { j2: 133.0e-6, c22: 39.56e-6, rJ2: 2631.2 },
   callisto: { j2: 32.7e-6, c22: 10.2e-6, rJ2: 2410.3 },
   titan: { j2: 31.808e-6, c22: 9.983e-6, rJ2: 2575 },
+  enceladus: { j2: 5435.2e-6, c22: 1549.8e-6, rJ2: 252.3 },
 };
+// The tide a planet's moons raise on it (zonal.js addTide): Jupiter's
+// degree-2 Love number k22 = 0.565 (3-sigma 0.018), from the same Juno
+// solution as its field (Durante et al. 2020, the PDS table's label). Only
+// the part that turns with each moon: the average is in J2.
+const TIDE = { jupiter: { k2: 0.565, raisers: ['io', 'europa', 'ganymede', 'callisto'] } };
 const POLE_REFRESH = 86400;   // s
 // Surfaces that are not the mean sphere, for impacts (nbody.below): the
 // Earth's sea level is the WGS-84 ellipsoid, a = 6378.137 km, 1/f =
@@ -307,6 +322,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
     const z = zonal && ZONAL[b.key];
     if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN, ...(z.jn ? { zn: zonalTerms(z.jn, z.rJ2) } : {}) });
     if (z && SURFACE[b.key]) b.surface = SURFACE[b.key];
+    if (z && TIDE[b.key]) b.tide = TIDE[b.key];
     return b;
   };
   const body = (key, mu, radius, parent, eph) => ({ key, mu, radius, parent, r: [0, 0, 0], eph, t: NaN });

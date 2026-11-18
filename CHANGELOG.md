@@ -135,7 +135,12 @@ once it has releases. Until then, everything sits under Unreleased.
   Jupiter and its four large moons to 10 m instead of 100 m. Juno is
   followed through its PJ57 perijove, 1.02 Jupiter radii out, to 0.28 km
   there and 0.55 km two hours on; with J2 and J4 alone it was 5 km
-  (this pull request).
+  (#98).
+- Saturn pulls with its zonal field to J12, Jupiter with the tide its
+  moons raise on it, and Enceladus with its J2 and C22; Saturn's moons are
+  placed to 16 m. Four more passes check the kernel against the craft's
+  own tracks: Juno at Europa, Cassini at Enceladus and between Saturn
+  and its rings, and Voyager 2 at Neptune and Triton (this pull request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons

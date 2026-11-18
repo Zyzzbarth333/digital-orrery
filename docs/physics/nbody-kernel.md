@@ -128,10 +128,11 @@ table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
-**The giants' higher zonal terms.** Jupiter carries its zonal field to
-$J_{12}$, and Saturn, Uranus and Neptune their $J_4$, each from the same
-solution as its $J_2$ and referred to the same radius (Jupiter's from the
-PDS table of Durante et al. 2020). With $s = z/d$ and $P_n$ the Legendre
+**The giants' higher zonal terms.** Jupiter and Saturn carry their zonal
+fields to $J_{12}$, and Uranus and Neptune their $J_4$, each from the same
+solution as its $J_2$ and referred to the same radius: Jupiter's from the
+PDS table of Durante et al. 2020 [17], Saturn's from Iess et al. 2019
+[18], Table 1. With $s = z/d$ and $P_n$ the Legendre
 polynomial, degree $n$'s potential is $-\mu J_n R^n P_n(s)/d^{n+1}$, and
 
 $$
@@ -156,10 +157,36 @@ within 2.7, so out among the moons the extra degrees cost nothing.
   $4\times10^{-5}$. Flown through the PJ57 perijove, Juno is 5.0 km off
   two hours on with $J_2$ and $J_4$ only and 0.55 km with the field to
   $J_{12}$; with $J_2$ alone, 150 km ([validation](../validation.md#juno-at-io)).
-- **What is not in it:** Jupiter's tesseral terms and tides. Its $J_9$,
-  $J_{11}$ and $J_{12}$ are in, though within their own 3σ uncertainties. The rocky planets'
+- **Saturn:** on Cassini's Grand Finale periapsis of Rev 278, between the
+  rings and the planet, the field to $J_{12}$ follows Cassini to 0.32 km
+  six hours on; with $J_2$ and $J_4$ only, 2.6 km; with $J_2$ alone, 114
+  km ([validation](../validation.md#cassinis-grand-finale-periapsis)).
+- **What is not in it:** the tesseral terms (Jupiter's are about
+  $10^{-9}$, a thousandth of its $J_8$), Saturn's rings' own pull and its
+  tides. A few of the highest terms are in though within their own 3σ
+  uncertainties (Jupiter's $J_9$, $J_{11}$ and $J_{12}$; Saturn's $J_7$ and
+  $J_{11}$). The rocky planets'
   $J_4$ is left out: about $10^{-3}$ of the Earth's $J_2$ and $10^{-2}$ of
   Mars's, and the app's craft carry the Earth's and the Moon's full fields.
+
+**Jupiter's tide.** Its four large moons raise a tide on Jupiter, which
+pulls a craft too (`zonal.js` `addTide`). For moon $m$ at distance $r_m$
+along $\hat{\mathbf u}$, with its orbit's pole $\hat{\mathbf n}$, the
+potential is
+
+$$
+V = \frac{k_2\,GM_m R^5}{r_m^3\,d^3}\left[P_2\!\left(\frac{\mathbf d\cdot\hat{\mathbf u}}{d}\right)
++ \tfrac12 P_2\!\left(\frac{\mathbf d\cdot\hat{\mathbf n}}{d}\right)\right],
+$$
+
+with Jupiter's $k_{22} = 0.565$ from the same Juno solution [17]. The
+second term takes out the tide's average round the moon's orbit, which is
+already in the measured $J_2$ (the PDS table's label puts that permanent
+tide at $6.7\times10^{-8}$). `flyby.test.mjs` case 5 checks it against
+the potential's gradient ($5\times10^{-10}$ relative). On Juno's Io and
+Europa passes through their perijoves it moves the end by 5 and 8 m,
+below what those checks resolve; it is in for craft that orbit close to
+Jupiter for days.
 
 The forces beyond these (the Earth's and Moon's higher harmonics, the
 Earth's tides, drag, sunlight pressure, venting and relativity) come from
@@ -648,18 +675,18 @@ interval of a satellite table is pinned to the SPK at its ends, but its
 velocity there is a few cm/s off, which a cubic turns into an error that
 grows with the node spacing. On 6-hour nodes Jupiter's centre was 100 m
 off, and its moons with it, though their own cubics held them to 2–7 m
-about it; hourly nodes bring it to 10 m. Saturn's centre keeps 6 hours
-and about 30 m: its moons swing it less, and no check yet needs it closer.
+about it; hourly nodes bring it to 10 m. Saturn's centre on 6-hour nodes
+was 34 m off; on 2-hour nodes it is 9 m, and its moons 5 to 16 m.
 
 The spacing matters most on a slow pass. On Cassini's T45 pass over Titan
 (below), Titan's nodes three hours apart (100 m, before November 2026)
 put it 27 m from JPL's table at closest approach and Cassini 0.093 km off
 nine hours on; two hours apart, 14 m and 0.004 km.
 
-**Cost** of the tighter nodes, in simulated days: at Saturn 336 moon nodes
-a day instead of 192, at 4.5 µs each about 6 % of a run among its moons
-(about 10 % among Mars's). At Jupiter, 288 moon and 24 centre nodes a day
-instead of 160 and 4. Steps are unchanged in number. On a wide orbit
+**Cost** of the tighter nodes, in simulated days: at Saturn 372 moon and
+12 centre nodes a day instead of 192 and 4, at 4.5 µs each about 8 % of a
+run among its moons (about 10 % among Mars's). At Jupiter, 288 moon and 24
+centre nodes a day instead of 160 and 4. Steps are unchanged in number. On a wide orbit
 (1.5 million km, 25 steps a day) that and the higher zonal terms cost 10
 to 30 % more CPU a simulated day, and on a busy one crossing Io's orbit
 (198 steps a day) 0 to 4 %, within this machine's noise.
@@ -676,9 +703,13 @@ the fallback's), and 9,300 km with no moons. Juno's pass 1,496 km over
 Io on 30 December 2023 is followed to 0.041 km an hour on; Io's $J_2$
 and $C_{22}$ take that from 0.186 km. On through the perijove that
 followed, 1.02 Jupiter radii out, it is 0.28 km off there and 0.55 km two
-hours on, with Jupiter's field to $J_{12}$. Cassini's T45 pass 1,613 km over Titan
-is followed to 4 m nine hours on, with Titan's nodes two hours apart
-([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
+hours on, with Jupiter's field to $J_{12}$. Juno's pass 355 km over
+Europa (PJ45) is followed to 5 m an hour on, 0.13 km without Europa's
+$J_2$ and $C_{22}$. Cassini's T45 pass 1,613 km over Titan is followed to
+3 m nine hours on, and its E12 pass 43 km over Enceladus to 0.16 km
+(0.88 km without Enceladus's field). Voyager 2 is followed past Neptune
+and Triton to 3.2 km against NAIF's reconstruction, 1.6 km with Neptune's
+$J_2$ two σ larger ([validation](../validation.md#moon-and-planet-flybys-flybytestmjs)).
 
 **Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never
 evaluates a moon):
@@ -883,6 +914,7 @@ relative).
 | Ganymede | 133.0 ± 6.8 | 39.56 ± 1.73 | 2,631.2 | Gomez Casajus et al. 2022 [10] (Juno and Galileo); normalised 5.948167 and 6.128513 ×10⁻⁵ in its dataset |
 | Callisto | 32.7 ± 0.8 | 10.2 ± 0.3 | 2,410.3 | Anderson et al. 2001 [11], as the JUICE review [9] tabulates it |
 | Titan | 31.808 ± 0.404 | 9.983 ± 0.039 | 2,575 | Iess et al. 2010 [12], Table 1, solution SOL1 |
+| Enceladus | 5,435.2 ± 34.9 | 1,549.8 ± 15.6 | 252.3 | Iess et al. 2014 [19] (Cassini's E9, E12 and E19), 1σ; the radius is Enceladus's mean, the paper's reference radius not read |
 
 - **Reference radii:** for Io, Europa and Callisto the radius is the mean
   radius the review lists beside the values. The papers themselves were not
@@ -891,13 +923,16 @@ relative).
 - **Titan:** the 2012 tidal solution [13] (SOL1b, $J_2 = 34.227$, $C_{22} =
   10.263$) fits a Love number as well. The static 2010 solution is used,
   since the tide is not modelled.
-- **Not modelled:** the moons' fields beyond degree 2, and their tides.
+- **Not modelled:** the moons' fields beyond degree 2 (Enceladus's $J_3$,
+  about a fiftieth of its $J_2$ [19], is the largest), and their tides.
 - **Effect:** small on most flybys, measurable on the close ones. On
   Juno's pass 1,046 km over Ganymede it moves the kernel's Juno by 0.2 km
   after nine hours. Over Io (1,496 km up) it is 0.14 km an hour on, and
-  over Titan (1,613 km) 0.36 km nine hours on; with it, the Io pass is
-  followed four and a half times more closely and the Titan pass seventy times (`flyby.test.mjs` cases 3b
-  and 3c). For a craft orbiting a moon it is what turns the orbit.
+  over Titan (1,613 km) 0.37 km nine hours on; with it, the Io pass is
+  followed four and a half times more closely and the Titan pass a
+  hundred times. Over Europa (355 km) it is 0.13 km an hour on, and over
+  Enceladus (43 km) 0.7 km nine hours on (`flyby.test.mjs` cases 3b to
+  3e). For a craft orbiting a moon it is what turns the orbit.
 
 ## References
 
@@ -932,3 +967,9 @@ relative).
 [15] NASA, "Artemis II flight day 9: crew prepares to come home," NASA Artemis blog, Apr. 9, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/09/artemis-ii-flight-day-9-crew-prepares-to-come-home/
 
 [16] J. Rea, L. McNamara, and M. Kane, "Orion Artemis I entry performance," in *Proc. 46th Annu. AAS Guidance, Navigation and Control Conf.*, Feb. 2024, Paper AAS 24-174. NTRS 20240001314 (slides) and 20240000024 (paper). Table 4: splashdown 2.1 nmi from the target.
+
+[17] D. Durante *et al.*, "Jupiter's gravity field halfway through the Juno mission," *Geophys. Res. Lett.*, vol. 47, no. 4, Art. no. e2019GL086572, 2020, doi: 10.1029/2019GL086572. Coefficients and Love numbers from the PDS table `GRV_JUGR_SHA_JUP_U_DUR2020_20200203_V01` and its label. [Online]. Available: https://atmos.nmsu.edu/PDS/data/jnogrv_0002/DATA/SHADR/
+
+[18] L. Iess *et al.*, "Measurement and implications of Saturn's gravity field and ring mass," *Science*, vol. 364, no. 6445, Art. no. eaat2965, 2019, doi: 10.1126/science.aat2965. Table 1.
+
+[19] L. Iess *et al.*, "The gravity field and interior structure of Enceladus," *Science*, vol. 344, no. 6179, p. 78, 2014, doi: 10.1126/science.1250551.
