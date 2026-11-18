@@ -875,6 +875,18 @@ torque, and burns along the body axis to the kernel
 | Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
 | Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |
 
+## The faint belt's file (`smallbodies.test.mjs`)
+
+The faint belt's 12-byte packing ([small bodies](frontend/small-bodies.md#the-data)), tried on the bright main belt's 65,032 bodies packed as the faint file is, against their 16-byte pack.
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Positions at the epoch | the 16-byte pack | 50,000 km rms, 152,000 km worst (limits 100,000 and 300,000; a grid cell is 6.5 million km) |
+| Positions ten years on | the 16-byte pack | 68,000 km rms, 177,000 km worst |
+| Their light | the unpacked magnitudes | kept to 0.11 % |
+| The grid's binning of them | their own light and light-weighted centre | light to 1 part in 10⁵; centre 11 km apart |
+| `smallbodies-belt.bin` | `smallbodies.json`'s `beltCount` | 12 bytes a body, 17.36 MB |
+
 ## Earth satellites (`satellites.test.mjs`)
 
 SGP4 and SDP4 (satellite.js, opsmode a), the TEME to J2000 turn, and the
