@@ -20,6 +20,7 @@ import {
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
+import { radialFieldGrid, encodeBr, decodeBr } from './marsCrustal.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -278,6 +279,26 @@ console.log('Ganymede: Juno and Galileo (Weber et al. 2022; Kivelson et al. 2002
   const angle = Math.acos((k[0] * d.m[0] + k[1] * d.m[1] + k[2] * d.m[2]) / (kM * d.moment)) / DEG;
   check(Math.abs(d.moment / kM - 1) < 0.02 && angle < 1.5, `Ganymede's dipole ${d.moment.toFixed(1)} nT at the equator, tilt ${d.tilt.toFixed(2)} deg; Galileo-only fit (Kivelson 2002) ${kM.toFixed(1)} nT, ${angle.toFixed(2)} deg apart`);
   check(d.m[2] < 0, "its moment points south, against Jupiter's: so their fields reconnect where they meet");
+}
+
+// ---- Mars's crustal field ----
+console.log("Mars: the crust's field (Langlais et al. 2019)");
+{
+  // "At the surface ... the field components range between -8,520 and
+  // 11,260 nT ... for Br" (on the 3,393.5 km sphere): on a 0.25 deg grid.
+  const L = fixture('langlais2019.json');
+  const g = radialFieldGrid(L.coeffs, L.n, 1, 1440, 720);
+  let lo = Infinity, hi = -Infinity, at = 0;
+  for (let i = 0; i < g.length; i++) { if (g[i] < lo) lo = g[i]; if (g[i] > hi) { hi = g[i]; at = i; } }
+  const lat = 90 - (Math.floor(at / 1440) + 0.5) / 4, lon = ((at % 1440) + 0.5) / 4;
+  check(Math.abs(lo + 8520) < 15 && Math.abs(hi - 11260) < 15, `Br on the surface ${lo.toFixed(0)} to ${hi.toFixed(0)} nT (paper -8,520 to 11,260)`);
+  check(lat < -40 && lat > -55 && lon > 160 && lon < 190, `strongest at ${(-lat).toFixed(1)} S ${lon.toFixed(1)} E, over Terra Cimmeria and Sirenum`);
+  // The app's map: one byte a cell on an asinh scale, within 3 % or 2 nT.
+  const map = new Int8Array(fs.readFileSync(new URL('../../public/data/mars-crustal-br.bin', import.meta.url)));
+  const g2 = radialFieldGrid(L.coeffs, L.n, 1, 720, 360);
+  let worst = 0;
+  for (let i = 0; i < g2.length; i += 37) worst = Math.max(worst, Math.abs(decodeBr(map[i]) - g2[i]) / (Math.abs(g2[i]) + 70));
+  check(map.length === 720 * 360 && worst < 0.03 && encodeBr(0) === 0, `the app's 720 x 360 map holds Br to ${(worst * 100).toFixed(1)} % (of |Br| + 70 nT)`);
 }
 
 // ---- radiation belts ----

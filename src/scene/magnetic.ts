@@ -138,6 +138,52 @@ const BELT_COLOUR = new THREE.Color(0x7fb8c9);
 const BELT_SHELLS = 3, BELT_LON = 36, BELT_SAMPLES = 40;
 const BELT_LAT = 50;        // shells stop this far (deg) from the magnetic equator, where they have faded
 
+// Mars's crust: the radial field from a byte map (marsCrustal.js's asinh
+// scale), blue inward, amber outward, on a shell just above the surface;
+// and, with the auroras on, a violet glow on the night side over the
+// strongest fields, where Mars's discrete aurora is seen.
+const marsVertex = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_vertex>
+varying vec3 vP;
+void main() {
+  vP = normalize(position);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  #include <logdepthbuf_vertex>
+}
+`;
+const marsFragment = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
+uniform sampler2D map;
+uniform vec3 sunDir;
+uniform float showField;
+uniform float showAurora;
+uniform float level;
+varying vec3 vP;
+void main() {
+  #include <logdepthbuf_fragment>
+  float lat = asin(clamp(vP.z, -1.0, 1.0)), lon = atan(vP.y, vP.x);
+  vec2 uv = vec2(fract(lon / (2.0 * PI)), (0.5 * PI - lat) / PI);
+  float t = (texture2D(map, uv).r * 255.0 - 128.0) / 127.0;   // -1..1 on the asinh scale
+  float a = 0.0;
+  vec3 c = vec3(0.0);
+  if (showField > 0.5) {
+    float m = pow(abs(t), 0.8);
+    c = mix(vec3(0.0), t < 0.0 ? vec3(0.184, 0.561, 0.69) : vec3(1.0, 0.698, 0.18), m);
+    a = 0.85 * m;
+  }
+  if (showAurora > 0.5) {
+    float night = smoothstep(0.05, -0.15, dot(vP, sunDir));
+    float e = night * smoothstep(0.45, 0.8, abs(t));
+    c += vec3(0.42, 0.34, 1.0) * e * 0.8;
+    a = max(a, e * 0.8);
+  }
+  if (a < 0.01) discard;
+  gl_FragColor = vec4(c * level, a);
+}
+`;
+
 // Emission colours: 557.7 nm and 630.0 nm as sRGB, and the giants' false colour.
 const GREEN = new THREE.Color(0.32, 1.0, 0.45), RED = new THREE.Color(1.0, 0.16, 0.1), UV = new THREE.Color(0.42, 0.34, 1.0);
 // Earth's emission layers, km above the surface: green peaks near 110-150
@@ -189,6 +235,8 @@ export class MagneticLayer {
   private m4 = new THREE.Matrix4();
   private v = new THREE.Vector3();
   private sunB = new THREE.Vector3();
+  // Mars's crust: the map, loaded the first time it is wanted, and its shell.
+  private mars: { asked: boolean; tex: THREE.DataTexture | null; mesh: THREE.Mesh | null; group: THREE.Group } | null = null;
   private w = new THREE.Vector3();
   // Auroras.
   private kpLoaded = false;
@@ -321,7 +369,14 @@ export class MagneticLayer {
     if (this.ovationMesh) (this.ovationMesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     for (const b of this.beltMeshes.values()) for (const sh of b.shells) (sh.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
 
+    this.marsCrust(f);
+
     // The legend: the focused body's, else none.
+    if (f.focus === 'mars' && this.on.magnetic && this.mars?.mesh) {
+      if (this.legendFor !== 'mars') { this.legendFor = 'mars'; this.legend.hidden = false; this.drawMarsLegend(); }
+      this.hideTags();
+      return;
+    }
     const lk = f.focus && this.lines.has(f.focus) && this.on.magnetic ? f.focus : null;
     const key = lk ? `${lk} ${this.lines.get(lk)!.mesh ? 'done' : 'tracing'} ${this.lines.get(lk)!.model.source}` : null;
     if (key !== this.legendFor) {
@@ -564,7 +619,7 @@ export class MagneticLayer {
           });
         });
       }
-      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 1 : k === 'saturn' ? 0.9 : k === 'ganymede' ? 0.45 : 0.16); g.add(gi!.mesh); });
+      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 1 : k === 'saturn' ? 0.9 : k === 'ganymede' ? 0.25 : 0.16); g.add(gi!.mesh); });
       gi = { mesh: null, jobs, done: false };
       this.giant.set(k, gi);
     }
@@ -820,7 +875,62 @@ export class MagneticLayer {
     this.legend.append(h, bar, ticks, unit, src);
   }
 
+  // ---- Mars's crust ----
+
+  private marsCrust(f: { meshes: Map<BodyKey, THREE.Mesh>; materials: Map<BodyKey, THREE.ShaderMaterial>; level: number }): void {
+    const want = this.on.magnetic || this.on.aurora, mesh = f.meshes.get('mars'), mat = f.materials.get('mars');
+    if (!this.mars) { if (!want) return; const group = new THREE.Group(); group.matrixAutoUpdate = false; this.scene.add(group); this.mars = { asked: false, tex: null, mesh: null, group }; }
+    const M = this.mars;
+    M.group.visible = want && !!mesh && !!mat;
+    if (!M.group.visible || !mesh || !mat) return;
+    if (!M.asked) {
+      M.asked = true;
+      void fetch(`${this.baseUrl}data/mars-crustal-br.bin`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((buf) => {
+        const s8 = new Int8Array(buf), u8 = new Uint8Array(s8.length);
+        for (let i = 0; i < s8.length; i++) u8[i] = s8[i] + 128;
+        const tex = new THREE.DataTexture(u8, 720, 360, THREE.RedFormat, THREE.UnsignedByteType);
+        tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter; tex.wrapS = THREE.RepeatWrapping;
+        tex.needsUpdate = true;
+        M.tex = tex;
+        const r = (BODY_BY_KEY.mars.radiiKm[0] / UNIT_KM) * 1.003;
+        M.mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 192, 96), new THREE.ShaderMaterial({
+          vertexShader: marsVertex, fragmentShader: marsFragment, transparent: true, depthWrite: false, toneMapped: false,
+          uniforms: { map: { value: tex }, sunDir: { value: new THREE.Vector3(1, 0, 0) }, showField: { value: 0 }, showAurora: { value: 0 }, level: { value: 1 } },
+        }));
+        M.mesh.frustumCulled = false;
+        M.mesh.renderOrder = 4;
+        M.group.add(M.mesh);
+      }).catch((e) => console.warn('mars-crustal-br.bin:', e));
+    }
+    if (!M.mesh) return;
+    // Body-fixed to render, as for the planets' field lines (here in km / 1000).
+    const e = this.m3.copy(mat.uniforms.toBody.value as THREE.Matrix3).transpose().elements;
+    M.group.matrix.set(e[0], e[3], e[6], mesh.position.x, e[1], e[4], e[7], mesh.position.y, e[2], e[5], e[8], mesh.position.z, 0, 0, 0, 1);
+    M.group.matrixWorldNeedsUpdate = true;
+    const u = (M.mesh.material as THREE.ShaderMaterial).uniforms, sun = f.meshes.get('sun')?.position;
+    u.showField.value = this.on.magnetic ? 1 : 0;
+    u.showAurora.value = this.on.aurora ? 1 : 0;
+    u.level.value = Math.min(f.level, 1);
+    if (sun) (u.sunDir.value as THREE.Vector3).copy(sun).sub(mesh.position).applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3).normalize();
+  }
+
+  private drawMarsLegend(): void {
+    this.legend.innerHTML = '';
+    const h = document.createElement('p'); h.className = 'field-title'; h.textContent = "Mars's crustal field";
+    const bar = document.createElement('div'); bar.className = 'field-bar';
+    const ticks = document.createElement('p'); ticks.className = 'field-ticks';
+    const lo = document.createElement('span'), mid = document.createElement('span'), hi = document.createElement('span');
+    lo.textContent = '−12,000 nT'; mid.textContent = '0'; hi.textContent = '+12,000 nT';
+    ticks.append(lo, mid, hi);
+    const unit = document.createElement('p'); unit.className = 'field-unit';
+    unit.textContent = 'Br at the surface, inward blue, outward amber (asinh scale): −8,520 to 11,260 nT, strongest over Terra Cimmeria';
+    const src = document.createElement('p'); src.className = 'field-source';
+    src.textContent = 'Langlais et al. 2019 (MGS and MAVEN), degree 134. Mars has no global field now; this is its magnetised ancient crust.';
+    this.legend.append(h, bar, ticks, unit, src);
+  }
+
   dispose(): void {
+    if (this.mars) { this.scene.remove(this.mars.group); this.mars.tex?.dispose(); if (this.mars.mesh) { this.mars.mesh.geometry.dispose(); (this.mars.mesh.material as THREE.Material).dispose(); } }
     for (const k of [...this.lines.keys()]) this.drop(k);
     for (const gi of this.giant.values()) if (gi.mesh) { gi.mesh.geometry.dispose(); (gi.mesh.material as THREE.Material).dispose(); }
     for (const sp of this.spots.values()) if (sp.mesh) { sp.mesh.geometry.dispose(); (sp.mesh.material as THREE.Material).dispose(); }

@@ -218,8 +218,8 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
   { key: 'spheres', label: 'SOI and Hill', colour: '#ffb22e', title: "Each body's sphere of influence (solid) and Hill sphere (dashed) about its parent" },
   { key: 'lagrange', label: 'Lagrange', colour: '#ecd9b0', title: 'L1 to L5 of Sun-Earth, Earth-Moon, Sun-Jupiter and the focused body with its parent' },
   { key: 'pulls', label: 'Pulls', colour: '#ff7a3d', title: 'The four strongest gravitational pulls on the focused body, GM / d²' },
-  { key: 'magnetic', label: 'Magnetic fields', colour: '#f5f0e4', title: 'Field lines of Mercury (MESSENGER), Earth (IGRF-14), Ganymede (Juno), Jupiter (JRM33 and its current sheet), Saturn (Cassini 11), Uranus and Neptune (Voyager), shaded by field strength' },
-  { key: 'aurora', label: 'Auroras', colour: '#52ff73', title: "The Earth's auroras: NOAA's live OVATION Prime map near now, Starkov's oval for the day's Kp otherwise; Jupiter's, Saturn's, Uranus's, Neptune's and Ganymede's auroral zones and the moons' footprints, in false colour" },
+  { key: 'magnetic', label: 'Magnetic fields', colour: '#f5f0e4', title: 'Mars\'s magnetised crust (MGS and MAVEN); field lines of Mercury (MESSENGER), Earth (IGRF-14), Ganymede (Juno), Jupiter (JRM33 and its current sheet), Saturn (Cassini 11), Uranus and Neptune (Voyager), shaded by field strength' },
+  { key: 'aurora', label: 'Auroras', colour: '#52ff73', title: "The Earth's auroras: NOAA's live OVATION Prime map near now, Starkov's oval for the day's Kp otherwise; Jupiter's, Saturn's, Uranus's, Neptune's and Ganymede's auroral zones, the moons' footprints and Mars's discrete aurora, in false colour" },
   { key: 'belts', label: 'Radiation belts', colour: '#7fb8c9', title: "The Earth's inner and outer Van Allen belts and the radiation belts of Jupiter, Saturn, Uranus and Neptune, as shells along their L-shells in each planet's own field" },
 ];
 
