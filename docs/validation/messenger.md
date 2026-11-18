@@ -108,22 +108,47 @@ jumps in position and almost none in velocity: 24 of them, from 0.8 to
 21.4 km, most at midnight. The build takes a step 0.5 km or more off as
 an event too (`jumpKm`), so the coast arcs end at the joins.
 
-The six flybys are joins of their own, with no step over the floor:
+The six flybys are joins of their own, with no step over the floor. Each
+is flown in the full environment, which now has Mercury's and Venus's
+fields to degree 20 ([the space environment](../physics/environment.md#mercurys-and-venuss-gravity-fields)):
 
-| Pass | Left in the 10 s steps |
-| --- | --- |
-| Earth, 2,347 km | 0.4 mm/s |
-| Venus, 2,987 km | 0.2 mm/s |
-| Venus, 338 km | 105 mm/s |
-| Mercury, 202 km | 64 mm/s |
-| Mercury, 200 km | 125 mm/s |
-| Mercury, 228 km | 69 mm/s |
+| Pass | Left in the 10 s steps | With J2 alone |
+| --- | --- | --- |
+| Earth, 2,347 km | 0.4 mm/s | |
+| Venus, 2,987 km | 14.8 mm/s | 0.2 mm/s |
+| Venus, 338 km | 0.7 mm/s | 105 mm/s |
+| Mercury, 202 km | 39 mm/s | 64 mm/s |
+| Mercury, 200 km | 28 mm/s | 125 mm/s |
+| Mercury, 228 km | 101 mm/s | 69 mm/s |
 
-The Earth's field to degree 20 accounts for its pass. At Venus 338 km up
-and Mercury 200 km up the steps rise smoothly to 2 to 3 mm/s near
-closest approach, with wiggles a few minutes long. Changing the app's J2
-for either planet barely moves them: they look like the planets' fields
-beyond J2, which the app leaves out.
+- **The Earth:** its field to degree 20 accounts for the pass.
+- **Venus, 338 km:** MGNP180U to degree 20 accounts for it. With J2 alone
+  the steps rose smoothly to 2.7 mm/s near closest approach; now the
+  largest is 0.47 mm/s, two steps at 23:06:30 and 23:06:40. Higher degrees
+  leave more (3.2 mm/s at degree 50), so the reconstruction seems to have
+  been flown with the field to about degree 20.
+- **Venus, 2,987 km:** the reconstruction matches J2 alone (0.2 mm/s,
+  and 0.04 mm/s a step rms), and the field's low degrees put 14.8 mm/s
+  into the pass. It seems to have been flown without Venus's field here.
+- **Mercury:** the field cuts the steps' rms by half at the first two
+  flybys (0.17 to 0.10 and 0.34 to 0.11 mm/s a step, by least squares
+  over the pass). At the third it doesn't help (0.21 to 0.22). Every
+  modern Mercury field leaves the same: JGMESS160A and three of GSFC's
+  (`ggmes_100v08`, HgM008; `ggmes_50v06`; `ggmes_20v04`) are within
+  7 mm/s of each other at every pass. And
+  no one field fits them: degree 2 and 3 coefficients fitted to each
+  pass in turn disagree with each other and with all four fields.
+
+  What's left fits Mercury itself in another place. Move Mercury's centre
+  50 to 100 m, a fitted shift for each pass, and what the field (to
+  degree 50 here; 20 leaves the same within 1 mm/s) leaves falls to 2.9,
+  17 and 23 mm/s. With J2 alone a shift explains far less (18,
+  23 and 62 mm/s, from 116 to 172 m). Horizons' notes say the
+  reconstruction's planets are DE405 until December 2009, and the
+  kernel's are DE442. A different Mercury fits, and so does the kernel's
+  closest approach at each flyby, 89 to 172 m from the reconstruction's
+  with the field or without. Fitting Mercury's GM instead doesn't explain
+  it: the three fits disagree in sign.
 
 ## Coast arcs
 
@@ -168,23 +193,30 @@ its heights give those radii. At the Earth the height is above the
 WGS-84 ellipsoid: the radius it implies, 6,366.7 km, is the ellipsoid's
 at the pass's 47° N.
 
-| Flyby | Published [5] | The trajectory | Kernel's closest | 12 h on, off by |
-| --- | --- | --- | --- | --- |
-| Earth, 2 Aug 2005 | 2,347.5 km, 19:13:08 | 2,347.49 km (ellipsoid), 19:13:08 | 0 m | 0.15 km, 2.8 mm/s |
-| Venus, 24 Oct 2006 | 2,987.3 km, 08:34:00 | 2,987.28 km, 08:34:00 | 8 m | 0.16 km, 3.2 mm/s |
-| Venus, 5 Jun 2007 | 338.3 km, 23:08:19 | 338.32 km, 23:08:19 | 6 m | 3.99 km, 90.5 mm/s |
-| Mercury, 14 Jan 2008 | 201.7 km, 19:04:39 | 201.71 km, 19:04:39 | 94 m | 1.74 km, 40.0 mm/s |
-| Mercury, 6 Oct 2008 | 199.5 km, 08:40:22 | 199.54 km, 08:40:22 | 89 m | 1.89 km, 46.2 mm/s |
-| Mercury, 29 Sep 2009 | 227.8 km, 21:54:56 | 227.80 km, 21:54:56 | 163 m | 3.51 km, 73.7 mm/s |
+| Flyby | Published [5] | The trajectory | Kernel's closest | 12 h on, off by | With J2 alone |
+| --- | --- | --- | --- | --- | --- |
+| Earth, 2 Aug 2005 | 2,347.5 km, 19:13:08 | 2,347.49 km (ellipsoid), 19:13:08 | 2 m | 0.15 km, 2.8 mm/s | |
+| Venus, 24 Oct 2006 | 2,987.3 km, 08:34:00 | 2,987.28 km, 08:34:00 | 9 m | 0.69 km, 15.8 mm/s | 0.16 km |
+| Venus, 5 Jun 2007 | 338.3 km, 23:08:19 | 338.32 km, 23:08:19 | 5 m | 0.61 km, 14.2 mm/s | 3.99 km |
+| Mercury, 14 Jan 2008 | 201.7 km, 19:04:39 | 201.71 km, 19:04:39 | 94 m | 2.20 km, 50.6 mm/s | 1.74 km |
+| Mercury, 6 Oct 2008 | 199.5 km, 08:40:22 | 199.54 km, 08:40:22 | 89 m | 2.77 km, 66.1 mm/s | 1.89 km |
+| Mercury, 29 Sep 2009 | 227.8 km, 21:54:56 | 227.80 km, 21:54:56 | 172 m | 8.04 km, 175.8 mm/s | 3.51 km |
 
 - **The trajectory** puts every closest approach within 0.04 km and a
   second of APL's figures (checked within 3 km and a minute). The MOI
   press kit gives the Mercury heights 0.3 km lower [2].
-- **The kernel,** flown from 12 h before each pass, keeps close to the
-  closest approach, within 163 m (checked within 200 m). The two close
-  passes of Venus and three of Mercury end 1.7 to 4.0 km off half a day
-  later, the field beyond J2 that the app leaves out (checked within
-  5 km).
+- **The kernel,** flown from 12 h before each pass with the fields,
+  keeps within 9 m of the closest approach at the Earth and Venus
+  (checked within 20 m), and 89 to 172 m at Mercury (checked within
+  200 m).
+- **Half a day on,** the Earth's and both Venus passes end within 0.7 km
+  (checked within 1 km). The pass 338 km over Venus ended 4.0 km off with
+  J2 alone. The one at 2,987 km gains 0.5 km from the field that the
+  reconstruction seems to leave out there.
+- **At Mercury** the passes end 2.2 to 8.0 km off, no closer than with J2
+  alone (1.7 to 3.5 km): the different Mercury above, not its field.
+  Checked within 3 km for the first two and 10 km for the third (each
+  flyby's `endKm` in `missions.data.mjs`).
 - **The flyby anomaly:** at the Earth, Anderson et al.'s formula [6]
   would give 0.06 mm/s for MESSENGER's asymptotes (32° in, −33° out). The
   kernel ends the pass 0.70 mm/s from the reconstruction's v∞, so it can't
@@ -208,22 +240,27 @@ default (`fixHours` in the file).
 | | Flybys (from the flown) | At the end | Worst |
 | --- | --- | --- | --- |
 | Every burn replayed as flown | Earth 5,435 km (flown 2,336), then lost | — | — |
-| As flown, a fix every 24 h (the default) | within 0.6 km at each | 9.6 km | 14.9 km |
+| As flown, a fix every 24 h (the default) | within 0.6 km at each | 12.7 km | 14.9 km |
 
 - **Blind,** a year of sunlight the app's one Cr can't follow brings the
   Earth flyby in 3,100 km too high, and the rest of the flight is lost.
 - **Aimed,** as Juno and DART fly, each burn aims at the next one's
-  flown state. Across Mercury's second flyby, the field beyond J2 that the
-  app leaves out turns 0.125 m/s into hundreds of kilometres by DSM-4A. So
-  the aim finds a flyby 93 km too low, and the aims after it diverge. Its
+  flown state. Across Mercury's second flyby, with J2 alone, what the
+  pass left (0.125 m/s) turned into hundreds of kilometres by DSM-4A. So
+  the aim found a flyby 93 km too low, and the aims after it diverged.
+  With the field the pass leaves 0.028 m/s; the aimed flight hasn't been
+  flown again. Its
   navigators flew it on a fresh orbit determination before each burn, so
   the app flies it with a fix every 24 h and the burns as flown. The
   validation doesn't fly it aimed (`fixesOnly`).
 - **Checks:** with fixes, every flyby within 5 km of the flown, within
   15 km at the end and 500 km throughout. The end is half a day into
-  Mercury orbit: MOI replayed leaves 0.1 km at cutoff, and an orbit
-  through a 200 km periapsis, in a field the app has only to J2, grows
-  that to 10 km.
+  Mercury orbit: 12.7 km, against 9.6 km before the app had Mercury's
+  field. The end carries MOI as replayed and half a day in orbit. Mercury's field
+  halves the error of the first orbit flown on its own: from 01:30 after
+  MOI to 12:00, 0.52 km against 1.12 km with J2 alone, and degrees past
+  4 change nothing (measured, not checked: the arc is under the
+  day a coast arc needs).
 - **Leap seconds:** the cruise crosses two, on the last days of 2005 and
   2008. The file's states are interpolated in seconds as they passed
   (TT), not UTC's milliseconds, which run a second short across one: at

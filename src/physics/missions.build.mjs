@@ -79,9 +79,9 @@ for (const e of events) {
     // burn and a long one on the small thrusters (DSM-2's 2A and 2B), which
     // a share of the window's largest step would miss. Runs of steps over
     // the floor, a few steps apart at most; a run of one step, or under
-    // minBurn, is a join. Near a planet the field the kernel leaves out
-    // (Mercury's and Venus's beyond J2: 2 to 3 mm/s a step at 200 to 340 km
-    // up) stays under the floor, and the pass is a join.
+    // minBurn, is a join. Near a planet what the environment's field leaves
+    // (at Mercury, 1 to 3 mm/s a step at 200 to 230 km up; at Venus, under
+    // 0.5) stays under the floor, and the pass is a join.
     // A jump in position (M.jumpKm) is a join's step too.
     const runs = [];
     s.forEach((x, i) => { if (norm(x.dv) <= M.burnFloor && !(norm(x.dr) > M.jumpKm)) return; const r = runs.at(-1); if (r && i - r[1] <= 3) r[1] = i; else runs.push([i, i]); });

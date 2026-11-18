@@ -19,6 +19,9 @@
 //              zonal model
 //   moon field the Moon's gravity beyond J2 (GRAIL GL0660B to degree 50 by
 //              default) within ten lunar radii, in its principal-axis frame
+//   mercury and venus fields  their gravity beyond J2 (JGMESS160A and
+//              MGNP180U to degree 20 by default) within ten radii, each
+//              in the body-fixed frame it was solved in
 //   drag       a = -rho |v_r| v_r Cd A / (2 m), v_r relative to an
 //              atmosphere turning with the Earth about its pole of date;
 //              rho from atmosphere.js (the 1976 standard below 86 km, NASA's
@@ -45,6 +48,8 @@ import { ttMinusUtc } from './timescale.js';
 import { ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { EGM2008 } from './egm2008.js';
 import { GRAIL, PA_TO_ME } from './grail.js';
+import { JGMESS160A, MERCURY_FRAME } from './jgmess160a.js';
+import { MGNP180U, VENUS_FRAME } from './mgnp180u.js';
 import { bodyAxesEqj, earthFixedAxes } from './orientation.js';
 import { makeVent } from './vent.js';
 import { density } from './atmosphere.js';
@@ -172,6 +177,26 @@ export function schwarzschild(mu, x, y, z, vx, vy, vz, out) {
   out[0] += k * (a * x + b * vx); out[1] += k * (a * y + b * vy); out[2] += k * (a * z + b * vz);
 }
 
+// Mercury's and Venus's fields, and the degree each is flown to by default.
+const PLANET_FIELD = { mercury: { field: JGMESS160A, frame: MERCURY_FRAME }, venus: { field: MGNP180U, frame: VENUS_FRAME } };
+export const PLANET_DEGREE = { mercury: 20, venus: 20 };
+
+// A body-fixed frame from its pole (RA a0, Dec d0) and prime meridian W, as
+// the IAU defines them (Archinal et al. 2018): X toward W along the
+// equator from the node on the J2000 equator, Z the pole. frame: { ra, dec,
+// pm } (deg; ra and dec per Julian century, pm per day); d days TDB from
+// J2000. Rows: the body-fixed axes in J2000 (r_fixed = M r_J2000).
+export function planetFrame(frame, d) {
+  const T = d / 36525, DEG = Math.PI / 180;
+  const a0 = (frame.ra[0] + frame.ra[1] * T) * DEG, d0 = (frame.dec[0] + frame.dec[1] * T) * DEG;
+  const W = ((frame.pm[0] + frame.pm[1] * d) % 360) * DEG;
+  const sa = Math.sin(a0), ca = Math.cos(a0), sd = Math.sin(d0), cd = Math.cos(d0), sw = Math.sin(W), cw = Math.cos(W);
+  // N = (-sin a0, cos a0, 0), Z = (cd ca, cd sa, sd), Z x N = (-sd ca, -sd sa, cd).
+  const X = [-cw * sa - sw * sd * ca, cw * ca - sw * sd * sa, sw * cd];
+  const Y = [sw * sa - cw * sd * ca, -sw * ca - cw * sd * sa, cw * cd];
+  return [X, Y, [cd * ca, cd * sa, sd]];
+}
+
 // craft: { mass (kg), area (m^2, facing the Sun), cr (1 absorbing to 2
 // mirror; 1.3 typical), shadowBodies (keys; default Earth and Moon),
 // massAt(t) (optional: the mass at time t, as a burn sheds propellant),
@@ -184,6 +209,10 @@ export function schwarzschild(mu, x, y, z, vx, vy, vz, out) {
 // Earth among the bodies),
 // moon: { degree (default 50; 0 for none), field (default GRAIL), withJ2,
 // maxRadius (km, default 10 lunar radii) },
+// mercury, venus: { degree (default PLANET_DEGREE[key]; 0 for none), field
+// (default JGMESS160A, MGNP180U), frame ({ ra, dec, pm }: the body-fixed
+// frame's pole and prime meridian, default the field's), withJ2, maxRadius
+// (km, default 10 radii) },
 // vent: vent.js options ({} for Artemis II's calibration; absent for none),
 // epochMs (kernel time zero, default the kernel's),
 // cd (drag coefficient, default 2.2; 0 for no drag), drag: { sw (the Sun's
@@ -328,6 +357,34 @@ export function makeEnvironment(sys, craft = {}) {
       const x = r[0] - moon.r[0], y = r[1] - moon.r[1], z = r[2] - moon.r[2];
       if (x * x + y * y + z * z > rMax2) return;
       const M = paAt(t);
+      pf[0] = M[0][0] * x + M[0][1] * y + M[0][2] * z;
+      pf[1] = M[1][0] * x + M[1][1] * y + M[1][2] * z;
+      pf[2] = M[2][0] * x + M[2][1] * y + M[2][2] * z;
+      field.accel(pf, g);
+      out[0] += M[0][0] * g[0] + M[1][0] * g[1] + M[2][0] * g[2];
+      out[1] += M[0][1] * g[0] + M[1][1] * g[1] + M[2][1] * g[2];
+      out[2] += M[0][2] * g[0] + M[1][2] * g[1] + M[2][2] * g[2];
+    });
+  }
+
+  // Mercury's and Venus's fields beyond J2, near each: JGMESS160A and
+  // MGNP180U, each in the frame it was solved in (planetFrame).
+  for (const key of ['mercury', 'venus']) {
+    const P = craft[key] ?? {}, n = P.degree ?? PLANET_DEGREE[key];
+    if (!(n >= 2)) continue;
+    const F = P.field ?? PLANET_FIELD[key].field, frame = P.frame ?? PLANET_FIELD[key].frame;
+    const C = [], S = [];
+    for (let k = 0; k <= n; k++) { C.push(F.C[k].slice(0, k + 1)); S.push(F.S[k].slice(0, k + 1)); }
+    if (!P.withJ2) C[2][0] = 0;
+    const field = geopotential({ mu: F.gm, radius: F.radius, n, C, S, central: false });
+    const rMax2 = (P.maxRadius ?? 10 * F.radius) ** 2;
+    const g = [0, 0, 0], pf = [0, 0, 0];
+    terms.push((t, r, v, out) => {
+      const b = sys.bodiesAt(t).find((x) => x.key === key);
+      if (!b) return;
+      const x = r[0] - b.r[0], y = r[1] - b.r[1], z = r[2] - b.r[2];
+      if (x * x + y * y + z * z > rMax2) return;
+      const M = planetFrame(frame, (tt0 + t) / 86400);
       pf[0] = M[0][0] * x + M[0][1] * y + M[0][2] * z;
       pf[1] = M[1][0] * x + M[1][1] * y + M[1][2] * z;
       pf[2] = M[2][0] * x + M[2][1] * y + M[2][2] * z;

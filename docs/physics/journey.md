@@ -517,6 +517,7 @@ masses and zonal terms, with `environment.js` on them
 (docs/physics/environment.md):
 - the Earth's field beyond J2 (EGM2008 to degree 20), and its tides;
 - the Moon's beyond J2 (GRAIL GL0660B to degree 50, mascons and all);
+- Mercury's and Venus's beyond J2 (JGMESS160A and MGNP180U to degree 20);
 - drag, sunlight pressure with the shadows, and relativity.
 
 The craft is the app's default one, `JOURNEY_CRAFT`: 1,500 kg and 5 m²,

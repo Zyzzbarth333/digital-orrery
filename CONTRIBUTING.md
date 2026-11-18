@@ -88,6 +88,7 @@ run outside tools, and need a network or an installed tool:
 | `npm run fetch:moons`, `build:moon-tables` | the moons' elements; their Chebyshev tables from NAIF's satellite kernels (needs CMake and CSPICE) |
 | `npm run fetch:artemis1`, `crosscheck:artemis1` | Artemis I from JPL Horizons, and its force-by-force check |
 | `npm run oracle:openrocket` | the ROCKET tab's ascent against OpenRocket (needs Java and OpenRocket) |
+| `wolframscript -file src/physics/planetFields.oracle.wls` | Mercury's and Venus's gravity fields summed directly from the PDS files, for `environment.test.mjs` (needs the Wolfram Engine, and `npm run fetch:environment` first) |
 | `npm run bench` | the kernel's speed |
 
 A check that needs local data it can't find skips itself and says so.
