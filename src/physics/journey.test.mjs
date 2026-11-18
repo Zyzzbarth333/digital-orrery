@@ -715,5 +715,43 @@ header("CASE 13: the parking orbit's plane over a stay (Curtis Sec. 4.7)");
   check('the parking orbit lamp: the day near the planned one, at under half the planned day\'s extra', lamp?.level === 'caution' && lamp.bestMs === prof.plane.ms && prof.plane.dv < sol.legs[1].depDv + sol.legs[1].arrDv - sol.legs[1].plane.extraDv / 2);
 }
 
+header('CASE 14: burn nodes on a leg of two arcs (a broken plane, a bi-elliptic leg)');
+{
+  // A node with no burn leaves a two-arc leg as planned (its arcs are
+  // Lambert's, so on target to 1 m and the same delta-v, as CASE 6 for one
+  // arc); the burn at the break is still flown, putting the craft on the
+  // planned second arc's velocity.
+  const mm = (nodes) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: 23, dateMs: D('2026-10-24T00:00:00Z') },
+    { id: 2, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z'), ...(nodes ? { nodes } : {}) }] });
+  const s0 = J.solveJourney(mm()), L0 = s0.legs[1], at = (f) => L0.depMs + f * (L0.arrMs - L0.depMs);
+  const node = (f, n = {}) => [{ id: 7, ms: at(f), pro: 0, nor: 0, rad: 0, ...n }];
+  const before = J.solveJourney(mm(node(0.25))), after = J.solveJourney(mm(node(0.75)));
+  console.log(`  broken plane, a node with no burn before the break: misses Mars by ${(before.legs[1].missKm * 1000).toFixed(3)} m, break ${(before.legs[1].midDv * 1000).toFixed(3)} m/s (planned ${(L0.midDv * 1000).toFixed(3)}); after it: ${(after.legs[1].missKm * 1000).toFixed(3)} m`);
+  check('a node with no burn before or after the break leaves the broken plane as planned: on target to 1 m, the same delta-v to 1e-9 km/s', [before, after].every((s) => s.legs[1].shaped && s.legs[1].missKm < 1e-3 && Math.abs(s.totalDv - s0.totalDv) < 1e-9 && Math.abs(s.legs[1].midDv - L0.midDv) < 1e-9));
+  const pushed = J.solveJourney(mm(node(0.25, { pro: 0.05 }))), aimed = J.solveJourney(J.aimNode(mm(node(0.25, { pro: 0.05 })), 1, 7));
+  console.log(`  a 50 m/s prograde node before the break: misses by ${(pushed.legs[1].missKm / 1e3).toFixed(0)} thousand km, the break ${(pushed.legs[1].midDv * 1000).toFixed(1)} m/s; aimed (at the break point): ${(aimed.legs[1].missKm * 1000).toFixed(3)} m off, total ${aimed.totalDv.toFixed(6)} km/s against ${s0.totalDv.toFixed(6)}`);
+  check('a push before the break misses and the break burn pays for it; aiming the node at the break point brings it back on target to 1 m and to the plan\'s delta-v (1e-6 km/s)', pushed.legs[1].missKm > 1e5 && pushed.legs[1].midDv > L0.midDv && aimed.legs[1].missKm < 1e-3 && Math.abs(aimed.totalDv - s0.totalDv) < 1e-6);
+  // Bi-elliptic, Earth to Mars: its apoapsis burn kept under a node.
+  const em = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-11-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z') }] };
+  const jb = J.applyOption(em, 0, J.legOptions(em, 0, { search: false }).options.find((o) => o.type === 'bielliptic')), sb = J.solveJourney(jb), Lb = sb.legs[0];
+  const zb = J.solveJourney({ ...jb, waypoints: [{ ...jb.waypoints[0], nodes: [{ id: 3, ms: Lb.depMs + 0.3 * (Lb.mid.ms - Lb.depMs), pro: 0, nor: 0, rad: 0 }] }] });
+  console.log(`  bi-elliptic to Mars, a node with no burn on the way out: misses by ${(zb.legs[0].missKm * 1000).toFixed(0)} m over ${Lb.tofDays.toFixed(0)} d, the apoapsis burn ${(zb.legs[0].midDv * 1000).toFixed(3)} m/s (planned ${(Lb.midDv * 1000).toFixed(3)})`);
+  check('and on a bi-elliptic leg: on target to 1 km (its second arc is Lambert\'s with up to a revolution), the apoapsis burn the same to 1e-6 km/s', zb.legs[0].missKm < 1 && Math.abs(zb.legs[0].midDv - Lb.midDv) < 1e-6);
+
+  // The flight: no aim at the break before nodes that shape the way to it;
+  // a two-arc leg's departure, if it waits, re-aimed at its break point.
+  const pb = planFlight(pushed), aimSun = pb.events.filter((e) => e.kind === 'aim' && e.body === 'sun');
+  const rt = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-11-01T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'mars', kind: 'orbit', altKm: 400, stayDays: 30, dateMs: D('2027-09-07T00:00:00Z') },
+    { id: 2, body: 'earth', kind: 'orbit', altKm: 300, dateMs: D('2028-08-01T00:00:00Z') }] };
+  const rb = J.solveJourney(J.applyOption(rt, 1, J.legOptions(rt, 1, { search: false }).options.find((o) => o.type === 'bielliptic')));
+  const dep = planFlight(rb).events.find((e) => e.kind === 'depart' && e.body === 'mars');
+  check('the flight: no aim at the break point ahead of a node before it; a bi-elliptic departure from Mars re-aimed, if it waits, at its apoapsis point', aimSun.length === 0 && dep?.reaim?.arrMs === rb.legs[1].mid.ms && !!dep.reaim.toEqj);
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), fl = flyJourney(sys, planFlight(J.solveJourney(mm(node(0.25, { pro: 0.02 })))));
+  console.log(`  broken plane with a 20 m/s node before the break, flown: Mars ${fl.arrivals[1].missKm.toFixed(1)} km off the planned periapsis, corrections ${(fl.correctionsDv * 1000).toFixed(0)} m/s`);
+  check('flown in the full model: the node as planned, Mars within 20 km of plan', !fl.impact && fl.arrivals[1].missKm < 20 && fl.burns.length >= 3);
+}
+
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
 process.exit(failures ? 1 : 0);

@@ -70,7 +70,12 @@ once it has releases. Until then, everything sits under Unreleased.
   days costs 4.57 km/s, not 15.69, and the price no longer leaps as the
   stay changes. The flight no longer pays hundreds of metres a second
   chasing a plane that won't hold. A plane lamp says where the plane breaks,
-  and the direct arc is listed beside it for comparison (this pull request).
+  and the direct arc is listed beside it for comparison (#89).
+- Burn nodes on a broken-plane or bi-elliptic leg no longer skip its burn
+  at the break: the leg keeps it, priced by what the nodes left it to do,
+  and aiming a node before the break aims it at the break point. In
+  flight, such a leg's departure, if it waits, is re-aimed at the break
+  point, not straight at the target (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
