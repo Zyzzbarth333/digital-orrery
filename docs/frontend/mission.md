@@ -299,6 +299,8 @@ kept point to the craft along the same conic. Coasting, that is the path
 flown; burning, it differs by the burn since that point, a few metres.
 The camera's near plane follows it in ([Camera](camera.md#close-to-a-craft)).
 
+![A craft in a 400 km orbit followed from 100 m, against the Earth's night side: the amber conic runs through its marker, and the pale flown trail glows behind it](craft-close-up.jpg)
+
 The header's KERNEL lamp is lit while a craft is being stepped. LAG lights
 caution yellow if a craft falls more than a minute behind the clock: the
 kernel catches up rather than taking unsafe steps.
