@@ -663,6 +663,11 @@ references these are).
 | Starkov's oval, IGRF-14, CGM and Kp together | NOAA's OVATION Prime map, forecast 03:09 UTC 18 Nov 2026 (Kp 3−), night side | mean probability 19.6 % mid-oval vs 7.7 % 6° equatorward and 1.0 % 6° poleward (north); 15.2, 7.1 and 0.8 % (south) |
 | Neptune's auroral zone, L 3–20 | JWST: 30–60° S (Melin et al. 2025) | 24–48° S, mean 35° S |
 | Mercury's offset dipole | Anderson et al. 2012: 190 nT R_M³, 479 km north; libinternalfield's expansion | as published; expansion within 0.06 nT |
+| IGRF-14 after 2025 | NOAA's online Magnetic Field Calculator, 4 points 2025.4–2028.0, 0–400 km | X Y Z F within 0.049 nT, D and I within 0.00005° |
+| Europa's and Ganymede's footprints (JRM33 + con2020) | Connerney et al. 2022, Tables S2, S3 | within 1.07° and 1.89° of arc, rms 0.34° and 0.43° |
+| the moons' lead angles | Hue et al. 2023, Table 1 and its quoted means | means 4.26/4.14°, 5.75/7.06°, 12.33/13.02° (paper 4.3/4.1, 5.8/7.0, 12.3/13.0) |
+| Ganymede's dipole | Weber et al. 2022 against Kivelson et al. 2002 | 719 vs 713 nT, 0.8° apart |
+| Mars's crustal field | Langlais et al. 2019: Br −8,520 to 11,260 nT | −8,522 to 11,261 nT (0.25° grid), strongest at 47.9° S 174.6° E |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
 
 ## References

@@ -410,7 +410,8 @@ function Credits() {
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
   items.push(['Magnetic fields', 'IGRF-14 (IAGA V-MOD, via NOAA NCEI); JRM33 and con2020 (Connerney et al. 2022, 2020); Cassini 11 (Dougherty et al. 2018, Cao et al. 2020) via libinternalfield (MIT); Voyager 2 dipoles (Ness et al. 1986, 1989); MESSENGER (Anderson et al. 2012)']);
   items.push(['Auroras', 'NOAA SWPC OVATION Prime live aurora forecast (US Government work); Starkov 1994 oval as Sigernes et al. 2011 give it; Kp from GFZ Potsdam via CelesTrak; Badman et al. 2006 (Saturn); Clarke et al. 2004 (Jupiter); Melin et al. 2025 (Neptune)']);
-  items.push(['Radiation belts', 'Reeves and Daglis 2016 (Earth); Roussos and Kollmann 2021, Roussos et al. 2018 (Jupiter, Saturn)']);
+  items.push(['Radiation belts', 'Reeves and Daglis 2016 (Earth); Roussos and Kollmann 2021, Roussos et al. 2018 (Jupiter, Saturn); Cooper and Stone 1991 (Uranus); Mauk et al. 1991 (Neptune)']);
+  items.push(['Ganymede and Mars', 'Weber et al. 2022, Kivelson et al. 2002, Feldman et al. 2000 (Ganymede); Langlais et al. 2019 via libinternalfield (MIT), Bertaux et al. 2005, Brain et al. 2006 (Mars); Hue et al. 2023 (lead angles)']);
   items.push(['Equation font', 'DejaVu Math TeX Gyre, from the DejaVu fonts: Bitstream Vera licence, its DejaVu and math additions public domain']);
   return (
     <details className="credits">
