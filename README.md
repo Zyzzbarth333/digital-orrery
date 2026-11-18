@@ -44,9 +44,11 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 - **Missions:**
   - spacecraft fly under an n-body kernel in a Web Worker, with finite burns, the Earth's and Moon's gravity fields, drag and sunlight pressure;
   - the craft you launch carry an attitude: point them prograde, normal, radial, at a node or hold them still, and they turn in the time their thrusters' torque allows, under the gravity gradient and the air's torque, and burn along their body axis; the thrusters burn propellant, the craft turns faster as its tank empties, and it turns to each manoeuvre node by itself in time to settle ([docs/physics/sixdof.md](docs/physics/sixdof.md#attitude-in-the-app));
-  - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown.
+  - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown;
+  - Juno's deep-space burns and Earth flyby (2012–13), and DART's last five weeks to its impact on Dimorphos (2022), fly against their navigation teams' reconstructions.
 - **Planning:**
   - a journey of any number of legs, each leg's transfers compared (a broken plane where a leg runs nearly 180° round the Sun), shaped by hand on a plotting table;
+  - a long stay in a planet's orbit turns the orbit's plane (the planet's $J_2$): the planner prices leaving out of it and suggests the day it holds the way out ([journeys](docs/physics/journey.md#the-parking-orbits-plane));
   - flown by the kernel, with the rocket it needs.
 - **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, from the stack the planner sized for your journey, or from an OpenRocket design, and fly it from a real pad into orbit.
 
