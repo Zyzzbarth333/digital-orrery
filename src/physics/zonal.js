@@ -26,21 +26,37 @@
 // with X and Y those axes in J2000 (b.axisX, b.axisY). Applied with J2 when
 // the body has c22.
 //
-// The giant planets also have J4 (b.j4, referred to the same radius as
-// their J2). Its potential is -mu J4 R^4 P4(s) / |d|^5, s = z / |d|,
-// P4(s) = (35 s^4 - 30 s^2 + 3) / 8, and
+// The giant planets also have zonal terms beyond J2 (b.zn: [{ n, J, cut2 }],
+// referred to the same radius as their J2): Jupiter's J3 to J12, the
+// others' J4. Degree n's potential is -mu Jn R^n Pn(s) / |d|^(n+1),
+// s = z / |d|, Pn the Legendre polynomial, and its acceleration
 //
-//   a_J4 = -mu J4 R^4 [ P4'(s) p / |d|^6 - (s P4'(s) + 5 P4(s)) d / |d|^7 ]
+//   a_n = -mu Jn R^n [ Pn'(s) p - (s Pn'(s) + (n+1) Pn(s)) d / |d| ] / |d|^(n+2),
 //
-// (P4' = (140 s^3 - 60 s) / 8). At five Jupiter radii it is 5e-7 of the
-// planet's pull: a fifth of the kernel's error on Juno's pass of Io
-// (flyby.test.mjs case 3b).
+// with Pn and Pn' from Bonnet's recursion, (n+1) P(n+1) = (2n+1) s Pn -
+// n P(n-1), and P'(n+1) = P'(n-1) + (2n+1) Pn. Each term acts only
+// within cut2 (squared, km^2), where (n+1)|Jn|(R/|d|)^n is still above
+// ZN_FLOOR of the planet's pull: J4 everywhere within the J2 cutoff, J8
+// within 7 Jupiter radii, J12 within 2.7. At five Jupiter radii J4 is
+// 5e-7 of Jupiter's pull; near Juno's perijoves, 1.1 radii out, J6 is
+// 4e-5 and J12 2e-6 (flyby.test.mjs case 3b).
 
 export const ZONAL_CUTOFF = 100;
+export const ZN_FLOOR = 1e-13;
+
+// The terms beyond J2 as addJ2 takes them, from { n: Jn } at radius R.
+export function zonalTerms(jn, R) {
+  return Object.entries(jn).map(([n, J]) => {
+    n = Number(n);
+    const reach = R * Math.pow((n + 1) * Math.abs(J) / ZN_FLOOR, 1 / n);
+    return { n, J, cut2: reach * reach };
+  }).sort((a, b) => a.n - b.n);
+}
 
 // Adds the J2 acceleration of body b ({ mu, j2, rJ2, pole }) at the
 // craft-minus-body offset (dx, dy, dz), with d2 = |d|^2, into out, its
-// C22's when it has one ({ c22, axisX, axisY }) and its J4's ({ j4 }).
+// C22's when it has one ({ c22, axisX, axisY }) and its higher zonal
+// terms' ({ zn }, zonalTerms).
 export function addJ2(dx, dy, dz, d2, b, out) {
   const p = b.pole;
   const z = dx * p[0] + dy * p[1] + dz * p[2];
@@ -58,15 +74,35 @@ export function addJ2(dx, dy, dz, d2, b, out) {
     out[1] += c * (2 * (x * X[1] - y * Y[1]) - e * dy);
     out[2] += c * (2 * (x * X[2] - y * Y[2]) - e * dz);
   }
-  if (b.j4) {
-    const d = Math.sqrt(d2), s = z / d, s2 = s * s;
-    const P4 = (35 * s2 * s2 - 30 * s2 + 3) / 8, dP4 = (140 * s2 * s - 60 * s) / 8;
-    const R2 = b.rJ2 * b.rJ2, k = -b.mu * b.j4 * R2 * R2 / (d2 * d2 * d2);
-    const kp = k * dP4, kd = -k * (s * dP4 + 5 * P4) / d;
-    out[0] += kp * p[0] + kd * dx;
-    out[1] += kp * p[1] + kd * dy;
-    out[2] += kp * p[2] + kd * dz;
+  if (b.zn) addZonals(dx, dy, dz, d2, z, b, out);
+}
+
+// The zonal terms beyond J2 (above), those whose reach holds the craft.
+function addZonals(dx, dy, dz, d2, z, b, out) {
+  const zn = b.zn;
+  let nMax = 0;
+  for (let i = 0; i < zn.length; i++) if (d2 < zn[i].cut2) nMax = zn[i].n;
+  if (nMax === 0) return;
+  const d = Math.sqrt(d2), s = z / d, p = b.pole, R = b.rJ2;
+  // P(n-1), P(n) and their derivatives, from P0 = 1, P1 = s.
+  let P0 = 1, P1 = s, D0 = 0, D1 = 1, Rn = R, dn = d2 * d;   // R^n, |d|^(n+2), at n = 1
+  let kp = 0, kd = 0, i = 0;
+  for (let n = 1; n <= nMax; n++) {
+    if (n > 1) {
+      const P2 = ((2 * n - 1) * s * P1 - (n - 1) * P0) / n, D2 = D0 + (2 * n - 1) * P1;
+      P0 = P1; P1 = P2; D0 = D1; D1 = D2;
+      Rn *= R; dn *= d;
+    }
+    while (i < zn.length && zn[i].n < n) i++;
+    if (i < zn.length && zn[i].n === n && d2 < zn[i].cut2) {
+      const k = -b.mu * zn[i].J * Rn / dn;
+      kp += k * D1;
+      kd -= k * (s * D1 + (n + 1) * P1) / d;
+    }
   }
+  out[0] += kp * p[0] + kd * dx;
+  out[1] += kp * p[1] + kd * dy;
+  out[2] += kp * p[2] + kd * dz;
 }
 
 // Below a body's surface: its ellipsoid (b.surface = { a, c }, equatorial and
