@@ -158,7 +158,7 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
   return (
     <header className="band screw">
       <span className="pnl" aria-hidden="true">PNL F1</span>
-      <h1 className="wordmark">digital-orrery</h1>
+      <h1 className="wordmark">digital-orrery<span className="tagline">The real solar system, now, from NASA ephemerides</span></h1>
       <div className="field">
         <span className="engraved" id="utc-label">UTC</span>
         <ClockWindow clock={clock} />
