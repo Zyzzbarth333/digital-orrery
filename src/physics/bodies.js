@@ -70,8 +70,10 @@ const GM = {
 // system is split: each from the NAIF satellite kernel that fitted it, as
 // its gm_*.tpc file gives it (BODY499_GM etc.). The system GM less these is
 // the moons' share: the moons here hold all but 0.02 % of it for Jupiter and
-// Saturn and 0.1 % for Neptune and Pluto; Uranus's small moons leave out
-// 0.7 % (4.5 km^3/s^2, 8e-7 of the system), Jupiter's 2.4 km^3/s^2.
+// Saturn and 0.1 % for Neptune and Pluto; Jupiter's small moons leave out
+// 2.4 km^3/s^2. Uranus's five (MOON_GM, ura184) hold 4.2 km^3/s^2 (0.7 %,
+// 7e-7 of the system) more than DE442's system GM leaves them: ura184's
+// own system GM is 4.3 km^3/s^2 larger than DE442's.
 export const PLANET_GM = {
   mars: 4.282837485735626e4,        // NAIF 499, mar099s (DE440)
   jupiter: 1.266865319003704e8,     // NAIF 599, jup365 (DE440)
@@ -79,6 +81,18 @@ export const PLANET_GM = {
   uranus: 5.793950610340896e6,      // NAIF 799, ura184 (DE442)
   neptune: 6.835099968446816e6,     // NAIF 899, nep097 (DE441)
   pluto: 8.693261226311508e2,       // NAIF 999, plu060 (DE440)
+};
+// Moon GMs for the kernel where the satellite kernel that fitted the
+// planet's own GM differs from Horizons' object page (moons.data.js): Uranus's
+// five, from ura184 (URA182, Jacobson and Park 2025), the solution
+// Voyager 2's reconstructed encounter was fitted with. Horizons' pages give
+// Miranda 4.3 and Oberon 205.34 (flyby.test.mjs case 3h).
+export const MOON_GM = {
+  miranda: 4.105527241181560,       // NAIF 705, ura184
+  ariel: 83.43074677282458,         // 701
+  umbriel: 85.40300422326412,       // 702
+  titania: 222.8006351879754,       // 703
+  oberon: 214.2098399407347,        // 704
 };
 const MOON_RADIUS = 1737.4;      // km (IAU mean)
 
@@ -219,10 +233,16 @@ class SumEphemeris {
 //   Saturn:  Cassini's Grand Finale (Iess et al. 2019, Science 364,
 //            eaat2965), Table 1: J2 = 16290.573e-6, and J3 to J12 (J4 =
 //            -935.314e-6, J6 = 86.340e-6), R = 60330 km.
-//   Uranus:  Jacobson 2014, AJ 148, 76, Table 12: J2 = 3510.7e-6,
-//            J4 = -34.2e-6, R = 25559 km.
-//   Neptune: Jacobson 2009, AJ 137, 4322, Table 5: J2 = 3408.43e-6,
-//            J4 = -33.40e-6, R = 25225 km.
+//   Uranus:  URA182 (Jacobson and Park 2025, AJ 169, 65), the constants
+//            in NAIF's ura184 and vgr2.ura182 kernels: J2 = 3508.967e-6,
+//            J4 = -35.793e-6, J6 = 0.575e-6, R = 25559 km. (Jacobson 2014,
+//            AJ 148, 76, Table 12, before: J2 = 3510.7e-6, J4 = -34.2e-6.)
+//   Neptune: NEP097, the constants in NAIF's nep097 kernel (and nep098,
+//            nep104, vgr2_nep097): J2 = 3536.297e-6, J4 = -35.952e-6, J6 =
+//            0.546e-6, R = 24764 km. Its J2 and J4 are Jacobson 2009's (AJ
+//            137, 4322, Table 5: 3408.43e-6 and -33.40e-6 at R = 25225 km)
+//            referred to the smaller radius, to 0.05 of their sigma; its
+//            pole is the one below (NEPTUNE_POLE).
 // The giants' higher zonals are from the same solution as their J2 and
 // referred to the same radius (zonal.js): Jupiter's and Saturn's to J12,
 // Uranus's and Neptune's J4. The rocky bodies' J4 is left out: about 1e-3 of
@@ -231,7 +251,31 @@ class SumEphemeris {
 // Pluto and the moons have none here. A split system's J2 stays with the
 // planet's centre.
 // The pole is the body's spin axis of date (orientation.js), refreshed once a
-// simulated day: Earth's moves 0.14" a day.
+// simulated day: Earth's moves 0.14" a day. Neptune's is nep097's instead
+// (poleAt), the pole its field and Voyager 2's reconstructed encounter were
+// fitted with: RA = a0 + sum A_k sin(F_k + f_k T), Dec = d0 + sum D_k
+// cos(F_k + f_k T), degrees, T in Julian centuries of TDB from J2000 (the
+// kernel's ZACPL8, ZDEPL8 and RA_ and DE_ AMPL, FAZE, FREQ 1 to 4). The
+// first term is Triton's 0.5 deg precession of it. In August 1989 it is
+// 0.056 deg from astronomy-engine's (IAU 2009), and Voyager 2 is 2.6 km off
+// the reconstruction six hours after Triton, against 3.2 km with the IAU
+// pole (flyby.test.mjs case 3g).
+const NEPTUNE_POLE = {
+  a0: 299.4129156863023, d0: 43.35186141539896,
+  // [amplitude, phase, rate deg/century] for RA, then for Dec
+  ra: [[0.541673753333, 357.7357930223, 52.41350615071], [-0.005651676906, 359.9197241416, 19.49605450032],
+    [-0.001080624839, 354.8854352364, 119.2685055586], [0.000093908111, 351.9315830088, 168.6559329027]],
+  dec: [[-0.395118858737, 357.7357930223, 52.41350615071], [0.01018167737, 359.9197241416, 19.49605450032],
+    [0.000346585177, 354.8854352364, 119.2685055586], [-0.000021984686, 351.9315830088, 168.6559329027]],
+};
+const RAD = Math.PI / 180;
+export function neptunePole(tt) {
+  const T = tt / (86400 * 36525), P = NEPTUNE_POLE;
+  let a = P.a0, d = P.d0;
+  for (const [A, F, f] of P.ra) a += A * Math.sin((F + f * T) * RAD);
+  for (const [A, F, f] of P.dec) d += A * Math.cos((F + f * T) * RAD);
+  return [Math.cos(d * RAD) * Math.cos(a * RAD), Math.cos(d * RAD) * Math.sin(a * RAD), Math.sin(d * RAD)];
+}
 export const ZONAL = {
   mercury: { j2: 2.250253697653e-5 * Math.sqrt(5), rJ2: 2440.0 },
   venus: { j2: 1.96972335776e-6 * Math.sqrt(5), rJ2: 6051.0 },
@@ -244,8 +288,8 @@ export const ZONAL = {
   // Saturn's J3 to J12 from the same table (J7 and J11 within their
   // 3-sigma uncertainties).
   saturn: { j2: 16290.573e-6, jn: { 3: 0.059e-6, 4: -935.314e-6, 5: -0.224e-6, 6: 86.340e-6, 7: 0.108e-6, 8: -14.624e-6, 9: 0.369e-6, 10: 4.672e-6, 11: -0.317e-6, 12: -0.997e-6 }, rJ2: 60330 },
-  uranus: { j2: 3510.7e-6, jn: { 4: -34.2e-6 }, rJ2: 25559 },
-  neptune: { j2: 3408.43e-6, jn: { 4: -33.40e-6 }, rJ2: 25225 },
+  uranus: { j2: 3508.966976546036e-6, jn: { 4: -35.79347133056984e-6, 6: 0.575e-6 }, rJ2: 25559 },
+  neptune: { j2: 3536.297303482466e-6, jn: { 4: -35.95236402334314e-6, 6: 0.5461372305640038e-6 }, rJ2: 24764, poleAt: neptunePole },
 };
 // The large moons' degree-2 fields, unnormalised, with the reference radius
 // they are referred to (docs/physics/nbody-kernel.md#moons has the sources):
@@ -293,7 +337,7 @@ export function bodyConstants(key) {
   const ast = perturber(key);
   if (ast) return { mu: ast.gm, radius: ast.radius, parent: null };
   const m = MOON_DATA[key];
-  if (m) return { mu: m.gm, radius: m.radiusKm, parent: m.planet };
+  if (m) return { mu: MOON_GM[key] ?? m.gm, radius: m.radiusKm, parent: m.planet };
   return { mu: GM[key], radius: PLANETS[key].radius, parent: null };
 }
 
@@ -323,7 +367,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
   const sunEph = new HermiteEphemeris((t) => sunAboutSsbAtTt(tt0 + t), SUN_SPACING);
   const withJ2 = (b) => {
     const z = zonal && ZONAL[b.key];
-    if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN, ...(z.jn ? { zn: zonalTerms(z.jn, z.rJ2) } : {}) });
+    if (z) Object.assign(b, { j2: z.j2, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], poleT: NaN, poleAt: z.poleAt ?? null, ...(z.jn ? { zn: zonalTerms(z.jn, z.rJ2) } : {}) });
     if (z && SURFACE[b.key]) b.surface = SURFACE[b.key];
     if (z && TIDE[b.key]) b.tide = TIDE[b.key];
     return b;
@@ -355,7 +399,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
       byKey.set(key, G.centre);
       G.moons = MAJOR_MOONS_OF[key].map((k) => {
         const about = new HermiteEphemeris((t) => sat.moon(k, tt0 + t), MOON_SPACING[k]);
-        const m = body(k, MOON_DATA[k].gm, MOON_DATA[k].radiusKm, key, new SumEphemeris(G.centre.eph, about));
+        const m = body(k, MOON_GM[k] ?? MOON_DATA[k].gm, MOON_DATA[k].radiusKm, key, new SumEphemeris(G.centre.eph, about));
         const z = zonal && MOON_ZONAL[k];
         if (z) Object.assign(m, { j2: z.j2, c22: z.c22, rJ2: z.rJ2, j2Cut2: (ZONAL_CUTOFF * z.rJ2) ** 2, pole: [0, 0, 1], axisX: [1, 0, 0], axisY: [0, 1, 0], orbitEph: about });
         byKey.set(k, m);
@@ -396,7 +440,7 @@ export function solarSystemBodies({ epochMs, keys = KERNEL_BODIES, zonal = true,
       Z[0] = zx / zn; Z[1] = zy / zn; Z[2] = zz / zn;
       Y[0] = Z[1] * X[2] - Z[2] * X[1]; Y[1] = Z[2] * X[0] - Z[0] * X[2]; Y[2] = Z[0] * X[1] - Z[1] * X[0];
     } else if (b.j2 && !(Math.abs(t - b.poleT) < POLE_REFRESH)) {
-      b.pole = bodyAxesEqj(b.key, new Date(msAt(t)))[2];
+      b.pole = b.poleAt ? b.poleAt(tt0 + t) : bodyAxesEqj(b.key, new Date(msAt(t)))[2];
       b.poleT = t;
     }
     b.t = t;

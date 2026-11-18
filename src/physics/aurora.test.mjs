@@ -134,6 +134,15 @@ console.log('Saturn and Jupiter');
   const mainLat = [...main.north, ...main.south].filter(Boolean).map(ang);
   const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
   check(mainLat.length === 24 && mean(mainLat) > mean(io) + 3, `main oval (20 R_J) at a mean ${mean(mainLat).toFixed(1)} deg magnetic latitude, all 24 footprints found; Io's footprints at ${mean(io).toFixed(1)}`);
+  // The oval's centre against Hubble's: Bonfond et al. 2012's reference
+  // ovals centre on 74 N, 185 W (System III) in the north and 82 S, 32 W in
+  // the south, as Head et al. 2024 give them for Juno-UVS's. The app's
+  // oval (25 R_J), its footprints' mean direction.
+  const ref = { north: [74, 185], south: [-82, 32] }, mid = equatorFootprints(J, 25, 5, surf, fr);
+  const arc = (a, b) => { const v = ([la, lw]) => [Math.cos(la * DEG) * Math.cos(-lw * DEG), Math.cos(la * DEG) * Math.sin(-lw * DEG), Math.sin(la * DEG)]; const p = v(a), q = v(b); return Math.acos(Math.min(1, p[0] * q[0] + p[1] * q[1] + p[2] * q[2])) / DEG; };
+  const centre = (pts) => { const s = [0, 0, 0]; for (const q of pts) if (q) { const l = Math.hypot(...q); for (let i = 0; i < 3; i++) s[i] += q[i] / l; } return [Math.asin(s[2] / Math.hypot(...s)) / DEG, ((-Math.atan2(s[1], s[0]) / DEG) % 360 + 360) % 360]; };
+  const cn = centre(mid.north), cs = centre(mid.south), dn = arc(cn, ref.north), ds = arc(cs, ref.south);
+  check(dn < 4 && ds < 1, `main oval centres at ${cn[0].toFixed(1)} N ${cn[1].toFixed(1)} W and ${(-cs[0]).toFixed(1)} S ${cs[1].toFixed(1)} W: ${dn.toFixed(1)} and ${ds.toFixed(1)} deg of arc from Hubble's reference ovals' centres (Bonfond et al. 2012)`);
 }
 
 {

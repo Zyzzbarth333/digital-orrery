@@ -21,10 +21,11 @@ import {
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
 import { radialFieldGrid, encodeBr, decodeBr } from './marsCrustal.js';
-import { pfssField, parseWso, carringtonRotation, SOURCE_SURFACE } from './sunField.js';
+import { pfssField, parseWso, carringtonRotation, SOURCE_SURFACE, sourceSurfaceGrid, neutralSegments, sheetTilt, spiralAngle, spiralLongitude, AU_KM, OMEGA_SUN, SUN_RADIUS_KM } from './sunField.js';
 import { t89, kpToIopt, gsmFrame, withT89 } from './t89.js';
 import { bodyAxesEqj } from './orientation.js';
 import * as Astronomy from 'astronomy-engine';
+import * as BND from './boundaries.js';
 import { SATURN_RC, ellipticKE, loopField, loopSumField, ringCurrentTable, totalCurrentMA, discMoment } from './ringCurrent.js';
 
 let failed = 0;
@@ -358,6 +359,41 @@ console.log("The Sun: Wilcox Solar Observatory's PFSS coefficients");
     n++; if (Math.sign(r[0]) === Math.sign(avg)) agree++;
   }
   check(n > 400 && agree / n > 0.95, `g10's sign follows WSO's polar field at ${agree} of ${n} dates (|avg| > 20 uT, 2000-2026)`);
+  // WSO's own table of rotations: every start date 1976-2025 falls within
+  // a few hours of the app's numbering.
+  const tilts = fixture('wso_tilts.json');
+  let worstH = 0;
+  for (const [cr, start] of tilts.rows) worstH = Math.max(worstH, Math.abs(carringtonRotation(Date.parse(start)) - cr) * 27.2753 * 24);
+  check(tilts.rows.length > 600 && worstH < 3, `${tilts.rows.length} Carrington rotation starts in WSO's table (CR 1642-2302) within ${worstH.toFixed(1)} h of the app's numbering`);
+  // The current sheet's reach against WSO's computed tilts (its radial
+  // model, source surface 3.25 R_sun, values under 70 deg), every fourth
+  // rotation: the neutral line of the same coefficients on a 1 x 2 deg grid.
+  const dev = [];
+  for (const [cr, , , rn, rs] of tilts.rows) {
+    const r = sun.rows[cr - sun.first];
+    if (!r || cr % 4 || Math.abs(rn) >= 70 || Math.abs(rs) >= 70) continue;
+    const G = sourceSurfaceGrid(pfssField(r, 9, 3.25), 3.25, { dLat: 1, dLon: 2 }); G.step();
+    const t = sheetTilt(neutralSegments(G));
+    dev.push(Math.abs(t.north - rn), Math.abs(t.south - rs));
+  }
+  dev.sort((a, b) => a - b);
+  const med = dev[dev.length >> 1], p80 = dev[Math.floor(0.8 * dev.length)];
+  check(dev.length > 120 && med < 2 && p80 < 4.5, `the current sheet's farthest north and south against WSO's tilts at ${dev.length / 2} rotations: median ${med.toFixed(2)} deg, 80 % within ${p80.toFixed(2)} deg`);
+  // The neutral line is where Br changes sign on the source surface.
+  const G0 = sourceSurfaceGrid(pfssField(sun.rows[2300 - sun.first]), SOURCE_SURFACE, { dLat: 1, dLon: 2 }); G0.step();
+  const segs = neutralSegments(G0), f0 = pfssField(sun.rows[2300 - sun.first]), b0 = [0, 0, 0];
+  let worstBr = 0, peak = 0;
+  for (const v of G0.br) peak = Math.max(peak, Math.abs(v));
+  for (const [a] of segs) {
+    const la = a[0] * DEG, lo = a[1] * DEG, x = Math.cos(la) * Math.cos(lo), y = Math.cos(la) * Math.sin(lo), z = Math.sin(la), r = SOURCE_SURFACE * (1 - 1e-9);
+    f0(r * x, r * y, r * z, b0); worstBr = Math.max(worstBr, Math.abs(b0[0] * x + b0[1] * y + b0[2] * z));
+  }
+  check(segs.length > 100 && worstBr < 0.03 * peak, `CR 2300's neutral line: ${segs.length} segments, |Br| on them under ${(100 * worstBr / peak).toFixed(1)} % of the surface's peak`);
+  // Parker's spiral: at 1 AU a 400 km/s wind's field lies about 45 deg
+  // from the radial (47.0 for the Carrington sidereal rate), and a line
+  // turns 360 deg back from its foot in a sidereal period's travel.
+  const psi = spiralAngle(AU_KM, 400) / DEG, turn = spiralLongitude(0, SOURCE_SURFACE + (400 * 25.38 * 86400) / SUN_RADIUS_KM, 400) / DEG;
+  check(Math.abs(psi - 47) < 0.2 && Math.abs(turn + 360) < 1e-9 && Math.abs(OMEGA_SUN * 86400 / DEG - 14.184) < 0.001, `Parker spiral at 1 AU: ${psi.toFixed(2)} deg from radial at 400 km/s; Carrington sidereal rate ${(OMEGA_SUN * 86400 / DEG).toFixed(3)} deg/day`);
 }
 
 // ---- Uranus and Neptune: Voyager's offset tilted dipoles ----
@@ -476,6 +512,74 @@ console.log("Ganymede in Jupiter's field: vacuum superposition");
   for (let i = 0; i < 30; i++) { const mid = (lo2 + hi2) / 2; if (closedAt(mid)) hi2 = mid; else lo2 = mid; }
   const want = vacuumOcbColatitude(M, B0);
   check(Math.abs(hi2 - want) < 0.3, `open/closed boundary traced at ${hi2.toFixed(2)} deg colatitude; the flux function gives ${want.toFixed(2)} (latitude ${(90 - want).toFixed(1)} deg)`);
+}
+
+// ---- magnetopauses and bow shocks ----
+console.log('Magnetopauses and bow shocks');
+{
+  // Shue et al. 1998: "the value of Dp needs to be at least 7 nPa in order
+  // for a geosynchronous satellite to have a magnetopause crossing, even
+  // when the IMF is extremely southward" (their fit reaches Bz = -18 nT).
+  let lowest = Infinity;
+  for (let bz = -18; bz <= 15; bz += 0.5) lowest = Math.min(lowest, BND.shue98(6.99, bz).r0);
+  const at8 = BND.shue98(8, -18).r0;
+  check(lowest > 6.6 && at8 < 6.6, `Shue 1998: below 7 nPa the nose stays outside geosynchronous orbit at every Bz (closest ${lowest.toFixed(2)} R_E); at 8 nPa and Bz -18 it is inside (${at8.toFixed(2)})`);
+  const q = BND.shue98(2, 0);
+  check(Math.abs(q.r(1) - q.r0) < 1e-12 && Math.abs(q.r(0) - q.r0 * 2 ** q.alpha) < 1e-12, `eq. 1: r(0 deg) = r0 ${q.r0.toFixed(2)} R_E, r(90 deg) = r0 2^alpha ${q.r(0).toFixed(2)} (Dp 2 nPa, Bz 0)`);
+  // The solar wind's pressure: 5 cm^-3 at 400 km/s with 4 % helium.
+  const w = BND.solarWind(BND.QUIET_WIND);
+  check(Math.abs(w.dp - 1.16 * 1.67262192e-27 * 5e6 * 4e5 ** 2 * 1e9) < 1e-9 && w.mach > 5 && w.mach < 7, `quiet wind ${w.dp.toFixed(3)} nPa, magnetosonic Mach ${w.mach.toFixed(2)}`);
+  // Farris and Russell: Delta / Rc -> 0.81 (g - 1) / (g + 1) as M grows;
+  // the shock runs off to infinity as M -> 1.
+  const far = BND.farrisRussell(10, 1e4), weak = BND.farrisRussell(10, 1.05);
+  check(Math.abs(far.delta / far.rc - 0.81 / 4) < 1e-6 && weak.delta > 40, `bow shock standoff: Delta/Rc ${(far.delta / far.rc).toFixed(5)} at high Mach (0.2025), ${weak.delta.toFixed(0)} R_E ahead at Mach 1.05`);
+  // The hyperboloid: its nose, its radius of curvature there, and the Mach
+  // cone as its asymptote.
+  const bs = BND.bowShock(10.6, 6), rr = (th) => bs.r(Math.cos(th));
+  const x = (th) => rr(th) * Math.cos(th), y = (th) => rr(th) * Math.sin(th);
+  const curv = (() => { const t = 0.02, X = x(t), Y = y(t); return (Y * Y) / (2 * (bs.nose - X)); })();
+  const far2 = 1e4;
+  const cone = Math.atan(Math.hypot(bs.b * Math.sqrt(((bs.nose + bs.a + far2) / bs.a) ** 2 - 1), 0) / far2);
+  check(Math.abs(rr(0) - bs.nose) < 1e-9 && Math.abs(curv / (bs.rc + bs.delta) - 1) < 0.01 && Math.abs(cone - Math.asin(1 / 6)) < 0.02, `hyperboloid: nose ${bs.nose.toFixed(2)} R_E, nose radius ${curv.toFixed(2)} (Rc + Delta ${(bs.rc + bs.delta).toFixed(2)}), opening ${(cone / DEG).toFixed(2)} deg far downstream (Mach cone ${(Math.asin(1 / 6) / DEG).toFixed(2)})`);
+  // Rutala et al. 2025: the subsolar magnetopause at the 10th and 90th
+  // percentile pressures, 89 and 51 R_J (their medians; 0.02 and 0.22 nPa),
+  // and at the median 0.071 nPa a 13 % polar flattening at x = 0.
+  const J = (p) => BND.rutala(BND.RUTALA.magnetopause, p);
+  const j10 = J(0.02).r0, j90 = J(0.22).r0, jm = J(0.071);
+  const polar = jm.r(0, 0), dawn = jm.r(0, Math.PI / 2), dusk = jm.r(0, 1.5 * Math.PI);
+  check(Math.abs(j10 - 89) < 1 && Math.abs(j90 - 51) < 3 && Math.abs(1 - polar / dawn - 0.13) < 0.01 && dawn / dusk > 0.93 - 0.41 && dawn / dusk < 1, `Jupiter: subsolar magnetopause ${j10.toFixed(1)} and ${j90.toFixed(1)} R_J at 0.02 and 0.22 nPa (paper 89 and 51); at 0.071 nPa polar flattening ${((1 - polar / dawn) * 100).toFixed(1)} % (13 %), dawn/dusk ${(dawn / dusk).toFixed(2)} (0.93 +- 0.41)`);
+  // Points of the drawn mesh lie on the surface the inside test uses,
+  // flattening included.
+  const F = BND.sunFrame([0.3, -0.9, 0.2]), S = BND.pilkington(0.02), inside = BND.insideBoundary(F, S.r, S.flatten);
+  const rows = BND.boundaryMesh(F, S.r, { thetas: [10, 60, 100], nPhi: 16, flatten: S.flatten });
+  let onSurface = true;
+  for (const row of rows) for (const q of row) if (q) onSurface &&= inside(...q.map((v) => v * 0.999)) && !inside(...q.map((v) => v * 1.001));
+  check(onSurface && Math.abs(Math.hypot(...BND.boundaryMesh(F, S.r, { thetas: [90], nPhi: 4, flatten: S.flatten })[0][0]) / (S.r(0) * (1 - S.flatten)) - 1) < 1e-12, `Saturn (Pilkington 2015): the drawn surface is the one lines are cut at, 19 % flatter north-south (nose ${S.r0.toFixed(1)} R_S at 0.02 nPa)`);
+  // The Earth's lines end on the magnetopause.
+  const t = new Date(Date.UTC(2026, 2, 20, 12)), E = magneticModel('earth', t), sun = [1, 0, 0.0];
+  const T = withT89(E, sun, 3), mp = BND.shue98(2, 0), W = { ...T, within: BND.insideBoundary(T.gsm, mp.r) };
+  const d = E.dipole.m.map((v) => -v / E.dipole.moment), sd = d[0] * T.gsm.X[0] + d[1] * T.gsm.X[1] + d[2] * T.gsm.X[2];
+  const e0 = T.gsm.X.map((v, i) => v - sd * d[i]), en = Math.hypot(...e0);
+  let worst = 0, cut = 0;
+  for (const lat of [76, 80, 84]) {
+    const p = [0, 1, 2].map((i) => (Math.cos(lat * DEG) * e0[i] / en + Math.sin(lat * DEG) * d[i]) * 1.02);
+    const tl = traceLine(W, p, { eq: 1.0011, pol: 0.9978 }, { rMax: 60, maxSteps: 6000 });
+    for (const [end, at] of [[tl.ends[0], 0], [tl.ends[1], tl.strength.length - 1]]) {
+      if (end !== 'boundary') continue;
+      cut++;
+      const q = [tl.points[3 * at], tl.points[3 * at + 1], tl.points[3 * at + 2]], R = Math.hypot(...q);
+      const gx = q[0] * T.gsm.X[0] + q[1] * T.gsm.X[1] + q[2] * T.gsm.X[2];
+      worst = Math.max(worst, Math.abs(R / mp.r(gx / R) - 1));
+    }
+  }
+  check(cut >= 2 && worst < 1e-5, `${cut} line ends from the dayside cusp stop on the magnetopause, within ${worst.toExponential(1)} of it`);
+  // NOAA's propagated solar wind: rows averaged within 5 minutes.
+  const rowsN = [['time_tag', 'speed', 'density', 'temperature', 'bx', 'by', 'bz', 'bt', 'vx', 'vy', 'vz', 'propagated_time_tag'],
+    ['2026-11-18T04:28:00Z', 381.3, 2.8, 175614.0, -6.51, 3.92, -3.6, 8.45, -380.0, -28.6, -15.2, '2026-11-18T05:22:25Z'],
+    ['2026-11-18T04:29:00Z', 391.1, 2.81, 192855.0, -5.47, 5.75, -1.31, 8.49, -390.0, -27.7, -8.7, '2026-11-18T05:22:01Z'],
+    ['2026-11-18T04:30:00Z', null, null, null, null, null, null, null, null, null, null, '2026-11-18T05:23:44Z']];
+  const tab = BND.parsePropagated(rowsN), wn = BND.windNear(tab, Date.UTC(2026, 10, 18, 5, 22)), none = BND.windNear(tab, Date.UTC(2026, 10, 18, 6));
+  check(tab.length === 2 && Math.abs(wn.v - 386.2) < 1e-9 && Math.abs(wn.bz + 2.455) < 1e-9 && none === null, `NOAA's propagated wind parses (${tab.length} good rows of 3) and averages ${wn.v.toFixed(1)} km/s, Bz ${wn.bz.toFixed(2)} nT at 05:22`);
 }
 
 // ---- radiation belts ----

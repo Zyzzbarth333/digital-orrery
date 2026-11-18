@@ -71,13 +71,15 @@ where Horizons has no reconstruction
 ([docs/validation.md](../docs/validation.md#voyager-2-at-neptune-and-triton)).
 Horizons' Voyager 2 before 29 August 1989 is a patched-conic design
 trajectory, so `src/physics/flyby.fetch.mjs` reads NAIF's reconstruction
-of the Neptune encounter through it: `vgr2_nep097.bsp` (1.4 MB, from
-<https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/>, with nep097's
-Neptune and Triton) in `python/data/kernels/spk/missions/voyager2/`.
+of the Uranus and Neptune encounters through it: `vgr2.ura182.bsp`
+(1.0 MB, with URA182's Uranus and five major moons) and `vgr2_nep097.bsp`
+(1.4 MB, with nep097's Neptune and Triton), from
+<https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/>, in
+`python/data/kernels/spk/missions/voyager2/`.
 
 ```bash
 cmake --build c/build
-npm run fetch:flyby -- triton
+npm run fetch:flyby -- miranda triton
 ```
 
 `FLYBY_REF` names another build of the tool, and `KERNELS` another kernel

@@ -10,7 +10,10 @@
 //      with the moons the kernel follows Juno through the pass, without
 //      them it misses by thousands of kilometres; 3b and 3c, Juno at Io
 //      (PJ57, 30 December 2023) and Cassini at Titan (T45, 31 July 2008),
-//      which measure those moons' J2 and C22;
+//      which measure those moons' J2 and C22; 3d to 3f Europa, Enceladus
+//      and Saturn itself; 3g and 3h Voyager 2 at Neptune and at Uranus
+//      against NAIF's reconstructions, with the steps in their velocity
+//      (Voyager's thruster firings) found and put back;
 //   4. impacts on a moon, found where the step crossed its surface;
 //   5. the large moons' degree-2 fields (J2 and C22), and Jupiter's zonal
 //      field to J12.
@@ -25,6 +28,7 @@ import './moonNode.js';
 import { MAJOR_MOONS_OF as MOONS_OF, systemEqjAtTt } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
 import { helioStateEqjAtTt, ttSeconds, utcMsAtTt } from './ephemeris.js';
+import { zonalTerms } from './zonal.js';
 
 let failed = 0;
 const check = (ok, msg) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${msg}`); if (!ok) failed++; };
@@ -406,39 +410,153 @@ header("CASE 3f: Cassini's Grand Finale periapsis on Rev 278, 10 June 2017, agai
   check(Math.abs(jpl.closest - R.hzCA) < 0.1, `periapsis ${jpl.closest.toFixed(2)} km from Saturn's centre, Horizons ${R.hzCA.toFixed(2)} km`);
 }
 
+// The reconstruction restarted on every row: the kernel flown from each
+// 10-minute row of the craft's table to the next, against the table's
+// velocity there (m/s). Away from the bodies 0.1 mm/s is left; an interval
+// with over 1 mm/s and five times both its neighbours' is a step in the
+// reconstruction's velocity, from a firing of Voyager's thrusters, which the
+// reconstruction estimates and the kernel leaves out. withSteps() puts them
+// back, each as a constant acceleration over its interval.
+function intervals(file, planet, tweak = null) {
+  const fx = JSON.parse(fs.readFileSync(new URL(`./fixtures/${file}`, import.meta.url), 'utf8'));
+  const m = Object.fromEntries(Object.entries(fx.moons).map(([k, rows]) => [k, table(rows)])), c = table(fx.centre);
+  const rows = fx.craft.filter((r) => r[0] >= fx.span[0] - 1e-7 && r[0] <= fx.span[1] + 1e-7);
+  const tt0 = ttOf(rows[0][0]) - 3600;
+  const sys = solarSystemBodies({ epochMs: utcMsAtTt(tt0), satellites: { moon: (k, tt) => m[k](tt), offset: (_, tt) => c(tt) } });
+  if (tweak) tweak(sys);
+  const bary = (t) => helioStateEqjAtTt(planet, tt0 + t);
+  const all = rows.slice(1).map((b, i) => {
+    const a = rows[i], t0 = ttOf(a[0]) - tt0, t1 = ttOf(b[0]) - tt0, b0 = bary(t0);
+    const st = createState(b0.r.map((x, k) => x + a[1 + k]), b0.v.map((x, k) => x + a[4 + k]), t0);
+    advance(st, t1, { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7 });
+    const B = bary(t1), dv = [0, 1, 2].map((k) => b[4 + k] + B.v[k] - st.v[k]);
+    return { jd0: a[0], jd1: b[0], dv, n: Math.hypot(...dv) * 1000 };
+  });
+  const steps = all.filter((r, i) => r.n > 1e-3 && r.n > 5 * (all[i - 1]?.n ?? 0) && r.n > 5 * (all[i + 1]?.n ?? 0));
+  // The root sum square over the intervals between two times, steps left out.
+  const rss = (jd0, jd1) => Math.sqrt(all.filter((r) => r.jd0 >= jd0 - 1e-7 && r.jd1 <= jd1 + 1e-7 && !steps.includes(r)).reduce((a, r) => a + r.n * r.n, 0));
+  return { all, steps, rss };
+}
+const withSteps = (steps) => (sys) => {
+  const tt0 = ttSeconds(sys.epochMs), at = steps.map((s) => [ttOf(s.jd0) - tt0, ttOf(s.jd1) - tt0, s.dv]);
+  return (t, r, out) => {
+    out[0] = out[1] = out[2] = 0;
+    for (const [a, b, dv] of at) if (t >= a && t < b) for (let k = 0; k < 3; k++) out[k] = dv[k] / (b - a);
+    return out;
+  };
+};
+const hhmm = (jd) => new Date((jd - 2440587.5) * 864e5).toISOString().slice(11, 16);
+const stepList = (steps) => steps.map((s) => `${hhmm(s.jd0)} ${(s.n * 1000).toFixed(1)}`).join(', ');
+// A planet's pole as orientation.js has it (astronomy-engine, IAU 2009),
+// in place of the satellite kernel's (bodies.js poleAt).
+const iauPole = (planet) => (sys) => { const P = sys.bodyAt(planet, 0); P.poleAt = null; P.poleT = NaN; };
+const both = (...fs) => (sys) => fs.forEach((f) => f(sys));
+// A planet's zonal field set to other values (J2, { n: Jn }, R).
+const zonalOf = (planet, j2, jn, R) => (sys) => { const P = sys.bodyAt(planet, 0); P.j2 = j2; P.rJ2 = R; P.zn = zonalTerms(jn, R); };
+
 header("CASE 3g: Voyager 2 at Neptune and Triton, 25 August 1989, against NAIF's reconstruction");
 {
-  // Seven hours in to Neptune (03:55 TDB, 29,240 km from its centre, at
+  // Seven hours in to Neptune (03:56 TDB, 29,240 km from its centre, at
   // 27 km/s), then Triton five hours later (39,783 km) and six hours out.
   // Horizons' Voyager 2 is a patched-conic design trajectory until 29
   // August 1989, so the reference is NAIF's reconstruction of the
   // encounter, vgr2_nep097.bsp (R. Jacobson, 2022), sampled by
   // c/flyby_ref; it sits 35 km from the design one at Triton.
   // Neptune's field is the test: as a point mass Voyager is 1,100 km off
-  // at the end, with J2 alone 7 km, with J2 and J4 3.2 km. The error grows
-  // from Neptune's closest approach, and Neptune's J2 is the lever: one
-  // sigma of Jacobson 2009's fit larger (4.5e-6) leaves 2.0 km, two sigma
-  // 1.6 km, while Neptune's or Triton's GM nudged only makes it worse. The
-  // rest includes Voyager's own small accelerations (attitude thrusters,
-  // the RTGs' heat), which the reconstruction estimates and the kernel
-  // leaves out. Before 2000 the planets' places are astronomy-engine's;
-  // flown about Neptune's barycentre, their error only enters through the
-  // Sun's tide.
-  const R = flybyRuns('flyby_voyager2_triton.json', 'neptune', {
+  // at the end, with J2 alone 7 km. The field is nep097's, the one the
+  // reconstruction was fitted with (bodies.js): its J2 and J4 are Jacobson
+  // 2009's, which the kernel had, and its pole, 0.056 deg from the IAU's,
+  // takes the miss from 3.2 km to 2.6 km. Neptune's J2 two sigma larger
+  // (9e-6) lowers it further, to 1.6 km with the IAU pole, but the pass
+  // restarted on every row says otherwise: through closest approach that
+  // J2 doubles what is left. The rest is the reconstruction's own: six
+  // steps in its velocity (31 and 56 mm/s before Triton, 56 mm/s after it)
+  // and the residual through closest approach (up to 31 mm/s an interval),
+  // which no change to the field takes away; with the steps put back,
+  // 1.8 km.
+  // Before 2000 the planets' places are astronomy-engine's; flown about
+  // Neptune's barycentre, their error only enters through the Sun's tide.
+  const file = 'flyby_voyager2_triton.json';
+  const I = intervals(file, 'neptune'), J2UP = shiftZonal('neptune', 2, 9e-6 * (25225 / 24764) ** 2);
+  const R = flybyRuns(file, 'neptune', {
     variants: { "the same, Neptune's J2 alone": { tweak: zonalTo('neptune', 0) }, 'the same, Neptune a point mass': { tweak: pointMass('neptune') },
-      "the same, Neptune's J2 one sigma larger": { tweak: shiftZonal('neptune', 2, 4.5e-6) },
-      "the same, Neptune's J2 two sigma larger": { tweak: shiftZonal('neptune', 2, 9e-6) } },
+      "the same, the IAU pole": { tweak: iauPole('neptune') },
+      "the same, Jacobson 2009's field and the IAU pole": { tweak: both(iauPole('neptune'), zonalOf('neptune', 3408.43e-6, { 4: -33.40e-6 }, 25225)) },
+      "the same, J2 two sigma larger, the IAU pole": { tweak: both(iauPole('neptune'), J2UP) },
+      "the same, with the reconstruction's steps": { extraOf: withSteps(I.steps) } },
   });
-  const [none, ours, jpl, track, j2, pm, dj1, dj2] = R.runs, iN = atJd(R, 2447763.663194444), iE = R.jd.length - 1;
+  const [none, ours, jpl, track, j2, pm, iau, before, dj2, stepped] = R.runs, iN = atJd(R, 2447763.663194444), iE = R.jd.length - 1;
   R.craftName = 'Voyager 2';
   row(R, [['at Neptune', iN], ['6 h after Triton', iE]]);
+  // Through closest approach: 02:20 to 05:50 TDB, Neptune within 120,000 km.
+  const [ca0, ca1] = [2447763.597222, 2447763.743056];
+  const rssOf = (tweak) => intervals(file, 'neptune', tweak).rss(ca0, ca1);
+  const rIau = rssOf(iauPole('neptune')), rUp = rssOf(both(iauPole('neptune'), J2UP)), rNep = I.rss(ca0, ca1);
+  console.log(`  steps in the reconstruction (TDB, mm/s): ${stepList(I.steps)}`);
+  console.log(`  restarted on every row, through closest approach (rss, mm/s): nep097's field and pole ${(rNep * 1000).toFixed(1)}, the IAU pole ${(rIau * 1000).toFixed(1)}, J2 two sigma larger ${(rUp * 1000).toFixed(1)}`);
   check(none.err[iE] > 500, `without Triton (the system at its barycentre) Voyager 2 is ${none.err[iE].toFixed(0)} km off at the end`);
-  check(track.err[iN] < 0.3 && track.err[iE] < 4, `with Triton, ${track.err[iN].toFixed(3)} km off at Neptune, ${track.err[iE].toFixed(2)} km six hours after Triton`);
+  check(track.err[iN] < 0.3 && track.err[iE] < 3, `with Triton, ${track.err[iN].toFixed(3)} km off at Neptune, ${track.err[iE].toFixed(2)} km six hours after Triton (under 3 km)`);
   check(pm.err[iE] > 100 * track.err[iE] && j2.err[iE] > 1.5 * track.err[iE], `Neptune as a point mass ${pm.err[iE].toFixed(0)} km, with J2 alone ${j2.err[iE].toFixed(1)} km: the pass measures its J2 and J4`);
-  check(dj1.err[iE] < track.err[iE] && dj2.err[iE] < dj1.err[iE],
-    `Neptune's J2 is the lever: one sigma larger ${dj1.err[iE].toFixed(2)} km, two sigma ${dj2.err[iE].toFixed(2)} km`);
-  // Sampled every 10 s at 18 km/s; the error has grown to 1.7 km by Triton.
+  check(iau.err[iE] > track.err[iE] + 0.3 && Math.abs(before.err[iE] - iau.err[iE]) < 0.1 && rIau > rNep,
+    `nep097's pole: ${track.err[iE].toFixed(2)} km, the IAU pole ${iau.err[iE].toFixed(2)} km (with Jacobson 2009's field, as before, ${before.err[iE].toFixed(2)} km)`);
+  check(dj2.err[iE] < iau.err[iE] && rUp > 1.5 * rIau,
+    `J2 two sigma larger: ${dj2.err[iE].toFixed(2)} km at the end, but ${(rUp * 1000).toFixed(0)} mm/s through closest approach against ${(rIau * 1000).toFixed(0)}: it makes up for the steps`);
+  check(I.steps.length >= 4 && stepped.err[iE] < 0.8 * track.err[iE], `with the reconstruction's ${I.steps.length} steps put back, ${stepped.err[iE].toFixed(2)} km`);
+  // Sampled every 10 s at 18 km/s; the error has grown to 1.3 km by Triton.
   check(Math.abs(track.closest - R.hzCA) < 2.5, `closest approach ${track.closest.toFixed(2)} km from Triton's centre, the reconstruction ${R.hzCA.toFixed(2)} km`);
+}
+
+header("CASE 3h: Voyager 2 at Miranda and Uranus, 24 January 1986, against NAIF's reconstruction");
+{
+  // Eight hours in to Miranda (17:04 TDB, 28,242 km from its centre, at
+  // 20 km/s) and Uranus an hour later (18:00, 107,153 km, 4.2 radii), then
+  // twelve hours out. The reference is NAIF's vgr2.ura182.bsp (R.
+  // Jacobson, 2025), with URA182's Uranus and moons, the solution it was
+  // fitted with (Jacobson and Park 2025): the kernel has URA182's field
+  // and moon GMs (bodies.js). The flight starts at 10:00, after 50 minutes
+  // of thruster firing in the reconstruction (0.24 m/s). Restarted on
+  // every row, the pass shows Uranus's J2 (0.31 m/s over closest approach
+  // as a point mass, against 0.6 mm/s), each moon's pull, and J4 and J6
+  // faintly (0.63 mm/s without them). Flown through, the miss is the
+  // reconstruction's eight steps (up to 60 mm/s, three of them 2-3 mm/s
+  // as Voyager passed Miranda): with them put back, 2.3 km becomes 0.3 km.
+  // URA182's field and GMs against Jacobson 2014's field and Horizons'
+  // GMs (Oberon 205.34, Miranda 4.3), as before: 2.34 and 2.40 km.
+  const file = 'flyby_voyager2_miranda.json';
+  const I = intervals(file, 'uranus'), off = (k) => (sys) => { sys.bodyAt(k, 0).mu = 0; };
+  const horizonsGm = (sys) => { for (const k of ['miranda', 'ariel', 'umbriel', 'titania', 'oberon']) sys.bodyAt(k, 0).mu = MOON_DATA[k].gm; };
+  const ura111 = zonalOf('uranus', 3510.7e-6, { 4: -34.2e-6 }, 25559), S = { extraOf: withSteps(I.steps) };
+  const moons = ['miranda', 'ariel', 'umbriel', 'titania', 'oberon'];
+  const R = flybyRuns(file, 'uranus', {
+    variants: { 'the same, Uranus a point mass': { tweak: pointMass('uranus') }, "the same, Uranus's J2 alone": { tweak: zonalTo('uranus', 0) },
+      "the same, Jacobson 2014's field and Horizons' GMs": { tweak: both(ura111, horizonsGm) },
+      "the same, with the reconstruction's steps": S,
+      ...Object.fromEntries(moons.map((k) => [`the same, with the steps, without ${MOON_DATA[k].name}`, { ...S, tweak: off(k) }])) },
+  });
+  const [none, ours, jpl, track, pm, j2, before, stepped, ...without] = R.runs, iU = atJd(R, 2446455.25), iE = R.jd.length - 1;
+  R.craftName = 'Voyager 2';
+  row(R, [['at Uranus', iU], ['12 h after it', iE]]);
+  // Through closest approach: 15:10 to 21:00 TDB, Uranus within 210,000 km.
+  const [ca0, ca1] = [2446455.131944, 2446455.375];
+  const rssOf = (tweak) => intervals(file, 'uranus', tweak).rss(ca0, ca1);
+  const r0 = I.rss(ca0, ca1), rPm = rssOf(pointMass('uranus')), rJ2 = rssOf(zonalTo('uranus', 0)), rBefore = rssOf(both(ura111, horizonsGm));
+  const rOff = Object.fromEntries(moons.map((k) => [k, rssOf(off(k))]));
+  console.log(`  steps in the reconstruction (TDB, mm/s): ${stepList(I.steps)}`);
+  console.log(`  restarted on every row, through closest approach (rss, mm/s): URA182 ${(r0 * 1000).toFixed(2)}, Uranus a point mass ${(rPm * 1000).toFixed(1)}, J2 alone ${(rJ2 * 1000).toFixed(2)}, Jacobson 2014's field and Horizons' GMs ${(rBefore * 1000).toFixed(2)}; without ${moons.map((k) => `${MOON_DATA[k].name} ${(rOff[k] * 1000).toFixed(2)}`).join(', ')}`);
+  check(none.err[iE] > 50, `without the moons (the system at its barycentre) Voyager 2 is ${none.err[iE].toFixed(0)} km off at the end`);
+  check(track.err[iU] < 1 && track.err[iE] < 3, `with the moons, ${track.err[iU].toFixed(3)} km off at Uranus, ${track.err[iE].toFixed(2)} km twelve hours after it (under 3 km)`);
+  check(I.steps.length >= 6 && stepped.err[iE] < 0.5 && stepped.err[iE] < track.err[iE] / 4,
+    `with the reconstruction's ${I.steps.length} steps put back, ${stepped.err[iE].toFixed(3)} km: the steps are the miss`);
+  check(pm.err[iE] > 4 * track.err[iE] && rPm > 100 * r0, `Uranus as a point mass ${pm.err[iE].toFixed(1)} km, and ${(rPm * 1000).toFixed(0)} mm/s restarted on every row: the pass measures its J2`);
+  // The table's rounding (1e-4 km, 1e-7 km/s) leaves about 0.07 mm/s an
+  // interval, 0.4 mm/s over these 35.
+  check(rJ2 > r0 && Math.abs(j2.err[iE] - track.err[iE]) < 0.01,
+    `its J4 and J6 show only restarted (${(rJ2 * 1000).toFixed(2)} mm/s without them); flown, they move the miss by ${(Math.abs(j2.err[iE] - track.err[iE]) * 1000).toFixed(0)} m, 4.2 radii out`);
+  check(moons.every((k) => rOff[k] > r0) && ['ariel', 'titania', 'oberon'].every((k) => rOff[k] > 2 * r0),
+    `every moon's pull shows: restarted, ${(r0 * 1000).toFixed(2)} mm/s with all five, ${moons.map((k) => `${(rOff[k] * 1000).toFixed(2)} without ${MOON_DATA[k].name}`).join(', ')}`);
+  check(rBefore > r0, `URA182's field and GMs against Jacobson 2014's and Horizons': ${(r0 * 1000).toFixed(2)} and ${(rBefore * 1000).toFixed(2)} mm/s restarted, ${track.err[iE].toFixed(2)} and ${before.err[iE].toFixed(2)} km flown`);
+  check(without.every((w) => w.err[iE] > stepped.err[iE]), `with the steps, each moon left out: ${moons.map((k, i) => `${MOON_DATA[k].name} ${without[i].err[iE].toFixed(2)}`).join(', ')} km`);
+  check(Math.abs(track.closest - R.hzCA) < 1, `closest approach ${track.closest.toFixed(2)} km from Miranda's centre, the reconstruction ${R.hzCA.toFixed(2)} km`);
 }
 
 header("CASE 3c: Cassini's flyby of Titan, 31 July 2008 (T45), against JPL's reconstruction");
