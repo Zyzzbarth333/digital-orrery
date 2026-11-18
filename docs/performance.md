@@ -72,7 +72,10 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   `earth-fill` (the Earth at 9,000 km, filling the view), `craft-warp`
   (`craft-far` with the clock at a day a second) and the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`) run by name,
-  and `all` runs every one; `--list` lists them.
+  as do the gravity guides' field (`field-jupiter`, `field-rotating`,
+  `field-belt`, each switched on by a scenario's `setup`) beside the same
+  views without it (`jupiter-far`, `earth-moon`, `belt`), and `all` runs
+  every one; `--list` lists them.
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**

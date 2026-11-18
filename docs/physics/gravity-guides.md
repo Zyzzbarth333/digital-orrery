@@ -107,7 +107,20 @@ surface, if that is farther). The legend gives the scale's ends and middle.
    motion.
 3. **Plane:** a disc 40 times the camera's distance across, through the
    focus, depth-tested against the bodies, shows the flow and the
-   brightness, and the contours in the rotating frame.
+   brightness. In the rotating frame it works out the Jacobi constant
+   again at every screen pixel, from the pair alone, so the contours are
+   a pixel wide and unbroken rather than sampled from the half-resolution
+   target. Each line's width comes from the derivative of the contour
+   variable itself, not of its wrapped value, which jumps at every
+   contour and would break the line into dashes.
+
+**Under the cursor.** A tag beside the pointer gives the field where its
+ray meets the plane, summed again in double precision (`gravityFlow.js`)
+in the frame shown: $|\mathbf a|$ to four figures, the body whose single
+pull is strongest there, and in the rotating frame the Jacobi constant
+$C$. On the Earth–Moon L1 marker it reads $C$ = 3.18834 and a pull of
+5.7 µm/s², where a few thousand kilometres off it is millimetres a
+second squared.
 
 **Check.** `gravityFlow.test.mjs` compares the sum with the kernel's own
 force sum (`nbody.js`, written separately) at six places, from 100 km
@@ -127,18 +140,22 @@ the Hessian there makes L1–L3 saddles and L4 and L5 peaks. The Earth–Moon
 Jacobi constants 3.1883, 3.1722, 3.0121 and 2.9880 at L1–L4 match Koon,
 Lo, Marsden and Ross [9].
 
-**Cost.** Interleaved runs on the Intel UHD iGPU and the RTX 5070 Ti, a
-1440 × 900 window, median frame:
+**Cost.** `npm run bench:frames` ([performance](../performance.md#measuring))
+on the Intel UHD iGPU and the RTX 5070 Ti, 1920 × 1080, median frame cost
+over three rounds, each view with the guide off and on:
 
-| View | Intel, before → after | RTX, before → after |
+| View | Intel, off → on | RTX, off → on |
 | --- | --- | --- |
-| Jupiter at 6 million km, field (falling) and spin arrows | 12.7 → 14.7 ms | 6.3 → 6.9 ms |
-| Earth and Moon at 1.3 million km, field (rotating) | 13.4 → 15.2 ms | 6.4 → 6.9 ms |
-| The Sun at 1.2 billion km, field (inertial) | 15.1 → 15.3 ms | 7.8 → 8.1 ms |
-| Earth, Saturn and Jupiter, guides off (the orbit lines' fade) | 13.2, 12.2, 12.8 → 12.9, 11.5, 12.6 ms | 6.8, 6.1, 6.3 → 6.0, 6.0, 6.1 ms |
+| Jupiter at 6 million km, field (falling) and spin arrows | 15.0 → 17.9 ms | 7.6 → 8.1 ms |
+| The Earth and the Moon at 1.3 million km, field (rotating) | 16.5 → 17.1 ms | 7.8 → 8.3 ms |
+| The asteroid belt at 9 × 10⁸ km, field (inertial) | 16.6 → 19.1 ms | 7.9 → 8.5 ms |
 
-The field costs about 2 ms a frame on the iGPU and under 1 ms on the RTX,
-and nothing while it is off.
+The field costs up to 3 ms a frame on the iGPU at this size (the field
+pass sums 54 bodies at each of half a million pixels; the rotating frame
+sums two) and about half a millisecond on the RTX, and nothing while it is
+off. The orbit lines' fade costs nothing measurable: with the guides off,
+Earth, Saturn and Jupiter drew in 12.9, 11.5 and 12.6 ms on the iGPU
+against 13.2, 12.2 and 12.8 ms before it (1440 × 900).
 
 ## Spin axes and direction
 

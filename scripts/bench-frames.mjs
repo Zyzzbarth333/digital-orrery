@@ -63,6 +63,16 @@ const SCENARIOS = {
   'jupiter-in': { label: 'Inside Jupiter\'s rings', query: `?focus=jupiter&${DATE}`, km: 200000 },
   'uranus': { label: 'Uranus and its rings', query: `?focus=uranus&${DATE}`, km: 200000 },
   'neptune': { label: 'Neptune and its rings', query: `?focus=neptune&${DATE}`, km: 250000 },
+  // The gravity guides' field of every body (docs/physics/gravity-guides.md),
+  // each beside the same view with the guides off.
+  'jupiter-far': { label: 'Jupiter\'s moons', query: `?focus=jupiter&${DATE}`, km: 6e6 },
+  'field-jupiter': { label: 'Jupiter\'s moons, gravity field (falling) and spin arrows', query: `?focus=jupiter&${DATE}`, km: 6e6,
+    setup: "orrery.guides.set('flow', true); orrery.guides.set('axes', true); orrery.guides.setFlow('falling', 'orbit')" },
+  'earth-moon': { label: 'The Earth and the Moon', query: `?focus=moon&${DATE}`, km: 1.3e6 },
+  'field-rotating': { label: 'The Earth and the Moon, gravity field (rotating)', query: `?focus=moon&${DATE}`, km: 1.3e6,
+    setup: "orrery.guides.set('flow', true); orrery.guides.setFlow('rotating', 'orbit')" },
+  'field-belt': { label: 'The asteroid belt, gravity field (inertial)', query: `?focus=sun&${DATE}`, km: 9e8,
+    setup: "orrery.guides.set('flow', true); orrery.guides.setFlow('inertial', 'orbit')" },
 };
 const DEFAULTS = ['earth', 'belt', 'craft-near', 'craft-far', 'point-near', 'point-far'];
 const GPU_NAME = { intel: 'Intel', nvidia: 'NVIDIA' };
@@ -113,6 +123,7 @@ async function measure(p, base, sc, opts) {
     await p.zoomTo(sc.km);
     await p.waitFor(`Math.abs(Math.log(orrery.rig.dist / ${sc.km})) < 0.02`, 15000);
     if (sc.rate) await p.setRate(sc.rate);
+    if (sc.setup) await p.eval(sc.setup);
     await p.wait(opts.settle * 1000);
     await p.eval(RESET);
     await p.wait(opts.seconds * 1000);
