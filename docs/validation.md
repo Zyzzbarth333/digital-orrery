@@ -422,7 +422,7 @@ trajectory (BET revF, NAIF SPK). See [Artemis II](validation/artemis2.md).
 
 ## Journeys (`journey.test.mjs`)
 
-Curtis's chapter 6, 8 and 13 worked examples, the journey's chaining rules,
+Curtis's chapter 4, 6, 8 and 13 worked examples, the journey's chaining rules,
 and journeys flown by the kernel to their waypoints; the table is in
 [the journey page](physics/journey.md#validation-journeytestmjs).
 
@@ -436,6 +436,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 60 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 47 m/s) |
 | Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,257 (1.4 %, within 3 %); lows a month apart; the best day priced 1,657, flown 1,666 |
 | Mars orbit to the Moon, flown: lunar orbit and a landing | the plan | 1.3 km off the planned periapsis; capture within 3 % of its price; down at 2.3 m/s |
+| The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's; the burn out of the plane; a year at Mars priced and flown, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % (within 0.25 %); to 0.1 m/s; the planned day 2,911 m/s, flown 3,043 (4.3 %); the wait 12.5 d, flown 11.5 (2,025 against 2,070 m/s); the parking orbit lamp's day 2,008, flown 2,086 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 20-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 205 m/s of corrections against the direct arc's 679 |
 
@@ -498,6 +499,34 @@ navigation's as-flown ephemeris (through JPL Horizons). See
 | Farthest from Earth | 432,207 km above the surface at 21:06 UTC, 28 Nov (NASA: 268,563 mi, 432,210 km, 21:06:10) |
 | Joins between NASA's navigation solutions | 67; velocity steps median 0.074 m/s, position median 49 m |
 | The app's mission file (`public/missions/artemis1.json`), flown as the app flies it: full environment and random vent, through the Craft model and kernel host | its 18 burns within 1 % of NASA's; with a fix every 12 h, never more than 275 km off, 6 km at the end, flybys 130.3 and 129.0 km; with no fixes and the burns aimed from the craft, never more than 238 km off, 0.9 km at the end, flybys 124.6 and 130.6 km, for 31.8 m/s more than the flown burns (blind: 712,000 km at the end) |
+
+## Real flight: Juno's Earth flyby (`missions.validate.mjs`)
+
+Juno from 25 August 2012 to 30 November 2013 against JPL's navigation
+reconstruction (through JPL Horizons). See
+[Juno 2012–13](validation/juno2013.md).
+
+| Check | Result |
+| --- | --- |
+| DSM-1 and DSM-2, found in the trajectory | 344.28 m/s in 1,780 s and 387.94 m/s in 1,770 s (NASA: about 344 m/s in 29 min 39 s, about 388 m/s in 30 min); DSM-2 lit at NASA's 22:30:00 UTC |
+| 10 coast arcs, 6–210 days, about the Sun | gravity alone rms 2,062 km at the ends; with sunlight on the arrays fitted (91 % of the craft as built), rms 139 km, worst 398 km (the 210-day arc); under 5 km for the first three weeks |
+| The Earth flyby | 561.1 km above the ellipsoid at 19:21:25 UTC (559 km, 19:21 published); the kernel through the pass ends 35 m and 1.8 mm/s off (J2 alone: 0.72 km, 36 mm/s); 125,531 to 139,377 km/h about the Sun (126,000 to 140,000) |
+| The flyby anomaly | Anderson's formula predicts 6.4 mm/s; the kernel's v∞ after the pass is 0.47 mm/s from the reconstruction's |
+| The app's file (`public/missions/juno2013.json`), flown as the app flies it | aimed: perigee 561.7 km (flown 561.8), 0.1 km off at the end, 157 km at worst, for 0.29 m/s more than the flown burns; blind, it hits the Earth |
+
+## Real flight: DART's impact on Dimorphos (`missions.validate.mjs`)
+
+DART from 20 August 2022 to its impact on 26 September against its
+navigation reconstruction and final solution (through JPL Horizons). See
+[DART](validation/dart.md).
+
+| Check | Result |
+| --- | --- |
+| SMART Nav's terminal guidance, found in the trajectory | toward Dimorphos 22:24:50 to 23:11:50 UTC (Daly et al.: from 50 minutes before the impact, 22:24:24, to 23:11:52), 0.586 m/s |
+| LICIACube's release | a 33 mm/s step at 23:13:50 on 11 September (published 23:14 UTC) |
+| 4 coast arcs, 4–19 days, about the Sun | gravity alone rms 179 km at the ends; with sunlight on the arrays fitted (72 % of a flat plate), rms 11.6 km, worst 20.4 km |
+| The impact, on the final solution | 23.6 m from Dimorphos's centre at 6.14478 km/s, the centre's closest point 14 ms after the impact (Daly et al.: 25 ± 1 m, 6.1449 ± 0.0003 km/s, 23:14:24.183 at the surface) |
+| The app's file (`public/missions/dart.json`), flown as the app flies it | aimed: 23 m from Dimorphos's centre, for 2.59 m/s more than the flown burns; blind, 180 km |
 
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 

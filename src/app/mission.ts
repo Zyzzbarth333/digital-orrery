@@ -80,6 +80,8 @@ export const REAL_MISSIONS = [
   { id: 'artemis1', label: 'Artemis I · Nov 2022' },
   { id: 'artemis2', label: 'Artemis II · April 2026' },
   { id: 'artemis2-plan', label: 'Artemis II · our own plan' },
+  { id: 'juno2013', label: 'Juno · Earth flyby, 2012–13' },
+  { id: 'dart', label: 'DART · impact on Dimorphos, Sep 2022' },
 ];
 // Orion as the app flies a real mission: its mass falling burn by burn,
 // its sunlit area and its venting (ORION_CRAFT in src/physics/orion.js).
@@ -98,7 +100,7 @@ export class Mission {
   private lastNotify = 0;
   private lastJumps = 0;
   private count = 0;
-  private paths = new Map<number, { trail: Trail; conic: V3[]; at: number; version: number }>();
+  private paths = new Map<number, { trail: Trail; conic: V3[]; at: number; version: number; rMax: number }>();
   private plans = new Map<number, { target: string; name: string; arrivalMs: number; closest: number }>();
   private real = new Map<number, RealRun>();
   ascents: Ascent[] = [];
@@ -292,7 +294,9 @@ export class Mission {
   // Fly a real mission from its start (the clock should already be there).
   flyReal(m: RealMission, burns: RealBurns = 'all'): Craft {
     const s = m.startState();
-    const c = new Craft({ name: m.name, r: s.r as V3, v: s.v as V3, t: s.t, sys: this.sys, ...ORION });
+    // The file's own craft (its mass, sunlit area and engine), or Orion.
+    const model = m.data.craftModel ? { ...m.data.craftModel, vent: null } : ORION;
+    const c = new Craft({ name: m.name, r: s.r as V3, v: s.v as V3, t: s.t, sys: this.sys, ...model });
     const keep = burns === 'all' ? m.burns : m.burns.slice(0, 1);
     c.setScript(new RealMission({ ...m.data, burns: keep }).script());
     c.note(burns === 'all' ? `${m.burns.length} burns scripted as flown` : `${keep[0].name} scripted as flown; the corrections are yours`, s.t);
@@ -427,13 +431,14 @@ export class Mission {
       const vP: number[] = P ? P.eph.velocity(c.clockT) : [0, 0, 0];
       const rel = [s.r[0] - rP[0], s.r[1] - rP[1], s.r[2] - rP[2]];
       let path = this.paths.get(c.id);
-      if (!path) { path = { trail: new Trail(), conic: [], at: 0, version: 0 }; this.paths.set(c.id, path); }
+      if (!path) { path = { trail: new Trail(), conic: [], at: 0, version: 0, rMax: 0 }; this.paths.set(c.id, path); }
       const before = path.trail.points.length + (path.trail.key === key ? 0 : -1);
       if (!c.crashed) path.trail.push(key, eqjToEclFast(rel));
       let changed = path.trail.points.length !== before;
       if (now - path.at > 200) {
         const mu = P ? P.mu : this.sys.muSun;
         const rMax = P ? Math.hypot(rP[0], rP[1], rP[2]) * Math.pow(mu / this.sys.muSun, 0.4) : 50 * 1.496e8;
+        path.rMax = rMax;
         const relV = [s.v[0] - vP[0], s.v[1] - vP[1], s.v[2] - vP[2]];
         path.conic = c.crashed ? [] : conicPoints(rel, relV, mu, rMax).map(eqjToEclFast);
         path.at = now;
@@ -441,7 +446,10 @@ export class Mission {
       }
       if (changed) path.version++;
       const R = this.real.get(c.id);
-      const E = R ? this.sys.bodyAt('earth', c.clockT) : null;
+      // The flown path is drawn about the file's centre: the Earth, or the
+      // Sun at the origin.
+      const centre = R?.m.centre ?? 'earth';
+      const E = R && centre !== 'sun' ? this.sys.bodyAt(centre, c.clockT) : null;
       // A craft's attitude: its body axes and the reference it turns to, in
       // ecliptic axes, for the scene's triad.
       let attitude: CraftView['attitude'];
@@ -454,8 +462,9 @@ export class Mission {
       return {
         id: c.id, name: c.name, rEcl: eqjToEclFast(s.r), primaryEcl: eqjToEclFast(rP),
         conicEcl: path.conic, trailEcl: path.trail.points, pathVersion: path.version,
+        orbit: c.crashed ? undefined : { r: eqjToEclFast(rel), v: eqjToEclFast([s.v[0] - vP[0], s.v[1] - vP[1], s.v[2] - vP[2]]), mu: P ? P.mu : this.sys.muSun, rMax: path.rMax },
         thrusting: c.thrusting(), crashed: c.crashed, selected: c.id === this.snap.selected,
-        flown: R && E ? { pointsEcl: R.refEcl, originEcl: eqjToEclFast(E.eph.position(c.clockT)) } : undefined,
+        flown: R && (E || centre === 'sun') ? { pointsEcl: R.refEcl, originEcl: E ? eqjToEclFast(E.eph.position(c.clockT)) : [0, 0, 0] } : undefined,
         attitude,
       };
     });
