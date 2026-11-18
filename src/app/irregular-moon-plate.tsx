@@ -63,8 +63,8 @@ export function IrregularMoonPlate({ clock, moon: m }: { clock: SimClock; moon: 
       <Readout rows={rows} />
       <div className="plate-notes">
         <p>{source === 'table'
-          ? `Placed by JPL's ${m.kernel} satellite ephemeris (within 1 km of it). It does not pull on spacecraft. Choose a body in the rail to leave it.`
-          : `Placed on JPL's mean ellipse, fitted to Horizons: within ${fmtGroup(m.fit.maxKm)} km of it over 2000–2050 (${fmtGroup(m.fit.rmsKm)} km rms), a rough place. It does not pull on spacecraft. Choose a body in the rail to leave it.`}</p>
+          ? `Placed by JPL's ${m.kernel} satellite ephemeris (within ${m.naif === 65273 ? '1,000' : '1'} km of it). It does not pull on spacecraft. Choose a body in the rail to leave it.`
+          : `Placed on JPL's mean ellipse, fitted to Horizons: within ${fmtGroup(m.fit.maxKm)} km of it over 2000–2050 (${fmtGroup(m.fit.rmsKm)} km rms), a rough place (the tables cover 2000–2049). It does not pull on spacecraft. Choose a body in the rail to leave it.`}</p>
       </div>
     </div>
   );

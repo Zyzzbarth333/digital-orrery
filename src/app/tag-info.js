@@ -160,8 +160,8 @@ export const TAG_INFO = {
   'irr-position-table': {
     what: 'Where the moon is about its planet\'s centre in JPL\'s own integration of its orbit, with the Sun\'s and the planets\' pull: as its point is drawn.',
     tex: ['\\mathbf r = \\mathbf r_\\text{moon} - \\mathbf r_\\text{planet}'],
-    where: 'both about the system barycentre, from Chebyshev series within 0.5 km of the satellite ephemeris, 2000 to 2049, loaded a system and a year at a time while the layer is shown',
-    source: 'JPL satellite ephemerides jup347, sat456, nep104 (NAIF) · docs/frontend/moons.md',
+    where: 'both about the system barycentre, from Chebyshev series within 0.5 km of the satellite ephemeris (1000 km for S/2023 S 38, whose e = 0.909 orbit dives to 1.1 million km), 2000 to 2049, loaded a system and a year at a time while the layer is shown',
+    source: 'JPL satellite ephemerides jup347, jup348, jup349, sat455, sat456, sat457, sat459, nep104 (NAIF) · docs/frontend/moons.md',
   },
   'irr-position-elements': {
     what: 'Where the moon is about its planet, on a precessing ellipse in the ecliptic from JPL\'s mean elements, with corrections fitted to JPL Horizons. The Sun pulls an irregular moon about far more than this allows: a rough place only.',

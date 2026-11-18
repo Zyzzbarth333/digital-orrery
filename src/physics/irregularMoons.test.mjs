@@ -3,10 +3,11 @@
 // The irregular moons of Jupiter, Saturn and Neptune (irregularMoons.js)
 // against JPL Horizons (fixtures/irregular_moons_horizons.json, from
 // irregularMoons.fetch.mjs): each moon about its planet's centre at five
-// dates from 2000 to 2049, none of them used in any fit. The moons with
-// tables (jup347, sat456, nep104) should be within about a kilometre of
-// Horizons; the others, on the mean elements, within what their fit left
-// over 2000-2050, with a quarter more room. docs/frontend/moons.md lists
+// dates from 2000 to 2049, none of them used in any fit. From the tables
+// (all 381, from JPL's eight kernels) each should be within about a
+// kilometre of Horizons; from the mean elements, the fallback outside
+// 2000-2049, within what their fit left over 2000-2050, with a quarter
+// more room. docs/frontend/moons.md lists
 // the results.
 //
 //   node src/physics/irregularMoons.test.mjs
@@ -37,8 +38,7 @@ check(named.every((k) => k in IRREGULAR_DATA), `the ${named.length} asked-for mo
 
 const TABLED = IRREGULAR_KEYS.filter((k) => TABLE_KERNELS.has(IRREGULAR_DATA[k].kernel));
 const at2026 = ttOf(2461362.5);
-check(TABLED.every((k) => irregularSource(k, at2026) === 'table'), `${TABLED.length} moons come from the tables in 2026 (jup347, sat456, nep104)`);
-check(IRREGULAR_KEYS.filter((k) => !TABLED.includes(k)).every((k) => irregularSource(k, at2026) === 'elements'), `${IRREGULAR_KEYS.length - TABLED.length} from the mean elements (${[...new Set(IRREGULAR_KEYS.filter((k) => !TABLED.includes(k)).map((k) => IRREGULAR_DATA[k].kernel))].join(', ')}: kernels not used here)`);
+check(TABLED.length === IRREGULAR_KEYS.length && TABLED.every((k) => irregularSource(k, at2026) === 'table'), `all ${TABLED.length} moons come from the tables in 2026 (${[...TABLE_KERNELS].join(', ')})`);
 
 // The tables' files: one a system a year, 2000-2049.
 {
@@ -47,18 +47,21 @@ check(IRREGULAR_KEYS.filter((k) => !TABLED.includes(k)).every((k) => irregularSo
     const u = new URL(`../../public/ephemeris/moons/${p}-irregular-${y}.bin`, import.meta.url);
     if (fs.existsSync(u)) { bytes += fs.statSync(u).size; files++; }
   }
-  check(files === 150 && bytes < 10e6, `${files} irregular-moon table files, ${(bytes / 1e6).toFixed(2)} MB (under 10 MB)`);
+  check(files === 150 && bytes < 30e6, `${files} irregular-moon table files, ${(bytes / 1e6).toFixed(2)} MB (under 30 MB)`);
 }
 
 console.log('\nFrom the tables (km from Horizons, worst of the five dates):');
 const worstBy = {};
+// S/2023 S 38 (e = 0.909) is fitted to 1000 km, not 0.5 (c/moon_cheb.c tol_of).
+const LOOSE = 'S/2023 S 38', LOOSE_LIMIT_KM = 1001;
 for (const k of TABLED) {
   const e = Math.max(...err(k, hz.moons[k]));
+  if (IRREGULAR_DATA[k].name === LOOSE) { check(e <= LOOSE_LIMIT_KM, `${LOOSE} (e ${IRREGULAR_DATA[k].e}, fitted to 1000 km): ${e.toFixed(1)} km at these dates`); continue; }
   const kern = IRREGULAR_DATA[k].kernel;
   if (!worstBy[kern] || e > worstBy[kern][1]) worstBy[kern] = [k, e];
   if (e > TABLE_LIMIT_KM) check(false, `${IRREGULAR_DATA[k].name} ${e.toFixed(3)} km (limit ${TABLE_LIMIT_KM})`);
 }
-for (const [kern, [k, e]] of Object.entries(worstBy)) check(e <= TABLE_LIMIT_KM, `${kern}: every moon within ${TABLE_LIMIT_KM} km; worst ${IRREGULAR_DATA[k].name}, ${e.toFixed(3)} km`);
+for (const [kern, [k, e]] of Object.entries(worstBy)) check(e <= TABLE_LIMIT_KM, `${kern}: every moon${kern === 'sat455' ? ` but ${LOOSE}` : ''} within ${TABLE_LIMIT_KM} km; worst ${IRREGULAR_DATA[k].name}, ${e.toFixed(3)} km`);
 
 console.log('\nFrom the mean elements (tables off; km, worst of the five dates):');
 setMoonTablesEnabled(false);

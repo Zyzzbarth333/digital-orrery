@@ -16,8 +16,8 @@
 // from the kernels into public/ephemeris/moons-extra/, which git ignores.
 // Where an inner file is missing, those moons quietly use the mean elements.
 //
-// The irregular moons of Jupiter, Saturn and Neptune (jup347, sat456,
-// nep104; irregularMoons.js) are in a third part, <system>-irregular-
+// The irregular moons of Jupiter, Saturn and Neptune (jup347-jup349,
+// sat455-sat459, nep104; irregularMoons.js) are in a third part, <system>-irregular-
 // <year>.bin, about the system barycentre like the rest, for every year
 // 2000-2049. They are fetched only while their layer is shown
 // (wantIrregularTables), or, with onMiss, when one is asked for.

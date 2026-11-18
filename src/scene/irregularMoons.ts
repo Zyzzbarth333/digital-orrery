@@ -4,9 +4,9 @@
 // irregularMoons.js) as a layer the rail shows or hides, off by default
 // (docs/frontend/moons.md#the-irregular-moons). Each is a small point of
 // fixed size, a drawing aid like the markers rather than a photometric
-// star (the brightest, Himalia, is magnitude 15 from the Earth); the 138
-// from JPL's integrations, and the one flown to, have an orbit line about
-// their planet. Near the camera each gets a label; one that
+// star (the brightest, Himalia, is magnitude 15 from the Earth); the 111
+// with an IAU number, and the one flown to, have an orbit line about their
+// planet. Near the camera each gets a label; one that
 // is flown to is drawn as a lit sphere at its real size (or a nominal one,
 // which its plate says), as a named asteroid is (smallBodies.ts).
 //
@@ -18,7 +18,7 @@
 
 import * as THREE from 'three';
 import { eqjToEcl, ttSeconds } from '../physics/ephemeris.js';
-import { IRREGULAR_DATA as RAW, IRREGULAR_KEYS, IRREGULARS_OF, TABLE_KERNELS, irregularPositionEqjAtTt, irregularSource } from '../physics/irregularMoons.js';
+import { IRREGULAR_DATA as RAW, IRREGULAR_KEYS, IRREGULARS_OF, irregularPositionEqjAtTt, irregularSource } from '../physics/irregularMoons.js';
 import { moonTablesVersionOf, wantIrregularTables } from '../physics/moonTables.js';
 import { makeBodyMaterial } from './bodyMaterial';
 
@@ -104,7 +104,8 @@ const LINE_FRAGMENT = /* glsl */ `
     gl_FragColor = vec4(c * a * level, a);
   }`;
 const BASE_MS = Date.UTC(2026, 0, 1), SLOT = SAMPLES + 1;
-const TABLED = new Set(IRREGULAR_KEYS.filter((k: string) => TABLE_KERNELS.has((RAW as Record<string, { kernel: string }>)[k].kernel)));
+// The moons with an IAU number (NAIF ids under 1000: 111 of them) get orbit lines.
+const NUMBERED = new Set(IRREGULAR_KEYS.filter((k: string) => (RAW as Record<string, { naif: number }>)[k].naif < 1000));
 const SLOT_OF = new Map(IRREGULAR_KEYS.map((k: string, j: number) => [k, j]));
 
 export class IrregularMoonLayer {
@@ -234,10 +235,10 @@ export class IrregularMoonLayer {
           const rel: Vec3 = [c[0] + r[0] - cam[0], c[1] + r[1] - cam[1], c[2] + r[2] - cam[2]];
           this.rel.set(key, rel);
           this.positions.set([rel[0] / UNIT_KM, rel[2] / UNIT_KM, -rel[1] / UNIT_KM], 3 * n++);
-          // Orbit lines for the moons from JPL's integrations (and the one
-          // flown to): the others' places are rough, and on Intel's GPU each
-          // line across the view costs about 0.05 ms (Saturn's 267, 15 ms).
-          if ((lines && TABLED.has(key)) || key === this.focusKey) this.updateLine(key, timeMs, start);
+          // Orbit lines for the numbered moons and the one flown to: on
+          // Intel's GPU each line across the view costs about 0.05 ms (all
+          // 267 of Saturn's, 15 ms), and Saturn's swarm of lines is a blur.
+          if ((lines && NUMBERED.has(key)) || key === this.focusKey) this.updateLine(key, timeMs, start);
           else this.dropLine(key);
         }
       }

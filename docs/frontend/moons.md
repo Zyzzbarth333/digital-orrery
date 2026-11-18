@@ -416,7 +416,7 @@ batch and the rest, to 27 million km), and Neptune's 7 besides Nereid
 to 50 million km). 305 of them are retrograde. Uranus's ten irregular moons
 and Nereid are full moons, above.
 
-![Jupiter's irregular moons, 18 November 2026, about 34 million km out: points, labels and the orbit lines of the 89 from jup347, each with a trail behind it](moons-irregular-jupiter.jpg)
+![Jupiter's irregular moons, 18 November 2026, about 34 million km out: points, labels and the orbit lines of the 64 numbered ones, each with a trail behind it](moons-irregular-jupiter.jpg)
 
 They are a layer, not bodies in the rail: off by default, switched on under
 **Irregular moons** in the rail, which also has a **Fly to** list of them by
@@ -439,26 +439,36 @@ layer) and `src/app/irregular-moon-plate.tsx`.
 
 ### Positions
 
-- **From JPL's satellite ephemerides, 2000 to 2049:** the 138 in the
-  kernels on disk here, `jup347` (89 of Jupiter's), `sat456` (42 of
-  Saturn's) and `nep104` (Neptune's 7) [1], are fitted by `c/moon_cheb.c`
-  as the other moons are ([above](#2000-to-2049-jpls-satellite-ephemerides)),
-  each within 0.5 km of the kernel, into a third file per system and year,
+- **From JPL's satellite ephemerides, 2000 to 2049:** every one of the 381,
+  from the kernel JPL fits it in [1]: `jup347` (89 of Jupiter's), `jup348`
+  (4), `jup349` (14), `sat456` (42 of Saturn's, the named and numbered
+  ones), `sat457` (79), `sat455` (128), `sat459` (18) and `nep104`
+  (Neptune's 7). `c/moon_cheb.c` fits them as it fits the other moons
+  ([above](#2000-to-2049-jpls-satellite-ephemerides)), each within 0.5 km
+  of its kernel, into a third file per system and year,
   `public/ephemeris/moons/<system>-irregular-<year>.bin`. A moon about its
   planet is the moon's series less the planet's centre from the system's
   main file, both about the barycentre. About the planet's centre itself
-  they would carry its wobble with the Galilean moons, and cost 10 to 30 times
-  the bytes (19 kB a year for most of Jupiter's, against 0.7 to 1.8 kB). These moons go round
-  in 130 days to 27 years and need 216 bytes to 4.5 kB a year each: 102 kB a
-  year for Jupiter's, 84 kB for Saturn's, 2.5 kB for Neptune's, 9.4 MB for
-  the fifty years. The files are fetched only while the layer is shown,
-  for a system within 3 au of the camera.
-- **From JPL's mean elements:** the other 243 (18 of Jupiter's, from
-  `jup348` and `jup349`, and 225 of Saturn's, from `sat455`, `sat457` and
-  `sat459`), whose kernels are not on disk here, and all 381 outside
-  2000–2049. Each is a precessing ellipse in the J2000 ecliptic, as for the
-  other moons ([the fallback](#the-fallback-jpls-mean-elements-for-the-others)),
-  with $\delta M$, $\delta n$, $\delta\omega$ and $\delta\Omega$ fitted to
+  they would carry its wobble with the Galilean moons, and cost 10 to 30
+  times the bytes (19 kB a year for most of Jupiter's, against 0.7 to
+  1.8 kB). These moons go round in 130 days to 27 years and most need a few
+  hundred bytes to 4.5 kB a year: 119 kB a year for Jupiter's, 400 kB
+  for Saturn's, 2.5 kB for Neptune's, 26.1 MB for the fifty years. The
+  files are fetched only while the layer is shown, for a system within
+  3 au of the camera.
+- **One exception, S/2023 S 38** (`sat455`), is fitted to 1,000 km. At an
+  eccentricity of 0.909 it dives to 1.1 million km from Saturn at 8 km/s
+  once in its 546 days, and `sat455`'s pieces of it meet there with steps
+  of a few m/s in velocity, which a polynomial follows only slowly. With
+  equal intervals, 0.5 km would take some 360 a year of 70 coefficients
+  and 100 km took 7.6 MB for the fifty years; 1,000 km takes 128 intervals a year of 14
+  coefficients, 2.2 MB, and its worst over the fifty years is 730 km, under
+  0.01 % of its orbit and only near periapsis.
+- **From JPL's mean elements:** all 381 outside 2000–2049, and until a
+  year of the tables has loaded. Each is a precessing ellipse in the J2000
+  ecliptic, as for the other moons
+  ([the fallback](#the-fallback-jpls-mean-elements-for-the-others)), with
+  $\delta M$, $\delta n$, $\delta\omega$ and $\delta\Omega$ fitted to
   Horizons vectors [2] every 10 days from 2000 to 2050. As given, the
   elements put a moon near its place at their epoch (Himalia within 3 % of
   its orbit) but lose it within years: the worst over the fifty years is
@@ -473,28 +483,33 @@ layer) and `src/app/irregular-moon-plate.tsx`.
 | Source | Moons | Worst from Horizons |
 | --- | ---: | --- |
 | `jup347` table | 89 | 0.51 km (Hermippe) |
+| `jup348` table | 4 | 0.35 km (S/2011 J 5) |
+| `jup349` table | 14 | 0.37 km (S/2021 J 8) |
 | `sat456` table | 42 | 0.41 km (Eggther) |
+| `sat457` table | 79 | 0.48 km (S/2007 S 6) |
+| `sat455` table | 128 | 0.39 km (S/2020 S 11); S/2023 S 38 0.3 km at these dates (fitted to 1,000 km) |
+| `sat459` table | 18 | 0.41 km (S/2023 S 62) |
 | `nep104` table | 7 | 0.29 km (Neso) |
 | mean elements, Jupiter's | 107 | median 46 % of the orbit's semi-major axis, worst 73 % (S/2003 J 23, 17 million km) |
 | mean elements, Saturn's | 267 | median 15 %, worst 154 % (S/2023 S 38, 20 million km) |
 | mean elements, Neptune's | 7 | median 26 %, worst 60 % (Neso, 30 million km) |
 
-The elements' rows are for all of each planet's moons with the tables
-switched off, which is what every one of them is before 2000 and after
-2049. A precessing ellipse cannot follow these orbits. They lie a
-fifth to nearly half of the way to the edge of their planet's Hill sphere,
-$R_H = a_p\,(m/3M_\odot)^{1/3}$ (53 million km for Jupiter, 65 for Saturn,
-116 for Neptune), and there the Sun's tidal pull against the planet's is
+The elements' rows are each planet's moons with the tables switched off,
+which is what they are before 2000 and after 2049. A precessing ellipse
+cannot follow these orbits. They lie a fifth to nearly half of the way to
+the edge of their planet's Hill sphere, $R_H = a_p\,(m/3M_\odot)^{1/3}$
+(53 million km for Jupiter, 65 for Saturn, 116 for Neptune), and there the
+Sun's tidal pull against the planet's is
 
 $$
 \frac{3GM_\odot r/a_p^3}{Gm/r^2} = \left(\frac{r}{R_H}\right)^3,
 $$
 
 1 % for Himalia and 8 % for Carme and Neso: enough to swing a moon's
-eccentricity, inclination and period about through each orbit [8]. So for the 243 moons
-without a table, the point marks the right orbit about the right planet,
-and not much more; the plate's source tag says `elements`, and its note
-gives that moon's own residual.
+eccentricity, inclination and period about through each orbit [8].
+Outside 2000–2049, then, a point marks the right orbit about the right
+planet and not much more; the plate's source tag says `elements`, and its
+note gives that moon's own residual.
 
 ### Physical data
 
@@ -514,16 +529,18 @@ discovery table [7]; 169 of them were found in 2019 or later.
   markers, not a photometric star (Himalia is magnitude 15 from the Earth).
 - **Labels:** for the moons within 40 million km of the camera, kept apart
   as the small bodies' are.
-- **Orbit lines:** one period about the planet's centre, for the 138 moons
-  from the tables and for the one flown to, while the camera is within 1 au
-  of the system; resampled after 5 % of a period or when a year of the
-  tables arrives, within 2 ms a frame. The other 243 have none: their places
-  along an orbit are rough, and Saturn's swarm of 267 lines is unreadable.
-  All the lines are one draw.
+- **Orbit lines:** one period about the planet's centre, for the 111
+  moons with an IAU number (Jupiter's 64, Saturn's 42, Neptune's 5) and for
+  the one flown to, while the camera is within 1 au of the system;
+  resampled after 5 % of a period or when a year of the tables arrives,
+  within 2 ms a frame. All the lines are one draw. The 270 provisional ones
+  (S/2019 S 1 and the like) have none: Saturn's swarm of 267 lines is a
+  blur, and on an integrated GPU each line across the view costs about
+  0.05 ms.
 - **Flown to:** a lit sphere at the moon's radius, as a named asteroid's
   ([small bodies](small-bodies.md)), with a dark default albedo of 0.04.
 
-![Saturn's irregular moons, 18 November 2026, about 43 million km out: 267 labelled points, the 42 from sat456 with their orbits](moons-irregular-saturn.jpg)
+![Saturn's irregular moons, 18 November 2026, about 43 million km out: 267 labelled points, the 42 numbered ones with their orbits](moons-irregular-saturn.jpg)
 
 **Cost.** Frame cost (docs/performance.md's method: the render callback
 and a one-pixel `readPixels`, median of 4 s, 1920 × 1080 at a pixel ratio of
@@ -531,12 +548,13 @@ and a one-pixel `readPixels`, median of 4 s, 1920 × 1080 at a pixel ratio of
 
 | View | Intel UHD | RTX 5070 Ti |
 | --- | --- | --- |
-| Jupiter, 34 million km out | 15.5 → 15.5 ms (19.5 while its lines are first drawn) | 6.3 → 6.3 ms |
-| Saturn, 43 million km out | 15.4 → 18.8 ms | 6.0 → 6.2 ms |
+| Jupiter, 34 million km out | 12.4–14.4 → 15.0–15.7 ms | 7.3–7.5 → 6.6–7.8 ms |
+| Saturn, 43 million km out | 15.3 → 15.8 ms | 8.3 → 8.3 ms |
 
-On Intel each orbit line across the view costs about 0.05 ms, which is why
-only the 138 from tables are drawn: with all 267 of Saturn's the frame took
-30 ms there. Placing the moons costs 0.4 to 1 ms of CPU a frame for a
+On Intel each orbit line across the view costs about 0.05 ms: with lines
+for all 267 of Saturn's moons the frame took 30 ms there, so only the 111
+numbered moons have them, and all of them are one draw (one draw each cost
+2.6 ms for Jupiter's 107). Placing the moons costs 0.4 to 1 ms of CPU a frame for a
 system in view.
 
 ## Not yet
@@ -546,11 +564,11 @@ system in view.
   could grow at about 1.2 MB a year of tables; past 2050 the planets
   themselves come from astronomy-engine (16,000 to 335,000 km out), so it
   would buy less.
-- **The other 243 irregular moons' kernels**: `jup348`, `jup349`, `sat455`,
-  `sat457` and `sat459` (700 MB to download) would put them within a
-  kilometre too, for about 16 MB more of tables. Saturn's Daphnis,
-  Neptune's and Uranus's newest moons and the rest of Saturn's ring moons
-  are in other kernels.
+- **Unequal intervals** for very eccentric moons: S/2023 S 38 is fitted to
+  100 km because its 546-day orbit packs its fast motion into a few days at
+  periapsis, and the tables' equal intervals spend that resolution all
+  year. Saturn's Daphnis, Neptune's and Uranus's newest moons and the rest
+  of Saturn's ring moons are in other kernels.
 - **The irregular moons' sizes**: estimates from their published absolute
   magnitudes, at an assumed albedo, in place of the nominal 1.5 km.
 - **The moons' gravity fields beyond degree 2.** Io, Europa, Ganymede,

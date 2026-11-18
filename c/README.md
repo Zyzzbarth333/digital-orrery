@@ -87,7 +87,7 @@ position and acceleration error, checked between the fitting nodes against
 ([docs/frontend/moons.md](../docs/frontend/moons.md#2000-to-2049-jpls-satellite-ephemerides))
 from NAIF's satellite SPKs (`mar099s`, `jup365`, `sat441`, `sat415`, `ura184`
 parts 1–3, `nep098` parts 1–3, `plu060`, and for the irregular moons `jup347`,
-`sat456` and `nep104`, 13 GB, in `python/data/kernels/spk/satellites/`, or the
+`jup348`, `jup349`, `sat455`, `sat456`, `sat457`, `sat459` and `nep104`, 14 GB, in `python/data/kernels/spk/satellites/`, or the
 folder `$SAT_KERNELS` names):
 
 ```bash

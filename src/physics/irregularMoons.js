@@ -12,12 +12,12 @@
 //   irregularPositionEqjAtTt(key, tt) -> r alone (for orbit lines)
 //   irregularSource(key, tt)        -> 'table' or 'elements'
 //
-// From 2000 to 2049, the moons in JPL's jup347, sat456 and nep104 come from
-// Chebyshev tables of those kernels (moonTables.js, the 'irregular' part,
-// each series within 0.5 km of the SPK), less the planet's centre from the
-// system's main table, wherever both years are installed. Elsewhere, and
-// for the moons whose kernel is not used here (jup348, jup349, sat455,
-// sat457, sat459), JPL's mean elements, a precessing ellipse in the J2000
+// From 2000 to 2049, every one comes from Chebyshev tables of its JPL
+// satellite ephemeris (jup347, jup348, jup349, sat455, sat456, sat457,
+// sat459, nep104; moonTables.js, the 'irregular' part, each series within
+// 0.5 km of the SPK), less the planet's centre from the system's main
+// table, wherever both years are installed. Elsewhere, and until a year
+// has loaded, JPL's mean elements, a precessing ellipse in the J2000
 // ecliptic, with corrections fitted to Horizons over 2000-2050
 // (irregularMoons.fetch.mjs). The Sun pulls these moons about far more than
 // a precessing ellipse allows, so the elements are a rough guide only:
@@ -37,7 +37,7 @@ for (const list of Object.values(IRREGULARS_OF)) list.sort((a, b) => IRREGULAR_D
 export const isIrregularKey = (key) => key in IRREGULAR_DATA;
 
 // The kernels whose moons have tables here (c/moon_cheb.c).
-export const TABLE_KERNELS = new Set(['jup347', 'sat456', 'nep104']);
+export const TABLE_KERNELS = new Set(['jup347', 'jup348', 'jup349', 'sat455', 'sat456', 'sat457', 'sat459', 'nep104']);
 const PLANET_NAIF = { jupiter: 599, saturn: 699, neptune: 899 };
 
 // The J2000 ecliptic's axes in the ICRF (obliquity 84381.448"), as moons.js

@@ -146,7 +146,7 @@ static const Moon MOONS[] = {
   { "jupiter", 55517, 5, "jup347.bsp" }, { "jupiter", 55518, 5, "jup347.bsp" },
   { "jupiter", 55519, 5, "jup347.bsp" }, { "jupiter", 55520, 5, "jup347.bsp" },
   { "jupiter", 55521, 5, "jup347.bsp" }, { "jupiter", 55522, 5, "jup347.bsp" },
-  { "jupiter", 55523, 5, "jup347.bsp" }, { "jupiter", 55524, 5, "jup347.bsp" },
+  { "jupiter", 55523, 5, "jup347.bsp" }, 
   { "jupiter", 55525, 5, "jup347.bsp" }, { "jupiter", 55526, 5, "jup347.bsp" },
   { "saturn", 619, 6, "sat456.bsp" }, { "saturn", 620, 6, "sat456.bsp" }, { "saturn", 621, 6, "sat456.bsp" },
   { "saturn", 622, 6, "sat456.bsp" }, { "saturn", 623, 6, "sat456.bsp" }, { "saturn", 624, 6, "sat456.bsp" },
@@ -166,6 +166,91 @@ static const Moon MOONS[] = {
   { "neptune", 811, 8, "nep104.bsp" }, { "neptune", 812, 8, "nep104.bsp" },
   { "neptune", 813, 8, "nep104.bsp" }, { "neptune", 85051, 8, "nep104.bsp" },
   { "neptune", 85052, 8, "nep104.bsp" },
+  { "jupiter", 55527, 5, "jup348.bsp" }, { "jupiter", 55528, 5, "jup348.bsp" },
+  { "jupiter", 55529, 5, "jup348.bsp" }, { "jupiter", 55530, 5, "jup348.bsp" },
+  { "jupiter", 55531, 5, "jup349.bsp" }, { "jupiter", 55532, 5, "jup349.bsp" },
+  { "jupiter", 55533, 5, "jup349.bsp" }, { "jupiter", 55534, 5, "jup349.bsp" },
+  { "jupiter", 55535, 5, "jup349.bsp" }, { "jupiter", 55536, 5, "jup349.bsp" },
+  { "jupiter", 55537, 5, "jup349.bsp" }, { "jupiter", 55538, 5, "jup349.bsp" },
+  { "jupiter", 55539, 5, "jup349.bsp" }, { "jupiter", 55540, 5, "jup349.bsp" },
+  { "jupiter", 55541, 5, "jup349.bsp" }, { "jupiter", 55542, 5, "jup349.bsp" },
+  { "jupiter", 55543, 5, "jup349.bsp" }, { "jupiter", 55544, 5, "jup349.bsp" },
+  { "saturn", 65067, 6, "sat457.bsp" }, { "saturn", 65070, 6, "sat457.bsp" }, { "saturn", 65077, 6, "sat457.bsp" },
+  { "saturn", 65079, 6, "sat457.bsp" }, { "saturn", 65081, 6, "sat457.bsp" }, { "saturn", 65082, 6, "sat457.bsp" },
+  { "saturn", 65084, 6, "sat457.bsp" }, { "saturn", 65085, 6, "sat457.bsp" }, { "saturn", 65086, 6, "sat457.bsp" },
+  { "saturn", 65087, 6, "sat457.bsp" }, { "saturn", 65088, 6, "sat457.bsp" }, { "saturn", 65089, 6, "sat457.bsp" },
+  { "saturn", 65090, 6, "sat457.bsp" }, { "saturn", 65091, 6, "sat457.bsp" }, { "saturn", 65092, 6, "sat457.bsp" },
+  { "saturn", 65093, 6, "sat457.bsp" }, { "saturn", 65094, 6, "sat457.bsp" }, { "saturn", 65095, 6, "sat457.bsp" },
+  { "saturn", 65096, 6, "sat457.bsp" }, { "saturn", 65097, 6, "sat457.bsp" }, { "saturn", 65098, 6, "sat457.bsp" },
+  { "saturn", 65100, 6, "sat457.bsp" }, { "saturn", 65101, 6, "sat457.bsp" }, { "saturn", 65102, 6, "sat457.bsp" },
+  { "saturn", 65103, 6, "sat457.bsp" }, { "saturn", 65104, 6, "sat457.bsp" }, { "saturn", 65105, 6, "sat457.bsp" },
+  { "saturn", 65106, 6, "sat457.bsp" }, { "saturn", 65107, 6, "sat457.bsp" }, { "saturn", 65108, 6, "sat457.bsp" },
+  { "saturn", 65109, 6, "sat457.bsp" }, { "saturn", 65110, 6, "sat457.bsp" }, { "saturn", 65111, 6, "sat457.bsp" },
+  { "saturn", 65112, 6, "sat457.bsp" }, { "saturn", 65113, 6, "sat457.bsp" }, { "saturn", 65114, 6, "sat457.bsp" },
+  { "saturn", 65115, 6, "sat457.bsp" }, { "saturn", 65116, 6, "sat457.bsp" }, { "saturn", 65117, 6, "sat457.bsp" },
+  { "saturn", 65118, 6, "sat457.bsp" }, { "saturn", 65119, 6, "sat457.bsp" }, { "saturn", 65120, 6, "sat457.bsp" },
+  { "saturn", 65121, 6, "sat457.bsp" }, { "saturn", 65122, 6, "sat457.bsp" }, { "saturn", 65123, 6, "sat457.bsp" },
+  { "saturn", 65124, 6, "sat457.bsp" }, { "saturn", 65125, 6, "sat457.bsp" }, { "saturn", 65126, 6, "sat457.bsp" },
+  { "saturn", 65127, 6, "sat457.bsp" }, { "saturn", 65128, 6, "sat457.bsp" }, { "saturn", 65129, 6, "sat457.bsp" },
+  { "saturn", 65130, 6, "sat457.bsp" }, { "saturn", 65131, 6, "sat457.bsp" }, { "saturn", 65132, 6, "sat457.bsp" },
+  { "saturn", 65133, 6, "sat457.bsp" }, { "saturn", 65134, 6, "sat457.bsp" }, { "saturn", 65135, 6, "sat457.bsp" },
+  { "saturn", 65136, 6, "sat457.bsp" }, { "saturn", 65137, 6, "sat457.bsp" }, { "saturn", 65138, 6, "sat457.bsp" },
+  { "saturn", 65139, 6, "sat457.bsp" }, { "saturn", 65140, 6, "sat457.bsp" }, { "saturn", 65141, 6, "sat457.bsp" },
+  { "saturn", 65142, 6, "sat457.bsp" }, { "saturn", 65143, 6, "sat457.bsp" }, { "saturn", 65144, 6, "sat457.bsp" },
+  { "saturn", 65145, 6, "sat457.bsp" }, { "saturn", 65146, 6, "sat457.bsp" }, { "saturn", 65147, 6, "sat457.bsp" },
+  { "saturn", 65148, 6, "sat457.bsp" }, { "saturn", 65149, 6, "sat457.bsp" }, { "saturn", 65150, 6, "sat457.bsp" },
+  { "saturn", 65151, 6, "sat457.bsp" }, { "saturn", 65152, 6, "sat457.bsp" }, { "saturn", 65153, 6, "sat457.bsp" },
+  { "saturn", 65154, 6, "sat457.bsp" }, { "saturn", 65155, 6, "sat457.bsp" }, { "saturn", 65156, 6, "sat457.bsp" },
+  { "saturn", 65157, 6, "sat457.bsp" },
+  { "saturn", 65158, 6, "sat455.bsp" }, { "saturn", 65159, 6, "sat455.bsp" }, { "saturn", 65160, 6, "sat455.bsp" },
+  { "saturn", 65161, 6, "sat455.bsp" }, { "saturn", 65162, 6, "sat455.bsp" }, { "saturn", 65163, 6, "sat455.bsp" },
+  { "saturn", 65164, 6, "sat455.bsp" }, { "saturn", 65165, 6, "sat455.bsp" }, { "saturn", 65166, 6, "sat455.bsp" },
+  { "saturn", 65167, 6, "sat455.bsp" }, { "saturn", 65168, 6, "sat455.bsp" }, { "saturn", 65169, 6, "sat455.bsp" },
+  { "saturn", 65170, 6, "sat455.bsp" }, { "saturn", 65171, 6, "sat455.bsp" }, { "saturn", 65172, 6, "sat455.bsp" },
+  { "saturn", 65173, 6, "sat455.bsp" }, { "saturn", 65174, 6, "sat455.bsp" }, { "saturn", 65175, 6, "sat455.bsp" },
+  { "saturn", 65176, 6, "sat455.bsp" }, { "saturn", 65177, 6, "sat455.bsp" }, { "saturn", 65178, 6, "sat455.bsp" },
+  { "saturn", 65179, 6, "sat455.bsp" }, { "saturn", 65180, 6, "sat455.bsp" }, { "saturn", 65181, 6, "sat455.bsp" },
+  { "saturn", 65182, 6, "sat455.bsp" }, { "saturn", 65183, 6, "sat455.bsp" }, { "saturn", 65184, 6, "sat455.bsp" },
+  { "saturn", 65185, 6, "sat455.bsp" }, { "saturn", 65186, 6, "sat455.bsp" }, { "saturn", 65187, 6, "sat455.bsp" },
+  { "saturn", 65188, 6, "sat455.bsp" }, { "saturn", 65189, 6, "sat455.bsp" }, { "saturn", 65190, 6, "sat455.bsp" },
+  { "saturn", 65191, 6, "sat455.bsp" }, { "saturn", 65192, 6, "sat455.bsp" }, { "saturn", 65193, 6, "sat455.bsp" },
+  { "saturn", 65194, 6, "sat455.bsp" }, { "saturn", 65195, 6, "sat455.bsp" }, { "saturn", 65196, 6, "sat455.bsp" },
+  { "saturn", 65197, 6, "sat455.bsp" }, { "saturn", 65198, 6, "sat455.bsp" }, { "saturn", 65199, 6, "sat455.bsp" },
+  { "saturn", 65200, 6, "sat455.bsp" }, { "saturn", 65201, 6, "sat455.bsp" }, { "saturn", 65202, 6, "sat455.bsp" },
+  { "saturn", 65203, 6, "sat455.bsp" }, { "saturn", 65204, 6, "sat455.bsp" }, { "saturn", 65205, 6, "sat455.bsp" },
+  { "saturn", 65206, 6, "sat455.bsp" }, { "saturn", 65207, 6, "sat455.bsp" }, { "saturn", 65208, 6, "sat455.bsp" },
+  { "saturn", 65209, 6, "sat455.bsp" }, { "saturn", 65210, 6, "sat455.bsp" }, { "saturn", 65211, 6, "sat455.bsp" },
+  { "saturn", 65212, 6, "sat455.bsp" }, { "saturn", 65213, 6, "sat455.bsp" }, { "saturn", 65214, 6, "sat455.bsp" },
+  { "saturn", 65215, 6, "sat455.bsp" }, { "saturn", 65216, 6, "sat455.bsp" }, { "saturn", 65217, 6, "sat455.bsp" },
+  { "saturn", 65218, 6, "sat455.bsp" }, { "saturn", 65219, 6, "sat455.bsp" }, { "saturn", 65220, 6, "sat455.bsp" },
+  { "saturn", 65221, 6, "sat455.bsp" }, { "saturn", 65222, 6, "sat455.bsp" }, { "saturn", 65223, 6, "sat455.bsp" },
+  { "saturn", 65224, 6, "sat455.bsp" }, { "saturn", 65225, 6, "sat455.bsp" }, { "saturn", 65226, 6, "sat455.bsp" },
+  { "saturn", 65227, 6, "sat455.bsp" }, { "saturn", 65228, 6, "sat455.bsp" }, { "saturn", 65229, 6, "sat455.bsp" },
+  { "saturn", 65230, 6, "sat455.bsp" }, { "saturn", 65231, 6, "sat455.bsp" }, { "saturn", 65232, 6, "sat455.bsp" },
+  { "saturn", 65233, 6, "sat455.bsp" }, { "saturn", 65234, 6, "sat455.bsp" }, { "saturn", 65235, 6, "sat455.bsp" },
+  { "saturn", 65236, 6, "sat455.bsp" }, { "saturn", 65237, 6, "sat455.bsp" }, { "saturn", 65238, 6, "sat455.bsp" },
+  { "saturn", 65239, 6, "sat455.bsp" }, { "saturn", 65240, 6, "sat455.bsp" }, { "saturn", 65241, 6, "sat455.bsp" },
+  { "saturn", 65242, 6, "sat455.bsp" }, { "saturn", 65243, 6, "sat455.bsp" }, { "saturn", 65244, 6, "sat455.bsp" },
+  { "saturn", 65245, 6, "sat455.bsp" }, { "saturn", 65246, 6, "sat455.bsp" }, { "saturn", 65247, 6, "sat455.bsp" },
+  { "saturn", 65248, 6, "sat455.bsp" }, { "saturn", 65249, 6, "sat455.bsp" }, { "saturn", 65250, 6, "sat455.bsp" },
+  { "saturn", 65251, 6, "sat455.bsp" }, { "saturn", 65252, 6, "sat455.bsp" }, { "saturn", 65253, 6, "sat455.bsp" },
+  { "saturn", 65254, 6, "sat455.bsp" }, { "saturn", 65255, 6, "sat455.bsp" }, { "saturn", 65256, 6, "sat455.bsp" },
+  { "saturn", 65257, 6, "sat455.bsp" }, { "saturn", 65258, 6, "sat455.bsp" }, { "saturn", 65259, 6, "sat455.bsp" },
+  { "saturn", 65260, 6, "sat455.bsp" }, { "saturn", 65261, 6, "sat455.bsp" }, { "saturn", 65262, 6, "sat455.bsp" },
+  { "saturn", 65263, 6, "sat455.bsp" }, { "saturn", 65264, 6, "sat455.bsp" }, { "saturn", 65265, 6, "sat455.bsp" },
+  { "saturn", 65266, 6, "sat455.bsp" }, { "saturn", 65267, 6, "sat455.bsp" }, { "saturn", 65268, 6, "sat455.bsp" },
+  { "saturn", 65269, 6, "sat455.bsp" }, { "saturn", 65270, 6, "sat455.bsp" }, { "saturn", 65271, 6, "sat455.bsp" },
+  { "saturn", 65272, 6, "sat455.bsp" }, { "saturn", 65273, 6, "sat455.bsp" }, { "saturn", 65274, 6, "sat455.bsp" },
+  { "saturn", 65275, 6, "sat455.bsp" }, { "saturn", 65276, 6, "sat455.bsp" }, { "saturn", 65277, 6, "sat455.bsp" },
+  { "saturn", 65278, 6, "sat455.bsp" }, { "saturn", 65279, 6, "sat455.bsp" }, { "saturn", 65280, 6, "sat455.bsp" },
+  { "saturn", 65281, 6, "sat455.bsp" }, { "saturn", 65282, 6, "sat455.bsp" }, { "saturn", 65283, 6, "sat455.bsp" },
+  { "saturn", 65284, 6, "sat455.bsp" }, { "saturn", 65285, 6, "sat455.bsp" },
+  { "saturn", 65286, 6, "sat459.bsp" }, { "saturn", 65287, 6, "sat459.bsp" }, { "saturn", 65288, 6, "sat459.bsp" },
+  { "saturn", 65289, 6, "sat459.bsp" }, { "saturn", 65290, 6, "sat459.bsp" }, { "saturn", 65291, 6, "sat459.bsp" },
+  { "saturn", 65292, 6, "sat459.bsp" }, { "saturn", 65293, 6, "sat459.bsp" }, { "saturn", 65294, 6, "sat459.bsp" },
+  { "saturn", 65295, 6, "sat459.bsp" }, { "saturn", 65296, 6, "sat459.bsp" }, { "saturn", 65297, 6, "sat459.bsp" },
+  { "saturn", 65298, 6, "sat459.bsp" }, { "saturn", 65299, 6, "sat459.bsp" }, { "saturn", 65300, 6, "sat459.bsp" },
+  { "saturn", 65301, 6, "sat459.bsp" }, { "saturn", 65302, 6, "sat459.bsp" }, { "saturn", 65303, 6, "sat459.bsp" },
   { "pluto", 999, 9, "plu060.bsp" }, { "pluto", 901, 9, "plu060.bsp" }, { "pluto", 902, 9, "plu060.bsp" },
   { "pluto", 903, 9, "plu060.bsp" }, { "pluto", 904, 9, "plu060.bsp" },
   { "pluto", 905, 9, "plu060.bsp" },
@@ -185,14 +270,21 @@ static int is_inner(const Moon *m) {
 }
 /* The irregular moons are the rows from their own kernels. */
 static int is_irregular(const Moon *m) {
-  static const char *k[] = { "jup347.bsp", "sat456.bsp", "nep104.bsp" };
-  for (int i = 0; i < 3; i++) if (!strcmp(m->kernel, k[i])) return 1;
+  static const char *k[] = { "jup347.bsp", "jup348.bsp", "jup349.bsp", "sat455.bsp", "sat456.bsp", "sat457.bsp", "sat459.bsp", "nep104.bsp" };
+  for (int i = 0; i < 8; i++) if (!strcmp(m->kernel, k[i])) return 1;
   return 0;
 }
 /* Which file a moon goes in: 0 <system>-<year>.bin, 1 the inner moons',
  * 2 the irregular moons'. */
 static int part_of(const Moon *m) { return is_irregular(m) ? 2 : is_inner(m); }
 static const char *PART_NAME[] = { "", "inner", "irregular" };
+/* The tolerance for a body. S/2023 S 38 (65273, sat455), at e = 0.909,
+ * passes 1.1 million km from Saturn at 8 km/s once in its 546 days, and
+ * sat455's pieces of it meet with steps of a few m/s in velocity there,
+ * which a polynomial follows slowly: with equal intervals 100 km took 181
+ * a year of 35 coefficients (7.6 MB for the fifty years), 1000 km 128 of
+ * 14 (2.2 MB; worst 730 km, under 0.01 % of its orbit). */
+static double tol_of(const Moon *m, double tol) { return m->id == 65273 && tol < 1000 ? 1000 : tol; }
 static const char *SYSTEMS[] = { "mars", "jupiter", "saturn", "uranus", "neptune", "pluto" };
 
 static void die_if_failed(const char *what) {
@@ -360,7 +452,15 @@ static int wanted_system(const char *system) {
 static int wanted(const Moon *m) {
   const char *w = getenv("MOON_PARTS");
   const char *name = part_of(m) ? PART_NAME[part_of(m)] : "main";
-  return wanted_system(m->system) && (!w || strstr(w, name) != NULL);
+  if (!wanted_system(m->system) || (w && !strstr(w, name))) return 0;
+  /* $MOON_IDS (say "65273,606") limits it to those bodies, for a survey. */
+  const char *ids = getenv("MOON_IDS");
+  if (!ids) return 1;
+  char want[16];
+  snprintf(want, sizeof want, "%d", m->id);
+  for (const char *p = strstr(ids, want); p; p = strstr(p + 1, want))
+    if ((p == ids || p[-1] == ',') && (p[strlen(want)] == ',' || !p[strlen(want)])) return 1;
+  return 0;
 }
 
 /* Each system's planet kernel (the one its planet's row names) is loaded
@@ -427,8 +527,8 @@ int main(int argc, char **argv) {
   for (int i = 0; i < NM; i++) {
     ch[i] = (Choice){ 0, 0, 0, 0, 0 };
     if (!wanted(&MOONS[i])) continue;
-    ch[i] = choose(&MOONS[i], 0.8 * tol, et0, et1);
-    if (!ch[i].n) { fprintf(stderr, "%d: nothing within %g km\n", MOONS[i].id, tol); return 1; }
+    ch[i] = choose(&MOONS[i], 0.8 * tol_of(&MOONS[i], tol), et0, et1);
+    if (!ch[i].n) { fprintf(stderr, "%d: nothing within %g km\n", MOONS[i].id, tol_of(&MOONS[i], tol)); return 1; }
     total += ch[i].bytesPerYear * (y1 - y0);
     fprintf(stderr, "%-8s %6d  %4d a year (%8.4f d) x %3d %s  sampled worst %.3f km  %7.0f B/yr\n", MOONS[i].system,
             MOONS[i].id, ch[i].k, 365.25 / ch[i].k, ch[i].n, ch[i].f32 ? "f32" : "f64", ch[i].err, ch[i].bytesPerYear);
@@ -473,7 +573,7 @@ int main(int argc, char **argv) {
           }
         }
       }
-      if (worst[mi] <= tol) break;
+      if (worst[mi] <= tol_of(m, tol)) break;
       fprintf(stderr, "%d: %d x %d misses by %.3f km; ", m->id, k, n, worst[mi]);
       free(coef[mi]);
       /* Rounding to Float32 may be what misses, past a few tries. */
@@ -525,7 +625,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "%-8s %6d wrt %d: %4d intervals a year x %3d (%s); worst %.3f km, %.2e km/s; joins %.3f km, %.2e km/s\n",
             MOONS[i].system, MOONS[i].id, MOONS[i].center, ch[i].k, ch[i].n, ch[i].f32 ? "f32" : "f64", worst[i],
             worstV[i], jumpR[i], jumpV[i]);
-    if (worst[i] > tol) bad = 1;
+    if (worst[i] > tol_of(&MOONS[i], tol)) bad = 1;
   }
   return bad;
 }

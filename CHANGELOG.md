@@ -41,9 +41,9 @@ once it has releases. Until then, everything sits under Unreleased.
   (#33, #56). The Earth turns on UT1 with polar motion (#50).
 - Jupiter's, Saturn's and Neptune's 381 irregular moons, as a layer the
   rail switches on: points, labels and orbit lines, and each one to fly
-  to with a plate of its orbit, sense, size, GM and discovery. The 138 in
-  JPL's `jup347`, `sat456` and `nep104` come from those kernels; the rest
-  from JPL's mean elements, roughly (this pull request).
+  to with a plate of its orbit, sense, size, GM and discovery. From 2000
+  to 2049 they come from JPL's satellite kernels for them, within 0.51 km
+  (this pull request).
 - Bodies are drawn as their IAU ellipsoids (#47). Fourteen moons have USGS
   surface maps (#42).
 - 135,353 asteroids and comets (#27), the faint main belt as a haze from
