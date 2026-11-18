@@ -25,12 +25,22 @@
 //
 // with X and Y those axes in J2000 (b.axisX, b.axisY). Applied with J2 when
 // the body has c22.
+//
+// The giant planets also have J4 (b.j4, referred to the same radius as
+// their J2). Its potential is -mu J4 R^4 P4(s) / |d|^5, s = z / |d|,
+// P4(s) = (35 s^4 - 30 s^2 + 3) / 8, and
+//
+//   a_J4 = -mu J4 R^4 [ P4'(s) p / |d|^6 - (s P4'(s) + 5 P4(s)) d / |d|^7 ]
+//
+// (P4' = (140 s^3 - 60 s) / 8). At five Jupiter radii it is 5e-7 of the
+// planet's pull: a fifth of the kernel's error on Juno's pass of Io
+// (flyby.test.mjs case 3b).
 
 export const ZONAL_CUTOFF = 100;
 
 // Adds the J2 acceleration of body b ({ mu, j2, rJ2, pole }) at the
-// craft-minus-body offset (dx, dy, dz), with d2 = |d|^2, into out, and its
-// C22's when it has one ({ c22, axisX, axisY }).
+// craft-minus-body offset (dx, dy, dz), with d2 = |d|^2, into out, its
+// C22's when it has one ({ c22, axisX, axisY }) and its J4's ({ j4 }).
 export function addJ2(dx, dy, dz, d2, b, out) {
   const p = b.pole;
   const z = dx * p[0] + dy * p[1] + dz * p[2];
@@ -47,6 +57,15 @@ export function addJ2(dx, dy, dz, d2, b, out) {
     out[0] += c * (2 * (x * X[0] - y * Y[0]) - e * dx);
     out[1] += c * (2 * (x * X[1] - y * Y[1]) - e * dy);
     out[2] += c * (2 * (x * X[2] - y * Y[2]) - e * dz);
+  }
+  if (b.j4) {
+    const d = Math.sqrt(d2), s = z / d, s2 = s * s;
+    const P4 = (35 * s2 * s2 - 30 * s2 + 3) / 8, dP4 = (140 * s2 * s - 60 * s) / 8;
+    const R2 = b.rJ2 * b.rJ2, k = -b.mu * b.j4 * R2 * R2 / (d2 * d2 * d2);
+    const kp = k * dP4, kd = -k * (s * dP4 + 5 * P4) / d;
+    out[0] += kp * p[0] + kd * dx;
+    out[1] += kp * p[1] + kd * dy;
+    out[2] += kp * p[2] + kd * dz;
   }
 }
 

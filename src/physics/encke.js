@@ -224,7 +224,7 @@ export function advanceEncke(state, tEnd, opts) {
     if (list !== sList) {
       sList = list;
       sCopies = list.map((b) => ({ key: b.key, mu: b.mu, radius: b.radius, parent: b.parent, r: [0, 0, 0],
-        j2: b.j2, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
+        j2: b.j2, j4: b.j4, rJ2: b.rJ2, j2Cut2: b.j2Cut2, c22: b.c22, pole: b.pole, axisX: b.axisX, axisY: b.axisY }));
       sP = list.findIndex((b) => b.key === key);
       sEnds = new Float64Array(list.length * 12);    // r0 v0 r1 v1 for each body
       sT0 = NaN;
