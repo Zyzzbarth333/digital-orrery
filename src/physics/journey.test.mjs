@@ -318,7 +318,7 @@ header('CASE 5: journeys flown by the n-body kernel');
   // prices (within 1 %; before the node was aimed, 4.3 %).
   const rt2 = J.applyOption(rt, 1, po), rts2 = J.solveJourney(rt2), rtf2 = flyJourney(sys, planFlight(rts2));
   const dep2 = rtf2.log.find((l) => l.startsWith('depart mars')), m2 = /mars: (\d+) m\/s, ([\d.]+) h after/.exec(dep2 ?? '');
-  console.log(`  re-timed ${po.waitDays} d (a ${rt2.waypoints[0].stayDays.toFixed(1)} d stay): the plan ${(rts2.legs[1].depDv * 1000).toFixed(0)} m/s, the plane ${rts2.legs[1].plane.angleDeg.toFixed(1)} deg off; flown ${dep2}`);
+  console.log(`  re-timed ${po.waitDays} d (a ${rt2.waypoints[0].stayDays.toFixed(1)} d stay): the plan ${(rts2.legs[1].depDv * 1000).toFixed(0)} m/s, the plane ${rts2.legs[1].plane.angleDeg.toFixed(1)} deg off; flown ${dep2}; Mars ${rtf2.arrivals[0].missKm.toFixed(1)} km off (tolerance 20), Earth ${rtf2.arrivals[1].missKm.toFixed(1)} (tolerance 50); corrections ${(rtf2.correctionsDv * 1000).toFixed(0)} m/s`);
   check('leaving on the plan\'s day for the plane: the flight leaves within a day of it, its burn within 1 % of the plan\'s, and both arrivals reached', m2 && Number(m2[2]) < 24 && rel(Number(m2[1]) / 1000, rts2.legs[1].depDv) < 0.01 && rtf2.arrivals[0].missKm < 20 && rtf2.arrivals[1].missKm < 50);
 }
 

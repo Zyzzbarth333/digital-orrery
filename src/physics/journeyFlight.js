@@ -127,6 +127,32 @@ function periapsisOffset(sol, k, info = {}) {
   return scale(norm(d) > 1e-9 ? unit(d) : unit(cross(uin, Z)), rp);
 }
 
+// A planet's aim point for an aim flown at time ms without the planet's
+// gravity (relative to the planet at the arrival, ecliptic km): where the
+// planned hyperbola's state at ms would go by the arrival in a straight
+// line, the planet's pull switched off. Far out it is the B-plane point
+// (aimOff, across the asymptote at the aiming radius), but the craft is on
+// the hyperbola long before its sphere: bent a little, and faster than the
+// excess speed by about mu / (r v_inf) at r, so its straight line runs
+// ahead of the asymptote's by about (mu / v_inf^2) ln(r1 / r2) between
+// distances r1 and r2. Aimed at the B-plane point, an aim cancels the speed
+// the planet gave the craft since the last, the next aim gives it back,
+// and the craft reaches the periapsis early (an hour at Venus). The
+// hyperbola is the incoming one through the B-plane point with the planned
+// periapsis radius, at its periapsis at arrMs (Curtis eqs. (8.71), (8.75)).
+function bentAim(aimOff, vin, rp, mu, arrMs) {
+  const u = unit(vin), b = unit(aimOff), vinf = norm(vin);
+  const half = turnAngle(rp, vinf, mu) / 2, c = Math.cos(half), s = Math.sin(half);
+  const r0 = scale(add(scale(b, c), scale(u, s)), rp);
+  const v0 = scale(sub(scale(u, c), scale(b, s)), Math.sqrt(vinf * vinf + 2 * mu / rp));
+  return (ms) => {
+    const dt = (arrMs - ms) / 1000;
+    if (!(dt > 0)) return aimOff;
+    const h = propagate(r0, v0, -dt, mu);
+    return add(h.r, scale(h.v, dt));
+  };
+}
+
 // The kernel's schedule for a solved journey. Returns { start: { r, v, ms },
 // events: [...] sorted by time, unsupported: [reasons] }.
 export function planFlight(sol) {
@@ -187,8 +213,9 @@ export function planFlight(sol) {
     // Far out, the aim is at the B-plane: where the incoming asymptote
     // should pass the target at the arrival time, flown without the
     // target's own gravity (its pull is the hyperbola's, not an error to
-    // cancel). At a central body (the Moon home to Earth) it is the planned
-    // point itself, with everything.
+    // cancel), less the bending the target has given the craft by then. At
+    // a central body (the Moon home to Earth) it is the planned point
+    // itself, with everything.
     const offInfo = {}, off = periapsisOffset(sol, k, offInfo);
     // The excess velocity about the waypoint's body: reaching a moon via its
     // planet (Mars to the Moon), the one about the moon where it is on the
@@ -209,7 +236,14 @@ export function planFlight(sol) {
       arriveMs = leg.arrMs - Math.min(1800e3, 0.05 * (arc.t2 - arc.t1));
       aimOff = propagate(arc.r1, arc.v1, (arriveMs - arc.t1) / 1000, arc.mu).r;
     }
+    const crossing = (key, vinf) => (KERNEL.has(key) && vinf ? sphereOfInfluence(key) / norm(vinf) : 0) * 1000;
     const target = { body: leg.ringArr ? leg.central : viaMoon ? Q.body : (leg.endB ?? Q.body), offsetEqj: ecl(aimOff), arrive: arriveMs, without, central: leg.central };
+    // At a planet, the B-plane point less the bending the planet has
+    // already given the craft by the aim's time (bentAim). (Not about the
+    // Earth, at the Moon: there the Earth's pull is most of the bending, and
+    // a hyperbola about the Moon from a day out is no guide to it.)
+    const bent = without && !viaMoon && target.body === Q.body && leg.central === 'sun' ? bentAim(aimOff, vinQ, norm(off), bodyInfo(Q.body).mu, arriveMs) : null;
+    const targetAt = (ms) => (bent ? { ...target, offsetEqj: ecl(bent(ms)) } : target);
     // Leaving a planet's moon via the planet, the burn is set by side runs
     // to the excess about the planet: three-level patched conics are rough
     // at a moon so deep in its planet's well (Europa's sphere is 1.4 % of
@@ -217,7 +251,7 @@ export function planFlight(sol) {
     // while the craft crosses it), 0.8 km/s off in the excess about Jupiter.
     // (On a leg of two arcs, a broken plane or a bi-elliptic leg, aimed at
     // its break point, as the way out is re-solved.)
-    if (departEv?.via && MOON_IN_KERNEL.has(P.body)) Object.assign(departEv, { aimPlanet: 3 * DAY, aimAt: leg.mid ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null } : target });
+    if (departEv?.via && MOON_IN_KERNEL.has(P.body)) Object.assign(departEv, { aimPlanet: 3 * DAY, aimAt: leg.mid ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null } : targetAt(leg.depMs) });
     const dur = leg.arrMs - leg.depMs;
     // When: the first once the craft is clear of the body it left (half
     // again its sphere of influence at the leg's excess speed; a flyby's
@@ -225,7 +259,6 @@ export function planFlight(sol) {
     // second a few sphere-crossing times out from the target. (Not inside
     // it: there the craft reaches periapsis early, pulled in, and a point
     // aimed for at the planned time is the wrong hyperbola.)
-    const crossing = (key, vinf) => (KERNEL.has(key) && vinf ? sphereOfInfluence(key) / norm(vinf) : 0) * 1000;
     // (Leaving a moon for another planet: clear of the planet.)
     const clearP = leg.central === P.body ? Math.min(0.1 * dur, 2 * 3600e3) : Math.max(Math.min(0.1 * dur, 2 * 3600e3), 1.5 * crossing(leg.endA ?? P.body, leg.vinfDep));
     const tIn = without ? crossing(Q.body, vinQ) : 0;
@@ -258,10 +291,10 @@ export function planFlight(sol) {
     if (sw) {
       const tp = timeToPeriapsis(sw.rm, sw.vAbout, bodyInfo(leg.endA).mu) * 1000;
       const early = leg.depMs + Math.min(1.5 * crossing(P.body, sw.vinf), 0.5 * tp);
-      const toBreak = leg.mid ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central } : target;
+      const toBreak = leg.mid ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central } : targetAt(early);
       if (early < first - 3600e3) events.push({ kind: 'aim', ms: early, ...toBreak });
     }
-    const aims = [{ kind: 'aim', ms: first, ...target }];
+    const aims = [{ kind: 'aim', ms: first, ...targetAt(first) }];
     // Reaching a moon via its planet, the way in falls through the planet's
     // well, where a miss grows fast: more aims on the way down, at a few
     // and at fractions of the planet's sphere-crossing time out (none
@@ -279,7 +312,14 @@ export function planFlight(sol) {
       at.forEach((ms, i) => aims.push({ kind: 'aim', ms, ...target, ...(i === at.length - 1 ? { offsetEqj: ecl(off), without: null, ...(offInfo.wayOut ? { replane: { rp: norm(off), wayOutEqj: ecl(offInfo.wayOut), untilMs: offInfo.untilMs } } : {}) } : {}) }));
     } else {
       const second = Math.max(first + 0.25 * (leg.arrMs - first), leg.arrMs - 3 * tIn);
-      if (second < leg.arrMs - 0.6 * tIn && leg.arrMs - first > 2 * DAY * 1000) aims.push({ kind: 'aim', ms: second, ...target });
+      if (second < leg.arrMs - 0.6 * tIn && leg.arrMs - first > 2 * DAY * 1000) {
+        // Months out, the two-body hyperbola is a rough guide to the
+        // planet's pull (the craft and the planet go round the Sun on
+        // different orbits): the first aim takes the pull up to the second
+        // from side runs instead, and aims at the second's point from there.
+        if (bent) aims[0].farTo = { ms: second, offsetEqj: ecl(bent(second)) };
+        aims.push({ kind: 'aim', ms: second, ...targetAt(second) });
+      }
     }
     // (An aim that does not converge is trouble only if it is the leg's
     // last: the next corrects what it leaves.)
@@ -1036,7 +1076,21 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       const muC = e.central === 'sun' ? sys.muSun : bodyInfo(e.central).mu;
       const arc = lambert(sub(s.r, C0.r), sub(target, CT), Tk - s.t, muC, true);
       const dv0 = arc ? sub(arc.v1, sub(s.v, C0.v)) : null;
-      const k = aimTo(e.without ? without(e.without) : sys, { r: s.r, v: s.v, t0: s.t, T: Tk, target, burns: future, dv0, rounds: 8, damped: true, env, envJ: env && cheapEnv });
+      let k = aimTo(e.without ? without(e.without) : sys, { r: s.r, v: s.v, t0: s.t, T: Tk, target, burns: future, dv0, rounds: 8, damped: true, env, envJ: env && cheapEnv });
+      // Far out at a planet (farTo): the planet's pull up to the next aim,
+      // from side runs with it and without it after this aim, carried on in
+      // a straight line to the arrival; aimed again for the next aim's point
+      // less that. (Its pull from there on is the next aim's.)
+      if (k && e.farTo) {
+        const tm = kernelSeconds(new Date(e.farTo.ms)), v1 = add(s.v, k.dv);
+        const run = (S) => stepCraft(S, { id: 0, version: 0, r: s.r, v: v1, t: s.t, tEnd: tm, primary: null, burns: future, maxSteps: 2e6, ...(env ? { env: cheapEnv } : {}) });
+        const a = run(sys), b = run(without(e.without));
+        if (a.complete && b.complete && ![a, b].some((x) => x.events.some((q) => q.type === 'impact'))) {
+          const d = add(sub(a.r, b.r), scale(sub(a.v, b.v), Tk - tm));
+          const k2 = aimTo(without(e.without), { r: s.r, v: s.v, t0: s.t, T: Tk, target: sub(add(posAt(sys, e.body, Tk), e.farTo.offsetEqj), d), burns: future, dv0: k.dv, rounds: 8, damped: true, env, envJ: env && cheapEnv });
+          if (k2) k = k2;
+        }
+      }
       if (!k) { out.log.push(`aim at ${e.body} failed`); out.trouble.push(`the aim at ${bodyInfo(e.body).name} found no burn`); continue; }
       if (k.after > AIM_CONVERGED_KM && e.last) out.trouble.push(`the aim at ${bodyInfo(e.body).name} came no nearer than ${k.after.toFixed(0)} km`);
       const dv = norm(k.dv);
