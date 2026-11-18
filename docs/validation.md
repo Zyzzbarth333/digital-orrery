@@ -745,7 +745,7 @@ shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are))
 
 ## Magnetic fields and auroras (`magnetic.test.mjs`, `aurora.test.mjs`)
 
-The planets' internal fields, the field-line tracer and the auroral ovals
+The planets' and the Sun's fields, the field-line tracer and the auroral ovals
 ([magnetic fields and auroras](physics/magnetic-fields.md#validation), whose
 references these are).
 
@@ -772,6 +772,12 @@ references these are).
 | Ganymede's dipole | Weber et al. 2022 against Kivelson et al. 2002 | 719 vs 713 nT, 0.8° apart |
 | Mars's crustal field | Langlais et al. 2019: Br −8,520 to 11,260 nT | −8,522 to 11,261 nT (0.25° grid), strongest at 47.9° S 174.6° E |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
+| T89c | Tsyganenko's Fortran at its test point, as geopack's tests record it | within 2 × 10⁻⁶ nT |
+| GSM dipole tilt, 2001-01-01 02:03:04 UT | geopack's recalc: −0.53359 rad | −0.53356 rad |
+| the Earth's magnetosphere, T89 + IGRF-14 | the night side stretched, more so with Kp | 68° line at midnight 5.2 → 6.2 R_E (Kp 2), 11.7 (Kp 5); noon within 5 % |
+| Saturn's ring current, summed loops | Bunce and Cowley 2003: 11.5 MA; on-axis integral; the disc's dipole at 200 R_S | 11.50 MA; centre 10.531 vs 10.532 nT; dipole within 1 %; table within 0.17 nT of the sum |
+| Ganymede in Jupiter's field | the flux function's open/closed boundary for a dipole in a uniform field | 58.48° colatitude, as the flux function |
+| the Sun's PFSS field | radial at the source surface; potential inside; WSO's measured polar fields | radial to 10⁻¹²; curl and divergence under 2 × 10⁻⁹; g₁⁰'s sign as the poles' at 739 of 739 dates, 2000–2026 |
 
 ## Spacecraft beyond Earth orbit (`spacecraft.test.mjs`)
 
