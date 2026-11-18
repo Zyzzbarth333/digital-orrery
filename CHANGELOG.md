@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
 - Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (this pull request).
 - Screenshots in the README, a glossary, an architecture diagram, and the credits as tables (this pull request).
 - CI, a contributing guide, a security policy, this changelog and a citation (#68).
@@ -32,12 +33,16 @@ once it has releases. Until then, everything sits under Unreleased.
   within 2 % of the flight's, not 26 % short. The window strips for such
   legs show the month's ripple a day at a time, and the planner suggests
   the best day in the stay: an option, a lamp and a mark on the strip
-  (this pull request).
+  (#81).
 - Journeys are flown in the full model, with the Earth's and the Moon's
   gravity fields (mascons included), drag and sunlight, and their craft
   no longer flies bare: a Moon landing comes down on its site. The bare
   model is kept as a fallback where the full model's aims can't converge,
-  and the craft's Model row says so (this pull request).
+  and the craft's Model row says so (#81).
+- A journey from another planet to the Moon is flown to the Moon, not into
+  the Earth: its aims are at the Moon itself, and a landing after a long
+  capture works its descent out from the orbit it is in (this pull
+  request).
 - A leg that runs nearly 180 degrees round the Sun is planned on a broken
   plane: in the departure's orbit plane to about halfway, then a burn that
   turns the plane onto the target. Leaving lunar orbit for Mars after 23
@@ -57,9 +62,17 @@ once it has releases. Until then, everything sits under Unreleased.
   on DE442's path, as DE, GMAT and Orekit do (#64).
 - Impacts and touchdowns are found where the craft met the ground, not up
   to a step later and tens of kilometres below it, so a landing's speed is
-  its speed at the surface (this pull request). The moons' pull is checked
-  on Juno's pass over Io and Cassini's over Titan too, which measure
-  those moons' J2 and C22 (this pull request).
+  its speed at the surface (#77). The moons' pull is checked on Juno's
+  pass over Io and Cassini's over Titan too, which measure those moons'
+  J2 and C22 (#77).
+- At a day a second the kernel stays in its worker through Artemis II's
+  entry: each request has a time budget, so the entry is flown in pieces
+  rather than in one 4 s request that the page took for a dead worker,
+  after which every step ran on the page's thread (#82).
+- The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
+  to 10 m instead of 100 m, so a slow pass is followed more closely:
+  Cassini's over Titan to 4 m nine hours on, from 93 m (this pull
+  request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
