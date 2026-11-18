@@ -21,7 +21,7 @@ The simulator is honest about where it sits on the fidelity scale. The goal is t
 
 ## What is still approximate
 
-- **Journeys are planned by patched conics.** Each leg uses the verified Lambert solver, and flybys a B-plane aim. The kernel then flies the plan, landings, stays and liftoffs included, and reports how close it comes to each waypoint. It is flown in the full model, with the Earth's and the Moon's gravity fields (the Moon's mascons included), drag and sunlight, so the journey's craft in the app lands where the plan's flight did. Leaving a moon for another planet is priced by where the moon is on the day, and the planner suggests the best day in the stay. A leg nearly 180 degrees round the Sun, where Lambert's plane is ill-defined, breaks its plane halfway ([journeys](physics/journey.md#near-180-degrees-the-broken-plane)).
+- **Journeys are planned by patched conics.** Each leg uses the verified Lambert solver, and flybys a B-plane aim. The kernel then flies the plan, landings, stays and liftoffs included, and reports how close it comes to each waypoint. It is flown in the full model, with the Earth's and the Moon's gravity fields (the Moon's mascons included), drag and sunlight, so the journey's craft in the app lands where the plan's flight did. Leaving a moon for another planet is priced by where the moon is on the day, and the planner suggests the best day in the stay. A leg nearly 180 degrees round the Sun, where Lambert's plane is ill-defined, breaks its plane halfway ([journeys](physics/journey.md#near-180-degrees-the-broken-plane)). A long stay in a planet's orbit turns the orbit's plane (the planet's J2), so the planner prices leaving out of the plane and suggests the day the plane holds the way out; at the Moon it does not (J2 alone does not turn a lunar orbit).
 - **The ascent has no closed-loop guidance.** The ROCKET tab's gravity turn ends its orbits higher than real launches, which are steered ([rockets](physics/rocket.md#real-launchers)).
 
 ## In short
@@ -36,7 +36,7 @@ The following changes would push fidelity further, roughly in order of impact:
 - [ ] Add patched-conic sphere-of-influence transitions so trajectories hand off correctly between central bodies.
 - [x] Replace the fixed-step integrator with a higher-order integrator whose step follows the local dynamical time.
 - [x] Add error-controlled adaptive stepping, and a two-body fast path for weakly perturbed orbits: Dormand–Prince 5(4) for Cowell's method (#72), and Encke's method near a primary ([the n-body kernel](physics/nbody-kernel.md#integrators)).
-- [x] Validate propagated trajectories against flown missions: Artemis I and II against NASA's reconstructed trajectories, and Juno's and Cassini's moon flybys against JPL's ([validation](validation.md)).
+- [x] Validate propagated trajectories against flown missions: Artemis I and II against NASA's reconstructed trajectories, Juno's and Cassini's moon flybys against JPL's, and Juno's 2012–13 cruise and Earth flyby and DART's impact on Dimorphos against their navigators' ([validation](validation.md)).
 
 ## References
 

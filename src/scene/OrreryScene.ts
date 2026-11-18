@@ -58,6 +58,9 @@ import { makeCorona, makeSunMaterial, SunGlare, visibleFraction } from './sun';
 import { RenderScale } from './renderScale';
 
 const UNIT_KM = 1000;                 // one render unit = 1000 km
+// The near plane (render units): a tenth of the camera's distance from its
+// pivot, from 1 m to 1 km (fitNear).
+const NEAR_SHARE = 0.1, NEAR_MIN = 1e-6, NEAR_MAX = 1e-3;
 const ORBIT_SAMPLES = 360;
 // The stretch of an orbit around its body, drawn finely for the focused
 // body (and its planet, for a moon): 360
@@ -405,7 +408,7 @@ export class OrreryScene {
     this.renderer.setClearColor(0x000000, 1);
     container.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(45, 1, 1e-3, 1e10);
+    this.camera = new THREE.PerspectiveCamera(45, 1, NEAR_MAX, 1e10);
     this.camera.position.set(0, 0, 0);
     this.rig = new CameraRig(this.bodyAnchor('sun'));
     this.rig.onArrive = () => this.onFlight(false);
@@ -676,6 +679,19 @@ export class OrreryScene {
     this.applyInset();
   }
 
+  // The near plane: a tenth of the camera's distance from its pivot,
+  // between 1 m and 1 km. Following a craft from 50 m, its lines then run
+  // up to and through it rather than stopping a kilometre short. The
+  // logarithmic depth buffer writes log2(1 + w) / log2(far + 1), which
+  // does not depend on the near plane, so moving it costs no depth
+  // precision anywhere: it only decides what is clipped.
+  private fitNear(distKm: number): void {
+    const near = Math.min(NEAR_MAX, Math.max(NEAR_MIN, (NEAR_SHARE * distKm) / UNIT_KM));
+    if (near === this.camera.near) return;
+    this.camera.near = near;
+    this.camera.updateProjectionMatrix();
+  }
+
   // Shift the projection so the pivot sits in the middle of the uncovered
   // part of the sky.
   private applyInset(): void {
@@ -884,6 +900,7 @@ export class OrreryScene {
     // it is kept 5 m above the surface, still looking at the pivot.
     const lifted = this.aboveGround(cam, date);
     if (lifted) { cam = lifted; offset = [cam[0] - f[0], cam[1] - f[1], cam[2] - f[2]]; }
+    this.fitNear(Math.hypot(offset[0], offset[1], offset[2]));
     const sys = this.focusCraftId === null ? systemOf(this.focus) : null;
     for (const p of SYSTEMS) {
       const r = this.states[p].r;

@@ -53,8 +53,9 @@ they come from, and how each part is checked.
 ## Checks and performance
 
 [Validation](validation.md): every check, its reference and the measured
-result. The flown missions in detail: [Artemis I](validation/artemis1.md)
-and [Artemis II](validation/artemis2.md). [Performance](performance.md): what each part costs and the plan
+result. The flown missions in detail: [Artemis I](validation/artemis1.md),
+[Artemis II](validation/artemis2.md),
+[Juno 2012–13](validation/juno2013.md) and [DART](validation/dart.md). [Performance](performance.md): what each part costs and the plan
 for the slow parts.
 
 ## Background
