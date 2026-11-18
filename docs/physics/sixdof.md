@@ -231,15 +231,17 @@ carried over a frame on the two-body orbit. The quaternion kinematics,
 the gravity-gradient torque and the aerodynamic torque are the standard
 forms [11].
 
-The app's craft is a 2 × 2 × 3 m box of 1,500 kg, long along the thrust
-axis: full, $I = \mathrm{diag}(1000, 1625, 1625)$ kg m², from
+The MISSION tab's craft is a 2 × 2 × 3 m box of 1,500 kg, long along the
+thrust axis: full, $I = \mathrm{diag}(1000, 1625, 1625)$ kg m², from
 $I = m(b^2+c^2)/12$. Its thrusters are 20 N pairs fired as couples,
 0.5 m from the roll axis and 1 m from the pitch and yaw axes: 20 N m in
 roll and 40 N m in pitch and yaw, at most 3°/s. The centre of pressure is
 0.3 m behind the centre of mass, and $C_D A$ is the craft's drag area
 (2.2 × 5 m²). The thrusters burn propellant
 ([below](#the-thrusters-propellant)), and the inertia falls as the tank
-empties ([below](#inertia-and-the-propellant)).
+empties ([below](#inertia-and-the-propellant)). A craft launched from the
+ROCKET tab is sized to its own stage instead
+([below](#a-stages-attitude)).
 
 ### Pointing and the controller
 
@@ -331,7 +333,7 @@ $$J = \int \sum_i \frac{|\tau_i|}{L_i}\,dt,\qquad \Delta m = \frac{J}{I_{sp}\,g_
 
 ### Inertia and the propellant
 
-The propellant sits in two equal spherical tanks of radius $R$ = 0.37 m
+On the MISSION tab's craft the propellant sits in two equal spherical tanks of radius $R$ = 0.37 m
 on the thrust axis, $d$ = 0.6 m fore and aft of the centre of mass. 250 kg
 of MMH and NTO at about 1.2 t/m³ fills each. With $m$ kg on board, each
 tank is a solid sphere about its centre, moved by the parallel-axis
@@ -356,6 +358,60 @@ craft turns 15 % faster in pitch and yaw than full.
 - **The tanks are equal,** so the centre of mass stays put as they drain.
 - The NASA check cases and `sixdof.js` keep fixed inertia, as the cases
   do.
+- A ROCKET-tab stage keeps its propellant in one cylindrical tank of its
+  own diameter instead ([below](#a-stages-attitude)), on the same terms:
+  the tank keeps its shape as it drains, so the tensor is linear in the
+  propellant, and it is centred on the centre of mass.
+
+### A stage's attitude
+
+A craft launched from the ROCKET tab is the stage left burning at cutoff,
+any stages above it and the payload (`rocket-panel.tsx` `reached`), and
+`mission.ts` gives it an attitude sized to it (`craftAttitude.js`
+`stageAttitude`), not the MISSION craft's box. It is a cylinder of the
+stack's diameter $d = 2R$ on the thrust axis:
+
+- **The tank** holds the full load of the stages left, $m_p$ (not only
+  what is left at cutoff), in one solid cylinder of the stage's diameter,
+  $h = m_p/(\rho\pi R^2)$ long, at the propellant's bulk density
+  $\rho$ [16]: 320 kg/m³, liquid oxygen and hydrogen at a mixture ratio
+  of 4.83, for an engine of 400 s or more in vacuum, and otherwise
+  1,030 kg/m³, liquid oxygen and RP-1 at 2.77 (both the table's figures
+  for expansion to vacuum). Storable propellants are
+  denser (1.20 g/cm³ for nitrogen tetroxide and MMH [16]), so their tanks
+  come out 15 % long. Engines run hydrogen richer than the table's
+  ratio, which makes their propellant denser and their tanks shorter
+  than here.
+- **The body** is one diameter longer than its tank, $L = h + d$: the
+  engine and thrust structure aft, the payload and its adapter fore. Its
+  dry mass $m_d$, payload included, is a thin-walled cylinder of that
+  length about the same centre.
+- **The tensor**, by the closed forms for the two cylinders [14, ch. 9],
+  with $m$ the propellant on board:
+
+  $$I_{xx} = m_d R^2 + \tfrac12 m R^2,\qquad I_{yy} = I_{zz} = m_d\left(\tfrac{R^2}{2} + \tfrac{L^2}{12}\right) + m\left(\tfrac{R^2}{4} + \tfrac{h^2}{12}\right)$$
+
+- **The thrusters** are sized so the stage turns, full, as the MISSION
+  craft does full: the same angular acceleration about each axis,
+  $\tau_{\max,i} = \alpha_i I_{ii}$ with $\alpha$ = 0.0200 rad/s² in
+  roll and 0.0246 rad/s² in pitch and yaw, the same 3°/s limit and the
+  same 290 s. So every craft launched in the app turns alike, and the
+  auto-turn's lead is the same. The roll pairs sit at the skirt, $R$
+  from the axis; the pitch and yaw couples at the two ends, $L/2$ from
+  the centre. The centre of pressure is $L/10$ behind the centre of mass,
+  as the box's 0.3 m in 3 m.
+- **Saturn V's S-IVB** at cutoff, as the ROCKET tab flies Apollo 11:
+  59.7 t dry with the spacecraft and 107.1 t of propellant, a tank of
+  4.18 m and a body of 14.28 m at the stack's 10.1 m (the ROCKET tab has
+  one diameter for the whole stack, so its upper stages come out short
+  and wide). Full, $I = \mathrm{diag}(2.89, 2.61, 2.61)\times10^6$
+  kg m², and the thrusters are 4.5–5.7 kN each. With 70 % of the
+  propellant left, a 90° slew to prograde takes 33.5 s and 12.2 kg.
+- **Left out:** a real stage of this size carries much weaker thrusters
+  than that and turns more slowly; here the turning rate is the same for
+  every craft by choice. The centre of mass does not move as the tank
+  drains (a real stage's moves aft as it settles), and the payload is
+  spread along the shell rather than at the front.
 
 ### Turning for a node
 
@@ -475,3 +531,5 @@ in a frame, while a locked burn goes to the kernel steered exactly.
 [14] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020. §13.3 (specific impulse), ch. 9 (moments of inertia, the parallel-axis theorem).
 
 [15] ArianeGroup, "Chemical bi-propellant thruster family," product brochure. [Online]. Available: https://ariane.group/app/uploads/2024/09/ArianeGroup_Chemical_Bipropellant_Thruster_Family.pdf
+
+[16] Wikipedia, "Liquid rocket propellant," Bipropellants table (bulk density $d$, optimal expansion from 68.05 atm to vacuum, from JANNAF data compiled in D. K. Huzel and D. H. Huang, NASA SP-125), 2026. [Online]. Available: https://en.wikipedia.org/wiki/Liquid_rocket_propellant

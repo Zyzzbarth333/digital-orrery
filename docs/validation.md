@@ -605,6 +605,10 @@ torque, and burns along the body axis to the kernel
 | A node 20 m/s radial out an hour ahead, held prograde, at 1/4 s frames | the turn's lead $1.1\,t_\text{slew} + 5$ s; the point-mass craft with the same node | turn began 42.54 s ahead (as planned), locked 8.5 s before the node; 0° off the node's direction; 3 mm from the point mass after; back to prograde |
 | The same at 600 s frames | the same | turn began 41.54 s ahead (the orbital frame turns 2.7° in the lead); 46 mm from the point mass |
 | A node 10 s ahead | — | the log says it cannot settle in time |
+| The MISSION tab's craft, after ROCKET-tab stages got their own attitude | its spec as validated above | unchanged: the box, its tanks and its thrusters |
+| A ROCKET-tab stage's tensor: Saturn V's S-IVB at cutoff, 59.7 t dry with the spacecraft and 107.1 t of propellant at 320 kg/m³, 10.1 m across | the thin-walled cylinder's $m R^2$, $m(R^2/2 + L^2/12)$ and the solid propellant cylinder's $mR^2/2$, $m(R^2/4 + h^2/12)$ (Curtis ch. 9), against both bodies summed point by point | within 3×10⁻⁵ (tolerance 10⁻⁴): full, diag(2.887, 2.612, 2.612)×10⁶ kg m²; the tank holds the load at its density to 10⁻¹² |
+| The stage's thrusters | the MISSION craft's angular acceleration, full | equal on every axis (1.146°/s² in roll, 1.410°/s² in pitch and yaw) |
+| A 90° slew to prograde by that stage with 70 % of its propellant, through the kernel | the controller's closed-form time for its inertia; $2I\omega_\text{max}/L$ | 33.52 s against 33.89 s (1.1 %, tolerance 6 %); 34,573 N s against 34,633 N s (0.17 %, tolerance 1 %), 12.2 kg |
 
 ## Not yet validated
 
