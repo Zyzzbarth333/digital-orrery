@@ -25,7 +25,12 @@
 //      the node, burns as the point-mass node burn does (at 1/4 s frames
 //      and at 600 s frames), comes back to its mode, and says when it is
 //      too late.
-//   9. The hold's limit cycle: the closed-form mean against a pulse-by-
+//   9. A stage's attitude (a ROCKET-tab launch): the tensor of a
+//      thin-walled cylinder round a solid cylinder of propellant against
+//      the same bodies summed point by point, the tank's volume, the
+//      thrusters' sizing, and a turn by the stage the app flies; the
+//      MISSION tab's craft unchanged.
+//  10. The hold's limit cycle: the closed-form mean against a pulse-by-
 //      pulse simulation of the deadband controller on the default craft,
 //      without a disturbance and with one (two-sided, two pulses to one,
 //      one-sided), and against Jackson et al.'s centred two-sided cycle
@@ -39,7 +44,8 @@ import { runCase, CASES, VEHICLES, MU } from './nesc.lib.mjs';
 import { euler321, makeModel, propagate6dof } from './sixdof.js';
 import { transpose, quatToMatrix } from './rigidbody.js';
 import { makeAttitude, advanceAttitude, setMode, setInertia, rcsThrust, holdThrust, limitCycle, slewTime, minSlewTime, alphaAbout, attitudeError, pointing, orbitalFrame, controlTorque, thrustAxis, CONTROL_PERIOD } from './attitude.js';
-import { DEFAULT_ATTITUDE, propellantInertia, inertiaFor, AUTO_MARGIN, AUTO_PAD } from './craftAttitude.js';
+import { DEFAULT_ATTITUDE, propellantInertia, inertiaFor, AUTO_MARGIN, AUTO_PAD, stageAttitude, STAGE_DENSITY, RCS_MIN_ON } from './craftAttitude.js';
+import { LAUNCHERS } from './launchers.js';
 import { Craft } from './craft.js';
 import { createKernelHost, stepCraft, KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { solarSystemBodies } from './bodies.js';
@@ -465,7 +471,101 @@ header('8. THE NODE AUTO-TURN');
   check('with autoNode off, it stays on prograde', d.att.mode === 'prograde' && d.att.locked);
 }
 
-header('9. THE HOLD\'S LIMIT CYCLE');
+header('9. A STAGE\'S ATTITUDE');
+// A ROCKET-tab launch: the stage at cutoff, the stages above and the
+// payload as one cylinder of the stack's diameter (craftAttitude.js
+// stageAttitude). The closed forms (Curtis, 4th ed., ch. 9): a thin-walled
+// cylinder of mass m, radius R and length L, m R^2 about its axis and
+// m (R^2 / 2 + L^2 / 12) across it; a solid one, m R^2 / 2 and
+// m (R^2 / 4 + h^2 / 12). Checked here against the bodies themselves,
+// their mass summed point by point (midpoint rule) as sum dm r_perp^2.
+{
+  // The MISSION tab's craft is as it was (with its hold's deadband and
+  // impulse bit, section 10).
+  const was = { inertia: [[1000, 0, 0], [0, 1625, 0], [0, 0, 1625]], propellant: 500, torqueMax: [20, 40, 40], rcsArm: [0.5, 1, 1], rcsIsp: 290, deadband: 0.5 * D2R, impulseBit: 0.29, rateMax: 3 * D2R, cp: [-0.3, 0, 0], tanks: { offset: 0.6, radius: 0.37 } };
+  check('the MISSION tab\'s craft keeps its spec (the 2 x 2 x 3 m box, its tanks and thrusters)', JSON.stringify(DEFAULT_ATTITUDE) === JSON.stringify(was));
+  const START = new Date('2026-11-04T00:00:00Z'), T0 = kernelSeconds(START);
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), host = createKernelHost();
+  const E = helioStateEqj('earth', START), rk = 6778.137, vc = Math.sqrt(398600.4355 / rk);
+  const mk = (o) => new Craft({ name: 'stage', r: [E.r[0] + rk, E.r[1], E.r[2]], v: [E.v[0], E.v[1] + vc, E.v[2]], t: T0, sys, ...o });
+  const box = mk({ attitude: {} });
+  check('a craft given {} (the MISSION tab\'s) still flies the box\'s tensor, thrusters and tanks', JSON.stringify(box.att.full.inertia) === JSON.stringify(was.inertia) && box.att.full.torqueMax === DEFAULT_ATTITUDE.torqueMax && box.att.full.tanks === DEFAULT_ATTITUDE.tanks);
+
+  // The bodies summed: the shell on a grid of rings, the solid cylinder on
+  // annuli weighted by their area.
+  const shellSum = (m, R, L, nz = 400, nphi = 128) => {
+    let Ix = 0, Iy = 0; const dm = m / (nz * nphi);
+    for (let i = 0; i < nz; i++) { const x = -L / 2 + (i + 0.5) * L / nz;
+      for (let j = 0; j < nphi; j++) { const p = (j + 0.5) * 2 * Math.PI / nphi, y = R * Math.cos(p), z = R * Math.sin(p); Ix += dm * (y * y + z * z); Iy += dm * (x * x + z * z); } }
+    return [Ix, Iy];
+  };
+  const solidSum = (m, R, h, nz = 200, nr = 100, nphi = 64) => {
+    let Ix = 0, Iy = 0; const rho = m / (Math.PI * R * R * h);
+    for (let k = 0; k < nr; k++) { const r = (k + 0.5) * R / nr, dA = 2 * Math.PI * r * (R / nr) / nphi;
+      for (let i = 0; i < nz; i++) { const x = -h / 2 + (i + 0.5) * h / nz, dm = rho * dA * h / nz;
+        for (let j = 0; j < nphi; j++) { const p = (j + 0.5) * 2 * Math.PI / nphi, y = r * Math.cos(p), z = r * Math.sin(p); Ix += dm * (y * y + z * z); Iy += dm * (x * x + z * z); } } }
+    return [Ix, Iy];
+  };
+
+  // Saturn V's S-IVB at cutoff (launchers.js, Apollo 11 as flown): the
+  // payload and the stage's dry mass, its whole load as capacity, 70 % of
+  // it left; J-2s, 421 s, so liquid oxygen and hydrogen.
+  const S = LAUNCHERS[0], top = S.stages.at(-1);
+  const st = { dryMass: (S.payload + top.dry) * 1000, capacity: top.prop * 1000, fuel: 0.7 * top.prop * 1000, diameter: S.diameter, isp: top.isp };
+  const sp = stageAttitude(st), R = S.diameter / 2, h = sp.tanks.length, L = sp.length;
+  console.log(`  ${S.label}'s top: ${(st.dryMass / 1e3).toFixed(1)} t dry with the payload, ${(st.capacity / 1e3).toFixed(1)} t of propellant at ${sp.density} kg/m^3: tank ${h.toFixed(2)} m, body ${L.toFixed(2)} m by ${S.diameter} m`);
+  check(`the tank holds the stage's load at its bulk density: pi R^2 h rho = ${(Math.PI * R * R * h * sp.density / 1e3).toFixed(3)} t`, Math.abs(Math.PI * R * R * h * sp.density / st.capacity - 1) < 1e-12 && sp.density === STAGE_DENSITY.hydrolox && L === h + S.diameter);
+  const [sx, sy] = shellSum(st.dryMass, R, L), [px, py] = solidSum(st.capacity, R, h);
+  const dry = inertiaFor(sp, 0), full = inertiaFor(sp, st.capacity);
+  const rel = (a, b) => Math.abs(a / b - 1);
+  console.log(`  dry:  diag(${dry[0][0].toExponential(5)}, ${dry[1][1].toExponential(5)}) kg m^2; summed ${sx.toExponential(5)}, ${sy.toExponential(5)}`);
+  console.log(`  full: diag(${full[0][0].toExponential(5)}, ${full[1][1].toExponential(5)}) kg m^2; summed ${(sx + px).toExponential(5)}, ${(sy + py).toExponential(5)}`);
+  check('dry, the thin-walled cylinder\'s m R^2 and m (R^2 / 2 + L^2 / 12) match the shell summed (within 1e-4)', rel(dry[0][0], sx) < 1e-4 && rel(dry[1][1], sy) < 1e-4 && dry[2][2] === dry[1][1] && dry[0][1] === 0);
+  check('full, with the solid propellant cylinder\'s m R^2 / 2 and m (R^2 / 4 + h^2 / 12) summed too (within 1e-4)', rel(full[0][0], sx + px) < 1e-4 && rel(full[1][1], sy + py) < 1e-4);
+  const half = inertiaFor(sp, st.capacity / 2);
+  check('linear in the propellant between (the tank keeps its shape as it drains)', Math.abs(half[1][1] - (dry[1][1] + full[1][1]) / 2) < 1e-6 * full[1][1]);
+
+  // Thrusters: full, the stage turns as the MISSION craft does full.
+  const a0 = [0, 1, 2].map((i) => DEFAULT_ATTITUDE.torqueMax[i] / DEFAULT_ATTITUDE.inertia[i][i]);
+  const a1 = [0, 1, 2].map((i) => sp.torqueMax[i] / sp.inertia[i][i]);
+  const f = sp.torqueMax.map((x, i) => x / (2 * sp.rcsArm[i]));
+  console.log(`  thrusters: ${sp.torqueMax.map((x) => (x / 1e3).toFixed(1)).join(', ')} kN m on arms ${sp.rcsArm.map((x) => x.toFixed(2)).join(', ')} m: ${f.map((x) => (x / 1e3).toFixed(2)).join(', ')} kN a thruster`);
+  check(`full, alpha = tau / I matches the MISSION craft's on every axis (${a1.map((x) => (x * R2D).toFixed(3)).join(', ')} deg/s^2)`, a1.every((x, i) => Math.abs(x / a0[i] - 1) < 1e-12) && sp.rateMax === DEFAULT_ATTITUDE.rateMax);
+  check('roll pairs at the skirt (R), pitch and yaw couples at the ends (L / 2); centre of pressure L / 10 behind', sp.rcsArm[0] === R && sp.rcsArm[1] === L / 2 && sp.rcsArm[2] === L / 2 && sp.cp[0] === -L / 10);
+  // Their least pulse: the default's on-time (0.29 N s at 20 N) of their
+  // own thrust, axis by axis, in the default's deadband; held without a
+  // disturbance, the stage pays its two-sided cycles.
+  const hold = holdThrust({ ...sp, inertia: inertiaFor(sp, st.fuel) }, [0, 0, 0]);
+  console.log(`  bits ${sp.impulseBit.map((x) => x.toFixed(1)).join(', ')} N s (${(RCS_MIN_ON * 1e3).toFixed(1)} ms of each thruster's thrust); held without a disturbance at 70 %, ${(hold / (sp.rcsIsp * G0) * 86400).toFixed(1)} kg a day`);
+  check('the stage\'s bits are its thrusters\' thrust times the default\'s 14.5 ms, in the same 0.5 deg deadband', sp.impulseBit.every((x, i) => Math.abs(x / (f[i] * 0.29 / 20) - 1) < 1e-12) && sp.deadband === DEFAULT_ATTITUDE.deadband && hold > 0);
+  const el = LAUNCHERS.find((x) => x.key === 'electron') ?? LAUNCHERS.at(-1), et = el.stages.at(-1);
+  const es = stageAttitude({ dryMass: (el.payload + et.dry) * 1000, fuel: et.prop * 1000, diameter: el.diameter, isp: et.isp });
+  console.log(`  ${el.label}'s top: ${es.length.toFixed(2)} m long at ${es.density} kg/m^3, full diag(${es.inertia[0][0].toFixed(0)}, ${es.inertia[1][1].toFixed(0)}) kg m^2`);
+  check('an engine under 400 s takes the dense propellant (1,030 kg/m^3)', es.density === STAGE_DENSITY.dense);
+
+  // The stage the app flies: its tensor at the fuel on board, and a 90 deg
+  // slew to prograde in the controller's closed-form time for it, its
+  // thrusters' impulse 2 I omega / arm (the slew reaches 3 deg/s).
+  const c = mk({ dryMass: st.dryMass, fuel: st.fuel, area: Math.PI * R * R, thrust: top.thrust * 1000, isp: top.isp, attitude: { ...sp, mode: 'radial' } });
+  const frame = (t) => { c.advanceClock(t); const req = c.buildRequest(); if (req) c.applyResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]); };
+  for (let k = 1; k <= 30; k++) frame(T0 + k / 60);
+  const I = c.att.spec.inertia, want = inertiaFor(sp, c.fuel);
+  check(`the craft flies the stage's tensor at its fuel: I_yy ${I[1][1].toExponential(4)} kg m^2 at ${(c.fuel / 1e3).toFixed(2)} t`, I.every((r, i) => r.every((x, j) => Math.abs(x - want[i][j]) < 1e-6 * want[1][1])));
+  const env = c.att.env(), s0 = env.at(c.clockT), { V, N } = orbitalFrame(s0.r, s0.v);
+  const err0 = attitudeError(c.att.q, pointing(V, N, V));
+  const J0 = c.att.A.rcsImpulse, m0 = c.fuel;
+  c.att.setMode('prograde');
+  const tStart = c.clockT, specNow = { ...c.att.spec };
+  let t = tStart;
+  while (!c.att.locked && t < tStart + 300) { t += 1 / 60; frame(t); }
+  const took = t - tStart, p = slewTime(specNow, err0.theta, err0.e);
+  const J = c.att.A.rcsImpulse - J0, wantJ = 2 * specNow.inertia[2][2] * DEFAULT_ATTITUDE.rateMax / specNow.rcsArm[2];
+  console.log(`  90 deg slew: ${took.toFixed(2)} s, controller ${p.toFixed(2)} s; thrusters ${J.toFixed(0)} N s (2 I omega_max / arm ${wantJ.toFixed(0)}), ${(m0 - c.fuel).toFixed(2)} kg of propellant`);
+  check('the stage settles within 6 % of slewTime for its inertia', Math.abs(took / p - 1) < 0.06);
+  check('its thrusters\' impulse within 1 % of 2 I omega_max / arm (the orbital frame turning under it)', Math.abs(J / wantJ - 1) < 0.01);
+}
+
+header('10. THE HOLD\'S LIMIT CYCLE');
 // A locked hold is not integrated, so its thrusters are charged the limit
 // cycle's mean in closed form (attitude.js limitCycle). Here the deadband
 // controller is flown pulse by pulse instead, an axis at a time: sampled

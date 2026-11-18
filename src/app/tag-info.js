@@ -491,7 +491,7 @@ export const TAG_INFO = {
       '\\boldsymbol\\tau_\\text{gg} = \\frac{3\\mu}{r^3}\\,\\hat{\\mathbf r}_b \\times \\mathbf I\\,\\hat{\\mathbf r}_b',
       '\\boldsymbol\\tau_\\text{aero} = \\mathbf r_\\text{cp} \\times \\left(-\\tfrac{1}{2}\\rho\\,|\\mathbf v_b|\\,\\mathbf v_b\\,C_D A\\right)',
     ],
-    where: 'r̂_b: toward the craft from the primary, in body axes; r_cp: the centre of pressure, 0.3 m behind the centre of mass; v_b: the air\'s velocity in body axes',
+    where: 'r̂_b: toward the craft from the primary, in body axes; r_cp: the centre of pressure, a tenth of the craft\'s length behind the centre of mass (0.3 m on the MISSION craft); v_b: the air\'s velocity in body axes',
     source: 'docs/physics/sixdof.md',
   },
   // craftAttitude.js drawPropellant; attitude.js rcsThrust
@@ -509,14 +509,14 @@ export const TAG_INFO = {
       '\\dot J_i = 3\\,\\frac{|\\tau_i|}{L_i}\\quad \\text{to } \\tfrac{3}{4},\\qquad \\frac{|\\tau_i|}{L_i}\\quad \\text{beyond}',
       '\\varepsilon_i = \\frac{|\\tau_i|\\,\\theta_d I_i}{b^2 L_i^2},\\qquad \\dot m = \\frac{\\sum_i \\dot J_i}{I_{sp}\\,g_0}',
     ],
-    where: 'b = 0.29 N s: the least pulse a thruster gives (a pair fires, so the rate changes by 2bL/I); θ_d = 0.5°: the deadband; τ_i: the disturbance about axis i; L_i: the thrusters\' arm; I_i: the moment of inertia. With no disturbance, 2/3 of the centred cycle\'s b²L/(θ_d I)',
+    where: 'b: the least pulse a thruster gives, 0.29 N s on the MISSION tab\'s craft (a pair fires, so the rate changes by 2bL/I); θ_d = 0.5°: the deadband; τ_i: the disturbance about axis i; L_i: the thrusters\' arm; I_i: the moment of inertia. With no disturbance, 2/3 of the centred cycle\'s b²L/(θ_d I)',
     source: 'Jackson, Gonzalez and Sims, AIAA GN&C 2007 (NTRS 20080000345), eqs. (1)–(3); AJ10-220 data sheet (0.898 N s at 62.3 N) · docs/physics/sixdof.md',
   },
   // craftAttitude.js propellantInertia, inertiaFor
   'attitude-inertia': {
-    what: 'The craft\'s moments of inertia now: the dry craft\'s, and the propellant\'s in two spherical tanks fore and aft of the centre of mass, so it turns faster as the tank empties.',
-    tex: ['I_{xx} = I^\\text{dry}_{xx} + \\tfrac{2}{5} m R^2', 'I_{yy} = I_{zz} = I^\\text{dry}_{yy} + \\tfrac{2}{5} m R^2 + m d^2'],
-    where: 'm: the propellant on board; R = 0.37 m: each tank\'s radius; d = 0.6 m: the tanks\' distance from the centre of mass (parallel-axis theorem)',
+    what: 'The craft\'s moments of inertia now: the dry craft\'s, and the propellant\'s, so it turns faster as the tank empties. The MISSION craft keeps its propellant in two spherical tanks fore and aft of the centre of mass; a stage launched from the ROCKET tab is a thin-walled cylinder of its diameter round one cylindrical tank.',
+    tex: ['I_{xx} = I^\\text{dry}_{xx} + \\tfrac{2}{5} m R^2', 'I_{yy} = I_{zz} = I^\\text{dry}_{yy} + \\tfrac{2}{5} m R^2 + m d^2', '\\text{stage: } I_{xx} = m_\\text{dry} R^2 + \\tfrac12 m R^2,\\ I_{yy} = m_\\text{dry}\\left(\\tfrac{R^2}{2} + \\tfrac{L^2}{12}\\right) + m\\left(\\tfrac{R^2}{4} + \\tfrac{h^2}{12}\\right)'],
+    where: 'm: the propellant on board; MISSION craft: R = 0.37 m each tank\'s radius, d = 0.6 m the tanks\' distance from the centre of mass (parallel-axis theorem); stage: R its radius, h its tank\'s length at the propellant\'s bulk density, L = h + 2R its length',
     source: 'Curtis, 4th ed., ch. 9 · docs/physics/sixdof.md',
   },
   // craftAttitude.js turnPlan

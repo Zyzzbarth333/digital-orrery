@@ -35,6 +35,11 @@ once it has releases. Until then, everything sits under Unreleased.
   craft, where it paid almost nothing), or the disturbance it holds
   against when that is larger. The ATTITUDE readout shows what holding
   costs a day (this pull request).
+- A craft launched from the ROCKET tab turns as its own stage would: its
+  inertia is a cylinder of the stack's diameter round a tank that holds
+  its stages' propellant, and its thrusters are sized to turn it as
+  briskly as the MISSION tab's craft, instead of both being the 1.5 t
+  box's. The MISSION tab's own craft is unchanged (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
@@ -148,8 +153,13 @@ once it has releases. Until then, everything sits under Unreleased.
   clock is near now, Starkov's oval otherwise. Uranus's and Neptune's
   auroral zones and Mercury's field join the guides, and a third guide
   draws the radiation belts of the Earth, Jupiter and Saturn along their
-  L-shells, the Earth's inner belt dipping over the South Atlantic (this
-  pull request).
+  L-shells, the Earth's inner belt dipping over the South Atlantic (#88).
+- Ganymede's own field and auroral ovals, Mars's magnetised crust and its
+  aurora, and Europa's, Ganymede's and Enceladus's auroral footprints
+  beside Io's, each placed ahead of its field line by the lead angle Juno
+  measured. Uranus and Neptune have radiation belts too, and the belts
+  cost an integrated GPU about a millisecond at Earth instead of eight
+  (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The

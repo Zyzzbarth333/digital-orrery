@@ -609,6 +609,11 @@ torque, and burns along the body axis to the kernel
 | A node 20 m/s radial out an hour ahead, held prograde, at 1/4 s frames | the turn's lead $1.1\,t_\text{slew} + 5$ s; the point-mass craft with the same node | turn began 42.54 s ahead (as planned), locked 8.5 s before the node; 0° off the node's direction; 3 mm from the point mass after; back to prograde |
 | The same at 600 s frames | the same | turn began 41.54 s ahead (the orbital frame turns 2.7° in the lead); 46 mm from the point mass |
 | A node 10 s ahead | — | the log says it cannot settle in time |
+| The MISSION tab's craft, after ROCKET-tab stages got their own attitude | its spec as validated above | unchanged: the box, its tanks and its thrusters (with its hold's deadband and bit) |
+| A ROCKET-tab stage's tensor: Saturn V's S-IVB at cutoff, 59.7 t dry with the spacecraft and 107.1 t of propellant at 320 kg/m³, 10.1 m across | the thin-walled cylinder's $m R^2$, $m(R^2/2 + L^2/12)$ and the solid propellant cylinder's $mR^2/2$, $m(R^2/4 + h^2/12)$ (Curtis ch. 9), against both bodies summed point by point | within 3×10⁻⁵ (tolerance 10⁻⁴): full, diag(2.887, 2.612, 2.612)×10⁶ kg m²; the tank holds the load at its density to 10⁻¹² |
+| The stage's thrusters | the MISSION craft's angular acceleration, full | equal on every axis (1.146°/s² in roll, 1.410°/s² in pitch and yaw) |
+| The stage's impulse bits | its thrusters' thrust times the default's 14.5 ms (0.29 N s at 20 N), in the same 0.5° deadband | exact: 82.9 N s in roll, 65.3 N s in pitch and yaw; held without a disturbance at 70 %, 92.4 kg a day |
+| A 90° slew to prograde by that stage with 70 % of its propellant, through the kernel | the controller's closed-form time for its inertia; $2I\omega_\text{max}/L$ | 33.52 s against 33.89 s (1.1 %, tolerance 6 %); 34,573 N s against 34,633 N s (0.17 %, tolerance 1 %), 12.2 kg |
 
 ## Not yet validated
 
@@ -724,6 +729,11 @@ references these are).
 | Starkov's oval, IGRF-14, CGM and Kp together | NOAA's OVATION Prime map, forecast 03:09 UTC 18 Nov 2026 (Kp 3−), night side | mean probability 19.6 % mid-oval vs 7.7 % 6° equatorward and 1.0 % 6° poleward (north); 15.2, 7.1 and 0.8 % (south) |
 | Neptune's auroral zone, L 3–20 | JWST: 30–60° S (Melin et al. 2025) | 24–48° S, mean 35° S |
 | Mercury's offset dipole | Anderson et al. 2012: 190 nT R_M³, 479 km north; libinternalfield's expansion | as published; expansion within 0.06 nT |
+| IGRF-14 after 2025 | NOAA's online Magnetic Field Calculator, 4 points 2025.4–2028.0, 0–400 km | X Y Z F within 0.049 nT, D and I within 0.00005° |
+| Europa's and Ganymede's footprints (JRM33 + con2020) | Connerney et al. 2022, Tables S2, S3 | within 1.07° and 1.89° of arc, rms 0.34° and 0.43° |
+| the moons' lead angles | Hue et al. 2023, Table 1 and its quoted means | means 4.26/4.14°, 5.75/7.06°, 12.33/13.02° (paper 4.3/4.1, 5.8/7.0, 12.3/13.0) |
+| Ganymede's dipole | Weber et al. 2022 against Kivelson et al. 2002 | 719 vs 713 nT, 0.8° apart |
+| Mars's crustal field | Langlais et al. 2019: Br −8,520 to 11,260 nT | −8,522 to 11,261 nT (0.25° grid), strongest at 47.9° S 174.6° E |
 | radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
 
 ## References

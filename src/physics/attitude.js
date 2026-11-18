@@ -170,8 +170,8 @@ export function slewTime(spec, theta, e, thetaEnd = LOCK_ANGLE) {
 // ([N m] per body axis), rateMax (rad/s), cp (body m, the centre of
 // pressure from the centre of mass), cdA (m^2), rcsArm ([m] per body
 // axis, or null: no propellant counted), deadband (rad, the hold's half
-// width) and impulseBit (N s a thruster), or null: the hold pays only the
-// disturbance }; q, omega the start;
+// width) and impulseBit (N s a thruster, or [N s] per body axis), or
+// null: the hold pays only the disturbance }; q, omega the start;
 // mode. For checks: torque(t) (body-axis torque pulses), breakpoints,
 // fixedStep (s, every step without control).
 export function makeAttitude({ inertia, torqueMax, rateMax = 0.05, cp = [0, 0, 0], cdA = 0, rcsArm = null, deadband = null, impulseBit = null, q = [1, 0, 0, 0], omega = [0, 0, 0], mode = 'off', t = 0, gravityGradient = true, torque = null, breakpoints = [], fixedStep = null, hMax = 30 }) {
@@ -204,10 +204,11 @@ export function rcsThrust(spec, tau) {
 // centred two-sided cycle's: 8 deadband / dw) }], or null without a
 // deadband, a bit or arms. The inertia's diagonal is taken as principal.
 export function limitCycle(spec, tau) {
-  const { rcsArm: L, impulseBit: b, deadband: d, inertia: I } = spec;
-  if (!L || !(b > 0) || !(d > 0)) return null;
+  const { rcsArm: L, impulseBit: bit, deadband: d, inertia: I } = spec;
+  const bits = Array.isArray(bit) ? bit : [bit, bit, bit];
+  if (!L || !bits.every((x) => x > 0) || !(d > 0)) return null;
   return [0, 1, 2].map((i) => {
-    const Ii = I[i][i], R2 = b * b * L[i] / (d * Ii), Rd = Math.abs(tau[i]) / L[i], eps = Rd / R2, dw = 2 * b * L[i] / Ii;
+    const b = bits[i], Ii = I[i][i], R2 = b * b * L[i] / (d * Ii), Rd = Math.abs(tau[i]) / L[i], eps = Rd / R2, dw = 2 * b * L[i] / Ii;
     const regime = eps < 2 / 9 ? 'drift' : eps < 3 / 4 ? 'two-one' : 'one-sided';
     const thrust = regime === 'drift' ? 2 / 3 * R2 : regime === 'two-one' ? 3 * Rd : Rd;
     return { eps, regime, thrust, dw, period: 8 * d / dw };

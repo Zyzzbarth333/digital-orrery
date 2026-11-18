@@ -87,13 +87,61 @@ export const DEFAULT_ATTITUDE = {
 export const AUTO_MARGIN = 1.1;
 export const AUTO_PAD = 5;
 
-// The inertia (kg m^2, body axes) of m kg of propellant in the tanks:
-// each a solid sphere 2 m R^2 / 5 about its centre, moved offset along
-// body x by the parallel-axis theorem (m offset^2 about y and z). The
-// liquid is taken to turn with its tank.
-export function propellantInertia(m, { offset, radius }) {
+// The inertia (kg m^2, body axes) of m kg of propellant in the tanks. Two
+// equal spheres (the default): each a solid sphere 2 m R^2 / 5 about its
+// centre, moved offset along body x by the parallel-axis theorem
+// (m offset^2 about y and z). One cylinder (length given, a stage's): a
+// solid cylinder of radius R and length h on the thrust axis, centred on
+// the centre of mass, m R^2 / 2 about x and m (R^2 / 4 + h^2 / 12) across
+// it. Either way the propellant keeps its tank's shape as it drains (its
+// density falls), so the tensor is linear in m, and the liquid is taken to
+// turn with its tank.
+export function propellantInertia(m, { offset = 0, radius, length = null }) {
+  if (length !== null) {
+    const ax = 0.5 * m * radius * radius, tr = m * (radius * radius / 4 + length * length / 12);
+    return [[ax, 0, 0], [0, tr, 0], [0, 0, tr]];
+  }
   const s = 0.4 * m * radius * radius, p = m * offset * offset;
   return [[s, 0, 0], [0, s + p, 0], [0, 0, s + p]];
+}
+
+// A craft launched from the ROCKET tab: the stage left burning at cutoff
+// with any above it and the payload, as a cylinder of the stack's diameter
+// d on the thrust axis (docs/physics/sixdof.md#a-stages-attitude):
+// - its propellant capacity (the full load of the stages left, kg) in one
+//   cylindrical tank of the stage's diameter, h = capacity / (rho pi R^2)
+//   long, at the propellant's bulk density rho: 320 kg/m^3 for liquid
+//   oxygen and hydrogen (an engine of vacuum Isp 400 s or more), else
+//   1,030 kg/m^3 (oxygen and kerosene; storable propellants are denser
+//   still, 1,200);
+// - the body one diameter longer than its tank (L = h + d: the engine and
+//   thrust structure aft, the payload and its adapter fore), its dry mass
+//   (with the payload) a thin-walled cylinder of that length about the same
+//   centre: m R^2 about x, m (R^2 / 2 + L^2 / 12) across it;
+// - attitude thrusters sized so the full stage turns as the MISSION tab's
+//   craft does full: the same angular acceleration about each axis (alpha
+//   = 0.02 rad/s^2 in roll, 0.0246 in pitch and yaw) and the same 3 deg/s
+//   limit. The roll pairs at the skirt (R from the axis), the pitch and yaw
+//   couples at the two ends (L / 2), bipropellant at the default's Isp;
+//   their least pulse the default's 14.5 ms of their own thrust
+//   (RCS_MIN_ON), axis by axis, in the same 0.5 deg deadband;
+// - the centre of pressure a tenth of its length behind the centre of mass,
+//   as the box's 0.3 m in 3 m.
+export const STAGE_DENSITY = { hydrolox: 320, dense: 1030 };   // kg/m^3
+// s: the default thruster's minimum impulse bit over its thrust (0.29 N s
+// at 20 N), the least on-time a bit is scaled by.
+export const RCS_MIN_ON = DEFAULT_ATTITUDE.impulseBit / 20;
+export const HYDROLOX_ISP = 400;                               // s, vacuum
+export function stageAttitude({ dryMass, fuel, capacity = fuel, diameter, isp = 320 }) {
+  const R = diameter / 2, rho = isp >= HYDROLOX_ISP ? STAGE_DENSITY.hydrolox : STAGE_DENSITY.dense;
+  const cap = Math.max(capacity, fuel, 0), h = cap / (rho * Math.PI * R * R), L = h + diameter;
+  const tanks = { radius: R, length: h };
+  const dryAx = dryMass * R * R, dryTr = dryMass * (R * R / 2 + L * L / 12), P = propellantInertia(cap, tanks);
+  const inertia = [[dryAx + P[0][0], 0, 0], [0, dryTr + P[1][1], 0], [0, 0, dryTr + P[2][2]]];
+  const D = DEFAULT_ATTITUDE.inertia, T = DEFAULT_ATTITUDE.torqueMax;
+  const torqueMax = [0, 1, 2].map((i) => T[i] / D[i][i] * inertia[i][i]), rcsArm = [R, L / 2, L / 2];
+  const impulseBit = torqueMax.map((x, i) => x / (2 * rcsArm[i]) * RCS_MIN_ON);
+  return { inertia, propellant: cap, tanks, torqueMax, rcsArm, impulseBit, deadband: DEFAULT_ATTITUDE.deadband, rcsIsp: DEFAULT_ATTITUDE.rcsIsp, rateMax: DEFAULT_ATTITUDE.rateMax, cp: [-L / 10, 0, 0], length: L, density: rho };
 }
 
 // The craft's inertia with fuel kg on board: the dry tensor (the full one
