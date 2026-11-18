@@ -322,8 +322,31 @@ flew one. [Atmospheric entry](physics/entry.md)
 **Magnetosphere.** The region around a planet where its own magnetic field,
 not the Sun's, controls the charged particles. The solar wind squeezes it
 on the day side and draws it out into a long tail on the night side. The
-app draws the planets' internal fields only, with no magnetopause.
-[Magnetic fields and auroras](physics/magnetic-fields.md)
+app bends the Earth's lines that way with Tsyganenko's T89 model; the
+other planets' are their internal fields, with Jupiter's current sheet and
+Saturn's ring current. [Magnetic fields and auroras](physics/magnetic-fields.md#the-earths-magnetosphere)
+
+**Magnetopause.** The boundary where a magnetosphere's field pressure
+balances the solar wind's, about 10 $R_E$ toward the Sun for the Earth.
+Currents on it compress the field inside. T89 includes their field but not
+a sharp boundary, so the app does not end lines there.
+[Magnetic fields and auroras](physics/magnetic-fields.md#the-earths-magnetosphere)
+
+**Ring current.** Charged particles drifting round a planet in its field
+carry a current that weakens the field inside the ring and stretches the
+lines outside it: the Earth's during storms, Saturn's at 8–16 $R_S$.
+[Magnetic fields and auroras](physics/magnetic-fields.md#saturns-ring-current)
+
+**Source surface.** In the potential-field source-surface (PFSS) model of
+the Sun's corona, the sphere at 2.5 solar radii past which the solar wind
+has drawn every field line out radially. Lines that reach it are open and
+feed the solar wind; the rest close back on the Sun.
+[Magnetic fields and auroras](physics/magnetic-fields.md#the-suns-field)
+
+**Carrington rotation.** One turn of the Sun as seen from the Earth,
+27.2753 days, numbered from 9 November 1853. Synoptic maps of the Sun's
+field are made one rotation at a time.
+[Magnetic fields and auroras](physics/magnetic-fields.md#the-suns-field)
 
 **Dipole tilt.** The angle between a planet's magnetic dipole and its spin
 axis: 9° for the Earth, 10° for Jupiter, under 0.01° for Saturn, and 60°

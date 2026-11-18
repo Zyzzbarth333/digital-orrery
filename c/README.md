@@ -63,6 +63,26 @@ after it restrict sampling to those windows; the burn fixture
 (`artemis2_burns.json`) is the windows around each burn at 5 s, with the
 command in [docs/validation/artemis2.md](../docs/validation/artemis2.md#regenerate).
 
+## Flyby references from SPKs
+
+`flyby_ref.c` samples one body's geometric J2000 state about another from
+SPK kernels, printed as a Horizons vector table, for the flyby checks
+where Horizons has no reconstruction
+([docs/validation.md](../docs/validation.md#voyager-2-at-neptune-and-triton)).
+Horizons' Voyager 2 before 29 August 1989 is a patched-conic design
+trajectory, so `src/physics/flyby.fetch.mjs` reads NAIF's reconstruction
+of the Neptune encounter through it: `vgr2_nep097.bsp` (1.4 MB, from
+<https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/>, with nep097's
+Neptune and Triton) in `python/data/kernels/spk/missions/voyager2/`.
+
+```bash
+cmake --build c/build
+npm run fetch:flyby -- triton
+```
+
+`FLYBY_REF` names another build of the tool, and `KERNELS` another kernel
+folder.
+
 ## DE442 for the app
 
 `de_cheb.c` fits the Chebyshev series that the app uses for every planet,

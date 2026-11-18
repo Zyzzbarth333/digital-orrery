@@ -14,7 +14,7 @@ All of them are drawn at a display level, divided by the exposure like the
 orbit lines ([lighting](../frontend/lighting.md#exposure-and-tone-mapping)),
 so they read the same at any distance from the Sun.
 
-![The Earth with its gravity field and spin axis switched on as the camera turns about it, then its sphere of influence and the Earth-Moon Lagrange points switched on as the camera pulls back past the Moon's orbit](../clips/guides.webp)
+![The Earth's EGM2008 surface gravity and spin axis as the camera turns about it, then the summed gravity field flowing in the frame that turns with the Moon, with the Earth-Moon Lagrange points, as the camera pulls back past the Moon's orbit](../clips/guides.webp)
 
 ## The field of every body
 
