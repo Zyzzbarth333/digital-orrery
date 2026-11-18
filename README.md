@@ -50,7 +50,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
   - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown;
   - Juno's deep-space burns and Earth flyby (2012–13), DART's last five weeks to its impact on Dimorphos (2022), and LRO's capture into a low lunar orbit (2009) fly against their navigation teams' reconstructions.
 - **Planning:**
-  - a journey of any number of legs, each leg's transfers compared (a deep-space burn where a leg runs nearly 180° round the Sun), shaped by hand on a plotting table;
+  - a journey of any number of legs, each leg's transfers compared (a deep-space burn where a leg runs nearly 180° round the Sun, from a body or from a craft's own state), shaped by hand on a plotting table;
   - a long stay in a planet's orbit turns the orbit's plane (the planet's $J_2$): the planner prices leaving out of it and suggests the day it holds the way out ([journeys](docs/physics/journey.md#the-parking-orbits-plane));
   - flown by the kernel, with the rocket it needs; the planets' major moons (Europa, Titan and the rest) with their own gravity, reached through their planet's well, captured, landed on (Titan through its air) and left.
 - **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, from the stack the planner sized for your journey, or from an OpenRocket design, and fly it from a real pad into orbit.
