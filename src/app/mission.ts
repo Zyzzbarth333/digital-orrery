@@ -82,6 +82,7 @@ export const REAL_MISSIONS = [
   { id: 'artemis2-plan', label: 'Artemis II · our own plan' },
   { id: 'juno2013', label: 'Juno · Earth flyby, 2012–13' },
   { id: 'dart', label: 'DART · impact on Dimorphos, Sep 2022' },
+  { id: 'lro', label: 'LRO · capture at the Moon, June 2009' },
 ];
 // Orion as the app flies a real mission: its mass falling burn by burn,
 // its sunlit area and its venting (ORION_CRAFT in src/physics/orion.js).
@@ -302,7 +303,11 @@ export class Mission {
     c.note(burns === 'all' ? `${m.burns.length} burns scripted as flown` : `${keep[0].name} scripted as flown; the corrections are yours`, s.t);
     const refEcl = m.flown.map((p: number[]) => eqjToEclFast([p[1], p[2], p[3]]));
     const entryId = m.id && (ORION_ENTRIES as Record<string, unknown>)[m.id] ? m.id : null;
-    this.real.set(c.id, { m, fixHours: null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom, aimed: burns === 'all' && !m.data.flownFrom, aimNext: 0, aimedDv: 0, entryId, separated: false });
+    // A file may fly with tracking fixes by default instead of aimed burns
+    // (LRO's every 6 h, as its navigators worked each burn from a fresh
+    // orbit determination: aimed a day across twelve lunar orbits, the aims
+    // find costly phasing answers).
+    this.real.set(c.id, { m, fixHours: m.data.fixHours ?? null, lastMs: m.startMs, fixes: 0, burns, refEcl, plan: !!m.data.flownFrom, aimed: burns === 'all' && !m.data.flownFrom && !m.data.fixHours, aimNext: 0, aimedDv: 0, entryId, separated: false });
     this.crafts.push(c);
     this.select(c.id);
     return c;

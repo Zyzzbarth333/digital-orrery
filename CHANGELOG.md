@@ -15,6 +15,7 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- A journey's capture now ends in a circular orbit at the planned height. The burn still starts at periapsis, steered in two halves, then a small Hohmann transfer sets the orbit's mean radius. Held retrograde, a 2 km/s capture at Mars left the orbit at e 0.046, and leaving a year later cost 3.8 % more than the plan; now it is e 0.002 and 0.8 %. A departure that waits for its orbit's plane now leaves at the cheapest moment, not the first half-day that saves 2 % (this pull request).
 - Craft launched in the app carry an attitude (6-DOF). The MISSION tab
   points them prograde, retrograde, normal, radial, along the next node
   or holds them still, and they turn in the time their thrusters' torque
@@ -73,6 +74,15 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth: its aims are at the Moon itself, and a landing after a long
   capture works its descent out from the orbit it is in (this pull
   request).
+- Journeys to and from the planets' major moons (Europa, Ganymede, Titan
+  and the rest) are flown with those moons' gravity, as the kernel gives
+  it. Earth orbit to Europa orbit is captured 0.1 km off its planned
+  periapsis, where it came in 300 km low and hit Europa. A descent lands on
+  Europa, Titan is entered at its planned height, a moon flyby is aimed at
+  the moon, not its planet, and leaving Europa for Earth is flown within
+  1 % of the planner's price. Captures and departures burn near
+  impulsively, centred on the periapsis, as the plan prices them (this
+  pull request).
 - A leg that runs nearly 180 degrees round the Sun is planned on a broken
   plane: in the departure's orbit plane to about halfway, then a burn that
   turns the plane onto the target. Leaving lunar orbit for Mars after 23
@@ -108,7 +118,12 @@ once it has releases. Until then, everything sits under Unreleased.
   Dimorphos against its navigators' (`?mission=dart`): burns along their
   measured directions about the Sun, aims flown in the craft's own
   sunlight and as they are flown; Juno shows no flyby anomaly, and the
-  app's DART strikes 23 m from Dimorphos's centre (this pull request).
+  app's DART strikes 23 m from Dimorphos's centre (#97).
+- LRO's capture at the Moon in June 2009 flies in the app against its
+  final reconstruction (`?mission=lro`), down to its 30 km commissioning
+  orbit in the Moon's GRAIL field, checked degree by degree; burns the
+  reconstruction can't resolve are fitted as the engine would fly them
+  (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).

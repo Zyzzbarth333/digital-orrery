@@ -100,6 +100,14 @@ real pad ([rocket](../physics/rocket.md#in-the-app)).
   on Dimorphos, ending on the final solution at the published impact
   point. Its file, `public/missions/dart.json`, is built the same way
   ([DART](../validation/dart.md)).
+- **LRO** (June 2009), from the day after launch through lunar orbit
+  insertion to its 30 by 216 km commissioning orbit. Its file,
+  `public/missions/lro.json`, is built the same way
+  ([LRO](../validation/lro.md)). It flies with a tracking fix every 6 h
+  by default (`fixHours` in the file) rather than aimed burns: aimed a day
+  ahead across twelve lunar orbits, the aims find costly phasing answers.
+  Its four burns after insertion, which the reconstruction's samples can't
+  resolve, are each one steady push fitted to the samples either side.
 
 The app reads them all with `src/physics/realMission.js`. A file's states
 are about its `centre` (the Earth, or the Sun for Juno), and it may carry
@@ -202,7 +210,11 @@ running), which the injection burn grew to 180 km by the next day.
 The kernel learned two things for this:
 - **Steered burns:** a burn can be steered in the orbital frame about a
   body (`frame: 'vnb'`). The integrator passes the craft's velocity to the
-  thrust (in Encke too), and steps inside such a burn are capped at 0.25 s.
+  thrust (in Encke too). Steps inside such a burn were capped at 0.25 s
+  while the kernel's Cowell steps were symplectic. The error-controlled
+  steps follow the turn on their own: one step to each 5-second interval
+  ends the injection burn within millimetres of 0.01 s steps
+  ([Artemis II check](../validation/artemis2.md#3-the-whole-mission-with-orions-burns)).
 - **Tracking fixes:** `Craft.setState` takes a fix.
 
 ## Manoeuvre nodes and the engine
@@ -394,6 +406,7 @@ How the data gets in:
 | `?mission=juno2013` | flies Juno from 25 August 2012, through its deep-space burns and the Earth flyby |
 | `?mission=juno2013&t=2013-10-09T13:00:00Z` | starts six hours before Juno's Earth flyby |
 | `?mission=dart&t=2022-09-26T22:00:00Z` | starts DART 74 minutes before its impact on Dimorphos, with SMART Nav steering |
+| `?mission=lro&t=2009-06-23T09:30:00Z` | starts LRO 17 minutes before its lunar orbit insertion |
 
 ## References
 
