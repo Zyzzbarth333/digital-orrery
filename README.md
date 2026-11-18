@@ -46,7 +46,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
   - the craft you launch carry an attitude: point them prograde, normal, radial, at a node or hold them still, and they turn in the time their thrusters' torque allows, under the gravity gradient and the air's torque, and burn along their body axis; the thrusters burn propellant, the craft turns faster as its tank empties, and it turns to each manoeuvre node by itself in time to settle ([docs/physics/sixdof.md](docs/physics/sixdof.md#attitude-in-the-app));
   - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown.
 - **Planning:**
-  - a journey of any number of legs, each leg's transfers compared, shaped by hand on a plotting table;
+  - a journey of any number of legs, each leg's transfers compared (a broken plane where a leg runs nearly 180° round the Sun), shaped by hand on a plotting table;
   - flown by the kernel, with the rocket it needs.
 - **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, or open an OpenRocket design, and fly it from a real pad into orbit.
 

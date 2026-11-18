@@ -49,6 +49,13 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth: its aims are at the Moon itself, and a landing after a long
   capture works its descent out from the orbit it is in (this pull
   request).
+- A leg that runs nearly 180 degrees round the Sun is planned on a broken
+  plane: in the departure's orbit plane to about halfway, then a burn that
+  turns the plane onto the target. Leaving lunar orbit for Mars after 23
+  days costs 4.57 km/s, not 15.69, and the price no longer leaps as the
+  stay changes. The flight no longer pays hundreds of metres a second
+  chasing a plane that won't hold. A plane lamp says where the plane breaks,
+  and the direct arc is listed beside it for comparison (this pull request).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
