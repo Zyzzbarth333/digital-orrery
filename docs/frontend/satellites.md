@@ -520,10 +520,10 @@ rebuilds the Horizons fixture from the current snapshot's ISS.
 The layer costs about 3.5 ms a frame on an integrated GPU with all 16,892
 on, and nothing measurable on a discrete one. It is off until switched on,
 and costs nothing then. The other three sets add 5,446 points, three draw
-calls and 0.2 MB a refresh. They have not yet been timed on a quiet
-machine: `npm run bench:frames -- --gpu intel,nvidia sats sats-all
-sats-all-hour` does it (one page load per browser on the Intel GPU). The numbers, and the two fixes the first timing
-called for, are in [performance.md](../performance.md#earth-satellites).
+calls and 0.2 MB a refresh, and cost nothing measurable on either GPU:
+with all four on, a frame took 20.6 ms on the Intel GPU against 20.7 ms
+with the active ones alone. The numbers, and the two fixes the first
+timing called for, are in [performance.md](../performance.md#earth-satellites).
 The focused one's close-up orbit costs nothing measurable on either GPU
 (the same section).
 Nor do the passes and the ground track
