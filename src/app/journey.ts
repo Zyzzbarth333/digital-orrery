@@ -90,11 +90,17 @@ export class JourneyStore {
     if (this.smallLoaded) return;
     this.smallLoaded = true;
     try {
-      const meta = await fetch(`${baseUrl}data/smallbodies.json`).then((r) => r.json());
+      const r = await fetch(`${baseUrl}data/smallbodies.json`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const meta = await r.json();
       registerSmallBodies(meta.named);
       this.named = meta.named;
       this.notify();
-    } catch (err) { console.warn(`journey: small bodies not loaded: ${err}`); }
+    } catch (err) {
+      // Asked again next time, so one failed load isn't for the session.
+      this.smallLoaded = false;
+      console.warn(`journey: small bodies not loaded: ${err}`);
+    }
   }
   named: unknown[] = [];
 
@@ -140,7 +146,7 @@ export class JourneyStore {
     try {
       const o = (legOptions(j, i) as { options: { type: string }[] }).options.find((x) => x.type === 'porkchop');
       if (o) j = applyOption(j, i, o as never) as Journey;
-    } catch { /* keep the first guess */ }
+    } catch (err) { console.warn('journey: the leg\'s launch window was not found; keeping the first guess', err); }
     this.set(j);
   }
   move(i: number, d: -1 | 1): void {
