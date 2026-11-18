@@ -43,6 +43,11 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth: its aims are at the Moon itself, and a landing after a long
   capture works its descent out from the orbit it is in (this pull
   request).
+- The ROCKET tab offers the journey's own stack, as the plotting table's
+  STACK station sizes it, beside the real launchers, and the journey as
+  its job: its ascent can be flown and launched from the pad. What sizing
+  leaves out (thrust, sea-level Isp, size, drag) are the real launchers'
+  medians, shown as estimates (this pull request).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
