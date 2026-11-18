@@ -48,7 +48,7 @@ import { IrregularMoonLayer, type IrregularPlanet } from './irregularMoons';
 import { SatelliteLayer } from './satellites';
 import { GuideLayer } from './guides';
 import { MagneticLayer } from './magnetic';
-import { orbitTrailMaterial } from './orbitTrail';
+import { orbitTrailMaterial, reachOf } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
 import { CameraRig, type Anchor } from './cameraRig';
@@ -699,6 +699,7 @@ export class OrreryScene {
     geom.setAttribute('u', new THREE.BufferAttribute(us, 1));
     // A faint whole orbit with a glowing trail behind the body (orbitTrail.ts).
     const line = new THREE.Line(geom, orbitTrailMaterial(b.colour));
+    line.material.uniforms.reach.value = reachOf(pts);     // fades close in (orbitTrail.ts)
     line.frustumCulled = false;
     return line;
   }
@@ -751,6 +752,7 @@ export class OrreryScene {
       geom.setAttribute('position', new THREE.BufferAttribute(pts, 3));
       geom.setAttribute('u', new THREE.BufferAttribute(us, 1));
       const line = new THREE.Line(geom, orbitTrailMaterial(b.colour));
+      line.material.uniforms.reach.value = (o.line.material as THREE.ShaderMaterial).uniforms.reach.value;
       line.frustumCulled = false;
       this.scene.add(line);
       this.nearOrbits.set(key, { key, line, centreMs: tMs, centreKm, epochMs: o.epochMs, frame });
@@ -939,7 +941,8 @@ export class OrreryScene {
     this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
       focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
-      level: 1 / this.renderer.toneMappingExposure, date });
+      level: 1 / this.renderer.toneMappingExposure, date, pivot: f });
+    this.guides.render(this.renderer);
     this.magnetic.update({ camera: this.camera, meshes: this.meshes, materials: this.materials,
       focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
       level: 1 / this.renderer.toneMappingExposure, date });
