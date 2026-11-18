@@ -80,7 +80,9 @@ once it has releases. Until then, everything sits under Unreleased.
 - At a day a second the kernel stays in its worker through Artemis II's
   entry: each request has a time budget, so the entry is flown in pieces
   rather than in one 4 s request that the page took for a dead worker,
-  after which every step ran on the page's thread (#82).
+  after which every step ran on the page's thread (#82). On a slow
+  connection the worker's tables can take longer to load than that
+  timeout; the timeout now waits for them (this pull request).
 - The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
   to 10 m instead of 100 m, so a slow pass is followed more closely:
   Cassini's over Titan to 4 m nine hours on, from 93 m (#86).

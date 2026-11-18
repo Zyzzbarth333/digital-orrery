@@ -740,22 +740,28 @@ state version; a burn or a clock jump on the main thread bumps the version,
 and a result computed from the old state is dropped.
 
 Each batch sent to the Worker has a time budget of 200 ms (`budgetMs`,
-shared between its crafts, each taking an even share of what is left).
-Most batches take a few milliseconds and never meet it. Artemis II's entry
-does: from separation to splashdown under the guidance its steps cost about
-1.5 ms each, 20 ms early on, where each guidance cycle predicts the landing
-several times, and at a day a second the whole entry came in one request of
-3–4 s. The client took a Worker silent for 2 s for a dead one and moved the
-kernel onto the page's thread for good. Now the entry is flown in about 17
-requests, each answered in under 250 ms, and the client's timeout (15 s) is
-only for a Worker that has stopped answering. Where the pieces end moves
-the landing, as frames ending them at lower warp always have: each piece
-restarts the integrator, and the guidance samples its cycles at other
-instants. Cut by step counts from 5 to 500 and by budgets from 25 to
-400 ms, it lands 0–1.4 km and within 2.2 s from where the one-request
-entry lands, under half Orion's 2.1 nmi (3.9 km) miss from its target on
-Artemis I [16]. On the page's thread (no Worker, or after a fallback) requests
-still run to their end. Checked by `src/physics/kernelClient.test.mjs`.
+shared between its crafts, each taking an even share of what is left). Most
+batches take a few milliseconds and never meet it. Artemis II's entry does:
+from separation to splashdown under the guidance its steps cost about 1.5 ms
+each, 20 ms early on, where each guidance cycle predicts the landing several
+times, and at a day a second the whole entry came in one request of 3–4 s.
+The client took a Worker silent for 2 s for a dead one and moved the kernel
+onto the page's thread for good. Now the entry is flown in about 17
+requests, each answered in under 250 ms (the budget is checked between
+steps, so under a load average of 25, with a guided step up to 0.5 s, the
+longest took 1.9 s), and the client's timeout (15 s) is only for a Worker
+that has stopped answering. Where the pieces end moves the landing, as
+frames ending them at lower warp always have: each piece restarts the
+integrator, and the guidance samples its cycles at other instants. Cut by
+step counts from 5 to 500 and by budgets from 25 to 400 ms, it lands 0–1.4
+km and within 2.2 s from where the one-request entry lands, under half
+Orion's 2.1 nmi (3.9 km) miss from its target on Artemis I [16]. On the
+page's thread (no Worker, or after a fallback) requests still run to their
+end. Before its first answer the Worker loads its tables (DE442, the
+asteroids and the Earth's orientation: 3.2 MB, 26 s at 1 Mbit/s), and it
+says when they are in; the reply timeout counts from then, and the load has
+a timeout of its own (2 min) for a fetch that hangs. Checked by
+`src/physics/kernelClient.test.mjs`.
 
 Results arrive a frame or so late, so a craft is drawn at its last exact state
 $(\mathbf r_0, \mathbf v_0, t_0)$ carried forward to the sim clock: along a
