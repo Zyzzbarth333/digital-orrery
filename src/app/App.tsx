@@ -15,6 +15,8 @@ import type { MagneticKey } from '../scene/magnetic';
 import { BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
 import type { Named } from '../scene/smallBodies';
 import { irregularMoon } from '../scene/irregularMoons';
+import { SITE_BY_KEY } from '../physics/landingSites.js';
+import { LandingSitePlate } from './landing-site-plate';
 import type { NamedSat, SatSource, SatCloud, SatLayerKey } from '../scene/satellites';
 import { SatelliteRail, type SatelliteApi } from './satellite-rail';
 import { SatellitePlate, SatCloudPlate } from './satellite-plate';
@@ -114,6 +116,9 @@ export function App() {
   // An irregular moon is a small focus too, as 'irr:<key>' (OrreryScene.focusOnSmall).
   const irregularMoonOn = small?.startsWith('irr:') ? irregularMoon(small.slice(4)) ?? null : null;
   const [irregularOn, setIrregularOn] = useState(false);
+  // A landing site on the Moon too, as 'site:<key>' (OrreryScene.focusOnSite).
+  const siteView = small?.startsWith('site:') ? SITE_BY_KEY[small.slice(5)] ?? null : null;
+  const [sitesOn, setSitesOn] = useState(false);
   // Search any of the 135,353 (the rail's search box): a found point joins
   // the named ones and is flown to as they are.
   const smallSearch = useMemo(() => ({
@@ -242,7 +247,7 @@ export function App() {
     <div className="app">
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
-        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: probeView?.name ?? irregularMoonOn?.name ?? satView?.named.name ?? smallBody?.name ?? focusName(focus) }}
+        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: probeView?.name ?? siteView?.name ?? irregularMoonOn?.name ?? satView?.named.name ?? (cloudView ? `${cloudView.name} debris` : undefined) ?? smallBody?.name ?? focusName(focus) }}
         flying={flying} frame={frame} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
@@ -253,9 +258,11 @@ export function App() {
         satellites={<><SatelliteRail api={satApi} /><SpacecraftRail api={probeApi} /></>}
         guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); if (k === 'magnetic' || k === 'aurora' || k === 'belts') scene.current?.magnetic.set(k, on); else scene.current?.guides.set(k, on); }}
         flow={flowOpts} onFlow={(o) => { setFlowOpts(o); scene.current?.guides.setFlow(o.frame, o.plane); }}
-        irregular={{ on: irregularOn, onToggle: (on) => { setIrregularOn(on); scene.current?.irregulars.setOn(on); }, current: irregularMoonOn?.key ?? null, onFly: (key) => scene.current?.focusOnSmall(`irr:${key}`) }} />
+        irregular={{ on: irregularOn, onToggle: (on) => { setIrregularOn(on); scene.current?.irregulars.setOn(on); }, current: irregularMoonOn?.key ?? null, onFly: (key) => scene.current?.focusOnSmall(`irr:${key}`) }}
+        sites={{ on: sitesOn, onToggle: (on) => { setSitesOn(on); scene.current?.sites.setOn(on); }, current: siteView?.key ?? null, onFly: (key) => scene.current?.focusOnSite(key) }} />
       <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={irregularMoonOn}
-        sat={probeView && scene.current ? <SpacecraftPlate clock={clock} probe={probeView} layer={scene.current.spacecraft} />
+        sat={siteView ? <LandingSitePlate clock={clock} site={siteView} />
+          : probeView && scene.current ? <SpacecraftPlate clock={clock} probe={probeView} layer={scene.current.spacecraft} />
           : satView ? <SatellitePlate clock={clock} sat={satView} source={scene.current?.satellites.sourceOf(satView.named.id) ?? satNamed.source} track={scene.current?.groundTrack ?? null} />
           : cloudView ? <SatCloudPlate cloud={cloudView} /> : null} />
       {consoleOpen && (

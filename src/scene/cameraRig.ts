@@ -100,6 +100,9 @@ export class CameraRig {
   get goalDistance(): number { return this.goalDist; }
   // Where the camera is headed, for zoom memory and limits.
   get destination(): Anchor { return this.flight?.to ?? this.target; }
+  // How far through its flight the camera is, eased as the path is (0 to
+  // 1); 1 with none.
+  get progress(): number { const f = this.flight; return f ? f.ease(Math.min(1, f.t / f.T)) : 1; }
 
   // Start a flight to `to`, ending `endDist` km from it.
   flyTo(to: Anchor, endDist: number): void {

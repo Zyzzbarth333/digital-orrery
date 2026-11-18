@@ -112,3 +112,5 @@ behind them. Textbooks are cited by section, not quoted.
 [26] D. Cross, "astronomy-engine" (MIT). [Online]. Available: https://github.com/cosinekitty/astronomy The planets, `RotationAxis` (the WGCCRE 2015 model) and the solar system's barycentre.
 
 [27] SunPy, "sunpy.sun.models.differential_rotation." [Online]. Available: https://docs.sunpy.org/en/stable/generated/api/sunpy.sun.models.differential_rotation.html Where Howard et al.'s coefficients are the default; used to confirm their values and units.
+
+[28] R. V. Wagner, D. M. Nelson, J. B. Plescia, M. S. Robinson, E. J. Speyerer, and E. Mazarico, "Coordinates of anthropogenic features on the Moon," *Icarus*, vol. 283, pp. 92–103, 2017, doi: 10.1016/j.icarus.2016.05.011; and the LROC team's posts on each landing since. The landing sites' coordinates; every site's source is listed in [landing sites](landing-sites.md#references).

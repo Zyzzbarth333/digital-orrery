@@ -15,6 +15,11 @@ reads as one motion rather than steps. The pivot is the target's live
 position (a body from the ephemeris, a craft from the kernel) plus a
 settling offset, described below.
 
+About a landing site on the Moon the azimuth and elevation are in the
+site's own frame (east, north, up) instead, and the camera's up is the
+site's vertical, so it turns about the local vertical and goes round
+with the Moon ([landing sites](landing-sites.md#flying-to-one)).
+
 ### Close to the ground
 
 Following a craft a kilometre or two up, turning the camera could swing
