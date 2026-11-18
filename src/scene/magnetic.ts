@@ -21,18 +21,20 @@
 import * as THREE from 'three';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
 
-export type MagneticKey = 'magnetic' | 'aurora';
+export type MagneticKey = 'magnetic' | 'aurora' | 'belts';
 type Mag = typeof import('../physics/magnetic.js');
 type Aur = typeof import('../physics/aurora.js');
+type Belts = typeof import('../physics/belts.js');
+type Ovation = ReturnType<typeof import('../physics/ovation.js')['parseOvation']>;
 type Model = NonNullable<ReturnType<Mag['magneticModel']>>;
 type V3 = [number, number, number];
 
 const UNIT_KM = 1000;
-const BODIES: BodyKey[] = ['earth', 'jupiter', 'saturn', 'uranus', 'neptune'];
+const BODIES: BodyKey[] = ['mercury', 'earth', 'jupiter', 'saturn', 'uranus', 'neptune'];
 const BUDGET_MS = 3;                       // tracing per frame
 // Seed latitudes (magnetic, toward the end field lines leave) per body.
 const SEEDS: Record<string, number[]> = {
-  earth: [20, 35, 45, 55, 62, 68], jupiter: [15, 30, 45, 55, 62, 68, 74], saturn: [20, 35, 45, 55, 62, 68],
+  mercury: [20, 35, 45, 55, 62, 68], earth: [20, 35, 45, 55, 62, 68], jupiter: [15, 30, 45, 55, 62, 68, 74], saturn: [20, 35, 45, 55, 62, 68],
   uranus: [15, 30, 45, 55, 62, 68], neptune: [15, 30, 45, 55, 62, 68],
 };
 const N_LON = 12;
@@ -95,8 +97,46 @@ void main() {
 }
 `;
 
+// Radiation belts: shells along L-shells, glowing where seen edge-on, so
+// they read as a volume (a weight per vertex for the band's profile and
+// the fall-off away from the magnetic equator).
+const beltVertex = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_vertex>
+attribute float weight;
+varying float vW;
+varying vec3 vN;
+varying vec3 vV;
+void main() {
+  vW = weight;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vN = normalize(normalMatrix * normal);
+  vV = normalize(-mv.xyz);
+  gl_Position = projectionMatrix * mv;
+  #include <logdepthbuf_vertex>
+}
+`;
+const beltFragment = /* glsl */ `
+#include <common>
+#include <logdepthbuf_pars_fragment>
+uniform vec3 colour;
+uniform float level;
+varying float vW;
+varying vec3 vN;
+varying vec3 vV;
+void main() {
+  #include <logdepthbuf_fragment>
+  float edge = 1.0 - abs(dot(normalize(vN), normalize(vV)));
+  float a = vW * (0.05 + 0.3 * edge * edge);
+  gl_FragColor = vec4(colour * a * level, a);
+}
+`;
+const BELT_COLOUR = new THREE.Color(0x7fb8c9);
+const BELT_SHELLS = 3, BELT_LON = 36, BELT_SAMPLES = 40;
+const BELT_LAT = 50;        // shells stop this far (deg) from the magnetic equator, where they have faded
+
 // Emission colours: 557.7 nm and 630.0 nm as sRGB, and the giants' false colour.
-const GREEN = new THREE.Color(0.32, 1.0, 0.45), RED = new THREE.Color(1.0, 0.16, 0.1), UV = new THREE.Color(0.72, 0.62, 1.0);
+const GREEN = new THREE.Color(0.32, 1.0, 0.45), RED = new THREE.Color(1.0, 0.16, 0.1), UV = new THREE.Color(0.42, 0.34, 1.0);
 // Earth's emission layers, km above the surface: green peaks near 110-150
 // km, red 630 nm above about 200 km.
 const LAYERS = [100, 120, 145, 175, 215, 260, 310];
@@ -121,7 +161,9 @@ const fmtGauss = (nT: number) => {
 };
 
 export class MagneticLayer {
-  readonly on: Record<MagneticKey, boolean> = { magnetic: false, aurora: false };
+  readonly on: Record<MagneticKey, boolean> = { magnetic: false, aurora: false, belts: false };
+  private belts: Belts | null = null;
+  private beltMeshes = new Map<BodyKey, { jobs: (() => void)[]; mesh: THREE.Mesh | null }>();
   private mag: Mag | null = null;
   private aur: Aur | null = null;
   private loading: Promise<void> | null = null;
@@ -147,6 +189,14 @@ export class MagneticLayer {
   private w = new THREE.Vector3();
   // Auroras.
   private kpLoaded = false;
+  // NOAA's live aurora map, fetched while the auroras are on and the clock
+  // is near now, at most every five minutes.
+  private ov: typeof import('../physics/ovation.js') | null = null;
+  private ovation: Ovation | null = null;
+  private ovationAsked = 0;
+  private ovationMesh: THREE.Mesh | null = null;
+  private ovationBuilt: Ovation | null = null;
+  private ovationPeak: V3 = [0, 0, 1];      // the map's brightest point in the north, for its tag
   private cgm: ReturnType<Aur['cgmGrid']> | null = null;
   private earthAurora: THREE.Mesh | null = null;
   private earthKey = '';
@@ -172,7 +222,8 @@ export class MagneticLayer {
   set(key: MagneticKey, on: boolean): void {
     this.on[key] = on;
     if (on && !this.loading) {
-      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js')]).then(([m, a]) => { this.mag = m; this.aur = a; });
+      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js'), import('../physics/ovation.js')])
+        .then(([m, a, b, o]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; });
     }
     if (key === 'aurora' && on && !this.kpLoaded) {
       this.kpLoaded = true;
@@ -186,8 +237,8 @@ export class MagneticLayer {
     focus: BodyKey | null; width: number; height: number; level: number; date: Date;
   }): void {
     this.tagCount = 0;
-    const any = this.on.magnetic || this.on.aurora;
-    if (!any || !this.mag || !this.aur) {
+    const any = this.on.magnetic || this.on.aurora || this.on.belts;
+    if (!any || !this.mag || !this.aur || !this.belts || !this.ov) {
       for (const g of this.groups.values()) g.visible = false;
       this.legend.hidden = true; this.legendFor = null;
       this.hideTags();
@@ -231,24 +282,32 @@ export class MagneticLayer {
       const sunB = sunPos ? this.sunB.copy(sunPos).sub(mesh.position).applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3).normalize() : this.sunB.set(1, 0, 0);
       if (this.on.aurora) {
         if (k === 'earth') this.earthOval(L, g, sunB, f.date, spare);
-        else if (k === 'jupiter' || k === 'saturn') this.giantOval(k, L, g, spare, f.meshes, mat);
+        else if (k !== 'mercury') this.giantOval(k, L, g, spare, f.meshes, mat);
       }
-      if (this.earthAurora && k === 'earth') this.earthAurora.visible = this.on.aurora;
+      if (this.on.belts && k in this.belts!.BELTS) this.beltShells(k, L, g, spare);
+      const bm = this.beltMeshes.get(k);
+      if (bm?.mesh) bm.mesh.visible = this.on.belts;
+      if (k === 'earth' && !this.on.aurora) { if (this.earthAurora) this.earthAurora.visible = false; if (this.ovationMesh) this.ovationMesh.visible = false; }
       const gi = this.giant.get(k);
       if (gi?.mesh) gi.mesh.visible = this.on.aurora;
       if (this.io.mesh && k === 'jupiter') this.io.mesh.visible = this.on.aurora;
 
       // A tag at the dipole's end for the focused body.
       if (k === f.focus && px > 10 && this.on.magnetic) this.poleTag(k, L, g, f.camera, f.width, f.height);
-      if (k === f.focus && px > 10 && this.on.aurora && k === 'earth' && this.earthAurora) this.kpTag(g, sunB, L, f.camera, f.width, f.height);
+      if (k === f.focus && px > 10 && this.on.aurora && k === 'earth' && (this.earthAurora || this.ovationMesh)) this.kpTag(g, sunB, L, f.camera, f.width, f.height);
     }
     this.lineMat.uniforms.level.value = f.level;
     this.axisMat.uniforms.level.value = f.level;
-    for (const k of ['earth', 'jupiter', 'saturn'] as BodyKey[]) {
+    // Auroras give their own light: the display level may dim them near the
+    // Sun but never brightens them past their emission far from it.
+    const glow = Math.min(f.level, 1);
+    for (const k of ['earth', 'jupiter', 'saturn', 'uranus', 'neptune'] as BodyKey[]) {
       const m = k === 'earth' ? this.earthAurora : this.giant.get(k)?.mesh;
-      if (m) (m.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+      if (m) (m.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     }
-    if (this.io.mesh) (this.io.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+    if (this.io.mesh) (this.io.mesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
+    if (this.ovationMesh) (this.ovationMesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
+    for (const b of this.beltMeshes.values()) if (b.mesh) (b.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
 
     // The legend: the focused body's, else none.
     const lk = f.focus && this.lines.has(f.focus) && this.on.magnetic ? f.focus : null;
@@ -322,13 +381,84 @@ export class MagneticLayer {
     if (!L) return;
     for (const o of [L.mesh, L.axis]) if (o) { o.parent?.remove(o); o.geometry.dispose(); }
     this.lines.delete(k);
+    const bm = this.beltMeshes.get(k);
+    if (bm) { if (bm.mesh) { bm.mesh.parent?.remove(bm.mesh); bm.mesh.geometry.dispose(); (bm.mesh.material as THREE.Material).dispose(); } this.beltMeshes.delete(k); }
     if (k === 'earth' && this.earthAurora) { this.earthAurora.parent?.remove(this.earthAurora); this.earthAurora.geometry.dispose(); (this.earthAurora.material as THREE.Material).dispose(); this.earthAurora = null; }
   }
 
   // ---- the Earth's auroral ovals ----
 
+  // Fetch NOAA's latest map when the clock is within three hours of now.
+  private askOvation(date: Date): void {
+    const now = Date.now();
+    if (!this.ov || Math.abs(date.getTime() - now) > 3 * 3600e3 || now - this.ovationAsked < 5 * 60e3) return;
+    this.ovationAsked = now;
+    void fetch(this.ov.OVATION_URL).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j) => { this.ovation = this.ov!.parseOvation(j); }).catch((e) => console.warn('OVATION:', e));
+  }
+
+  // NOAA's map as stacked sheets 100-300 km up, in geographic coordinates
+  // (the Earth's frame), built once per map: green low, red higher, by the
+  // map's probability of visible aurora.
+  private ovationSheets(L: BodyLines, g: THREE.Group, o: Ovation): void {
+    if (this.ovationBuilt === o && this.ovationMesh) return;
+    this.ovationBuilt = o;
+    const pos: number[] = [], em: number[] = [], idx: number[] = [];
+    const layers = [105, 130, 175, 250], gw = [0.6, 1, 0.5, 0.05], rw = [0, 0.03, 0.2, 0.5];
+    const D = Math.PI / 180, a = L.model.a, dLon = 2;
+    let best = -1;
+    for (let lat = 50; lat <= 85; lat++) for (let lon = 0; lon < 360; lon += 2) {
+      const v = this.ov!.ovationAt(o, lat, lon);
+      if (v > best) { best = v; const c = Math.cos(lat * D), r = 1 + 300 / a; this.ovationPeak = [r * c * Math.cos(lon * D), r * c * Math.sin(lon * D), r * Math.sin(lat * D)]; }
+    }
+    for (const h of [1, -1]) {
+      for (let li = 0; li < layers.length; li++) {
+        const r = 1 + layers[li] / a, base = pos.length / 3, rows = 46, cols = 360 / dLon;
+        for (let i = 0; i < rows; i++) {
+          const lat = h * (44 + i);
+          for (let j = 0; j <= cols; j++) {
+            const lon = j * dLon, cl = Math.cos(lat * D);
+            pos.push(r * cl * Math.cos(lon * D), r * cl * Math.sin(lon * D), r * Math.sin(lat * D));
+            const e = Math.min(1, this.ov!.ovationAt(o, lat, lon) / 40) ** 0.8;
+            const gg = gw[li] * e * 0.55, rr = rw[li] * e * 0.45;
+            em.push(GREEN.r * gg + RED.r * rr, GREEN.g * gg + RED.g * rr, GREEN.b * gg + RED.b * rr);
+          }
+        }
+        for (let i = 0; i < rows - 1; i++) for (let j = 0; j < cols; j++) {
+          const i0 = base + i * (cols + 1) + j, i1 = i0 + cols + 1;
+          if (em[3 * i0 + 1] + em[3 * (i0 + 1) + 1] + em[3 * i1 + 1] + em[3 * (i1 + 1) + 1] + em[3 * i0] + em[3 * i1] < 0.02) continue;
+          idx.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
+        }
+      }
+    }
+    if (!this.ovationMesh) {
+      this.ovationMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.ShaderMaterial({
+        vertexShader: auroraVertex, fragmentShader: auroraFragment, transparent: true, depthWrite: false, toneMapped: false,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        uniforms: { level: { value: 1 }, sunDir: { value: new THREE.Vector3() }, dayFade: { value: 1 } },
+      }));
+      this.ovationMesh.frustumCulled = false;
+      this.ovationMesh.renderOrder = 4;
+      g.add(this.ovationMesh);
+    }
+    const geo = this.ovationMesh.geometry;
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('emission', new THREE.Float32BufferAttribute(em, 3));
+    geo.setIndex(idx);
+  }
+
   private earthOval(L: BodyLines, g: THREE.Group, sunB: THREE.Vector3, date: Date, spare: () => number): void {
     const aur = this.aur!;
+    this.askOvation(date);
+    const live = this.ov!.ovationCovers(this.ovation, date.getTime());
+    if (live) this.ovationSheets(L, g, this.ovation!);
+    if (this.ovationMesh) {
+      this.ovationMesh.visible = live && this.on.aurora;
+      ((this.ovationMesh.material as THREE.ShaderMaterial).uniforms.sunDir.value as THREE.Vector3).copy(sunB);
+    }
+    if (this.earthAurora) this.earthAurora.visible = !live && this.on.aurora;
+    if (live) return;
+    // The CGM grid places Starkov's oval (the live map is already geographic).
     if (!this.cgm) this.cgm = aur.cgmGrid(L.model);
     if (!this.cgm.done) { this.cgm.step(Math.max(0.5, spare())); if (!this.cgm.done) return; }
     const kp = aur.kpAt(date.getTime());
@@ -396,9 +526,10 @@ export class MagneticLayer {
       // The band's two edges, as footprints worked out a longitude at a time.
       const edges: { north: (V3 | null)[]; south: (V3 | null)[] }[] = [{ north: [], south: [] }, { north: [], south: [] }];
       const jobs: (() => void)[] = [];
-      if (k === 'jupiter') {
+      if (k !== 'saturn') {
+        // Jupiter's main emission from 20-30 R_J; the ice giants' zones from L 3-20.
         const fr = aur.magneticEquatorFrame(L.model);
-        aur.JUPITER_MAIN.r.forEach((r, j) => {
+        (k === 'jupiter' ? aur.JUPITER_MAIN.r : aur.ICE_GIANT_AURORA.L).forEach((r, j) => {
           for (let lon = 0; lon < 360; lon += dLon) jobs.push(() => {
             const one = aur.equatorFootprints(L.model, r, 360, L.surface, { ...fr, e1: rot(fr, lon, 0), e2: rot(fr, lon, 90) });
             edges[j].north.push(one.north[0] as V3 | null); edges[j].south.push(one.south[0] as V3 | null);
@@ -413,7 +544,7 @@ export class MagneticLayer {
           });
         });
       }
-      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 0.9 : 0.75); g.add(gi!.mesh); });
+      jobs.push(() => { gi!.mesh = this.bandMesh(edges, k === 'jupiter' ? 1 : k === 'saturn' ? 0.9 : 0.16); g.add(gi!.mesh); });
       gi = { mesh: null, jobs, done: false };
       this.giant.set(k, gi);
     }
@@ -438,22 +569,25 @@ export class MagneticLayer {
 
   private bandMesh(edges: { north: (V3 | null)[]; south: (V3 | null)[] }[], intensity: number): THREE.Mesh {
     const pos: number[] = [], em: number[] = [], idx: number[] = [];
-    const lift = [1.003, 1.012];                        // a thin glowing sheet a few hundred km up
+    // A glowing sheet a few hundred km up, fading upward like a curtain.
+    const lift = [1.004, 1.012], lw = [1, 0.3];
     for (const h of ['north', 'south'] as const) {
       const a = edges[0][h], b = edges[1][h], n = a.length;
       for (let li = 0; li < lift.length; li++) {
         const base = pos.length / 3;
         for (let i = 0; i <= n; i++) {
           const pa = a[i % n] ?? b[i % n], pb = b[i % n] ?? a[i % n];
-          for (const [p, w] of [[pa, 0.55], [mid(pa, pb), 1], [pb, 0.55]] as [V3 | null, number][]) {
-            const q = p ?? [0, 0, 0], r = Math.hypot(...q) || 1;
-            pos.push((q[0] / r) * lift[li] * r, (q[1] / r) * lift[li] * r, (q[2] / r) * lift[li] * r);
-            const e = intensity * w * (li === 0 ? 0.9 : 0.35) * (p ? 1 : 0);
+          // Rows across the band, each back on the surface, brightest mid-band.
+          for (let r = 0; r < ROWS; r++) {
+            const t = r / (ROWS - 1), p = between(pa, pb, t), w = Math.sin(Math.PI * t) ** 2;
+            const q = p ?? [0, 0, 0];
+            pos.push(q[0] * lift[li], q[1] * lift[li], q[2] * lift[li]);
+            const e = intensity * w * lw[li] * (p ? 1 : 0);
             em.push(UV.r * e, UV.g * e, UV.b * e);
           }
         }
-        for (let i = 0; i < n; i++) for (let j = 0; j < 2; j++) {
-          const i0 = base + i * 3 + j, i1 = i0 + 3;
+        for (let i = 0; i < n; i++) for (let j = 0; j < ROWS - 1; j++) {
+          const i0 = base + i * ROWS + j, i1 = i0 + ROWS;
           idx.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
         }
       }
@@ -530,6 +664,60 @@ export class MagneticLayer {
     geo.setIndex(idx);
   }
 
+  // ---- radiation belts ----
+
+  // Each belt as BELT_SHELLS L-shells across its band, BELT_LON field lines
+  // round each, traced a shell at a time and joined into one mesh.
+  private beltShells(k: BodyKey, L: BodyLines, g: THREE.Group, spare: () => number): void {
+    const B = this.belts!;
+    let st = this.beltMeshes.get(k);
+    if (!st) {
+      const pos: number[] = [], wt: number[] = [], idx: number[] = [];
+      const jobs: (() => void)[] = [];
+      for (const belt of B.BELTS[k as keyof typeof B.BELTS]) {
+        for (let i = 0; i < BELT_SHELLS; i++) {
+          const Ls = belt.L[0] + ((belt.L[1] - belt.L[0]) * (i + 0.5)) / BELT_SHELLS, w = B.beltWeight(belt, Ls);
+          jobs.push(() => {
+            const base = pos.length / 3;
+            const lines = B.traceShell(L.model, Ls, BELT_LON, L.surface);
+            for (let j = 0; j <= BELT_LON; j++) {
+              const r = B.resample(lines[j % BELT_LON].points, BELT_SAMPLES, L.model);
+              for (let sIdx = 0; sIdx < BELT_SAMPLES; sIdx++) {
+                pos.push(r.points[3 * sIdx], r.points[3 * sIdx + 1], r.points[3 * sIdx + 2]);
+                // Trapped particles crowd toward the magnetic equator.
+                wt.push(Math.abs(r.lat[sIdx]) > BELT_LAT ? 0 : w * Math.exp(-((r.lat[sIdx] / 28) ** 2)));
+              }
+            }
+            for (let j = 0; j < BELT_LON; j++) for (let sIdx = 0; sIdx < BELT_SAMPLES - 1; sIdx++) {
+              const i0 = base + j * BELT_SAMPLES + sIdx, i1 = i0 + BELT_SAMPLES;
+              // No triangles where the shell has faded out (fill is the cost on an integrated GPU).
+              if (wt[i0] < 0.03 && wt[i0 + 1] < 0.03 && wt[i1] < 0.03 && wt[i1 + 1] < 0.03) continue;
+              idx.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
+            }
+          });
+        }
+      }
+      jobs.push(() => {
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute('weight', new THREE.Float32BufferAttribute(wt, 1));
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        const mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+          vertexShader: beltVertex, fragmentShader: beltFragment, transparent: true, depthWrite: false, toneMapped: false,
+          blending: THREE.AdditiveBlending, side: THREE.FrontSide, uniforms: { colour: { value: BELT_COLOUR }, level: { value: 1 } },
+        }));
+        mesh.frustumCulled = false;
+        mesh.renderOrder = 3;
+        g.add(mesh);
+        st!.mesh = mesh;
+      });
+      st = { jobs, mesh: null };
+      this.beltMeshes.set(k, st);
+    }
+    while (st.jobs.length && spare() > 0) st.jobs.shift()!();
+  }
+
   // ---- labels ----
 
   private poleTag(k: BodyKey, L: BodyLines, g: THREE.Group, camera: THREE.PerspectiveCamera, width: number, height: number): void {
@@ -540,6 +728,12 @@ export class MagneticLayer {
   }
 
   private kpTag(g: THREE.Group, sunB: THREE.Vector3, L: BodyLines, camera: THREE.PerspectiveCamera, width: number, height: number): void {
+    if (this.ovationMesh?.visible && this.ovation) {
+      const hhmm = new Date(this.ovation.forecast).toISOString().slice(11, 16), q = this.ovationPeak;
+      const s0 = this.screen(this.v.set(q[0], q[1], q[2]).applyMatrix4(g.matrix), camera, width, height);
+      if (s0) this.tag(s0, `OVATION ${hhmm}`, 'guide-tag mag-kp', `NOAA SWPC's live aurora map (OVATION Prime, from the solar wind measured at L1) for ${hhmm} UTC: the probability of visible aurora, green 557.7 nm low, red 630.0 nm above. Tagged at its brightest point in the north. Away from now, Starkov's oval for the day's Kp`);
+      return;
+    }
     if (!this.cgm?.done) return;
     // On the northern oval at magnetic midnight.
     const sunLon = this.aur!.dipoleLongitude(this.cgm.frame, [sunB.x, sunB.y, sunB.z]);
@@ -591,6 +785,8 @@ export class MagneticLayer {
     for (const k of [...this.lines.keys()]) this.drop(k);
     for (const gi of this.giant.values()) if (gi.mesh) { gi.mesh.geometry.dispose(); (gi.mesh.material as THREE.Material).dispose(); }
     if (this.io.mesh) { this.io.mesh.geometry.dispose(); (this.io.mesh.material as THREE.Material).dispose(); }
+    for (const b of this.beltMeshes.values()) if (b.mesh) { b.mesh.geometry.dispose(); (b.mesh.material as THREE.Material).dispose(); }
+    if (this.ovationMesh) { this.ovationMesh.geometry.dispose(); (this.ovationMesh.material as THREE.Material).dispose(); }
     for (const g of this.groups.values()) this.scene.remove(g);
     this.lineMat.dispose(); this.axisMat.dispose();
     this.legend.remove();
@@ -607,7 +803,13 @@ function rotZ(q: V3, lon: number): V3 {
   const a = (lon * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
   return [c * q[0] - s * q[1], s * q[0] + c * q[1], q[2]];
 }
-function mid(a: V3 | null, b: V3 | null): V3 | null {
+// A fraction t of the way between two surface points, back on the surface
+// (their radii blended, along the blended direction), not on the chord
+// through the planet.
+const ROWS = 7;
+function between(a: V3 | null, b: V3 | null, t: number): V3 | null {
   if (!a || !b) return a ?? b;
-  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  const m: V3 = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), a[2] + t * (b[2] - a[2])], n = Math.hypot(...m) || 1;
+  const r = Math.hypot(...a) * (1 - t) + Math.hypot(...b) * t;
+  return [(m[0] / n) * r, (m[1] / n) * r, (m[2] / n) * r];
 }

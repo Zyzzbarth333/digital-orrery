@@ -467,31 +467,52 @@ export const TAG_INFO = {
   attitude: {
     what: 'The craft\'s attitude: a quaternion turned by its thrusters toward the chosen direction, the thrust along its body x axis. Held there, it is the reference itself.',
     tex: [
-      '\dot{\mathbf q} = \tfrac{1}{2}\,\mathbf q \otimes (0, \boldsymbol\omega)',
-      '\boldsymbol\omega_\text{cmd} = \hat{\mathbf e}\,\min\left(\omega_\text{max}, \sqrt{2\alpha_b\theta + c^2} - c\right) + \boldsymbol\omega_\text{ref}',
+      '\\dot{\\mathbf q} = \\tfrac{1}{2}\\,\\mathbf q \\otimes (0, \\boldsymbol\\omega)',
+      '\\boldsymbol\\omega_\\text{cmd} = \\hat{\\mathbf e}\\,\\min\\left(\\omega_\\text{max}, \\sqrt{2\\alpha_b\\theta + c^2} - c\\right) + \\boldsymbol\\omega_\\text{ref}',
     ],
     where: 'θ, ê: the angle and axis from the body to the reference; α_b: 80 % of the turning acceleration the torque limit allows; c = α_b T_p, T_p = 0.4 s',
     source: 'eigenaxis rotation; docs/physics/sixdof.md',
   },
   'attitude-rate': {
     what: 'How fast the craft is turning, in its own axes: the body rates of Euler\'s equations.',
-    tex: ['\mathbf I\,\dot{\boldsymbol\omega} = \boldsymbol\tau - \boldsymbol\omega \times \mathbf I\boldsymbol\omega'],
+    tex: ['\\mathbf I\\,\\dot{\\boldsymbol\\omega} = \\boldsymbol\\tau - \\boldsymbol\\omega \\times \\mathbf I\\boldsymbol\\omega'],
     where: 'I: the inertia tensor; τ: the thrusters\' torque, the gravity gradient and the air\'s',
     source: 'sixdof.js, checked against NASA\'s 6-DOF check cases · docs/physics/sixdof.md',
   },
   'attitude-turn': {
     what: 'The time the controller takes for the turn still to go, from rest, by its torque limit.',
-    tex: ['t_\text{min} = \frac{\theta}{\omega_\text{max}} + \frac{\omega_\text{max}}{\alpha}'],
+    tex: ['t_\\text{min} = \\frac{\\theta}{\\omega_\\text{max}} + \\frac{\\omega_\\text{max}}{\\alpha}'],
     where: 'the bang-coast-bang least time, when the rate limit is reached; the controller brakes at 80 % of α, so it takes a few per cent longer',
     source: 'docs/physics/sixdof.md',
   },
   'attitude-torque': {
     what: 'The torques on the craft beyond its thrusters: the gravity gradient, and drag acting behind the centre of mass low in the air.',
     tex: [
-      '\boldsymbol\tau_\text{gg} = \frac{3\mu}{r^3}\,\hat{\mathbf r}_b \times \mathbf I\,\hat{\mathbf r}_b',
-      '\boldsymbol\tau_\text{aero} = \mathbf r_\text{cp} \times \left(-\tfrac{1}{2}\rho\,|\mathbf v_b|\,\mathbf v_b\,C_D A\right)',
+      '\\boldsymbol\\tau_\\text{gg} = \\frac{3\\mu}{r^3}\\,\\hat{\\mathbf r}_b \\times \\mathbf I\\,\\hat{\\mathbf r}_b',
+      '\\boldsymbol\\tau_\\text{aero} = \\mathbf r_\\text{cp} \\times \\left(-\\tfrac{1}{2}\\rho\\,|\\mathbf v_b|\\,\\mathbf v_b\\,C_D A\\right)',
     ],
     where: 'r̂_b: toward the craft from the primary, in body axes; r_cp: the centre of pressure, 0.3 m behind the centre of mass; v_b: the air\'s velocity in body axes',
+    source: 'docs/physics/sixdof.md',
+  },
+  // craftAttitude.js drawPropellant; attitude.js rcsThrust
+  'attitude-rcs': {
+    what: 'The propellant the attitude thrusters have burned: pairs fired as couples, so a torque takes its size over the arm in thrust, drawn from the engine\'s tank at their specific impulse.',
+    tex: ['m = \\frac{1}{I_{sp}\\,g_0}\\int \\sum_i \\frac{|\\tau_i|}{L_i}\\,dt'],
+    where: 'τ_i: the torque about body axis i (held against the disturbance while locked); L_i: the thrusters\' arm about it; I_sp = 290 s; g₀ = 9.80665 m/s²',
+    source: 'Curtis, 4th ed., §13.3; ArianeGroup 10 N bipropellant thruster (292 s) · docs/physics/sixdof.md',
+  },
+  // craftAttitude.js propellantInertia, inertiaFor
+  'attitude-inertia': {
+    what: 'The craft\'s moments of inertia now: the dry craft\'s, and the propellant\'s in two spherical tanks fore and aft of the centre of mass, so it turns faster as the tank empties.',
+    tex: ['I_{xx} = I^\\text{dry}_{xx} + \\tfrac{2}{5} m R^2', 'I_{yy} = I_{zz} = I^\\text{dry}_{yy} + \\tfrac{2}{5} m R^2 + m d^2'],
+    where: 'm: the propellant on board; R = 0.37 m: each tank\'s radius; d = 0.6 m: the tanks\' distance from the centre of mass (parallel-axis theorem)',
+    source: 'Curtis, 4th ed., ch. 9 · docs/physics/sixdof.md',
+  },
+  // craftAttitude.js turnPlan
+  'attitude-auto': {
+    what: 'When the craft will start turning to the next manoeuvre node by itself: early enough to settle before it fires. After the burn it goes back to the mode it had.',
+    tex: ['t_\\text{turn} = t_\\text{node} - (1.1\\,t_\\text{slew} + 5\\ \\text{s})'],
+    where: 't_slew: the controller\'s own time for the turn, measured where the craft and the node\'s direction will be then',
     source: 'docs/physics/sixdof.md',
   },
   // mission.ts distanceFromFlown

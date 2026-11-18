@@ -138,7 +138,7 @@ export function App() {
   };
   const satView = sat !== null ? scene.current?.satellites.sat(sat) ?? null : null;
   const [smallOn, setSmallOn] = useState<Record<string, boolean>>({ belt: true, neo: true, trojans: true, outer: true, comets: true, colours: false });
-  const [guidesOn, setGuidesOn] = useState<Record<GuideKey | MagneticKey, boolean>>({ axes: false, field: false, spheres: false, lagrange: false, pulls: false, magnetic: false, aurora: false });
+  const [guidesOn, setGuidesOn] = useState<Record<GuideKey | MagneticKey, boolean>>({ axes: false, field: false, spheres: false, lagrange: false, pulls: false, magnetic: false, aurora: false, belts: false });
   // The followed craft's name, kept current (a rocket's climb included).
   const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
   const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); setSmall(null); setSat(null); };
@@ -227,7 +227,7 @@ export function App() {
         frame={frame} onFrame={setFrame}
         smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }}
         satellites={<SatelliteRail api={satApi} />}
-        guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); if (k === 'magnetic' || k === 'aurora') scene.current?.magnetic.set(k, on); else scene.current?.guides.set(k, on); }}
+        guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); if (k === 'magnetic' || k === 'aurora' || k === 'belts') scene.current?.magnetic.set(k, on); else scene.current?.guides.set(k, on); }}
         irregular={{ on: irregularOn, onToggle: (on) => { setIrregularOn(on); scene.current?.irregulars.setOn(on); }, current: irregularMoonOn?.key ?? null, onFly: (key) => scene.current?.focusOnSmall(`irr:${key}`) }} />
       <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={irregularMoonOn}
         sat={satView ? <SatellitePlate clock={clock} sat={satView} source={satNamed.source} /> : null} />

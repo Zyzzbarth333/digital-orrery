@@ -194,8 +194,10 @@ time:
 On a point mass, the engine keys burn prograde or retrograde (relative to
 the primary) until cut or dry. On a 6-DOF craft there is one key, FIRE,
 which burns along the body axis wherever it points; a node burns along
-the body axis too, so point the craft first (the NODE mode points it along
-the next node's burn).
+the body axis too. AUTO NODE TURN (on by default) turns the craft to each
+node by itself, early enough to settle before it fires, and back after;
+with it off, point the craft first (the NODE mode points it along the next
+node's burn).
 
 ## Attitude
 
@@ -208,11 +210,24 @@ A 6-DOF craft's ATTITUDE section, above the engine:
   42.1° to go" while turning. **Turn left:** the controller's own time for
   the turn still to go, from rest. **Turning:** the body rate.
   **Disturbance:** the gravity gradient and air torques on it, in N m.
-  Each has its source tag (6-DOF), with the equations in its detail.
+  **Thruster fuel:** the propellant the attitude thrusters have taken
+  from the engine's tank, in grams (kilograms past one). **Inertia:** the
+  moments of inertia in pitch and roll now, falling as the tank empties.
+  **Node turn,** while the craft waits for or is turned for a node: when
+  the turn starts, how far and for how long ("Starts in 18 min, 90° in
+  34 s"), or "Turned for the node". Each has its source tag (6-DOF), with
+  the equations in its detail.
+- **AUTO NODE TURN,** a toggle key (`aria-pressed`), on by default: the
+  craft turns to each manoeuvre node by itself, 1.1 times the
+  controller's time for the turn plus 5 s before it, then goes back to the
+  mode it had. A node too close to settle for is noted in the log
+  ([turning for a node](../physics/sixdof.md#turning-for-a-node)).
 
 Turns take real time: a 90° turn takes 34 s at 40 N m on 1,625 kg m²
 (1.41°/s²) with a 3°/s limit, against 32 s for full torque, coast and full
-torque back. At a day a second a turn is over within a frame.
+torque back; it costs 60 g of the thrusters' propellant. Empty, the craft
+turns the same 90° in 33 s. At a day a second a turn is over within a
+frame.
 
 **In the scene.** Within 50,000 km of the camera a 6-DOF craft's marker
 gets an attitude indicator (`craftLayer.ts`):

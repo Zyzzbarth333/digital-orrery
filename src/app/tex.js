@@ -28,14 +28,14 @@ const GREEK = {
 const SYMBOLS = { odot: '⊙', oplus: '⊕', infty: '∞', partial: '∂', ell: 'ℓ' };
 const OPERATORS = {
   cdot: '·', times: '×', le: '≤', leq: '≤', ge: '≥', geq: '≥', approx: '≈', pm: '±', mp: '∓',
-  neq: '≠', to: '→', propto: '∝', equiv: '≡', lvert: '|', rvert: '|', sum: '∑', int: '∫',
+  neq: '≠', to: '→', propto: '∝', equiv: '≡', lvert: '|', rvert: '|', sum: '∑', int: '∫', otimes: '⊗',
 };
 const FUNCTIONS = new Set(['ln', 'log', 'exp', 'sin', 'cos', 'tan', 'arccos', 'arcsin', 'arctan', 'sinh', 'cosh', 'min', 'max', 'atan2']);
 const SPACES = { ',': 0.167, ';': 0.278, ':': 0.222, ' ': 0.25, quad: 1, qquad: 2 };
 const ACCENTS = { hat: ['^', '̂'], dot: ['˙', '̇'], ddot: ['¨', '̈'], bar: ['¯', '̄'], tilde: ['~', '̃'] };
 const LARGE = new Set(['∑', '∫']);
 // Operators set with space around them in the plain text.
-const SPACED = new Set(['=', '+', '−', '≤', '≥', '≈', '±', '∓', '≠', '→', '<', '>', '∝', '≡', '×']);
+const SPACED = new Set(['=', '+', '−', '≤', '≥', '≈', '±', '∓', '≠', '→', '<', '>', '∝', '≡', '×', '⊗']);
 const FENCES = new Set(['(', ')', '[', ']', '|', '‖', '⟨', '⟩']);
 
 const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹', '−': '⁻', '+': '⁺', n: 'ⁿ', i: 'ⁱ', '(': '⁽', ')': '⁾' };
