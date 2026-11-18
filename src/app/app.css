@@ -377,6 +377,9 @@ kbd {
    orange key, and a selected key is the dark, pressed-in one. */
 .key.primary { white-space: nowrap; height: 38px; padding: 0 18px; background: linear-gradient(var(--sheen), var(--panel-raised)); color: var(--ink); border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink), inset 0 1px 0 var(--white); }
 .key.primary:disabled { background: linear-gradient(var(--panel-raised), var(--key-low)); color: var(--ink-muted); border-color: var(--seam-strong); box-shadow: none; }
+/* ARM: lit caution while a launch is armed (yellow: recheck before acting). */
+.key.arm[aria-pressed='true'], .key.arm[aria-pressed='true']:disabled { background: var(--window); color: var(--caution); border-color: var(--window); box-shadow: inset 0 2px 4px #000; opacity: 1; }
+.launch-row .hint { flex: 1 1 14em; }
 .key.primary:hover { filter: brightness(1.06); }
 
 /* ---------------- tags, strips, sections ---------------- */
