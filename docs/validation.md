@@ -595,12 +595,13 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 56 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 39 m/s) |
 | Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown; the cheaper hyperbola taken, a swing-by near the planet charged a margin, so the price moves only as the Moon does | the eccentricity vector (Curtis Sec. 2.5); the full-model flight; the Moon's motion, an hour at a time | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,222 (0.2 % under, within 3 %); lows a month apart; the best day priced 1,657, flown 1,660; over stays of 18 to 30 days the largest hourly step 39 m/s, where the old rule jumped 707 |
 | Mars orbit to the Moon, flown: lunar orbit and a landing | the plan | 1.3 km off the planned periapsis; capture within 3 % of its price; down at 2.2 m/s |
-| The planets' major moons, flown with their gravity: Earth orbit to Europa orbit and home; to a Europa landing; to Titan through the air; a Europa flyby | the plan, Europa and Titan reached and left via their planets | Europa 0.1 km off the planned periapsis (within 5 km), capture within 0.4 % of its price; left for 5,607 m/s against 5,557 (0.9 %, within 3 %), the first aim after it 1.3 m/s, the last 0.1 m/s (62 before the aims at a planet left its bending to it); down on Europa at 2.1 m/s; Titan's entry perigee 1,000.01 km for 1,000; the flyby 0.0 km off |
+| The planets' major moons, flown with their gravity: Earth orbit to Europa orbit and home; to a Europa landing; to Titan through the air; a Europa flyby | the plan, Europa and Titan reached and left via their planets | Europa 0.1 km off the planned periapsis (within 5 km), capture within 0.4 % of its price; left for 5,575 m/s against 5,557 (0.3 %, within 3 %; the parking orbit's plane 0.04° off the way out, within 0.5°), the first aim after it 1.3 m/s; down on Europa at 2.1 m/s; Titan's entry perigee 1,000.01 km for 1,000; the flyby 0.0 km off |
 | The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's, at Mars and at Jupiter (to J12); the trial orbit at the mean radius; the burn out of the plane; a year at Mars priced and flown, the node aimed at the approach, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % at Mars and 0.03 % at Jupiter (within 0.25 %; J2 alone 2.5 % off there); the trial at the mean radius to 1 m, its node's rate 0.06 % apart from where it starts (started circular, 0.46 %); to 0.1 m/s; the node 0.000° off the plan's for 0.44 m/s; the planned day 2,829 m/s, flown 2,840 (0.4 %); the wait 13.24 d, flown 13.23 (2,027 against 2,022 m/s); the parking orbit lamp's day 2,008, flown 2,004 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 21-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 130 m/s of corrections against the direct arc's 969 |
 | Burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 0.8 km off |
 | Near 180°, the deep-space burn: Earth orbit to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026; lunar orbit to Mars, stays of 18 to 30 days | Lawden's conditions on the primer vector (Lawden 1963; Prussing 2010); the primer's jump as the cost's gradient (Lion and Handelsman 1968; Jezewski 1975); a blind 12-start search | p-dot continuous at $B$ to 3 %, $\lvert\mathbf p\rvert \le 1$ to 10⁻⁴, where the broken plane's jumps 128 % and passes 1; nothing cheaper found; never dearer than the direct arc or the broken plane; the excess speed's second difference 4.3 m/s; 20 days at the Moon flown with 198 m/s of corrections, Mars 1.0 km off |
+| Near 180° from a craft's own state: a craft near the Earth, its orbit tilted 1°, to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026 | Abilleira (ISSFD 2007); Lawden (1963); the craft's orbit plane; the full-model flight | direct 12.72 km/s tilted 14.3°, the deep-space burn 5.471; the broken plane's first arc in the craft's plane to 10⁻⁶°; never dearer than either, smooth; flown with 112 m/s of corrections, Mars 1.2 km off, against the direct arc's 687 |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
@@ -631,6 +632,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Relativity: Mercury through the kernel | 42.98″ a century | 42.98″ a century |
 | Relativity: the Earth's Schwarzschild and Lense–Thirring terms, orbit-averaged | 3.2496″ a year at 12,270 km, e = 0.1 | 3.2496″ a year (0.1 %) |
 | The planets' J2: a Jupiter orbiter's node, 10 days | secular theory, 11.901° | 11.931° (0.25 %) |
+| Mercury's and Venus's fields (JGMESS160A, MGNP180U) at 18 points, 200 to 1,000 km up, to degrees 20, 50 and 80 | a direct Legendre sum of the PDS files at 50 digits (`planetFields.oracle.wls`) | within 4.5×10⁻¹⁵; Venus's frame the app's IAU one, Mercury's its label's (0.17° from the IAU's) |
 
 ## Entry (`entry.test.mjs`)
 
@@ -703,6 +705,20 @@ through JPL Horizons). See [LRO](validation/lro.md).
 | The Moon's field, degree by degree, a day at 200 km | 4.2 km (J2), 1.48 (10), 0.074 (20), 0.020 (50), 0.020 km (100) |
 | The orbits | 207 by 3,082 km after LOI-1 (published 220 by 3,100); 34 by 199 km at the end (30 by 216) |
 | The app's file (`public/missions/lro.json`), with a fix every 6 h | 0.1 km off at the end, 25.5 km at worst (blind: 3,424 km) |
+
+## Real flight: MESSENGER's cruise to Mercury (`missions.validate.mjs`)
+
+MESSENGER from 5 August 2004 to half a day into Mercury orbit on 18 March
+2011, against JHU/APL's reconstruction (through JPL Horizons) and APL's
+record of each burn. See [MESSENGER](validation/messenger.md).
+
+| Check | Result |
+| --- | --- |
+| 19 burns (parts summed) against APL's EME2000 vectors | each within 1.1 % and 1.7°; DSM-1 315.639 m/s (APL 315.633), MOI 861.614 m/s along its path (861.714), turned 30° |
+| 49 coast arcs, sunlight fitted every 10 days (radial, along-track, normal) | rms 0.72 km over 2,420 daily samples, worst 5.4 km (no sunlight: 4,686 km); Cr·A 3.5–18.6 m², tilted up to 24° (as built: 12.9 m²) |
+| 6 flybys: Earth, Venus twice, Mercury three times | each within 0.04 km and a second of APL's; the kernel through each within 9 m at closest approach at the Earth and Venus, 172 m at Mercury; half a day on, within 0.7 km at the Earth and Venus (the 338 km pass of Venus: 4.0 km with J2 alone), 2.2 to 8.0 km at Mercury |
+| The orbit MOI reached | 207.5 by 15,272 km, 12.076 h (published 206.77 km, 12.071 h) |
+| The app's file (`public/missions/messenger.json`), with a fix every 24 h | every flyby within 0.6 km of the flown; 12.7 km off at the end, 14.9 km at worst |
 
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 

@@ -306,7 +306,7 @@ export function planFlight(sol) {
     if (viaMoon && MOON_IN_KERNEL.has(Q.body)) {
       const tP = crossing(leg.endB, leg.vinfArr);
       const at = VIA_PLANET_AIMS.map((f) => leg.arrMs - f * tP).filter((ms) => ms > first + 0.02 * dur && ms < leg.arrMs - 3 * tIn);
-      at.forEach((ms, i) => aims.push({ kind: 'aim', ms, ...target, ...(i === at.length - 1 ? { offsetEqj: ecl(off), without: null } : {}) }));
+      at.forEach((ms, i) => aims.push({ kind: 'aim', ms, ...target, ...(i === at.length - 1 ? { offsetEqj: ecl(off), without: null, ...(offInfo.wayOut ? { replane: { rp: norm(off), wayOutEqj: ecl(offInfo.wayOut), untilMs: offInfo.untilMs } } : {}) } : {}) }));
     } else {
       const second = Math.max(first + 0.25 * (leg.arrMs - first), leg.arrMs - 3 * tIn);
       if (second < leg.arrMs - 0.6 * tIn && leg.arrMs - first > 2 * DAY * 1000) {
@@ -629,9 +629,10 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   // planned periapsis is flown through the stay in the kernel, and the way
   // out turned back by the rotation that took its plane from the one to the
   // other. Twice, as that rotation depends a little on the plane.
-  function stayTurned(key, r, v, rp, w, tUntil) {
+  // (tAt: r, v are the periapsis state at that time, not the craft's now.)
+  function stayTurned(key, r, v, rp, w, tUntil, tAt = null) {
     const mu = bodyState(key, s.t).mu, hN = unit(cross(r, v));
-    const tp = Math.max(0, timeToPeriapsis(r, v, mu)), x = propagate(r, v, tp, mu), t0 = s.t + tp;
+    const tp = tAt === null ? Math.max(0, timeToPeriapsis(r, v, mu)) : 0, x = tAt === null ? propagate(r, v, tp, mu) : { r, v }, t0 = tAt ?? s.t + tp;
     // (Over a stay of more than a month the plane goes round many times,
     // and the departure's wait for it does better.)
     if (!x || !(tUntil > t0 + 3600) || tUntil - t0 > 30 * DAY) return w;
@@ -1019,7 +1020,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       // The orbit it leaves, from the last burn's end (on a side run).
       const orbit = flownDv > 0 ? shapeAt(tEnd + 1) : null;
       out.captures.push({ body: e.body, dv: flownDv, impulsive: Math.max(0, dv), steered: !!cap, pitchDeg: cap ? cap.pitch.map((p) => p * 180 / Math.PI) : null, hohmann: moved, rc, ...(orbit ? { a: orbit.aMean, e: orbit.e } : {}) });
-      out.log.push(`capture at ${e.body}: ${(flownDv * 1000).toFixed(0)} m/s (impulsive ${(Math.max(0, dv) * 1000).toFixed(0)}), ${cap ? `steered from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''} (pitch ${cap.pitch.map((p) => (p * 180 / Math.PI).toFixed(1)).join(' then ')} deg)${moved ? `, then Hohmann from a mean ${moved.from.toFixed(1)} km for ${(moved.dv * 1000).toFixed(1)} m/s` : ''}` : `retrograde from ${rp.toFixed(0)} km`}${accel > PLAN_ACCEL ? ` (at ${accel.toFixed(0)} m/s^2)` : ''}${orbit ? `; the orbit's mean a ${orbit.aMean.toFixed(1)} km (planned ${rc.toFixed(1)}), e ${orbit.e.toFixed(4)}` : ''}`);
+      out.log.push(`capture at ${e.body}: ${(flownDv * 1000).toFixed(0)} m/s (impulsive ${(Math.max(0, dv) * 1000).toFixed(0)}), ${cap ? `steered from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''} (pitch ${cap.pitch.map((p) => (p * 180 / Math.PI).toFixed(1)).join(' then ')} deg)${moved ? `, then Hohmann from a mean ${moved.from.toFixed(1)} km for ${(moved.dv * 1000).toFixed(1)} m/s` : ''}` : `retrograde from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''}`}${orbit ? `; the orbit's mean a ${orbit.aMean.toFixed(1)} km (planned ${rc.toFixed(1)}), e ${orbit.e.toFixed(4)}` : ''}`);
       continue;
     }
     flyTo(t);
@@ -1035,8 +1036,35 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
     if (e.kind === 'aim') {
       if (kernelSeconds(new Date(e.arrive)) - s.t < 3600) continue;      // too late to aim: nodes ran into it
       const Tk = kernelSeconds(new Date(e.arrive));
-      const target = add(posAt(sys, e.body, Tk), e.offsetEqj);
       const future = out.burns.filter((b) => b.t1 > s.t);
+      // The last aim down a planet's well into an orbit about its moon: the
+      // periapsis point made again from the way in as the craft now has it,
+      // so the hyperbola's plane holds the way out. The planned point is
+      // from the patched conics' way in; the kernel's differs by degrees
+      // (10 at Europa), and the trims inside the moon's sphere, minutes
+      // out, cannot turn the plane for less than the departure would pay
+      // for it (169 m/s for 9 degrees). Here, two days out, it is cheap.
+      // The way in is the craft's velocity about the moon at the arrival on
+      // a side run without the moon's pull.
+      let offsetEqj = e.offsetEqj;
+      if (e.replane) {
+        const res = stepCraft(without(e.body), { id: 0, version: 0, r: s.r, v: s.v, t: s.t, tEnd: Tk, primary: null, burns: future.map((b) => ({ ...b })), maxSteps: 2e6, ...(env ? { env: cheapEnv } : {}) });
+        const M = bodyState(e.body, Tk), vin = res.complete ? sub(res.v, M.v) : null, w = unit(e.replane.wayOutEqj);
+        // The periapsis in the plane of the way in and ww; then ww turned
+        // back by the stay's turn of the plane (stayTurned, flown from that
+        // periapsis: ten degrees over six days at Europa, Jupiter's pull and
+        // Europa's own field), and the periapsis again in its plane.
+        const rp = e.replane.rp, peri = (ww) => {
+          const nn = vin && cross(vin, ww);
+          if (!nn || !(norm(nn) > 1e-6 * norm(vin))) return null;
+          const uin = unit(vin), uout = rotate(uin, unit(nn), turnAngle(rp, norm(vin), M.mu)), d = sub(uin, uout), b = add(uin, uout);
+          return norm(d) > 1e-9 && norm(b) > 1e-9 ? { r: scale(unit(d), rp), v: scale(unit(b), Math.sqrt(dot(vin, vin) + 2 * M.mu / rp)) } : null;
+        };
+        let p = peri(w);
+        if (p && e.replane.untilMs) { const w2 = stayTurned(e.body, p.r, p.v, rp, w, kernelSeconds(new Date(e.replane.untilMs)), Tk); p = peri(w2) ?? p; }
+        if (p) offsetEqj = p.r;
+      }
+      const target = add(posAt(sys, e.body, Tk), offsetEqj);
       // A first guess: the two-body arc about the leg's central body.
       const C0 = e.central === 'sun' ? { r: [0, 0, 0], v: [0, 0, 0] } : bodyState(e.central, s.t), CT = e.central === 'sun' ? [0, 0, 0] : posAt(sys, e.central, Tk);
       const muC = e.central === 'sun' ? sys.muSun : bodyInfo(e.central).mu;

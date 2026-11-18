@@ -543,7 +543,7 @@ export const TAG_INFO = {
     what: 'How far the craft is from where the real one was at this time.',
     tex: ['d = |\\mathbf r(t) - \\mathbf r_\\text{flown}(t)|'],
     where: '𝐫_flown: the mission\'s reconstructed trajectory, interpolated between its points',
-    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno, DART and LRO: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
+    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno, DART, LRO and MESSENGER: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
   },
   'next-burn': {
     what: 'The real mission\'s next burn, as it was flown.',

@@ -143,11 +143,13 @@ export function stepResiduals(rows, centre, env = null) {
 // { a, b (step indices), peak, net (km/s), kind }. A burn spreads its change
 // over its steps; a join between navigation solutions is one step, so an
 // event whose largest step holds over 1.5 times the whole change is a join.
-export function findEvents(steps, threshold, gap = 3) {
+// drKm: a step whose position is that far from the kernel's is an event too
+// (MESSENGER's solutions join with jumps of up to 21 km and a few mm/s).
+export function findEvents(steps, threshold, gap = 3, drKm = Infinity) {
   const events = [];
   steps.forEach((s, i) => {
     const d = norm(s.dv);
-    if (d <= threshold) return;
+    if (d <= threshold && norm(s.dr) <= drKm) return;
     const e = events.at(-1);
     if (e && i - e.b <= gap) { e.b = i; e.peak = Math.max(e.peak, d); } else events.push({ a: i, b: i, peak: d });
   });
@@ -230,19 +232,25 @@ export function steadyBurn(msFrom, msTo, dv, p, key, eqj = false) {
 // A burn from samples every few seconds through it (rows), as the app's
 // mission files hold them: each interval's change beyond gravity, steered in
 // the orbital frame about the body `about`. The burn runs from the first
-// interval over a twentieth of the peak to the last. Returns { intervals
+// interval over a twentieth of the peak to the last (or, given floor, km/s
+// in a step, over that: MESSENGER's burns open and close on the small
+// thrusters, at a few percent of the main engine's push). Returns { intervals
 // ([t0, t1, prograde, in-plane, normal, m/s^2]; with eqj, the direction in
-// J2000 axes instead), dv (km/s, about centre's axes), ignitionMs, cutoffMs }.
-export function burnFromSamples(rows, centre, aboutKey, env = null, eqj = false) {
+// J2000 axes instead), dv (km/s, about centre's axes), along (km/s: the
+// change summed along the path, which the rocket equation counts; over
+// |dv| for a burn steered as it fires, as MESSENGER's orbit insertion
+// turned 30 degrees), ignitionMs, cutoffMs }.
+export function burnFromSamples(rows, centre, aboutKey, env = null, eqj = false, floor = null) {
   const steps = rows.slice(0, -1).map((a, i) => {
     const b = rows[i + 1], sec = (b.ms - a.ms) / 1000, dv = sub(b.v, coast(a, b.ms, centre, env).v);
     return { a, b, sec, dv, acc: norm(dv) / sec };
   });
   const peak = Math.max(...steps.map((s) => s.acc));
-  const on = steps.map((s) => s.acc > peak / 20);
+  const on = steps.map((s) => (floor ? norm(s.dv) > floor : s.acc > peak / 20));
   const first = on.indexOf(true), last = on.lastIndexOf(true);
   const used = steps.slice(first, last + 1);
   const dv = used.reduce((acc, s) => add(acc, s.dv), [0, 0, 0]);
+  const along = used.reduce((acc, s) => acc + norm(s.dv), 0);
   const intervals = used.map((s) => {
     const mid = hermiteMid(s.a, s.b, s.sec), msMid = (s.a.ms + s.b.ms) / 2;
     const L = eqj ? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] : frameAbout(aboutKey, mid, msMid, centre), m = norm(s.dv);
@@ -250,7 +258,7 @@ export function burnFromSamples(rows, centre, aboutKey, env = null, eqj = false)
   });
   // Ignition and cutoff: the first and last step over half the peak.
   const half = steps.map((s) => s.acc > peak / 2);
-  return { intervals, dv, ignitionMs: steps[half.indexOf(true)].a.ms, cutoffMs: steps[half.lastIndexOf(true)].b.ms, peak: peak * 1000 };
+  return { intervals, dv, along, ignitionMs: steps[half.indexOf(true)].a.ms, cutoffMs: steps[half.lastIndexOf(true)].b.ms, peak: peak * 1000 };
 }
 
 // The state halfway between two samples h seconds apart, by cubic Hermite.
@@ -285,4 +293,64 @@ export function closestApproach(key, rows, centre, from = -Infinity, to = Infini
     if (d < best.d) best = { ...best, d, ms };
   }
   return best;
+}
+
+// Sunlight fitted piece by piece along a coast arc (MESSENGER's: it trimmed
+// its course by tilting its sunshade and arrays, "solar sailing", and its
+// push changed with its attitude). The arc is flown once from its first
+// row a (about a.about) in env (the full environment, its sunlight off),
+// through obs (rows about their own .about, in time order); the arc is cut
+// into pieces of about pieceDays, and in each a push of 1/r^2 from the Sun
+// along the local radial, along-track and normal axes (radial alone for an
+// arc under 5 days, where the three are not told apart). Each push is
+// solved for by least squares on every obs position, linearised about the
+// flight with no sunlight. The strengths are Cr A/m (m^2/kg) at 1 AU.
+// Returns { pieces: [{ from, to (ms), k: [R, T, N] }], base, fitted (km at
+// each obs: no sunlight, fitted) }.
+export function fitSunlightPieces(a, obs, env, pieceDays) {
+  const AU = 1.495978707e8, P1 = 1361 / 299792458 / 1000;   // km/s^2 per m^2/kg at 1 AU
+  const b = obs.at(-1), days = (b.ms - a.ms) / 864e5;
+  const n = Math.max(1, Math.round(days / pieceDays)), axes = days < 5 ? [0] : [0, 1, 2];
+  const edges = Array.from({ length: n + 1 }, (_, i) => a.ms + (b.ms - a.ms) * i / n);
+  const pushed = (ax, t0, t1) => {
+    const f = (t, r, v, out) => {
+      env(t, r, v, out);
+      if (ax < 0 || t < t0 || t >= t1) return out;
+      const d = Math.hypot(r[0], r[1], r[2]), R = [r[0] / d, r[1] / d, r[2] / d], N = unit(cross(r, v)), T = cross(N, R), u = [R, T, N][ax], k = P1 * AU * AU / (d * d);
+      out[0] += k * u[0]; out[1] += k * u[1]; out[2] += k * u[2];
+      return out;
+    };
+    f.stepCap = env.stepCap;
+    return f;
+  };
+  // Flown from state s0 through marks; returns each mark's state about its body.
+  const fly = (s0, marks, e) => {
+    const s = createState([...s0.r], [...s0.v], s0.t), o = { ...opts, extraAccel: (t, r, out, mid, v) => { out[0] = out[1] = out[2] = 0; return e(t, r, v, out); }, stepCap: e.stepCap };
+    return marks.map((m) => { if (kt(m.ms) > s.t) advance(s, kt(m.ms), o); return { ...about(s, m.ms, m.about), s: createState([...s.r], [...s.v], s.t) }; });
+  };
+  const s0 = helioOf(a, a.about);
+  const cuts = edges.slice(1, -1).map((ms) => ({ ms, about: 'sun', cut: true }));
+  const marks = [...obs, ...cuts].sort((x, y) => x.ms - y.ms);
+  const flown = fly(s0, marks, env);
+  const base = obs.map((o) => sub(flown[marks.indexOf(o)].r, o.r));
+  const startOf = (j) => (j === 0 ? s0 : flown[marks.indexOf(cuts[j - 1])].s);
+  // Each push's effect on every obs (zero before its piece).
+  const cols = [];
+  for (let j = 0; j < n; j++) for (const ax of axes) {
+    const later = obs.filter((o) => o.ms > edges[j]), r = fly(startOf(j), later, pushed(ax, kt(edges[j]), kt(edges[j + 1])));
+    cols.push(obs.map((o, i) => { const k = later.indexOf(o); return k < 0 ? [0, 0, 0] : sub(sub(r[k].r, o.r), base[i]); }));
+  }
+  const m = cols.length, A = Array.from({ length: m }, () => Array(m + 1).fill(0));
+  obs.forEach((_, i) => { for (let p = 0; p < m; p++) { A[p][m] -= dot(cols[p][i], base[i]); for (let q = p; q < m; q++) { A[p][q] += dot(cols[p][i], cols[q][i]); A[q][p] = A[p][q]; } } });
+  // Gaussian elimination with partial pivoting.
+  for (let p = 0; p < m; p++) {
+    let w = p; for (let q = p + 1; q < m; q++) if (Math.abs(A[q][p]) > Math.abs(A[w][p])) w = q;
+    [A[p], A[w]] = [A[w], A[p]];
+    for (let q = p + 1; q < m; q++) { const f = A[q][p] / A[p][p]; for (let c = p; c <= m; c++) A[q][c] -= f * A[p][c]; }
+  }
+  const x = Array(m).fill(0);
+  for (let p = m - 1; p >= 0; p--) { let t = A[p][m]; for (let c = p + 1; c < m; c++) t -= A[p][c] * x[c]; x[p] = t / A[p][p]; }
+  const pieces = edges.slice(0, -1).map((from, j) => ({ from, to: edges[j + 1], k: [0, 1, 2].map((ax) => { const c = axes.indexOf(ax); return c < 0 ? 0 : x[j * axes.length + c]; }) }));
+  const fitted = obs.map((_, i) => norm(base[i].map((y, c) => y + cols.reduce((acc, col, p) => acc + x[p] * col[i][c], 0))));
+  return { pieces, base: base.map(norm), fitted };
 }
