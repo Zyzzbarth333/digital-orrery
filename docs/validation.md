@@ -511,7 +511,7 @@ reconstruction (through JPL Horizons). See
 | 10 coast arcs, 6–210 days, about the Sun | gravity alone rms 2,062 km at the ends; with sunlight on the arrays fitted (91 % of the craft as built), rms 139 km, worst 398 km (the 210-day arc); under 5 km for the first three weeks |
 | The Earth flyby | 561.1 km above the ellipsoid at 19:21:25 UTC (559 km, 19:21 published); the kernel through the pass ends 35 m and 1.8 mm/s off (J2 alone: 0.72 km, 36 mm/s); 125,531 to 139,377 km/h about the Sun (126,000 to 140,000) |
 | The flyby anomaly | Anderson's formula predicts 6.4 mm/s; the kernel's v∞ after the pass is 0.47 mm/s from the reconstruction's |
-| The app's file (`public/missions/juno2013.json`), flown as the app flies it | aimed: perigee 561.8 km (flown 561.8), 0.2 km off at the end, 210 km at worst, for 0.38 m/s more than the flown burns; blind, it hits the Earth |
+| The app's file (`public/missions/juno2013.json`), flown as the app flies it | aimed: perigee 561.7 km (flown 561.8), 0.1 km off at the end, 157 km at worst, for 0.29 m/s more than the flown burns; blind, it hits the Earth |
 
 ## Real flight: DART's impact on Dimorphos (`missions.validate.mjs`)
 
