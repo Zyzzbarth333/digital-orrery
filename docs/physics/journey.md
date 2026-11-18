@@ -328,7 +328,11 @@ find with its deep-space burn.
   plane).
 - The leg's options list it as "Deep-space burn, as scheduled". "Broken
   plane" and "Direct, one plane" are listed beside it for comparison, and
-  can be chosen (`via: 'brokenplane'`, `via: 'direct'`).
+  can be chosen (`via: 'brokenplane'`, `via: 'direct'`). Once one is
+  chosen, it is the leg "as scheduled", and the other two stay listed. The
+  deep-space burn is then listed as the planner's choice, and choosing it
+  hands the leg back to the planner. Each row's price is the leg that
+  row gives.
 - The plane lamp says where the burn is (below).
 
 The porkchop search, the window strips and the best day in a stay all
@@ -1269,6 +1273,7 @@ orbits, waits 454 days.
 | The broken plane's arcs and its break | geometry; two-body; Curtis eq. (6.20) on the horizontal speed; Napier's rule | first arc in the Earth's plane to 10⁻⁶°; the arcs join and reach Mars to 1 m; the break 60.869 m/s, the pure plane change to 10⁻³; the turn 0.1452° against Napier's 0.1452° (to 1 %) |
 | Stays of 18 to 30 days, through 180° | smoothness | the broken plane's excess speed leaving the Earth 3.17 to 3.72 km/s, its second difference at most 2.9 m/s (under 20); direct, 11 km/s |
 | The plane lamp; the options | the rules above | lit at 180.4°, with the deep-space burn's date; none at 196°; "Broken plane" (4.572) and "Direct, one plane" (15.69) listed, both dearer than the plan's 4.558 |
+| The options after the direct arc or the broken plane is chosen by hand | the solver: each row priced as the leg it gives | all three listed each time, each to 10⁻⁹ km/s; the planner's choice, the deep-space burn at 4.558 km/s, listed and restored |
 | 21 days at the Moon (182.4°), flown in the full model | the plan | deep-space burn 167 m/s of corrections (47 planned) and Mars 1.0 km off; broken plane 154 (61 planned) and 0.8 km; each within 250 m/s and 20 km; direct 1,018 m/s (over 500) |
 | Earth orbit to Mars orbit, 180.4°: the deep-space burn and the broken plane | Lawden's conditions on the primer vector [6], [7]; its jump as the cost's gradient [8], [9] | deep-space burn 5.9151 km/s: p-dot jumps 3 % at $B$ (under 10), largest $\lvert\mathbf p\rvert$ 1.0001; broken plane 5.9414: jumps 128 %, $\lvert\mathbf p\rvert$ 1.0076, the jump the finite-difference gradient to 0.01 % |
 | The same leg, a blind search | twelve Nelder-Mead starts | nothing cheaper (under 0.5 m/s) |
