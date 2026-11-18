@@ -131,12 +131,15 @@ other planets (`public/trajbrowser/planets.json`).
 | Encke, suborbital path | Cowell | impact on Earth at the same time (304.0 s; 310.8 s when found at a step's end) |
 | `keplerStep` | `propagate` | 1.2×10⁻¹⁴ relative |
 
-## The moons' pull: flybys of Ganymede, Io and Titan (`flyby.test.mjs`)
+## Moon and planet flybys (`flyby.test.mjs`)
 
 Near a planet with moons the kernel splits the system into the planet and
 its moons, each with its own GM ([kernel](physics/nbody-kernel.md#moons)).
-The checks are three real passes, each against the craft's reconstructed
-trajectory: Juno at Ganymede, Juno at Io and Cassini at Titan.
+The checks are seven real passes, each against the craft's reconstructed
+trajectory (from Horizons, or for Voyager 2 from NAIF): Juno at Ganymede, Io and Europa; Cassini at Titan, at
+Enceladus and between Saturn and its rings; and Voyager 2 at Neptune and
+Triton. They test the moons' places, the moons' own fields, and the giant
+planets' fields close in.
 
 ### Juno at Ganymede
 
@@ -226,11 +229,12 @@ Jupiter's.
 | none (system at its barycentre) | 441 km | 3,042 km | 6,967 km |
 | `moons.js` | 1.092 km | 9.97 km | 15.8 km |
 | Horizons' Galilean moons | 1.100 km | 10.08 km | 15.9 km |
-| Horizons', Io as Juno's track has it | **0.041 km** | **0.276 km** | **0.554 km** |
+| Horizons', Io as Juno's track has it | **0.041 km** | **0.272 km** | **0.549 km** |
 | the same, without Io's $J_2$ and $C_{22}$ | 0.186 km | 0.855 km | 2.49 km |
 | the same, Jupiter's $J_2$ alone | 0.054 km | 22.5 km | 150 km |
 | the same, Jupiter's $J_2$ and $J_4$ | 0.041 km | 0.790 km | 5.04 km |
 | the same, $J_2$, and $J_4$ outside the kernel | 0.041 km | 0.790 km | 5.05 km |
+| the same, without Jupiter's tide | 0.041 km | 0.276 km | 0.554 km |
 | the same, Io's nodes every 10 min | 0.042 km | 0.280 km | 0.558 km |
 | the same, tighter tolerances | 0.041 km | 0.276 km | 0.554 km |
 
@@ -250,9 +254,10 @@ Closest approach to Io: 3,317.10 km in every run with the moons
   Io nor tighter tolerances move it. Nor does Durante's own pole for
   Jupiter in place of the IAU's (they are $7\times10^{-6}$ rad apart; 12 m
   at the end). It is the gap between the two force models, which this
-  check cannot split further: Jupiter's tides and tesseral terms, the
-  field the reconstruction was fitted with, and Juno's own small forces (sunlight on its arrays, for
-  one).
+  check cannot split further: Jupiter's tesseral terms, the
+  field the reconstruction was fitted with, and Juno's own small forces
+  (sunlight on its arrays, for one). Jupiter's tide from its moons, now
+  in the kernel, moves it by 5 m.
 - **Jupiter's centre on hourly nodes** made this check a little worse,
   not better. On 6-hour nodes the centre was 17 m off JPL's table here
   and the runs read 0.22 km at the perijove and 0.44 km after it. On
@@ -283,26 +288,161 @@ thin to matter to the orbit.
 | Moons in the kernel | 3 min after closest approach | 9 h after | Closest approach (Horizons: 4,188.89 km) |
 | --- | ---: | ---: | ---: |
 | none (system at its barycentre) | 1,074 km | 22,134 km | 4,426 km |
-| `moons.js` | 0.003 km | 0.712 km | 4,188.89 km |
-| Horizons' moons | 0.013 km | 0.204 km | 4,188.90 km |
-| Horizons', Titan as Cassini's track has it | 0.016 km | 0.004 km | 4,188.90 km |
+| `moons.js` | 0.003 km | 0.711 km | 4,188.89 km |
+| Horizons' moons | 0.013 km | 0.205 km | 4,188.90 km |
+| Horizons', Titan as Cassini's track has it | 0.016 km | 0.003 km | 4,188.90 km |
 | the same, without Titan's $J_2$ and $C_{22}$ | 0.011 km | 0.369 km | 4,188.90 km |
-| the same, Titan's nodes every 10 min | 0.016 km | 0.007 km | 4,188.90 km |
+| the same, Titan's nodes every 10 min | 0.016 km | 0.006 km | 4,188.90 km |
 
-- **The kernel follows Cassini to 4 m** nine hours after the pass, given
+- **The kernel follows Cassini to 3 m** nine hours after the pass, given
   Titan where Cassini's track has it.
 - **That needed the kernel's own Titan to be closer.** A pass this slow is
   sensitive to where Titan is. Its Hermite nodes were three hours apart,
   the spacing that held Titan to 100 m; at closest approach they put it
   27 m from the table, and Cassini was 0.093 km off nine hours on. Two
   hours apart, to 10 m ([kernel](physics/nbody-kernel.md#moons)), they put
-  it 14 m off and leave 4 m; nodes every 10 minutes change nothing more.
+  it 14 m off and leave 4 m (3 m once Saturn's centre went from 6-hour
+  nodes to 2-hour); nodes every 10 minutes change nothing more.
 - **Titan's field is measured too.** Its $J_2$ and $C_{22}$ (Iess et al.
-  2010) take the error from 0.369 km to 0.004 km.
+  2010) take the error from 0.369 km to 0.003 km.
 - **Horizons is nearly consistent here.** Its Titan is 0.04 km from the one
   Cassini's track has, and that alone makes 0.2 km of the difference
   between the third and fourth rows. `moons.js`'s Titan (sat441) leaves
   0.71 km.
+
+### Juno at Europa
+
+On its 45th perijove, on 29 September 2022, Juno flew 355 km over Europa
+(closest approach 09:37 TDB, 1,915.8 km from the centre) at 23.65 km/s,
+then on through the perijove at 17:10 TDB (1.04 Jupiter radii out).
+Europa's $J_2$ is the least certain of the moons' fields in the kernel
+($437.6 \pm 77.5 \times10^{-6}$; [kernel](physics/nbody-kernel.md#the-moons-own-fields)),
+and at 1.23 Europa radii it is strongly felt.
+
+- **Reference:** Horizons vectors [1] (`fixtures/flyby_juno_europa.json`),
+  from 03:40 to 19:10 TDB. Horizons' Europa is 1.74 km from the one Juno's
+  track has.
+
+| Moons and field in the kernel | 1 h after the pass | At the perijove | 2 h after it |
+| --- | ---: | ---: | ---: |
+| none (system at its barycentre) | 549 km | 6,116 km | 5,732 km |
+| `moons.js` | 0.428 km | 4.17 km | 9.08 km |
+| Horizons' Galilean moons | 0.435 km | 4.51 km | 9.62 km |
+| Horizons', Europa as Juno's track has it | **0.005 km** | **0.138 km** | **0.101 km** |
+| the same, without Europa's $J_2$ and $C_{22}$ | 0.132 km | 0.811 km | 1.28 km |
+| the same, Jupiter's $J_2$ alone | 0.003 km | 15.7 km | 110 km |
+| the same, Jupiter's $J_2$ and $J_4$ | 0.005 km | 0.588 km | 3.33 km |
+| the same, without Jupiter's tide | 0.005 km | 0.139 km | 0.093 km |
+
+- **The pass measures Europa's field.** Its $J_2$ and $C_{22}$ take the
+  error an hour on from 0.132 km to 5 m. The kernel's values (Gomez
+  Casajus et al. 2021) fit to that level, well inside their wide
+  uncertainty.
+- **The perijove measures Jupiter's field again**, as at Io: 110 km with
+  $J_2$ alone, 3.3 km with $J_2$ and $J_4$, 0.10 km to $J_{12}$.
+- **Jupiter's tide** moves it by 8 m (the other way at Io, by 5 m): below
+  what either check resolves.
+
+### Cassini at Enceladus
+
+On its E12 pass, on 30 November 2010, Cassini flew 43 km over Enceladus's
+mean radius (295.1 km from the centre) across the north pole, at
+6.26 km/s. It was one of the three passes Iess et al. measured Enceladus's
+field on [8], and over the north pole it was far from the plumes.
+
+- **Reference:** Horizons vectors [1] (`fixtures/flyby_cassini_enceladus.json`),
+  nine hours either side. Horizons' Enceladus is 0.64 km from the one
+  Cassini's track has.
+- **E8 was tried first and dropped.** On that higher pass (1,594 km,
+  21 November 2009) the kernel picked up a 0.25 m/s velocity error at
+  closest approach. That is a quarter of Enceladus's whole bend there, and
+  no part of the force model accounts for it: not Enceladus's GM (a
+  quarter larger only moves the error), the integrator, or the tolerances.
+  It looks like an event in the reconstruction, so that pass is no check
+  of the kernel.
+
+| Moons in the kernel | 3 min after closest approach | 9 h after |
+| --- | ---: | ---: |
+| none (system at its barycentre) | 137 km | 224 km |
+| `moons.js` | 0.295 km | 1.126 km |
+| Horizons' moons | 0.040 km | 0.606 km |
+| Horizons', Enceladus as Cassini's track has it | **0.036 km** | **0.164 km** |
+| the same, without Enceladus's $J_2$ and $C_{22}$ | 0.043 km | 0.875 km |
+| the same, tighter tolerances | 0.036 km | 0.164 km |
+
+- **The pass measures Enceladus's field.** Its $J_2$ and $C_{22}$ (Iess et
+  al. 2014 [8], now in the kernel) take the error from 0.88 km to 0.16 km.
+  What is left includes Enceladus's own $J_3$, about a fiftieth of its
+  $J_2$ [8] and not in the kernel, which at 1.17 Enceladus radii is no
+  longer small.
+- **Closest approach** is checked only to 2 km. Sampled every 10 s at
+  6.3 km/s, the closest sample can miss the true minimum by 1.6 km.
+
+### Cassini's Grand Finale periapsis
+
+Rev 278's periapsis, on 10 June 2017 (12:55 TDB), took Cassini between the
+rings and Saturn, 63,623 km from its centre, at 33.83 km/s. It was one of
+the five Grand Finale orbits used for Saturn's gravity field [7]. This
+check has no moon to find; it tests Saturn's field.
+
+- **Reference:** Horizons vectors [1] (`fixtures/flyby_cassini_saturn.json`),
+  six hours either side, with Saturn's seven major moons.
+
+| Field in the kernel (Horizons' moons) | At periapsis | 6 h after |
+| --- | ---: | ---: |
+| no moons (system at its barycentre) | 519 km | 810 km |
+| Saturn's zonal field to $J_{12}$ | **0.050 km** | **0.320 km** |
+| the same, $J_2$ to $J_8$ | 0.052 km | 0.310 km |
+| the same, $J_2$ and $J_4$ | 0.423 km | 2.60 km |
+| the same, $J_2$ alone | 8.82 km | 114 km |
+| `moons.js`'s moons, field to $J_{12}$ | 0.134 km | 0.197 km |
+
+- **The pass measures Saturn's field to $J_8$.** $J_4$ takes the error
+  from 114 km to 2.6 km and $J_6$ to $J_8$ to 0.31 km. $J_{10}$ and $J_{12}$
+  move it by 10 m.
+- **What is left, 0.32 km, is not in the kernel's model:** the rings' own
+  pull (0.41 Mimas masses [7]), Saturn's tides, and the deep winds that
+  make its field differ from a rigid planet's. The moon tables differ by
+  more than the higher terms do here: with `moons.js`'s moons the end is
+  0.20 km.
+
+### Voyager 2 at Neptune and Triton
+
+On 25 August 1989 Voyager 2 passed Neptune (03:55 TDB, 29,240 km from its
+centre, 27.3 km/s), then Triton (09:11 TDB, 39,783 km from its centre).
+The span runs from seven hours before Neptune to six hours after Triton.
+
+- **Reference:** NAIF's reconstruction of the encounter, `vgr2_nep097.bsp`
+  [10] (R. Jacobson, JPL, 2022, with nep097's Neptune and Triton), sampled
+  by `c/flyby_ref` into `fixtures/flyby_voyager2_triton.json`. Horizons'
+  Voyager 2 is no use here: before 29 August 1989 it is a patched-conic
+  design trajectory "providing a rough accuracy", as its own notes say,
+  and it passes Triton 35 km from the reconstruction.
+- **Planets in 1989:** before 2000 the planets' places come from
+  astronomy-engine, not DE442's table. Flown about Neptune's barycentre,
+  their error enters only through the Sun's tide.
+- **Neptune's $J_2$ and $J_4$** are Jacobson 2009's [9].
+
+| Field and moons in the kernel | At Neptune | 6 h after Triton |
+| --- | ---: | ---: |
+| none (system at its barycentre) | 55.6 km | 745 km |
+| `moons.js`'s Triton | 0.158 km | 3.40 km |
+| the reconstruction's Triton, Neptune's $J_2$ and $J_4$ | **0.240 km** | **3.15 km** |
+| the same, Neptune's $J_2$ alone | 0.219 km | 7.10 km |
+| the same, Neptune a point mass | 9.93 km | 1,107 km |
+| the same, Neptune's $J_2$ one σ larger | 0.237 km | 2.01 km |
+| the same, Neptune's $J_2$ two σ larger | 0.235 km | 1.57 km |
+
+- **The pass measures Neptune's field.** As a point mass Voyager is
+  1,100 km off; $J_2$ takes that to 7.1 km and $J_4$ to 3.2 km.
+- **Neptune's $J_2$ is the lever on what is left.** The error grows from
+  Neptune's closest approach. With $J_2$ one σ of Jacobson 2009's fit
+  larger ($4.5\times10^{-6}$ on $3{,}408\times10^{-6}$) it is 2.0 km, two
+  σ 1.6 km, three σ 2.3 km again. Nudging Neptune's GM by $10^{-6}$ or
+  Triton's by 1 % only makes it worse. So the reconstruction's $J_2$ was
+  probably about two σ above the kernel's. The rest includes Voyager's own
+  small accelerations (its attitude thrusters, its RTGs' heat), which the
+  reconstruction estimates and the kernel leaves out.
 
 The same file checks:
 
@@ -818,3 +958,11 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 [5] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
 
 [6] NASA JPL Solar System Dynamics, "Horizons system," spacecraft trajectories, fetched 18 Nov. 2026 by `npm run fetch:spacecraft`. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[7] L. Iess *et al.*, "Measurement and implications of Saturn's gravity field and ring mass," *Science*, vol. 364, no. 6445, Art. no. eaat2965, 2019, doi: 10.1126/science.aat2965. Table 1; the five Grand Finale gravity orbits.
+
+[8] L. Iess *et al.*, "The gravity field and interior structure of Enceladus," *Science*, vol. 344, no. 6179, p. 78, 2014, doi: 10.1126/science.1250551.
+
+[9] R. A. Jacobson, "The orbits of the Neptunian satellites and the orientation of the pole of Neptune," *Astron. J.*, vol. 137, no. 5, p. 4322, 2009, doi: 10.1088/0004-6256/137/5/4322. Table 5.
+
+[10] R. A. Jacobson, Voyager 2 Neptune encounter trajectory, NAIF SPK `vgr2_nep097.bsp`, JPL Solar System Dynamics, 2022; merged with DE440 and nep097 by NAIF, 30 Aug. 2022. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/VOYAGER/kernels/spk/

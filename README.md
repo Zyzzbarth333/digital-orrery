@@ -60,7 +60,7 @@ The name nods to the orrery, a mechanical model of the solar system, and in part
 The physics is checked against references, and each model's page says how and how well. [Physics and accuracy](docs/accuracy.md) gives the whole picture and what is still approximate; [validation](docs/validation.md) lists every check with its result.
 
 - **Where things are:** the planets from JPL's DE442 (2000–2050) to within a metre, 76 moons and 381 irregular moons from JPL's satellite ephemerides to within a kilometre, and SPICE-precision GM values.
-- **How craft move:** an n-body kernel in a Web Worker, with error-controlled Dormand–Prince steps and Encke's method near a planet. It includes the major moons with their $J_2$ and $C_{22}$, the heaviest asteroids, the Earth's and Moon's gravity fields, drag and sunlight pressure. It is checked against Artemis I and II, and against Juno's and Cassini's moon flybys, followed to within 0.1 km hours on.
+- **How craft move:** an n-body kernel in a Web Worker, with error-controlled Dormand–Prince steps and Encke's method near a planet. It includes the major moons with their $J_2$ and $C_{22}$, the heaviest asteroids, the Earth's and Moon's gravity fields, drag and sunlight pressure. It is checked against Artemis I and II, and against Juno's, Cassini's and Voyager 2's passes of the outer planets and their moons.
 - **The orbital core:** two-body propagation and Lambert's problem, checked against Curtis's worked examples and NAIF CSPICE.
 - **Still approximate:** journeys are planned by patched conics (then flown in the full model), and the ROCKET tab's ascent has no closed-loop guidance.
 
