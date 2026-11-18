@@ -33,22 +33,13 @@
 //    are marched through the density.
 
 import * as THREE from 'three';
-import { ELLIPSOID_SHADOW } from './bodyMaterial';
+import { ELLIPSOID_SHADOW, VISIBLE_FRACTION } from './bodyMaterial';
 import { DUST, JUPITER } from '../physics/rings.js';
 
 export const MAX_NARROW = 16;
+// Moons whose shadows a flat ring system takes at once.
+export const MAX_RING_CASTERS = 4;
 
-const VISIBLE_FRACTION = /* glsl */ `
-float visibleFraction(float a, float b, float c) {
-  if (c >= a + b) return 1.0;
-  if (c <= abs(a - b)) return b >= a ? 0.0 : 1.0 - (b * b) / (a * a);
-  float a2 = a * a, b2 = b * b, c2 = c * c;
-  float lens = a2 * acos(clamp((c2 + a2 - b2) / (2.0 * c * a), -1.0, 1.0))
-             + b2 * acos(clamp((c2 + b2 - a2) / (2.0 * c * b), -1.0, 1.0))
-             - 0.5 * sqrt(max((-c + a + b) * (c + a - b) * (c - a + b) * (c + a + b), 0.0));
-  return clamp(1.0 - lens / (PI * a2), 0.0, 1.0);
-}
-`;
 
 // The ring photometry shared by both shaders. cosTheta is the cosine of
 // the scattering angle (1: light carried straight on, the Sun behind the
@@ -104,6 +95,7 @@ uniform float sunRadius;
 uniform vec3 planetPos;
 uniform mat3 planetAxes;      // A of ELLIPSOID_SHADOW
 uniform float planetK;        // k of ELLIPSOID_SHADOW
+uniform vec4 ringOcc[${MAX_RING_CASTERS}]; // moons casting on the rings: centre, radius (render units; 0: none)
 #if NARROW > 0
 // Ring k: g0 = (a, e, varpi - node) of its inner edge, and the index of its
 // first normal mode; g1 = the same for its outer edge, and how many modes;
@@ -214,6 +206,16 @@ void main() {
 #endif
   if (acc.a <= 1e-7 && dot(acc.rgb, vec3(1.0)) <= 1e-12) discard;
   float shade = ellipsoidShadow(vWorld, sunPos, sunRadius, planetPos, planetAxes, planetK);
+  // The moons' shadows: each a sphere, the overlap of its disc and the Sun's.
+  for (int i = 0; i < ${MAX_RING_CASTERS}; i++) {
+    vec4 o = ringOcc[i];
+    if (o.w <= 0.0) continue;
+    vec3 toSun = sunPos - vWorld, toMoon = o.xyz - vWorld;
+    float dS = length(toSun), dM = length(toMoon);
+    if (dM >= dS || dot(toMoon, toSun) <= 0.0) continue;
+    shade *= visibleFraction(asin(clamp(sunRadius / dS, 0.0, 1.0)), asin(clamp(o.w / dM, 0.0, 1.0)),
+      atan(length(cross(toMoon, toSun)), dot(toMoon, toSun)));
+  }
   gl_FragColor = vec4(acc.rgb * irradiance * shade, acc.a);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -308,6 +310,7 @@ export function makeFlatRings(o: FlatRingOptions, unitKm: number): THREE.Mesh {
       lambert: { value: o.lambert ? 1 : 0 },
       ...dustUniforms(),
       ...shadowUniforms(),
+      ringOcc: { value: Array.from({ length: MAX_RING_CASTERS }, () => new THREE.Vector4()) },
       g0: { value: vec4s() }, g1: { value: vec4s() }, g2: { value: vec4s() }, g3: { value: vec4s() },
       modes: { value: Array.from({ length: Math.max(o.modes ?? 0, 1) }, () => new THREE.Vector4()) },
       ringX: { value: vec3s() }, ringY: { value: vec3s() }, ringN: { value: vec3s() },

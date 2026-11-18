@@ -16,7 +16,7 @@
 //   (npm run fetch:satellites): each placed above the ground.
 
 import { readFileSync } from 'node:fs';
-import { ommFromTle, satrecOf, stateTeme, stateEqj, temeToEqj, apply, parseGpCsv, epochMs, inShadow, meanOrbit, groundSpeeds, R_EARTH_KM } from './satellites.js';
+import { ommFromTle, satrecOf, stateTeme, stateEqj, temeToEqj, apply, parseGpCsv, epochMs, inShadow, sunFraction, meanOrbit, groundSpeeds, R_EARTH_KM } from './satellites.js';
 import { earthFixedMatrix } from './earthRotation.js';
 
 let failed = 0;
@@ -192,12 +192,27 @@ console.log('The snapshot\'s other sets (satellites-debris.csv, -rocket-bodies.c
 }
 
 // ----- The Earth's shadow -----
-console.log("The Earth's shadow (cylinder)");
+console.log("The Earth's and the Moon's shadows (cones)");
 {
   const sun = [1, 0, 0];
   check(inShadow([-7000, 0, 0], sun), 'behind the Earth, on the axis: in shadow');
   check(!inShadow([7000, 0, 0], sun), 'on the day side: lit');
   check(!inShadow([-7000, 6400, 0], sun) && inShadow([-7000, 6300, 0], sun), 'the edge at the Earth\'s radius');
+  // At GEO's distance behind the Earth the umbra is 200 km inside the
+  // Earth's radius and the penumbra 200 km outside: 0.27 deg either way.
+  const geoEdge = (off) => sunFraction([-42164, off, 0], sun).nu;
+  check(geoEdge(6378 - 260) === 0 && geoEdge(6378 + 260) === 1 && geoEdge(6378) > 0.4 && geoEdge(6378) < 0.6,
+    `GEO: umbra inside ${6378 - 260} km, lit outside ${6378 + 260} km, ${(geoEdge(6378) * 100).toFixed(0)} % of the Sun at the Earth's radius`);
+  const pen = sunFraction([-42164, 6378 + 100, 0], sun);
+  check(pen.state === 'penumbra' && pen.by === 'earth' && pen.nu > 0.5 && pen.nu < 1, `in the penumbra: ${(pen.nu * 100).toFixed(0)} % of the Sun, by the Earth`);
+  // The Moon between the Sun and a satellite: its umbra reaches 374,000
+  // km, so a GEO satellite 30,000 km from the Moon on the Sun line is in it.
+  const moon = [42164 + 30000, 0, 0];
+  const sm = sunFraction([42164, 0, 0], sun, moon);
+  check(sm.state === 'umbra' && sm.by === 'moon', 'the Moon\'s umbra on a satellite behind it');
+  // There the umbra is 1,600 km across the line and the penumbra 1,880.
+  check(sunFraction([42164, 0, 1750], sun, moon).state === 'penumbra' && sunFraction([42164, 0, 2000], sun, moon).state === 'lit',
+    'its penumbra 1,750 km off the line, lit at 2,000');
   check(!inShadow([-42164 * Math.cos(0.2), 0, 42164 * Math.sin(0.2)], sun), 'GEO 11.5 deg off the axis (an equinox season\'s edge): lit');
   // The ISS over one orbit at its epoch: a third or so of each orbit is in
   // shadow, from about 0 at a high beta angle to 40 % at beta 0.

@@ -10,7 +10,8 @@ import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
 import { bodyState } from '../scene/OrreryScene';
 import { eclToEqj } from '../physics/ephemeris.js';
-import { stateTeme, temeToEqj, apply, groundSpeeds, meanOrbit, inShadow, type satrecOf } from '../physics/satellites.js';
+import { stateTeme, temeToEqj, apply, groundSpeeds, meanOrbit, sunFraction, type satrecOf } from '../physics/satellites.js';
+import { sunlightRow } from './sunlight';
 import { orbitClass, SAT_GROUPS, type NamedSat, type SatLayerKey, type SatSource, type SatCloudView } from '../scene/satellites';
 import type { GroundTrack } from '../scene/groundTrack';
 import { SatellitePasses } from './satellite-passes';
@@ -45,16 +46,18 @@ export function SatellitePlate({ clock, sat, source, track = null }: { clock: Si
   if (st) {
     const d = Math.hypot(...st.r), sinLat = st.r[2] / d;
     const h = d - (WGS84_A * WGS84_B) / Math.hypot(WGS84_B * Math.sqrt(1 - sinLat * sinLat), WGS84_A * sinLat);
-    const sun = eclToEqj(bodyState('earth', new Date(s.timeMs)).r.map((x: number) => -x)) as number[];
+    const date = new Date(s.timeMs), earthR = bodyState('earth', date).r, moonR = bodyState('moon', date).r;
+    const sun = eclToEqj(earthR.map((x: number) => -x)) as number[];
     const sn = Math.hypot(sun[0], sun[1], sun[2]);
-    const dark = inShadow(st.r, [sun[0] / sn, sun[1] / sn, sun[2] / sn]);
+    const moon = eclToEqj(moonR.map((x: number, i: number) => x - earthR[i])) as number[];
+    const light = sunFraction(st.r, [sun[0] / sn, sun[1] / sn, sun[2] / sn], moon);
     rows.push(
       { label: 'Motion', value: 'SGP4', alt: `from its element set, ${sat.rec.rec.method === 'd' ? 'deep-space (SDP4)' : 'near-Earth'}`, src: 'SGP4', derived: true, info: 'sat-position' },
       { label: 'Height', value: fmtGroup(h, 1), unit: 'km', alt: 'above the WGS-84 ellipsoid', src: 'SGP4', derived: true, info: 'sat-height' },
       { label: 'From Earth', value: fmtGroup(d, 1), unit: 'km', alt: 'from its centre', src: 'SGP4', derived: true, info: 'sat-position' },
       { label: 'Speed', value: Math.hypot(...st.v).toFixed(3), unit: 'km/s', alt: 'inertial, about the Earth\'s centre', src: 'SGP4', derived: true, info: 'sat-position', hint: 'Speed relative to the centre of the Earth, not to the turning ground; live as the clock runs' },
       { label: 'Ground speed', value: g!.relative.toFixed(3), unit: 'km/s', alt: `over the turning Earth; its track ${g!.track.toFixed(3)} km/s`, src: 'SGP4', derived: true, info: 'sat-ground-speed', hint: 'Speed seen from the ground as the Earth turns under it, and how fast the point beneath it moves across the map' },
-      { label: 'Sunlight', value: dark ? 'in the Earth\'s shadow' : 'lit', src: 'shadow', derived: true, info: 'sat-shadow' },
+      sunlightRow(light, 'sat-shadow'),
     );
   } else {
     rows.push({ label: 'Motion', value: 'not placed', alt: `SGP4 stopped (error ${sat.rec.rec.error}): decayed, or out of the theory's range`, src: 'SGP4', derived: true, info: 'sat-position' });

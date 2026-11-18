@@ -211,6 +211,8 @@ export class SmallBodyLayer {
   // The focused body, drawn as a lit sphere at its size (sizeOf).
   private focusPdes: string | null = null;
   private focusMesh: THREE.Mesh;
+  // The focused one's sphere while drawn (OrreryScene casts shadows on it).
+  get focusSphere(): THREE.Mesh | null { return this.focusMesh.visible ? this.focusMesh : null; }
   // Disposed before its data arrived (React's development double mount):
   // it adds no markers then.
   private disposed = false;

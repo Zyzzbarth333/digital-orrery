@@ -29,6 +29,20 @@ export const REFRACTION_HORIZON_RAD = (34.5 / 60) * (Math.PI / 180);   // Bennet
 export const DEFLECTION_GROUND_RAD = 2 * REFRACTION_HORIZON_RAD;       // in and out: about 1.15 deg
 export const REFRACTIVITY_SCALE_KM = 8;                                 // the density's scale height
 
+// The Earth's shadow on the Moon is that of the Earth enlarged by an
+// occulting layer 87 km high, uniform over its oblate figure (Herald and
+// Sinnott 2014, from 22,539 crater timings in 94 lunar eclipses; Danjon's
+// 1951 rule took 75 km, the older almanacs 2 % of the shadow).
+export const EARTH_OCCULTING_KM = 87;
+
+// The umbra's and penumbra's angular radii (rad) seen from the Earth's
+// centre at the Moon's distance dMoon (km), with the Sun dSun away: the
+// Earth's parallax there plus the Sun's, less or plus its semi-diameter.
+export function shadowRadii(dMoon, dSun, earthKm = 6371.0 + EARTH_OCCULTING_KM, sunKm = 695700) {
+  const pm = Math.asin(earthKm / dMoon), ps = Math.asin(earthKm / dSun), s = Math.asin(sunKm / dSun);
+  return { umbra: pm + ps - s, penumbra: pm + ps + s };
+}
+
 // Extinction (1/km) at height z km in an atmosphere.js / atmosphere.ts medium.
 function extinction(atmo, z, out) {
   const r = Math.exp(-z / atmo.rayleighHKm), m = Math.exp(-z / atmo.mieHKm);

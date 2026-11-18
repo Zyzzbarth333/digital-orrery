@@ -945,6 +945,10 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .body-marker.satellite .dot::after { content: ''; position: absolute; left: -4px; right: -4px; top: 1px; height: 1px; background: var(--sat, rgba(236, 217, 176, 0.6)); opacity: 0.8; }
 .body-marker.satellite .name { opacity: 0.8; font-size: 10px; }
 .body-marker.satellite.shadow { opacity: 0.55; }
+/* A craft or probe in a body's shadow: dimmed in its umbra, a little in its
+   penumbra (OrreryScene.sunlightAt), as the satellites in the Earth's. */
+.body-marker.spacecraft.eclipse, .craft-marker.eclipse { opacity: 0.55; }
+.body-marker.spacecraft.penumbra, .craft-marker.penumbra { opacity: 0.8; }
 .body-marker.satellite.focused .name { opacity: 1; }
 .body-marker.satellite.modelled .dot { visibility: hidden; }
 .sat-source { margin: 0; padding: calc(0.5 * var(--u)) calc(1.5 * var(--u)) 0; font-size: 11px; color: var(--ink-muted); }

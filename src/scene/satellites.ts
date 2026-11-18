@@ -25,8 +25,9 @@
 // small bodies' are, drawn after the bodies with the depth test (the
 // logarithmic depth buffer) so the Earth hides those behind it. Its peak
 // falls as 1/d from the camera (a magnitude range halved, as the small
-// bodies'), and a satellite in the Earth's shadow (a cylinder of the Earth's
-// radius, satellites.js inShadow) is drawn at a fifth. The layer fades out
+// bodies'), and a satellite in shadow is dimmed to a fifth by the share of
+// the Sun's disc the Earth and the Moon leave it (the umbra's and
+// penumbra's cones, as satellites.js sunFraction), in the shadow colour. The layer fades out
 // as the camera leaves the Earth's neighbourhood (1 to 3 million km).
 //
 // Positions are camera-relative, one render unit is 1000 km, and render
@@ -36,7 +37,8 @@
 
 import * as THREE from 'three';
 import { eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
-import { parseGpCsv, satrecOf, stateEqj, stateTeme, temeToEqj, apply, inShadow, R_EARTH_KM } from '../physics/satellites.js';
+import { parseGpCsv, satrecOf, stateEqj, stateTeme, temeToEqj, apply, inShadow, R_EARTH_KM, R_MOON_KM } from '../physics/satellites.js';
+import { VISIBLE_FRACTION } from './bodyMaterial';
 import { orbitTrailMaterial } from './orbitTrail';
 import { SatelliteModel } from './satelliteModels';
 
@@ -137,6 +139,7 @@ export function orbitClass(o: Omm): string {
 const VERTEX = /* glsl */ `
   #include <common>
   #include <logdepthbuf_pars_vertex>
+  ${VISIBLE_FRACTION}
   attribute vec3 aP;           // perifocal axes, J2000
   attribute vec3 aQ;
   attribute vec4 aK;           // a (km), e, M at t0 (rad), n (rad/s); a = 0: not placed
@@ -145,6 +148,7 @@ const VERTEX = /* glsl */ `
   uniform vec3 uEarth;         // the Earth, camera-relative, render units
   uniform mat3 uToRender;      // J2000 equatorial -> render axes
   uniform vec3 uSun;           // unit vector Earth -> Sun, J2000
+  uniform vec3 uMoon;          // the Moon from the Earth, J2000 km
   uniform float uLevel, uVis, uSize, uPeakScale, uFade, uHide;
   uniform vec3 uLit, uDark;    // the set's colour, sunlit and in shadow
   uniform float uGain, uPick;  // its brightness; the picked cloud's tag, or 0
@@ -166,16 +170,22 @@ const VERTEX = /* glsl */ `
     if (d < uHide) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vColour = vec3(0.0); return; }
     gl_Position = projectionMatrix * viewMatrix * vec4(rel, 1.0);
     #include <logdepthbuf_vertex>
-    // In the Earth's shadow: behind it, within its radius of the axis.
-    float along = dot(r, uSun);
-    vec3 off = r - along * uSun;
-    float lit = along < 0.0 && dot(off, off) < ${(R_EARTH_KM * R_EARTH_KM).toFixed(1)} ? ${SHADOW.toFixed(2)} : 1.0;
+    // The Sun's disc left by the Earth and the Moon (the Sun 1 AU along uSun).
+    vec3 sunRel = uSun * 1.495978707e8 - r;
+    float ds = length(sunRel);
+    vec3 sd = sunRel / ds;
+    float aSun = asin(695700.0 / ds), de = length(r);
+    float nu = visibleFraction(aSun, asin(min(1.0, ${R_EARTH_KM.toFixed(3)} / de)), acos(clamp(dot(-r / de, sd), -1.0, 1.0)));
+    vec3 m = uMoon - r;
+    float dm = length(m);
+    if (dm > ${R_MOON_KM.toFixed(1)}) nu = min(nu, visibleFraction(aSun, asin(${R_MOON_KM.toFixed(1)} / dm), acos(clamp(dot(m / dm, sd), -1.0, 1.0))));
+    float lit = ${SHADOW.toFixed(2)} + ${(1 - SHADOW).toFixed(2)} * nu;
     float gain = uPick > 0.5 ? uGain * (abs(aTag - uPick) < 0.5 ? ${PICK_GAIN.toFixed(2)} : ${PICK_DIM.toFixed(2)}) : uGain;
     float peak = min(${PEAK_REF.toFixed(3)} * ${D_REF_KM.toFixed(1)} / max(d * ${UNIT_KM.toFixed(1)}, 1.0), ${PEAK_MAX.toFixed(2)}) * lit * uFade * uVis * gain;
     if (peak < 1.0 / 512.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vColour = vec3(0.0); return; }
     gl_PointSize = peak < 0.3 ? min(uSize, 3.0) : uSize;
     vSize = gl_PointSize;
-    vec3 col = lit < 1.0 ? uDark : uLit;
+    vec3 col = mix(uDark, uLit, nu);
     vColour = col * (peak * uLevel * uPeakScale);
   }`;
 
@@ -245,6 +255,7 @@ export class SatelliteLayer {
   private earth: V3 = [0, 0, 0];
   private toRenderM = new THREE.Matrix3();
   private sunEqj: V3 = [1, 0, 0];
+  private moonEqj: V3 | null = null;
   private fade = 1;
   private focusId: number | null = null;
   // The focused one's model close up (satelliteModels.ts), and the view's
@@ -268,7 +279,7 @@ export class SatelliteLayer {
     // The uniforms every set shares (the same objects in each material);
     // uDt, uFade, uLit, uDark, uGain and uPick are each set's own.
     this.uniforms = {
-      uEarth: { value: new THREE.Vector3() }, uToRender: { value: new THREE.Matrix3() }, uSun: { value: new THREE.Vector3(1, 0, 0) },
+      uEarth: { value: new THREE.Vector3() }, uToRender: { value: new THREE.Matrix3() }, uSun: { value: new THREE.Vector3(1, 0, 0) }, uMoon: { value: new THREE.Vector3(384400, 0, 0) },
       uLevel: { value: 1 }, uVis: { value: 1 }, uSigma: { value: 1 }, uSize: { value: 7 }, uPeakScale: { value: 1 }, uHide: { value: 0 },
     };
     // J2000 equatorial -> render: through the ecliptic (eqjToEcl), then
@@ -572,7 +583,7 @@ export class SatelliteLayer {
   // Earth's heliocentric ecliptic positions (km), 1 / the exposure and the
   // eye's adaptation.
   private lastFrame = 0;
-  update(timeMs: number, cam: readonly number[], earth: readonly number[], level: number, visibility = 1): void {
+  update(timeMs: number, cam: readonly number[], earth: readonly number[], level: number, visibility = 1, moon?: readonly number[]): void {
     const now = performance.now();
     if (this.lastFrame && now > this.lastFrame) this.rate += ((timeMs - this.timeMs) / (now - this.lastFrame) - this.rate) * 0.2;
     this.lastFrame = now;
@@ -600,6 +611,12 @@ export class SatelliteLayer {
     const s = eclToEqj([-earth[0], -earth[1], -earth[2]]) as V3, sn = Math.hypot(s[0], s[1], s[2]);
     this.sunEqj = [s[0] / sn, s[1] / sn, s[2] / sn];
     (u.uSun.value as THREE.Vector3).set(...this.sunEqj);
+    // The Moon from the Earth (J2000), for its shadow on them.
+    if (moon) {
+      const m = eclToEqj([moon[0] - earth[0], moon[1] - earth[1], moon[2] - earth[2]]) as V3;
+      this.moonEqj = m;
+      (u.uMoon.value as THREE.Vector3).set(...m);
+    }
     u.uLevel.value = level;
     u.uVis.value = visibility;
     for (const [id, o] of this.orbits) {
@@ -624,7 +641,7 @@ export class SatelliteLayer {
     const fRel: V3 | null = f && [earth[0] + f[0] - cam[0], earth[1] + f[1] - cam[1], earth[2] + f[2] - cam[2]];
     u.uHide.value = fRel ? 2 * Math.hypot(fRel[0], fRel[1], fRel[2]) / UNIT_KM + 0.001 : 0;
     this.placeNear(timeMs, fs, fRel, M, level);
-    this.model.update(this.focusId, fs, fRel, this.sunEqj, this.toRenderM, this.pxPerRad);
+    this.model.update(this.focusId, fs, fRel, this.sunEqj, this.toRenderM, this.pxPerRad, this.moonEqj);
   }
 
   // The view's scale, for sizing the model: pixels per radian at the centre.
@@ -891,7 +908,7 @@ export class SatelliteLayer {
       const quiet = !focused && (isCrowd(n.group) || placed.some(([qx, qy]) => Math.abs(qx - x) < 60 && Math.abs(qy - y) < 12));
       el.classList.toggle('quiet', quiet);
       if (!quiet) placed.push([x, y]);
-      el.classList.toggle('shadow', inShadow(s.r, this.sunEqj));
+      el.classList.toggle('shadow', inShadow(s.r, this.sunEqj, this.moonEqj));
       el.classList.toggle('modelled', focused && this.model.shown);
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;

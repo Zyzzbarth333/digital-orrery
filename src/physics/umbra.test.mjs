@@ -8,7 +8,8 @@
 //
 //   node src/physics/umbra.test.mjs
 
-import { DEFLECTION_GROUND_RAD, grazingTransmittance, tangentHeight, umbraLight, umbraTable } from './umbra.js';
+import { DEFLECTION_GROUND_RAD, EARTH_OCCULTING_KM, grazingTransmittance, shadowRadii, tangentHeight, umbraLight, umbraTable } from './umbra.js';
+import * as Astronomy from 'astronomy-engine';
 
 let failed = 0;
 function check(ok, what) {
@@ -54,6 +55,20 @@ const fringe = umbraLight(EARTH, R, L, 0.92);
 check(fringe[2] > fringe[1], 'near the edge ozone takes more green than blue: the turquoise fringe');
 const near = umbraLight(EARTH, R, 1.1, 0.3);
 check(near.every((x) => x === 0), 'just behind the Earth (a low orbit) no bent light arrives');
+
+console.log('The shadow\'s size');
+{
+  // 7 Sep 2025 at greatest eclipse (18:12:58 TD): EclipseWise (Espenak,
+  // Herald and Sinnott's rule) gives the umbra 0.7400 deg and the penumbra
+  // 1.2691 deg in radius.
+  const t = Astronomy.MakeTime(new Date('2025-09-07T18:11:46Z'));
+  const dMoon = Astronomy.GeoMoon(t).Length() * 149597870.7, dSun = Astronomy.GeoVector(Astronomy.Body.Sun, t, false).Length() * 149597870.7;
+  const deg = (x) => (x * 180) / Math.PI;
+  const r = shadowRadii(dMoon, dSun), bare = shadowRadii(dMoon, dSun, 6371.0);
+  check(Math.abs(deg(r.umbra) - 0.7400) < 0.002 && Math.abs(deg(r.penumbra) - 1.2691) < 0.002,
+    `with the ${EARTH_OCCULTING_KM} km layer: umbra ${deg(r.umbra).toFixed(4)} deg (0.7400), penumbra ${deg(r.penumbra).toFixed(4)} deg (1.2691)`);
+  check(deg(r.umbra) - deg(bare.umbra) > 0.012, `without it the umbra is ${deg(bare.umbra).toFixed(4)} deg, ${((1 - bare.umbra / r.umbra) * 100).toFixed(1)} % small`);
+}
 
 if (failed) { console.log(`\n${failed} FAILED`); process.exit(1); }
 console.log('\nall passed');

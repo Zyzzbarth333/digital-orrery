@@ -29,8 +29,12 @@
 import * as THREE from 'three';
 import { ATMO_FUNCS, ATMO_UNIFORMS, atmosphereUniforms, type AtmosphereParams } from './atmosphere';
 import { DEFLECTION_GROUND_RAD, REFRACTIVITY_SCALE_KM } from '../physics/umbra.js';
+import { VISIBLE_FRACTION } from './shadowGlsl';
 
 export const MAX_OCCLUDERS = 4;
+
+// visibleFraction(a, b, c), the overlap of the Sun's disc and a body's (shadowGlsl.ts).
+export { VISIBLE_FRACTION };
 export const UMBRA_N = 24;           // heights in the refracted light's table
 // The refracted light in a planet's shadow is about 1/3000 of sunlight at
 // the centre of the Earth's at the Moon (umbra.js), which a view exposed
@@ -147,21 +151,14 @@ uniform sampler2D cloudMap;   uniform float useCloud; uniform float cloudScale;
 uniform float invExposure;    // 1 / renderer exposure, for display-level emission
 uniform sampler2D ringMap;    uniform float useRing;   // rings' optical depth, for their shadow
 uniform float ringInner;      uniform float ringOuter; // render units
+uniform vec3 ringCentre;      uniform vec3 ringPole;   // the planet's centre and pole, render frame
 uniform float useAtmo;        uniform float unitKm;
 ${ATMO_UNIFORMS}
 
 varying vec3 vWorld;
 varying vec3 vNormal;
 
-float visibleFraction(float a, float b, float c) {
-  if (c >= a + b) return 1.0;
-  if (c <= abs(a - b)) return b >= a ? 0.0 : 1.0 - (b * b) / (a * a);
-  float a2 = a * a, b2 = b * b, c2 = c * c;
-  float lens = a2 * acos(clamp((c2 + a2 - b2) / (2.0 * c * a), -1.0, 1.0))
-             + b2 * acos(clamp((c2 + b2 - a2) / (2.0 * c * b), -1.0, 1.0))
-             - 0.5 * sqrt(max((-c + a + b) * (c + a - b) * (c - a + b) * (c + a + b), 0.0));
-  return clamp(1.0 - lens / (PI * a2), 0.0, 1.0);
-}
+${VISIBLE_FRACTION}
 
 ${ATMO_FUNCS}
 ${ELLIPSOID_SHADOW}
@@ -241,10 +238,11 @@ void main() {
   }
 
   // The rings' shadow: follow the ray to the Sun to the ring plane (the
-  // body's equator) and dim by the slant transmission exp(-tau / mu0).
+  // planet's equator, through its centre: on the planet and on its moons)
+  // and dim by the slant transmission exp(-tau / mu0).
   if (useRing > 0.5 && mu0Geo > 0.0) {
-    vec3 pole = transpose(toBody) * vec3(0.0, 0.0, 1.0);
-    vec3 rel = vWorld - bodyCentre;
+    vec3 pole = ringPole;
+    vec3 rel = vWorld - ringCentre;
     float denom = dot(s, pole);
     if (abs(denom) > 1e-6) {
       float t = -dot(rel, pole) / denom;
@@ -335,6 +333,7 @@ export function makeBodyMaterial(colour: number, geometricAlbedo: number, airles
       cloudMap: { value: blank }, useCloud: { value: 0 }, cloudScale: { value: 1 },
       invExposure: { value: 1 },
       ringMap: { value: blank }, useRing: { value: 0 }, ringInner: { value: 0 }, ringOuter: { value: 0 },
+      ringCentre: { value: new THREE.Vector3() }, ringPole: { value: new THREE.Vector3(0, 0, 1) },
       useAtmo: { value: 0 }, unitKm: { value: 1000 },
       ...atmosphereUniforms(NO_ATMOSPHERE, 1),
     },
@@ -371,6 +370,8 @@ export function applyAtmosphere(m: THREE.ShaderMaterial, a: AtmosphereParams, gr
 // deleted (binding a deleted texture is a WebGL error on every draw).
 export function clearCloud(m: THREE.ShaderMaterial): void { m.uniforms.useCloud.value = 0; m.uniforms.cloudMap.value = blank; }
 
+// The rings' shadow on a planet or one of its moons; their plane (the
+// planet's centre and pole) is set each frame (setRingPlane).
 export function applyRingShadow(m: THREE.ShaderMaterial, map: THREE.Texture, inner: number, outer: number): void {
   const u = m.uniforms;
   u.ringMap.value = map; u.useRing.value = 1; u.ringInner.value = inner; u.ringOuter.value = outer;
@@ -397,4 +398,9 @@ export function applySurfaceMaps(m: THREE.ShaderMaterial, maps: SurfaceMaps): vo
     u.cloudMap.value = maps.cloud; u.useCloud.value = 1;
     u.cloudScale.value = BRIGHT_REFLECTANCE / (maps.cloudWhiteLuminance ?? 1);
   }
+}
+
+export function setRingPlane(m: THREE.ShaderMaterial, centre: THREE.Vector3, pole: THREE.Vector3): void {
+  (m.uniforms.ringCentre.value as THREE.Vector3).copy(centre);
+  (m.uniforms.ringPole.value as THREE.Vector3).copy(pole);
 }

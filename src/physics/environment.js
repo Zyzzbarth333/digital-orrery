@@ -61,26 +61,9 @@ export const MOON_ROTATION = 2 * Math.PI / (27.321661 * 86400);   // rad/s, side
 export const SOLAR_PRESSURE = 1361 / 299792458; // N/m^2 at 1 AU (IAU 2015 B3 nominal irradiance)
 export const SUN_RADIUS = 695700;              // km (IAU 2015 B3)
 
-// The fraction of the Sun's disc seen from a point, with one occulting
-// sphere: 1 in full sunlight, 0 in the umbra, between in the penumbra or an
-// annular eclipse. sunRel: Sun minus point; bodyRel: body centre minus
-// point; R: body radius (km); sunRadius: the Sun's (km). The overlap of two discs on the sky
-// (Montenbruck and Gill, Satellite Orbits, 3.4.2).
-export function sunVisible(sunRel, bodyRel, R, sunRadius = SUN_RADIUS) {
-  const ds = Math.hypot(sunRel[0], sunRel[1], sunRel[2]), db = Math.hypot(bodyRel[0], bodyRel[1], bodyRel[2]);
-  if (db <= R) return 0;                                // inside the body
-  const a = Math.asin(Math.min(1, sunRadius / ds));     // apparent radius of the Sun
-  const b = Math.asin(R / db);                          // apparent radius of the body
-  const cosc = (sunRel[0] * bodyRel[0] + sunRel[1] * bodyRel[1] + sunRel[2] * bodyRel[2]) / (ds * db);
-  const c = Math.acos(Math.max(-1, Math.min(1, cosc)));  // their separation
-  if (c >= a + b) return 1;                             // no overlap
-  if (c <= b - a) return 0;                             // the body covers the Sun
-  if (c <= a - b) return 1 - (b * b) / (a * a);         // annular: the body inside the Sun's disc
-  // Partial overlap of two discs (radii a, b, centres c apart).
-  const x = (c * c + a * a - b * b) / (2 * c), y = Math.sqrt(Math.max(0, a * a - x * x));
-  const A = a * a * Math.acos(Math.max(-1, Math.min(1, x / a))) + b * b * Math.acos(Math.max(-1, Math.min(1, (c - x) / b))) - c * y;
-  return 1 - A / (Math.PI * a * a);
-}
+// sunVisible: the fraction of the Sun's disc seen past one sphere (discs.js).
+import { sunVisible } from './discs.js';
+export { sunVisible };
 
 export const LIGHT = 299792.458;               // km/s
 

@@ -29,6 +29,7 @@ export interface RingFrame {
   sunRadius: number;
   irradiance: number;
   caster: { A: THREE.Matrix3; k: number };
+  moons?: THREE.Vector4[];             // the moons' shadows on the rings (rings.ts ringOcc)
   jd: number;                          // TDB
   pxAngle: number;                     // a pixel's angular size, rad
 }
@@ -52,6 +53,7 @@ function setShadow(u: Record<string, THREE.IUniform>, f: RingFrame): void {
   (u.planetPos.value as THREE.Vector3).copy(f.planetPos);
   (u.planetAxes.value as THREE.Matrix3).copy(f.caster.A);
   u.planetK.value = f.caster.k;
+  if (u.ringOcc && f.moons) (u.ringOcc.value as THREE.Vector4[]).forEach((v, i) => v.copy(f.moons![i]));
 }
 
 // A smooth top-hat profile from [name, centre, width, tau] rows, all dust.

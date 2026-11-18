@@ -28,6 +28,8 @@
 // fixes, if chosen, reset it to the flown state every few hours, and a clock
 // set within the mission puts it where the real craft was.
 
+import { sunlight } from '../physics/discs.js';
+import type { Sunlight } from './sunlight';
 import { useSyncExternalStore } from 'react';
 import { Craft } from '../physics/craft.js';
 import { KernelClient } from '../physics/kernelClient.js';
@@ -151,6 +153,17 @@ export class Mission {
       if (B) p.closest = Math.min(p.closest, Math.hypot(c.kState.r[0] - B.r[0], c.kState.r[1] - B.r[1], c.kState.r[2] - B.r[2]));
     }
     this.emit();
+  }
+
+  // The Sun seen from a craft at the clock: the share of its disc the
+  // kernel's bodies leave (discs.js sunlight, the deepest one), as its
+  // solar pressure takes it (environment.js shadow).
+  sunlight(c: Craft): Sunlight {
+    const s = c.displayState();
+    const bodies = (this.sys.bodiesAt(c.clockT) as { key: string; r: number[]; radius: number }[])
+      .filter((b) => b.key !== 'sun' && b.radius > 0)
+      .map((b) => ({ key: b.key, rel: [b.r[0] - s.r[0], b.r[1] - s.r[1], b.r[2] - s.r[2]], radius: b.radius }));
+    return sunlight([-s.r[0], -s.r[1], -s.r[2]], bodies);
   }
 
   // A craft's position and speed relative to its primary, at the clock.
