@@ -8,6 +8,10 @@ Two switches in the rail's **Guides** section, both off until switched on:
 - **Auroras** draws the Earth's auroral ovals for the day's Kp, and
   Jupiter's and Saturn's main ovals and Io's footprint spot.
 
+| Earth | Jupiter | Uranus |
+| --- | --- | --- |
+| ![The Earth's field lines from IGRF-14, tilted 9 degrees, shaded from sheen near the surface to orange far out, with the auroral oval as a green and red band on the night-side limb tagged Kp 3−, and the field legend](../images/magnetic-earth.jpg) | ![Jupiter's field lines from JRM33 and its current sheet, stretched outward beyond a few radii, with the main oval near the north pole and the legend giving 1.78 to 20.6 gauss at the surface](../images/magnetic-jupiter.jpg) | ![Uranus's field lines from Voyager's offset tilted dipole, crowded on one side where the dipole sits 0.31 radii off centre, tilted 60 degrees](../images/magnetic-uranus.jpg) |
+
 Code: `src/physics/magnetic.js` (the field models and the tracer),
 `src/physics/aurora.js` (the ovals), both tested in `magnetic.test.mjs` and
 `aurora.test.mjs`; `src/scene/magnetic.ts` draws them. The coefficients

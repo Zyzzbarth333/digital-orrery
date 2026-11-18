@@ -598,6 +598,27 @@ shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are))
 | the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
 | the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
 
+## Magnetic fields and auroras (`magnetic.test.mjs`, `aurora.test.mjs`)
+
+The planets' internal fields, the field-line tracer and the auroral ovals
+([magnetic fields and auroras](physics/magnetic-fields.md#validation), whose
+references these are).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| spherical-harmonic sum, IGRF-13 | NOAA Geomag 7.0's 20 published sample points (2015–2024.5, 0–30,000 ft, geodetic and geocentric) | X Y Z H F within 0.054 nT (its 0.1 nT printout), D and I within its minute |
+| IGRF-14, 2015.0 | the same, where IGRF-14 keeps IGRF-13's DGRF 2015 | within 0.04 nT |
+| JRM33 dipole | Connerney et al. 2022: 4.177 G R_J³, 10.25° toward 196.38° W | 4.1766, 10.250°, 196.379° |
+| JRM33 surface field, 1/15.4 spheroid | the same: just under 2 to almost 22 G (to degree 18) | 1.77 to 21.9 G (degree 13) |
+| Io's footprints, JRM33 + con2020, 144 longitudes | the paper's Tables S2 and S3 (degree 18) | within 1.17° of arc, rms 0.34°; peak \|B\| 19.8 G north, 12.3 G south (paper about 20 and 12) |
+| Cassini 11 | Cao et al. 2020, Table 5; magnetic equator about 2,300 km north | coefficients as tabled; eccentric dipole 2,254 km north |
+| Uranus and Neptune offset tilted dipoles | Ness et al. 1986, 1989, as JPL Publications 15-7 and 17-2 table them; Connerney's Q3 | moments, tilts and offsets as published; Uranus's moment within 4.9° of Q3's dipole |
+| field-line tracer | a centred dipole's $L = 1/\cos^2\lambda$ | apex to 10⁻⁴, lands at −λ to 0.004° |
+| Starkov's oval | Sigernes et al. 2011, eqs. 1–3, Table 1 | 84 coefficients as published; wider at midnight than noon; equatorward with Kp; diffuse edge equatorward of the oval. No published table of evaluated latitudes found to check against |
+| Kp | CelesTrak SW-All.csv, 10–11 May 2024 | every three-hour value, the 9o included |
+| corrected geomagnetic coordinates | a pure centred dipole (identity) | within 0.004° |
+| Saturn's northern oval | Cassini 11 conjugate of 15° south | 13.3° from the north pole |
+
 ## References
 
 [1] JPL Solar System Dynamics, "Horizons System" API. Vectors for Juno (-61), from JPL's reconstructed trajectory `spk_rec_110805_*_260824`, and for Cassini (-82), from its final post-mission reconstruction. [Online]. Available: https://ssd.jpl.nasa.gov/api/horizons.api

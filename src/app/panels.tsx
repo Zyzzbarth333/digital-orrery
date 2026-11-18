@@ -407,6 +407,8 @@ function Credits() {
       used under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</>
   );
   items.push(['Ephemerides', 'JPL DE442 and satellite kernels via NAIF SPICE; astronomy-engine (MIT)']);
+  items.push(['Magnetic fields', 'IGRF-14 (IAGA V-MOD, via NOAA NCEI); JRM33 and con2020 (Connerney et al. 2022, 2020); Cassini 11 (Dougherty et al. 2018, Cao et al. 2020) via libinternalfield (MIT); Voyager 2 dipoles (Ness et al. 1986, 1989)']);
+  items.push(['Auroras', 'Starkov 1994 oval as Sigernes et al. 2011 give it; Kp from GFZ Potsdam via CelesTrak; Badman et al. 2006 (Saturn); Clarke et al. 2004 (Jupiter)']);
   items.push(['Equation font', 'DejaVu Math TeX Gyre, from the DejaVu fonts: Bitstream Vera licence, its DejaVu and math additions public domain']);
   return (
     <details className="credits">
