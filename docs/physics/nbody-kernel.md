@@ -592,26 +592,38 @@ Everywhere else it would only add a tenth to every force sum.
 **Nodes.** A planet's centre is interpolated on 6-hour nodes, built on the
 barycentre's own cubic plus the moons' offset. Each moon about its planet
 is a cubic of its own, whose spacing divides 6 hours and keeps
-$(\Delta n)^4 a/384$ under 100 m. Io, Europa, Ganymede and Callisto share
-Io's spacing, because `JupiterMoons` gives all four at once. A moon's
-heliocentric ephemeris is the sum of the two cubics (its nodes are the
-moon's, which Encke's steps end on). Measured against the models directly
-over 20 days (`flyby.test.mjs` case 1):
+$(\Delta n)^4 a/384$ under 10 m. Io, Europa, Ganymede and Callisto share
+Io's spacing, because `JupiterMoons` gives all four at once, held to
+100 m: that holds the other three under a metre, and at 10 m Io's nodes
+would cost a third of a run among them without moving either of Juno's
+checked passes by more than a metre. A moon's heliocentric ephemeris is
+the sum of the two cubics (its nodes are the moon's, which Encke's steps
+end on). Measured against `moons.js` directly over 20 days from 12
+November 2026, from the satellite-ephemeris tables (`flyby.test.mjs`
+case 1):
 
 | Body | Node spacing | Worst error |
 | --- | ---: | ---: |
-| Mars's centre; Phobos, Deimos | 6 h; 18, 45 min | 0.2 m; 101 m, 36 m |
-| Jupiter's centre; Io, Europa, Ganymede, Callisto | 6 h; 36 min | 34 m (Io's 20 km swing of the centre); 69 m (Io), 34–38 m |
-| Saturn's centre; Mimas to Rhea; Titan; Iapetus | 6 h; 24–90 min; 3 h; 6 h | 1 m; 54–90 m; 24 m; 2 m |
-| Uranus's centre; Miranda to Oberon | 6 h; 40 min–3 h | 2 m; 19–80 m |
-| Neptune's centre; Triton | 6 h; 2 h | 1 m; 58 m |
-| Pluto's centre; Charon | 6 h; 3 h | 20 m (Charon's 2,100 km swing); 20 m |
+| Mars's centre; Phobos, Deimos | 6 h; 10, 30 min | 0 m; 10 m, 7 m |
+| Jupiter's centre; Io, Europa, Ganymede, Callisto | 6 h; 36 min | 98 m; 71 m (Io), 102–104 m |
+| Saturn's centre; Mimas to Rhea; Titan; Iapetus | 6 h; 14–45 min; 2 h; 6 h | 29 m; 26–31 m; 28 m; 1 m |
+| Uranus's centre; Miranda to Oberon | 6 h; 22 min–2 h | 1 m; 5–22 m |
+| Neptune's centre; Triton | 6 h; 72 min | 1 m; 7 m |
+| Pluto's centre; Charon | 6 h; 2 h | 20 m (Charon's 2,100 km swing); 18 m |
 
-Those were measured with the moons from their mean elements. From the
-satellite-ephemeris tables (2000–2049) the worst over all of them is 104 m
-(Callisto): each interval of a table is pinned to the SPK at its ends, but
-its velocity there is a few cm/s off, which a cubic over a 36-minute node
-spacing turns into tens of metres.
+Where an error is well over 10 m, the cubics are not what sets it. Each
+interval of a satellite table is pinned to the SPK at its ends, but its
+velocity there is a few cm/s off, which a cubic over a node spacing turns
+into tens of metres: Jupiter's centre and its moons carry about 100 m of
+that, Saturn's about 30 m.
+
+The spacing matters most on a slow pass. On Cassini's T45 pass over Titan
+(below), Titan's nodes three hours apart (100 m, before November 2026)
+put it 27 m from JPL's table at closest approach and Cassini 0.093 km off
+nine hours on; two hours apart, 14 m and 0.004 km. It costs more nodes:
+at Saturn 336 a simulated day instead of 192, at 4.5 µs each about 6 % of
+a run among Saturn's moons (about 10 % among Mars's); Jupiter's are
+unchanged.
 
 `moons.js` knows the moons themselves to within 1 km from 2000 to 2049
 (JPL's satellite ephemerides as tables) and, outside that, to 130 to 650 km
@@ -625,9 +637,7 @@ the fallback's), and 9,300 km with no moons. Juno's pass 1,496 km over
 Io on 30 December 2023 is followed to 0.051 km an hour on, and Io's $J_2$
 and $C_{22}$ take that from 0.198 km; a fifth of what is left is Jupiter's
 $J_4$, which the kernel leaves out. Cassini's T45 pass 1,613 km over Titan
-is followed to 0.093 km nine hours on, nearly all of it the kernel's own
-Titan: its nodes three hours apart place it 27 m from the table at
-closest approach, and with nodes every 10 minutes 7 m is left
+is followed to 4 m nine hours on, with Titan's nodes two hours apart
 ([validation](../validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs)).
 
 **Cost** (`npm run bench`; `flyby.test.mjs` case 2 checks that cruise never
@@ -839,8 +849,8 @@ relative).
 - **Effect:** small on most flybys, measurable on the close ones. On
   Juno's pass 1,046 km over Ganymede it moves the kernel's Juno by 0.2 km
   after nine hours. Over Io (1,496 km up) it is 0.15 km an hour on, and
-  over Titan (1,613 km) 0.34 km nine hours on; with it, both passes are
-  followed three to four times more closely (`flyby.test.mjs` cases 3b
+  over Titan (1,613 km) 0.37 km nine hours on; with it, the Io pass is
+  followed four times more closely and the Titan pass ninety times (`flyby.test.mjs` cases 3b
   and 3c). For a craft orbiting a moon it is what turns the orbit.
 
 ## References
