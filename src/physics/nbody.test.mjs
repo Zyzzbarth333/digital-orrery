@@ -367,6 +367,59 @@ header("CASE 8b: Earth's J2 turns the orbit's node at the analytic rate");
   check('without J2 the node turns under 0.01 deg/day', Math.abs(none.rate * 180 / Math.PI) < 0.01);
 }
 
+header("CASE 8c: a year 400 km over Mars: the mean semi-major axis holds, the osculating one swings with J2");
+{
+  // A circular orbit 400 km over Mars at 150.6 deg to its equator, flown a
+  // year with stepCraft about Mars with its J2, Phobos, Deimos and the
+  // Sun (the planner's parking orbit, journey.test.mjs case 14; the other
+  // planets change nothing here). Sampled every 30 days, its osculating
+  // semi-major axis falls about 3 km, smoothly, as if it drifted. It does
+  // not: J2 makes the osculating a swing about the mean by
+  //   a - a_mean = (3/2) J2 R^2 / a sin^2 i cos 2u
+  // (Brouwer's short-period term for e = 0, nbody-kernel.md [20]; u the
+  // argument of latitude), about 2.2 km here, and 30 days is close to a
+  // whole number of turns, so each sample finds the orbit a few degrees
+  // further round from the node (where it started, at the top of the
+  // swing). The mean (the osculating a averaged over a turn) holds to
+  // 14 m. With the moons off, J2 off, Encke off or a 100 times tighter
+  // tolerance, the mean holds as well (to 25 m).
+  const { solarSystemBodies, ZONAL } = await import('./bodies.js');
+  const { stepCraft, KERNEL_EPOCH_MS, kernelSeconds } = await import('./kernelHost.js');
+  const { bodyAxesEqj } = await import('./orientation.js');
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS, keys: ['mars'] });
+  const ms = Date.parse('2027-09-08T00:00:00Z'), t0 = kernelSeconds(new Date(ms));
+  const M = (t) => { const b = sys.bodyAt('mars', t), v = [0, 0, 0]; b.eph.velocity(t, v); return { b, r: b.r.slice(), v }; };
+  const cr = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], unit = (a) => a.map((x) => x / norm(a));
+  const M0 = M(t0), mu = M0.b.mu, { j2, rJ2: R } = ZONAL.mars, inc = 150.6 * Math.PI / 180;
+  const pole = bodyAxesEqj('mars', new Date(ms))[2], e1 = unit(cr(pole, [0, 0, 1])), e2 = cr(pole, e1);
+  const q = e2.map((x, i) => Math.cos(inc) * x + Math.sin(inc) * pole[i]);
+  const r0 = M0.b.radius + 400, vc = Math.sqrt(mu / r0);
+  // Osculating a and argument of latitude about Mars's centre and pole.
+  const osc = (s) => {
+    const P = M(s.t), r = sub(s.r, P.r), v = sub(s.v, P.v), d = norm(r), h = cr(r, v), n = cr(pole, h);
+    return { a: 1 / (2 / d - dot(v, v) / mu), u: Math.atan2(dot(r, cr(h, n)) / norm(h), dot(r, n)) };
+  };
+  let s = { r: e1.map((x, i) => r0 * x + M0.r[i]), v: q.map((x, i) => vc * x + M0.v[i]), t: t0, primary: null };
+  const fly = (st, dt) => stepCraft(sys, { id: 0, version: 0, r: st.r, v: st.v, t: st.t, tEnd: st.t + dt, primary: st.primary, burns: [], maxSteps: 5e6 });
+  const turnMean = (st) => { const P = 2 * Math.PI * Math.sqrt(r0 ** 3 / mu), n = 48; let a = 0; for (let k = 0; k < n; k++) { st = fly(st, P / n); a += osc(st).a; } return a / n; };
+  const mean0 = turnMean(s), K = 1.5 * j2 * R * R / mean0 * Math.sin(inc) ** 2;
+  const rows = [];
+  for (let day = 0; ; day += 30) {
+    const o = osc(s);
+    rows.push({ day, a: o.a, u: o.u, off: o.a - (mean0 + K * Math.cos(2 * o.u)) });
+    if (day >= 360) break;
+    s = fly(s, 30 * DAY);
+  }
+  const mean1 = turnMean(s), worst = Math.max(...rows.map((x) => Math.abs(x.off)));
+  const fall = rows[0].a - rows.at(-1).a, falls = rows.every((x, i) => i === 0 || x.a < rows[i - 1].a + 0.05);
+  console.log(`  osculating a every 30 days: ${rows.map((x) => x.a.toFixed(2)).join(', ')} km (u ${(rows.at(-1).u * 180 / Math.PI).toFixed(1)} deg at day 360)`);
+  console.log(`  mean a (a turn's average): ${mean0.toFixed(4)} km at the start, ${mean1.toFixed(4)} km a year on (${((mean1 - mean0) * 1000).toFixed(1)} m); swing amplitude (3/2) J2 R^2/a sin^2 i = ${K.toFixed(3)} km; samples off mean + swing by at most ${(worst * 1000).toFixed(0)} m`);
+  check('sampled every 30 days, the osculating a falls over 2.5 km in a year, steadily (the apparent drift)', fall > 2.5 && falls);
+  check('every sample is the mean plus Brouwer\'s short-period swing, to 0.1 km', worst < 0.1);
+  check('the mean semi-major axis holds to 50 m over the year (its J2 node rate to 0.005 %)', Math.abs(mean1 - mean0) < 0.05);
+}
+
 header('CASE 9: escape from the edge of Earth\'s sphere of influence');
 {
   // How launches start: on the outbound asymptote at the SOI radius with the

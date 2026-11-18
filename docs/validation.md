@@ -120,6 +120,7 @@ other planets (`public/trajbrowser/planets.json`).
 | Hermite interpolation, 30 days | direct ephemeris calls (DE442 table) | worst 20 m (Mercury, the cubic's own error at 6-hour nodes) |
 | 400 km orbit, real Sun/Moon/planets, point masses, 1 day | two-body about Earth | within 0.2 km |
 | Earth's J2: node of a 400 km, 51.6° orbit, 3 days | $-\tfrac32 nJ_2(R/p)^2\cos i$ | −5.0305°/day against −5.0060°/day (0.49 %, the mean-versus-osculating offset); Encke and Cowell agree to 10⁻⁴°/day |
+| a year 400 km over Mars at 150.6°, with its J2, moons and the Sun (case 8c) | Brouwer's short-period term in $a$ [kernel](physics/nbody-kernel.md#oblateness-j2) | the osculating $a$ every 30 days falls 2.8 km (3,789.93 to 3,787.10), each sample the mean plus $\tfrac32 J_2R^2/\bar a\,\sin^2 i\cos 2u$ (2.15 km) to 46 m; the turn-averaged $a$ holds to 14 m |
 | finite burn, no gravity | rocket equation | Δv 5×10⁻¹⁴ km/s; position 3.5×10⁻⁸ km after 10 days (Yoshida: 2.8×10⁻⁹, 2.4×10⁻³) |
 | kernel GMs | SPICE `gm_de442.tpc` | 5.9×10⁻¹⁶ |
 | Worker message handling | direct advance | identical |
