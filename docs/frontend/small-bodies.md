@@ -49,9 +49,37 @@ population as its swatch instead.
   and 130 comets, most of the comets fragments (58) or last seen before
   1950 (48).
   `public/data/smallbodies.bin` (the points) is 2.17 MB and is loaded
-  first; `smallbodies-belt.bin` (the faint main belt) is 23.1 MB and is
-  loaded after it. `smallbodies.json` holds the counts and the named bodies
-  at full precision.
+  first. `smallbodies.json` holds the counts and the named bodies at full
+  precision.
+- **The faint belt's file** (`smallbodies-belt.bin`, loaded after the
+  points) packs each body in 12 bytes instead (`packBelt` in
+  `src/physics/beltGrid.js`): 17.4 MB for 1.45 million bodies, down from
+  23.1 MB at 16 bytes.
+  - a, uint16 over 1.3 to 4.7 au (7,800 km steps);
+  - node, peri, M, uint16 (0.0055° steps, as above);
+  - i over 0 to 180° in 13 bits (0.022°), e over 0 to 0.75 in 12 bits, and
+    H from 15 to 27.7 in 7 bits (0.1 mag steps), in one 32-bit word.
+
+  The class is left out: these are all main-belt asteroids, and the haze
+  doesn't use it. The file spans a 1.35 to 4.60 au, e to 0.69, i to 124°
+  and H 15 to 27, and the build stops if a body falls outside the ranges.
+  The bits go to H first. There are 1.45 million bodies in 3 million
+  cells, so a cell holds the light of a few, and H's rounding moves the
+  haze more than the positions' does. Against grids binned from the
+  elements at full precision:
+
+  | Packing | Bodies' rms (worst) position at the epoch | Ten years on | Grid's cells, summed difference (largest) |
+  | --- | --- | --- | --- |
+  | 16 bytes | 21,000 km (97,000 km) | 21,000 km (97,000 km) | 1.2 % (2.3 % of the brightest cell) |
+  | 12 bytes | 51,000 km (184,000 km) | 72,000 km (232,000 km) | 0.9 % (2.0 %) |
+
+  Against the 16-byte pack, the bodies move 48,000 km rms (196,000 km at
+  worst) at the epoch, and 70,000 km (220,000 km) ten years on: the
+  rounding of a changes the mean motion a little, so the difference grows
+  slowly. A cell is 6.5 million km
+  across, so that is under 1 % of a cell for nearly every body (3 % at
+  worst). The light is kept to 0.1 %. Loading the file in the worker takes
+  0.35–0.45 s, as before.
 
 ## Drawing
 
@@ -343,7 +371,8 @@ SB441's table are [above](#exact-positions-for-the-largest).
 | Ceres, Vesta, Bennu, Eris and Halley against Horizons, 2026-01-01 to 2027-01-01 | 0 km at the epoch; within 101,000 km a year on (Ceres 75,000 km, 0.66′ as seen from the Sun) |
 | The 16-byte packing, named bodies | within 73″ as seen from the Sun (a near-parabolic orbit magnifies the rounding of e) |
 | The shader's Kepler solve (float32) against the exact one, every body, over 20 years | within 65″; all but 14 within 20″ |
-| The faint belt's grid (`beltGrid.js`), binning the points' bodies | holds their light to 1 part in 10⁵; its light-weighted centre 6 km from theirs |
+| The faint belt's 12-byte packing, the main-belt points packed as the faint file is, against their 16-byte pack | 50,000 km rms (152,000 km worst) at the epoch, 68,000 km (177,000 km) ten years on; their light kept to 0.11 % |
+| The faint belt's grid (`beltGrid.js`), binning the points' bodies | holds their light to 1 part in 10⁵; its light-weighted centre 11 km from theirs |
 
 Most bodies' SBDB solutions are current (2026), but about 10,600 near-Earth
 asteroids (mostly faint ones seen at one opposition), most comets (their
