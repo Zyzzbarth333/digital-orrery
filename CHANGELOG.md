@@ -126,7 +126,7 @@ once it has releases. Until then, everything sits under Unreleased.
   final reconstruction (`?mission=lro`), down to its 30 km commissioning
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
-  (this pull request).
+  (#113).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).
