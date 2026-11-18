@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- `npm run bench:frames` times the app's frames on the integrated and the discrete GPU, a build against main, and prints the table a pull request needs (this pull request).
 - The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
 - Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (this pull request).
 - Screenshots in the README, a glossary, an architecture diagram, and the credits as tables (this pull request).
@@ -77,8 +78,10 @@ once it has releases. Until then, everything sits under Unreleased.
   after which every step ran on the page's thread (#82).
 - The kernel places the moons of Mars, Saturn, Uranus, Neptune and Pluto
   to 10 m instead of 100 m, so a slow pass is followed more closely:
-  Cassini's over Titan to 4 m nine hours on, from 93 m (this pull
-  request).
+  Cassini's over Titan to 4 m nine hours on, from 93 m (#86).
+- Jupiter, Saturn, Uranus and Neptune pull with their J4 as well as their
+  J2, from the same published solutions: Juno's pass over Io is followed
+  to 40 m an hour on, from 51 m (this pull request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons

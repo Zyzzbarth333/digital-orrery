@@ -102,7 +102,7 @@ other planets (`public/trajbrowser/planets.json`).
 | indirect term | planet pull + solar tide bound | within the bound |
 | orbit around a moving planet, 5 orbits | two-body about the planet | 0.009 % drift (solar tide) |
 | impact, SOI entry, step budget, flyby within budget | events, unlimited run | all reported; flyby identical to an unlimited run |
-| impacts within a step (case 6b): a fall from 5,000 km onto a still body of 1,737.4 km, and onto a tilted WGS-84 ellipsoid | Kepler's equation [4, Sec. 3.4] and vis-viva for the sphere; the exact conic's crossing (universal variables, bisected) for the ellipsoid | every integrator's impact on the surface to under 1 mm; dp45, Encke and Yoshida at the crossing time to 2, 0.1 and 9 µs and the speed to 1 mm/s; the leapfrog 67 ms late, its own path's error; the ellipsoid's within 1 ms |
+| impacts within a step (case 6b): a fall from 5,000 km onto a still body of 1,737.4 km, and onto a tilted WGS-84 ellipsoid | Kepler's equation [3, Sec. 3.4] and vis-viva for the sphere; the exact conic's crossing (universal variables, bisected) for the ellipsoid | every integrator's impact on the surface to under 1 mm; dp45, Encke and Yoshida at the crossing time to 2, 0.1 and 9 µs and the speed to 1 mm/s; the leapfrog 67 ms late, its own path's error; the ellipsoid's within 1 ms |
 | Hermite interpolation, 30 days | direct ephemeris calls (DE442 table) | worst 20 m (Mercury, the cubic's own error at 6-hour nodes) |
 | 400 km orbit, real Sun/Moon/planets, point masses, 1 day | two-body about Earth | within 0.2 km |
 | Earth's J2: node of a 400 km, 51.6° orbit, 3 days | $-\tfrac32 nJ_2(R/p)^2\cos i$ | −5.0305°/day against −5.0060°/day (0.49 %, the mean-versus-osculating offset); Encke and Cowell agree to 10⁻⁴°/day |
@@ -179,9 +179,9 @@ What this shows:
   $C_{22}$ ([kernel](physics/nbody-kernel.md#the-moons-own-fields)) moved the
   last row by 0.18 km (measured with the fixed-step integrator). At 1.4 Ganymede radii the field is
   $10^{-4}$ of Ganymede's pull.
-- **Jupiter's $J_4$ plays no part.** Added to the run as an outside force
-  (from Juno's gravity science, $-586.609\times10^{-6}$ [2], [3]), it
-  moves the last row by 1 m: Juno stays beyond 7.7 Jupiter radii.
+- **Jupiter's $J_4$ plays no part.** The kernel carries it
+  ($-586.6085\times10^{-6}$, from Juno's gravity science [2]); without it
+  the last row moves by 1 m, since Juno stays beyond 7.7 Jupiter radii.
 - **Events behave.** The primary goes from Jupiter to Ganymede at its
   24,500 km sphere of influence and back.
 
@@ -200,34 +200,38 @@ radii its $J_2$ and $C_{22}$ are about $10^{-3}$ of its pull.
 - **Method and runs:** as at Ganymede, with Io where Juno's track has it
   (Horizons' Io is 9.8 km from that one, much as its Ganymede is 11 km
   from Juno's). Beside it, the same run without Io's $J_2$ and $C_{22}$,
-  with Jupiter's $J_4$ added [2], [3], with Io's Hermite nodes every 10
-  minutes, and at tolerances of $10^{-10}$ km (Encke) and $10^{-9}$ km
-  (Cowell) a step.
+  without Jupiter's $J_4$ [2], with the kernel's $J_4$ off and the same
+  term added as an outside force (written out again in the test), with
+  Io's Hermite nodes every 10 minutes, and at tolerances of $10^{-10}$ km
+  (Encke) and $10^{-9}$ km (Cowell) a step.
 
 | Moons in the kernel | 3 min after closest approach | 1 h after | Closest approach (Horizons: 3,317.09 km) |
 | --- | ---: | ---: | ---: |
 | none (system at its barycentre) | 46.8 km | 441 km | 3,315.6 km |
-| `moons.js` | 0.071 km | 1.098 km | 3,317.11 km |
-| Horizons' Galilean moons | 0.079 km | 1.106 km | 3,317.11 km |
-| Horizons', Io as Juno's track has it | 0.022 km | 0.051 km | 3,317.10 km |
-| the same, without Io's $J_2$ and $C_{22}$ | 0.022 km | 0.198 km | 3,317.10 km |
-| the same, with Jupiter's $J_4$ | 0.012 km | 0.040 km | 3,317.10 km |
-| the same, Io's nodes every 10 min | 0.022 km | 0.051 km | 3,317.10 km |
-| the same, tighter tolerances | 0.022 km | 0.050 km | 3,317.10 km |
+| `moons.js` | 0.069 km | 1.091 km | 3,317.11 km |
+| Horizons' Galilean moons | 0.076 km | 1.098 km | 3,317.11 km |
+| Horizons', Io as Juno's track has it | 0.012 km | 0.040 km | 3,317.10 km |
+| the same, without Io's $J_2$ and $C_{22}$ | 0.010 km | 0.184 km | 3,317.10 km |
+| the same, without Jupiter's $J_4$ | 0.022 km | 0.051 km | 3,317.10 km |
+| the same, the kernel's $J_4$ off and added outside | 0.012 km | 0.040 km | 3,317.10 km |
+| the same, Io's nodes every 10 min | 0.012 km | 0.040 km | 3,317.10 km |
+| the same, tighter tolerances | 0.012 km | 0.040 km | 3,317.10 km |
 
 - **The pass measures Io's field.** Io bends Juno by 0.12 km/s, 441 km an
   hour on. Its $J_2$ and $C_{22}$ (Park et al. 2025, [kernel](physics/nbody-kernel.md#the-moons-own-fields))
-  take what is left from 0.198 km to 0.051 km: three quarters of it.
-- **What is left, 0.051 km, is not the kernel's numerics.** Neither
-  finer nodes for Io nor tighter tolerances move it. A fifth is Jupiter's
-  $J_4$, which the kernel leaves out (0.040 km with it). The rest is the
-  gap between the two force models, which this check cannot split further:
-  Jupiter's field beyond $J_4$, Io's beyond degree 2, and Juno's own small
-  forces (sunlight on its arrays, for one), all in the reconstruction and
-  not in the kernel. The error grows after the pass, as a kick there
-  would; before it it is 15 m.
+  take what is left from 0.184 km to 0.040 km: four fifths of it.
+- **Jupiter's $J_4$ is a fifth of the rest.** Without it, 0.051 km is
+  left. The kernel's term and the same term written out separately in the
+  test agree to 0.1 m.
+- **What is left, 0.040 km, is not the kernel's numerics.** Neither
+  finer nodes for Io nor tighter tolerances move it. It is the gap between
+  the two force models, which this check cannot split further: Jupiter's
+  field beyond $J_4$, Io's beyond degree 2, and Juno's own small forces
+  (sunlight on its arrays, for one), all in the reconstruction and not in
+  the kernel. The error grows after the pass, as a kick there would;
+  before it it is about 10 m.
 - **The places of the moons set the rest.** With Horizons' Io (9.8 km
-  off Juno's) it is 1.1 km; `moons.js`'s Io matches that run to 8 m.
+  off Juno's) it is 1.1 km; `moons.js`'s Io matches that run to 7 m.
 
 ### Cassini at Titan
 
@@ -281,6 +285,7 @@ The same file checks:
 | two craft, one near Jupiter, one far | their own views | 13 bodies and 9 |
 | a fall onto Ganymede at 3 km/s | impact event, found where the step crossed the surface | `impact` on `ganymede` 0.0 m from the surface at 3.94 km/s (it was found 46 km in, a 14 s step late) |
 | the moons' $J_2$ and $C_{22}$ acceleration, Ganymede's field about tilted axes | central differences of the potential | $7.6\times10^{-10}$ relative |
+| a giant's $J_2$ and $J_4$, Jupiter's field about tilted axes | central differences of the potential | $2.3\times10^{-10}$ relative ($J_4$ up to 1.7 % of $J_2$'s term at the points checked) |
 
 ## The largest asteroids (`asteroids.test.mjs`)
 
@@ -626,11 +631,11 @@ shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are))
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| SGP4, near-Earth, 158 states | Vallado et al. [5], verification set (`SGP4-VER.TLE`, MATLAB output) | within 0.14 mm and 0.81 µm/s |
+| SGP4, near-Earth, 158 states | Vallado et al. [4], verification set (`SGP4-VER.TLE`, MATLAB output) | within 0.14 mm and 0.81 µm/s |
 | SDP4, deep space, 508 states (resonances, Lyddane choices, near-parabolic) | the same | within 35 mm and 15.5 µm/s (the OMM reader's epoch to the millisecond) |
 | the error case 33334 | the same | refused (error 3) |
-| TEME to J2000, "of date" | [5, App. C, eq. (C-3)], satellite 00005 | position within 0.82 m (the turn moves it 1,154 m), velocity within 0.50 mm/s, matrix as eq. (C-2) to 10⁻⁷ |
-| the ISS, ±6 h of its epoch | JPL Horizons, the ISS (−125544) [6], geocentric ICRF | within 106 m and 0.12 m/s (TEME as J2000 would be 25.8 km off) |
+| TEME to J2000, "of date" | [4, App. C, eq. (C-3)], satellite 00005 | position within 0.82 m (the turn moves it 1,154 m), velocity within 0.50 mm/s, matrix as eq. (C-2) to 10⁻⁷ |
+| the ISS, ±6 h of its epoch | JPL Horizons, the ISS (−125544) [5], geocentric ICRF | within 106 m and 0.12 m/s (TEME as J2000 would be 25.8 km off) |
 | the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
 | the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
 
@@ -666,7 +671,7 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 
 | Model | Reference | Result |
 | --- | --- | --- |
-| the packed trajectories, every craft | Horizons states not kept, one a month a craft (522), from mid-interval [7] | within 2 km: worst 1.95 km (Mars Odyssey); L1/L2 and cruise within 1.3 km |
+| the packed trajectories, every craft | Horizons states not kept, one a month a craft (522), from mid-interval [6] | within 2 km: worst 1.95 km (Mars Odyssey); L1/L2 and cruise within 1.3 km |
 | the joins between days | each day's last state and the next day's first | within 3.5 m over 8,081 joins |
 | the packing itself | every Horizons sample of every day (4 to 60 minutes apart) | within 2 km on every day |
 
@@ -674,14 +679,12 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 
 [1] JPL Solar System Dynamics, "Horizons System" API. Vectors for Juno (-61), from JPL's reconstructed trajectory `spk_rec_110805_*_260824`, and for Cassini (-82), from its final post-mission reconstruction. [Online]. Available: https://ssd.jpl.nasa.gov/api/horizons.api
 
-[2] L. Iess *et al.*, "Measurement of Jupiter's asymmetric gravity field," *Nature*, vol. 555, pp. 220–222, 2018, doi: 10.1038/nature25776. Its $J_4$ as [3] tabulates it; the paper's own table was not opened.
+[2] D. Durante *et al.*, "Jupiter's gravity field halfway through the Juno mission," *Geophys. Res. Lett.*, vol. 47, no. 4, Art. no. e2019GL086572, 2020, doi: 10.1029/2019GL086572. Coefficients from the PDS table `GRV_JUGR_SHA_JUP_U_DUR2020_20200203_V01.TAB` (Juno gravity volume `jnogrv_0002`). [Online]. Available: https://atmos.nmsu.edu/PDS/data/jnogrv_0002/DATA/SHADR/
 
-[3] D. Serra *et al.*, "A solution of Jupiter's gravitational field from Juno data with the ORBIT14 software," *Mon. Not. R. Astron. Soc.*, vol. 490, no. 1, pp. 766–772, 2019, doi: 10.1093/mnras/stz2657.
+[3] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020.
 
-[4] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020.
+[4] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
 
-[5] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
+[5] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
 
-[6] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
-
-[7] NASA JPL Solar System Dynamics, "Horizons system," spacecraft trajectories, fetched 18 Nov. 2026 by `npm run fetch:spacecraft`. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+[6] NASA JPL Solar System Dynamics, "Horizons system," spacecraft trajectories, fetched 18 Nov. 2026 by `npm run fetch:spacecraft`. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/

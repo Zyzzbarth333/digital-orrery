@@ -12,7 +12,7 @@
 //      (PJ57, 30 December 2023) and Cassini at Titan (T45, 31 July 2008),
 //      which measure those moons' J2 and C22;
 //   4. impacts on a moon, found where the step crossed its surface;
-//   5. the large moons' degree-2 fields (J2 and C22).
+//   5. the large moons' degree-2 fields (J2 and C22), and the giants' J4.
 // docs/validation.md#the-moons-pull-flybys-of-ganymede-io-and-titan-flybytestmjs and docs/physics/nbody-kernel.md#moons.
 //
 //   node src/physics/flyby.test.mjs
@@ -203,13 +203,15 @@ function flybyRuns(file, planet, { degree2 = false, variants = {} } = {}) {
   return { runs: Object.values(runs), hzCA, epochMs, hours };
 }
 
-// A planet's J4, which the kernel leaves out, as an extra acceleration on
-// the craft: the gradient of V4 = -mu J4 R^4 P4(s) / r^5, s = z / r, z
-// along the pole, P4(s) = (35 s^4 - 30 s^2 + 3) / 8:
+// A planet's J4 written out again here, as an outside force, to check the
+// kernel's (zonal.js): the gradient of V4 = -mu J4 R^4 P4(s) / r^5,
+// s = z / r, z along the pole, P4(s) = (35 s^4 - 30 s^2 + 3) / 8:
 //   a = -mu J4 R^4 [ p P4'(s) / r^6 - d (s P4'(s) + 5 P4(s)) / r^7 ].
-// Jupiter's from Juno's gravity science (Iess et al. 2018, as Serra et al.
-// 2019 tabulate it): J4 = -586.609e-6 at R = 71,492 km.
-const J4_OF = { jupiter: { j4: -586.609e-6, R: 71492 } };
+// Jupiter's from Juno's gravity science (Durante et al. 2020, the PDS
+// table GRV_JUGR_SHA_JUP_U_DUR2020): J4 = -586.6085e-6 at R = 71,492 km.
+const J4_OF = { jupiter: { j4: -586.6085e-6, R: 71492 } };
+// Jupiter's J4 switched off in the kernel, for the runs without it.
+const noJ4 = (sys) => { sys.bodyAt('jupiter', 0).j4 = 0; };
 const j4Accel = (planet) => (sys) => {
   const { j4, R } = J4_OF[planet], P = sys.bodyAt(planet, 0), c = [0, 0, 0];
   return (t, r, out) => {
@@ -228,7 +230,7 @@ const j4Accel = (planet) => (sys) => {
 const fineNodes = { setup: (k) => { const was = MOON_SPACING[k]; MOON_SPACING[k] = 600; return () => { MOON_SPACING[k] = was; }; } };
 
 header("CASE 3: Juno's flyby of Ganymede, 7 June 2021, against JPL's reconstruction");
-const { runs: [none, ours, jpl, track], hzCA, epochMs } = flybyRuns('flyby_juno_ganymede.json', 'jupiter', { variants: { "the same, with Jupiter's J4": { extraOf: j4Accel('jupiter') } } });
+const { runs: [none, ours, jpl, track], hzCA, epochMs } = flybyRuns('flyby_juno_ganymede.json', 'jupiter', { variants: { "the same, without Jupiter's J4": { tweak: noJ4 } } });
 // Ganymede bends Juno by 0.28 km/s: 9,300 km after nine hours. JPL's moons
 // leave 23 km, all but 0.1 km of it the 11 km between the two Ganymedes
 // (the fixed-step Cowell integrator added 4 km of its own). moons.js's
@@ -248,20 +250,25 @@ header("CASE 3b: Juno's flyby of Io, 30 December 2023 (PJ57), against JPL's reco
   // out, ending three hours before the perijove (where Jupiter's higher
   // harmonics take over). Io bends Juno by 0.12 km/s: 440 km an hour on.
   // As at Ganymede, Horizons' Io is 9.8 km from the one Juno's track has.
-  // With it, 0.05 km is left an hour on; Io's J2 and C22 take it from
-  // 0.20 km, so the pass measures them. Of what is left, a fifth is
-  // Jupiter's J4 (0.040 km with it, which the kernel leaves out); neither
-  // the kernel's nodes for Io nor tighter tolerances move it.
-  const { runs: [none, ours, jpl, track, flat, j4, nodes, tight], hzCA } = flybyRuns('flyby_juno_io.json', 'jupiter', {
+  // With it, 0.040 km is left an hour on. Io's J2 and C22 take that from
+  // 0.19 km, so the pass measures them, and Jupiter's J4 from 0.051 km.
+  // The kernel's J4 matches the same term written out here as an outside
+  // force; neither the kernel's nodes for Io nor tighter tolerances move
+  // what is left.
+  const { runs: [none, ours, jpl, track, flat, noj4, outside, nodes, tight], hzCA } = flybyRuns('flyby_juno_io.json', 'jupiter', {
     degree2: true,
-    variants: { "the same, with Jupiter's J4": { extraOf: j4Accel('jupiter') }, 'the same, its nodes every 10 min': fineNodes,
+    variants: { "the same, without Jupiter's J4": { tweak: noJ4 },
+      "the same, the kernel's J4 off and added outside": { tweak: noJ4, extraOf: j4Accel('jupiter') },
+      'the same, its nodes every 10 min': fineNodes,
       'the same, tolerances 1e-10 and 1e-9 km': { advance: { tolKm: 1e-10, cowellTolKm: 1e-9 } } },
   });
   check(none.err.at(-1) > 300, `without the moons Juno is ${none.err.at(-1).toFixed(0)} km off an hour after the pass`);
-  check(track.err.at(-1) < 0.1, `with JPL's moons and Io as Juno's track has it, ${track.err.at(-1).toFixed(3)} km off`);
+  check(track.err.at(-1) < 0.045, `with JPL's moons and Io as Juno's track has it, ${track.err.at(-1).toFixed(3)} km off`);
   check(flat.err.at(-1) > 3 * track.err.at(-1), `without Io's J2 and C22, ${flat.err.at(-1).toFixed(3)} km off: the pass measures them`);
-  check(j4.err.at(-1) < track.err.at(-1) && Math.abs(nodes.err.at(-1) - track.err.at(-1)) < 0.005 && Math.abs(tight.err.at(-1) - track.err.at(-1)) < 0.005,
-    `of what is left, Jupiter's J4 is a fifth (${j4.err.at(-1).toFixed(3)} km with it); Io's nodes (${nodes.err.at(-1).toFixed(3)}) and the tolerances (${tight.err.at(-1).toFixed(3)}) change nothing`);
+  check(noj4.err.at(-1) > track.err.at(-1) + 0.005, `without Jupiter's J4, ${noj4.err.at(-1).toFixed(3)} km off: the kernel's J4 closes a fifth of the gap`);
+  check(Math.abs(outside.err.at(-1) - track.err.at(-1)) < 0.002, `the kernel's J4 against the same term written out as an outside force: ${track.err.at(-1).toFixed(4)} and ${outside.err.at(-1).toFixed(4)} km`);
+  check(Math.abs(nodes.err.at(-1) - track.err.at(-1)) < 0.005 && Math.abs(tight.err.at(-1) - track.err.at(-1)) < 0.005,
+    `Io's nodes (${nodes.err.at(-1).toFixed(3)} km) and tighter tolerances (${tight.err.at(-1).toFixed(3)} km) change nothing`);
   check(jpl.err.at(-1) < 2 && Math.abs(ours.err.at(-1) - jpl.err.at(-1)) < 0.1, `with Horizons' own moons ${jpl.err.at(-1).toFixed(3)} km off, with moons.js's ${ours.err.at(-1).toFixed(3)} km`);
   check(Math.abs(track.closest - hzCA) < 0.1, `closest approach ${track.closest.toFixed(2)} km from Io's centre, Horizons ${hzCA.toFixed(2)} km`);
   check(ours.events.some((e) => e.type === 'primary' && e.to === 'io'), `the primary goes to Io (${ours.events.filter((e) => e.type === 'primary').map((e) => `${e.from}->${e.to}`).join(', ')})`);
@@ -308,7 +315,7 @@ header('CASE 4: an impact on a moon');
     `impact on ${hit?.body} after ${hit ? (hit.t / 60).toFixed(3) : '-'} min, ${(depth * 1000).toFixed(4)} m below the surface (within 1 m), at ${hit ? (hit.speed * 1000).toFixed(1) : '-'} m/s`);
 }
 
-header("CASE 5: a moon's degree-2 field (J2 and C22) is the gradient of its potential");
+header("CASE 5: a moon's degree-2 field (J2 and C22), and a giant's J4, are the gradient of their potential");
 {
   // Ganymede's field about tilted axes, against central differences of
   // U = -(mu R^2 J2 / 2)(3 z^2 / r^5 - 1 / r^3) + 3 mu R^2 C22 (x^2 - y^2) / r^5.
@@ -331,6 +338,25 @@ header("CASE 5: a moon's degree-2 field (J2 and C22) is the gradient of its pote
     worst = Math.max(worst, Math.hypot(a[0] - g[0], a[1] - g[1], a[2] - g[2]) / Math.hypot(...g));
   }
   check(worst < 1e-6, `J2 + C22 acceleration against the potential's gradient: worst relative difference ${worst.toExponential(1)}`);
+  // A giant's J2 and J4 (Jupiter's) the same way, against
+  // U = -(mu R^2 J2 / 2)(3 s^2 - 1) / r^3 - mu R^4 J4 (35 s^4 - 30 s^2 + 3) / (8 r^5).
+  {
+    const J = { mu: 126686531.9, j2: 14696.5735e-6, j4: -586.6085e-6, rJ2: 71492, pole: Z };
+    const UJ = (d) => {
+      const r = Math.hypot(...d), s2 = (dotp(d, Z) / r) ** 2, R = J.rJ2;
+      return -(J.mu * R * R * J.j2 / 2) * (3 * s2 - 1) / r ** 3 - J.mu * R ** 4 * J.j4 * (35 * s2 * s2 - 30 * s2 + 3) / (8 * r ** 5);
+    };
+    let worstJ = 0, worst4 = 0;
+    for (const d of [[3e5, 1e5, 5e4], [-2e5, 2.5e5, -1.5e5], [5e4, -4e4, 3.2e5], [1.2e5, 0, 0]]) {
+      const a = [0, 0, 0], a2 = [0, 0, 0];
+      addJ2(d[0], d[1], d[2], dotp(d, d), J, a);
+      addJ2(d[0], d[1], d[2], dotp(d, d), { ...J, j4: 0 }, a2);
+      const g = [0, 1, 2].map((i) => { const h = 1, p = [...d], m = [...d]; p[i] += h; m[i] -= h; return (UJ(p) - UJ(m)) / (2 * h); });
+      worstJ = Math.max(worstJ, Math.hypot(a[0] - g[0], a[1] - g[1], a[2] - g[2]) / Math.hypot(...g));
+      worst4 = Math.max(worst4, Math.hypot(a[0] - a2[0], a[1] - a2[1], a[2] - a2[2]) / Math.hypot(...a2));
+    }
+    check(worstJ < 1e-6 && worst4 > 1e-3, `Jupiter's J2 + J4 against the potential's gradient: worst relative difference ${worstJ.toExponential(1)} (J4 is up to ${(worst4 * 100).toFixed(1)} % of J2's term here)`);
+  }
   // In the kernel the moons carry it, turning with their orbits.
   const sys = solarSystemBodies({ epochMs: Date.UTC(2026, 10, 12) });
   const G = sys.bodyAt('ganymede', 0), Jc = sys.bodyAt('jupiter', 0);
