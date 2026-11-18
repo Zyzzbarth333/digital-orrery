@@ -4,6 +4,8 @@ How the simulator works, with the maths, the constants the code uses, where
 they come from, and how each part is checked.
 
 - **New here?** [How it fits together](architecture.md) maps the code with a diagram, and the [glossary](glossary.md) explains the terms.
+- **How good is it?** [Physics and accuracy](accuracy.md) says what is high-fidelity, what is still approximate and what comes next; [validation](validation.md) has every check.
+- **Credits:** [every data source, map, font and library](credits.md), with its licence.
 - **Pictures:** the [README](../README.md) has screenshots of each part of the app, and short clips of it running. The clips live in `docs/clips/` as animated WebP; `npm run build && npm run docs:clips` films them again from the app when its interface changes (it needs ffmpeg and Playwright's Chromium).
 
 ## Physics
@@ -17,7 +19,7 @@ they come from, and how each part is checked.
 | [The n-body kernel](physics/nbody-kernel.md) | Force model and indirect term, leapfrog and Yoshida, step size, budget, events, Hermite interpolation, the Web Worker and drawing |
 | [Burns, launches and the porkchop](physics/burns-and-launch.md) | Finite burns and the rocket equation, manoeuvre nodes, the departure hyperbola, C3 and porkchop grids |
 | [Body orientation](physics/orientation.md) | Body-fixed frames, Earth's rotation, the IAU pole and prime-meridian model, checks against CSPICE |
-| [Magnetic fields and auroras](physics/magnetic-fields.md) | The planets' internal magnetic fields (IGRF-14, JRM33 with the con2020 current sheet, Cassini 11, Voyager's offset tilted dipoles) as traced field lines; the Earth's auroral ovals from Starkov's model and the day's Kp; Jupiter's and Saturn's main ovals and Io's footprint |
+| [Magnetic fields and auroras](physics/magnetic-fields.md) | The planets' internal magnetic fields (IGRF-14, JRM33 with the con2020 current sheet, Cassini 11, Voyager's offset tilted dipoles) and MESSENGER's for Mercury, as traced field lines; the Earth's auroras from NOAA's live OVATION Prime map near now, and from Starkov's model and the day's Kp otherwise; Jupiter's and Saturn's main ovals, Io's footprint, Uranus's and Neptune's zones; the radiation belts along their L-shells |
 | [Gravity guides](physics/gravity-guides.md) | Spin axes, Earth's and the Moon's real gravity fields (EGM2008, GRAIL) as anomaly maps, spheres of influence and Hill spheres, Lagrange points, the strongest pulls on a body |
 | [A 6-DOF vehicle in Earth orbit](physics/sixdof.md) | Rigid-body attitude, the Earth's gravity field to any degree, Earth rotation (IAU 1976/1980), drag and thrust, NASA's 6-DOF check cases; the app's craft attitude, its controller and burns along the body axis |
 | [The space environment](physics/environment.md) | Forces beyond gravity's point masses and J2 on the app's craft: sunlight pressure with the Earth's and Moon's shadows, and the steps across a shadow's edge |
@@ -34,7 +36,7 @@ they come from, and how each part is checked.
 | [Lighting](frontend/lighting.md) | Inverse-square sunlight and exposure, HDR and tone mapping, the Sun's disc and glare, bloom, point stars and adaptation, albedo and scattering laws, eclipses, ring photometry |
 | [Source tags](frontend/source-tags.md) | What each readout's tag opens: the value, its equation and its source; how it behaves, its accessibility, the MathML typesetting, and every reference the tags cite |
 | [Missions](frontend/mission.md) | The craft model, launches, manoeuvre nodes, the readout and its tags, the porkchop planner |
-| [Moons](frontend/moons.md) | Seventy-six moons of Mars to Pluto: JPL's satellite ephemerides as per-year Chebyshev tables (2000–2049, within 1 km), loaded lazily; astronomy-engine and JPL's mean elements outside; planets drawn at their centres; the errors against Horizons |
+| [Moons](frontend/moons.md) | Seventy-six moons of Mars to Pluto: JPL's satellite ephemerides as per-year Chebyshev tables (2000–2049, within 1 km), loaded lazily; astronomy-engine and JPL's mean elements outside; planets drawn at their centres; the errors against Horizons; the 381 irregular moons of Jupiter, Saturn and Neptune as a layer |
 | [Barycentres and the SSB frame](frontend/barycentres.md) | The solar system's, Earth-Moon and each planet system's barycentre to fly to, orbits and distances about the SSB, checked against Horizons |
 | [Asteroids and comets](frontend/small-bodies.md) | 135,353 small bodies from JPL's SBDB drawn by the GPU, the named ones, how right they are |
 | [Earth satellites](frontend/satellites.md) | 16,892 active satellites from CelesTrak's GP elements, SGP4 via satellite.js, TEME to J2000, the GPU's points, the named ones' orbits, search and data plate; checked against Vallado's verification set and Horizons |
@@ -50,8 +52,9 @@ they come from, and how each part is checked.
 ## Checks and performance
 
 [Validation](validation.md): every check, its reference and the measured
-result. The flown missions in detail: [Artemis I](validation/artemis1.md)
-and [Artemis II](validation/artemis2.md). [Performance](performance.md): what each part costs and the plan
+result. The flown missions in detail: [Artemis I](validation/artemis1.md),
+[Artemis II](validation/artemis2.md),
+[Juno 2012–13](validation/juno2013.md) and [DART](validation/dart.md). [Performance](performance.md): what each part costs and the plan
 for the slow parts.
 
 ## Background

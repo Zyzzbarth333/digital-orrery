@@ -14,9 +14,13 @@
 import fs from 'node:fs';
 import {
   STARKOV, alFromKp, starkovCoefficients, ovalLatitude, installKp, kpAt, kpLabel, cgmFrame, cgmToGeo, cgmGrid,
-  centredDipolePoint, dipoleLongitude, mlt, magneticEquatorFrame, equatorFootprints, ioFootprint, saturnOval, JUPITER_MAIN,
+  centredDipolePoint, dipoleLongitude, mlt, magneticEquatorFrame, equatorFootprints, ioFootprint, saturnOval, JUPITER_MAIN, ICE_GIANT_AURORA,
+  leadAngle, LEAD_ANGLE, moonFootprint, FOOTPRINT_MOONS,
 } from './aurora.js';
 import { magneticModel, offsetDipole } from './magnetic.js';
+import { parseOvation, ovationAt, ovationCovers } from './ovation.js';
+import { bodyAxesEqj } from './orientation.js';
+import * as Astronomy from 'astronomy-engine';
 
 let failed = 0;
 function check(ok, what) {
@@ -130,6 +134,72 @@ console.log('Saturn and Jupiter');
   const mainLat = [...main.north, ...main.south].filter(Boolean).map(ang);
   const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
   check(mainLat.length === 24 && mean(mainLat) > mean(io) + 3, `main oval (20 R_J) at a mean ${mean(mainLat).toFixed(1)} deg magnetic latitude, all 24 footprints found; Io's footprints at ${mean(io).toFixed(1)}`);
+}
+
+{
+  // Neptune: JWST found the southern H3+ aurora between 30 and 60 deg S
+  // and 200 and 280 deg W (Melin et al. 2025), mapping to L 3-20. The
+  // zone's footprints through Voyager's dipole fall at those latitudes;
+  // their longitudes rest on the Voyager-to-IAU convention (docs).
+  const N = magneticModel('neptune'), fr = magneticEquatorFrame(N), surf = { eq: 1, pol: 24341 / 24765 };
+  const lats = [], lons = [];
+  for (const L of ICE_GIANT_AURORA.L) for (const q of equatorFootprints(N, L, 30, surf, fr).south) {
+    lats.push(Math.asin(q[2] / Math.hypot(...q)) / DEG);
+    lons.push((((-Math.atan2(q[1], q[0])) / DEG) % 360 + 360) % 360);
+  }
+  const mean = lats.reduce((a, b) => a + b, 0) / lats.length;
+  check(mean < -30 && mean > -60 && Math.min(...lats) > -60, `Neptune's southern zone (L 3-20) at ${Math.max(...lats).toFixed(0)} to ${Math.min(...lats).toFixed(0)} deg, mean ${mean.toFixed(0)} (JWST: 30-60 S); ${Math.min(...lons).toFixed(0)}-${Math.max(...lons).toFixed(0)} W (JWST: 200-280 W)`);
+}
+
+console.log("NOAA's OVATION Prime map against Starkov's oval");
+{
+  // A snapshot of NOAA SWPC's live map (forecast 03:09 UTC 18 Nov 2026), read
+  // as the app reads the live file, against Starkov's oval for that hour's
+  // Kp carried to geographic positions through IGRF-14: on the night side
+  // (18 to 06 MLT) the map's aurora should lie inside the oval.
+  const fx = JSON.parse(fs.readFileSync(new URL('./fixtures/ovation_2026-11-18.json', import.meta.url), 'utf8'));
+  const bytes = Buffer.from(fx.b64, 'base64'), coordinates = [];
+  fx.latitudes.forEach((lat, i) => { for (let lon = 0; lon < 360; lon++) coordinates.push([lon, lat, bytes[i * 360 + lon]]); });
+  const o = parseOvation({ 'Observation Time': fx['Observation Time'], 'Forecast Time': fx['Forecast Time'], coordinates });
+  const t = new Date(fx['Forecast Time']);
+  check(ovationCovers(o, t.getTime()) && !ovationCovers(o, t.getTime() + 2 * 3600e3) && Math.abs(ovationAt(o, 65.5, 10.5) - (bytes[fx.latitudes.indexOf(65) * 360 + 10] + bytes[fx.latitudes.indexOf(65) * 360 + 11] + bytes[fx.latitudes.indexOf(66) * 360 + 10] + bytes[fx.latitudes.indexOf(66) * 360 + 11]) / 4) < 1e-9,
+    'the map parses, interpolates between cells, and holds only near its forecast time');
+  const kp = kpAt(t.getTime()).kp;
+  const E = magneticModel('earth', t), g = cgmGrid(E);
+  g.step();
+  const sun = Astronomy.GeoVector(Astronomy.Body.Sun, t, true), ax = bodyAxesEqj('earth', t);
+  const sv = ax.map((a) => a[0] * sun.x + a[1] * sun.y + a[2] * sun.z), sn = Math.hypot(...sv);
+  const sunLon = dipoleLongitude(g.frame, sv.map((v) => v / sn));
+  for (const h of [1, -1]) {
+    let inside = 0, eq = 0, pole = 0, n = 0;
+    for (let m = 18; m < 30; m += 0.5) {
+      const t2 = m % 24, lon = sunLon + (t2 - 12) * 15;
+      const e = ovalLatitude('equatorward', kp, t2), p = ovalLatitude('poleward', kp, t2);
+      const val = (lat) => { const q = g.at(h, lat, lon); return ovationAt(o, Math.asin(q[2]) / DEG, Math.atan2(q[1], q[0]) / DEG); };
+      inside += val((e + p) / 2); eq += val(e - 6); pole += val(p + 6); n++;
+    }
+    check(inside > 1.5 * eq && inside > 5 * pole, `${h > 0 ? 'north' : 'south'}: OVATION's mean ${(inside / n).toFixed(1)} % mid-oval, ${(eq / n).toFixed(1)} % 6 deg equatorward, ${(pole / n).toFixed(1)} % 6 deg poleward (Kp ${kpLabel(kp)})`);
+  }
+}
+
+console.log("The moons' footprints and their lead angles (Hue et al. 2023)");
+{
+  // The paper's averaged lead angles: Io 4.3 N, 4.1 S; Europa 5.8, 7.0;
+  // Ganymede 12.3, 13.0 deg; its Table 1 fits averaged over Io's longitude.
+  const want = { io: [4.3, 4.1], europa: [5.8, 7.0], ganymede: [12.3, 13.0] };
+  for (const moon of Object.keys(want)) {
+    const avg = ['north', 'south'].map((h) => { let t = 0; for (let l = 0; l < 360; l += 0.5) t += leadAngle(moon, h, l); return t / 720; });
+    check(avg.every((a, i) => Math.abs(a - want[moon][i]) < 0.2), `${moon}: mean lead angle ${avg.map((a) => a.toFixed(2)).join(' N, ')} S deg (paper ${want[moon].join(', ')})`);
+  }
+  const range = [0, 1].map(() => [Infinity, -Infinity]);
+  for (let l = 0; l < 360; l++) ['north', 'south'].forEach((h, i) => { const d = leadAngle('io', h, l); range[i] = [Math.min(range[i][0], d), Math.max(range[i][1], d)]; });
+  check(range.every(([a, b]) => a > 0 && b < 8), `Io's lead angle stays ${range.map(([a, b]) => `${a.toFixed(1)}-${b.toFixed(1)}`).join(' (N), ')} (S) deg, always ahead of the footprint`);
+  check(leadAngle('enceladus', 'north', 100) === 0 && Object.keys(LEAD_ANGLE).length === 3, 'no lead angle where none was fitted (Enceladus)');
+  // Enceladus's footprint on Saturn: in the north, near 60-65 deg (a dipole at
+  // L 3.95 gives 59.8 deg; Cassini 11's northward offset raises it).
+  const S = magneticModel('saturn'), f = moonFootprint(S, 0, { eq: 1, pol: 54364 / 60268 }, FOOTPRINT_MOONS.enceladus.r);
+  const latN = Math.asin(f.north[2] / Math.hypot(...f.north)) / DEG, latS = Math.asin(f.south[2] / Math.hypot(...f.south)) / DEG;
+  check(latN > 59 && latN < 66 && latN > -latS, `Enceladus's footprints at ${latN.toFixed(1)} N and ${(-latS).toFixed(1)} S (the north nearer the pole: the field is offset north)`);
 }
 
 if (failed) { console.log(`\n${failed} check(s) failed`); process.exit(1); }

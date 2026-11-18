@@ -41,21 +41,21 @@ largest, Puck, would weigh about 10⁻⁶ of Uranus.
 
 ![The Earth and the Moon falling with the Earth: the Earth's field lines run inward from every side, and the Moon's well bends them near it](../images/gravity-field-earth-moon.jpg)
 
-**Frames.** The rail's **Frame** picks what is drawn:
+**Frames.** The rail's **Frame** picks what is drawn (its **Plane** sits beside it):
 
 - **Inertial:** $\mathbf a(\mathbf p)$ itself. Near the Earth the Sun's
   pull (5.9 mm/s²) outweighs the Earth's beyond 259,000 km, so at the
   Moon the field runs sunward.
-- **Falling with focus** (the default): $\mathbf a(\mathbf p) - \mathbf
+- **Falling** (the default): $\mathbf a(\mathbf p) - \mathbf
   a(\mathbf r_f)$, the field as seen falling freely with the focus $f$,
   which is what moves things relative to it. The Sun's near-uniform pull
   drops out, leaving the focus's own pull and the others' tides: the Earth
   and the Moon with the saddle between them.
-- **Less focus's own pull:** the same, without the focus's own term:
+- **Less its own:** the same, without the focus's own pull:
   what pulls things off their orbits about it. At Jupiter its four large
   moons' wells fill the view; with its own pull in, each moon outweighs
   Jupiter only within a few of its own radii (Callisto within 14,000 km).
-- **Rotating with parent:** the circular restricted three-body problem of
+- **Rotating:** the circular restricted three-body problem of
   the focus and its parent (the Sun and Jupiter for the Sun), turning at
   $n^2 = G(M + m)/d^3$ about their barycentre $B$ at their present
   separation $d$, in their orbit's plane. Its effective potential is

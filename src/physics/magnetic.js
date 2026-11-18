@@ -27,12 +27,14 @@
 //            Connerney et al. 2020, with Edwards et al. 2001's analytic forms);
 //   saturn   Cassini 11 to degree 11 (axisymmetric);
 //   uranus   Ness et al. 1986's offset tilted dipole;
-//   neptune  Ness et al. 1989's offset tilted dipole.
+//   neptune  Ness et al. 1989's offset tilted dipole;
+//   mercury  MESSENGER's offset dipole (Anderson et al. 2012);
+//   ganymede Juno's and Galileo's dipole (Weber et al. 2022).
 
 import { IGRF, JRM33, CASSINI11 } from './magnetic.data.js';
 
 const DEG = Math.PI / 180;
-export const MAGNETIC_BODIES = ['earth', 'jupiter', 'saturn', 'uranus', 'neptune'];
+export const MAGNETIC_BODIES = ['mercury', 'earth', 'jupiter', 'saturn', 'uranus', 'neptune', 'ganymede'];
 
 // Index of g_nm (h false) or h_nm (h true) in a flat coefficient array.
 export const coeffIndex = (n, m, h = false) => n * n - 1 + (m === 0 ? 0 : 2 * m - 1 + (h ? 1 : 0));
@@ -215,7 +217,19 @@ const NEPTUNE_V = { m: [0.0177, -0.0953, 0.0910], c: [0.17, 0.46, -0.24] };
 export const OTD = {
   uranus: { a: 25559, m: [URANUS_V.m[0] * G, -URANUS_V.m[1] * G, -URANUS_V.m[2] * G], centre: [URANUS_V.c[0], -URANUS_V.c[1], -URANUS_V.c[2]] },
   neptune: { a: 24765, m: NEPTUNE_V.m.map((v) => v * G), centre: NEPTUNE_V.c },
+  // Mercury: MESSENGER's axial dipole of 190 nT R_M^3, its moment southward,
+  // offset 479 km north (Anderson et al. 2012), R_M 2,440 km.
+  mercury: { a: 2440, m: [0, 0, -190], centre: [0, 0, 479 / 2440] },
 };
+
+// ---- Ganymede ----
+//
+// The only moon with a dynamo of its own. Weber et al. 2022 fitted Juno's
+// 2021 flyby with Galileo's six: g10 -716.4, g11 56.0, h11 27.0 nT at
+// R_G = 2,634.1 km, in Ganymede's body-fixed frame (as libinternalfield
+// transcribes them). Kivelson et al. 2002's Galileo-only fit is the check.
+export const GANYMEDE = { a: 2634.1, n: 1, coeffs: [-716.4, 56.0, 27.0] };
+export const GANYMEDE_KIVELSON2002 = [-711.0, 46.8, 22.3];
 
 // ---- the models ----
 
@@ -255,6 +269,14 @@ export function magneticModel(key, date = new Date()) {
     const o = OTD[key];
     model = { key, name: 'Voyager OTD', source: `Voyager 2's offset tilted dipole (Ness et al. ${key === 'uranus' ? 1986 : 1989})`, a: o.a,
       field: offsetDipole(o.m, o.centre), dipole: { m: o.m, centre: o.centre, ...dipoleAngles(o.m) }, rMax: 16 };
+  } else if (key === 'ganymede') {
+    const ed = eccentricDipole([...GANYMEDE.coeffs, 0, 0, 0, 0, 0]);
+    model = { key, name: 'Juno and Galileo dipole', source: "Ganymede's dipole from Juno's and Galileo's flybys (Weber et al. 2022)", a: GANYMEDE.a, n: 1,
+      coeffs: GANYMEDE.coeffs, field: harmonicField(GANYMEDE.coeffs, 1), dipole: { ...ed, ...dipoleAngles(ed.m) }, rMax: 6 };
+  } else if (key === 'mercury') {
+    const o = OTD.mercury;
+    model = { key, name: 'MESSENGER offset dipole', source: "MESSENGER's offset dipole (Anderson et al. 2012)", a: o.a,
+      field: offsetDipole(o.m, o.centre), dipole: { m: o.m, centre: o.centre, ...dipoleAngles(o.m) }, rMax: 6 };
   } else return null;
   cache.set(key, model);
   return model;

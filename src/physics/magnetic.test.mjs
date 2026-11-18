@@ -15,10 +15,12 @@
 
 import fs from 'node:fs';
 import {
-  harmonicField, northEastDown, igrfCoeffs, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
-  eccentricDipole, dipoleAngles, coeffIndex, OTD,
+  harmonicField, northEastDown, igrfCoeffs, igrfGeodetic, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
+  eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002,
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
+import { BELTS, beltWeight, traceShell, resample } from './belts.js';
+import { radialFieldGrid, encodeBr, decodeBr } from './marsCrustal.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -77,6 +79,23 @@ for (const r of noaa.rows.filter((x) => year(x.date) < 2015.01)) {
   const out = northEastDown(harmonicField(igrfCoeffs(year(r.date)), 13), IGRF.a, angle(r.lat), angle(r.lon), heightKm(r.alt));
   const dn = Math.max(...['X', 'Y', 'Z'].map((k) => Math.abs(out[k] - r[k])));
   check(dn < 0.3, `IGRF-14 at ${r.date}, ${r.lat} ${r.lon} ${r.alt}: X ${out.X.toFixed(1)} Y ${out.Y.toFixed(1)} Z ${out.Z.toFixed(1)} nT, NOAA ${r.X} ${r.Y} ${r.Z} (worst ${dn.toFixed(2)} nT, limit 0.3: two weeks of secular change)`);
+}
+
+// IGRF-14 after 2025 against NOAA's online Magnetic Field Calculator
+// (model IGRF2025), read on 18 Nov 2026 at four places, heights and years,
+// two of them on the 2025-30 secular variation. The calculator counts
+// 1 January as day 0 of the year.
+{
+  const calc = fixture('noaa-calculator-igrf14.json');
+  let worstNT = 0, worstDeg = 0;
+  for (const r of calc.rows) {
+    const [y, m, d] = r.date.split('-').map(Number), leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+    const t = y + ([0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334][m - 1] + (m > 2 && leap ? 1 : 0) + d - 1) / (365 + (leap ? 1 : 0));
+    const o = igrfGeodetic(r.lat, r.lon, r.h, t);
+    worstNT = Math.max(worstNT, ...['X', 'Y', 'Z', 'F'].map((k) => Math.abs(o[k] - r[k])));
+    worstDeg = Math.max(worstDeg, Math.abs(o.D - r.D), Math.abs(o.I - r.I));
+  }
+  check(worstNT < 0.1 && worstDeg < 0.0002, `IGRF-14 at NOAA's online calculator's 4 points (2025.4-2028.0, 0-400 km): X Y Z F within ${worstNT.toFixed(3)} nT (limit 0.1, its rounding), D and I within ${worstDeg.toFixed(5)} deg`);
 }
 
 // The eccentric dipole of IGRF-14 for 2025: the geomagnetic north pole is
@@ -150,6 +169,23 @@ check(Math.abs((360 - J.dipole.lonEast) - 196.38) < 0.005, `  toward ${(360 - J.
   check(worst < 1.5, `Io footprints at ${n} longitudes: within ${worst.toFixed(2)} deg of arc of the paper's (rms ${Math.sqrt(sum2 / n).toFixed(2)}; limit 1.5, degree 13 against its 18)`);
   // "approach a maximum of 20 Gauss in the north ... and 12 Gauss in the south".
   check(Math.abs(peakN[0] - 20) < 1.5 && Math.abs(peakS[0] - 12) < 1, `|B| along the Io footprint peaks at ${peakN[0].toFixed(1)} G north and ${peakS[0].toFixed(1)} G south (paper: about 20 and 12)`);
+}
+// Europa's (9.4 R_J) and Ganymede's (15 R_J) footprints against the same
+// tables, where the current sheet matters more.
+{
+  const fx = fixture('jrm33_io_footprints.json'), surf = { eq: 1, pol: 1 - 1 / 15.4 };
+  for (const [moon, r, limit] of [['europa', 9.4, 1.5], ['ganymede', 15.0, 2.5]]) {
+    let worst = 0, sum2 = 0, n = 0;
+    for (const hemi of ['north', 'south']) for (const [wl, lat, wlon] of fx[moon][hemi]) {
+      const e = -wl * DEG, p = [r * Math.cos(e), r * Math.sin(e), 0];
+      const fp = [footprint(J, p, 1, surf), footprint(J, p, -1, surf)].find((q) => q && (hemi === 'north') === (q[2] > 0));
+      const la = Math.atan2(fp[2], Math.hypot(fp[0], fp[1])) / DEG, lw = (((-Math.atan2(fp[1], fp[0])) / DEG) % 360 + 360) % 360;
+      let dl = Math.abs(lw - wlon); dl = Math.min(dl, 360 - dl);
+      const err = Math.hypot(la - lat, dl * Math.cos(lat * DEG));
+      worst = Math.max(worst, err); sum2 += err * err; n++;
+    }
+    check(worst < limit, `${moon[0].toUpperCase() + moon.slice(1)}'s footprints at ${n} longitudes: within ${worst.toFixed(2)} deg of arc of the paper's, rms ${Math.sqrt(sum2 / n).toFixed(2)} (limit ${limit})`);
+  }
 }
 // The current sheet: Edwards et al.'s forms are smooth across rho = r0 and
 // the field is divergence-free away from the sheet's edges.
@@ -234,6 +270,87 @@ console.log('Field lines');
   c[0] = g10; c[3] = 2 * g10 * z0;
   const e = eccentricDipole(c);
   check(Math.abs(e.centre[2] - z0) < 1e-12, `eccentric dipole of an axial offset: ${e.centre[2].toFixed(6)} (set ${z0})`);
+}
+
+// ---- Mercury: MESSENGER's offset dipole ----
+console.log("Mercury: MESSENGER (Anderson et al. 2012)");
+{
+  const M = magneticModel('mercury');
+  check(Math.abs(M.dipole.moment - 190) < 1e-9 && M.dipole.m[2] < 0 && Math.abs(M.dipole.centre[2] * 2440 - 479) < 1e-9,
+    `Mercury: 190 nT R_M^3, moment southward, centre 479 km north (Anderson et al.: 190, southward, 479 +- 6 km)`);
+  // An axial dipole moved z0 along its axis has g_n0 = n g10 z0^(n-1): the
+  // terms libinternalfield's anderson2012 file lists (-190, -74.6, -22.0, -5.7 nT).
+  const z0 = 479 / 2440, want = [-190, -74.6, -22.0, -5.7];
+  const got = want.map((_, i) => (i + 1) * -190 * z0 ** i);
+  check(got.every((g, i) => Math.abs(g - want[i]) < 0.06), `its expansion g10..g40 ${got.map((g) => g.toFixed(1)).join(', ')} nT (libinternalfield: ${want.join(', ')})`);
+  const c = new Array(24).fill(0);
+  want.forEach((g, i) => { c[coeffIndex(i + 1, 0)] = g; });
+  check(Math.abs(eccentricDipole(c).centre[2] * 2440 - 479) < 1, `the eccentric dipole of those terms sits ${(eccentricDipole(c).centre[2] * 2440).toFixed(0)} km north`);
+}
+
+// ---- Ganymede ----
+console.log('Ganymede: Juno and Galileo (Weber et al. 2022; Kivelson et al. 2002)');
+{
+  const G = magneticModel('ganymede'), d = G.dipole;
+  const k = [GANYMEDE_KIVELSON2002[1], GANYMEDE_KIVELSON2002[2], GANYMEDE_KIVELSON2002[0]], kM = Math.hypot(...k);
+  const angle = Math.acos((k[0] * d.m[0] + k[1] * d.m[1] + k[2] * d.m[2]) / (kM * d.moment)) / DEG;
+  check(Math.abs(d.moment / kM - 1) < 0.02 && angle < 1.5, `Ganymede's dipole ${d.moment.toFixed(1)} nT at the equator, tilt ${d.tilt.toFixed(2)} deg; Galileo-only fit (Kivelson 2002) ${kM.toFixed(1)} nT, ${angle.toFixed(2)} deg apart`);
+  check(d.m[2] < 0, "its moment points south, against Jupiter's: so their fields reconnect where they meet");
+}
+
+// ---- Mars's crustal field ----
+console.log("Mars: the crust's field (Langlais et al. 2019)");
+{
+  // "At the surface ... the field components range between -8,520 and
+  // 11,260 nT ... for Br" (on the 3,393.5 km sphere): on a 0.25 deg grid.
+  const L = fixture('langlais2019.json');
+  const g = radialFieldGrid(L.coeffs, L.n, 1, 1440, 720);
+  let lo = Infinity, hi = -Infinity, at = 0;
+  for (let i = 0; i < g.length; i++) { if (g[i] < lo) lo = g[i]; if (g[i] > hi) { hi = g[i]; at = i; } }
+  const lat = 90 - (Math.floor(at / 1440) + 0.5) / 4, lon = ((at % 1440) + 0.5) / 4;
+  check(Math.abs(lo + 8520) < 15 && Math.abs(hi - 11260) < 15, `Br on the surface ${lo.toFixed(0)} to ${hi.toFixed(0)} nT (paper -8,520 to 11,260)`);
+  check(lat < -40 && lat > -55 && lon > 160 && lon < 190, `strongest at ${(-lat).toFixed(1)} S ${lon.toFixed(1)} E, over Terra Cimmeria and Sirenum`);
+  // The app's map: one byte a cell on an asinh scale, within 3 % or 2 nT.
+  const map = new Int8Array(fs.readFileSync(new URL('../../public/data/mars-crustal-br.bin', import.meta.url)));
+  const g2 = radialFieldGrid(L.coeffs, L.n, 1, 720, 360);
+  let worst = 0;
+  for (let i = 0; i < g2.length; i += 37) worst = Math.max(worst, Math.abs(decodeBr(map[i]) - g2[i]) / (Math.abs(g2[i]) + 70));
+  check(map.length === 720 * 360 && worst < 0.03 && encodeBr(0) === 0, `the app's 720 x 360 map holds Br to ${(worst * 100).toFixed(1)} % (of |Br| + 70 nT)`);
+}
+
+// ---- radiation belts ----
+console.log('Radiation belts');
+{
+  // A centred dipole's L-shell reaches L at the equator and the surface at
+  // cos^2 lambda = 1 / L.
+  const model = { field: offsetDipole([0, 0, -30000], [0, 0, 0]), dipole: { m: [0, 0, -30000], centre: [0, 0, 0] }, rMax: 20 };
+  const [line] = traceShell(model, 4, 1, { eq: 1, pol: 1 });
+  let rmax = 0;
+  for (let i = 0; i < line.strength.length; i++) rmax = Math.max(rmax, Math.hypot(line.points[3 * i], line.points[3 * i + 1], line.points[3 * i + 2]));
+  const r = resample(line.points, 41, model), ends = [r.lat[0], r.lat[40]].map(Math.abs);
+  check(Math.abs(rmax - 4) < 1e-6 && ends.every((l) => Math.abs(l - 60) < 0.01) && Math.abs(r.lat[20]) < 0.5,
+    `dipole L = 4 shell: apex ${rmax.toFixed(6)}, feet at ${ends.map((l) => l.toFixed(3)).join(' and ')} deg (60), middle ${r.lat[20].toFixed(2)} deg`);
+  check(['earth', 'jupiter', 'saturn', 'uranus', 'neptune'].every((k) => BELTS[k]?.length) && !BELTS.mercury && !BELTS.ganymede,
+    'belts for the five planets that hold them; none for Mercury or Ganymede');
+  // Uranus's offset dipole brings its L = 5 shell nearer the planet on one side.
+  {
+    const U = magneticModel('uranus'), lines = traceShell(U, 5, 24, { eq: 1, pol: 24973 / 25559 });
+    const eqR = lines.map((l) => { let k = 0; for (let i = 1; i < l.strength.length; i++) if (l.strength[i] < l.strength[k]) k = i; return Math.hypot(l.points[3 * k], l.points[3 * k + 1], l.points[3 * k + 2]); });
+    check(Math.max(...eqR) - Math.min(...eqR) > 0.4, `Uranus's L = 5 shell crosses its magnetic equator between ${Math.min(...eqR).toFixed(2)} and ${Math.max(...eqR).toFixed(2)} R_U from the planet's centre (the dipole sits 0.31 R_U off)`);
+  }
+  check(beltWeight(BELTS.earth[1], 4.6) === 1 && beltWeight(BELTS.earth[1], 3) === 0 && beltWeight(BELTS.earth[0], 2.5) === 0, 'belt weights: 1 at the peak, 0 at the edges and in the slot');
+  // The inner belt comes nearest the Earth over the South Atlantic, where
+  // the dipole's offset and tilt bring it down (the South Atlantic Anomaly):
+  // along the L = 1.25 shell, the lowest point of each line's weakest field.
+  const E = magneticModel('earth', new Date('2025-01-01T00:00:00Z'));
+  let low = [Infinity, 0, 0];
+  for (const l of traceShell(E, 1.25, 72, { eq: 6378.137 / 6371.2, pol: 6356.752 / 6371.2 })) {
+    let k = 0;
+    for (let i = 1; i < l.strength.length; i++) if (l.strength[i] < l.strength[k]) k = i;
+    const p = [l.points[3 * k], l.points[3 * k + 1], l.points[3 * k + 2]], h = (Math.hypot(...p) - 1) * 6371.2;
+    if (h < low[0]) low = [h, Math.asin(p[2] / Math.hypot(...p)) / DEG, Math.atan2(p[1], p[0]) / DEG];
+  }
+  check(low[2] > -80 && low[2] < -10 && low[1] < 0, `IGRF-14's L = 1.25 shell is lowest, ${low[0].toFixed(0)} km up, at ${low[1].toFixed(1)} N ${low[2].toFixed(1)} E: over the South Atlantic`);
 }
 
 if (failed) { console.log(`\n${failed} check(s) failed`); process.exit(1); }
