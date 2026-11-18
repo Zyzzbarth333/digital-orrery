@@ -22,6 +22,12 @@ once it has releases. Until then, everything sits under Unreleased.
   the craft's attitude at its marker. Real missions and journeys stay
   point masses. A followed craft's marker no longer vanishes when the
   camera is under a kilometre away (this pull request).
+- A 6-DOF craft's attitude thrusters burn propellant from its tank, shown
+  in the ATTITUDE readout; its inertia falls as the tank empties, so it
+  turns faster light; and it turns to each manoeuvre node by itself, in
+  time to settle before the node fires (AUTO NODE TURN), saying in the
+  log when it can't. The node mode now holds the direction it burned
+  along afterwards (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
@@ -93,7 +99,13 @@ once it has releases. Until then, everything sits under Unreleased.
   Saturn's (Cassini) and Uranus's and Neptune's (Voyager) measured fields,
   shaded by strength, with each dipole's tilt and offset. The Earth's
   auroral ovals for the day's Kp, green below red on the night side;
-  Jupiter's and Saturn's main ovals and Io's footprint (this pull request).
+  Jupiter's and Saturn's main ovals and Io's footprint (#84).
+- The Earth's aurora comes from NOAA's live OVATION Prime map when the
+  clock is near now, Starkov's oval otherwise. Uranus's and Neptune's
+  auroral zones and Mercury's field join the guides, and a third guide
+  draws the radiation belts of the Earth, Jupiter and Saturn along their
+  L-shells, the Earth's inner belt dipping over the South Atlantic (this
+  pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The
