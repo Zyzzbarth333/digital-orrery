@@ -231,6 +231,30 @@ export const OTD = {
 export const GANYMEDE = { a: 2634.1, n: 1, coeffs: [-716.4, 56.0, 27.0] };
 export const GANYMEDE_KIVELSON2002 = [-711.0, 46.8, 22.3];
 
+// ---- a body inside another's field ----
+//
+// Ganymede orbits inside Jupiter's magnetosphere. Its dipole plus the
+// field Jupiter's model gives at its place, taken as uniform over the
+// moon (B0, nT, in Ganymede's frame), is the vacuum-superposition picture
+// (Kivelson et al. 1998): field lines near the moon close on it; those
+// from its polar caps run off into Jupiter's field.
+export function withAmbient(model, B0) {
+  const f = model.field;
+  return { ...model, ambient: B0.slice(), source: `${model.source}, in Jupiter's field at its place (JRM33 + con2020)`,
+    field(x, y, z, out) { f(x, y, z, out); out[0] += B0[0]; out[1] += B0[1]; out[2] += B0[2]; return out; } };
+}
+
+// For a dipole of equatorial surface field M with a uniform field B0 along
+// its axis, opposing the dipole's own field at the magnetic equator: the
+// neutral point sits at r_n = (M / B0)^(1/3), and the flux function
+// Psi = sin^2(theta) (M / r + B0 r^2 / 2) takes 3M / (2 r_n) there, so the
+// last closed line leaves the surface (r = 1) at
+//   sin^2(theta_ocb) = 3 / (2 r_n (1 + B0 / 2M)).
+export function vacuumOcbColatitude(M, B0) {
+  const rn = Math.cbrt(M / B0);
+  return Math.asin(Math.sqrt(Math.min(1, 3 / (2 * rn * (1 + B0 / (2 * M)))))) / DEG;
+}
+
 // ---- the models ----
 
 export function dipoleAngles(m) {

@@ -314,6 +314,16 @@ export class MagneticLayer {
       const d = mesh.position.length(), px = (body.radiusKm / UNIT_KM / d) * pxPerRad;
       g.visible = px > 1.5;
       if (!g.visible) continue;
+      // Ganymede's lines in Jupiter's field at its place: retraced when that
+      // field has changed by 8 %.
+      if (k === 'ganymede') {
+        const amb = this.jupiterFieldAt(mesh, f.meshes, f.materials, mat);
+        const cur = this.lines.get(k)?.model.ambient as number[] | undefined;
+        if (amb && (!cur || Math.hypot(amb[0] - cur[0], amb[1] - cur[1], amb[2] - cur[2]) > 0.08 * Math.hypot(cur[0], cur[1], cur[2]))) {
+          this.drop(k);
+          this.ambient = amb;
+        }
+      }
       let L = this.lines.get(k);
       if (!L) L = this.start(k, f.date);
       // Body-fixed (units of the model's a) to render: the surface
@@ -389,8 +399,22 @@ export class MagneticLayer {
 
   // ---- field lines ----
 
+  private ambient: V3 | null = null;
+  // Jupiter's field (JRM33 + con2020) at a moon's place, in the moon's frame (nT).
+  private jupiterFieldAt(moon: THREE.Mesh, meshes: Map<BodyKey, THREE.Mesh>, mats: Map<BodyKey, THREE.ShaderMaterial>, moonMat: THREE.ShaderMaterial): V3 | null {
+    const jm = meshes.get('jupiter'), jmat = mats.get('jupiter');
+    if (!jm || !jmat || !this.mag) return null;
+    const J = this.mag.magneticModel('jupiter')!, toJ = jmat.uniforms.toBody.value as THREE.Matrix3;
+    const p = this.w.copy(moon.position).sub(jm.position).applyMatrix3(toJ).multiplyScalar(UNIT_KM / J.a);
+    const b = J.field(p.x, p.y, p.z, [0, 0, 0]);
+    const v = this.w.set(b[0], b[1], b[2]).applyMatrix3(this.m3.copy(toJ).transpose()).applyMatrix3(moonMat.uniforms.toBody.value as THREE.Matrix3);
+    return [v.x, v.y, v.z];
+  }
+
   private start(k: BodyKey, date: Date): BodyLines {
-    const mag = this.mag!, model = mag.magneticModel(k, date)!;
+    const mag = this.mag!;
+    let model = mag.magneticModel(k, date)!;
+    if (k === 'ganymede' && this.ambient) model = mag.withAmbient(model, this.ambient);
     const [ra, , rc] = BODY_BY_KEY[k].radiiKm;
     const surface = { eq: ra / model.a, pol: rc / model.a };
     const lats = SEEDS[k];

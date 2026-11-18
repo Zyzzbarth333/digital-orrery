@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import {
   harmonicField, northEastDown, igrfCoeffs, igrfGeodetic, magneticModel, footprint, traceLine, seedPoints, offsetDipole,
-  eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002,
+  eccentricDipole, dipoleAngles, coeffIndex, OTD, GANYMEDE, GANYMEDE_KIVELSON2002, withAmbient, vacuumOcbColatitude,
 } from './magnetic.js';
 import { IGRF, CASSINI11 } from './magnetic.data.js';
 import { BELTS, beltWeight, traceShell, resample } from './belts.js';
@@ -316,6 +316,30 @@ console.log("Mars: the crust's field (Langlais et al. 2019)");
   let worst = 0;
   for (let i = 0; i < g2.length; i += 37) worst = Math.max(worst, Math.abs(decodeBr(map[i]) - g2[i]) / (Math.abs(g2[i]) + 70));
   check(map.length === 720 * 360 && worst < 0.03 && encodeBr(0) === 0, `the app's 720 x 360 map holds Br to ${(worst * 100).toFixed(1)} % (of |Br| + 70 nT)`);
+}
+
+// ---- Ganymede inside Jupiter's field ----
+console.log("Ganymede in Jupiter's field: vacuum superposition");
+{
+  // Jupiter's field at Ganymede's orbit (15 R_J) from JRM33 + con2020:
+  // about 100 nT, southward in the equator (and radial off the tilted
+  // current sheet), the way Ganymede's own
+  // moment points, so the two oppose at Ganymede's magnetic equator.
+  const Jm = magneticModel('jupiter'), b = [0, 0, 0];
+  let lo = Infinity, hi = 0, minusZ = true;
+  for (let l = 0; l < 360; l += 15) {
+    Jm.field(15 * Math.cos(l * DEG), 15 * Math.sin(l * DEG), 0, b);
+    const B = Math.hypot(...b); lo = Math.min(lo, B); hi = Math.max(hi, B); minusZ &&= b[2] < -0.25 * B;
+  }
+  check(lo > 50 && hi < 200 && minusZ, `Jupiter's field at 15 R_J in its equator: ${lo.toFixed(0)}-${hi.toFixed(0)} nT, southward at every longitude (radial too, off the tilted current sheet)`);
+  // Traced through a 719 nT dipole in a uniform 100 nT field, the last
+  // closed line leaves the surface where the flux function says.
+  const M = 719, B0 = 100, model = withAmbient({ field: offsetDipole([0, 0, -M], [0, 0, 0]), dipole: { m: [0, 0, -M], centre: [0, 0, 0] }, rMax: 30, source: 'test' }, [0, 0, -B0]);
+  const closedAt = (colat) => traceLine(model, [Math.sin(colat * DEG) * 1.0001, 0, -Math.cos(colat * DEG) * 1.0001], { eq: 1, pol: 1 }, { rMax: 30, maxSteps: 6000 }).closed;
+  let lo2 = 1, hi2 = 89;            // open near the pole, closed near the equator
+  for (let i = 0; i < 30; i++) { const mid = (lo2 + hi2) / 2; if (closedAt(mid)) hi2 = mid; else lo2 = mid; }
+  const want = vacuumOcbColatitude(M, B0);
+  check(Math.abs(hi2 - want) < 0.3, `open/closed boundary traced at ${hi2.toFixed(2)} deg colatitude; the flux function gives ${want.toFixed(2)} (latitude ${(90 - want).toFixed(1)} deg)`);
 }
 
 // ---- radiation belts ----
