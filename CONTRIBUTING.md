@@ -87,7 +87,7 @@ run outside tools, and need a network or an installed tool:
 | `npm run fetch:smallbodies`, `build:smallbodies` | JPL SBDB asteroids and comets, packed for the app |
 | `npm run fetch:moons`, `build:moon-tables` | the moons' elements; their Chebyshev tables from NAIF's satellite kernels (needs CMake and CSPICE) |
 | `npm run fetch:artemis1`, `crosscheck:artemis1` | Artemis I from JPL Horizons, and its force-by-force check |
-| `npm run fetch:flyby` | the moon and planet flybys from JPL Horizons; Voyager 2 at Neptune from NAIF's SPK (needs CMake and CSPICE: `c/flyby_ref`) |
+| `npm run fetch:flyby` | the moon and planet flybys from JPL Horizons; Voyager 2 at Uranus and Neptune from NAIF's SPKs (needs CMake and CSPICE: `c/flyby_ref`) |
 | `npm run oracle:openrocket` | the ROCKET tab's ascent against OpenRocket (needs Java and OpenRocket) |
 | `npm run build:textures` | the maps, as WebP and GPU-compressed KTX2, from their sources (needs KTX-Software's `ktx`) |
 | `npm run bench` | the kernel's speed |
