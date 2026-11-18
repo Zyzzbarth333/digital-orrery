@@ -109,6 +109,14 @@ once it has releases. Until then, everything sits under Unreleased.
   (this pull request).
 
 ### The sky and its bodies
+- The maps and the sky load GPU-compressed where the GPU can take them
+  (KTX2 with Basis Universal, transcoded to BC7, ASTC or ETC2): a quarter
+  of the video memory, so an 8k map takes 45 MB, not 179, and the 16k
+  sky tiles 25 MB, not 101. Colour maps that look the same are ETC1S,
+  about the WebP's size; the rest, and the normal maps, are UASTC, 2.5 to
+  4 times larger to download (the sky 34 MB, not 15). Other GPUs, and
+  `?webp`, keep the WebP maps. `npm run build:textures` rebuilds them,
+  `npm run bench:textures` measures them (this pull request).
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons
   come from JPL's satellite ephemerides to within a kilometre, 76 of them
   (#33, #56). The Earth turns on UT1 with polar motion (#50).

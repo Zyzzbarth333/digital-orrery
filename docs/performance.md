@@ -38,9 +38,10 @@ frame. The limits are elsewhere:
   second fits with room to spare (Cowell alone: about 50). About a third of
   that time is the ephemeris, mostly the Moon.
 - **GPU memory.** An 8192×4096 texture with mipmaps takes about 180 MB of
-  video memory uncompressed. Maps now load only when a body's disc is more
-  than three pixels across, so the overview loads only the star map; a view
-  of one planet loads that planet's maps.
+  video memory uncompressed, 45 MB in BC7 from its KTX2 copy, which the
+  app loads where the GPU takes it. Maps load only when a body's disc is
+  more than three pixels across, so the overview loads only the star map;
+  a view of one planet loads that planet's maps.
 
 ## Measuring
 
@@ -235,9 +236,8 @@ The sky was the last part to appear: decoding the 8192 × 4096 WebP takes
 seconds. A 2048-wide copy (0.57 MB, the same mean light to 0.04 %) is shown
 first and the full map put in its place when it is up.
 
-**Not done.** A smaller belt file (23 MB at 16 bytes a body; 12 would do)
-and KTX2 textures, which need a transcoder dependency and the user's
-approval.
+**Not done.** A smaller belt file (23 MB at 16 bytes a body; 12 would do).
+KTX2 textures came later ([below](#gpu-compressed-maps)).
 
 ### A craft at high warp
 
@@ -288,6 +288,83 @@ The first timing had the layer at 4–6 ms on the Intel GPU at real time and
 At high rates the worker's results also went to the GPU every frame (0.7 MB
 each). They are now sent at most ten times a second.
 
+### GPU-compressed maps
+
+Measured on 18 November 2026: the maps as WebP (`?webp`, which loads them
+as main does) against the KTX2 copies ([textures](frontend/textures.md#gpu-compressed-maps)),
+the same production build, both GPUs, interleaved, three rounds, medians.
+`npm run bench:textures` (`scripts/bench-textures.mjs`) opens each scene
+in a fresh browser with its cache off and waits until the full sky and the
+scene's maps are on the GPU and nothing is queued. It reports:
+
+- **the download:** every map file and the transcoder, fetched by the page
+  or its workers (the WebP maps are fetched by the decode worker, which the
+  page's own Resource Timing does not see);
+- **the maps' video memory from their formats:** what the uploader and the
+  sky's tile array allocated, level by level (`window.orrery.uploader`
+  with `?debug`). three.js's `renderer.info.memory.textures` counts only
+  the textures three makes itself (10 or 11 here either way), not these;
+- **the GPU process's memory as the driver counts it:** from the NVIDIA
+  driver's process table, or the i915 driver's `fdinfo` on the Intel GPU,
+  canvas, render targets and buffers included;
+- **the first and the full sky:** from navigation to the first frame with
+  any sky, and to the full 8192-wide map.
+
+At 1920 × 1080, DPR 1 (WebP → KTX2; MiB of video memory, MB of download):
+
+| Scene | GPU | Download | Maps' video memory | GPU process (driver) | First sky, ms | Full sky, ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Start (the Sun and the sky) | Intel | 16.4 → 36.0 | 171 → 43 | 473 → 334 | 1157 → 1160 | 2655 → 2725 |
+| Start | NVIDIA | 16.4 → 36.0 | 171 → 43 | 436 → 312 | 1590 → 1530 | 2782 → 3019 |
+| The Moon, 6,000 km (and the Earth) | Intel | 27.0 → 79.3 | 841 → 210 | 1227 → 550 | | |
+| The Moon | NVIDIA | 27.0 → 79.3 | 841 → 210 | 1097 → 475 | | |
+| Mars, 12,000 km | Intel | 25.2 → 73.5 | 426 → 106 | 770 → 422 | | |
+| Mars | NVIDIA | 25.2 → 73.5 | 426 → 106 | 683 → 367 | | |
+
+At DPR 2 the sky's 16k tiles come in (24 of them in view at start):
+
+| Scene | GPU | Download | Maps' video memory | GPU process (driver) | First sky, ms | Full sky, ms |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Start | Intel | 22.9 → 46.3 | 267 → 67 | 708 → 487 | 1239 → 1497 | 3207 → 3115 |
+| Start | NVIDIA | 22.9 → 46.3 | 267 → 67 | 682 → 477 | 1711 → 1835 | 3277 → 2807 |
+
+- **Video memory falls to a quarter**, as the formats say: one byte a
+  texel in BC7 against four in RGBA. The GPU process gives back about the
+  same: 140 MiB at start, 680 MiB in the Moon's view on the Intel GPU,
+  whose video memory is the machine's own.
+- **The download grows two to three times**, since most of what loads at
+  start or near the Moon, Mars and Mercury is UASTC (the sky alone is 34
+  MB against 15). The Moon's 79 MB includes the Earth's maps and the sky.
+- **The sky arrives no sooner.** The preview stays a WebP, so the first
+  sky is unchanged within the noise (a few hundred milliseconds between
+  rounds on this busy machine). For the full map the work moves rather
+  than shrinks: decoding a WebP of 8192 × 4096 in the worker and uploading
+  128 MB, against fetching 34 MB, decompressing and transcoding it in a
+  worker, and uploading 45 MB. Both take about three seconds from opening
+  the page, on either GPU. Served over a network, the larger file would
+  make the KTX2 sky later. An earlier version with a KTX2 preview put the
+  first sky about 0.3 s later, waiting for the transcoder to load, so the
+  preview stays a WebP and the transcoder is fetched as the page starts.
+
+**Frame time**, `npm run bench:frames` against main's build (WebP), median
+ms, 1920 × 1080:
+
+| Scene | Intel, DPR 1 | NVIDIA, DPR 1 | Intel, DPR 2 | NVIDIA, DPR 2 |
+| --- | ---: | ---: | ---: | ---: |
+| Overview (the Sun), 1.6 × 10⁹ km | 19.2 → 19.0 | 7.4 → 7.6 | 17.9 → 17.8 | 4.4 → 5.8 |
+| Earth close-up, 20,000 km | 29.0 → 29.2 | 8.3 → 7.4 | | |
+| The asteroid belt, 9 × 10⁸ km | 18.8 → 18.3 | 7.5 → 7.7 | | |
+
+Three rounds, interleaved, under load averages of 9–13 at DPR 1 and 3–53
+(once 104) at DPR 2. At DPR 2 the Earth and belt scenes could not be timed
+in either build: the harness's zoom never settled within its tolerance, so
+every sample was left out. The NVIDIA overview at DPR 2 is a few frames'
+noise at 4–6 ms; at DPR 1 the two are level.
+
+Sampling a compressed texture reads a quarter of the bytes, but none of
+these scenes is limited by texture reads, so frame time is unchanged within
+the run-to-run noise.
+
 ### The panels
 
 The panels read the clock through `useSyncExternalStore`, which re-renders
@@ -326,7 +403,8 @@ since its numbers do change.
 4. **DE442 in the browser.** Evaluate the Chebyshev segments directly:
    exact positions, and a few microseconds per body instead of an
    analytic series, which speeds up cruise steps.
-5. **GPU-compressed textures (KTX2 / Basis).** Four to eight times less
-   video memory than WebP decoded to RGBA, and faster uploads.
+5. **GPU-compressed textures (KTX2 / Basis): done** (18 November 2026,
+   [above](#gpu-compressed-maps)). A quarter of the video memory, for
+   downloads two to three times larger where the maps are UASTC.
 6. **WebAssembly for the kernel** only if, after these, profiling still
    puts the time in the integrator's arithmetic.

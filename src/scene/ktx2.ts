@@ -39,8 +39,8 @@ let loader: KTX2Loader | null = null;
 let s3tcSrgb = false;
 
 // Sets up the transcoder for this renderer. True if the GPU takes one of
-// the formats it transcodes to; the transcoder itself (about 0.6 MB) is
-// fetched only with the first map.
+// the formats it transcodes to; the transcoder itself (0.8 MB) is fetched
+// at once, while the page starts, so the first map does not wait for it.
 //
 // A WebGL extension works only on the context that asked for it, so each
 // renderer's context asks (detectSupport does, through
@@ -59,6 +59,8 @@ export function initKtx2(renderer: THREE.WebGLRenderer): boolean {
     loader = null;
     return false;
   }
+  // Fetch the transcoder now, while the page starts, not with the first map.
+  if (!loader) void l.init().catch(() => {});
   loader = l;
   return true;
 }

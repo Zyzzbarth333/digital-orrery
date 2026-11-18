@@ -106,7 +106,7 @@ ok(`every map the app loads is listed (bodies and the sky)`, () => {
     want.push(...(e.dayMonthly ?? []));
     for (const key of ['day', 'night', 'normal']) if (e[key]) want.push(e[key]);
   }
-  want.push(manifest.stars.map, manifest.stars.preview);
+  want.push(manifest.stars.map);      // not the preview, which stays WebP to be on screen fast
   const listed = new Set(maps.map(([w]) => w));
   assert.deepEqual(want.filter((p) => !listed.has(p)), []);
 });

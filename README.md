@@ -37,7 +37,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 - **The sky:**
   - the Sun, planets, 76 moons (and 381 irregular moons of Jupiter, Saturn and Neptune as a layer) and 135,353 asteroids and comets, at their real positions for any date, at true scale;
   - 16,892 Earth satellites from CelesTrak's element sets, moved by SGP4, with the ISS, Tiangong, Hubble, GPS, Galileo and the weather satellites' orbits;
-  - real surface maps and relief, Saturn's rings from Cassini measurements, Earth's clouds as satellites saw them that day under a physically based atmosphere;
+  - real surface maps and relief, Saturn's rings from Cassini measurements, Earth's clouds as satellites saw them that day under a physically based atmosphere; the maps load GPU-compressed (KTX2), in a quarter of the video memory, where the GPU can take them;
   - the real star field and Milky Way.
 - **Bodies to visit:** fly the camera to any planet, moon, barycentre, small body or Earth satellite, with a data plate whose values open their equation and source.
 - **Guides:** spin axes, Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls; the planets' magnetic fields as traced field lines (IGRF-14, JRM33, Cassini, Voyager, MESSENGER, and Ganymede's from Juno) and Mars's magnetised crust; the auroras: the Earth's ovals from NOAA's live OVATION Prime map when the clock is near now, otherwise for the day's Kp, Jupiter's and Saturn's main ovals, the footprints of Io, Europa, Ganymede and Enceladus, Uranus's, Neptune's and Ganymede's zones, and Mars's aurora; and the radiation belts of the Earth and the four giants along their L-shells.

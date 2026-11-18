@@ -52,8 +52,7 @@ DEFAULT_SRC = Path.home() / ".cache" / "digital-orrery" / "textures-src"
 # its luma SSIM against the master fell more than 0.015 below the WebP's,
 # or its PSNR below 35 dB, or (the Moon) it put false colour on grey ground
 # (the measurements and crops are in docs/frontend/textures.md). Paths
-# ending in / take everything under them. The sky's 2k preview stays
-# ETC1S: it is on screen for about a second, while the full map loads.
+# ending in / take everything under them.
 UASTC: tuple[str, ...] = (
     "moon/day.webp", "mars/day.webp", "mercury/day.webp", "pluto/day.webp",
     "phobos/day.webp", "io/day.webp", "europa/day.webp", "ganymede/day.webp", "callisto/day.webp",
@@ -88,9 +87,11 @@ def jobs(manifest: dict) -> list[tuple[str, str, bool]]:
         if "normal" in entry:
             out.append((entry["normal"], "normal", True))
     stars = manifest.get("stars", {})
-    for k in ("map", "preview"):
-        if k in stars:
-            out.append((stars[k], "colour", True))
+    # Not the 2k preview: it is there to be on screen fast, and a WebP is
+    # decoded before the transcoder has even loaded; it is freed seconds
+    # later, when the full map is up.
+    if "map" in stars:
+        out.append((stars["map"], "colour", True))
     d = stars.get("detail")
     if d:
         rows, cols = d["width"] // 2 // d["tile"], d["width"] // d["tile"]
@@ -216,7 +217,7 @@ def normal_error_deg(a: np.ndarray, b: np.ndarray) -> tuple[float, float]:
 
 def decode_ktx2(exe: str, path: Path, tmpdir: Path) -> np.ndarray:
     """Level 0 of a KTX2, transcoded to RGB8 and put back top row first."""
-    png = tmpdir / (path.relative_to(OUT).as_posix().replace("/", "_") + ".png")
+    png = tmpdir / (str(path.resolve()).strip("/").replace("/", "_") + ".png")   # unique per file
     subprocess.run([exe, "extract", "--transcode", "rgb8", str(path), str(png)], check=True, capture_output=True)
     a = np.asarray(Image.open(png).convert("RGB"))
     png.unlink()

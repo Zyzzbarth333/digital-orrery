@@ -12,6 +12,7 @@
     "bench": "node src/physics/bench.mjs",
     "bench:attitude": "node src/physics/attitude.bench.mjs",
     "bench:frames": "node --experimental-websocket scripts/bench-frames.mjs",
+    "bench:textures": "node --experimental-websocket scripts/bench-textures.mjs",
     "validate:artemis2": "node src/physics/artemis2.validate.mjs && node src/physics/artemis1.validate.mjs",
     "validate:missions": "node src/physics/missions.validate.mjs",
     "build:missions": "node src/physics/missions.build.mjs",
