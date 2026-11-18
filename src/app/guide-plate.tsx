@@ -9,6 +9,7 @@
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
+import { usePeek } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODIES, BODY_BY_KEY, type BodyKey, type FocusKey } from '../scene/catalogue';
 import { bodyAxesEqj } from '../physics/orientation.js';
@@ -48,6 +49,8 @@ function aboutParent(key: BodyKey, date: Date) {
 }
 
 function Head({ title, kind, rows, notes }: { title: string; kind: string; rows: Row[]; notes: string[] }) {
+  // The phone's peek: its first two values.
+  usePeek(rows.slice(0, 2));
   return (
     <div className="tab-body">
       <div className="plate-head">

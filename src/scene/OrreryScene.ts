@@ -295,11 +295,18 @@ export class OrreryScene {
   onContextLost: (lost: boolean) => void = () => {};
   onFlight: (flying: boolean) => void = () => {};
   get flying(): boolean { return this.rig.flying; }
-  // Pixels of the sky covered on the right (the flight console): the view's
-  // centre moves left by half of it, easing over a quarter second.
+  // Pixels of the sky covered on the right (the flight console, or a
+  // phone's side sheet) and from the bottom (a phone's sheet, at rest): the
+  // view's centre moves left or up by half of it, easing over about 0.2 s.
   private insetGoal = 0;
   private inset = 0;
+  private insetBottomGoal = 0;
+  private insetBottom = 0;
   setInsetRight(px: number): void { this.insetGoal = px; }
+  setInsetBottom(px: number): void { this.insetBottomGoal = px; }
+  // The sky's size in CSS pixels, as resize() last measured it.
+  private viewW = 1;
+  private viewH = 1;
   craftSource: () => CraftView[] = () => [];
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
@@ -1032,6 +1039,8 @@ export class OrreryScene {
   private resize(): void {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     if (!w || !h) return;
+    this.viewW = w;
+    this.viewH = h;
     this.renderer.setSize(w, h, false);
     this.renderer.getDrawingBufferSize(this.buffer);
     this.post.setSize(this.buffer.x, this.buffer.y, this.renderer.getPixelRatio());
@@ -1058,9 +1067,8 @@ export class OrreryScene {
   // Shift the projection so the pivot sits in the middle of the uncovered
   // part of the sky.
   private applyInset(): void {
-    const w = this.container.clientWidth, h = this.container.clientHeight;
-    if (!w || !h) return;
-    if (this.inset > 0.5) this.camera.setViewOffset(w, h, this.inset / 2, 0, w, h);
+    const w = this.viewW, h = this.viewH;
+    if (this.inset > 0.5 || this.insetBottom > 0.5) this.camera.setViewOffset(w, h, this.inset / 2, this.insetBottom / 2, w, h);
     else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
   }
@@ -1214,10 +1222,11 @@ export class OrreryScene {
     const dtReal = Math.min(0.1, Math.max(0, (now - this.lastFrame) / 1000));
     const ratio = this.scale.frame(now, now - this.lastFrame);
     if (ratio !== null) { this.renderer.setPixelRatio(ratio); this.resize(); }
-    if (this.inset !== this.insetGoal) {
+    if (this.inset !== this.insetGoal || this.insetBottom !== this.insetBottomGoal) {
       const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      this.inset = reduced || Math.abs(this.inset - this.insetGoal) < 0.5 ? this.insetGoal
-        : this.inset + (this.insetGoal - this.inset) * (1 - Math.exp(-dtReal / 0.08));
+      const ease = (x: number, goal: number) => reduced || Math.abs(x - goal) < 0.5 ? goal : x + (goal - x) * (1 - Math.exp(-dtReal / 0.08));
+      this.inset = ease(this.inset, this.insetGoal);
+      this.insetBottom = ease(this.insetBottom, this.insetBottomGoal);
       this.applyInset();
     }
     this.clock.tick((now - this.lastFrame) / 1000);

@@ -4,6 +4,7 @@
 // loop; React only mounts it and passes focus changes both ways.
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { SimClock } from '../app/clock';
 import { OrreryScene } from './OrreryScene';
 import type { FocusKey } from './catalogue';
@@ -17,11 +18,16 @@ interface Props {
   onReady?: (scene: OrreryScene) => void;
   onFrame?: (timeMs: number, jumps: number) => void;   // used only without WebGL
   insetRight?: number;                                  // px of the sky covered on the right (the console)
+  insetBottom?: number;                                 // px covered from the bottom (a phone's sheet)
   view: { kind: 'focus' | 'follow'; name: string };    // what the camera is on, for the view plate
   flying?: boolean;
   panned?: boolean;                                      // the camera panned off what it is on
   onCentre?: () => void;                                 // back onto it (C)
   onHome?: () => void;                                   // the opening view (H)
+  // On a phone (docs/frontend/phone.md) the view plate rides on the sheet's
+  // top edge and the touch hint is a line of its peek: where to put them.
+  plateHost?: HTMLElement | null;
+  hintHost?: HTMLElement | null;
 }
 
 // The view plate names what the camera is on, with two cues for the mode
@@ -46,13 +52,13 @@ function ViewPlate({ view, flying, panned, onCentre, onHome }: { view: Props['vi
   );
 }
 
-export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, view, flying = false, frame = 'sun', panned = false, onCentre, onHome }: Props) {
+export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, insetBottom = 0, view, flying = false, frame = 'sun', panned = false, onCentre, onHome, plateHost = null, hintHost = null }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<OrreryScene | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  // A first-visit hint for touch (shown on phones only, by the stylesheet):
-  // it goes at the first touch of the sky and stays gone for this browser.
+  // A first-visit hint for touch (on phones only: a line of the sheet's
+  // peek): it goes at the first touch of the sky and stays gone for this browser.
   const [hint, setHint] = useState(() => { try { return localStorage.getItem('orrery.touchHint') !== 'seen'; } catch { return true; } });
   const seen = () => { if (!hint) return; setHint(false); try { localStorage.setItem('orrery.touchHint', 'seen'); } catch { /* private window */ } };
   const [lost, setLost] = useState(false);
@@ -92,14 +98,17 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
   }, [focus]);
 
   useEffect(() => { sceneRef.current?.setInsetRight(insetRight); }, [insetRight]);
+  useEffect(() => { sceneRef.current?.setInsetBottom(insetBottom); }, [insetBottom]);
 
   useEffect(() => { sceneRef.current?.setFrame(frame); }, [frame]);
 
   return (
     <div className="scene-host" ref={hostRef} onPointerDown={seen}>
       <div className="scene-overlay" ref={overlayRef} />
-      {hint && !failed && <p className="touch-hint">Tap a body's name to fly there · drag to turn · two fingers to pan and zoom</p>}
-      {!failed && <ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} />}
+      {hint && !failed && hintHost && createPortal(<p className="touch-hint">Tap a name to fly there · drag to turn · two fingers to pan and zoom</p>, hintHost)}
+      {!failed && (plateHost
+        ? createPortal(<ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} />, plateHost)
+        : <ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} />)}
       {lost && !failed && (
         <div className="scene-error caution" role="alert">
           The graphics card dropped the 3D view (this happens after sleep or a driver reset). It comes back when the browser restores it; the panels and the clock keep running.

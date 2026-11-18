@@ -9,6 +9,7 @@
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
+import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import type { IrregularMoon } from '../scene/irregularMoons';
 import { irregularStateEqjAtTt, irregularSource } from '../physics/irregularMoons.js';
@@ -59,6 +60,8 @@ export function IrregularMoonPlate({ clock, moon: m }: { clock: SimClock; moon: 
       ? { label: 'Discovered', value: m.discovery.year, alt: m.discovery.by, src: 'JPL SSD', info: 'irr-discovery', detail: m.discovery.ref }
       : { label: 'Discovered', value: 'not listed', src: 'JPL SSD', info: 'irr-discovery' },
   ];
+  // The phone's peek: how far from its planet, and its period.
+  usePeek(byLabel(rows, `From ${PLANET[m.planet]}`, 'Orbital period'));
   return (
     <div className="tab-body">
       <div className="plate-head">

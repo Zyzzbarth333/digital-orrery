@@ -141,9 +141,9 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
 .body-marker .dot { width: 8px; height: 8px; border: 1px solid rgba(236, 217, 176, 0.75); }
 .body-marker.resolved .dot { visibility: hidden; }
 .body-marker .name { color: var(--phosphor-dim); background: rgba(18, 17, 16, 0.72); padding: 1px 5px; border-radius: 2px; }
-.body-marker:hover .name { color: var(--phosphor-dim); }
+@media (hover: hover) and (pointer: fine) { .body-marker:hover .name { color: var(--phosphor-dim); } }
 .body-marker.quiet .name { visibility: hidden; }
-.body-marker.quiet:hover .name { visibility: visible; position: relative; z-index: 1; }
+@media (hover: hover) and (pointer: fine) { .body-marker.quiet:hover .name { visibility: visible; position: relative; z-index: 1; } }
 .body-marker.focused .dot { border-color: var(--phosphor); box-shadow: 0 0 6px rgba(255, 178, 46, 0.7); }
 .body-marker.focused .name { color: var(--phosphor); }
 
@@ -179,7 +179,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
   box-shadow: 0 2px 0 var(--seam-strong), inset 0 1px 0 var(--sheen);
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
-.key:hover { background: linear-gradient(var(--sheen), var(--key-low)); }
+@media (hover: hover) and (pointer: fine) { .key:hover { background: linear-gradient(var(--sheen), var(--key-low)); } }
 .key:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--seam-strong); }
 /* A lit key carries a dark legend on its lit field (6.6:1 or better). */
 .key.run[aria-pressed='true'] {
@@ -211,14 +211,14 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
 .body-marker.bary .name { font-size: 9px; opacity: 0.85; }
 /* The frame switch, on the rail's distance column: about the Sun or the SSB. */
 .frame-key { height: 18px; padding: 0 6px; background: transparent; border: 1px solid var(--seam-strong); border-radius: 2px; color: inherit; font: inherit; letter-spacing: inherit; text-transform: uppercase; cursor: pointer; }
-.frame-key:hover { border-color: var(--ink-muted); }
+@media (hover: hover) and (pointer: fine) { .frame-key:hover { border-color: var(--ink-muted); } }
 .frame-key[aria-pressed='true'] { color: var(--phosphor); border-color: var(--phosphor); }
 .body-row .moon-count { margin-left: 6px; font: 10px var(--sans); letter-spacing: 0.04em; color: var(--ink-muted); }
 .moon-grid { list-style: none; margin: 0 0 2px; padding: 0 calc(1 * var(--u)) 0 calc(3.25 * var(--u)); display: grid; grid-template-columns: 1fr 1fr; }
 .body-row.moon-chip { height: 24px; padding: 0 4px 0 calc(1 * var(--u)); grid-template-columns: 8px 1fr; gap: 6px; font-size: 10px; letter-spacing: 0.04em; overflow: hidden; }
 .body-row.moon-chip .lamp-sq { width: 8px; height: 8px; }
 .body-row.moon-chip span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.body-row:hover { background: var(--panel-sunk); }
+@media (hover: hover) and (pointer: fine) { .body-row:hover { background: var(--panel-sunk); } }
 .body-row .lamp-sq { width: 10px; height: 10px; border: 1px solid var(--lamp-off); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.25); }
 .body-row .dist { font: 11px var(--sans); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .body-row[aria-current='true'] { background: var(--window); color: var(--phosphor); }
@@ -394,12 +394,13 @@ kbd {
 .att-grid .keys-row.att-modes { grid-template-columns: 1fr 1fr 1fr; }
 .att-grid .key { min-width: 0; padding: 0 6px; }
 .launch-row .hint { flex: 1 1 14em; }
-.key.primary:hover { filter: brightness(1.06); }
+@media (hover: hover) and (pointer: fine) { .key.primary:hover { filter: brightness(1.06); } }
 
 /* ---------------- tags, strips, sections ---------------- */
 button.src-tag { cursor: pointer; }
-button.src-tag:hover { background: var(--panel-sunk); }
-.src-tag.open, button.src-tag.open:hover { background: var(--window); color: var(--phosphor); border-color: var(--window); }
+@media (hover: hover) and (pointer: fine) { button.src-tag:hover { background: var(--panel-sunk); } }
+.src-tag.open { background: var(--window); color: var(--phosphor); border-color: var(--window); }
+@media (hover: hover) and (pointer: fine) { button.src-tag.open:hover { background: var(--window); color: var(--phosphor); border-color: var(--window); } }
 
 /* A tag's detail: a small readout window over the panel, the equation in
    phosphor. Placed by source-tag.tsx (fixed, under or over its tag). */
@@ -482,31 +483,6 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
   .pnl { display: none; }
   .rail-mark { font-size: 11px; }
 }
-@media (max-width: 720px) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; }
-  .band { flex-wrap: wrap; gap: var(--u) calc(1.5 * var(--u)); padding: calc(1.5 * var(--u)) calc(2 * var(--u)); }
-  .wordmark { width: 100%; font-size: 13px; }
-  .clock { font-size: 15px; }
-  .key { min-width: 0; padding: 0 10px; }
-  .scene-host { grid-row: 2; grid-column: 1; }
-  .rail { grid-row: 3; grid-column: 1; border-right: 0; border-top: 1px solid var(--seam-strong); }
-  .rail .strip, .pnl, .rail-foot > p { display: none; }
-  .rail-foot { padding: 4px 12px 8px; }
-  .notice { width: 100%; }
-  .body-list { display: flex; overflow-x: auto; padding: 0; }
-  .body-row { width: auto; white-space: nowrap; grid-template-columns: 10px auto; padding: 0 12px; }
-  .body-row.child { padding-left: 12px; }
-  .moon-grid { display: flex; padding: 0; margin: 0; }
-  .body-row.moon-chip { height: 100%; padding: 0 12px; font-size: 11px; }
-  .body-row .dist { display: none; }
-  .plate { grid-row: 4; grid-column: 1; border-left: 0; border-top: var(--hair) solid var(--seam-strong); max-height: 42vh; padding: calc(1.5 * var(--u)) calc(2 * var(--u)); }
-  .plate[data-collapsed='true'] .tab-panel { display: none; }
-  .tabs { margin-bottom: var(--u); padding-right: 0; }
-  .plate-toggle { display: inline-flex; align-self: flex-start; margin: 0 0 var(--u); }
-  .rail-mark { display: none; }
-  .screw::before, .screw::after { display: none; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
@@ -517,7 +493,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .tb-table th:first-child, .tb-table td:first-child { text-align: left; }
 .tb-table td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--seam); white-space: nowrap; }
 .tb-table tbody tr { cursor: pointer; }
-.tb-table tbody tr:hover td { background: rgba(18, 17, 16, 0.06); }
+@media (hover: hover) and (pointer: fine) { .tb-table tbody tr:hover td { background: rgba(18, 17, 16, 0.06); } }
 .tb-table tbody tr:focus-visible { outline: 2px solid var(--key); outline-offset: -2px; }
 .tb-table tbody tr[aria-selected='true'] td { background: var(--window); color: var(--phosphor); }
 
@@ -547,7 +523,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .craft-window .craft-count { font: 11px var(--sans); color: var(--label-dim); text-shadow: none; }
 .craft-window.followed .glyph { background: currentColor; }
 .craft-window.empty { color: var(--label-dim); text-shadow: none; cursor: default; }
-.craft-window:not(:disabled):hover { filter: brightness(1.15); }
+@media (hover: hover) and (pointer: fine) { .craft-window:not(:disabled):hover { filter: brightness(1.15); } }
 .key.console-key[aria-expanded='true'] { background: var(--window); color: var(--phosphor); border-color: var(--window); box-shadow: inset 0 2px 4px #000; transform: translateY(1px); }
 
 /* ---------------- the flight console ---------------- */
@@ -590,25 +566,6 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .view-plate .view-status { display: contents; }
 .view-plate .key { pointer-events: auto; }
 
-/* ---------------- phones: after the console's own rules ---------------- */
-@media (max-width: 720px) {
-  /* The console docks below the sky in the plate's place. */
-  .app:has(.console-dock) .plate { display: none; }
-  .console-dock { grid-row: 4; grid-column: 1; width: auto; max-height: 42vh; justify-self: stretch; }
-  /* The header's engraved labels give way to rows of sky (the controls keep
-     their accessible names and titles). */
-  .band > .field > .engraved { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .band { gap: var(--u); padding: var(--u) calc(1.5 * var(--u)); }
-  .clock { font-size: 15px; padding: 5px 10px; }
-  .rate { height: 30px; }
-  .annunciator { margin-left: 0; }
-  .console { box-shadow: none; border-left: 0; border-top: var(--hair) solid var(--seam-strong); padding: calc(1.5 * var(--u)) calc(2 * var(--u)); }
-  .console-head { padding-right: 0; }
-  .view-plate { bottom: 10px; left: 10px; }
-  .flight { flex: 1 1 100%; }
-  .craft-window { flex: 1; }
-}
-
 /* Small bodies (src/scene/smallBodies.ts): named ones get a smaller, dimmer
    marker than the planets'; the rail's toggles show their population colour. */
 .body-marker.small-body .dot { width: 5px; height: 5px; margin: 1px; border-color: rgba(236, 217, 176, 0.45); }
@@ -647,7 +604,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .key-list dd { margin: 0; color: var(--phosphor-dim); }
 /* The rail foot's "? keys": a key legend that opens the sheet. */
 .foot-key { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-.foot-key:hover { color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .foot-key:hover { color: var(--ink); } }
 
 /* ---------------- gravity guides (src/scene/guides.ts) ---------------- */
 .guide-tag {
@@ -698,21 +655,6 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
   .rail { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
   .rail .body-list { flex: none; overflow: visible; }
 }
-/* Phones: the rail and the plate each take a bounded share and scroll
-   inside it, so the sky keeps its rows when the data is shown. */
-@media (max-width: 720px) {
-  .rail { max-height: 24vh; overflow-y: auto; overscroll-behavior: contain; }
-  .rail .body-list { flex: none; }
-  /* FIND on one row at the top of the strip; 16 px text, so a phone does
-     not zoom the page when it takes focus. */
-  .rail .find { grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--u); padding: 6px 12px 4px; }
-  .rail .find .input { height: 32px; font-size: 16px; }
-  .rail .find .sb-search-status { grid-column: 1 / -1; }
-  .rail .find .sb-search-status:empty { display: none; }
-  .plate { max-height: 34vh; }
-  .console-dock { max-height: 36vh; }
-}
-
 /* ---------------- the journey planner (journey-panel.tsx) ---------------- */
 .journey { display: flex; flex-direction: column; }
 .journey > .strip { margin: calc(2 * var(--u)) calc(-2.5 * var(--u)) var(--u); }
@@ -849,12 +791,13 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .tl-label, .tl-best { fill: var(--phosphor-dim); font: 10px var(--mono); }
 .tl-name { fill: var(--phosphor-dim); font: 9px var(--display); letter-spacing: 0.08em; }
 .tl-ok { fill: var(--lamp-on); cursor: pointer; } .tl-no { fill: var(--phosphor); cursor: pointer; }
-.tl-ok:hover, .tl-no:hover { stroke: var(--sheen); stroke-width: 1; }
+@media (hover: hover) and (pointer: fine) { .tl-ok:hover, .tl-no:hover { stroke: var(--sheen); stroke-width: 1; } }
 .tl-leg { fill: var(--phosphor); opacity: 0.85; } .tl-leg.bad { fill: var(--key-lit); }
 .tl-stay { fill: none; stroke: var(--phosphor-dim); stroke-dasharray: 4 3; }
 .tl-burn { stroke: var(--sheen); stroke-width: 1.5; }
 .tl-cursor { stroke: var(--key-lit); stroke-width: 2; } .tl-cursor-grip { fill: var(--key-lit); cursor: ew-resize; }
-.tl-phase path { fill: var(--key-lit); cursor: pointer; } .tl-phase path:hover { fill: var(--phosphor); }
+.tl-phase path { fill: var(--key-lit); cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .tl-phase path:hover { fill: var(--phosphor); } }
 /* Narrower: one scrolling column, the scope first after the head. */
 @media (max-width: 1100px) {
   .plot-table { display: flex; flex-direction: column; overflow-y: auto; }
@@ -936,7 +879,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .body-marker.site.focused .dot { filter: drop-shadow(0 0 4px rgba(255, 178, 46, 0.8)); }
 .body-marker.site.focused .name { opacity: 1; color: var(--phosphor); }
 .plate-notes a { color: var(--ink); text-decoration-color: var(--seam-strong); }
-.plate-notes a:hover { color: var(--engrave); }
+@media (hover: hover) and (pointer: fine) { .plate-notes a:hover { color: var(--engrave); } }
 
 /* Earth satellites (src/scene/satellites.ts): a small square with a bar
    through it for its panels, in its group's colour; dimmer in the Earth's
@@ -981,18 +924,137 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .body-marker.spacecraft .name { opacity: 0.85; font-size: 10px; }
 .body-marker.spacecraft.focused .name { opacity: 1; }
 
-/* ---------------- phones: the name, and how to touch the sky ---------------- */
-/* Beside the sky the wordmark heads the rail and the header's h1 stays for
-   screen readers; its tagline goes with it. On a phone the rail's wordmark
-   is hidden, so the h1 shows as one nomenclature line instead, and a
-   first-visit hint says how to touch the sky. */
+/* ---------------- phones (docs/frontend/phone.md) ----------------
+   Below 720 px wide, and on short touch screens, App sets .app.phone (and
+   .side on a short screen wide enough for a side sheet): the sky edge to
+   edge under a slim band of the clock, RUN and FIND, and one sheet over it
+   (sheet.tsx) that holds the plate, the rail, the time controls and the
+   console. Nothing here applies beside the sky. */
 .band .wordmark .tagline { display: block; }
 .touch-hint { display: none; }
-@media (max-width: 720px) {
-  .band .wordmark { position: static; width: 100%; height: auto; overflow: visible; clip: auto; white-space: normal; margin: 0;
-    font: 12px var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); }
-  .band .wordmark .tagline { margin-top: 2px; font: 11px var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink-muted); }
-  .touch-hint { display: block; position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 2; margin: 0 auto; width: fit-content;
-    padding: 6px 10px; background: var(--window); color: var(--phosphor-dim); font: 12px var(--sans); text-align: center; border-radius: 2px;
-    box-shadow: inset 0 2px 4px #000, 0 1px 0 var(--sheen); pointer-events: none; }
+.app.phone {
+  display: block;
+  --band-phone: calc(52px + env(safe-area-inset-top, 0px));
+  -webkit-tap-highlight-color: transparent;
 }
+/* The band: inside the safe area, one row. */
+.phone .band {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: var(--band-phone); min-height: 0;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: var(--u); row-gap: 0;
+  padding: env(safe-area-inset-top, 0px) max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px));
+  border-bottom: var(--hair) solid var(--seam-strong);
+}
+.phone .band .wordmark { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.phone .band .field { min-width: 0; flex: 0 1 auto; }
+.phone .clock { font-size: 15px; padding: 7px 10px; letter-spacing: 0; overflow: hidden; text-overflow: clip; }
+.phone .clock .hold { margin-left: 6px; }
+.phone .band .key { height: 40px; min-width: 0; padding: 0 12px; flex: none; }
+.phone .band .find-key { margin-left: auto; }
+.phone .band .key.master { height: 32px; }
+/* The sky: everything under the band, to the bottom of the screen. */
+.phone .scene-host { position: fixed; left: 0; right: 0; top: var(--band-phone); bottom: 0; height: auto; }
+
+/* The sheet: a beige panel over the sky's bezel. Its top and height are
+   set by sheet.tsx; it moves by transform only. */
+.sheet {
+  position: fixed; left: 0; right: 0; top: 100%; z-index: 8; display: flex; flex-direction: column;
+  background: linear-gradient(var(--panel), var(--panel-low)); color: var(--ink);
+  border-top: var(--hair) solid var(--seam-strong); border-radius: 4px 4px 0 0;
+  box-shadow: 0 -1px 0 var(--sheen) inset, 0 -6px 16px rgba(0, 0, 0, 0.55);
+}
+.sheet.side { left: auto; width: 40%; border-left: var(--hair) solid var(--seam-strong); border-radius: 4px 0 0 0; padding-right: env(safe-area-inset-right, 0px); }
+.sheet.dragging { user-select: none; -webkit-user-select: none; }
+/* The head (latch, name, values) drags the sheet; a tap on it toggles. */
+.sheet-head { flex: none; padding: 0 calc(1.5 * var(--u)) var(--u); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.sheet.dragging .sheet-head, .sheet.dragging .sheet-latch { cursor: grabbing; }
+.sheet-latch { display: grid; place-items: center; width: 100%; height: 18px; margin: 0; padding: 0; border: 0; background: none; cursor: grab; touch-action: none; }
+.sheet-latch:focus-visible { outline-offset: -2px; }
+/* A plain latch bar, recessed into the panel. */
+.latch-bar { width: 44px; height: 4px; border-radius: 2px; background: var(--seam-strong); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35), 0 1px 0 var(--sheen); }
+/* Below full the body does not scroll (a drag on it moves the sheet). */
+.sheet-body { flex: 1 1 auto; min-height: 0; overflow: hidden; overscroll-behavior: contain; touch-action: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.sheet[data-stop='full'] .sheet-body { overflow-y: auto; touch-action: pan-y; }
+.sheet-body:focus { outline: none; }
+.sheet-safe { position: absolute; width: 0; height: env(safe-area-inset-bottom, 0px); visibility: hidden; pointer-events: none; }
+/* The view plate (FOLLOW, CENTRE, HOME) rides just above the sheet's top;
+   at full there is no sky for it. */
+.sheet-above { position: absolute; left: 0; right: 0; bottom: 100%; height: 0; }
+.sheet-above .view-plate { left: 10px; bottom: 10px; max-width: calc(100% - 20px); }
+.sheet-above .view-plate .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet[data-stop='full'] .sheet-above { visibility: hidden; }
+/* Beside a side sheet the view plate stays in the sky's corner. */
+.side .view-plate { bottom: 10px; left: 10px; }
+.side .peek-value dt { letter-spacing: 0.06em; }
+
+/* The peek: the name engraved on a nomenclature strip, two values in an
+   amber window, each with its source tag. */
+.peek { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.peek-name { margin: 0 calc(-1.5 * var(--u)); font-size: 12px; letter-spacing: 0.14em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peek-values {
+  margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0;
+  background: var(--window); border-radius: 2px; box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen);
+}
+.peek-value { min-width: 0; padding: 4px 8px 5px; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 6px; align-items: center; }
+.peek-value + .peek-value { border-left: 1px solid var(--lamp-dark); }
+.peek-value dt { grid-column: 1; grid-row: 1; font: 9px/1.4 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--label-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The tag sits up beside the label, so the number has the window's width. */
+.peek-value dd { display: contents; }
+.peek-num { grid-column: 1 / -1; grid-row: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--phosphor); font: 14px/1.35 var(--sans); font-variant-numeric: tabular-nums; text-shadow: var(--glow); }
+.peek-num .unit { margin-left: 3px; color: var(--phosphor-dim); font-size: 11px; text-shadow: none; }
+.peek-value .src-tag { grid-column: 2; grid-row: 1; justify-self: end; font-size: 9px; line-height: 13px; padding: 0 4px; }
+/* A worked-out value's dashed tag, legible on the window's black. */
+.peek-value .src-tag.derived { color: var(--phosphor-dim); border-color: var(--label-dim); }
+/* The first-visit touch hint, one line under the values. */
+.peek-hint:empty { display: none; }
+.peek-hint .touch-hint { display: block; margin: 0; font: 11px/1.4 var(--sans); color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* What the sheet holds: the plate, then the rail, then time and flight. */
+.phone .plate {
+  position: static; display: block; overflow: visible; max-height: none; min-height: 0; background: none;
+  border: 0; padding: calc(1.5 * var(--u)) calc(2 * var(--u)) var(--u); scrollbar-gutter: auto;
+}
+.phone .plate .strip, .phone .console .strip { margin-left: calc(-2 * var(--u)); margin-right: calc(-2 * var(--u)); }
+.phone .plate-toggle { display: none; }
+.phone .plate-head h2 { font-size: 20px; overflow-wrap: anywhere; }
+.phone .rail {
+  position: static; display: block; overflow: visible; max-height: none; background: none;
+  border: 0; border-top: var(--hair) solid var(--seam-strong); scrollbar-gutter: auto;
+}
+/* The app's name heads the rail, as it does beside the sky. */
+.phone .rail-mark { margin: calc(2 * var(--u)) calc(2 * var(--u)) var(--u); }
+.phone .rail .body-list { display: block; overflow: visible; }
+.phone .rail .find { top: 0; padding: var(--u) calc(2 * var(--u)) 6px; }
+.phone .body-row { height: 40px; padding: 0 calc(2 * var(--u)); }
+.phone .body-row.child { height: 36px; padding-left: calc(4 * var(--u)); }
+.phone .moon-grid { padding-left: calc(3.5 * var(--u)); }
+.phone .body-row.moon-chip { height: 36px; }
+.phone .sb-pick, .phone .sb-search, .phone .sat-live, .phone .sat-source { padding-left: calc(2 * var(--u)); padding-right: calc(2 * var(--u)); }
+/* The rail's lower sections fold away, each heading saying what is on. */
+.phone details.rail-group > summary { margin: 0; padding: 12px calc(2 * var(--u)); border-top: 1px solid var(--lamp-dark); align-items: baseline; }
+.phone details.rail-group > summary::after { flex: none; }
+.phone details.rail-group[open] { padding-bottom: var(--u); }
+.phone .rail-foot { padding: var(--u) calc(2 * var(--u)) calc(3 * var(--u)); }
+/* Time and flight: what the band holds beside the sky. */
+.time-controls { padding: 0 calc(2 * var(--u)) var(--u); display: grid; gap: var(--u); }
+.time-controls > .strip { margin: var(--u) calc(-2 * var(--u)) 0; }
+.time-row { display: flex; align-items: center; gap: var(--u); }
+.time-row .field { flex: 1 1 auto; min-width: 0; }
+.time-row .rate { flex: 1 1 auto; min-width: 0; height: 40px; }
+.time-controls .key { height: 40px; }
+.time-controls .field.flight { flex-wrap: nowrap; }
+.time-controls .craft-window { flex: 1 1 auto; height: 40px; min-width: 0; }
+.time-controls .annunciator { margin: 0; justify-content: start; }
+/* The console, in the sheet in the plate's place. */
+.phone .console-dock { position: static; display: block; max-height: none; }
+.phone .console { overflow: visible; box-shadow: none; border: 0; padding: calc(1.5 * var(--u)) calc(2 * var(--u)); scrollbar-gutter: auto; }
+.phone .console-head { padding-right: 0; }
+.phone .console .key.tab { height: 40px; }
+.phone .screw::before, .phone .screw::after, .phone .pnl { display: none; }
+/* 16 px in every field, so a phone does not zoom the page on focus (some
+   fields set smaller text with more specific rules). */
+.app.phone :is(input, select, textarea), .app.phone .rate { font-size: 16px !important; }
+.app.phone .input { height: 36px; }
+.phone :is(button, [role='button'], summary, select) { touch-action: manipulation; }
+.phone :is(button, summary, .key, .body-row) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+/* No pull-to-refresh or page bounce behind the sheet and the sky. */
+html:has(.app.phone), html:has(.app.phone) body { overscroll-behavior: none; }

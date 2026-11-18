@@ -13,6 +13,7 @@ import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { kernelSeconds, kernelMs } from '../physics/kernelHost.js';
 import { heightAbove } from '../physics/entry.js';
 import { SourceTag } from './source-tag';
+import { usePeek } from './peek';
 
 const DEG = 180 / Math.PI;
 const fmt = (n: number, d = 1) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -46,6 +47,27 @@ function Num({ label, value, onChange, step = 1, unit, min, max }: { label: stri
   );
 }
 
+
+// A followed craft's two values for the phone sheet's peek (peek.tsx),
+// over the plate's: its altitude (or distance from the Sun) and speed, as
+// the readout below gives them.
+export function CraftPeek({ clock, mission, id }: { clock: SimClock; mission: Mission; id: number }) {
+  useClock(clock);
+  const c = mission.crafts.find((x) => x.id === id);
+  let rows: Parameters<typeof usePeek>[0] = [];
+  if (c) {
+    const el = c.elements();
+    const P = el.about === 'sun' ? null : BODY_BY_KEY[el.about as BodyKey];
+    const R = P ? altitudeRadius(P.key, P.radiusKm) : 0;
+    const rel = mission.relative(c);
+    rows = [
+      { label: P ? 'Altitude' : 'From the Sun', value: fmt(rel.r - R, 1), unit: 'km', src: 'kernel', info: 'altitude' },
+      { label: 'Speed', value: fmt(rel.v, 4), unit: 'km/s', src: 'kernel', info: 'craft-speed', detail: `relative to ${P ? P.name : 'the Sun'}` },
+    ];
+  }
+  usePeek(rows, 1);
+  return null;
+}
 
 export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock; mission: Mission; onFocusCraft: (id: number) => void }) {
   const s = useClock(clock);

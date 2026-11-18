@@ -8,6 +8,7 @@
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
+import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { jdOf, sizeOf, ASSUMED_ALBEDO, ASSUMED_COMET_KM, type Named } from '../scene/smallBodies';
 import { smallBodyFacts, SB_CLASS_NAMES, SB_GROUPS } from '../physics/smallBodies.js';
@@ -61,6 +62,8 @@ export function SmallBodyPlate({ clock, body: b }: { clock: SimClock; body: Name
     { label: 'Orbital period', value: years < 2 ? fmtGroup(f.periodDays, 1) : fmtGroup(years, years < 100 ? 3 : 1), unit: years < 2 ? 'd' : 'yr', src: '2-body', derived: true, info: 'sb-period' },
   ];
   const kind = b.kind.charAt(0).toUpperCase() + b.kind.slice(1);
+  // The phone's peek: how far from the Sun, and how big.
+  usePeek(byLabel(rows, 'From the Sun', 'Diameter'));
   return (
     <div className="tab-body">
       <div className="plate-head">

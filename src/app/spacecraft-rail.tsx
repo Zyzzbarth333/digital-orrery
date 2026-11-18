@@ -6,6 +6,7 @@
 // 1 MB) loads the first time it is switched on.
 
 import { PROBE_GROUPS, type Probe } from '../scene/spacecraftLayer';
+import { RailGroup } from './panels';
 
 export interface SpacecraftApi {
   on: boolean;
@@ -18,8 +19,7 @@ export interface SpacecraftApi {
 
 export function SpacecraftRail({ api }: { api: SpacecraftApi }) {
   return (
-    <>
-      <h2 className="strip split"><span>Beyond Earth</span><span title="shown">On</span></h2>
+    <RailGroup title="Beyond Earth" note={api.on ? 'Spacecraft shown' : 'none shown'}>
       <ul className="body-list small-bodies">
         <li>
           <button className="body-row" role="switch" aria-checked={api.on} onClick={() => api.setOn(!api.on)}
@@ -47,6 +47,6 @@ export function SpacecraftRail({ api }: { api: SpacecraftApi }) {
           </label>
         </>
       )}
-    </>
+    </RailGroup>
   );
 }
