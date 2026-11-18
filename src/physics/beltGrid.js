@@ -2,8 +2,8 @@
 //
 // Bins the faint asteroids into a 3D grid of reflected sunlight, for the
 // belt's haze (src/scene/beltHaze.ts draws it; beltHaze.worker.ts runs this
-// off the main thread). Given the packed bodies once (16 bytes each,
-// smallbodies.build.mjs), then a time, it places every body on its orbit by
+// off the main thread). Given the packed bodies once (12 bytes each,
+// packBelt below, written by smallbodies.build.mjs), then a time, it places every body on its orbit by
 // Kepler's equation and adds its brightness, 10^(-0.4 H) / r^2 (sunlight
 // falling off with its distance from the Sun), to the 8 nearest cell
 // centres by trilinear weights. Heliocentric ecliptic, au.
@@ -13,22 +13,80 @@ export const GRID = { nx: 256, ny: 256, nz: 48, halfXY: 5.6, halfZ: 1.6 };
 
 const TAU = 2 * Math.PI, K = 0.01720209895;
 
+// The faint belt's packing, 12 bytes a body (smallbodies-belt.bin):
+//   bytes 0-1   a, uint16 over aLo to aHi au (0.000052 au, 7,800 km, steps)
+//   bytes 2-7   node, peri, M, uint16 each over 2 pi (0.0055 deg steps)
+//   bytes 8-11  a uint32: i in bits 0-12 over 0 to pi (0.022 deg), e in
+//               bits 13-24 over 0 to eHi (0.00018), and H in bits 25-31,
+//               hLo + k hStep (15 to 27.7 in 0.1 mag steps; the faintest
+//               body in the file is H 27)
+// The bits go to H first: with 1.45 million bodies in 3 million cells, a
+// cell's light is that of a few bodies, so H's rounding moves the haze more
+// than the positions' (docs/frontend/small-bodies.md#building).
+// Little-endian. The class byte of the 16-byte pack (smallbodies.bin) is
+// left out: every body here is a main-belt asteroid, and the haze does not
+// use it.
+export const BELT_PACK = { bytes: 12, aLo: 1.3, aHi: 4.7, eHi: 0.75, hLo: 15, hStep: 0.1 };
+
+const IB = 13, EB = 12, HB = 7;
+const IMAX = (1 << IB) - 1, EMAX = (1 << EB) - 1, HMAX = (1 << HB) - 1;
+const bound = (x, n) => Math.max(0, Math.min(n, Math.round(x)));
+const wrapTau = (x) => ((x % TAU) + TAU) % TAU;
+
+// Packs a list of { a, e, i, node, peri, M, H } (au, rad at SB_EPOCH_JD).
+// An orbit outside the ranges above throws: widen BELT_PACK rather than
+// move a body.
+export function packBelt(list) {
+  const { bytes, aLo, aHi, eHi, hLo, hStep } = BELT_PACK;
+  const out = new Uint8Array(list.length * bytes), dv = new DataView(out.buffer);
+  list.forEach((k, j) => {
+    if (!(k.a >= aLo && k.a <= aHi && k.e >= 0 && k.e <= eHi && k.i >= 0 && k.i <= Math.PI)) {
+      throw new Error(`packBelt: body ${j} (a ${k.a}, e ${k.e}, i ${k.i}) is outside BELT_PACK's ranges`);
+    }
+    const o = j * bytes;
+    dv.setUint16(o, bound((k.a - aLo) / (aHi - aLo) * 65535, 65535), true);
+    dv.setUint16(o + 2, bound(wrapTau(k.node) / TAU * 65535, 65535) % 65535, true);
+    dv.setUint16(o + 4, bound(wrapTau(k.peri) / TAU * 65535, 65535) % 65535, true);
+    dv.setUint16(o + 6, bound(wrapTau(k.M) / TAU * 65535, 65535) % 65535, true);
+    const w = bound(k.i / Math.PI * IMAX, IMAX) | (bound(k.e / eHi * EMAX, EMAX) << IB) | (bound((k.H - hLo) / hStep, HMAX) << (IB + EB));
+    dv.setUint32(o + 8, w >>> 0, true);
+  });
+  return out;
+}
+
+// The packed bodies as elements (typed arrays: a, e, i, node, peri, M, H).
+export function unpackBelt(buffer) {
+  const { bytes, aLo, aHi, eHi, hLo, hStep } = BELT_PACK;
+  const count = buffer.byteLength / bytes, dv = new DataView(buffer), ang = TAU / 65535;
+  const out = { count };
+  for (const k of ['a', 'e', 'i', 'node', 'peri', 'M', 'H']) out[k] = new Float64Array(count);
+  for (let j = 0; j < count; j++) {
+    const o = j * bytes, w = dv.getUint32(o + 8, true);
+    out.a[j] = aLo + dv.getUint16(o, true) * (aHi - aLo) / 65535;
+    out.node[j] = dv.getUint16(o + 2, true) * ang;
+    out.peri[j] = dv.getUint16(o + 4, true) * ang;
+    out.M[j] = dv.getUint16(o + 6, true) * ang;
+    out.i[j] = (w & IMAX) * Math.PI / IMAX;
+    out.e[j] = ((w >>> IB) & EMAX) * eHi / EMAX;
+    out.H[j] = hLo + (w >>> (IB + EB)) * hStep;
+  }
+  return out;
+}
+
 // The packed bodies as the arrays build() reads.
 export function loadBelt(buffer) {
-  const count = buffer.byteLength / 16;
-  const dv = new DataView(buffer), ang = TAU / 65535;
+  const u = unpackBelt(buffer), count = u.count;
   const B = { count };
   for (const k of ['a', 'e', 'M0', 'n', 'b', 'cosI', 'sinI', 'cosN', 'sinN', 'cosW', 'sinW']) B[k] = new Float32Array(count);
   for (let j = 0; j < count; j++) {
-    const o = j * 16, a = dv.getFloat32(o, true);
-    const i = dv.getUint16(o + 6, true) * ang, node = dv.getUint16(o + 8, true) * ang, peri = dv.getUint16(o + 10, true) * ang;
+    const a = u.a[j];
     B.a[j] = a;
-    B.e[j] = dv.getUint16(o + 4, true) / 65535;
-    B.cosI[j] = Math.cos(i); B.sinI[j] = Math.sin(i); B.cosN[j] = Math.cos(node); B.sinN[j] = Math.sin(node);
-    B.cosW[j] = Math.cos(peri); B.sinW[j] = Math.sin(peri);
-    B.M0[j] = dv.getUint16(o + 12, true) * ang;
+    B.e[j] = u.e[j];
+    B.cosI[j] = Math.cos(u.i[j]); B.sinI[j] = Math.sin(u.i[j]); B.cosN[j] = Math.cos(u.node[j]); B.sinN[j] = Math.sin(u.node[j]);
+    B.cosW[j] = Math.cos(u.peri[j]); B.sinW[j] = Math.sin(u.peri[j]);
+    B.M0[j] = u.M[j];
     B.n[j] = K / (a * Math.sqrt(a));
-    B.b[j] = Math.pow(10, -0.4 * (dv.getUint8(o + 14) / 7 - 2));
+    B.b[j] = Math.pow(10, -0.4 * u.H[j]);
   }
   return B;
 }
