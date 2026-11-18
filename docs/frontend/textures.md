@@ -195,12 +195,37 @@ photometrically: a camera exposed for daylight would not record it.
 ## Daily Earth
 
 For a sim date from 24 February 2000 to today, Earth's day side shows
-that UTC day's GIBS true-colour mosaic (4096×2048; for today, which is still
-filling in, yesterday's), the newest satellite
+that UTC day's GIBS true-colour mosaic (4096×2048), the newest satellite
 whose record covers the day first. It is one image per day from polar
 orbiters crossing the equator at about 10:30 (Terra) or 13:30 (VIIRS) local
 time: the weather that day, not that minute. Pure-black pixels are no data
-(polar night, swath gaps) and show the Blue Marble instead. The image is
+(polar night, swath gaps) and show the Blue Marble instead.
+
+The last days are not whole. GIBS adds each pass some hours after it is
+taken (four to five, NASA says), and on 18 November 2026 at 10:20 UTC
+NOAA-21's mosaic for the day before covered only the Americas and the
+Pacific, 41 % of the globe against 84 % for a whole day; until then the
+app drew "yesterday" at now, so Africa, Europe and Asia had no weather.
+Within two days of now the sim's day is drawn over the two days before it
+(those at 2048×1024), each place from the newest pass that has it
+(`decode.worker.ts`): at now, the latest look the satellites have had at
+each place, today's where they have passed since 00 UTC. At that hour this
+gave 25 % from that day, 41 % from the day before and 18 % from the one
+before, the whole day's 84 %. A composite that includes today is fetched
+again hourly while it is shown, as the day fills in. Older days are whole
+and drawn alone.
+
+Nearer to live would take the geostationary satellites: GIBS also serves
+GOES-East and GOES-West GeoColor full-disc imagery every 10 minutes, about
+40 minutes behind. Each sees only its own third of the globe (the Americas
+and the Pacific), so the polar orbiters' days would still fill the rest.
+It is not drawn: a new source, to add only once asked for.
+
+![The Earth at 10:20 UTC on 18 November 2026: before, cloudless over Africa (the day before's mosaic had not reached it); after, the newest pass of the last three days at each place](../images/daily-earth-now.jpg)
+
+The Earth's readout has a **Clouds** row naming the newest day drawn and
+the days under it, with the share of the globe each gave on its source
+tag (GIBS). The image is
 calibrated like the base map (below), dropped when the sim moves more than
 about a day from it, and not fetched while time runs faster than
 a day per second.
