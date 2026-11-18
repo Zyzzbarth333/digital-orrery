@@ -160,18 +160,23 @@ flown with no fixes, is flown a day past the Earth flyby. After that it is
 lost and shows nothing more, and it was 30 s of its six-year flight
 (`blindFlybys` in `missions.data.mjs`).
 
-Measured on 18 November 2026 on a 32-thread machine shared with two other
-sessions' test runs (load average 5), each run capped at 4 GB:
+Measured on 18 November 2026: main at c827a24, one file after another
+as `npm test` ran them, against this runner straight after, on a 32-thread
+machine shared with other sessions (load average about 3), each run
+capped at 4 GB:
 
-| | Before | After |
+| | Main, one after another | Side by side |
 | --- | --- | --- |
-| `npm test`, wall | 551 s, one file after another | 140 s, four at a time |
-| All parts one after another | 551 s | 555 s (each part slower with four running) |
-| `journey.test.mjs` | 203 s in one | slowest part 59 s (CASE 17) |
-| `missions.validate.mjs` | 119 s in one | slowest part 47 s (MESSENGER; 37 s alone, was 66) |
-| `artemis1.validate.mjs` | 49 s | 51 s |
-| `artemis2.validate.mjs` | 36 s | 38 s |
-| PASS lines | 1,160 | 1,160 |
+| `npm test`, wall | 461 s | 146 s, four at a time |
+| All parts one after another | 461 s | 575 s (each part slower with four running) |
+| `journey.test.mjs` | 228 s in one | slowest part 66 s (CASE 20 and 21) |
+| `missions.validate.mjs` | 70 s in one | slowest part 36 s (MESSENGER) |
+| `artemis1.validate.mjs` | 22 s | 29 s |
+| `artemis2.validate.mjs` | 17 s | 23 s |
+| PASS lines | 1,219 | 1,219 |
+
+An earlier pair of runs, with the machine busier (load average 5), took
+551 s and 140 s.
 
 Every check prints the same tolerance and value as before. The only lines
 that differ are measured times and MESSENGER's blind line, which now ends
