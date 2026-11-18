@@ -268,8 +268,11 @@ for (const id of ids) {
       if (d < best.d) best = { d, ms };
     }
     const endG = coast(a, z.ms, w.about, null), endF = coast(a, z.ms, w.about, full);
-    console.log(`  the kernel from ${hhmm(a.ms)}: closest ${(best.d - R).toFixed(3)} km at ${hhmm(best.ms)}; at ${hhmm(z.ms)} ${norm(sub(endF.r, z.r)).toFixed(3)} km and ${(norm(sub(endF.v, z.v)) * 1e6).toFixed(2)} mm/s off (gravity alone, J2 the only zonal term: ${norm(sub(endG.r, z.r)).toFixed(2)} km, ${(norm(sub(endG.v, z.v)) * 1e6).toFixed(1)} mm/s)`);
-    check(`the kernel flies the flyby within ${C.flybyKernelM} m of the reconstruction's closest approach, and ends within ${C.flybyEndKm} km`, Math.abs(best.d - ca.d) * 1000 < C.flybyKernelM && norm(sub(endF.r, z.r)) < C.flybyEndKm);
+    console.log(`  the kernel from ${hhmm(a.ms)}: closest ${(best.d - R).toFixed(3)} km at ${hhmm(best.ms)} (${((best.d - ca.d) * 1000).toFixed(0)} m from the trajectory's); at ${hhmm(z.ms)} ${norm(sub(endF.r, z.r)).toFixed(3)} km and ${(norm(sub(endF.v, z.v)) * 1e6).toFixed(2)} mm/s off (gravity alone, J2 the only zonal term: ${norm(sub(endG.r, z.r)).toFixed(2)} km, ${(norm(sub(endG.v, z.v)) * 1e6).toFixed(1)} mm/s)`);
+    // A flyby may carry its own bounds (kernelM, endKm: MESSENGER's at
+    // Mercury, where the reconstruction's Mercury is not quite DE442's).
+    const kM = f.kernelM ?? C.flybyKernelM, eKm = f.endKm ?? C.flybyEndKm;
+    check(`the kernel flies the flyby within ${kM} m of the reconstruction's closest approach, and ends within ${eKm} km`, Math.abs(best.d - ca.d) * 1000 < kM && norm(sub(endF.r, z.r)) < eKm);
     if (f.helioKmh) {
       // The speed about the Sun on the way in and out: the planet's velocity
       // plus the craft's asymptotic velocity (a patched conic), at the

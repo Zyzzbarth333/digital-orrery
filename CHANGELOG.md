@@ -137,6 +137,12 @@ once it has releases. Until then, everything sits under Unreleased.
   fitted every 10 days, which brings 49 coast arcs within 5.4 km. A real
   mission's flown path is now interpolated in TT seconds, so a leap
   second no longer puts it 38 km off (this pull request).
+- Craft near Mercury and Venus feel their gravity fields, MESSENGER's
+  JGMESS160A and Magellan's MGNP180U, to degree 20 by default (`mercury:
+  { degree }` and `venus: { degree }`, as the Moon's). MESSENGER's pass
+  338 km over Venus now leaves 0.7 mm/s in the reconstruction's 10 s
+  steps instead of 105, and ends 0.6 km off half a day later instead of
+  4.0 (this pull request).
 - Craft feel the planets' major moons near them (#39), with their J2 and
   C22 (#49), the heaviest asteroids (#53), and sunlight pressure with
   Earth and Moon shadows (#22).

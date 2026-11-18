@@ -282,9 +282,15 @@ export const MISSIONS = {
       { body: 'earth', utc: '2005-08-02T19:13:08Z', altitudeKm: 2347.5, src: FLYBY_SRC, note: '"August 2, 2005, 19:13:08 UTC", "Altitude: 2347.5 km"' },
       { body: 'venus', utc: '2006-10-24T08:34:00Z', altitudeKm: 2987.3, src: FLYBY_SRC, note: '"October 24, 2006, 8:34:00 UTC", "Altitude: 2987.3 km"' },
       { body: 'venus', utc: '2007-06-05T23:08:19Z', altitudeKm: 338.3, src: FLYBY_SRC, note: '"June 5, 2007, 23:08:19 UTC", "Altitude: 338.3 km"' },
-      { body: 'mercury', utc: '2008-01-14T19:04:39Z', altitudeKm: 201.7, src: FLYBY_SRC, note: '"January 14, 2008, 19:04:39 UTC", "Altitude: 201.7 km" (the MOI press kit: 201.4 km)' },
-      { body: 'mercury', utc: '2008-10-06T08:40:22Z', altitudeKm: 199.5, src: FLYBY_SRC, note: '"October 6, 2008, 8:40:22 UTC", "Altitude: 199.5 km" (the press kit: 199.2)' },
-      { body: 'mercury', utc: '2009-09-29T21:54:56Z', altitudeKm: 227.8, src: FLYBY_SRC, note: '"September 29, 2009, 21:54:56 UTC", "Altitude: 227.8 km" (the press kit: 227.5)' },
+      // At Mercury the kernel's closest approach is 89 to 172 m from the
+      // reconstruction's, with Mercury's field or without, and what the
+      // field leaves in the 10 s steps fits a Mercury 50 to 100 m from
+      // DE442's (docs/validation/messenger.md): the reconstruction's own
+      // Mercury, it seems, not its field. So these passes keep looser
+      // bounds than the Earth's and Venus's (kernelM, endKm).
+      { body: 'mercury', utc: '2008-01-14T19:04:39Z', altitudeKm: 201.7, src: FLYBY_SRC, note: '"January 14, 2008, 19:04:39 UTC", "Altitude: 201.7 km" (the MOI press kit: 201.4 km)', kernelM: 200, endKm: 3 },
+      { body: 'mercury', utc: '2008-10-06T08:40:22Z', altitudeKm: 199.5, src: FLYBY_SRC, note: '"October 6, 2008, 8:40:22 UTC", "Altitude: 199.5 km" (the press kit: 199.2)', kernelM: 200, endKm: 3 },
+      { body: 'mercury', utc: '2009-09-29T21:54:56Z', altitudeKm: 227.8, src: FLYBY_SRC, note: '"September 29, 2009, 21:54:56 UTC", "Altitude: 227.8 km" (the press kit: 227.5)', kernelM: 200, endKm: 10 },
     ],
     // The orbit MOI reached: APL Technical Digest 34(1), Table 10 (the
     // result: a 12.071 h orbit, 206.77 km at its lowest, inclined 82.522
@@ -300,7 +306,7 @@ export const MISSIONS = {
     craftSrc: 'https://www.nasa.gov/pdf/525164main_MercuryMOI_PK.pdf',
     sunlightPieceDays: 10,
     fixHours: 24, fixesOnly: true,
-    checks: { burnPct: 1, burnMms: 10, burnDeg: 2, startS: 60, arcGain: 10, crFitPct: 30, piecesKm: 10, crAPct: 75, tiltDeg: 30, orbitPct: 5, flybyKm: 3, flybyKernelM: 200, flybyEndKm: 5, appEndKm: 15, appWorstKm: 500, appFlybyKm: 5, appAimedMps: 5 },
+    checks: { burnPct: 1, burnMms: 10, burnDeg: 2, startS: 60, arcGain: 10, crFitPct: 30, piecesKm: 10, crAPct: 75, tiltDeg: 30, orbitPct: 5, flybyKm: 3, flybyKernelM: 20, flybyEndKm: 1, appEndKm: 15, appWorstKm: 500, appFlybyKm: 5, appAimedMps: 5 },
   },
 };
 export const FEET = FT, MILES = MILE;

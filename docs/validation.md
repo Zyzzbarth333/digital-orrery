@@ -631,6 +631,7 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Relativity: Mercury through the kernel | 42.98″ a century | 42.98″ a century |
 | Relativity: the Earth's Schwarzschild and Lense–Thirring terms, orbit-averaged | 3.2496″ a year at 12,270 km, e = 0.1 | 3.2496″ a year (0.1 %) |
 | The planets' J2: a Jupiter orbiter's node, 10 days | secular theory, 11.901° | 11.931° (0.25 %) |
+| Mercury's and Venus's fields (JGMESS160A, MGNP180U) at 18 points, 200 to 1,000 km up, to degrees 20, 50 and 80 | a direct Legendre sum of the PDS files at 50 digits (`planetFields.oracle.wls`) | within 4.5×10⁻¹⁵; Venus's frame the app's IAU one, Mercury's its label's (0.17° from the IAU's) |
 
 ## Entry (`entry.test.mjs`)
 
@@ -714,9 +715,9 @@ record of each burn. See [MESSENGER](validation/messenger.md).
 | --- | --- |
 | 19 burns (parts summed) against APL's EME2000 vectors | each within 1.1 % and 1.7°; DSM-1 315.639 m/s (APL 315.633), MOI 861.614 m/s along its path (861.714), turned 30° |
 | 49 coast arcs, sunlight fitted every 10 days (radial, along-track, normal) | rms 0.72 km over 2,420 daily samples, worst 5.4 km (no sunlight: 4,686 km); Cr·A 3.5–18.6 m², tilted up to 24° (as built: 12.9 m²) |
-| 6 flybys: Earth, Venus twice, Mercury three times | each within 0.04 km and a second of APL's; the kernel through each within 163 m at closest approach |
+| 6 flybys: Earth, Venus twice, Mercury three times | each within 0.04 km and a second of APL's; the kernel through each within 9 m at closest approach at the Earth and Venus, 172 m at Mercury; half a day on, within 0.7 km at the Earth and Venus (the 338 km pass of Venus: 4.0 km with J2 alone), 2.2 to 8.0 km at Mercury |
 | The orbit MOI reached | 207.5 by 15,272 km, 12.076 h (published 206.77 km, 12.071 h) |
-| The app's file (`public/missions/messenger.json`), with a fix every 24 h | every flyby within 0.6 km of the flown; 9.6 km off at the end, 14.9 km at worst |
+| The app's file (`public/missions/messenger.json`), with a fix every 24 h | every flyby within 0.6 km of the flown; 12.7 km off at the end, 14.9 km at worst |
 
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 

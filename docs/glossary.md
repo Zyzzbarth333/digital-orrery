@@ -249,10 +249,12 @@ by several degrees a day. **C22** describes how a body's equator is
 stretched into an ellipse, which matters for moons that always face their
 planet.
 
-**Gravity field (EGM2008, GRAIL).** A body's full gravity as a sum of
-spherical harmonics:
+**Gravity field (EGM2008, GRAIL, JGMESS160A, MGNP180U).** A body's full
+gravity as a sum of spherical harmonics:
 - **EGM2008:** the Earth's.
 - **GRAIL:** the Moon's, from NASA's twin probes.
+- **JGMESS160A:** Mercury's, from MESSENGER's tracking in orbit.
+- **MGNP180U:** Venus's, from Magellan's.
 
 [The space environment](physics/environment.md),
 [Gravity guides](physics/gravity-guides.md)
