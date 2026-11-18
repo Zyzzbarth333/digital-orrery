@@ -128,31 +128,6 @@ table is in [the space environment](environment.md#the-planets-j2)); Mars's,
 Jupiter's and Saturn's matter for craft orbiting them. `solarSystemBodies({
 zonal: false })` gives point masses only, for comparisons.
 
-**Mean and osculating semi-major axis.** Under $J_2$ an orbit's
-osculating semi-major axis (from vis-viva at one instant) swings about its
-mean within every turn. For a circular orbit Brouwer's short-period term
-[20, p. 395] comes to
-
-$$
-a - \bar a = \frac{3}{2}\frac{J_2R^2}{\bar a}\sin^2 i\,\cos 2u,
-$$
-
-with $u$ the argument of latitude. 400 km over Mars at 150.6° that is
-±2.15 km. Started circular at the node ($u = 0$, the top of the swing),
-the orbit's mean is 2.1 km below its starting radius, which is why
-eq. (4.52) is slow there ([journey](journey.md#the-parking-orbits-plane)).
-Sampled every 30 days, close to a whole number of turns, each sample finds
-the orbit a few degrees further from the node, so the osculating value
-falls steadily: 3,789.93 to 3,787.10 km in a year, which looks like a
-drift. It is not one. The turn-averaged semi-major axis holds to 14 m in
-the year ($4\times10^{-6}$, so the node rate to 0.001 %), and every
-30-day sample is that mean plus the swing to 46 m (`nbody.test.mjs` case
-8c). It holds as well with Phobos and Deimos off, $J_2$ off, Encke off
-or a 100 times tighter tolerance, so neither a moon, nor a resonance, nor
-the integrator moves it: in Brouwer's theory $\bar a$ has no secular
-term [20], and the kernel agrees. Compare semi-major axes as turn averages
-(or at the same $u$), not at sampled instants.
-
 **The giants' higher zonal terms.** Jupiter and Saturn carry their zonal
 fields to $J_{12}$, and Uranus and Neptune their $J_4$, each from the same
 solution as its $J_2$ and referred to the same radius: Jupiter's from the
@@ -998,5 +973,3 @@ relative).
 [18] L. Iess *et al.*, "Measurement and implications of Saturn's gravity field and ring mass," *Science*, vol. 364, no. 6445, Art. no. eaat2965, 2019, doi: 10.1126/science.aat2965. Table 1.
 
 [19] L. Iess *et al.*, "The gravity field and interior structure of Enceladus," *Science*, vol. 344, no. 6179, p. 78, 2014, doi: 10.1126/science.1250551.
-
-[20] D. Brouwer, "Solution of the problem of artificial satellite theory without drag," *Astron. J.*, vol. 64, no. 1274, pp. 378–396, 1959, doi: 10.1086/107958. Section 9, the short-period terms (the semi-major axis's on p. 395).

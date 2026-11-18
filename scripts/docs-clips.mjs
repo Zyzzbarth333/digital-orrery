@@ -309,6 +309,7 @@ async function main() {
   const url = opt('--url');
   const shot = opt('--shot');
   const keep = flag('--keep');
+  const force = flag('--force');
   const allGifs = flag('--gif');
   const names = argv.length ? argv : Object.keys(CLIPS);
   for (const n of names) if (!CLIPS[n] && !shot) throw new Error(`No clip "${n}": ${Object.keys(CLIPS).join(', ')}`);
@@ -316,7 +317,7 @@ async function main() {
 
   const work = join(tmpdir(), `docs-clips-${process.pid}`);
   let server = null, browser = null;
-  const lock = await gpuLock();
+  const lock = await gpuLock({ force });
   try {
     server = url ? null : await serve('dist');
     const base = (url ?? server.url).replace(/\/$/, '');
