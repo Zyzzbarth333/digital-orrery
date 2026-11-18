@@ -70,7 +70,8 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   `?craft=orbit,400,51.6` and followed at 0.4 km and 3,000 km, with an
   attitude (`craft-near`, `craft-far`) and as a point mass (`,point`:
   `point-near`, `point-far`). Those six run by default. `overview`,
-  `earth-fill` (the Earth at 9,000 km, filling the view), `craft-warp`
+  `earth-fill` (the Earth at 9,000 km, filling the view), `earth-held`
+  (`earth-fill` with the clock held), `craft-warp`
   (`craft-far` with the clock at a day a second), the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`),
   the Earth with all 16,892 satellites on (`sats`, 20,000 km) and the ISS
@@ -78,7 +79,7 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   20,000 km with its passes and ground track (`sat-track`, and
   `sat-track-warp` at an hour a second) run by name, and `all` runs every
   one; `--list` lists them. A scenario can run a setup expression once the
-  page is up (the satellites' switch).
+  page is up (the satellites' switch), and hold the clock.
 - **Frame cost.** The app's render callback (`window.orrery.frame`, which
   `?debug` exposes) wrapped with a one-pixel `readPixels`, which waits for
   the GPU to finish the frame: CPU and GPU time together. The **frame gap**
@@ -372,6 +373,34 @@ grew past 8 GB over a run's page loads. Load average 8–18.
 At 0.4 km the camera looks along the orbit, past the craft, with little
 of the Earth in view. At 1 d/s the NVIDIA's frame is the kernel's carry
 on the CPU, and its rounds ran 11.6–28.8 ms before and 16.4–22.1 ms after.
+
+#### Light scattered more than once
+
+The sky's second table, Hillaire's multiple-scattering table
+([atmospheres](frontend/atmospheres.md#light-scattered-more-than-once)),
+is made once, when the Earth's air is first drawn: 8–24 ms on the Intel
+GPU, 3 ms on the NVIDIA. After that, each step of the view table's march
+reads it once more. The view table's pass alone, timed in the page (20
+passes between two waits for the GPU, the median of 7, 3 rounds), went
+from 0.37 to 0.43 ms on the Intel GPU and stayed at 0.05 ms on the NVIDIA.
+With the clock held and the camera still, that pass is now skipped.
+
+`npm run bench:frames`, 18 November 2026, 1920 × 1080 at DPR 1, main
+before and this change after, interleaved, the median of three rounds,
+load average 2–7:
+
+| Scenario | Intel, before → after | NVIDIA, before → after |
+| --- | ---: | ---: |
+| Earth close-up, 20,000 km | 15.1 → 15.0 ms (−1 %) | 4.3 → 4.5 ms (+5 %) |
+| Earth filling the view, 9,000 km | 18.4 → 18.4 ms (±0 %) | 4.2 → 4.0 ms (−5 %) |
+| The same, the clock held | 18.6 → 18.2 ms (−2 %) | 4.4 → 4.2 ms (−5 %) |
+| Craft in LEO at 1 d/s, 3,000 km | 20.5 → 21.6 ms (+5 %) | 9.6 → 10.5 ms (+9 %) |
+
+The differences are within the rounds' spread: the NVIDIA's Earth
+close-up ran 2.6–4.6 ms before and 4.0–7.1 after, and its LEO rounds
+7.7–11.1 before and 9.4–12.1 after, a frame that is mostly the kernel's
+work on the CPU. The Intel's LEO rounds ran 20.3–20.6 ms before and
+20.5–22.0 after. `earth-held` is the scenario with the clock held.
 
 ### Earth satellites
 

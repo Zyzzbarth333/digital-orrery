@@ -1,8 +1,8 @@
 # Atmospheres
 
 Earth's air drawn from its physics: sunlight scattered by molecules and
-aerosols along each line of sight, and the same air reddening the sunlight
-that reaches the ground. Code: `src/scene/atmosphere.ts` (the shell) and
+aerosols along each line of sight, once and then many times, and the same
+air reddening the sunlight that reaches the ground. Code: `src/scene/atmosphere.ts` (the shell) and
 `bodyMaterial.ts` (sunlight on the surface).
 
 ## The medium
@@ -16,9 +16,12 @@ Three constituents, each with a density that falls with altitude $h$:
 | Ozone (absorption) | (0.650, 1.881, 0.085)×10⁻⁶ m⁻¹ at the peak | tent, 10–40 km, peak 25 km | — |
 
 These are the reference values of Bruneton's precomputed atmospheric
-scattering model [2] (`demo.cc`). The ozone peak coefficients are Hillaire's
-(2020) and have not yet been checked against the paper. The shell reaches
-100 km.
+scattering model [2] (`demo.cc`). The ozone peak coefficients and tent are
+Hillaire's [4, Table 1, Sec. 4]. Hillaire's table lists the aerosols'
+absorption as 4.40×10⁻⁶ m⁻¹, about the extinction here; the model keeps
+Bruneton's absorption, 0.444×10⁻⁶ m⁻¹ (a scattering albedo of 0.9). The ground's
+diffuse albedo, for the light it sends back up into the air, is 0.3 [4,
+Sec. 4]. The shell reaches 100 km.
 
 ## Sky light along a view ray
 
@@ -77,6 +80,83 @@ the full disc, the terminator, the day and twilight limbs from 15,000 km,
 and from 60 km up, inside the air. The mean levels match to 0.14 of 255.
 The frame times are in [performance](../performance.md#the-atmosphere-near-the-earth).
 
+When neither the camera nor the Sun has moved relative to the Earth since
+the last march (the clock held, the camera still or only turning), the
+table would come out the same, so its pass is skipped.
+
+## Light scattered more than once
+
+Single scattering leaves the air dark wherever the sunlight cannot reach
+it directly: past the terminator, in the twilight band, the sunlit air
+above lights the air in the Earth's shadow below it. The light scattered two, three
+or more times is added from a second table, Hillaire's multiple-scattering
+table [4, Sec. 5.5].
+
+Two assumptions make it a small table:
+
+- after its second bounce the light is isotropic, so its phase is
+  $p_u = 1/4\pi$;
+- the light reaching the air around a point is the light reaching the
+  point itself.
+
+Then the light of every order past the first, per unit of sunlight,
+depends only on the point's altitude $h$ and the cosine $\mu_\odot$ of the
+Sun's angle from its zenith. Over the sphere of directions $\omega$ from
+the point $\mathbf x$,
+
+$$
+L_2 = \int_{4\pi} L_0(\mathbf x, -\omega)\,p_u\,d\omega, \qquad
+f = \int_{4\pi} \int_0^{\ell} \sigma_s\,T\,dt\;p_u\,d\omega, \qquad
+\Psi = \frac{L_2}{1 - f} = L_2\,(1 + f + f^2 + \dots),
+$$
+
+where $L_0$ is the sunlight scattered once toward $\mathbf x$ along
+$\omega$ (and the sunlight the ground reflects, with albedo 0.3), $\ell$
+the ray's length to the ground or the top of the atmosphere, and $f$ the
+fraction of light that one more bounce returns [4, Eqs. 5–10]. $\Psi$ has
+units of sr⁻¹. Along a view ray each step then adds
+$T_v\,\sigma_s\,\Psi\,ds$, with no phase and no shadow [4, Eq. 11], where
+$\sigma_s$ is the Rayleigh and Mie scattering together.
+
+- **The table** is 32 × 32: columns $\tfrac12(1 + \mu_\odot)$, rows the
+  altitude over the shell's 100 km, as in the paper. Each texel averages
+  256 directions of equal solid angle, each marched in 40 steps, with the
+  step's integral of $T\sigma_s$ taken exactly (it keeps $f$ under 1
+  [4, Sec. 5.5.3]). The
+  paper takes 64 directions of 20 steps [4, Sec. 5.5.3, Table 2], which
+  are 10–20 % out in places against a finer integration. The medium does
+  not change, so the table is made once, on the GPU, when the shell is
+  first drawn (`msFragment`, drawn by `renderViewTable`): 8–24 ms on the
+  Intel GPU, 3 ms on the NVIDIA, once.
+- **In the view table**, the light scattered more than once is kept with
+  the Rayleigh light, divided by the Rayleigh phase at the texel's own ray.
+  The shell multiplies the Rayleigh column by its own pixel's phase, so
+  this light comes back as it was, within the phase's change across a
+  texel: no third texture to read per pixel.
+
+Checked against a separate CPU integration of the same equations (in
+NumPy, with the sunlight's transmittance marched rather than looked up),
+the GPU's table agrees to 1 % at the same sampling (tried at the paper's
+64 directions of 20 steps). With 256 directions of 60 steps, the CPU
+agrees with the table to 4 %, at the ground and at 10, 32 and 100 km,
+with the Sun overhead or 2° above the horizon.
+
+Screenshots at the same time and view, before and after, on the NVIDIA
+GPU (Earth from 30,000 km, 10 November 2026, 15:00 UTC):
+
+| View | Region | Mean R, G, B of 255, before → after |
+| --- | --- | --- |
+| Noon, the Sun behind the camera | the disc's centre | 88.8, 101.0, 118.2 → 93.8, 109.7, 135.9 |
+| Twilight, the terminator across the disc | the band at the terminator | 12.8, 9.7, 12.1 → 12.8, 11.3, 18.2 |
+| The limb, a crescent at a phase angle of 151° | the sunlit crescent's edge | 6.5, 4.9, 5.6 → 6.7, 5.3, 6.4 |
+| The same | the far, unlit limb | 2.5, 1.9, 0.8 → 2.7, 2.0, 0.9 |
+
+The light scattered more than once is bluest: it adds the most to the
+blue haze on the day side, and it carries the blue of the twilight band
+on past the terminator, where single scattering left the air dark. The
+far limb, in the Earth's full shadow, stays dark, as it should: little
+sunlit air lies above it.
+
 The ground and cloud images (Blue Marble, GIBS corrected reflectance) have
 the atmosphere's own haze removed, so this adds it back rather than
 doubling it.
@@ -100,8 +180,8 @@ terminator reddens; at a thin crescent only the sunlit limb glows.
 
 ## Not yet
 
-- Multiple scattering (the sky's second bounce, which lightens twilight and
-  the shadowed side of the limb).
+- The sky's own light on the ground: the surface is lit by the reddened
+  sunlight, not by the blue sky over it (Hillaire's table would give it).
 - The view-ray transmittance per colour on what lies behind (blending has
   one alpha).
 - Clouds at altitude: the cloud images sit on the ground, under the air.
