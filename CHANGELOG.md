@@ -186,7 +186,14 @@ once it has releases. Until then, everything sits under Unreleased.
   beside Io's, each placed ahead of its field line by the lead angle Juno
   measured. Uranus and Neptune have radiation belts too, and the belts
   cost an integrated GPU about a millisecond at Earth instead of eight
-  (this pull request).
+  (#100).
+- The Earth's field lines are bent by its magnetosphere for the day's Kp
+  (Tsyganenko's T89): squeezed on the day side, drawn into a tail on the
+  night side. Saturn's lines stretch through Voyager's ring current,
+  Ganymede's close inside Jupiter's field and open into it, and the Sun
+  has field lines too, from the Wilcox Solar Observatory's model for the
+  date's Carrington rotation: loops over the streamer belt and open lines
+  from the polar holes (this pull request).
 - The gravity field of every body at once, as field lines flowing toward
   the masses in a plane through the focus: inertial, falling with the
   focus, less its own pull (Jupiter's moons' wells), or in the rotating

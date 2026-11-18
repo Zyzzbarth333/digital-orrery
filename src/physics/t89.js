@@ -15,8 +15,8 @@
 //   withT89(model, sun, kp) -> the Earth's model (magnetic.js) with T89 added
 //
 // N. A. Tsyganenko, "A magnetospheric magnetic field model with a warped
-// tail current sheet", Planet. Space Sci. 37, 5-20 (1989), with the 1992
-// tilt terms (T89c). Translated from the Python port in geopack
+// tail current sheet", Planet. Space Sci. 37, 5-20 (1989), in its revised
+// version T89c. Translated from the Python port in geopack
 // (https://github.com/tsssss/geopack), which carries this notice:
 //
 //   MIT License. Copyright (c) 2018 Sheng Tian.

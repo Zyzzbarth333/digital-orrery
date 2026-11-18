@@ -151,7 +151,7 @@ console.log(`magnetic.data.js: IGRF-14 ${epochs[0]}-${epochs.at(-1)}, JRM33 to 1
     rows.push(gh.map((v) => Math.round(v * 100) / 100));
   }
   while (rows.length && rows.at(-1) === null) rows.pop();
-  const out = { source: 'Wilcox Solar Observatory radial PFSS harmonic coefficients (Zhao and Hoeksema 1993)', url: `${WSO}/`, unit: 'microtesla',
+  const out = { source: 'Wilcox Solar Observatory radial PFSS harmonic coefficients (Hoeksema 1984)', url: `${WSO}/`, unit: 'microtesla',
     n: 9, sourceSurface: 2.5, order: 'g10 g11 h11 g20 g21 h21 g22 h22 ... (magnetic.js)', first, rows };
   const path = new URL('../../public/data/sun-pfss.json', import.meta.url);
   fs.writeFileSync(path, JSON.stringify(out));

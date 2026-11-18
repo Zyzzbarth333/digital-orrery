@@ -2,7 +2,7 @@
 //
 // The Sun's large-scale magnetic field (docs/physics/magnetic-fields.md#the-suns-field):
 // the potential-field source-surface (PFSS) model of the Wilcox Solar
-// Observatory (Hoeksema 1984; Zhao and Hoeksema 1993), from WSO's own
+// Observatory (Hoeksema 1984; Sun 2009, "Notes on PFSS extrapolation"), from WSO's own
 // photospheric magnetograms, one set of coefficients per Carrington
 // rotation (public/data/sun-pfss.json, from npm run fetch:magnetic).
 //
