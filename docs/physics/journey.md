@@ -1375,13 +1375,15 @@ The table's other two stations:
     without hitting anything, and with corrections under 250 m/s or a
     tenth of the plan;
   - **windows** and **delta-v:** from the lamps;
-  - **flybys:** none underground;
+  - **flybys:** none underground, or N/A, unlit, when the journey has none
+    (a lamp with nothing to report stays dark);
   - **orbits** (only when the low orbit lamp is lit): no-go where a stay
     in lunar orbit falls;
   - **vehicle:** a stack exists, and which real launchers could fly it;
-  - **launch.**
+  - **launch:** no-go when the parking orbit is below 120 km, inside the
+    air's dense part, as the MISSION tab's launch floor.
 
-  When every row reads GO, "Commit to the orrery" jumps the clock to the
+  When every row reads GO (or N/A), "Commit to the orrery" jumps the clock to the
   departure (BACK undoes it), gives a new craft the kernel's burns, and
   follows it.
 

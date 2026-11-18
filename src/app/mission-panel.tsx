@@ -13,6 +13,7 @@ import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { kernelSeconds, kernelMs } from '../physics/kernelHost.js';
 import { heightAbove } from '../physics/entry.js';
 import { SourceTag } from './source-tag';
+import { GuardedKey } from './guarded-key';
 
 const DEG = 180 / Math.PI;
 const fmt = (n: number, d = 1) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -300,7 +301,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         </details>
         <div className="keys-row wrap">
           <button className="key" onClick={() => onFocusCraft(c.id)}>Follow</button>
-          <button className="key" onClick={() => mission.remove(c)}>Remove craft</button>
+          <GuardedKey label="Remove craft" confirm={`Remove ${c.name}`} onConfirm={() => mission.remove(c)} />
         </div>
       </>
     );

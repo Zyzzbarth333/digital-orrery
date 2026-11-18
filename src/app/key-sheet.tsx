@@ -14,6 +14,7 @@ export const SHORTCUTS: [string[], string][] = [
   [['N'], 'Jump to now'],
   [['M'], 'Open or close the flight console'],
   [['/'], 'Find any body, satellite or spacecraft'],
+  [['↑', '↓', 'Enter'], 'In FIND: move through the matches, fly to the marked one'],
   [['Esc'], 'Stop a flight, close a list, then the console'],
   [['?'], 'Show or hide these keys'],
 ];
