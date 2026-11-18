@@ -222,8 +222,7 @@ export class GuideLayer {
     const onScreen = (s: [number, number] | null) => s !== null && s[0] > -20 && s[0] < width + 20 && s[1] > -20 && s[1] < height + 20;
 
     this.field.update(meshes, f.materials, radiusPx, f.focus, f.level);
-    this.flow.update({ camera, states: f.states, cam: f.cam, focus: f.focus, pivot: f.pivot, level: f.level, width, height,
-      stacked: !this.field.legend.hidden });
+    this.flow.update({ camera, states: f.states, cam: f.cam, focus: f.focus, pivot: f.pivot, level: f.level, width, height });
 
     // Spin axes, from the surface materials' body-fixed Z (render frame).
     this.axes.visible = this.arrows[0].visible = this.arrows[1].visible = this.on.axes;

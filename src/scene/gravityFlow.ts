@@ -295,7 +295,7 @@ export class GravityFlowLayer {
 
   // Everything the GPU needs this frame, worked out in double precision.
   update(f: { camera: THREE.PerspectiveCamera; states: Record<BodyKey, State>; cam: Vec3; focus: BodyKey | null; pivot: Vec3;
-    level: number; width: number; height: number; stacked: boolean }): void {
+    level: number; width: number; height: number }): void {
     this.ready = false;
     this.disc.visible = false;
     this.legend.hidden = true;
@@ -409,9 +409,9 @@ export class GravityFlowLayer {
     const frameText = shown === 'rotating' ? `${FRAME_NAME.rotating} ${BODY_BY_KEY[pair![0]].name}–${BODY_BY_KEY[pair![1]].name}`
       : shown === 'falling' ? `${FRAME_NAME.falling} ${BODY_BY_KEY[focus!].name}`
         : shown === 'others' ? `less ${BODY_BY_KEY[focus!].name}'s own` : FRAME_NAME.inertial;
-    const key = `${frameText}|${planeName}|${hi.toFixed(1)}|${u.count.value}|${f.stacked}`;
+    const key = `${frameText}|${planeName}|${hi.toFixed(1)}|${u.count.value}`;
     this.legend.hidden = false;
-    if (key !== this.legendKey) { this.legendKey = key; this.drawLegend(frameText, planeName, 10 ** (hi - DECADES), 10 ** hi, list.length, mode, f.stacked); }
+    if (key !== this.legendKey) { this.legendKey = key; this.drawLegend(frameText, planeName, 10 ** (hi - DECADES), 10 ** hi, list.length, mode); }
   }
 
   render(renderer: THREE.WebGLRenderer): void {
@@ -426,8 +426,7 @@ export class GravityFlowLayer {
     renderer.setRenderTarget(prev);
   }
 
-  private drawLegend(frame: string, plane: string, lo: number, hi: number, n: number, mode: number, stacked: boolean): void {
-    this.legend.classList.toggle('stacked', stacked);
+  private drawLegend(frame: string, plane: string, lo: number, hi: number, n: number, mode: number): void {
     this.legend.innerHTML = '';
     const p = (cls: string, text: string) => { const e = document.createElement('p'); e.className = cls; e.textContent = text; return e; };
     const bar = document.createElement('div');

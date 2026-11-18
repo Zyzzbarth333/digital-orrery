@@ -24,6 +24,7 @@ tests (it shares no code with the models).
 | `lambert`, 920-cell Earth to Mars grid (461 Type II) | independent RK4 | every cell solved; worst endpoint 5.5×10⁻⁹ |
 | `lambert`, real MSL dates | DE442 states, RK4 | reaches Mars to 2×10⁻¹¹; C3 = 10.69 km²/s² |
 | `lambertRevs`, 300 random geometries, 1 and 2 revolutions, both branches | flown by `propagate` | every one reaches r₂; worst 5.8×10⁻⁹ relative |
+| `timeToRadius` (first descent to a radius: ellipse in and out, hyperbola, parabola) | flown by `propagate` | at the radius to under 1 mm, above it at 400 times before; never (∞) above periapsis or leaving |
 
 ## Ephemeris and porkchop (`porkchop.test.mjs`)
 
@@ -357,6 +358,7 @@ them, is unchanged to its printed digits or within a step's rounding.
 | craft driven through the Worker client vs stepped directly | identical |
 | drawn position vs exact state (results a frame late) | 0.02 km in low orbit, 0.38 km in cruise; up to ~11,000 km during a close Earth pass at 100 days/s |
 | drawn position carried forward while the kernel lags | low orbit (two-body plus J2): 5×10⁻⁵ km at 10 min, 6.5 m at 1 h; GEO 0.74 km at 6 h; cruise 0.03 km at 1.7 days |
+| Artemis II drawn while the kernel lags at a day a second (`warp.test.mjs`) | from before the injection, 15 h on: 6.8 km from the flown path (was 17,052 km); a day past separation: held at the entry interface (120.3 km up, 11.0 km/s; was 191 million km out), then the kernel's splashdown, where it stays |
 | burn during a request in flight; dropped request | burn kept; nothing lost |
 | manual burn to empty, hour vs day frames | same state within the kernel's accuracy |
 | manoeuvre node | 415.816 kg drawn = rocket equation |
@@ -409,7 +411,9 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Restricted and optimal staging | Ex 13.4, 13.5 | to the book's figures |
 | Mariner 10, Earth to Mars, a lunar free return, a Moon round trip, flown | the plan | every periapsis within 17 km, home within 3 km |
 | Resonant returns: the 2:1 cone; Galileo's Earth to Earth on NASA's dates; Galileo's whole route flown | geometry; PDS mission catalogue | 2:1 chosen, back on 8 Dec 1992, Earth flybys 0 and 70 m/s; flown within 20 km at Venus and Earth, 1.4 % at Jupiter |
-| Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft; lunar orbit to Mars, flown | Curtis 6.2; geometry; the plan | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.8 m/s, the entry perigee 118 km for 120; Mars 1.4 km off |
+| Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 60 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 47 m/s) |
+| Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,257 (1.4 %, within 3 %); lows a month apart; the best day priced 1,657, flown 1,666 |
+| The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
@@ -505,6 +509,25 @@ published equations and Fortran listings
 | Temperature along the same | sim B | within 0.7 mK |
 | Density along cases 5A–C against the other tools (one-off) | sims C (MET-1999), D (MET-1995), A (MET-2007) | 4.6×10⁻⁴, 4.1 %, 13 % |
 
+## Attitude in the app (`attitude.test.mjs`)
+
+A craft's attitude as the app carries it: the rotational half of
+`sixdof.js` on a translation it is given, a sampled controller with finite
+torque, and burns along the body axis to the kernel
+([Attitude in the app](physics/sixdof.md#attitude-in-the-app)).
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| NESC rotation cases 8A, 8B (torque-free), 9A, 9B (torque pulse), 10A–D (gravity gradient), through the app's stepper on the case's own translation, 8 h | the closest NASA tool | within 5×10⁻¹⁴ rad/s and 3.4×10⁻⁹ deg (tolerance 10⁻¹⁰ rad/s, 10⁻⁶ deg); 2.6×10⁻¹⁶ rad/s from `sixdof.js` integrating both |
+| Turns of 10°, 45°, 90°, 120° and 170° about fixed axes, to settled | the bang-coast-bang least time under the torque and rate limits | never faster; 2.8–30 % slower (the margin and the final approach weigh most in short turns) |
+| The same turns | the controller's closed-form time (`slewTime`) | within 0.6–4.6 % |
+| A 90° slew to prograde in a 400 km orbit, by the app's craft at 60 fps through the kernel | the controller's time; the least time | 33.82 s against 34.12 s (0.9 %) and 32.13 s; settled within 0.01° of prograde |
+| A 428 m/s burn along the body axis held prograde, 600 s | the kernel's point-mass burn steered prograde | 0 m |
+| The same, about a point-mass Earth | `sixdof.js` with translation and attitude together, the app's controller in the loop | 0.21 m (the kernel's point-mass burn: 0.42 m, the Sun's and Moon's tides) |
+| The same burn begun 30° off prograde, turning as it burns | the same coupled run | 2.0 m, of the 7.5 km the turn costs |
+| A weathervane: 2° in pitch at 7.8 km/s in air of 2.5×10⁻¹⁰ kg/m³, the centre of pressure 0.3 m aft | the small-angle period $2\pi/\sqrt{q C_D A\,|r_{cp}|/I}$ | 1,598.9 s against 1,598.8 s |
+| A craft held prograde, two days at a day a second | its point-mass twin's frame | no attitude steps; no slower |
+
 ## Not yet validated
 
 - Against JPL Horizons, GMAT or Orekit trajectories.
@@ -581,6 +604,42 @@ published equations and Fortran listings
 | Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
 | Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |
 
+## Earth satellites (`satellites.test.mjs`)
+
+SGP4 and SDP4 (satellite.js, opsmode a), the TEME to J2000 turn, and the
+shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| SGP4, near-Earth, 158 states | Vallado et al. [5], verification set (`SGP4-VER.TLE`, MATLAB output) | within 0.14 mm and 0.81 µm/s |
+| SDP4, deep space, 508 states (resonances, Lyddane choices, near-parabolic) | the same | within 35 mm and 15.5 µm/s (the OMM reader's epoch to the millisecond) |
+| the error case 33334 | the same | refused (error 3) |
+| TEME to J2000, "of date" | [5, App. C, eq. (C-3)], satellite 00005 | position within 0.82 m (the turn moves it 1,154 m), velocity within 0.50 mm/s, matrix as eq. (C-2) to 10⁻⁷ |
+| the ISS, ±6 h of its epoch | JPL Horizons, the ISS (−125544) [6], geocentric ICRF | within 106 m and 0.12 m/s (TEME as J2000 would be 25.8 km off) |
+| the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
+| the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
+
+## Magnetic fields and auroras (`magnetic.test.mjs`, `aurora.test.mjs`)
+
+The planets' internal fields, the field-line tracer and the auroral ovals
+([magnetic fields and auroras](physics/magnetic-fields.md#validation), whose
+references these are).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| spherical-harmonic sum, IGRF-13 | NOAA Geomag 7.0's 20 published sample points (2015–2024.5, 0–30,000 ft, geodetic and geocentric) | X Y Z H F within 0.054 nT (its 0.1 nT printout), D and I within its minute |
+| IGRF-14, 2015.0 | the same, where IGRF-14 keeps IGRF-13's DGRF 2015 | within 0.04 nT |
+| JRM33 dipole | Connerney et al. 2022: 4.177 G R_J³, 10.25° toward 196.38° W | 4.1766, 10.250°, 196.379° |
+| JRM33 surface field, 1/15.4 spheroid | the same: just under 2 to almost 22 G (to degree 18) | 1.77 to 21.9 G (degree 13) |
+| Io's footprints, JRM33 + con2020, 144 longitudes | the paper's Tables S2 and S3 (degree 18) | within 1.17° of arc, rms 0.34°; peak \|B\| 19.8 G north, 12.3 G south (paper about 20 and 12) |
+| Cassini 11 | Cao et al. 2020, Table 5; magnetic equator about 2,300 km north | coefficients as tabled; eccentric dipole 2,254 km north |
+| Uranus and Neptune offset tilted dipoles | Ness et al. 1986, 1989, as JPL Publications 15-7 and 17-2 table them; Connerney's Q3 | moments, tilts and offsets as published; Uranus's moment within 4.9° of Q3's dipole |
+| field-line tracer | a centred dipole's $L = 1/\cos^2\lambda$ | apex to 10⁻⁴, lands at −λ to 0.004° |
+| Starkov's oval | Sigernes et al. 2011, eqs. 1–3, Table 1 | 84 coefficients as published; wider at midnight than noon; equatorward with Kp; diffuse edge equatorward of the oval. No published table of evaluated latitudes found to check against |
+| Kp | CelesTrak SW-All.csv, 10–11 May 2024 | every three-hour value, the 9o included |
+| corrected geomagnetic coordinates | a pure centred dipole (identity) | within 0.004° |
+| Saturn's northern oval | Cassini 11 conjugate of 15° south | 13.3° from the north pole |
+
 ## The field of every body and spin directions (`gravityFlow.test.mjs`)
 
 [Gravity guides](physics/gravity-guides.md#the-field-of-every-body).
@@ -605,3 +664,7 @@ published equations and Fortran listings
 [3] D. Serra *et al.*, "A solution of Jupiter's gravitational field from Juno data with the ORBIT14 software," *Mon. Not. R. Astron. Soc.*, vol. 490, no. 1, pp. 766–772, 2019, doi: 10.1093/mnras/stz2657.
 
 [4] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020.
+
+[5] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
+
+[6] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/

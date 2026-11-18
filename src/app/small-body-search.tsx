@@ -19,7 +19,8 @@ export interface SmallSearch {
   count: number;
 }
 
-export function SmallBodySearch({ api }: { api: SmallSearch }) {
+// label and placeholder: for another catalogue (the satellites' search).
+export function SmallBodySearch({ api, label, placeholder = '433, Eros, 1997 AU24, 1P' }: { api: SmallSearch; label?: string; placeholder?: string }) {
   const id = useId();
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -62,8 +63,8 @@ export function SmallBodySearch({ api }: { api: SmallSearch }) {
 
   return (
     <div className="sb-search">
-      <label className="engraved" htmlFor={`${id}-q`}>Search all {api.count.toLocaleString('en-AU')}</label>
-      <input id={`${id}-q`} className="input" type="search" placeholder="433, Eros, 1997 AU24, 1P" autoComplete="off" spellCheck={false}
+      <label className="engraved" htmlFor={`${id}-q`}>{label ?? `Search all ${api.count.toLocaleString('en-AU')}`}</label>
+      <input id={`${id}-q`} className="input" type="search" placeholder={placeholder} autoComplete="off" spellCheck={false}
         role="combobox" aria-autocomplete="list" aria-expanded={shown} aria-controls={`${id}-list`}
         aria-activedescendant={shown ? `${id}-o${active}` : undefined} aria-describedby={`${id}-status`}
         value={query} onFocus={load} onChange={(e) => setQuery(e.target.value)}

@@ -13,12 +13,31 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- Craft launched in the app carry an attitude (6-DOF). The MISSION tab
+  points them prograde, retrograde, normal, radial, along the next node
+  or holds them still, and they turn in the time their thrusters' torque
+  allows, under the gravity gradient and, low in the air, the drag's
+  torque. Burns fire along the body axis. Within 50,000 km the scene draws
+  the craft's attitude at its marker. Real missions and journeys stay
+  point masses. A followed craft's marker no longer vanishes when the
+  camera is under a kilometre away (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
   (#51), with STACK and GO stations (#54). Resonant returns to the same
   planet, as Galileo's Earth flybys (#59). Journeys land, stay and lift
   off, and leave a moon for another planet (#65).
+- Leaving a moon for another planet is priced by where the moon really is
+  on the day, so the planner's price for leaving lunar orbit for Mars is
+  within 2 % of the flight's, not 26 % short. The window strips for such
+  legs show the month's ripple a day at a time, and the planner suggests
+  the best day in the stay: an option, a lamp and a mark on the strip
+  (this pull request).
+- Journeys are flown in the full model, with the Earth's and the Moon's
+  gravity fields (mascons included), drag and sunlight, and their craft
+  no longer flies bare: a Moon landing comes down on its site. The bare
+  model is kept as a fallback where the full model's aims can't converge,
+  and the craft's Model row says so (this pull request).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,
@@ -45,8 +64,21 @@ once it has releases. Until then, everything sits under Unreleased.
   1.45 million orbits (#32). Any of them can be found and flown to (#52,
   #62).
 - Every barycentre can be flown to, with orbits about the SSB (#38).
+- Earth satellites: the 16,892 active satellites CelesTrak lists, moved by
+  SGP4 from their GP element sets and turned from TEME into J2000, dimmer
+  in the Earth's shadow. The ISS, Tiangong, Hubble, GPS, Galileo and the
+  geostationary weather satellites have their orbits. Any satellite can be
+  found by name, NORAD number or designator and flown to, with a data
+  plate. A **Latest** key fetches CelesTrak's current elements (this pull
+  request).
 - Guides for spin axes, real gravity fields, spheres of influence,
   Lagrange points and the strongest pulls (#43).
+- Magnetic fields and auroras, two new guides. Field lines traced through
+  the Earth's (IGRF-14), Jupiter's (JRM33 with its current sheet),
+  Saturn's (Cassini) and Uranus's and Neptune's (Voyager) measured fields,
+  shaded by strength, with each dipole's tilt and offset. The Earth's
+  auroral ovals for the day's Kp, green below red on the night side;
+  Jupiter's and Saturn's main ovals and Io's footprint (this pull request).
 - The gravity field of every body at once, as field lines flowing toward
   the masses in a plane through the focus: inertial, falling with the
   focus, less its own pull (Jupiter's moons' wells), or in the rotating
@@ -67,6 +99,12 @@ once it has releases. Until then, everything sits under Unreleased.
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- Artemis II at a day a second reads true: switched there straight from
+  real time before the injection, its distance from the flown path no
+  longer jumps to tens of thousands of km while the kernel catches up, and
+  past separation the capsule waits at the entry interface for the kernel
+  instead of being drawn flying off to 100 million km, then lies at its
+  splashdown site (this pull request).
 - A craft in low orbit at high time warp no longer stalls the frame on an
   integrated GPU: the drawn craft's carry is 2.3–2.7× cheaper (this pull
   request).
