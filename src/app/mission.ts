@@ -14,6 +14,11 @@
 //   arc (src/physics/launch.js: periapsis on the parking orbit, the outgoing
 //   asymptote along v_inf, the lowest-inclination plane).
 //
+// Craft launched here carry an attitude by default (sixdof: craftAttitude.js,
+// docs/physics/sixdof.md#attitude-in-the-app): they point, turn under a
+// torque limit and burn along their body axis. Real missions and journeys
+// stay point masses, so their validations are untouched.
+//
 // Real missions (public/missions/*.json, src/physics/realMission.js): the
 // craft starts from its flown state, its burns are scripted as flown (all of
 // them, or only the first, leaving the corrections to you), the flown path
@@ -32,6 +37,7 @@ import { craftWarns } from './craft-state.js';
 import { RealMission } from '../physics/realMission.js';
 import { ORION_CRAFT, ORION_ENTRIES, orionFor } from '../physics/orion.js';
 import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
+import { quatToMatrix } from '../physics/rigidbody.js';
 import type { CraftView } from '../scene/craftLayer';
 
 const MU_EARTH = 398600.4355;
@@ -87,6 +93,9 @@ export class Mission {
   private plans = new Map<number, { target: string; name: string; arrivalMs: number; closest: number }>();
   private real = new Map<number, RealRun>();
   ascents: Ascent[] = [];
+  // New launches carry an attitude (6-DOF), or fly as point masses.
+  sixdof = true;
+  private attitude(): object | null { return this.sixdof ? {} : null; }
 
   get snapshot(): MissionSnapshot { return this.snap; }
   get selected(): Craft | null { return this.crafts.find((c) => c.id === this.snap.selected) ?? null; }
@@ -151,7 +160,7 @@ export class Mission {
   plan(c: Craft) { return this.plans.get(c.id) ?? null; }
 
   private add(name: string, r: V3, v: V3, timeMs: number): Craft {
-    const c = new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys });
+    const c = new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, attitude: this.attitude() });
     this.crafts.push(c);
     this.select(c.id);
     return c;
@@ -168,7 +177,7 @@ export class Mission {
   private stateCraft(timeMs: number, rGeo: number[], vGeo: number[], name: string, props: LaunchProps): Craft {
     const E = helioStateEqj('earth', new Date(timeMs));
     const r = [0, 1, 2].map((i) => rGeo[i] + E.r[i]) as V3, v = [0, 1, 2].map((i) => vGeo[i] + E.v[i]) as V3;
-    return new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, ...props });
+    return new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, attitude: this.attitude(), ...props });
   }
 
   // The same launch flown from the pad: the craft climbs along track
@@ -417,11 +426,21 @@ export class Mission {
       if (changed) path.version++;
       const R = this.real.get(c.id);
       const E = R ? this.sys.bodyAt('earth', c.clockT) : null;
+      // A craft's attitude: its body axes and the reference it turns to, in
+      // ecliptic axes, for the scene's triad.
+      let attitude: CraftView['attitude'];
+      if (c.att) {
+        const M = quatToMatrix(c.att.q), col = (j: number): V3 => eqjToEclFast([M[0][j], M[1][j], M[2][j]]);
+        const ro = c.att.locked ? null : c.att.readout();
+        const T = ro?.ref ? quatToMatrix(ro.ref) : null;
+        attitude = { axes: [col(0), col(1), col(2)], target: T ? eqjToEclFast([T[0][0], T[1][0], T[2][0]]) : null, firing: c.thrusting() };
+      }
       return {
         id: c.id, name: c.name, rEcl: eqjToEclFast(s.r), primaryEcl: eqjToEclFast(rP),
         conicEcl: path.conic, trailEcl: path.trail.points, pathVersion: path.version,
         thrusting: c.thrusting(), crashed: c.crashed, selected: c.id === this.snap.selected,
         flown: R && E ? { pointsEcl: R.refEcl, originEcl: eqjToEclFast(E.eph.position(c.clockT)) } : undefined,
+        attitude,
       };
     });
   }

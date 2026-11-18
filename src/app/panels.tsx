@@ -8,7 +8,7 @@
 // times a second, and the header and rail redraw only when what they show
 // changes.
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { useClock, useClockValue, type SimClock } from './clock';
 import type { Mission } from './mission';
@@ -258,7 +258,7 @@ const GUIDE_ROWS: { key: GuideKey; label: string; colour: string; title: string 
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, irregular }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey, boolean>; onGuides?: (key: GuideKey, on: boolean) => void; irregular?: IrregularRail }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, smallBodies, onSmallBodies, named = [], small = null, onSmall, smallSearch, guides, onGuides, satellites, irregular }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; smallSearch?: SmallSearch; guides?: Record<GuideKey, boolean>; onGuides?: (key: GuideKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail}) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -380,6 +380,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, small
         </>
       )}
       {irregular && <IrregularMoonsRail {...irregular} />}
+      {satellites}
       {guides && onGuides && (
         <>
           <h2 className="strip split"><span>Guides</span><span title="shown">On</span></h2>
@@ -513,14 +514,15 @@ export function Readout({ rows }: { rows: Row[] }) {
 // planner and the rocket moved to the flight console (console.tsx).
 // covered: the flight console lies over the plate (up to 1680 px wide), so
 // it leaves the tab order and stops re-rendering.
-export function Plate({ clock, focus, frame = 'sun', covered = false, small = null, irregular = null }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean; small?: Named | null; irregular?: IrregularMoon | null }) {
+// sat: the satellite plate (satellite-plate.tsx), when one is in view.
+export function Plate({ clock, focus, frame = 'sun', covered = false, small = null, sat = null, irregular = null }: { clock: SimClock; focus: FocusKey; frame?: Frame; covered?: boolean; small?: Named | null; sat?: ReactNode ; irregular?: IrregularMoon | null}) {
   const [collapsed, setCollapsed] = useState(true);
   return (
     <aside className="plate screw" aria-label="Target readouts" data-collapsed={collapsed} inert={covered || undefined}>
       <span className="pnl" aria-hidden="true">R1</span>
       <button className="key plate-toggle" onClick={() => setCollapsed(!collapsed)} aria-expanded={!collapsed}>{collapsed ? 'Show data' : 'Hide data'}</button>
       <div className="tab-panel">
-        {!covered && (irregular ? <IrregularMoonPlate clock={clock} moon={irregular} /> : small ? <SmallBodyPlate clock={clock} body={small} />
+        {!covered && (irregular ? <IrregularMoonPlate clock={clock} moon={irregular} /> : sat ? sat : small ? <SmallBodyPlate clock={clock} body={small} />
           : isBary(focus) ? <BaryPlate clock={clock} bary={focus} frame={frame} /> : <DataPlate clock={clock} focus={focus} frame={frame} />)}
       </div>
     </aside>

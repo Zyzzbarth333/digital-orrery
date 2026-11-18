@@ -302,6 +302,15 @@ kbd {
 .craft-marker.burn .glyph { border-color: var(--key-lit); background: var(--key-lit); box-shadow: 0 0 10px var(--key-lit); }
 .craft-marker.lost .glyph { border-color: var(--warn); background: transparent; }
 .craft-marker.lost .name { color: var(--warn); text-decoration: line-through; }
+/* The attitude indicator (craftLayer.ts): drawn lines over the sky, under the marker. */
+.craft-att { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.craft-att path { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.craft-att .box { stroke: var(--phosphor-dim); stroke-width: 1; opacity: 0.7; }
+.craft-att .ax { stroke: var(--phosphor-dim); stroke-width: 1.5; }
+.craft-att .ax-x { stroke: var(--phosphor); stroke-width: 2; filter: drop-shadow(0 0 2px rgba(255, 178, 46, 0.6)); }
+.craft-att .ax.away { opacity: 0.45; }
+.craft-att .target { stroke: var(--phosphor); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.8; }
+.craft-att .plume { stroke: var(--key-lit); stroke-width: 3; filter: drop-shadow(0 0 4px var(--key-lit)); }
 
 
 /* ---------------- notices, hold, legend, rail foot ---------------- */
@@ -799,3 +808,16 @@ details.section[open] > summary::after { content: '−'; }
   .stack-scope { grid-template-columns: minmax(0, 1fr); justify-items: center; }
   .go-row { grid-template-columns: 96px 76px minmax(0, 1fr); }
 }
+
+/* Earth satellites (src/scene/satellites.ts): a small square with a bar
+   through it for its panels, in its group's colour; dimmer in the Earth's
+   shadow. The rail's source line and the Latest key under the search. */
+.body-marker.satellite .dot { position: relative; width: 5px; height: 5px; margin: 1px; border-color: var(--sat, rgba(236, 217, 176, 0.6)); }
+.body-marker.satellite .dot::after { content: ''; position: absolute; left: -4px; right: -4px; top: 1px; height: 1px; background: var(--sat, rgba(236, 217, 176, 0.6)); opacity: 0.8; }
+.body-marker.satellite .name { opacity: 0.8; font-size: 10px; }
+.body-marker.satellite.shadow { opacity: 0.55; }
+.body-marker.satellite.focused .name { opacity: 1; }
+.sat-source { margin: 0; padding: calc(0.5 * var(--u)) calc(1.5 * var(--u)) 0; font-size: 11px; color: var(--ink-muted); }
+.sat-source .tag { font: 10px var(--mono); border: 1px solid var(--ink); padding: 0 4px; color: var(--ink); }
+.sat-live { display: flex; align-items: center; gap: var(--u); padding: var(--u) calc(1.5 * var(--u)) 0; font-size: 11px; color: var(--ink-muted); }
+.sat-live [role='status'] { min-width: 0; }

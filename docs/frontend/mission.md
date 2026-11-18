@@ -4,7 +4,8 @@ How the app flies spacecraft. Code: `src/physics/craft.js` (the craft model,
 tested in `craft.test.mjs`), `src/physics/kernelClient.js` (the n-body
 kernel in a Web Worker), `src/app/mission.ts`, `src/app/mission-panel.tsx`,
 `src/app/planner-panel.tsx`, `src/app/porkchop.worker.ts`, and
-`src/scene/craftLayer.ts` / `craftPaths.ts` for drawing.
+`src/scene/craftLayer.ts` / `craftPaths.ts` for drawing. A craft's
+attitude: `src/physics/attitude.js` and `craftAttitude.js`.
 
 The MISSION, PLANNER and ROCKET tabs live in the flight console
 (`src/app/console.tsx`), opened from the header's FLIGHT field (or M)
@@ -42,6 +43,15 @@ The rules carried over from the earlier spacecraft code:
 
 The model craft has a 1,000 kg dry mass, 500 kg of propellant and a
 5,000 N engine at $I_{sp}$ 320 s, which is 1,272 m/s of $\Delta v$.
+
+**6-DOF or a point mass.** Craft launched here (the MISSION tab's Orbit and
+Departure, and the ROCKET tab's launches) carry an attitude by default:
+they point, turn under a torque limit and burn along their body axis
+([attitude in the app](../physics/sixdof.md#attitude-in-the-app)). The
+launch section's 6-DOF and POINT MASS keys choose, and a point-mass craft
+can take on an attitude later (CARRY ATTITUDE). Real missions and
+journeys are point masses: their burns are the real craft's or the
+planner's, and their validations stay as they are.
 
 ## Launches
 
@@ -181,8 +191,43 @@ time:
 - **prograde**, along the velocity relative to the primary;
 - **normal**, along $\mathbf r \times \mathbf v$.
 
-The engine keys burn prograde or retrograde (relative to the primary)
-until cut or dry.
+On a point mass, the engine keys burn prograde or retrograde (relative to
+the primary) until cut or dry. On a 6-DOF craft there is one key, FIRE,
+which burns along the body axis wherever it points; a node burns along
+the body axis too, so point the craft first (the NODE mode points it along
+the next node's burn).
+
+## Attitude
+
+A 6-DOF craft's ATTITUDE section, above the engine:
+
+- **Mode keys,** a radio group: PROGRADE, RETROGRADE, NORMAL, ANTI-NORMAL,
+  RADIAL OUT, RADIAL IN, NODE, HOLD (the attitude it has now, fixed among
+  the stars) and FREE (thrusters off). A new craft holds prograde.
+- **Pointing:** "Holding prograde" once settled, or "Turning to prograde:
+  42.1° to go" while turning. **Turn left:** the controller's own time for
+  the turn still to go, from rest. **Turning:** the body rate.
+  **Disturbance:** the gravity gradient and air torques on it, in N m.
+  Each has its source tag (6-DOF), with the equations in its detail.
+
+Turns take real time: a 90° turn takes 34 s at 40 N m on 1,625 kg m²
+(1.41°/s²) with a 3°/s limit, against 32 s for full torque, coast and full
+torque back. At a day a second a turn is over within a frame.
+
+**In the scene.** Within 50,000 km of the camera a 6-DOF craft's marker
+gets an attitude indicator (`craftLayer.ts`):
+- its body drawn as a small wireframe box;
+- its thrust axis in amber, its other two axes short in pale phosphor;
+- an axis pointing away from the camera fainter;
+- the reference it is turning to as a dashed amber stalk;
+- a short orange plume aft while it burns.
+
+It is projected from 3D at a fixed screen size, so it foreshortens as the
+craft turns. It is an SVG overlay on the marker rather than lines in the
+scene: the camera follows a craft from 50 m, inside the scene's 1 km
+near plane. For the same reason, a craft's marker is now shown by its
+depth in front of the camera, not its projected depth: followed from
+under a kilometre, the marker used to vanish.
 
 ## The readout
 
@@ -280,6 +325,7 @@ How the data gets in:
 | --- | --- |
 | `?craft=orbit,400,51.6` | starts with a craft in that orbit (km, °), followed |
 | `?craft=departure,2.95,prograde` | starts on that departure |
+| `?craft=orbit,400,51.6,point` | the same, as a point mass (without the fourth field, 6-DOF) |
 | `?plan=mars` | opens the planner and computes the grid |
 | `?mission=artemis2` | flies Artemis II from its start (`artemis2,first` flies only the injection burn) |
 | `?mission=artemis2&t=2026-04-06T22:50:00Z&fix=12` | starts just before the lunar flyby, with a tracking fix every 12 h |

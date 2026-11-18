@@ -10,9 +10,16 @@ anywhere.
   from wherever it is served.
 - **Daily Earth imagery:** from NASA GIBS (`gibs.earthdata.nasa.gov`), for
   the sim date.
+- **Satellite element sets, on request:** the rail's satellites **Latest**
+  key fetches CelesTrak's current GP data for the active satellites
+  (`celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=csv`, 2.5 MB),
+  only when pressed and at most once in 2 hours from the same browser, as
+  CelesTrak's usage policy asks. It sends nothing but the request itself.
+  It keeps the time it last asked in `localStorage`. Without it, the app
+  uses the snapshot it ships.
 
 Data scripts run by a developer (`npm run fetch:…`) also read public JPL,
-NAIF and NASA services. They write only under the repository and
+NAIF, NASA and CelesTrak services. They write only under the repository and
 `~/.cache/digital-orrery/`.
 
 ## Files it reads

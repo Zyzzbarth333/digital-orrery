@@ -13,6 +13,14 @@ once it has releases. Until then, everything sits under Unreleased.
 - A think-aloud usability test kit: eight scenarios, a facilitator script, a recording sheet with SEQ and SUS, and a Firefox protocol (#58, `docs/ux/think-aloud/`).
 
 ### Planning and flying
+- Craft launched in the app carry an attitude (6-DOF). The MISSION tab
+  points them prograde, retrograde, normal, radial, along the next node
+  or holds them still, and they turn in the time their thrusters' torque
+  allows, under the gravity gradient and, low in the air, the drag's
+  torque. Burns fire along the body axis. Within 50,000 km the scene draws
+  the craft's attitude at its marker. Real missions and journeys stay
+  point masses. A followed craft's marker no longer vanishes when the
+  camera is under a kilometre away (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
@@ -50,6 +58,13 @@ once it has releases. Until then, everything sits under Unreleased.
   1.45 million orbits (#32). Any of them can be found and flown to (#52,
   #62).
 - Every barycentre can be flown to, with orbits about the SSB (#38).
+- Earth satellites: the 16,892 active satellites CelesTrak lists, moved by
+  SGP4 from their GP element sets and turned from TEME into J2000, dimmer
+  in the Earth's shadow. The ISS, Tiangong, Hubble, GPS, Galileo and the
+  geostationary weather satellites have their orbits. Any satellite can be
+  found by name, NORAD number or designator and flown to, with a data
+  plate. A **Latest** key fetches CelesTrak's current elements (this pull
+  request).
 - Guides for spin axes, real gravity fields, spheres of influence,
   Lagrange points and the strongest pulls (#43).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
@@ -64,6 +79,12 @@ once it has releases. Until then, everything sits under Unreleased.
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- Artemis II at a day a second reads true: switched there straight from
+  real time before the injection, its distance from the flown path no
+  longer jumps to tens of thousands of km while the kernel catches up, and
+  past separation the capsule waits at the entry interface for the kernel
+  instead of being drawn flying off to 100 million km, then lies at its
+  splashdown site (this pull request).
 - A craft in low orbit at high time warp no longer stalls the frame on an
   integrated GPU: the drawn craft's carry is 2.3–2.7× cheaper (this pull
   request).
