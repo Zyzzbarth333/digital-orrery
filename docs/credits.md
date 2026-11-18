@@ -69,3 +69,5 @@ Every data source, map, font and library the app uses, with a link to where it c
 | [DejaVu Math TeX Gyre](https://ctan.org/pkg/tex-gyre-math-dejavu), the equation font ([licence](../src/app/fonts/LICENSE-DejaVuMath.txt)) | Bitstream Vera; [DejaVu](https://dejavu-fonts.github.io/) and math additions public domain |
 | [three.js](https://threejs.org/), [React](https://react.dev/), [astronomy-engine](https://github.com/cosinekitty/astronomy), [satellite.js](https://github.com/shashwatak/satellite-js) (SGP4) | MIT |
 | [Lucide](https://lucide.dev/) icons | [ISC](https://lucide.dev/license) |
+| The [Basis Universal](https://github.com/BinomialLLC/basis_universal) transcoder, as three.js ships it, for the GPU-compressed maps | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) |
+| [KTX-Software](https://github.com/KhronosGroup/KTX-Software)'s `ktx` tool, which encodes them (used to build, not shipped) | [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) |
