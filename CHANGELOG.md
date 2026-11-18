@@ -34,6 +34,10 @@ once it has releases. Until then, everything sits under Unreleased.
   its speed at the surface (this pull request). The moons' pull is checked
   on Juno's pass over Io and Cassini's over Titan too, which measure
   those moons' J2 and C22 (this pull request).
+- At a day a second the kernel stays in its worker through Artemis II's
+  entry: each request has a time budget, so the entry is flown in pieces
+  rather than in one 4 s request that the page took for a dead worker,
+  after which every step ran on the page's thread (this pull request).
 
 ### The sky and its bodies
 - Planets and Pluto come from JPL DE442 for 2000–2050 (#48). The moons

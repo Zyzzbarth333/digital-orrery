@@ -280,10 +280,11 @@ while $\mathbf r$ kept drifting).
 ### Step budget
 
 Each call has a step budget (200,000 in the kernel, 20,000 per frame in the
-app). Steps are never stretched to meet it: a stretched step near a planet can
-pass straight through it. When the budget runs out the advance stops short
-and reports `complete: false`; the app carries on from there next frame and
-shows that physics is behind the clock.
+app), and may have a time budget (`deadline`, a `performance.now()` time).
+Steps are never stretched to meet either: a stretched step near a planet can
+pass straight through it. When a budget runs out the advance stops short,
+after at least one step, and reports `complete: false`; the app carries on
+from there next frame and shows that physics is behind the clock.
 
 ## Encke's method
 
@@ -708,6 +709,22 @@ means the next request covers a longer span. Every result carries the craft's
 state version; a burn or a clock jump on the main thread bumps the version,
 and a result computed from the old state is dropped.
 
+Each batch sent to the Worker has a time budget of 200 ms (`budgetMs`,
+shared between its crafts, each taking an even share of what is left).
+Most batches take a few milliseconds and never meet it. Artemis II's entry
+does: from separation to splashdown under the guidance its steps cost about
+1.5 ms each, 20 ms early on, where each guidance cycle predicts the landing
+several times, and at a day a second the whole entry came in one request of
+3–4 s. The client took a Worker silent for 2 s for a dead one and moved the
+kernel onto the page's thread for good. Now the entry is flown in about 17
+requests, each answered in under 250 ms, and the client's timeout (15 s) is
+only for a Worker that has stopped answering. Split so, it lands 0.1–0.3 km
+from where the one-request entry lands and within 2 s of it, against
+Orion's 2.1 nmi (3.9 km) miss from its target on Artemis I [15]: each piece
+restarts the integrator, and the guidance samples its cycles at other
+instants. On the page's thread (no Worker, or after a fallback) requests
+still run to their end. Checked by `src/physics/kernelClient.test.mjs`.
+
 Results arrive a frame or so late, so a craft is drawn at its last exact state
 $(\mathbf r_0, \mathbf v_0, t_0)$ carried forward to the sim clock: along a
 two-body orbit about its primary (with the primary's own position from the
@@ -831,3 +848,5 @@ relative).
 [13] L. Iess *et al.*, "The tides of Titan," *Science*, vol. 337, pp. 457–459, 2012, doi: 10.1126/science.1219631.
 
 [14] E. Hairer, S. P. Nørsett, and G. Wanner, *Solving Ordinary Differential Equations I: Nonstiff Problems*, 2nd rev. ed. Berlin, Germany: Springer, 1993, doi: 10.1007/978-3-540-78862-1. Section II.6, dense output: the continuous extension of DOPRI5.
+
+[15] J. Rea, L. McNamara, and M. Kane, "Orion Artemis I entry performance," in *Proc. 46th Annu. AAS Guidance, Navigation and Control Conf.*, Feb. 2024, Paper AAS 24-174. NTRS 20240001314 (slides) and 20240000024 (paper). Table 4: splashdown 2.1 nmi from the target.
