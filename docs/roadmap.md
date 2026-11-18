@@ -50,6 +50,8 @@ Done items stay ticked so the history reads in one place. When an item is taken,
 - [ ] Jupiter's and Saturn's magnetopause and tail currents bending their outer field lines, as the Earth's model bends its own; Saturn's bow shock; Juno's ultraviolet ovals as a full check of Jupiter's main aurora ([magnetic fields](physics/magnetic-fields.md)).
 - [ ] The solar wind's 4° aberration of the Earth's magnetopause and bow shock; hourly solar wind for dates older than NOAA's seven days; a newer solar rotation and fast and slow streams for the current sheet ([magnetic fields](physics/magnetic-fields.md)).
 - [ ] An ISS data plate with its modules ([satellites](frontend/satellites.md)).
+- [ ] Landing sites still missing a primary coordinate: Hayabusa on Itokawa, Hayabusa2's touchdowns on Ryugu, Philae and Rosetta on 67P, Deep Impact on Tempel 1, and where Spirit and Opportunity stopped ([landing sites](frontend/landing-sites.md#beyond-the-moon)).
+- [ ] Colour cloud imagery near the sim's minute for Asia, Europe, Africa and Australia: GIBS carries Himawari only in greyscale and has no Meteosat ([textures](frontend/textures.md)).
 - [ ] Re-fetch the spacecraft beyond Earth orbit when Horizons updates its predictions: the data covers 2026–2027, and MRO's and DSCOVR's end in November 2026 ([spacecraft](frontend/spacecraft.md)).
 
 ## The console
@@ -57,12 +59,14 @@ Done items stay ticked so the history reads in one place. When an item is taken,
 From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's ten heuristics), in order:
 
 - [x] The rail keeps every planet in view at a laptop's height, and a phone no longer slides sideways.
-- [ ] One vehicle across the ROCKET tab, STACK and GO, and plain labels for terms such as "(r)", "2-BODY" and "D/C".
-- [ ] Lamps lit only when they mean something, one orange key per flow, and the lit RUN key's label at 4.5:1 contrast.
-- [ ] A preview and confirm step before the MISSION tab's LAUNCH.
-- [ ] The ROCKET tab split into vehicle, job and launch.
+- [x] One vehicle across the ROCKET tab, STACK and GO, and plain labels for terms such as "(r)", "2-BODY" and "D/C" (#157).
+- [x] Lamps lit only when they mean something, one orange key per flow, and the lit RUN key's label at 4.5:1 contrast (#158, #164).
+- [x] A preview and confirm step before the MISSION tab's LAUNCH (#160).
+- [x] The ROCKET tab split into vehicle, job and launch (#161).
 - [x] One search over every body, moon, small body and craft, and a `?` sheet of the keyboard shortcuts.
-- [ ] A name and a touch hint on phones, and in time a phone layout of its own: the sky full-screen, with the plate and console as sheets over it.
+- [x] A name and a touch hint on phones (#162).
+- [ ] A phone layout of its own: the sky full-screen, with the plate and console as sheets over it. The touch hint now sits over the FOLLOW chip once a craft is followed.
+- [x] The MISSION tab after a launch folds to a short panel, its sections saying what they hold (#165).
 - [ ] The rail's lower sections as groups that fold away.
 - [ ] Wrap or expand the plotting table's long lamps at phone width.
 
@@ -73,4 +77,6 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 - [ ] Trim the compressed maps' downloads near a body, which roughly double (the Moon's 25 MB against 5.5) ([textures](frontend/textures.md)).
 - [ ] Let `npm run bench:frames` settle its zoom at twice the pixel density, where the Earth and belt scenes now drop every sample ([performance](performance.md)).
 - [ ] Check that a benchmark killed mid-sample leaves no browser behind ([performance](performance.md)).
+- [ ] Stop the `Mission`'s kernel worker on a dev-server hot reload: each reload of `App.tsx` leaves one idle worker behind.
+- [ ] Try panning, pinching and the remembered view on a real phone, and in Firefox and Safari.
 - [ ] Film the docs clips again since the compressed maps, the new sky and the rail fix, and add clips of the craft beyond Earth orbit and of a flyby.
