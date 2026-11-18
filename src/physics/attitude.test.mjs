@@ -301,15 +301,29 @@ header('5. COST: A HELD CRAFT AT HIGH WARP');
   const frame = (c, t) => { c.advanceClock(t); const req = c.buildRequest(); if (req) c.applyResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]); c.displayState(); };
   const pm = mk({}), sx = mk({ attitude: { mode: 'prograde' } });
   const steps0 = sx.att.A.steps;
-  let tp = 0, ts = 0;
+  // The cost guards against per-frame work a locked craft shouldn't do
+  // (the steps check above catches it integrating; this, anything else).
+  // Each 6-DOF frame is timed against the point-mass frame run beside it,
+  // the order swapped every frame, in the process's CPU time, not the wall
+  // clock: when npm test runs files side by side, time spent waiting for a
+  // core isn't counted, a frame spoilt anyway (a GC) is dropped by taking
+  // the median of the 120 ratios, and a machine slowed for both cancels in
+  // the ratio. Alone, a frame is about 4-5 ms (most of it the kernel) and
+  // the ratio 1.02-1.03; under three processes a core, 1.01-1.04. An extra
+  // 0.3 ms a frame takes it past 1.1.
+  const ratios = [], tps = [], tss = [];
+  const timed = (c, t) => { const a = process.cpuUsage(); frame(c, t); const d = process.cpuUsage(a); return (d.user + d.system) / 1e3; };
   for (let k = 1; k <= 120; k++) {
     const t = T0 + k * 1440;
-    let a = performance.now(); frame(pm, t); tp += performance.now() - a;
-    a = performance.now(); frame(sx, t); ts += performance.now() - a;
+    let p, s;
+    if (k % 2) { p = timed(pm, t); s = timed(sx, t); } else { s = timed(sx, t); p = timed(pm, t); }
+    tps.push(p); tss.push(s); ratios.push(s / p);
   }
-  console.log(`  ${sx.att.A.steps - steps0} attitude steps; a frame ${(ts / 120).toFixed(2)} ms against ${(tp / 120).toFixed(2)} ms for the point mass (kernel and drawn carry in both)`);
+  const median = (xs) => { const v = [...xs].sort((a, b) => a - b), m = v.length >> 1; return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+  const ratio = median(ratios);
+  console.log(`  ${sx.att.A.steps - steps0} attitude steps; a median frame ${median(tss).toFixed(2)} ms of CPU against ${median(tps).toFixed(2)} ms for the point mass (kernel and drawn carry in both); median ratio ${ratio.toFixed(3)}`);
   check('a craft locked on its reference takes no attitude steps at high warp', sx.att.A.steps === steps0 && sx.att.locked);
-  check('and costs no more than 0.5 ms a frame over a point mass', (ts - tp) / 120 < 0.5);
+  check('and its frames cost no more than 10 % over a point mass\'s (median of 120 paired frames\' CPU time)', ratio < 1.1);
 }
 
 header('6. THE THRUSTERS\' PROPELLANT');
