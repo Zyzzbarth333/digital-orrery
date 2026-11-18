@@ -310,11 +310,12 @@ plane may no longer hold the way out. `parkingPlane.js` and
   starts, and J2's second-order terms add a little more. 400 km over Mars
   the kernel's node turns 0.15 to 0.6 % faster than eq. (4.52), and over a
   year that is 5 to 20° of node. So `flownNodeRate` flies the capture's
-  orbit for ten turns in the J2 field (eq. (10.30) [1]; RK4, 240 steps a
-  turn, about 10 ms). It reads the node where the orbit crosses the
-  equator going north, so the J2 terms that come and go within a turn
-  cancel. The plan's rate is eq. (4.52) scaled by that flight's rate over
-  its own.
+  orbit for ten turns in the planet's zonal field as the kernel has it
+  (`zonal.js` `addJ2`: J2, eq. (10.30) [1], and J4 for the giant planets,
+  which turns the node too; RK4, 240 steps a turn, about 10 ms). It reads
+  the node where the orbit crosses the equator going north, so the terms
+  that come and go within a turn cancel. The plan's rate is eq. (4.52)
+  scaled by that flight's rate over its own.
 - **The plane on the day.** The capture's plane (normal
   $\hat{\mathbf n}_0 \propto \mathbf v_{\infty,\text{in}} \times \mathbf v_{\infty,\text{out}}$)
   is turned about the pole by $\dot\Omega\,t_\text{stay}$. The angle off

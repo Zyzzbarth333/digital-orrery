@@ -260,7 +260,7 @@ function planeContext(S, legs, k) {
   const n0 = unit(h), uin = unit(vin), uout = X.rotate(uin, n0, X.turnAngle(rp, norm(vin), B.mu));
   const d = unit(sub(uin, uout));
   const pole = unit(eqjToEcl(bodyAxesEqj(P.body, new Date(P.arrMs))[2]));
-  const flown = flownNodeRate({ mu: B.mu, j2: z.j2, R: z.rJ2, pole, r: scale(d, rp), v: scale(unit(cross(n0, d)), Math.sqrt(B.mu / rp)) });
+  const flown = flownNodeRate({ mu: B.mu, j2: z.j2, j4: z.j4 ?? 0, R: z.rJ2, pole, r: scale(d, rp), v: scale(unit(cross(n0, d)), Math.sqrt(B.mu / rp)) });
   return { body: P.body, B, z, rp, vin, pole, arrMs: P.arrMs, n0, factor: flown ? flown.ratio : 1 };
 }
 
