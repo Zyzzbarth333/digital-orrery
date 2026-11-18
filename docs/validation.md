@@ -24,6 +24,7 @@ tests (it shares no code with the models).
 | `lambert`, 920-cell Earth to Mars grid (461 Type II) | independent RK4 | every cell solved; worst endpoint 5.5×10⁻⁹ |
 | `lambert`, real MSL dates | DE442 states, RK4 | reaches Mars to 2×10⁻¹¹; C3 = 10.69 km²/s² |
 | `lambertRevs`, 300 random geometries, 1 and 2 revolutions, both branches | flown by `propagate` | every one reaches r₂; worst 5.8×10⁻⁹ relative |
+| `timeToRadius` (first descent to a radius: ellipse in and out, hyperbola, parabola) | flown by `propagate` | at the radius to under 1 mm, above it at 400 times before; never (∞) above periapsis or leaving |
 
 ## Ephemeris and porkchop (`porkchop.test.mjs`)
 
@@ -357,6 +358,7 @@ them, is unchanged to its printed digits or within a step's rounding.
 | craft driven through the Worker client vs stepped directly | identical |
 | drawn position vs exact state (results a frame late) | 0.02 km in low orbit, 0.38 km in cruise; up to ~11,000 km during a close Earth pass at 100 days/s |
 | drawn position carried forward while the kernel lags | low orbit (two-body plus J2): 5×10⁻⁵ km at 10 min, 6.5 m at 1 h; GEO 0.74 km at 6 h; cruise 0.03 km at 1.7 days |
+| Artemis II drawn while the kernel lags at a day a second (`warp.test.mjs`) | from before the injection, 15 h on: 6.8 km from the flown path (was 17,052 km); a day past separation: held at the entry interface (120.3 km up, 11.0 km/s; was 191 million km out), then the kernel's splashdown, where it stays |
 | burn during a request in flight; dropped request | burn kept; nothing lost |
 | manual burn to empty, hour vs day frames | same state within the kernel's accuracy |
 | manoeuvre node | 415.816 kg drawn = rocket equation |
@@ -583,6 +585,21 @@ published equations and Fortran listings
 | Vis-viva speed | the drawn positions a minute apart | within 10⁻³ km/s (Ceres 17.140 km/s) |
 | Diameter from H and albedo | Ceres measured, 939.4 km (SBDB) | 951 km from H 3.34 and albedo 0.090 |
 
+## Earth satellites (`satellites.test.mjs`)
+
+SGP4 and SDP4 (satellite.js, opsmode a), the TEME to J2000 turn, and the
+shipped snapshot ([Earth satellites](frontend/satellites.md#how-right-they-are)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| SGP4, near-Earth, 158 states | Vallado et al. [5], verification set (`SGP4-VER.TLE`, MATLAB output) | within 0.14 mm and 0.81 µm/s |
+| SDP4, deep space, 508 states (resonances, Lyddane choices, near-parabolic) | the same | within 35 mm and 15.5 µm/s (the OMM reader's epoch to the millisecond) |
+| the error case 33334 | the same | refused (error 3) |
+| TEME to J2000, "of date" | [5, App. C, eq. (C-3)], satellite 00005 | position within 0.82 m (the turn moves it 1,154 m), velocity within 0.50 mm/s, matrix as eq. (C-2) to 10⁻⁷ |
+| the ISS, ±6 h of its epoch | JPL Horizons, the ISS (−125544) [6], geocentric ICRF | within 106 m and 0.12 m/s (TEME as J2000 would be 25.8 km off) |
+| the snapshot, 16,892 satellites | placed at the fetch time | all, between the ground and 2 million km |
+| the Earth's shadow (cylinder) | geometry; the ISS over an orbit | 39 % of the orbit in shadow at its epoch |
+
 ## References
 
 [1] JPL Solar System Dynamics, "Horizons System" API. Vectors for Juno (-61), from JPL's reconstructed trajectory `spk_rec_110805_*_260824`, and for Cassini (-82), from its final post-mission reconstruction. [Online]. Available: https://ssd.jpl.nasa.gov/api/horizons.api
@@ -592,3 +609,7 @@ published equations and Fortran listings
 [3] D. Serra *et al.*, "A solution of Jupiter's gravitational field from Juno data with the ORBIT14 software," *Mon. Not. R. Astron. Soc.*, vol. 490, no. 1, pp. 766–772, 2019, doi: 10.1093/mnras/stz2657.
 
 [4] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020.
+
+[5] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
+
+[6] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/

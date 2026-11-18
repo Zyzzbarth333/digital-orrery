@@ -515,6 +515,41 @@ function stumpffCS(z, cs) {
 const FACT = (() => { const f = [1]; for (let i = 1; i <= 21; i++) f.push(f[i - 1] * i); return f; })();
 const CS = [0, 0];
 
+// The time (s) until a two-body orbit from rVec, vVec first comes down to
+// radius R: 0 if it is there or below already, Infinity if it never comes
+// that low (its periapsis is above R, or it is leaving on a hyperbola). From
+// the anomaly at each radius on the inbound branch, by Kepler's equation
+// (ellipse), its hyperbolic form, or Barker's equation (parabola).
+export function timeToRadius(rVec, vVec, mu, R) {
+  const r = norm(rVec);
+  if (!(r > R)) return 0;
+  const rv = dot(rVec, vVec), h = norm(cross(rVec, vVec));
+  const alpha = 2 / r - dot(vVec, vVec) / mu;        // 1/a
+  const p = h * h / mu, e = Math.sqrt(Math.max(0, 1 - p * alpha));
+  if (!(p / (1 + e) < R)) return Infinity;
+  if (Math.abs(alpha) * r < 1e-9) {
+    // Barker: t from periapsis = sqrt(p^3/mu) (D + D^3/3) / 2, D = tan(nu/2),
+    // and on a parabola D^2 = 2r/p - 1.
+    const D = (x, sign) => sign * Math.sqrt(Math.max(0, 2 * x / p - 1));
+    const t = (d) => 0.5 * Math.sqrt(p ** 3 / mu) * (d + d ** 3 / 3);
+    const dt = t(D(R, -1)) - t(D(r, Math.sign(rv) || 1));
+    return dt >= 0 ? dt : Infinity;
+  }
+  if (alpha > 0) {
+    const a = 1 / alpha, n = Math.sqrt(mu * alpha ** 3);
+    const E0 = Math.atan2(rv / Math.sqrt(mu * a), 1 - r / a);
+    const ER = -Math.acos(clamp((1 - R / a) / e, -1, 1));
+    let dM = (ER - e * Math.sin(ER)) - (E0 - e * Math.sin(E0));
+    while (dM < 0) dM += TWO_PI;
+    return dM / n;
+  }
+  const a = 1 / alpha, n = Math.sqrt(mu * (-alpha) ** 3);   // a < 0
+  const F0 = Math.asinh(rv / (e * Math.sqrt(-mu * a)));
+  const FR = -Math.acosh(Math.max(1, (1 - R / a) / e));
+  const dM = (e * Math.sinh(FR) - FR) - (e * Math.sinh(F0) - F0);
+  return dM >= 0 ? dM / n : Infinity;
+}
+
 // A lean two-body step for short spans (a fraction of an orbit), for the
 // Encke kernel's stages: the same universal-variable equations as
 // propagate(), solved by Newton from chi = sqrt(mu) dt / r0 (accurate when

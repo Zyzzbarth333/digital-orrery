@@ -1,0 +1,296 @@
+# Earth satellites
+
+Every active satellite the US Space Force tracks, about 17,000, as points
+round the Earth, moved by SGP4 from their published element sets. The
+named ones carry a marker, a label and their orbit, and can be flown to.
+They are the ISS, Tiangong, Hubble, the GPS and Galileo constellations
+and the weather satellites in geostationary orbit, plus any found by
+search. The rail's **Satellites** section switches the layer on; it is
+off until then, and its data loads the first time.
+
+| | |
+| --- | --- |
+| ![The Earth from 51,000 km with the satellites on: a dense shell of low-orbit points close round it, Hubble's marker, and the faint orbits of the GPS, Galileo and geostationary weather satellites crossing the view](satellites-earth.jpg) | ![Further out: the GPS and Galileo shells as rings of orbits about the Earth, and the geostationary ring in green](satellites-shells.jpg) |
+| The Earth with all 16,892 on, 17 Nov 2026 12:00 UTC | Further out: the GPS and Galileo shells and the geostationary ring |
+
+Code: [`src/physics/satellites.js`](../../src/physics/satellites.js) (the
+physics), [`src/scene/satellites.ts`](../../src/scene/satellites.ts) and
+[`satellites.worker.ts`](../../src/scene/satellites.worker.ts) (drawing),
+[`satellite-rail.tsx`](../../src/app/satellite-rail.tsx) and
+[`satellite-plate.tsx`](../../src/app/satellite-plate.tsx) (the rail and
+the data plate).
+
+## The data
+
+**GP element sets.** The US Space Force fits each tracked object's
+observations with a "general perturbations" (GP) theory and publishes
+the fit's mean elements. These are the two-line element sets (TLEs) of
+old, now as an Orbit Mean-Elements Message (OMM) [1], whose keywords
+CelesTrak serves as CSV and JSON [2]. Each set gives an epoch, the mean
+motion and its first two derivatives, the eccentricity, inclination,
+node, argument of perigee and mean anomaly, and SGP4's drag term B\*.
+These are SGP4's own mean elements, not an osculating ellipse: they give
+the right positions only through SGP4 [3], [4].
+
+**The snapshot.** `npm run fetch:satellites`
+([`satellites.fetch.mjs`](../../src/physics/satellites.fetch.mjs)) asks
+CelesTrak for four groups: `active` (every satellite: 16,892 on
+17 November 2026), `gps-ops`, `galileo` and `weather`. It writes:
+
+- `public/data/satellites.csv`, the `active` group as CelesTrak sends it
+  (2.5 MB, 0.9 MB compressed);
+- `public/data/satellites.json`, with when it was fetched, the spread of
+  the epochs (median 17 November 06:00 UTC), and the named ones.
+
+The named ones are 85. Three are chosen by catalogue number: the ISS
+(25544, the Zarya module), Tiangong (48274, its core module Tianhe) and
+Hubble (20580). The rest are every member of `gps-ops` (32) and
+`galileo` (32), and the members of `weather` in geostationary orbit
+(18: GOES, Meteosat, Himawari, Fengyun, INSAT, GEO-KOMPSAT).
+
+**CelesTrak's usage policy** [5], which the script and the browser follow:
+
+- GP data changes once every 2 hours, so the script keeps each answer in
+  `~/.cache/digital-orrery/celestrak/` and reuses it while it is under
+  2 hours old.
+- The CSV format, which is a third the size of JSON, compressed in transit.
+  The task asked for OMM JSON. CSV carries the same OMM keywords, and the
+  policy asks for it.
+- Any answer but HTTP 200 stops at once, with no retry: the script prints
+  CelesTrak's message for a person to read.
+
+**Live refresh.** The rail's **Latest** key fetches CelesTrak's current
+`active` CSV from the browser (2.5 MB), at most once in 2 hours from the
+same browser (a timestamp in `localStorage`), and replaces the snapshot
+until the page is reloaded. An answer other than 200 is reported and not
+retried. Nothing else in the layer talks to CelesTrak, and SECURITY.md
+lists the request.
+
+## Moving them: SGP4
+
+SGP4 is the theory the elements are fitted with [3]: secular gravity
+(J2 and J4), drag through B\*, and short-period J2 terms, at near-Earth
+periods. Above 225 minutes it becomes SDP4, with the Moon's and the Sun's
+pull and the 12- and 24-hour resonances. That covers GPS, Galileo and
+everything geostationary: 802 of the snapshot. The code is
+[satellite.js](https://github.com/shashwatak/satellite-js) [6], a port of
+Vallado's revised SGP4 [4]. It runs in AFSPC mode (`opsmode 'a'`), as the
+operational code that fits the elements does and as Vallado's reference
+outputs do. In its other mode case 23599 of the verification set, a
+low-inclination deep-space orbit, comes out 964 m off.
+
+satellite.js's index also exports a WebAssembly build, whose top-level
+`await` the app's worker bundles cannot hold. So
+[`sgp4.js`](../../src/physics/sgp4.js) imports the two plain-JavaScript
+modules the app uses, the OMM reader and `sgp4`, by path. The package is
+pinned at 7.1.0 so the paths stay put.
+
+**Epochs.** EPOCH is given to the microsecond. `satrecOf` keeps it to the
+microsecond for the time since epoch, so half a millisecond (4 m of the
+ISS's track) is not lost. satellite.js's own reader rounds it to the whole
+millisecond for SDP4's lunar-solar setup. That moves a deep-space state
+by up to 35 mm in the verification set: the "deep-space" tolerance below.
+
+### From TEME to J2000
+
+SGP4 gives positions in TEME, the true equator and mean equinox of date:
+the Earth's equator of date, with its x axis the equinox moved back along
+the equator by the equation of the equinoxes. The app works in J2000. As
+Vallado et al. do ("of date", [4, App. C, eq. (C-3)]):
+
+$$\mathbf r_\text{J2000} = P^\text{T} N^\text{T} R_3(-E_{q,\text{geo}})\,\mathbf r_\text{TEME},\qquad E_{q,\text{geo}} = \Delta\psi\cos\varepsilon$$
+
+- *P* is the IAU 1976 precession.
+- *N* is the IAU 1980 nutation (the full 106-term series), the matrices
+  [`earthRotation.js`](../../src/physics/earthRotation.js) builds for the
+  Earth's orientation ([Body orientation](../physics/orientation.md)).
+- *E*<sub>q,geo</sub> is the equation of the equinoxes without the
+  kinematic terms added in 1994. Those terms belong to the Earth's rotation,
+  not to TEME's equinox [4, App. C].
+- The IERS corrections to the 1980 nutation (dψ, dε) are left out: SGP4's
+  frame never had them (0.05", 2 m at GEO).
+- *P* and *N* take TT from the leap-second table. UT1 doesn't enter,
+  because TEME and the Earth-fixed frame share the pole of date.
+
+Velocities turn with the same matrix. The frame's own turning (the
+precession and nutation rates, about 10⁻¹¹ rad/s) is left out of them:
+0.4 mm/s.
+
+The turn matters: at the ISS's epoch, TEME as it is would put it 25.8 km
+from Horizons' position, against 106 m after it (below).
+
+## Drawing
+
+**The points.** A worker
+([`satellites.worker.ts`](../../src/scene/satellites.worker.ts)) runs SGP4
+for the whole catalogue at a time t₀, about 8 ms once its code is warm. It
+turns each state into J2000 and from there into the two-body ellipse
+through it: the perifocal axes **P** and **Q**, the semi-major axis, the
+eccentricity, the mean anomaly at t₀ and the mean motion (with WGS-72's
+μ, SGP4's own). The vertex shader carries each point along its ellipse,
+solving Kepler's equation as the small bodies' shader does
+([Asteroids and comets](small-bodies.md#drawing)). Between refreshes the
+CPU does nothing per satellite.
+
+A new t₀ is asked for whenever the worker is free, the clock has moved
+5 s from the last one, and at least 100 ms have passed. It is asked for
+the clock's time plus the last round trip at the clock's rate, so it
+arrives centred.
+
+- **At real time** a point is never more than 5 s of clock from SGP4's
+  state. The J2 acceleration the ellipse leaves out, about 0.01 m/s² in
+  low orbit, moves it under a metre in that time.
+- **At an hour a second** a refresh comes every 100 ms of wall clock,
+  6 minutes of sim time, and the ellipse is up to a few kilometres off.
+  At a day a second the low orbits are a blur.
+
+Each refresh sends 0.7 MB to the GPU.
+
+Each point is a Gaussian of fixed width in device pixels, as the stars'
+and the small bodies' are, so it neither shimmers nor vanishes as the
+view turns.
+
+- **Brightness.** Its peak falls as 1/*d* from the camera (0.35 of white
+  at 40,000 km, capped at 1.2). That is a magnitude range halved, as the
+  small bodies' is. The layer fades out between 1 and 3 million km from
+  the Earth, where 17,000 points would sum to a glowing dot.
+- **Shadow.** A satellite in the Earth's shadow is drawn at a fifth of
+  that, a dim blue-grey against the sunlit ones' warm white. The shadow is
+  a cylinder of the Earth's radius behind it:
+
+  $$\mathbf r\cdot\hat{\mathbf s} < 0\quad\text{and}\quad |\mathbf r - (\mathbf r\cdot\hat{\mathbf s})\,\hat{\mathbf s}| < R_\oplus$$
+
+  Here ŝ is the Sun's direction from the Earth (DE442). The real umbra is
+  a cone narrowing by 0.27° of its own, so at GEO it is 1,300 km under
+  the cylinder's 6,378 km. The penumbra lasts a few seconds in low orbit.
+  Both are left out.
+- **Depth.** The points are drawn after the bodies, with the depth test on
+  the logarithmic depth buffer, so the Earth hides those behind it.
+
+Positions are camera-relative, as everything in the scene is. The Earth's
+render position is worked out in double precision on the CPU, and the
+shader adds each satellite's geocentric position, at most 0.4 render
+units away, to it.
+
+**The named ones.**
+
+- **Markers.** A small square with a bar through it for its panels, in
+  its group's colour: stations pale, Hubble amber-pale, GPS blue, Galileo
+  violet, weather satellites green, found ones grey. They are placed by
+  SGP4 itself on the main thread each frame (85 calls, under a
+  millisecond), and dim in the Earth's shadow.
+- **Labels.** The stations, Hubble and found ones show their names within
+  60,000 km of the camera. The constellations' members show theirs on
+  hover only, since dozens round the Earth would bury it. A label behind
+  the Earth is hidden.
+- **Orbits.** One period of each, sampled by SGP4 in the worker (129
+  points) and centred on the clock, drawn with the planets' orbit shader:
+  a faint outline and a glowing trail behind the satellite. They are
+  resampled once the clock has moved 0.3 of a period, so a low orbit's
+  turning plane (the ISS's node moves 5° a day) stays under it. The
+  constellations' outlines are fainter than the stations'.
+
+## Flying to one
+
+Choose a marker, the rail's **Fly to** list, or a search result. The
+camera flies to the satellite, 200 km out (or the distance last zoomed
+to), and follows it as it does a craft: its anchor is SGP4's position each
+frame. It can come to within 20 m. Choosing a body in the rail leaves it.
+A satellite SGP4 stops placing (decayed, or its element set out of the
+theory's range) hands the camera back to the body in view.
+
+**Search.** The rail's search box looks through every satellite in the
+catalogue in three ways:
+
+- by name (the app's own for the named ones: "Hubble" finds HST, and
+  "Tiangong" finds CSS (TIANHE));
+- by NORAD catalogue number (from 2026 some have six digits, which the
+  old TLE format can't hold);
+- by international designator ("1998-067A").
+
+The one chosen joins the named ones, with a marker, an orbit and a plate.
+
+**The data plate**
+([`satellite-plate.tsx`](../../src/app/satellite-plate.tsx)) shows:
+
+- where SGP4 puts the satellite now: height above the WGS-84 ellipsoid,
+  distance from the Earth's centre and speed;
+- whether it is in sunlight;
+- its element set: the epoch and the clock's distance from it, perigee and
+  apogee heights, period, eccentricity, the angles and B\*;
+- whether the elements are the snapshot or live, and when they were
+  fetched.
+
+Each value has its source tag: CelesTrak for the elements, SGP4 for what
+is worked out from them.
+
+## How right they are
+
+**An element set's own error.** GP elements are good to about a kilometre
+at their epoch in low orbit. The error grows by a few kilometres a day
+either side, faster with the drag of a low or active orbit. The plate
+shows the epoch's age. Satellites that manoeuvre (the ISS reboosts,
+Starlink keeps station) jump to a new track with each new element set.
+
+**Checks** (`npm test`,
+[`satellites.test.mjs`](../../src/physics/satellites.test.mjs)):
+
+- **SGP4 and SDP4 against Vallado's verification set** [4]. The test
+  covers the 33 cases of `SGP4-VER.TLE`, turned into OMM records, against
+  the MATLAB code's output (`tmatverDec2015.out`, 666 states, up to
+  1,281 days from epoch). The cases include drag, deep space, the 12- and 24-hour
+  resonances, the Lyddane choices, near-parabolic orbits and decays.
+  - Near-Earth (158 states): within 1 mm and 1 µm/s (worst 0.14 mm and
+    0.81 µm/s, the TLE epoch written to the microsecond).
+  - Deep space (508 states): within 10 cm and 0.1 mm/s (worst 35 mm and
+    15.5 µm/s, WIND, from the epoch's rounding above).
+  - The set's error case (33334, mean motion 10⁻⁵ rev/day) is refused.
+- **TEME to J2000 against Vallado et al.'s example** [4, App. C]:
+  satellite 00005 three days after its epoch. SGP4 gives their TEME state
+  to 0.01 mm. The turn gives their J2000 vector within 0.82 m (it moves it
+  1,154 m) and their velocity within 0.50 mm/s. The matrix agrees with
+  their eq. (C-2) to the 10⁻⁷ they print. The 0.8 m left is under the
+  IERS nutation correction of that date (dψ = −0.052", 2.5 m at that
+  distance), which the app leaves out of TEME.
+- **The ISS against JPL Horizons** [7], an independent implementation of
+  SGP4 and of the frame. The snapshot's ISS element set is propagated to
+  nine times from 6 hours before its epoch to 6 hours after. All are
+  within 106 m of Horizons' geocentric ICRF positions and 0.12 m/s of its
+  velocities. Horizons says its ISS is "TLE-based" and revised it a day
+  apart from the snapshot, so the residual is mostly the two element sets'
+  difference. TEME taken as J2000 would be 25.8 km off.
+- **The snapshot.**
+  - Every one of the 16,892 is placed at the fetch time, between the
+    ground and 2 million km.
+  - 802 are deep-space.
+  - All 85 named ones are in it.
+  - The ISS's elements give 414 × 424 km and 92.94 minutes.
+- **The shadow test:** points on and off the axis, the edge at the Earth's
+  radius, and the ISS in shadow for 39 % of an orbit at its epoch.
+
+`npm run fetch:satellites-horizons`
+([`satellites.horizons.mjs`](../../src/physics/satellites.horizons.mjs))
+rebuilds the Horizons fixture from the current snapshot's ISS.
+
+## Performance
+
+The layer costs about 3.5 ms a frame on an integrated GPU with all 16,892
+on, and nothing measurable on a discrete one. It is off until switched on,
+and costs nothing then. The numbers, and the two fixes the first timing
+called for, are in [performance.md](../performance.md#earth-satellites).
+
+## References
+
+[1] Consultative Committee for Space Data Systems, "Orbit Data Messages," Recommended Standard CCSDS 502.0-B-3 (Blue Book), Washington, DC, USA, Apr. 2023. [Online]. Available: https://public.ccsds.org/Pubs/502x0b3e1.pdf
+
+[2] T. S. Kelso, "A new way to obtain GP data (aka TLEs)," CelesTrak, 2020, updated 2026. [Online]. Available: https://celestrak.org/NORAD/documentation/gp-data-formats.php
+
+[3] F. R. Hoots and R. L. Roehrich, "Models for propagation of NORAD element sets," Spacetrack Rep. No. 3, Aerospace Defense Command, Peterson AFB, CO, USA, Dec. 1980. [Online]. Available: https://celestrak.org/NORAD/documentation/spacetrk.pdf
+
+[4] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
+
+[5] T. S. Kelso, "CelesTrak usage policy," CelesTrak, May 2026, updated Nov. 2026. [Online]. Available: https://celestrak.org/usage-policy.php
+
+[6] S. Kandadai *et al.*, "satellite.js," v7.1.0, MIT licence, 2026. [Online]. Available: https://github.com/shashwatak/satellite-js
+
+[7] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544). [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
