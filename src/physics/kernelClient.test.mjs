@@ -153,6 +153,36 @@ header('CASE 4: a Worker still loading its tables');
   check(`a load that never ends falls back after the load timeout ("${warnings[0] ?? ''}")`, stuck.mode === 'main-thread' && /tables not loaded/.test(warnings[0] ?? '') && p.crashed && p.splashed);
 }
 
+header('CASE 5: a Worker that hangs on an aim, and aims at the end');
+{
+  // An aim in the Worker's queue may take seconds, so it gets the longer
+  // aimTimeoutMs; one that never ends must not freeze every craft for good.
+  warnings.length = 0;
+  const o = capsule(), client = new KernelClient({ createWorker: createWorker(), replyTimeoutMs: 20, aimTimeoutMs: 80 }), w = lastWorker;
+  await turn();                         // its tables in
+  w.silent = true;
+  const aimed = client.aim({ r: o.kState.r, v: o.kState.v, t0: o.kState.t, T: 3600, target: [0, 0, 0] });
+  client.tick([o]);
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  client.tick([o]);
+  check('past the reply timeout but inside the aim timeout, it still waits on the Worker', client.mode === 'worker');
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  client.tick([o]);
+  check(`past the aim timeout it falls back ("${warnings[0] ?? ''}")`, client.mode === 'main-thread' && /80 ms, the worker looks stuck/.test(warnings[0] ?? ''));
+  check('and the hung aim answers null, so the craft asks again', (await aimed) === null);
+  // Without a Worker, an aim that throws answers null, as a failed one does.
+  const bare = new KernelClient({ useWorker: false });
+  bare.host = { handle() { throw new Error('bad aim'); } };
+  check('an aim that throws on this thread answers null', (await bare.aim({})) === null);
+  // Aims waiting when the client goes answer null.
+  const gone = new KernelClient({ createWorker: createWorker() });
+  await turn();
+  lastWorker.silent = true;
+  const waiting = gone.aim({ r: o.kState.r, v: o.kState.v, t0: o.kState.t, T: 3600, target: [0, 0, 0] });
+  gone.dispose();
+  check('dispose answers the aims still waiting with null', (await waiting) === null && gone.aiming.size === 0);
+}
+
 console.warn = warn;
 console.log('='.repeat(60));
 if (failures > 0) { console.log(`RESULT: ${failures} check(s) FAILED`); process.exit(1); }
