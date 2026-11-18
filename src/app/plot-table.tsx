@@ -7,7 +7,11 @@
 // - the scope: the journey from above the ecliptic (or above its planet,
 //   for a journey that never leaves one), its arcs, burns and bodies on the
 //   time cursor's date, and its burn nodes, whose tabs are pulled to add
-//   delta-v at a rate that grows with the pull;
+//   delta-v at a rate that grows with the pull; each visited body's place
+//   on the journey's dates (ghost rings, tagged L for the launch and the
+//   waypoint's number), its sweep from the departure to the cursor, and
+//   the leg under the cursor's phase angle at departure, against a
+//   Hohmann transfer's, so it shows why the window opens when it does;
 // - the lamps: can it be flown, and if not, when (feasibility.js);
 // - the delta-v ledger against the ship's budget;
 // - the timeline: each leg's cheapest delta-v by departure date against
@@ -25,7 +29,7 @@ import { PorkchopPanel } from './planner-panel';
 import { StackStation } from './plot-stack';
 import { GoStation } from './plot-go';
 import { SourceTag } from './source-tag';
-import { stateOf, bodyInfo, applyOption } from '../physics/journey.js';
+import { stateOf, bodyInfo, applyOption, legPhase } from '../physics/journey.js';
 import { assess } from '../physics/feasibility.js';
 
 type V3 = [number, number, number];
@@ -126,6 +130,14 @@ function Scope({ store, cursor }: { store: JourneyStore; cursor: number }) {
   }, [frame]);
   const bodyAt = useCallback((key: string, ms: number): V3 => frameAt('sun', stateOf(key, ms).r, ms), [frameAt]);
 
+  // The leg under the cursor (or, before the start, the first), and its
+  // phase angle at departure (journey.js legPhase).
+  const phase = useMemo(() => {
+    const sol = store.solution;
+    if (!sol.ok || !sol.legs.length) return null;
+    const k = Math.max(0, sol.legs.findIndex((L) => cursor >= L.depMs && cursor <= L.arrMs));
+    try { return legPhase(sol as never, k) as PhaseView | null; } catch { return null; }
+  }, [store.version, cursor]);
   // Every arc in the frame, with its points' times.
   const arcs = useMemo(() => (v?.arcs ?? []).map((a) => ({ ...a, pts: a.pts.map((p, i) => frameAt(a.central, p, a.t1 + ((a.t2 - a.t1) * i) / Math.max(1, a.pts.length - 1))) })), [v, frameAt]);
   const R0 = frame === 'sun' ? AU : 384400;
@@ -172,19 +184,57 @@ function Scope({ store, cursor }: { store: JourneyStore; cursor: number }) {
     // The central body.
     const o = P([0, 0, 0]);
     g.fillStyle = PH; g.beginPath(); g.arc(o[0], o[1], 4, 0, 2 * Math.PI); g.fill();
-    // The visited bodies' orbits, dim, and their places on the cursor's date.
+    // The visited bodies' orbits, dim; each one's sweep over the journey
+    // (bright from the departure to the cursor, dashed on to the end); its
+    // places on the journey's dates, as ghost rings tagged L (the launch)
+    // and each waypoint's number, amber where the craft meets it; and its
+    // place on the cursor's date.
+    const sol = store.solution, t0 = sol.startMs, t1 = sol.endMs;
+    const dates = sol.stops.map((st, i) => ({ ms: i === 0 ? st.depMs : st.arrMs, tag: i === 0 ? 'L' : String(i), body: st.body }));
     const seen = new Set<string>();
     for (const key of visited) {
       if (seen.has(key) || key === frame) continue;
       seen.add(key);
       const B = bodyInfo(key);
       const T = 2 * Math.PI * Math.sqrt((B.a ?? AU) ** 3 / bodyInfo(B.parent ?? 'sun').mu) * 1000;
-      g.strokeStyle = 'rgba(236,217,176,0.22)'; g.beginPath();
+      g.strokeStyle = 'rgba(236,217,176,0.22)'; g.lineWidth = 1; g.setLineDash([]); g.beginPath();
       for (let i = 0; i <= 120; i++) { const p = P(bodyAt(key, cursor + (T * i) / 120)); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
       g.stroke();
+      if (sol.ok && t1 > t0) {
+        // The sweep, a point every 1/240 of an orbit (at least 60).
+        const n = Math.max(60, Math.min(1440, Math.ceil(((t1 - t0) / T) * 240)));
+        const path = (a: number, b: number) => { g.beginPath(); for (let i = 0; i <= n; i++) { const p = P(bodyAt(key, a + ((b - a) * i) / n)); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.stroke(); };
+        const c = Math.max(t0, Math.min(t1, cursor));
+        g.strokeStyle = DIM; g.lineWidth = 1.5; g.setLineDash([4, 5]); if (c < t1) path(c, t1);
+        g.setLineDash([]); g.strokeStyle = PH; g.lineWidth = 2.5; if (c > t0) path(t0, c);
+        // Ghost rings, one per date, tags offset so two close together read.
+        g.font = '14px "B612 Mono", monospace';
+        dates.forEach((d, i) => {
+          const q = P(bodyAt(key, d.ms)), meets = d.body === key;
+          g.strokeStyle = meets ? PH : DIM; g.lineWidth = meets ? 2 : 1.5;
+          g.beginPath(); g.arc(q[0], q[1], meets ? 8 : 6, 0, 2 * Math.PI); g.stroke();
+          g.fillStyle = meets ? PH : DIM;
+          g.fillText(d.tag, q[0] + 9, q[1] + 16 + (i % 2) * 2);
+        });
+      }
       const p = P(bodyAt(key, cursor));
       g.fillStyle = DIM; g.beginPath(); g.arc(p[0], p[1], 4, 0, 2 * Math.PI); g.fill();
-      g.font = '10px Michroma, sans-serif'; g.fillText(nameOf(key).toUpperCase(), p[0] + 7, p[1] - 7);
+      g.font = '13px Michroma, sans-serif'; g.fillText(nameOf(key).toUpperCase(), p[0] + 9, p[1] - 9);
+    }
+    // The phase angle of the leg under the cursor, at its departure: from
+    // the centre to the body left and to the target on that day, and the
+    // arc between, labelled; the target's place at the arrival dashed.
+    const ph = phase;
+    if (ph && ph.central === frame) {
+      const a = P(bodyAt(ph.from, ph.depMs)), b = P(bodyAt(ph.to, ph.depMs)), m = P(bodyAt(ph.to, ph.arrMs));
+      g.strokeStyle = PH; g.lineWidth = 1.5; g.setLineDash([]);
+      g.beginPath(); g.moveTo(o[0], o[1]); g.lineTo(a[0], a[1]); g.moveTo(o[0], o[1]); g.lineTo(b[0], b[1]); g.stroke();
+      g.strokeStyle = DIM; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(o[0], o[1]); g.lineTo(m[0], m[1]); g.stroke(); g.setLineDash([]);
+      const angA = Math.atan2(a[1] - o[1], a[0] - o[0]), sweep = -(ph.leadDeg * Math.PI) / 180, rr = 46;
+      g.strokeStyle = PH; g.lineWidth = 2; g.beginPath(); g.arc(o[0], o[1], rr, angA, angA + sweep, sweep < 0); g.stroke();
+      const mid = angA + sweep / 2;
+      g.fillStyle = PH; g.font = '14px "B612 Mono", monospace'; g.textAlign = 'center';
+      g.fillText(`${fmt(Math.abs(ph.leadDeg), 0)}°`, o[0] + Math.cos(mid) * (rr + 18), o[1] + Math.sin(mid) * (rr + 18) + 5); g.textAlign = 'start';
     }
     // Arcs: bright, with a little glow.
     for (const a of arcs) {
@@ -213,7 +263,7 @@ function Scope({ store, cursor }: { store: JourneyStore; cursor: number }) {
     }
     // Where the tabs are, for tests and tools that drive the scope.
     c.dataset.tabs = JSON.stringify(tabs.current.map((t) => ({ label: t.label, x: Math.round(t.at[0]), y: Math.round(t.at[1]) })));
-  }, [arcs, v, store, cursor, compressed, squash, frameAt, bodyAt, frame]);
+  }, [arcs, v, store, cursor, compressed, squash, frameAt, bodyAt, frame, phase]);
 
   // The tabs on the selected node: P and R along their directions on the
   // scope, N to the side (the scope looks down on the plane).
@@ -327,11 +377,33 @@ function Scope({ store, cursor }: { store: JourneyStore; cursor: number }) {
       <canvas ref={cv} className="scope-canvas" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel}
         aria-label={`Plotting scope: the journey from above the ecliptic about ${nameOf(frame)}, on ${iso(cursor)}. A click on an arc adds a burn node; its numbers can be typed in the panel on the right.`} />
       <div className="scope-date" aria-hidden="true">{iso(cursor)}</div>
+      {phase && <PhaseReadout ph={phase} />}
       <div className="scope-keys">
         <button className="key small" aria-pressed={compressed} onClick={() => setCompressed(!compressed)} title="Squeeze the radius (square root) so inner and outer planets both fit">Compressed</button>
         <button className="key small" onClick={() => { view.current.fitFor = ''; draw(); }}>Fit</button>
       </div>
-      <div className="scope-legend" aria-hidden="true">{frame === 'sun' ? 'ecliptic from the north' : `about ${nameOf(frame)}`} · click an arc to add a node · drag to pan, wheel to zoom</div>
+      <div className="scope-legend" aria-hidden="true">{frame === 'sun' ? 'ecliptic from the north' : `about ${nameOf(frame)}`} · rings: each body on the journey's dates (L launch, 1, 2… waypoints; amber where the craft meets it) · click an arc to add a node · drag to pan, wheel to zoom</div>
+    </div>
+  );
+}
+
+// ---------------- why the window opens ----------------
+
+interface PhaseView { leg: number; from: string; to: string; central: string; depMs: number; arrMs: number; leadDeg: number; hohmannDeg: number; hohmannDays: number; synodicDays: number | null; targetMovesDeg: number; transferDeg: number | null }
+
+// The leg's phase angle on the scope, in words: where the target stood at
+// departure, where a Hohmann transfer wants it, and how often that comes.
+function PhaseReadout({ ph }: { ph: PhaseView }) {
+  const A = nameOf(ph.from), B = nameOf(ph.to);
+  const side = (d: number) => `${fmt(Math.abs(d), 0)}° ${d >= 0 ? 'ahead of' : 'behind'}`;
+  const off = ((ph.leadDeg - ph.hohmannDeg + 540) % 360) - 180;
+  return (
+    <div className="scope-phase" role="note" aria-label="Why this leg's window opens when it does">
+      <b>Leg {ph.leg + 1}: {A} › {B}</b>
+      <span>On {iso(ph.depMs)} {B} is {side(ph.leadDeg)} {A}.</span>
+      <span>A Hohmann transfer ({fmt(ph.hohmannDays, 0)} d, half an orbit) wants it {side(ph.hohmannDeg)} {A}: {Math.abs(off) < 10 ? 'near enough, so the window is open.' : `${fmt(Math.abs(off), 0)}° off, so the leg flies another arc${ph.transferDeg !== null ? `, ${fmt(ph.transferDeg, 0)}° round instead of 180°` : ''}, and it costs more the further off it is.`}</span>
+      {ph.synodicDays && <span>That line-up comes round every {fmt(ph.synodicDays, 0)} d (the synodic period).</span>}
+      <span>In the {fmt((ph.arrMs - ph.depMs) / DAY_MS, 0)} d flight {B} moves {fmt(ph.targetMovesDeg, 0)}° round, to meet the craft (the dashed line).</span>
     </div>
   );
 }

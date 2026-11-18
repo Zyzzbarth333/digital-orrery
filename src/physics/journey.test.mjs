@@ -1283,6 +1283,27 @@ if (header('CASE 21: a long stay in a low lunar orbit: the eccentricity the fiel
   check('75 days 200 km over the Moon: the plan has the orbit hold, 20 km to spare, and no lamp; the flight comes home', oHigh.fallDays === null && oHigh.lowKm >= 20 && !lHigh && !moon200.flown.impact);
 }
 
+if (header('CASE 23: why a window opens: the phase angle at departure (legPhase)')) {
+  // On circular orbits of the mean distances, Earth to Mars: a Hohmann
+  // transfer of 259 days wants Mars 44.3 degrees ahead, and the line-up
+  // comes round every 780 days; Earth to Venus wants Venus 54 degrees
+  // behind, every 584 days (Curtis Sec. 8.3, by its closed forms).
+  const leg = (to, dep, arr) => J.solveJourney({ start: { body: 'earth', kind: 'pad', altKm: 200, dateMs: D(dep) }, waypoints: [{ id: 1, body: to, kind: 'orbit', altKm: 400, stayDays: 1, dateMs: D(arr) }] });
+  const good = leg('mars', '2026-11-20T00:00:00Z', '2027-08-20T00:00:00Z'), bad = leg('mars', '2026-03-01T00:00:00Z', '2026-12-01T00:00:00Z');
+  const pg = J.legPhase(good, 0), pb = J.legPhase(bad, 0), pv = J.legPhase(leg('venus', '2028-03-25T00:00:00Z', '2028-09-13T00:00:00Z'), 0);
+  const muS = J.bodyInfo('sun').mu, aE = J.bodyInfo('earth').a, aM = J.bodyInfo('mars').a;
+  const tH = Math.PI * Math.sqrt(((aE + aM) / 2) ** 3 / muS), lead = 180 - (360 * tH) / (2 * Math.PI * Math.sqrt(aM ** 3 / muS));
+  console.log(`  Earth to Mars: Hohmann ${pg.hohmannDays.toFixed(1)} d, wants Mars ${pg.hohmannDeg.toFixed(2)} deg ahead, every ${pg.synodicDays.toFixed(1)} d; on 20 Nov 2026 it is ${pg.leadDeg.toFixed(1)} ahead (${good.totalDv.toFixed(2)} km/s), on 1 Mar 2026 ${pb.leadDeg.toFixed(1)} (${bad.totalDv.toFixed(2)} km/s)`);
+  console.log(`  Earth to Venus: wants Venus ${pv.hohmannDeg.toFixed(2)} deg, every ${pv.synodicDays.toFixed(1)} d`);
+  check('Earth to Mars: the Hohmann lead is the closed form (44.3 deg), the synodic period 780 d', near(pg.hohmannDeg, lead, 1e-9) && near(pg.hohmannDeg, 44.3, 0.1) && near(pg.synodicDays, 780, 1));
+  check('Earth to Venus: Venus 54 deg behind, every 584 d', near(pv.hohmannDeg, -54.0, 0.2) && near(pv.synodicDays, 584, 1));
+  const lon = (k, ms) => { const r = J.stateOf(k, ms).r; return Math.atan2(r[1], r[0]) * 180 / Math.PI; };
+  check('the lead on the day is Mars\'s ecliptic longitude less the Earth\'s', near(((lon('mars', good.legs[0].depMs) - lon('earth', good.legs[0].depMs) + 540) % 360) - 180, pg.leadDeg, 1e-9));
+  check('in the window (20 Nov 2026) the lead is within 10 deg of the Hohmann one, out of it (1 Mar 2026) over 100 deg off, and the leg costs far more', Math.abs(pg.leadDeg - pg.hohmannDeg) < 10 && Math.abs(pb.leadDeg - pb.hohmannDeg) > 100 && bad.totalDv > 2 * good.totalDv);
+  const local = J.solveJourney({ start: { body: 'moon', kind: 'orbit', altKm: 100, dateMs: D('2026-12-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'moon', kind: 'orbit', altKm: 300, stayDays: 1, dateMs: D('2026-12-02T00:00:00Z') }] });
+  check('an orbit change has no phase angle', J.legPhase(local, 0) === null);
+}
+
 // A case named that isn't in the file is a failure, so a part of npm test
 // can't run nothing.
 for (const n of named) if (!seen.has(n)) { console.log(`  FAIL  no CASE ${n} in this file`); failures++; }
