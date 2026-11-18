@@ -243,27 +243,32 @@ thin to matter to the orbit.
   seven major moons (601–606, 608) about the centre.
 - **Runs:** as at Io, with Titan's nodes every 10 minutes in place of
   $J_4$ (Saturn's is under $10^{-15}$ km/s² out here).
+- **Titan's nodes** are two hours apart since November 2026; the runs
+  before had them three hours apart (below).
 
 | Moons in the kernel | 3 min after closest approach | 9 h after | Closest approach (Horizons: 4,188.89 km) |
 | --- | ---: | ---: | ---: |
 | none (system at its barycentre) | 1,074 km | 22,134 km | 4,426 km |
-| `moons.js` | 0.003 km | 0.807 km | 4,188.90 km |
-| Horizons' moons | 0.012 km | 0.234 km | 4,188.91 km |
-| Horizons', Titan as Cassini's track has it | 0.015 km | 0.093 km | 4,188.91 km |
-| the same, without Titan's $J_2$ and $C_{22}$ | 0.010 km | 0.431 km | 4,188.91 km |
-| the same, Titan's nodes every 10 min | 0.016 km | 0.007 km | 4,188.91 km |
+| `moons.js` | 0.003 km | 0.712 km | 4,188.89 km |
+| Horizons' moons | 0.013 km | 0.204 km | 4,188.90 km |
+| Horizons', Titan as Cassini's track has it | 0.016 km | 0.004 km | 4,188.90 km |
+| the same, without Titan's $J_2$ and $C_{22}$ | 0.011 km | 0.369 km | 4,188.90 km |
+| the same, Titan's nodes every 10 min | 0.016 km | 0.007 km | 4,188.90 km |
 
-- **What is left is the kernel's own Titan.** Its Hermite nodes are three
-  hours apart, the spacing that holds Titan to 100 m
-  ([kernel](physics/nbody-kernel.md#moons)); at closest approach they put
-  it 27 m from the table. A pass this slow is sensitive to that: with the
-  nodes every 10 minutes, 7 m is left after nine hours.
+- **The kernel follows Cassini to 4 m** nine hours after the pass, given
+  Titan where Cassini's track has it.
+- **That needed the kernel's own Titan to be closer.** A pass this slow is
+  sensitive to where Titan is. Its Hermite nodes were three hours apart,
+  the spacing that held Titan to 100 m; at closest approach they put it
+  27 m from the table, and Cassini was 0.093 km off nine hours on. Two
+  hours apart, to 10 m ([kernel](physics/nbody-kernel.md#moons)), they put
+  it 14 m off and leave 4 m; nodes every 10 minutes change nothing more.
 - **Titan's field is measured too.** Its $J_2$ and $C_{22}$ (Iess et al.
-  2010) take the error from 0.431 km to 0.093 km.
+  2010) take the error from 0.369 km to 0.004 km.
 - **Horizons is nearly consistent here.** Its Titan is 0.04 km from the one
-  Cassini's track has, and that alone makes 0.14 km of the difference
+  Cassini's track has, and that alone makes 0.2 km of the difference
   between the third and fourth rows. `moons.js`'s Titan (sat441) leaves
-  0.81 km.
+  0.71 km.
 
 The same file checks:
 
@@ -413,7 +418,9 @@ and journeys flown by the kernel to their waypoints; the table is in
 | Resonant returns: the 2:1 cone; Galileo's Earth to Earth on NASA's dates; Galileo's whole route flown | geometry; PDS mission catalogue | 2:1 chosen, back on 8 Dec 1992, Earth flybys 0 and 70 m/s; flown within 20 km at Venus and Earth, 1.4 % at Jupiter |
 | Landings: the descent orbit burn, an entry periapsis, braking and ascent; a Moon landing with a stay, up and home, flown headless and by the Craft, both in the full model (GRAIL to degree 50) | Curtis 6.2; geometry; the plan; the headless site | to 10⁻¹² and 10⁻⁹; down on the Moon at 2.2 m/s, the entry perigee 118 km for 120; the live Craft down 60 m from the headless site (the bare model's burns flown with the mascons hit the Moon at 47 m/s) |
 | Leaving a moon by where it is: the hyperbolas onto an excess velocity; lunar orbit to Mars priced and flown; the month's strip; the best day in the stay, flown | the eccentricity vector (Curtis Sec. 2.5); the full-model flight | to 1.2 × 10⁻¹³; priced 2,227 m/s, flown 2,257 (1.4 %, within 3 %); lows a month apart; the best day priced 1,657, flown 1,666 |
+| Mars orbit to the Moon, flown: lunar orbit and a landing | the plan | 1.3 km off the planned periapsis; capture within 3 % of its price; down at 2.3 m/s |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
+| Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 20-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 205 m/s of corrections against the direct arc's 679 |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
@@ -524,9 +531,17 @@ torque, and burns along the body axis to the kernel
 | A 90° slew to prograde in a 400 km orbit, by the app's craft at 60 fps through the kernel | the controller's time; the least time | 33.82 s against 34.12 s (0.9 %) and 32.13 s; settled within 0.01° of prograde |
 | A 428 m/s burn along the body axis held prograde, 600 s | the kernel's point-mass burn steered prograde | 0 m |
 | The same, about a point-mass Earth | `sixdof.js` with translation and attitude together, the app's controller in the loop | 0.21 m (the kernel's point-mass burn: 0.42 m, the Sun's and Moon's tides) |
-| The same burn begun 30° off prograde, turning as it burns | the same coupled run | 2.0 m, of the 7.5 km the turn costs |
+| The same burn begun 30° off prograde, turning as it burns | the same coupled run (fixed inertia; the app's falls 2 % over the turn) | 1.2 m, of the 7.5 km the turn costs |
 | A weathervane: 2° in pitch at 7.8 km/s in air of 2.5×10⁻¹⁰ kg/m³, the centre of pressure 0.3 m aft | the small-angle period $2\pi/\sqrt{q C_D A\,|r_{cp}|/I}$ | 1,598.9 s against 1,598.8 s |
 | A craft held prograde, two days at a day a second | its point-mass twin's frame | no attitude steps; no slower |
+| The thrusters' impulse for rest-to-rest turns of 10°, 90°, 120° and 170° | $2I\omega_\text{peak}/L$, the angular momentum given and taken back, over the thrusters' arm | within 0.17 % (tolerance 1 %): 169.9 N s against 170.2 N s for 90° in pitch, 59.8 g at 290 s |
+| The same through the craft: a 90° slew to prograde in a 400 km orbit | the same; the tank's loss against $J/(I_{sp}g_0)$ | 0.13 % (tolerance 1 %); the tank to 10⁻¹² kg |
+| Held prograde for 60 s | the gravity-gradient torque it holds against, $\sum_i \lvert\tau_i\rvert/L_i$ a second | to 10⁻⁸ (the clock's rounding) |
+| The tanks' inertia, 500 kg in two spheres of 0.37 m, 0.6 m fore and aft | $\tfrac25 mR^2$, plus $md^2$ across (parallel-axis theorem, Curtis ch. 9) | exact: 27.38 and 207.38 kg m²; full, the box's diag(1000, 1625, 1625) |
+| A 90° slew with 50 kg of propellant left | the controller's closed-form time for the inertia then ($I_{yy}$ 1,438 kg m²) | 33.52 s against 33.85 s (1.0 %, tolerance 6 %), faster than full (34.12 s) |
+| A node 20 m/s radial out an hour ahead, held prograde, at 1/4 s frames | the turn's lead $1.1\,t_\text{slew} + 5$ s; the point-mass craft with the same node | turn began 42.54 s ahead (as planned), locked 8.5 s before the node; 0° off the node's direction; 3 mm from the point mass after; back to prograde |
+| The same at 600 s frames | the same | turn began 41.54 s ahead (the orbital frame turns 2.7° in the lead); 46 mm from the point mass |
+| A node 10 s ahead | — | the log says it cannot settle in time |
 
 ## Not yet validated
 
@@ -639,6 +654,10 @@ references these are).
 | Kp | CelesTrak SW-All.csv, 10–11 May 2024 | every three-hour value, the 9o included |
 | corrected geomagnetic coordinates | a pure centred dipole (identity) | within 0.004° |
 | Saturn's northern oval | Cassini 11 conjugate of 15° south | 13.3° from the north pole |
+| Starkov's oval, IGRF-14, CGM and Kp together | NOAA's OVATION Prime map, forecast 03:09 UTC 18 Nov 2026 (Kp 3−), night side | mean probability 19.6 % mid-oval vs 7.7 % 6° equatorward and 1.0 % 6° poleward (north); 15.2, 7.1 and 0.8 % (south) |
+| Neptune's auroral zone, L 3–20 | JWST: 30–60° S (Melin et al. 2025) | 24–48° S, mean 35° S |
+| Mercury's offset dipole | Anderson et al. 2012: 190 nT R_M³, 479 km north; libinternalfield's expansion | as published; expansion within 0.06 nT |
+| radiation belt shells | a centred dipole's L = 4; the South Atlantic Anomaly | apex 4.000000, feet at 59.997°; IGRF-14's L = 1.25 shell lowest (984 km) at 11° S, 60° W |
 
 ## Spacecraft beyond Earth orbit (`spacecraft.test.mjs`)
 
