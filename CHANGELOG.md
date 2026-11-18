@@ -29,6 +29,11 @@ once it has releases. Until then, everything sits under Unreleased.
   time to settle before the node fires (AUTO NODE TURN), saying in the
   log when it can't. The node mode now holds the direction it burned
   along afterwards (this pull request).
+- A craft launched from the ROCKET tab turns as its own stage would: its
+  inertia is a cylinder of the stack's diameter round a tank that holds
+  its stages' propellant, and its thrusters are sized to turn it as
+  briskly as the MISSION tab's craft, instead of both being the 1.5 t
+  box's. The MISSION tab's own craft is unchanged (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table

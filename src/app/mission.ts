@@ -16,8 +16,10 @@
 //
 // Craft launched here carry an attitude by default (sixdof: craftAttitude.js,
 // docs/physics/sixdof.md#attitude-in-the-app): they point, turn under a
-// torque limit and burn along their body axis. Real missions and journeys
-// stay point masses, so their validations are untouched.
+// torque limit and burn along their body axis. The MISSION tab's own craft
+// is the 1.5 t box (DEFAULT_ATTITUDE); a ROCKET-tab launch's attitude is
+// sized to its stage (stageAttitude). Real missions and journeys stay point
+// masses, so their validations are untouched.
 //
 // Real missions (public/missions/*.json, src/physics/realMission.js): the
 // craft starts from its flown state, its burns are scripted as flown (all of
@@ -39,6 +41,7 @@ import { RealMission } from '../physics/realMission.js';
 import { ORION_CRAFT, ORION_ENTRIES, orionFor } from '../physics/orion.js';
 import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
 import { quatToMatrix } from '../physics/rigidbody.js';
+import { stageAttitude } from '../physics/craftAttitude.js';
 import type { CraftView } from '../scene/craftLayer';
 
 const MU_EARTH = 398600.4355;
@@ -49,7 +52,12 @@ export const R_EARTH_EQ = 6378.137;
 export function altitudeRadius(key: string, meanRadiusKm: number): number { return key === 'earth' ? R_EARTH_EQ : meanRadiusKm; }
 type V3 = [number, number, number];
 
-export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number }
+// A launch's craft (the ROCKET tab's: the stage left at cutoff, any above it
+// and the payload): its masses (kg), its engine, its drag and sunlit area
+// (m^2), and for its attitude its diameter (m; else from the area, a
+// circle's) and the full propellant load of its stages (capacity, kg; else
+// the fuel), which size its tank (craftAttitude.js stageAttitude).
+export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number; diameter?: number; capacity?: number }
 export type DepartureDirection = 'prograde' | 'retrograde' | 'outward' | 'inward';
 
 export interface MissionSnapshot { version: number; selected: number | null }
@@ -178,7 +186,10 @@ export class Mission {
   private stateCraft(timeMs: number, rGeo: number[], vGeo: number[], name: string, props: LaunchProps): Craft {
     const E = helioStateEqj('earth', new Date(timeMs));
     const r = [0, 1, 2].map((i) => rGeo[i] + E.r[i]) as V3, v = [0, 1, 2].map((i) => vGeo[i] + E.v[i]) as V3;
-    return new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, attitude: this.attitude(), ...props });
+    const { diameter, capacity, ...craft } = props;
+    const d = diameter ?? Math.sqrt(4 * props.area / Math.PI);
+    const attitude = this.sixdof ? stageAttitude({ dryMass: props.dryMass, fuel: props.fuel, capacity, diameter: d, isp: props.isp }) : null;
+    return new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, attitude, ...craft });
   }
 
   // The same launch flown from the pad: the craft climbs along track
