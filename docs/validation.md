@@ -72,6 +72,18 @@ used in any fit; the full tables, per moon, are in
 | body-frame pole (`bodyAxesEqj`, pck00011), Phobos, Io, Rhea, Ariel, Titania, Triton, Charon | WGCCRE 2015 poles, constant terms only (Triton's precessing series in full), 14 Nov 2026 | within 1.07° (Phobos, whose periodic terms the check leaves out), Triton 0.00°; right-handed |
 | moon surface maps, longitude and latitude (by eye, not in the test) | named features at their gazetteer positions, against their mirror images ([textures](frontend/textures.md#the-moons-maps)) | all 14 east-positive with the west edge at −180°, none flipped |
 
+## Irregular moons (`irregularMoons.test.mjs`)
+
+The 381 irregular moons of Jupiter, Saturn and Neptune about their
+planet's centre, against JPL Horizons vectors at five dates, 2000–2049, not
+used in any fit ([Irregular moons](frontend/moons.md#the-irregular-moons)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| tables of `jup347`, `jup348`, `jup349`, `sat455`, `sat456`, `sat457`, `sat459`, `nep104`, all 381 (2000–2049) | Horizons, which serves those kernels | within 0.51 km (Hermippe); S/2023 S 38, fitted to 1,000 km for its e = 0.909 orbit, 0.3 km at these dates |
+| fallback outside 2000–2049: JPL's mean elements with fitted corrections | Horizons, every 10 days 2000–2050 for the fit; five other dates for the check | each within its fit's worst; median 46 % of the orbit's size for Jupiter's, 15 % for Saturn's, 26 % for Neptune's: the Sun's pull, which no precessing ellipse follows |
+| sense of motion | each moon's state now against its elements' inclination | 305 retrograde of 381, all agree |
+
 ## Barycentres (`barycentres.test.mjs`)
 
 | Model | Reference | Result |

@@ -44,6 +44,7 @@ import { clampAboveSurface } from '../physics/surfaceClamp.js';
 import { JourneyLayer } from './journeyLayer';
 import type { JourneyView, JourneyHandlers } from '../app/journey';
 import { SmallBodyLayer } from './smallBodies';
+import { IrregularMoonLayer, type IrregularPlanet } from './irregularMoons';
 import { SatelliteLayer } from './satellites';
 import { GuideLayer } from './guides';
 import { MagneticLayer } from './magnetic';
@@ -264,7 +265,8 @@ export class OrreryScene {
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
   // A named asteroid or comet the camera is on (smallBodies.ts), like a
-  // followed craft: `focus` keeps the last body.
+  // followed craft: `focus` keeps the last body. An irregular moon
+  // (irregularMoons.ts) is one too, as 'irr:<key>'.
   focusSmall: string | null = null;
   onSmallPick: (pdes: string) => void = () => {};
   // An Earth satellite the camera is on (satellites.ts), by NORAD id.
@@ -290,6 +292,8 @@ export class OrreryScene {
   private journeyCentral = (key: string): Vec3 | null => (key === 'sun' ? [0, 0, 0] : this.states[key as BodyKey]?.r ?? null);
   // The asteroids and comets (smallBodies.ts), for the rail's toggles.
   smallBodies!: SmallBodyLayer;
+  // The irregular moons of Jupiter, Saturn and Neptune (irregularMoons.ts).
+  irregulars!: IrregularMoonLayer;
   satellites!: SatelliteLayer;   // Earth satellites, for the rail's switch
   guides!: GuideLayer;           // spin axes, gravity fields, SOI and Hill spheres, Lagrange points, pulls
   magnetic!: MagneticLayer;      // magnetic field lines and auroras
@@ -300,18 +304,25 @@ export class OrreryScene {
   }
 
   private smallAnchor(pdes: string): Anchor {
-    return { id: `small:${pdes}`, pos: () => this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs), minDist: this.smallBodies.radiusKm(pdes) * 1.2 };
+    const irr = pdes.startsWith('irr:') ? pdes.slice(4) : null;
+    return { id: `small:${pdes}`, pos: () => (irr ? this.irregulars.positionKm(irr) : this.smallBodies.positionKm(pdes, this.clock.snapshot.timeMs)), minDist: this.smallRadius(pdes) * 1.2 };
+  }
+  private smallRadius(pdes: string): number {
+    return pdes.startsWith('irr:') ? this.irregulars.radiusKm(pdes.slice(4)) : this.smallBodies.radiusKm(pdes);
   }
 
-  // Fly to a named small body: framed at eight radii, at least 1 km out.
+  // Fly to a named small body or an irregular moon: framed at eight radii,
+  // at least 1 km out.
   focusOnSmall(pdes: string): void {
-    if (!this.smallBodies.body(pdes)) return;
+    const irr = pdes.startsWith('irr:') ? pdes.slice(4) : null;
+    if (irr ? !this.irregulars.has(irr) : !this.smallBodies.body(pdes)) return;
     if (this.rig.flying && this.rig.destination.id === `small:${pdes}`) return;
     this.focusCraftId = null;
     this.clearSat();
     this.focusSmall = pdes;
-    this.smallBodies.setFocus(pdes);
-    this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallBodies.radiusKm(pdes) * 8, 1));
+    this.smallBodies.setFocus(irr ? null : pdes);
+    this.irregulars.setFocus(irr);
+    this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallRadius(pdes) * 8, 1));
     this.onFlight(this.rig.flying);
     this.onSmallPick(pdes);
   }
@@ -336,6 +347,7 @@ export class OrreryScene {
     if (this.focusSmall === null) return;
     this.focusSmall = null;
     this.smallBodies.setFocus(null);
+    this.irregulars.setFocus(null);
   }
 
   private craftAnchor(id: number): Anchor {
@@ -483,6 +495,9 @@ export class OrreryScene {
     this.magnetic = new MagneticLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
+    this.irregulars = new IrregularMoonLayer(this.scene, this.overlay);
+    this.irregulars.setScale(this.renderer.getPixelRatio());
+    this.irregulars.onPick = (key) => this.focusOnSmall(`irr:${key}`);
     this.satellites = new SatelliteLayer(this.scene, this.overlay, import.meta.env.BASE_URL);
     this.satellites.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.satellites.onPick = (id) => this.focusOnSatellite(id);
@@ -605,7 +620,7 @@ export class OrreryScene {
     const craft = this.focusCraftId !== null;
     const focus = this.focus;
     const small = this.focusSmall, sat = this.focusSat !== null;
-    const minDist = craft ? 0.05 : sat ? 0.02 : small ? this.smallBodies.radiusKm(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
+    const minDist = craft ? 0.05 : sat ? 0.02 : small ? this.smallRadius(small) * 1.2 : isBary(focus) ? 1 : maxRadiusKm(focus) * 1.2;
     // Lines are 3 % of a page; pixels as they come.
     const dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 800 : e.deltaY;
     this.rig.zoom(Math.exp(dy * 0.0015), minDist, 2.0e10);
@@ -901,6 +916,8 @@ export class OrreryScene {
         now / 1000, matchMedia('(prefers-reduced-motion: reduce)').matches);
     }
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
+    this.irregulars.update(tMs, cam, (p: IrregularPlanet) => this.states[p].r, 1 / this.renderer.toneMappingExposure,
+      this.focusCraftId === null ? systemOf(this.focus) : null);
     this.satellites.update(tMs, cam, this.states.earth.r, 1 / this.renderer.toneMappingExposure, this.adapt);
     this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
@@ -1166,6 +1183,7 @@ export class OrreryScene {
     this.surfacePatch.dispose();
     this.journeyLayer.dispose();
     this.smallBodies.dispose();
+    this.irregulars.dispose();
     this.satellites.dispose();
     this.guides.dispose();
     this.magnetic.dispose();
