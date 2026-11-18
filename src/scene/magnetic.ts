@@ -121,13 +121,15 @@ const beltFragment = /* glsl */ `
 #include <logdepthbuf_pars_fragment>
 uniform vec3 colour;
 uniform float level;
+uniform float fade;         // 0 as the camera comes inside this shell
 varying float vW;
 varying vec3 vN;
 varying vec3 vV;
 void main() {
   #include <logdepthbuf_fragment>
   float edge = 1.0 - abs(dot(normalize(vN), normalize(vV)));
-  float a = vW * (0.05 + 0.3 * edge * edge);
+  float a = fade * vW * (0.05 + 0.3 * edge * edge);
+  if (a < 0.004) discard;   // no blending for what cannot be seen
   gl_FragColor = vec4(colour * a * level, a);
 }
 `;
@@ -163,7 +165,7 @@ const fmtGauss = (nT: number) => {
 export class MagneticLayer {
   readonly on: Record<MagneticKey, boolean> = { magnetic: false, aurora: false, belts: false };
   private belts: Belts | null = null;
-  private beltMeshes = new Map<BodyKey, { jobs: (() => void)[]; mesh: THREE.Mesh | null }>();
+  private beltMeshes = new Map<BodyKey, { jobs: (() => void)[]; shells: { mesh: THREE.Mesh; L: number }[] }>();
   private mag: Mag | null = null;
   private aur: Aur | null = null;
   private loading: Promise<void> | null = null;
@@ -286,7 +288,15 @@ export class MagneticLayer {
       }
       if (this.on.belts && k in this.belts!.BELTS) this.beltShells(k, L, g, spare);
       const bm = this.beltMeshes.get(k);
-      if (bm?.mesh) bm.mesh.visible = this.on.belts;
+      if (bm?.shells.length) {
+        const camL = this.on.belts ? this.cameraL(L, mesh, mat) : 0;
+        for (const sh of bm.shells) {
+          // Fades out as the camera's L comes down to the shell's.
+          const t = Math.min(Math.max((camL / sh.L - 0.9) / 0.3, 0), 1), f = t * t * (3 - 2 * t);
+          sh.mesh.visible = this.on.belts && f > 0;
+          (sh.mesh.material as THREE.ShaderMaterial).uniforms.fade.value = f;
+        }
+      }
       if (k === 'earth' && !this.on.aurora) { if (this.earthAurora) this.earthAurora.visible = false; if (this.ovationMesh) this.ovationMesh.visible = false; }
       const gi = this.giant.get(k);
       if (gi?.mesh) gi.mesh.visible = this.on.aurora;
@@ -307,7 +317,7 @@ export class MagneticLayer {
     }
     if (this.io.mesh) (this.io.mesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
     if (this.ovationMesh) (this.ovationMesh.material as THREE.ShaderMaterial).uniforms.level.value = glow;
-    for (const b of this.beltMeshes.values()) if (b.mesh) (b.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
+    for (const b of this.beltMeshes.values()) for (const sh of b.shells) (sh.mesh.material as THREE.ShaderMaterial).uniforms.level.value = f.level;
 
     // The legend: the focused body's, else none.
     const lk = f.focus && this.lines.has(f.focus) && this.on.magnetic ? f.focus : null;
@@ -382,7 +392,7 @@ export class MagneticLayer {
     for (const o of [L.mesh, L.axis]) if (o) { o.parent?.remove(o); o.geometry.dispose(); }
     this.lines.delete(k);
     const bm = this.beltMeshes.get(k);
-    if (bm) { if (bm.mesh) { bm.mesh.parent?.remove(bm.mesh); bm.mesh.geometry.dispose(); (bm.mesh.material as THREE.Material).dispose(); } this.beltMeshes.delete(k); }
+    if (bm) { for (const sh of bm.shells) { sh.mesh.parent?.remove(sh.mesh); sh.mesh.geometry.dispose(); (sh.mesh.material as THREE.Material).dispose(); } this.beltMeshes.delete(k); }
     if (k === 'earth' && this.earthAurora) { this.earthAurora.parent?.remove(this.earthAurora); this.earthAurora.geometry.dispose(); (this.earthAurora.material as THREE.Material).dispose(); this.earthAurora = null; }
   }
 
@@ -672,13 +682,13 @@ export class MagneticLayer {
     const B = this.belts!;
     let st = this.beltMeshes.get(k);
     if (!st) {
-      const pos: number[] = [], wt: number[] = [], idx: number[] = [];
-      const jobs: (() => void)[] = [];
+      const jobs: (() => void)[] = [], shells: { mesh: THREE.Mesh; L: number }[] = [];
       for (const belt of B.BELTS[k as keyof typeof B.BELTS]) {
         for (let i = 0; i < BELT_SHELLS; i++) {
           const Ls = belt.L[0] + ((belt.L[1] - belt.L[0]) * (i + 0.5)) / BELT_SHELLS, w = B.beltWeight(belt, Ls);
+          // One mesh a shell, so a shell around the camera can be left out.
           jobs.push(() => {
-            const base = pos.length / 3;
+            const pos: number[] = [], wt: number[] = [], idx: number[] = [];
             const lines = B.traceShell(L.model, Ls, BELT_LON, L.surface);
             for (let j = 0; j <= BELT_LON; j++) {
               const r = B.resample(lines[j % BELT_LON].points, BELT_SAMPLES, L.model);
@@ -689,33 +699,44 @@ export class MagneticLayer {
               }
             }
             for (let j = 0; j < BELT_LON; j++) for (let sIdx = 0; sIdx < BELT_SAMPLES - 1; sIdx++) {
-              const i0 = base + j * BELT_SAMPLES + sIdx, i1 = i0 + BELT_SAMPLES;
+              const i0 = j * BELT_SAMPLES + sIdx, i1 = i0 + BELT_SAMPLES;
               // No triangles where the shell has faded out (fill is the cost on an integrated GPU).
               if (wt[i0] < 0.03 && wt[i0 + 1] < 0.03 && wt[i1] < 0.03 && wt[i1 + 1] < 0.03) continue;
               idx.push(i0, i1, i0 + 1, i0 + 1, i1, i1 + 1);
             }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            geo.setAttribute('weight', new THREE.Float32BufferAttribute(wt, 1));
+            geo.setIndex(idx);
+            geo.computeVertexNormals();
+            const mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+              vertexShader: beltVertex, fragmentShader: beltFragment, transparent: true, depthWrite: false, toneMapped: false,
+              blending: THREE.AdditiveBlending, side: THREE.FrontSide,
+              uniforms: { colour: { value: BELT_COLOUR }, level: { value: 1 }, fade: { value: 1 } },
+            }));
+            mesh.frustumCulled = false;
+            mesh.renderOrder = 3;
+            mesh.visible = this.on.belts;
+            g.add(mesh);
+            shells.push({ mesh, L: Ls });
           });
         }
       }
-      jobs.push(() => {
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-        geo.setAttribute('weight', new THREE.Float32BufferAttribute(wt, 1));
-        geo.setIndex(idx);
-        geo.computeVertexNormals();
-        const mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({
-          vertexShader: beltVertex, fragmentShader: beltFragment, transparent: true, depthWrite: false, toneMapped: false,
-          blending: THREE.AdditiveBlending, side: THREE.FrontSide, uniforms: { colour: { value: BELT_COLOUR }, level: { value: 1 } },
-        }));
-        mesh.frustumCulled = false;
-        mesh.renderOrder = 3;
-        g.add(mesh);
-        st!.mesh = mesh;
-      });
-      st = { jobs, mesh: null };
+      st = { jobs, shells };
       this.beltMeshes.set(k, st);
     }
     while (st.jobs.length && spare() > 0) st.jobs.shift()!();
+  }
+
+  // The camera's own L (r / cos^2 of its magnetic latitude, from the
+  // dipole's centre, in the body's radii): a shell of larger L encloses it,
+  // and from inside a belt is only a haze over the whole view.
+  private cameraL(L: BodyLines, mesh: THREE.Mesh, mat: THREE.ShaderMaterial): number {
+    const p = this.w.copy(mesh.position).negate().applyMatrix3(mat.uniforms.toBody.value as THREE.Matrix3).multiplyScalar(UNIT_KM / L.model.a);
+    const c = L.model.dipole.centre, m = L.model.dipole.m, M = Math.hypot(m[0], m[1], m[2]);
+    const d = [p.x - c[0], p.y - c[1], p.z - c[2]], r = Math.hypot(d[0], d[1], d[2]);
+    const sinLat = (d[0] * m[0] + d[1] * m[1] + d[2] * m[2]) / (M * r);
+    return r / Math.max(1 - sinLat * sinLat, 1e-6);
   }
 
   // ---- labels ----
@@ -785,7 +806,7 @@ export class MagneticLayer {
     for (const k of [...this.lines.keys()]) this.drop(k);
     for (const gi of this.giant.values()) if (gi.mesh) { gi.mesh.geometry.dispose(); (gi.mesh.material as THREE.Material).dispose(); }
     if (this.io.mesh) { this.io.mesh.geometry.dispose(); (this.io.mesh.material as THREE.Material).dispose(); }
-    for (const b of this.beltMeshes.values()) if (b.mesh) { b.mesh.geometry.dispose(); (b.mesh.material as THREE.Material).dispose(); }
+    for (const b of this.beltMeshes.values()) for (const sh of b.shells) { sh.mesh.geometry.dispose(); (sh.mesh.material as THREE.Material).dispose(); }
     if (this.ovationMesh) { this.ovationMesh.geometry.dispose(); (this.ovationMesh.material as THREE.Material).dispose(); }
     for (const g of this.groups.values()) this.scene.remove(g);
     this.lineMat.dispose(); this.axisMat.dispose();
