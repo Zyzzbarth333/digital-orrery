@@ -15,6 +15,16 @@
 //   4. The aerodynamic torque's weathervane: the small-angle pitch
 //      frequency sqrt(q CdA |cp| / I).
 //   5. Cost: a held craft at a day a second takes no attitude steps.
+//   6. The thrusters' propellant: rest-to-rest turns against the angular
+//      impulse they need in closed form, 2 I omega_peak / arm, at the
+//      thrusters' Isp; and the tank's account through the craft.
+//   7. Inertia that falls with the propellant: the tanks' tensor by the
+//      parallel-axis theorem, and a turn on a near-empty craft against the
+//      controller's closed-form time for its inertia then.
+//   8. The node auto-turn: the turn starts slewTime ahead, settles before
+//      the node, burns as the point-mass node burn does (at 1/4 s frames
+//      and at 600 s frames), comes back to its mode, and says when it is
+//      too late.
 //
 // Fixture: fixtures/nesc_orbital.json (npm run fetch:nesc).
 
@@ -23,8 +33,8 @@ import fs from 'node:fs';
 import { runCase, CASES, VEHICLES, MU } from './nesc.lib.mjs';
 import { euler321, makeModel, propagate6dof } from './sixdof.js';
 import { transpose, quatToMatrix } from './rigidbody.js';
-import { makeAttitude, advanceAttitude, setMode, slewTime, minSlewTime, alphaAbout, attitudeError, pointing, orbitalFrame, controlTorque, thrustAxis, CONTROL_PERIOD } from './attitude.js';
-import { DEFAULT_ATTITUDE } from './craftAttitude.js';
+import { makeAttitude, advanceAttitude, setMode, setInertia, rcsThrust, slewTime, minSlewTime, alphaAbout, attitudeError, pointing, orbitalFrame, controlTorque, thrustAxis, CONTROL_PERIOD } from './attitude.js';
+import { DEFAULT_ATTITUDE, propellantInertia, inertiaFor, AUTO_MARGIN, AUTO_PAD } from './craftAttitude.js';
 import { Craft } from './craft.js';
 import { createKernelHost, stepCraft, KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { solarSystemBodies } from './bodies.js';
@@ -285,6 +295,164 @@ header('5. COST: A HELD CRAFT AT HIGH WARP');
   console.log(`  ${sx.att.A.steps - steps0} attitude steps; a frame ${(ts / 120).toFixed(2)} ms against ${(tp / 120).toFixed(2)} ms for the point mass (kernel and drawn carry in both)`);
   check('a craft locked on its reference takes no attitude steps at high warp', sx.att.A.steps === steps0 && sx.att.locked);
   check('and costs no more than 0.5 ms a frame over a point mass', (ts - tp) / 120 < 0.5);
+}
+
+header('6. THE THRUSTERS\' PROPELLANT');
+// Rest to rest about a principal axis, the torque about it is all the
+// angular momentum it gains and loses: the integral of |tau| is
+// 2 I omega_peak (omega_peak the rate limit when the turn reaches it, else
+// the controller's peak), whatever the profile. The thrusters are couples
+// rcsArm from the axis, so their total impulse is that over the arm, and
+// the propellant J / (Isp g0) (Isp's definition: Curtis, 4th ed., §13.3).
+const G0 = 9.80665;
+{
+  const sp = { ...spec, rcsArm: DEFAULT_ATTITUDE.rcsArm };
+  const far = () => ({ r: [4.2e7, 0, 0], v: [0, 3075, 0] });
+  let worst = 0;
+  console.log('  turn, axis        impulse    closed form      propellant');
+  for (const [deg, ax] of [[10, 2], [90, 1], [120, 0], [170, 2]]) {
+    const th = deg * D2R, e = [0, 0, 0]; e[ax] = 1;
+    const A = makeAttitude({ ...sp, gravityGradient: false, mode: 'inertial' });
+    A.holdQ = [Math.cos(th / 2), ...e.map((c) => c * Math.sin(th / 2))];
+    let t = 0;
+    while (t < 300 && !A.locked) { t += 1 / 60; advanceAttitude(A, t, { key: 'x', mu: MU, at: far }); }
+    // The peak: the rate limit, or slewTime's triangle short of it.
+    const a = alphaAbout(sp, e), b = 0.8 * a, c = b * 0.4, A2 = 1 / (2 * a) + 1 / (2 * b), B1 = c / b;
+    const wp = Math.min(sp.rateMax, (-B1 + Math.sqrt(B1 * B1 + 4 * A2 * th)) / (2 * A2));
+    const want = 2 * sp.inertia[ax][ax] * wp / sp.rcsArm[ax];
+    worst = Math.max(worst, Math.abs(A.rcsImpulse / want - 1));
+    console.log(`  ${String(deg).padStart(3)} deg about ${'xyz'[ax]}    ${A.rcsImpulse.toFixed(2).padStart(7)} N s  ${want.toFixed(2).padStart(7)} N s (${((A.rcsImpulse / want - 1) * 100).toFixed(2)}%)   ${(A.rcsImpulse / (DEFAULT_ATTITUDE.rcsIsp * G0) * 1e3).toFixed(1)} g`);
+  }
+  check('each turn\'s thruster impulse within 1 % of 2 I omega_peak / arm', worst < 0.01);
+  // By hand, 90 deg in pitch: 2 x 1,625 kg m^2 x 3 deg/s / 1 m = 170.2 N s,
+  // 170.2 / (290 x 9.80665) = 59.8 g.
+  check('rcsThrust: a pitch torque of 40 N m on 1 m arms takes 40 N, and 20 N m of roll on 0.5 m arms 40 N', rcsThrust(sp, [0, 40, 0]) === 40 && rcsThrust(sp, [20, 0, 0]) === 40 && rcsThrust(sp, [20, -40, 40]) === 120);
+
+  // Through the craft: the slew of section 2, frame by frame, the tank
+  // drawn by the thrusters' impulse and nothing else.
+  const START = new Date('2026-11-04T00:00:00Z'), T0 = kernelSeconds(START);
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), host = createKernelHost();
+  const E = helioStateEqj('earth', START), rk = 6778.137, vc = Math.sqrt(398600.4355 / rk);
+  const c = new Craft({ name: 'rcs', r: [E.r[0] + rk, E.r[1], E.r[2]], v: [E.v[0], E.v[1] + vc, E.v[2]], t: T0, sys, attitude: { mode: 'radial' } });
+  const frame = (t) => { c.advanceClock(t); const req = c.buildRequest(); if (req) c.applyResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]); };
+  for (let k = 1; k <= 30; k++) frame(T0 + k / 60);
+  const fuel0 = c.fuel, J0 = c.att.A.rcsImpulse;
+  c.att.setMode('prograde');
+  let t = c.clockT;
+  while (!c.att.locked && t < T0 + 300) { t += 1 / 60; frame(t); }
+  const J = c.att.A.rcsImpulse - J0, want = 2 * 1625 * spec.rateMax / 1, used = fuel0 - c.fuel;
+  console.log(`  90 deg slew to prograde in low orbit: ${J.toFixed(2)} N s (closed form ${want.toFixed(2)} N s), ${(used * 1e3).toFixed(2)} g from the tank, ${(c.att.rcsSpent * 1e3).toFixed(2)} g counted`);
+  check('the craft\'s slew to prograde within 1 % of 2 I omega_max / arm (the orbital frame turning under it)', Math.abs(J / want - 1) < 0.01);
+  check('the tank loses J / (Isp g0), to 1e-12 kg', Math.abs(used - J / (DEFAULT_ATTITUDE.rcsIsp * G0)) < 1e-12);
+  // Held there, against the gravity gradient: the impulse is the
+  // disturbance it holds against, |tau_i| / arm_i, each frame's (found at
+  // the frame's start) for its second.
+  const Jl = c.att.A.rcsImpulse, tl = c.clockT;
+  let wantHeld = 0;
+  for (let k = 1; k <= 60; k++) { frame(tl + k); wantHeld += rcsThrust({ rcsArm: DEFAULT_ATTITUDE.rcsArm }, c.att.A.disturbance); }
+  const held = c.att.A.rcsImpulse - Jl;
+  console.log(`  held prograde for 60 s: ${held.toExponential(3)} N s against ${norm(c.att.A.disturbance).toExponential(1)} N m of gravity gradient (sum |tau_i| / arm_i dt: ${wantHeld.toExponential(3)} N s)`);
+  // (to 1e-6: a frame's second is the difference of clock times near 1e9 s)
+  check('held, it pays only for the disturbance it holds against (to 1e-6 relative)', c.att.locked && wantHeld > 0 && Math.abs(held / wantHeld - 1) < 1e-6);
+  // An empty tank: the thrusters stop and the engine is cut.
+  c.fuel = 1e-6; c.att.setMode('radial');
+  frame(c.clockT + 1);
+  check('with the tank emptied by the thrusters, control goes off and the tank stays at 0', c.att.mode === 'off' && c.fuel === 0 && c.log.some((x) => /tank empty: attitude thrusters off/.test(x.text)));
+}
+
+header('7. INERTIA THAT FALLS WITH THE PROPELLANT');
+// Two equal spherical tanks of radius R on the thrust axis, d fore and aft
+// of the centre of mass: about x, 2/5 m R^2; about y and z, m d^2 more
+// (the parallel-axis theorem: Curtis, 4th ed., ch. 9). R 0.37 m, d 0.6 m.
+{
+  const T = DEFAULT_ATTITUDE.tanks, P = propellantInertia(500, T);
+  const sx = 0.4 * 500 * 0.37 ** 2, syz = sx + 500 * 0.36;
+  check(`500 kg in the tanks: ${P[0][0].toFixed(2)} kg m^2 about x (2/5 m R^2 = ${sx.toFixed(2)}), ${P[1][1].toFixed(2)} about y and z (+ m d^2 = ${syz.toFixed(2)})`, Math.abs(P[0][0] - sx) < 1e-9 && Math.abs(P[1][1] - syz) < 1e-9 && P[2][2] === P[1][1] && P[0][1] === 0);
+  const full = inertiaFor(DEFAULT_ATTITUDE, 500), dry = inertiaFor(DEFAULT_ATTITUDE, 0), half = inertiaFor(DEFAULT_ATTITUDE, 250);
+  console.log(`  full: diag(${full.map((r, i) => r[i].toFixed(1)).join(', ')}); half: diag(${half.map((r, i) => r[i].toFixed(1)).join(', ')}); dry: diag(${dry.map((r, i) => r[i].toFixed(1)).join(', ')}) kg m^2`);
+  check('full, the tensor is the 2 x 2 x 3 m box\'s diag(1000, 1625, 1625)', full.every((r, i) => r.every((x, j) => Math.abs(x - DEFAULT_ATTITUDE.inertia[i][j]) < 1e-9)));
+  check('dry, the box less the full tanks: diag(972.62, 1417.62, 1417.62); linear in the propellant between', Math.abs(dry[0][0] - (1000 - sx)) < 1e-9 && Math.abs(dry[1][1] - (1625 - syz)) < 1e-9 && Math.abs(half[1][1] - (dry[1][1] + full[1][1]) / 2) < 1e-9);
+
+  // A craft burned down to 50 kg: its tensor follows the tank, and its 90
+  // deg slew settles in the controller's closed-form time for that inertia
+  // (faster than full: alpha = 40 N m / I_yy).
+  const START = new Date('2026-11-04T00:00:00Z'), T0 = kernelSeconds(START);
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), host = createKernelHost();
+  const E = helioStateEqj('earth', START), rk = 6778.137, vc = Math.sqrt(398600.4355 / rk);
+  const c = new Craft({ name: 'light', r: [E.r[0] + rk, E.r[1], E.r[2]], v: [E.v[0], E.v[1] + vc, E.v[2]], t: T0, sys, attitude: { mode: 'radial' } });
+  const frame = (t) => { c.advanceClock(t); const req = c.buildRequest(); if (req) c.applyResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]); };
+  c.fuel = 50;
+  for (let k = 1; k <= 30; k++) frame(T0 + k / 60);
+  const I = c.att.spec.inertia, want = inertiaFor(DEFAULT_ATTITUDE, c.fuel);
+  check(`the craft's tensor follows its tank: I_yy ${I[1][1].toFixed(2)} kg m^2 at ${c.fuel.toFixed(3)} kg`, I.every((r, i) => r.every((x, j) => Math.abs(x - want[i][j]) < 1e-6)));
+  const env = c.att.env(), s = env.at(c.clockT), { V, N } = orbitalFrame(s.r, s.v);
+  const err0 = attitudeError(c.att.q, pointing(V, N, V));
+  c.att.setMode('prograde');
+  const tStart = c.clockT, specNow = { ...spec, inertia: c.att.spec.inertia };
+  let t = tStart;
+  while (!c.att.locked && t < tStart + 300) { t += 1 / 60; frame(t); }
+  const took = t - tStart, p = slewTime(specNow, err0.theta, err0.e), pFull = slewTime(spec, err0.theta, err0.e);
+  console.log(`  90 deg slew at ${c.fuel.toFixed(1)} kg of propellant: ${took.toFixed(2)} s, controller ${p.toFixed(2)} s for I_yy ${specNow.inertia[1][1].toFixed(1)} (full: ${pFull.toFixed(2)} s)`);
+  check('the near-empty craft settles within 6 % of slewTime for its inertia then, and sooner than full', Math.abs(took / p - 1) < 0.06 && took < pFull);
+  // setInertia: the torque-free body under a pulse turns at tau t / I.
+  const B = makeAttitude({ inertia: full, torqueMax: [1, 1, 1], mode: 'off', gravityGradient: false, torque: (tt) => (tt < 10 ? [0, 5, 0] : null), breakpoints: [10], fixedStep: 0.5 });
+  setInertia(B, dry);
+  advanceAttitude(B, 10, { key: 'x', mu: MU, at: () => ({ r: [4.2e7, 0, 0], v: [0, 3075, 0] }) });
+  check(`with setInertia, a 5 N m pulse for 10 s turns the dry body at tau t / I_yy = ${(50 / dry[1][1]).toExponential(4)} rad/s`, Math.abs(B.omega[1] - 50 / dry[1][1]) < 1e-12);
+}
+
+header('8. THE NODE AUTO-TURN');
+// A craft in a 400 km orbit holding prograde; a node an hour ahead (or
+// 600 s frames) of 20 m/s radial out: a 90 deg turn. Its twin is a point
+// mass with the same node, its burn along the node's direction.
+{
+  const START = new Date('2026-11-04T00:00:00Z'), T0 = kernelSeconds(START);
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), host = createKernelHost();
+  const E = helioStateEqj('earth', START), rk = 6778.137, vc = Math.sqrt(398600.4355 / rk);
+  const mk = (o) => new Craft({ name: 'auto', r: [E.r[0] + rk, E.r[1], E.r[2]], v: [E.v[0], E.v[1] + vc * Math.cos(0.9), E.v[2] + vc * Math.sin(0.9)], t: T0, sys, ...o });
+  const frame = (c, t) => { c.advanceClock(t); const req = c.buildRequest(); if (req) c.applyResult(host.handle({ type: 'step', crafts: [req] }).crafts[0]); c.displayState(); };
+  const run = (dt, lead, tEnd) => {
+    const pm = mk({}), sx = mk({ attitude: { mode: 'prograde' } });
+    for (const c of [pm, sx]) c.addNode(T0 + lead, [0.02, 0, 0]);
+    const predicted = AUTO_MARGIN * slewTime(spec, Math.PI / 2, [0, 0, 1]) + AUTO_PAD;
+    let settledBy = null, axisErr = null;
+    for (let t = T0 + dt; t <= T0 + tEnd + 1e-9; t += dt) {
+      frame(pm, t); frame(sx, t);
+      if (settledBy === null && sx.att.locked && sx.att.mode === 'node') settledBy = t - T0;
+      if (axisErr === null && sx.executing) axisErr = Math.acos(Math.min(1, dot3(sx.bodyAxis, sx.executing.burn.nodeDir))) * R2D;
+    }
+    const turnNote = sx.log.find((x) => /° to the node, /.test(x.text));
+    return { pm, sx, predicted, settledBy, axisErr, turnAt: turnNote ? turnNote.t - T0 : null, d: dist(pm.kState.r, sx.kState.r) * 1e3 };
+  };
+  const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const a = run(0.25, 3600, 3700);
+  console.log(`  1/4 s frames: turn began ${(3600 - a.turnAt).toFixed(2)} s before the node (AUTO_MARGIN slewTime + AUTO_PAD = ${a.predicted.toFixed(2)} s), locked ${(3600 - a.settledBy).toFixed(2)} s before it`);
+  console.log(`  burning ${a.axisErr?.toExponential(1)} deg off the node's direction; ${a.d.toFixed(3)} m from the point-mass twin after; mode now ${a.sx.att.mode}; thrusters ${(a.sx.att.rcsSpent * 1e3).toFixed(1)} g`);
+  check('the turn starts AUTO_MARGIN slewTime + AUTO_PAD before the node (to a frame)', Math.abs(3600 - a.turnAt - a.predicted) < 0.25);
+  check('and settles before the node fires', a.settledBy !== null && a.settledBy < 3600);
+  check('the node burns along its direction (within 0.01 deg) and flies the point-mass node burn to within 0.1 m', a.axisErr < 0.01 && a.d < 0.1);
+  check('after the burn, back to prograde', a.sx.att.mode === 'prograde' && !a.sx.log.some((x) => /too late/.test(x.text)));
+  // At 600 s frames the turn, the burn and the return fall inside one frame.
+  const b = run(600, 3600, 4200);
+  console.log(`  600 s frames: turn began ${(3600 - b.turnAt).toFixed(2)} s before the node; ${b.d.toFixed(3)} m from the twin; mode now ${b.sx.att.mode}`);
+  // (The node's direction is fixed once its burn is set up, at the start of
+  // the frame it falls in, while prograde turns at the mean motion: the
+  // turn is measured where both will be.)
+  const bNote = b.sx.log.find((x) => /to the node/.test(x.text))?.text;
+  console.log(`  "${bNote}"`);
+  check('at 600 s frames the turn starts within 3 % of the same lead, settles in time and flies the twin\'s burn to within 0.1 m, back to prograde', Math.abs((3600 - b.turnAt) / a.predicted - 1) < 0.03 && b.d < 0.1 && b.sx.att.mode === 'prograde' && !b.sx.log.some((x) => /too late/.test(x.text)));
+  // A node 10 s ahead: too late to settle, and the log says so.
+  const c = mk({ attitude: { mode: 'prograde' } });
+  c.addNode(T0 + 10, [0.02, 0, 0]);
+  for (let t = T0 + 0.25; t <= T0 + 20; t += 0.25) frame(c, t);
+  const late = c.log.find((x) => /too late to settle/.test(x.text));
+  console.log(`  node 10 s ahead: "${late?.text}"`);
+  check('a node too close to turn for: the log says it cannot settle in time', !!late);
+  // Off: no turn by itself.
+  const d = mk({ attitude: { mode: 'prograde', autoNode: false } });
+  d.addNode(T0 + 120, [0.02, 0, 0]);
+  for (let t = T0 + 1; t <= T0 + 100; t += 1) frame(d, t);
+  check('with autoNode off, it stays on prograde', d.att.mode === 'prograde' && d.att.locked);
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');

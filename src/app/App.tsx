@@ -13,6 +13,7 @@ import type { GuideKey } from '../scene/guides';
 import type { MagneticKey } from '../scene/magnetic';
 import { BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, type FocusKey } from '../scene/catalogue';
 import type { Named } from '../scene/smallBodies';
+import { irregularMoon } from '../scene/irregularMoons';
 import type { NamedSat, SatSource } from '../scene/satellites';
 import { SatelliteRail, type SatelliteApi } from './satellite-rail';
 import { SatellitePlate } from './satellite-plate';
@@ -106,6 +107,9 @@ export function App() {
   const [small, setSmall] = useState<string | null>(null);
   const [named, setNamed] = useState<readonly Named[]>([]);
   const smallBody = small ? named.find((b) => b.pdes === small) ?? null : null;
+  // An irregular moon is a small focus too, as 'irr:<key>' (OrreryScene.focusOnSmall).
+  const irregularMoonOn = small?.startsWith('irr:') ? irregularMoon(small.slice(4)) ?? null : null;
+  const [irregularOn, setIrregularOn] = useState(false);
   // Search any of the 135,353 (the rail's search box): a found point joins
   // the named ones and is flown to as they are.
   const smallSearch = useMemo(() => ({
@@ -134,7 +138,7 @@ export function App() {
   };
   const satView = sat !== null ? scene.current?.satellites.sat(sat) ?? null : null;
   const [smallOn, setSmallOn] = useState<Record<string, boolean>>({ belt: true, neo: true, trojans: true, outer: true, comets: true, colours: false });
-  const [guidesOn, setGuidesOn] = useState<Record<GuideKey | MagneticKey, boolean>>({ axes: false, field: false, spheres: false, lagrange: false, pulls: false, magnetic: false, aurora: false });
+  const [guidesOn, setGuidesOn] = useState<Record<GuideKey | MagneticKey, boolean>>({ axes: false, field: false, spheres: false, lagrange: false, pulls: false, magnetic: false, aurora: false, belts: false });
   // The followed craft's name, kept current (a rocket's climb included).
   const followName = useSyncExternalStore(mission.subscribe, () => craftById(mission, following)?.name ?? 'Craft');
   const followCraft = (id: number) => { mission.select(id); scene.current?.focusOnCraft(id); setFollowing(id); setSmall(null); setSat(null); };
@@ -214,7 +218,7 @@ export function App() {
     <div className="app">
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
-        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: satView?.named.name ?? smallBody?.name ?? focusName(focus) }}
+        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: irregularMoonOn?.name ?? satView?.named.name ?? smallBody?.name ?? focusName(focus) }}
         flying={flying} frame={frame} />
       <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
         following={following} onFollow={followCraft} />
@@ -223,8 +227,9 @@ export function App() {
         frame={frame} onFrame={setFrame}
         smallBodies={smallOn} onSmallBodies={(k, on) => { setSmallOn((s) => ({ ...s, [k]: on })); if (k === 'colours') scene.current?.smallBodies.setColourByGroup(on); else scene.current?.smallBodies.setGroup(k, on); }}
         satellites={<SatelliteRail api={satApi} />}
-        guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); if (k === 'magnetic' || k === 'aurora') scene.current?.magnetic.set(k, on); else scene.current?.guides.set(k, on); }} />
-      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody}
+        guides={guidesOn} onGuides={(k, on) => { setGuidesOn((g) => ({ ...g, [k]: on })); if (k === 'magnetic' || k === 'aurora' || k === 'belts') scene.current?.magnetic.set(k, on); else scene.current?.guides.set(k, on); }}
+        irregular={{ on: irregularOn, onToggle: (on) => { setIrregularOn(on); scene.current?.irregulars.setOn(on); }, current: irregularMoonOn?.key ?? null, onFly: (key) => scene.current?.focusOnSmall(`irr:${key}`) }} />
+      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={irregularMoonOn}
         sat={satView ? <SatellitePlate clock={clock} sat={satView} source={satNamed.source} /> : null} />
       {consoleOpen && (
         <div className="console-dock" id="flight-console" ref={dockRef}>

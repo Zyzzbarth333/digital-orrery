@@ -403,6 +403,8 @@ numerals, an engraved label above, and the unit beside.
   low and red (630.0 nm) above, on the night side only; Jupiter's and
   Saturn's, which shine in the ultraviolet, in a pale violet false colour
   the rail's switch says is false.
+- **Radiation belts:** pale teal (`#7fb8c9`) shells along the L-shells,
+  brightest where seen edge-on so the belt reads as a volume.
 
 ### Navigation
 

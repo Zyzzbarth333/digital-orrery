@@ -315,6 +315,13 @@ Kp index rises. Jupiter's and Saturn's shine mostly in the ultraviolet, and
 Io leaves its own spot where its field line meets Jupiter.
 [Magnetic fields and auroras](physics/magnetic-fields.md#auroras)
 
+**Radiation belt.** A band of L-shells where a planet's field traps energetic
+particles, which bounce between the hemispheres and drift round the
+planet. The Earth has an inner belt below $L \approx 2$ and an outer one
+above $L \approx 3$ (the Van Allen belts); the inner belt dips nearest the
+ground over the South Atlantic, where the field is weakest.
+[Magnetic fields and auroras](physics/magnetic-fields.md#radiation-belts)
+
 **Kp.** A planetary index of geomagnetic disturbance every three hours,
 from 0 (quiet) to 9 (an extreme storm), in thirds (3−, 3o, 3+).
 

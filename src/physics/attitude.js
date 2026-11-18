@@ -46,6 +46,13 @@
 // disturbance grows past half the limit. A craft holding prograde at a day
 // a second costs nothing to carry.
 //
+// Propellant: with spec.rcsArm (m per body axis), the thrusters are pairs
+// fired as couples, each thruster rcsArm[i] from axis i, so a torque tau_i
+// takes |tau_i| / rcsArm[i] of thrust between them. A.rcsImpulse (N s)
+// adds that up: the held torque over each controlled step, and while
+// locked the disturbance it is held against. The craft turns it into
+// propellant at the thrusters' Isp (craftAttitude.js).
+//
 // Steps: under control, one RK4 step per control period (cut at frame
 // edges and breakpoints, the held torque carried across); without it, RK4
 // at a step that turns the body at most 0.05 rad, and resolves the
@@ -145,12 +152,13 @@ export function slewTime(spec, theta, e, thetaEnd = LOCK_ANGLE) {
 
 // A craft's attitude. spec: { inertia (3x3 kg m^2, body axes), torqueMax
 // ([N m] per body axis), rateMax (rad/s), cp (body m, the centre of
-// pressure from the centre of mass), cdA (m^2) }; q, omega the start;
+// pressure from the centre of mass), cdA (m^2), rcsArm ([m] per body
+// axis, or null: no propellant counted) }; q, omega the start;
 // mode. For checks: torque(t) (body-axis torque pulses), breakpoints,
 // fixedStep (s, every step without control).
-export function makeAttitude({ inertia, torqueMax, rateMax = 0.05, cp = [0, 0, 0], cdA = 0, q = [1, 0, 0, 0], omega = [0, 0, 0], mode = 'off', t = 0, gravityGradient = true, torque = null, breakpoints = [], fixedStep = null, hMax = 30 }) {
+export function makeAttitude({ inertia, torqueMax, rateMax = 0.05, cp = [0, 0, 0], cdA = 0, rcsArm = null, q = [1, 0, 0, 0], omega = [0, 0, 0], mode = 'off', t = 0, gravityGradient = true, torque = null, breakpoints = [], fixedStep = null, hMax = 30 }) {
   return {
-    spec: { inertia, torqueMax, rateMax, cp, cdA },
+    spec: { inertia, torqueMax, rateMax, cp, cdA, rcsArm },
     q: quatNormalize(q), omega: [...omega], mode, t,
     holdQ: quatNormalize(q),          // the inertial mode's attitude
     held: [0, 0, 0],                  // the controller's torque, held to nextSample
@@ -160,7 +168,22 @@ export function makeAttitude({ inertia, torqueMax, rateMax = 0.05, cp = [0, 0, 0
     models: new Map(),                // sixdof models by primary
     steps: 0,
     disturbance: [0, 0, 0],           // the last torque found on it beyond control, N m
+    rcsImpulse: 0,                    // N s, the thrusters' total impulse so far
   };
+}
+
+// The thrust (N) the thrusters need for the torque tau (body axes, N m):
+// sum |tau_i| / rcsArm[i]; 0 with no arms given.
+export function rcsThrust(spec, tau) {
+  const L = spec.rcsArm;
+  return L ? Math.abs(tau[0]) / L[0] + Math.abs(tau[1]) / L[1] + Math.abs(tau[2]) / L[2] : 0;
+}
+
+// A new inertia tensor (kg m^2, body axes), as propellant is drawn: the
+// sixdof models (which hold its inverse) are made again.
+export function setInertia(A, inertia) {
+  A.spec.inertia = inertia;
+  A.models.clear();
 }
 
 // Choose a mode. The inertial mode holds the attitude it has now.
@@ -309,6 +332,7 @@ export function advanceAttitude(A, t1, env, record = null) {
       A.q = ref.q;
       A.omega = matTVec(quatToMatrix(ref.q), ref.w);
       A.t = t1;
+      A.rcsImpulse += rcsThrust(A.spec, A.disturbance) * (t1 - t0);
       record?.({ t0, t1, d0, d1: thrustAxis(A.q), lock: ref.frame });
       break;
     }
@@ -335,6 +359,7 @@ export function advanceAttitude(A, t1, env, record = null) {
     const t0 = A.t, d0 = thrustAxis(A.q);
     rk4(model, A, t0, end - t0, env.at);
     A.t = Math.abs(end - t1) < 1e-9 ? t1 : end;
+    if (A.mode !== 'off') A.rcsImpulse += rcsThrust(A.spec, A.held) * (A.t - t0);
     steps++;
     record?.({ t0, t1: A.t, d0, d1: thrustAxis(A.q) });
   }
@@ -347,6 +372,13 @@ export function advanceAttitude(A, t1, env, record = null) {
 export function pointingError(A, env) {
   const ref = reference(A, A.t, env);
   return ref ? attitudeError(A.q, ref.q).theta : null;
+}
+
+// The reference attitude at t (s), from the translation env.at gives:
+// where a locked craft will be pointing then. Null with none (off).
+export function referenceAt(A, env, t) {
+  const ref = reference(A, t, env);
+  return ref ? ref.q : null;
 }
 
 // The reference attitude now, for drawing where the craft is turning to.

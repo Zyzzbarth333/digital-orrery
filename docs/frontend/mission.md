@@ -89,8 +89,31 @@ real pad ([rocket](../physics/rocket.md#in-the-app)).
   injection to entry. Its file, `public/missions/artemis2.json`, is
   written from JSC's reconstructed trajectory by
   `src/physics/artemis2.export.mjs`.
+- **Juno** (August 2012 to November 2013), from five days before its
+  first deep-space burn to seven weeks after its Earth flyby. Its file,
+  `public/missions/juno2013.json`, is written from JPL's navigation
+  reconstruction (through JPL Horizons) by `src/physics/missions.build.mjs`
+  (`npm run build:missions -- juno2013`), which builds every real mission
+  beyond Artemis from its facts in `src/physics/missions.data.mjs`
+  ([Juno 2012–13](../validation/juno2013.md)).
+- **DART** (August to September 2022), its last five weeks to the impact
+  on Dimorphos, ending on the final solution at the published impact
+  point. Its file, `public/missions/dart.json`, is built the same way
+  ([DART](../validation/dart.md)).
 
-The app reads both with `src/physics/realMission.js`.
+The app reads them all with `src/physics/realMission.js`. A file's states
+are about its `centre` (the Earth, or the Sun for Juno), and it may carry
+its own craft (`craftModel`: mass, sunlit area, Cr and the engine's Isp);
+without one the craft is Orion. Its flown path is drawn about the same
+centre. A burn about the Sun (`frame: 'eqj'`) is flown along its 10 s
+intervals' measured J2000 directions: the orbital frame there barely turns
+in a burn, and a burn steered in it is flown in quarter-second steps. A
+file with `aimInEnvironment` has its aimed burns flown in the craft's own
+environment, since over seven months sunlight moves Juno 6,000 km, and
+solved for as the push they are flown as, spread over the burn: DART's
+terminal guidance ends two minutes before the impact, where an impulse at
+its start would miss by 0.6 km. A file with flybys aims at a flyby's
+perigee rather than across it.
 
 ![Artemis II about the Earth, from translunar injection at an hour a second and then a day a second: the craft climbs out, loops round the Moon and falls back, its flown path drawn beside the real one, while the readout gives its distance from the flown path](../clips/artemis2.webp)
 
@@ -194,8 +217,10 @@ time:
 On a point mass, the engine keys burn prograde or retrograde (relative to
 the primary) until cut or dry. On a 6-DOF craft there is one key, FIRE,
 which burns along the body axis wherever it points; a node burns along
-the body axis too, so point the craft first (the NODE mode points it along
-the next node's burn).
+the body axis too. AUTO NODE TURN (on by default) turns the craft to each
+node by itself, early enough to settle before it fires, and back after;
+with it off, point the craft first (the NODE mode points it along the next
+node's burn).
 
 ## Attitude
 
@@ -208,11 +233,24 @@ A 6-DOF craft's ATTITUDE section, above the engine:
   42.1° to go" while turning. **Turn left:** the controller's own time for
   the turn still to go, from rest. **Turning:** the body rate.
   **Disturbance:** the gravity gradient and air torques on it, in N m.
-  Each has its source tag (6-DOF), with the equations in its detail.
+  **Thruster fuel:** the propellant the attitude thrusters have taken
+  from the engine's tank, in grams (kilograms past one). **Inertia:** the
+  moments of inertia in pitch and roll now, falling as the tank empties.
+  **Node turn,** while the craft waits for or is turned for a node: when
+  the turn starts, how far and for how long ("Starts in 18 min, 90° in
+  34 s"), or "Turned for the node". Each has its source tag (6-DOF), with
+  the equations in its detail.
+- **AUTO NODE TURN,** a toggle key (`aria-pressed`), on by default: the
+  craft turns to each manoeuvre node by itself, 1.1 times the
+  controller's time for the turn plus 5 s before it, then goes back to the
+  mode it had. A node too close to settle for is noted in the log
+  ([turning for a node](../physics/sixdof.md#turning-for-a-node)).
 
 Turns take real time: a 90° turn takes 34 s at 40 N m on 1,625 kg m²
 (1.41°/s²) with a 3°/s limit, against 32 s for full torque, coast and full
-torque back. At a day a second a turn is over within a frame.
+torque back; it costs 60 g of the thrusters' propellant. Empty, the craft
+turns the same 90° in 33 s. At a day a second a turn is over within a
+frame.
 
 **In the scene.** Within 50,000 km of the camera a 6-DOF craft's marker
 gets an attitude indicator (`craftLayer.ts`):
@@ -224,10 +262,9 @@ gets an attitude indicator (`craftLayer.ts`):
 
 It is projected from 3D at a fixed screen size, so it foreshortens as the
 craft turns. It is an SVG overlay on the marker rather than lines in the
-scene: the camera follows a craft from 50 m, inside the scene's 1 km
-near plane. For the same reason, a craft's marker is now shown by its
-depth in front of the camera, not its projected depth: followed from
-under a kilometre, the marker used to vanish.
+scene, so it keeps that size at any distance. A craft's marker is shown
+by its depth in front of the camera, not its projected depth: followed
+from under a kilometre, the marker used to vanish behind the near plane.
 
 ## The readout
 
@@ -261,6 +298,31 @@ In the sky:
   eccentric anomaly; hyperbolas in hyperbolic anomaly out to the sphere of
   influence or 30 periapsis radii).
 - **Pale line:** the path actually flown, kept relative to the primary.
+
+Both lines run through the craft from any distance. Far off, they are
+drawn as above, relative to the primary. Closer than a tenth of the
+craft's distance from its primary, three things would put them off the
+craft:
+- **Chords.** The conic's 256 even steps in anomaly leave chords that
+  bow up to 7.5 × 10⁻⁵ of that distance off the orbit: 510 m on a 400 km
+  orbit, which showed 100 px beside the craft from 10 km.
+- **The trail's end.** The flown path keeps a point every 0.5 % of that
+  distance, so it stopped up to 34 km behind the craft.
+- **float32.** Points relative to the primary are good to about a metre
+  on the GPU.
+
+So within that range both are drawn every frame relative to the craft,
+from its state (`conicAround` in `src/scene/craftPaths.ts`). The conic
+has the craft as a vertex, and its steps in anomaly grow as the cube of
+the step count, from 24 m at the craft (in low orbit) to a tenth of a
+radian on the far side. Seen from 50 m off the craft, no chord bows more
+than 6 × 10⁻⁴ rad, under a pixel (checked on a low orbit, an eccentric
+ellipse and a hyperbola). The trail's last stretch runs from its last
+kept point to the craft along the same conic. Coasting, that is the path
+flown; burning, it differs by the burn since that point, a few metres.
+The camera's near plane follows it in ([Camera](camera.md#close-to-a-craft)).
+
+![A craft in a 400 km orbit followed from 100 m, against the Earth's night side: the amber conic runs through its marker, and the pale flown trail glows behind it](craft-close-up.jpg)
 
 The header's KERNEL lamp is lit while a craft is being stepped. LAG lights
 caution yellow if a craft falls more than a minute behind the clock: the
@@ -329,6 +391,9 @@ How the data gets in:
 | `?plan=mars` | opens the planner and computes the grid |
 | `?mission=artemis2` | flies Artemis II from its start (`artemis2,first` flies only the injection burn) |
 | `?mission=artemis2&t=2026-04-06T22:50:00Z&fix=12` | starts just before the lunar flyby, with a tracking fix every 12 h |
+| `?mission=juno2013` | flies Juno from 25 August 2012, through its deep-space burns and the Earth flyby |
+| `?mission=juno2013&t=2013-10-09T13:00:00Z` | starts six hours before Juno's Earth flyby |
+| `?mission=dart&t=2022-09-26T22:00:00Z` | starts DART 74 minutes before its impact on Dimorphos, with SMART Nav steering |
 
 ## References
 
