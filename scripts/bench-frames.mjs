@@ -13,6 +13,7 @@
 //   --label NAME, --base-label NAME   their names (default after, before)
 //   --gpu intel|nvidia[,…]            the GPUs, one after the other (intel)
 //   --rounds N                        rounds of every variant (3)
+//   --retries N                       fresh loads of a sample that fails (2)
 //   --settle S, --seconds S           seconds to load, then to time (8, 4)
 //   --size WxH, --dpr N               the viewport (1920x1080, 1)
 //   --json FILE                       every round's numbers as JSON
@@ -27,10 +28,17 @@
 // the median over the timed seconds, then the median over the rounds;
 // progress and each round's numbers go to stderr, the table to stdout.
 //
+// On a busy machine the page can stall for seconds (its camera flight
+// never ends, or it draws a handful of frames while timed). Such a sample
+// is loaded afresh up to --retries times, then left out: the table is
+// still printed, the missing samples are listed under it, and the script
+// exits with status 1. The load average at each sample is printed too.
+//
 // The render scale is held (?scale=fixed). Run one benchmark at a time:
 // two browsers share the GPU and time each other.
 
 import { writeFileSync } from 'node:fs';
+import { loadavg } from 'node:os';
 import { GPUS, launch, pageApi, serve } from './lib/chromium.mjs';
 
 // ---- Scenarios ------------------------------------------------------------
@@ -83,20 +91,29 @@ const RENDERER = `(() => {
   return x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
 })()`;
 
-// One scenario in one variant: load, frame the camera, settle, time.
+// Frames the page drew in the last 5 s, from the hook's record.
+const RECENT = 'orrery.__bench ? orrery.__bench.start.filter((t) => t > performance.now() - 5000).length : null';
+
+// One scenario in one variant: load, frame the camera, settle, time. The
+// hook goes in first, so a failure can say whether the page was drawing.
 async function measure(p, base, sc, opts) {
   await p.open(`${base}/${sc.query}`);
-  if (sc.ready) await p.waitFor(sc.ready);
-  await p.waitFor('!orrery.flying');
-  await p.zoomTo(sc.km);
-  await p.waitFor(`Math.abs(Math.log(orrery.rig.dist / ${sc.km})) < 0.02`, 15000);
-  await p.eval(HOOK);
-  await p.wait(opts.settle * 1000);
-  await p.eval(RESET);
-  await p.wait(opts.seconds * 1000);
-  const s = await p.eval(STATS);
-  if (s.frames < 10) throw new Error(`only ${s.frames} frames in ${opts.seconds} s`);
-  return s;
+  try {
+    await p.eval(HOOK);
+    if (sc.ready) await p.waitFor(sc.ready);
+    await p.waitFor('!orrery.flying');
+    await p.zoomTo(sc.km);
+    await p.waitFor(`Math.abs(Math.log(orrery.rig.dist / ${sc.km})) < 0.02`, 15000);
+    await p.wait(opts.settle * 1000);
+    await p.eval(RESET);
+    await p.wait(opts.seconds * 1000);
+    const s = await p.eval(STATS);
+    if (s.frames < 10) throw new Error(`only ${s.frames} frames in ${opts.seconds} s`);
+    return s;
+  } catch (e) {
+    const n = await p.eval(RECENT).catch(() => null);
+    throw new Error(`${e.message}${n === null ? '' : ` (${n} frames drawn in the last 5 s)`}`);
+  }
 }
 
 // ---- Output ---------------------------------------------------------------
@@ -109,8 +126,14 @@ const kmText = (km) => {
   const e = Math.floor(Math.log10(km));
   return `${+(km / 10 ** e).toPrecision(3)} × 10${[...String(e)].map((c) => SUP[c]).join('')} km`;
 };
-function cell(after, before) {
-  if (before === undefined) return ms(after);
+const loadRange = (l) => {
+  if (!l.length) return '?';
+  const [lo, hi] = [Math.min(...l).toFixed(0), Math.max(...l).toFixed(0)];
+  return lo === hi ? lo : `${lo}–${hi}`;
+};
+function cell(after, before, base) {
+  if (!base) return after === undefined ? '—' : ms(after);
+  if (after === undefined || before === undefined) return `${before === undefined ? '—' : ms(before)} → ${after === undefined ? '—' : ms(after)}`;
   const d = (after - before) / before * 100;
   const pct = Math.abs(d) < 0.5 ? '±0 %' : `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(0)} %`;
   return `${ms(before)} → ${ms(after)} (${pct})`;
@@ -127,7 +150,7 @@ function table(results, names, variants, gpus) {
     const sc = SCENARIOS[n];
     const cells = gpus.flatMap((g) => {
       const get = (label, k) => { const r = results[g][n][label]; return r?.length ? median(r.map((x) => x[k])) : undefined; };
-      return ['cost', 'gap'].map((k) => cell(get(after, k), before && get(before, k)));
+      return ['cost', 'gap'].map((k) => cell(get(after, k), before && get(before, k), !!before));
     });
     lines.push(`| ${sc.label}, ${kmText(sc.km)} | ${cells.join(' | ')} |`);
   }
@@ -146,9 +169,10 @@ function args() {
     url: opt('--url'), dist: opt('--dist'), baseUrl: opt('--base-url'), baseDist: opt('--base-dist'),
     label: opt('--label'), baseLabel: opt('--base-label'),
     gpus: opt('--gpu', 'intel').split(','),
-    rounds: num('--rounds', 3), settle: num('--settle', 8), seconds: num('--seconds', 4), dpr: num('--dpr', 1),
+    rounds: num('--rounds', 3), retries: Number(opt('--retries', 2)), settle: num('--settle', 8), seconds: num('--seconds', 4), dpr: num('--dpr', 1),
     size: opt('--size', '1920x1080'), json: opt('--json'),
   };
+  if (!(o.retries >= 0)) throw new Error('--retries wants a number, 0 or more');
   for (const g of o.gpus) if (!GPUS.includes(g)) throw new Error(`--gpu ${g}: one of ${GPUS.join(', ')}`);
   const m = o.size.match(/^(\d+)x(\d+)$/);
   if (!m) throw new Error('--size wants WIDTHxHEIGHT, as 1920x1080');
@@ -175,6 +199,8 @@ async function main() {
 
   const results = {};
   const renderers = {};
+  const failed = [];
+  const loads = [];
   const log = (s) => console.error(s);
   const started = new Date();
   try {
@@ -189,20 +215,35 @@ async function main() {
         const { cdp } = browser;
         const p = pageApi(cdp);
         await cdp.send('Page.enable');
+        await cdp.send('Runtime.enable');
+        // The page's own errors, which explain a sample that fails.
+        cdp.on('Runtime.exceptionThrown', ({ exceptionDetails: x }) => log(`  page: ${(x.exception?.description ?? x.text).split('\n').slice(0, 3).join(' | ')}`));
+        cdp.on('Runtime.consoleAPICalled', ({ type, args }) => { if (type === 'error') log(`  page console: ${args.map((a) => a.value ?? a.description).join(' ').slice(0, 300)}`); });
+        cdp.on('Inspector.targetCrashed', () => log('  page: the renderer crashed'));
         await cdp.send('Emulation.setDeviceMetricsOverride', { ...o.view, deviceScaleFactor: o.dpr, mobile: false });
         await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
         for (let r = 0; r < o.rounds; r++) {
           for (const n of o.names) {
             const order = r % 2 ? variants.slice().reverse() : variants;
             for (const v of order) {
-              const s = await measure(p, v.base, SCENARIOS[n], o).catch((e) => { throw new Error(`${gpu}, round ${r + 1}, ${n}, ${v.label}: ${e.message}`); });
+              const where = `${gpu}, round ${r + 1}, ${n}, ${v.label}`;
+              let s = null;
+              for (let a = 0; a <= o.retries && !s; a++) {
+                s = await measure(p, v.base, SCENARIOS[n], o).catch((e) => {
+                  log(`${where}: ${e.message}, load average ${loadavg()[0].toFixed(0)}${a < o.retries ? '; loading it again' : '; left out'}`);
+                  if (a === o.retries) failed.push(`${where}: ${e.message}`);
+                  return null;
+                });
+              }
+              if (!s) continue;
+              loads.push(loadavg()[0]);
               if (!renderers[gpu]) {
                 renderers[gpu] = await p.eval(RENDERER);
                 log(`${gpu}: ${renderers[gpu]}, canvas ${s.canvas}`);
                 if (gpu === 'nvidia' && !/nvidia/i.test(renderers[gpu])) throw new Error(`--gpu nvidia, but the page renders on ${renderers[gpu]}`);
               }
               results[gpu][n][v.label].push(s);
-              log(`${gpu} r${r + 1} ${n.padEnd(10)} ${v.label.padEnd(10)} frame ${ms(s.cost)} ms (p90 ${ms(s.p90)}, worst ${ms(s.worst)}), gap ${ms(s.gap)} ms, ${s.frames} frames, camera ${kmText(+s.km.toPrecision(3))}`);
+              log(`${gpu} r${r + 1} ${n.padEnd(10)} ${v.label.padEnd(10)} frame ${ms(s.cost)} ms (p90 ${ms(s.p90)}, worst ${ms(s.worst)}), gap ${ms(s.gap)} ms, ${s.frames} frames, camera ${kmText(+s.km.toPrecision(3))}, load ${loads.at(-1).toFixed(0)}`);
             }
           }
         }
@@ -218,8 +259,10 @@ async function main() {
   const what = hasBase ? `${variants[1].label} (${variants[1].where}) → ${variants[0].label} (${variants[0].where})` : `${variants[0].where}`;
   console.log(`Frame cost and frame gap, median ms, ${what}:\n`);
   console.log(table(results, o.names, variants, o.gpus));
-  console.log(`\n\`npm run bench:frames\`, ${day}: ${o.view.width} × ${o.view.height} at DPR ${o.dpr}, ${o.rounds} round${o.rounds === 1 ? '' : 's'}${variants.length > 1 ? ' interleaved' : ''}, ${o.seconds} s timed after ${o.settle} s; ${o.gpus.map((g) => `${GPU_NAME[g]}: ${renderers[g]}`).join('; ')}.`);
-  if (o.json) writeFileSync(o.json, JSON.stringify({ started, options: { ...o, names: o.names }, renderers, variants: variants.map(({ label, where }) => ({ label, where })), results }, null, 2));
+  console.log(`\n\`npm run bench:frames\`, ${day}: ${o.view.width} × ${o.view.height} at DPR ${o.dpr}, ${o.rounds} round${o.rounds === 1 ? '' : 's'}${variants.length > 1 ? ' interleaved' : ''}, ${o.seconds} s timed after ${o.settle} s, load average ${loadRange(loads)}; ${o.gpus.map((g) => `${GPU_NAME[g]}: ${renderers[g] ?? "?"}`).join('; ')}.`);
+  if (failed.length) console.log(`\nLeft out after ${o.retries + 1} tries (the medians are over the other rounds):\n${failed.map((f) => `- ${f}`).join('\n')}`);
+  if (o.json) writeFileSync(o.json, JSON.stringify({ started, options: { ...o, names: o.names }, renderers, variants: variants.map(({ label, where }) => ({ label, where })), loads, failed, results }, null, 2));
+  if (failed.length) { console.error(`${failed.length} sample${failed.length === 1 ? '' : 's'} left out`); process.exitCode = 1; }
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });
