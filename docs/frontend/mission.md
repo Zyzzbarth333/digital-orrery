@@ -239,10 +239,9 @@ gets an attitude indicator (`craftLayer.ts`):
 
 It is projected from 3D at a fixed screen size, so it foreshortens as the
 craft turns. It is an SVG overlay on the marker rather than lines in the
-scene: the camera follows a craft from 50 m, inside the scene's 1 km
-near plane. For the same reason, a craft's marker is now shown by its
-depth in front of the camera, not its projected depth: followed from
-under a kilometre, the marker used to vanish.
+scene, so it keeps that size at any distance. A craft's marker is shown
+by its depth in front of the camera, not its projected depth: followed
+from under a kilometre, the marker used to vanish behind the near plane.
 
 ## The readout
 
@@ -276,6 +275,31 @@ In the sky:
   eccentric anomaly; hyperbolas in hyperbolic anomaly out to the sphere of
   influence or 30 periapsis radii).
 - **Pale line:** the path actually flown, kept relative to the primary.
+
+Both lines run through the craft from any distance. Far off, they are
+drawn as above, relative to the primary. Closer than a tenth of the
+craft's distance from its primary, three things would put them off the
+craft:
+- **Chords.** The conic's 256 even steps in anomaly leave chords that
+  bow up to 7.5 × 10⁻⁵ of that distance off the orbit: 510 m on a 400 km
+  orbit, which showed 100 px beside the craft from 10 km.
+- **The trail's end.** The flown path keeps a point every 0.5 % of that
+  distance, so it stopped up to 34 km behind the craft.
+- **float32.** Points relative to the primary are good to about a metre
+  on the GPU.
+
+So within that range both are drawn every frame relative to the craft,
+from its state (`conicAround` in `src/scene/craftPaths.ts`). The conic
+has the craft as a vertex, and its steps in anomaly grow as the cube of
+the step count, from 24 m at the craft (in low orbit) to a tenth of a
+radian on the far side. Seen from 50 m off the craft, no chord bows more
+than 6 × 10⁻⁴ rad, under a pixel (checked on a low orbit, an eccentric
+ellipse and a hyperbola). The trail's last stretch runs from its last
+kept point to the craft along the same conic. Coasting, that is the path
+flown; burning, it differs by the burn since that point, a few metres.
+The camera's near plane follows it in ([Camera](camera.md#close-to-a-craft)).
+
+![A craft in a 400 km orbit followed from 100 m, against the Earth's night side: the amber conic runs through its marker, and the pale flown trail glows behind it](craft-close-up.jpg)
 
 The header's KERNEL lamp is lit while a craft is being stepped. LAG lights
 caution yellow if a craft falls more than a minute behind the clock: the

@@ -156,6 +156,44 @@ export const TAG_INFO = {
     tex: [],
     source: 'the moon\'s JPL Horizons object page',
   },
+  // The irregular moons (irregularMoons.js, irregular-moon-plate.tsx)
+  'irr-position-table': {
+    what: 'Where the moon is about its planet\'s centre in JPL\'s own integration of its orbit, with the Sun\'s and the planets\' pull: as its point is drawn.',
+    tex: ['\\mathbf r = \\mathbf r_\\text{moon} - \\mathbf r_\\text{planet}'],
+    where: 'both about the system barycentre, from Chebyshev series within 0.5 km of the satellite ephemeris (1000 km for S/2023 S 38, whose e = 0.909 orbit dives to 1.1 million km), 2000 to 2049, loaded a system and a year at a time while the layer is shown',
+    source: 'JPL satellite ephemerides jup347, jup348, jup349, sat455, sat456, sat457, sat459, nep104 (NAIF) · docs/frontend/moons.md',
+  },
+  'irr-position-elements': {
+    what: 'Where the moon is about its planet, on a precessing ellipse in the ecliptic from JPL\'s mean elements, with corrections fitted to JPL Horizons. The Sun pulls an irregular moon about far more than this allows: a rough place only.',
+    tex: ['M = M_0 + \\frac{360°\\,t}{P} + \\delta M + \\delta n\\,t', '\\omega = \\omega_0 + \\delta\\omega + \\frac{360°\\,t}{P_\\omega}', '\\Omega = \\Omega_0 + \\delta\\Omega \\mp \\frac{360°\\,t}{P_\\Omega}'],
+    where: 't days from the epoch; its fitted residual over 2000–2050 is in the plate\'s note',
+    source: 'JPL SSD planetary satellite mean elements; JPL Horizons · docs/frontend/moons.md',
+  },
+  'irr-elements': {
+    what: 'The moon\'s mean orbit about its planet, referred to the J2000 ecliptic: an average over the Sun\'s pull, which swings the real orbit about it.',
+    tex: [],
+    source: 'JPL SSD planetary satellite mean elements (ssd.jpl.nasa.gov/sats/elem) · docs/frontend/moons.md',
+  },
+  'irr-sense': {
+    what: 'Which way the moon goes round: prograde with its planet\'s orbit (inclination under 90° to the ecliptic) or retrograde, against it. Most irregular moons are retrograde, a sign that they were captured.',
+    tex: ['\\text{retrograde:}\\; i > 90°'],
+    source: 'JPL SSD planetary satellite mean elements · docs/frontend/moons.md',
+  },
+  'irr-radius': {
+    what: 'The moon\'s mean radius where it has been measured, or estimated from its brightness; most of the small ones have only been seen as points of light, and are drawn at a nominal size.',
+    tex: [],
+    source: 'the moon\'s JPL Horizons object page',
+  },
+  'irr-gm': {
+    what: 'G times the moon\'s mass, where it has been measured (Himalia\'s from its pull on other moons and on spacecraft). The irregular moons do not pull on spacecraft in the app: the largest, Himalia, has a twenty-thousandth of Europa\'s GM.',
+    tex: ['\\mu = GM'],
+    source: 'the moon\'s JPL Horizons object page',
+  },
+  'irr-discovery': {
+    what: 'When the moon was found, and by whom.',
+    tex: [],
+    source: 'JPL SSD Planetary Satellite Discovery Circumstances (ssd.jpl.nasa.gov/sats/discovery.html)',
+  },
   'moon-rotation': {
     what: 'Time for one turn against the stars. Tides have locked the moon: it turns once each orbit, keeping one face to its planet, rocking a little about it (its libration).',
     tex: ['P_\\text{rot} = \\frac{360°}{|W_1|}', 'W = W_0 + W_1 d + \\sum_j w_j \\sin\\theta_j'],
@@ -557,6 +595,13 @@ export const TAG_INFO = {
     tex: ['\\Delta\\mathbf v = \\Delta v_P\\,\\hat{\\mathbf T} + \\Delta v_N\\,\\hat{\\mathbf N} + \\Delta v_R\\,\\hat{\\mathbf R}', '\\hat{\\mathbf T} = \\frac{\\mathbf v}{v},\\quad \\hat{\\mathbf N} = \\frac{\\mathbf r \\times \\mathbf v}{|\\mathbf r \\times \\mathbf v|},\\quad \\hat{\\mathbf R} = \\hat{\\mathbf T} \\times \\hat{\\mathbf N}'],
     where: 'about the leg\'s central body, at the node\'s place; the miss counts as reached inside the target\'s sphere of influence',
     source: 'journey.js shapeLeg · docs/physics/journey.md#shaping-it-by-hand',
+  },
+  // journey.js planeAt, parkingPlane.js nodeRate, flownNodeRate, leaveCircularDv
+  'journey-plane': {
+    what: 'A stay in a planet\'s orbit turns the orbit\'s plane: the planet\'s J2 regresses its node about the pole, so after the stay the plane may no longer hold the way out, and the departure burns out of it. Up to 30 days the capture is aimed for it; beyond, the plane is priced on the day, and the best day near it suggested.',
+    tex: ['\\dot\\Omega = -\\frac{3}{2}\\,\\frac{\\sqrt{\\mu}\\,J_2 R^2}{(1-e^2)^2\\,a^{7/2}}\\cos i'],
+    where: 'i: the orbit\'s inclination to the planet\'s equator; the rate scaled by the orbit flown ten turns in the J2 field (0.15 to 0.6 % faster at 400 km over Mars); the burn the cheapest single one from the circular orbit onto the way out',
+    source: 'Curtis, 4th ed., §4.7, eq. 4.52 (Example 4.8) · docs/physics/journey.md#the-parking-orbits-plane',
   },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
