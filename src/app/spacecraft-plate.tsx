@@ -36,8 +36,8 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
     const fromEarth = Math.hypot(helio[0] - earth[0], helio[1] - earth[1], helio[2] - earth[2]);
     const lt = fromEarth / C_KM_S;
     rows.push(
-      { label: 'Motion', value: 'JPL Horizons', alt: `${predicted ? 'predicted' : 'fitted to tracking'}${leg ? ` (${leg.name})` : ''}`, src: 'Horizons', info: 'probe-legs' },
-      { label: `From ${CENTRE_NAME[centre] ?? centre}`, value: fmtGroup(d, d < 1e5 ? 1 : 0), unit: 'km', alt: radius ? `${fmtGroup(d - radius, 1)} km above its mean radius` : undefined, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Distance from the centre of the body this craft is held about' },
+      { label: 'Motion', value: 'JPL Horizons', alt: predicted ? 'predicted' : 'fitted to tracking', src: 'Horizons', info: 'probe-legs', detail: leg ? `Horizons' trajectory here: ${leg.name}, ${leg.start} to ${leg.stop} TDB` : undefined },
+      { label: `From ${CENTRE_NAME[centre] ?? centre}`, value: fmtGroup(d, d < 1e5 ? 1 : 0), unit: 'km', alt: radius && c.group !== 'lagrange' && c.group !== 'cruise' ? `${fmtGroup(d - radius, 1)} km above its mean radius` : undefined, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Distance from the centre of the body this craft is held about' },
       { label: 'Speed', value: Math.hypot(...st.v).toFixed(3), unit: 'km/s', alt: `about ${CENTRE_NAME[centre] ?? centre}`, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Speed relative to the body it is held about' },
       { label: 'From the Sun', value: (Math.hypot(...helio) / AU_KM).toFixed(4), unit: 'AU', src: 'Horizons', derived: true, info: 'probe-position' },
       { label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'Horizons', derived: true, info: 'probe-position', detail: 'less the Earth\'s position (DE442)' },
@@ -47,7 +47,7 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
     rows.push({ label: 'Motion', value: 'no data today', alt: 'outside the 2026–2027 span, or Horizons\' coverage', src: 'Horizons', info: 'probe-legs' });
   }
   rows.push(
-    { label: 'Horizons ID', value: String(c.id), alt: c.target ?? undefined, src: 'Horizons', info: 'probe-legs' },
+    { label: 'Horizons ID', value: String(c.id), src: 'Horizons', info: 'probe-legs' },
     { label: 'Revised', value: c.revised ?? 'not given', alt: 'Horizons\' last update of this craft', src: 'Horizons', info: 'probe-legs' },
     { label: 'Held as', value: c.spacingMin ? `every ${c.spacingMin[0]}–${c.spacingMin[1]} min` : '—', alt: `within ${layer.tolKm} km of Horizons (worst ${c.maxErrKm.toFixed(2)} km)`, src: 'packed', derived: true, info: 'probe-packing' },
   );
@@ -55,8 +55,8 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
   return (
     <div className="tab-body">
       <div className="plate-head">
-        <h2>{c.name}</h2>
-        <p className="engraved">{KIND[c.group] ?? group?.label}</p>
+        <h2>{c.short}</h2>
+        <p className="engraved">{c.short !== c.name ? `${c.name} · ` : ''}{KIND[c.group] ?? group?.label}</p>
       </div>
       <p className="strip" aria-hidden="true">Readout · source</p>
       <Readout rows={rows} />

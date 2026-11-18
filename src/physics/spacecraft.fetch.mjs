@@ -56,34 +56,34 @@ const CENTRE_KEYS = Object.keys(CENTRES);
 // The craft: Horizons ID, the centre their path is held about, the
 // sampling to check against (minutes), and the rail's group.
 export const CRAFT = [
-  { key: 'bepicolombo', name: 'BepiColombo (MPO)', id: -121, centre: 'mercury', fine: 4, group: 'mercury' },
-  { key: 'lro', name: 'Lunar Reconnaissance Orbiter', id: -85, centre: 'moon', fine: 10, group: 'moon' },
-  { key: 'chandrayaan2', name: 'Chandrayaan-2 orbiter', id: -152, centre: 'moon', fine: 10, group: 'moon' },
-  { key: 'danuri', name: 'Danuri (KPLO)', id: -155, centre: 'moon', fine: 10, group: 'moon' },
-  { key: 'capstone', name: 'CAPSTONE', id: -1176, centre: 'moon', fine: 10, group: 'moon' },
-  { key: 'mro', name: 'Mars Reconnaissance Orbiter', id: -74, centre: 'mars', fine: 4, group: 'mars' },
-  { key: 'odyssey', name: '2001 Mars Odyssey', id: -53, centre: 'mars', fine: 4, group: 'mars' },
-  { key: 'maven', name: 'MAVEN', id: -202, centre: 'mars', fine: 4, group: 'mars' },
-  { key: 'mex', name: 'Mars Express', id: -41, centre: 'mars', fine: 4, group: 'mars' },
-  { key: 'tgo', name: 'ExoMars Trace Gas Orbiter', id: -143, centre: 'mars', fine: 4, group: 'mars' },
-  { key: 'hope', name: 'Hope (Emirates Mars Mission)', id: -62, centre: 'mars', fine: 10, group: 'mars' },
-  { key: 'juno', name: 'Juno', id: -61, centre: 'jupiter', fine: 10, group: 'jupiter' },
-  { key: 'jwst', name: 'James Webb Space Telescope', id: -170, centre: 'earth', fine: 60, group: 'lagrange' },
-  { key: 'roman', name: 'Nancy Grace Roman Space Telescope', id: -211, centre: 'earth', fine: 60, group: 'lagrange' },
-  { key: 'euclid', name: 'Euclid', id: -680, centre: 'earth', fine: 60, group: 'lagrange' },
-  { key: 'gaia', name: 'Gaia', id: -139479, centre: 'earth', fine: 60, group: 'lagrange' },
-  { key: 'soho', name: 'SOHO', id: -21, centre: 'earth', fine: 60, group: 'lagrange' },
-  { key: 'dscovr', name: 'DSCOVR', id: -78, centre: 'earth', fine: 60, group: 'lagrange' },
-  { key: 'parker', name: 'Parker Solar Probe', id: -96, centre: 'sun', fine: 30, group: 'cruise' },
-  { key: 'solo', name: 'Solar Orbiter', id: -144, centre: 'sun', fine: 30, group: 'cruise' },
-  { key: 'juice', name: 'JUICE', id: -28, centre: 'sun', fine: 30, group: 'cruise' },
-  { key: 'clipper', name: 'Europa Clipper', id: -159, centre: 'sun', fine: 30, group: 'cruise' },
-  { key: 'psyche', name: 'Psyche', id: -255, centre: 'sun', fine: 30, group: 'cruise' },
-  { key: 'lucy', name: 'Lucy', id: -49, centre: 'sun', fine: 30, group: 'cruise' },
-  { key: 'hera', name: 'Hera', id: -91, centre: 'sun', fine: 30, group: 'cruise' },
-  { key: 'newhorizons', name: 'New Horizons', id: -98, centre: 'sun', fine: 60, group: 'cruise' },
-  { key: 'voyager1', name: 'Voyager 1', id: -31, centre: 'sun', fine: 60, group: 'cruise' },
-  { key: 'voyager2', name: 'Voyager 2', id: -32, centre: 'sun', fine: 60, group: 'cruise' },
+  { key: 'bepicolombo', name: 'BepiColombo (MPO)', short: 'BepiColombo', id: -121, centre: 'mercury', fine: 4, group: 'mercury' },
+  { key: 'lro', name: 'Lunar Reconnaissance Orbiter', short: 'LRO', id: -85, centre: 'moon', fine: 10, group: 'moon' },
+  { key: 'chandrayaan2', name: 'Chandrayaan-2 orbiter', short: 'Chandrayaan-2', id: -152, centre: 'moon', fine: 10, group: 'moon' },
+  { key: 'danuri', name: 'Danuri (KPLO)', short: 'Danuri', id: -155, centre: 'moon', fine: 10, group: 'moon' },
+  { key: 'capstone', name: 'CAPSTONE', short: 'CAPSTONE', id: -1176, centre: 'moon', fine: 10, group: 'moon' },
+  { key: 'mro', name: 'Mars Reconnaissance Orbiter', short: 'MRO', id: -74, centre: 'mars', fine: 4, group: 'mars' },
+  { key: 'odyssey', name: '2001 Mars Odyssey', short: 'Mars Odyssey', id: -53, centre: 'mars', fine: 4, group: 'mars' },
+  { key: 'maven', name: 'MAVEN', short: 'MAVEN', id: -202, centre: 'mars', fine: 4, group: 'mars' },
+  { key: 'mex', name: 'Mars Express', short: 'Mars Express', id: -41, centre: 'mars', fine: 4, group: 'mars' },
+  { key: 'tgo', name: 'ExoMars Trace Gas Orbiter', short: 'TGO', id: -143, centre: 'mars', fine: 4, group: 'mars' },
+  { key: 'hope', name: 'Hope (Emirates Mars Mission)', short: 'Hope', id: -62, centre: 'mars', fine: 10, group: 'mars' },
+  { key: 'juno', name: 'Juno', short: 'Juno', id: -61, centre: 'jupiter', fine: 10, group: 'jupiter' },
+  { key: 'jwst', name: 'James Webb Space Telescope', short: 'JWST', id: -170, centre: 'earth', fine: 60, group: 'lagrange' },
+  { key: 'roman', name: 'Nancy Grace Roman Space Telescope', short: 'Roman', id: -211, centre: 'earth', fine: 60, group: 'lagrange' },
+  { key: 'euclid', name: 'Euclid', short: 'Euclid', id: -680, centre: 'earth', fine: 60, group: 'lagrange' },
+  { key: 'gaia', name: 'Gaia', short: 'Gaia', id: -139479, centre: 'earth', fine: 60, group: 'lagrange' },
+  { key: 'soho', name: 'SOHO', short: 'SOHO', id: -21, centre: 'earth', fine: 60, group: 'lagrange' },
+  { key: 'dscovr', name: 'DSCOVR', short: 'DSCOVR', id: -78, centre: 'earth', fine: 60, group: 'lagrange' },
+  { key: 'parker', name: 'Parker Solar Probe', short: 'Parker', id: -96, centre: 'sun', fine: 30, group: 'cruise' },
+  { key: 'solo', name: 'Solar Orbiter', short: 'Solar Orbiter', id: -144, centre: 'sun', fine: 30, group: 'cruise' },
+  { key: 'juice', name: 'JUICE', short: 'JUICE', id: -28, centre: 'sun', fine: 30, group: 'cruise' },
+  { key: 'clipper', name: 'Europa Clipper', short: 'Europa Clipper', id: -159, centre: 'sun', fine: 30, group: 'cruise' },
+  { key: 'psyche', name: 'Psyche', short: 'Psyche', id: -255, centre: 'sun', fine: 30, group: 'cruise' },
+  { key: 'lucy', name: 'Lucy', short: 'Lucy', id: -49, centre: 'sun', fine: 30, group: 'cruise' },
+  { key: 'hera', name: 'Hera', short: 'Hera', id: -91, centre: 'sun', fine: 30, group: 'cruise' },
+  { key: 'newhorizons', name: 'New Horizons', short: 'New Horizons', id: -98, centre: 'sun', fine: 60, group: 'cruise' },
+  { key: 'voyager1', name: 'Voyager 1', short: 'Voyager 1', id: -31, centre: 'sun', fine: 60, group: 'cruise' },
+  { key: 'voyager2', name: 'Voyager 2', short: 'Voyager 2', id: -32, centre: 'sun', fine: 60, group: 'cruise' },
 ];
 
 const iso = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ');
@@ -271,7 +271,7 @@ for (const [ci, c] of CRAFT.entries()) {
     }
   }
   const sp = [...spacing].sort((a, b) => a - b);
-  craftOut.push({ key: c.key, name: c.name, id: c.id, group: c.group, centre: c.centre, target: name, revised, days, nodes: kept,
+  craftOut.push({ key: c.key, name: c.name, short: c.short, id: c.id, group: c.group, centre: c.centre, target: name, revised, days, nodes: kept,
     spacingMin: sp.length ? [sp[0], sp[sp.length - 1]] : null, maxErrKm: +maxErr.toFixed(3), daysAllSamples: failed, conicDays: conic, legs });
   console.log(`${c.key.padEnd(12)} ${String(days).padStart(3)} days, ${String(kept).padStart(6)} states, every ${sp[0]}-${sp[sp.length - 1]} min, worst ${maxErr.toFixed(2)} km${failed ? `, ${failed} days with every sample` : ''}${conic ? `, ${conic} days one conic` : ''}${revised ? `; Horizons revised ${revised}` : ''}`);
 }

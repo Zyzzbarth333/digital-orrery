@@ -1,6 +1,6 @@
 {
  "source": "JPL Horizons (ssd.jpl.nasa.gov/horizons), states about each centre, ICRF, UT",
- "fetched": "2026-11-18T02:09:06.025Z",
+ "fetched": "2026-11-18T02:11:27.412Z",
  "span": [
   "2026-01-01T00:00:00.000Z",
   "2028-01-01T00:00:00.000Z"
@@ -47,6 +47,7 @@
   {
    "key": "bepicolombo",
    "name": "BepiColombo (MPO)",
+   "short": "BepiColombo",
    "id": -121,
    "group": "mercury",
    "centre": "mercury",
@@ -72,6 +73,7 @@
   {
    "key": "lro",
    "name": "Lunar Reconnaissance Orbiter",
+   "short": "LRO",
    "id": -85,
    "group": "moon",
    "centre": "moon",
@@ -107,6 +109,7 @@
   {
    "key": "chandrayaan2",
    "name": "Chandrayaan-2 orbiter",
+   "short": "Chandrayaan-2",
    "id": -152,
    "group": "moon",
    "centre": "moon",
@@ -137,6 +140,7 @@
   {
    "key": "danuri",
    "name": "Danuri (KPLO)",
+   "short": "Danuri",
    "id": -155,
    "group": "moon",
    "centre": "moon",
@@ -162,6 +166,7 @@
   {
    "key": "capstone",
    "name": "CAPSTONE",
+   "short": "CAPSTONE",
    "id": -1176,
    "group": "moon",
    "centre": "moon",
@@ -192,6 +197,7 @@
   {
    "key": "mro",
    "name": "Mars Reconnaissance Orbiter",
+   "short": "MRO",
    "id": -74,
    "group": "mars",
    "centre": "mars",
@@ -237,6 +243,7 @@
   {
    "key": "odyssey",
    "name": "2001 Mars Odyssey",
+   "short": "Mars Odyssey",
    "id": -53,
    "group": "mars",
    "centre": "mars",
@@ -256,6 +263,7 @@
   {
    "key": "maven",
    "name": "MAVEN",
+   "short": "MAVEN",
    "id": -202,
    "group": "mars",
    "centre": "mars",
@@ -291,6 +299,7 @@
   {
    "key": "mex",
    "name": "Mars Express",
+   "short": "Mars Express",
    "id": -41,
    "group": "mars",
    "centre": "mars",
@@ -326,6 +335,7 @@
   {
    "key": "tgo",
    "name": "ExoMars Trace Gas Orbiter",
+   "short": "TGO",
    "id": -143,
    "group": "mars",
    "centre": "mars",
@@ -456,6 +466,7 @@
   {
    "key": "hope",
    "name": "Hope (Emirates Mars Mission)",
+   "short": "Hope",
    "id": -62,
    "group": "mars",
    "centre": "mars",
@@ -481,6 +492,7 @@
   {
    "key": "juno",
    "name": "Juno",
+   "short": "Juno",
    "id": -61,
    "group": "jupiter",
    "centre": "jupiter",
@@ -516,6 +528,7 @@
   {
    "key": "jwst",
    "name": "James Webb Space Telescope",
+   "short": "JWST",
    "id": -170,
    "group": "lagrange",
    "centre": "earth",
@@ -551,6 +564,7 @@
   {
    "key": "roman",
    "name": "Nancy Grace Roman Space Telescope",
+   "short": "Roman",
    "id": -211,
    "group": "lagrange",
    "centre": "earth",
@@ -586,6 +600,7 @@
   {
    "key": "euclid",
    "name": "Euclid",
+   "short": "Euclid",
    "id": -680,
    "group": "lagrange",
    "centre": "earth",
@@ -605,6 +620,7 @@
   {
    "key": "gaia",
    "name": "Gaia",
+   "short": "Gaia",
    "id": -139479,
    "group": "lagrange",
    "centre": "earth",
@@ -624,6 +640,7 @@
   {
    "key": "soho",
    "name": "SOHO",
+   "short": "SOHO",
    "id": -21,
    "group": "lagrange",
    "centre": "earth",
@@ -643,6 +660,7 @@
   {
    "key": "dscovr",
    "name": "DSCOVR",
+   "short": "DSCOVR",
    "id": -78,
    "group": "lagrange",
    "centre": "earth",
@@ -693,6 +711,7 @@
   {
    "key": "parker",
    "name": "Parker Solar Probe",
+   "short": "Parker",
    "id": -96,
    "group": "cruise",
    "centre": "sun",
@@ -758,6 +777,7 @@
   {
    "key": "solo",
    "name": "Solar Orbiter",
+   "short": "Solar Orbiter",
    "id": -144,
    "group": "cruise",
    "centre": "sun",
@@ -777,6 +797,7 @@
   {
    "key": "juice",
    "name": "JUICE",
+   "short": "JUICE",
    "id": -28,
    "group": "cruise",
    "centre": "sun",
@@ -796,6 +817,7 @@
   {
    "key": "clipper",
    "name": "Europa Clipper",
+   "short": "Europa Clipper",
    "id": -159,
    "group": "cruise",
    "centre": "sun",
@@ -815,6 +837,7 @@
   {
    "key": "psyche",
    "name": "Psyche",
+   "short": "Psyche",
    "id": -255,
    "group": "cruise",
    "centre": "sun",
@@ -834,6 +857,7 @@
   {
    "key": "lucy",
    "name": "Lucy",
+   "short": "Lucy",
    "id": -49,
    "group": "cruise",
    "centre": "sun",
@@ -853,6 +877,7 @@
   {
    "key": "hera",
    "name": "Hera",
+   "short": "Hera",
    "id": -91,
    "group": "cruise",
    "centre": "sun",
@@ -878,6 +903,7 @@
   {
    "key": "newhorizons",
    "name": "New Horizons",
+   "short": "New Horizons",
    "id": -98,
    "group": "cruise",
    "centre": "sun",
@@ -943,6 +969,7 @@
   {
    "key": "voyager1",
    "name": "Voyager 1",
+   "short": "Voyager 1",
    "id": -31,
    "group": "cruise",
    "centre": "sun",
@@ -962,6 +989,7 @@
   {
    "key": "voyager2",
    "name": "Voyager 2",
+   "short": "Voyager 2",
    "id": -32,
    "group": "cruise",
    "centre": "sun",

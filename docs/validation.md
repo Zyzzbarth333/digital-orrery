@@ -640,6 +640,17 @@ references these are).
 | corrected geomagnetic coordinates | a pure centred dipole (identity) | within 0.004° |
 | Saturn's northern oval | Cassini 11 conjugate of 15° south | 13.3° from the north pole |
 
+## Spacecraft beyond Earth orbit (`spacecraft.test.mjs`)
+
+Twenty-eight craft on JPL Horizons' trajectories for 2026 and 2027, held as
+states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraft.md#how-right-they-are)).
+
+| Model | Reference | Result |
+| --- | --- | --- |
+| the packed trajectories, every craft | Horizons states not kept, one a month a craft (522), from mid-interval [7] | within 2 km: worst 1.95 km (Mars Odyssey); L1/L2 and cruise within 1.3 km |
+| the joins between days | each day's last state and the next day's first | within 3.5 m over 8,081 joins |
+| the packing itself | every Horizons sample of every day (4 to 60 minutes apart) | within 2 km on every day |
+
 ## References
 
 [1] JPL Solar System Dynamics, "Horizons System" API. Vectors for Juno (-61), from JPL's reconstructed trajectory `spk_rec_110805_*_260824`, and for Cassini (-82), from its final post-mission reconstruction. [Online]. Available: https://ssd.jpl.nasa.gov/api/horizons.api
@@ -653,3 +664,5 @@ references these are).
 [5] D. A. Vallado, P. Crawford, R. Hujsak, and T. S. Kelso, "Revisiting Spacetrack Report #3," in *Proc. AIAA/AAS Astrodynamics Specialist Conf.*, Keystone, CO, USA, Aug. 2006, AIAA 2006-6753 (rev. 3), doi: 10.2514/6.2006-6753. Paper, code and verification set: https://celestrak.org/publications/AIAA/2006-6753/
 
 [6] NASA JPL Solar System Dynamics, "Horizons system," ISS (−125544), TLE-based, revised 17 Nov. 2026. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/
+
+[7] NASA JPL Solar System Dynamics, "Horizons system," spacecraft trajectories, fetched 18 Nov. 2026 by `npm run fetch:spacecraft`. [Online]. Available: https://ssd.jpl.nasa.gov/horizons/

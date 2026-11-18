@@ -84,6 +84,11 @@ asteroids and Artemis I fixtures are checked against it.
 **SBDB.** JPL's Small-Body Database, the source of the app's 135,353
 asteroids and comets. [Asteroids and comets](frontend/small-bodies.md)
 
+**Reconstructed and predicted trajectories.** A spacecraft's path as its
+navigation team fits it to tracking after the fact (reconstructed), or
+works it out ahead (predicted, which leaves out manoeuvres planned later).
+JPL Horizons joins the two. [Spacecraft beyond Earth orbit](frontend/spacecraft.md)
+
 **TLE, GP elements, OMM.** The orbits the US Space Force publishes for every
 object it tracks: "general perturbations" (GP) mean elements, fitted for
 SGP4. The two-line element set (TLE) is their old fixed-column form; the

@@ -26,6 +26,7 @@ import * as THREE from 'three';
 import { eqjToEcl } from '../physics/ephemeris.js';
 import { parseMonth, segmentAt, stateIn } from '../physics/spacecraft.js';
 import { orbitTrailMaterial } from './orbitTrail';
+import { BODY_BY_KEY, type BodyKey } from './catalogue';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000, DAY = 86400e3;
@@ -43,13 +44,16 @@ export const PROBE_GROUPS: { key: ProbeGroup; label: string; colour: string; sho
 const GROUP = Object.fromEntries(PROBE_GROUPS.map((g) => [g.key, g])) as Record<ProbeGroup, (typeof PROBE_GROUPS)[number]>;
 
 export interface Probe {
-  key: string; name: string; id: number; group: ProbeGroup; centre: string; target: string | null; revised: string | null;
+  key: string; name: string; short: string; id: number; group: ProbeGroup; centre: string; target: string | null; revised: string | null;
   days: number; spacingMin: [number, number] | null; maxErrKm: number; conicDays: number;
   legs: { name: string; start: string; stop: string }[];
 }
 interface Index { source: string; fetched: string; span: [string, string]; tolKm: number; centres: { key: string; naif: number; mu: number }[]; craft: Probe[]; months: string[] }
 type Month = ReturnType<typeof parseMonth>;
-interface Path { line: THREE.Line; tc: number; span: number }
+interface Path { line: THREE.Line; tc: number; span: number; at: number }
+// A path is resampled at most this often (ms of real time): at a day a
+// second a low orbiter's quarter period passes every frame.
+const PATH_MIN_MS = 250;
 
 // J2000 equatorial -> render axes (through the ecliptic: render (x, y, z) =
 // ecliptic (x, z, -y)).
@@ -158,7 +162,7 @@ export class SpacecraftLayer {
     el.title = `${c.name}: ${GROUP[c.group].label.toLowerCase()} (JPL Horizons ${c.id})`;
     el.style.setProperty('--probe', GROUP[c.group].colour);
     const dot = document.createElement('span'), name = document.createElement('span');
-    dot.className = 'dot'; name.className = 'name'; name.textContent = c.name.replace(/ \(.*\)$/, '');
+    dot.className = 'dot'; name.className = 'name'; name.textContent = c.short;
     el.append(dot, name);
     el.style.display = 'none';
     el.addEventListener('click', () => this.onPick(c.key));
@@ -210,14 +214,14 @@ export class SpacecraftLayer {
       line.frustumCulled = false;
       line.visible = this.on;
       this.scene.add(line);
-      p = { line, tc: 0, span };
+      p = { line, tc: 0, span, at: 0 };
       this.paths.set(c.key, p);
     }
     p.line.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     p.line.geometry.setAttribute('u', new THREE.BufferAttribute(u, 1));
     p.line.geometry.setDrawRange(0, n);
     p.line.userData.centre = now.centre;
-    p.tc = this.timeMs; p.span = span;
+    p.tc = this.timeMs; p.span = span; p.at = performance.now();
   }
 
   // Each frame, before the render: the time (UTC ms), the camera's
@@ -234,7 +238,8 @@ export class SpacecraftLayer {
     for (const c of ix.craft) {
       if (!c.days) continue;
       const p = this.paths.get(c.key);
-      if ((!p || !(Math.abs(timeMs - p.tc) <= 0.25 * p.span)) && !this.tried.has(c.key) && budget-- > 0) this.samplePath(c);
+      const due = !p || !(Math.abs(timeMs - p.tc) <= 0.25 * p.span) && (p.tc === -Infinity || performance.now() - p.at >= PATH_MIN_MS);
+      if (due && !this.tried.has(c.key) && budget-- > 0) this.samplePath(c);
       else if (this.tried.has(c.key) && performance.now() - this.tried.get(c.key)! >= 1000 && budget-- > 0) this.samplePath(c);
       const q = this.paths.get(c.key);
       if (!q) continue;
@@ -266,6 +271,7 @@ export class SpacecraftLayer {
       const rel: V3 = [o[0] + re[0] - cam[0], o[1] + re[1] - cam[1], o[2] + re[2] - cam[2]];
       const dCentre = Math.hypot(o[0] - cam[0], o[1] - cam[1], o[2] - cam[2]);
       if (!focused && dCentre > GROUP[c.group].showKm) { el.style.display = 'none'; continue; }
+      if (behind(rel, [o[0] - cam[0], o[1] - cam[1], o[2] - cam[2]], s.centre === 'sun' ? 695700 : BODY_BY_KEY[s.centre as BodyKey]?.radiusKm ?? 0)) { el.style.display = 'none'; continue; }
       const ndc = this.tmp.set(rel[0] / UNIT_KM, rel[2] / UNIT_KM, -rel[1] / UNIT_KM).project(camera);
       if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
       const x = Math.round(((ndc.x + 1) / 2) * w * px) / px, y = Math.round(((1 - ndc.y) / 2) * h * px) / px;
@@ -282,4 +288,16 @@ export class SpacecraftLayer {
     for (const p of this.paths.values()) { this.scene.remove(p.line); p.line.geometry.dispose(); (p.line.material as THREE.Material).dispose(); }
     for (const el of this.markers.values()) el.remove();
   }
+}
+
+// Is a point at rel (km from the camera) behind a sphere of radius R at
+// centre (km from the camera), as the camera sees it?
+function behind(rel: V3, centre: V3, R: number): boolean {
+  const d = Math.hypot(rel[0], rel[1], rel[2]);
+  if (!(R > 0) || !(d > 0)) return false;
+  const u = [rel[0] / d, rel[1] / d, rel[2] / d];
+  const t = centre[0] * u[0] + centre[1] * u[1] + centre[2] * u[2];
+  if (t <= 0 || t >= d) return false;
+  const c = [centre[0] - t * u[0], centre[1] - t * u[1], centre[2] - t * u[2]];
+  return c[0] * c[0] + c[1] * c[1] + c[2] * c[2] < R * R;
 }
