@@ -2,14 +2,15 @@
 //
 // The small bodies the app draws (smallBodies.js, src/scene/smallBodies.ts):
 // the drawn two-body orbits against JPL Horizons, what the 16-byte packing
-// costs, and the vertex shader's Kepler solve (a fixed 12 Newton steps in
-// float32) against the exact one, for every body.
+// (and the faint belt's 12-byte one) costs, and the vertex shader's Kepler
+// solve (a fixed 12 Newton steps in float32) against the exact one, for
+// every body.
 //
 //   node src/physics/smallbodies.test.mjs
 
 import fs from 'node:fs';
 import { parseIndex, encodeIndex, searchIndex, decodeOne, kindOfClass, decodeSmallBodies, keplerAu, positionAu, SB_EPOCH_JD, SB_CLASSES, SB_CLASS_NAMES, smallBodyFacts, diameterFromH } from './smallBodies.js';
-import { GRID, loadBelt, buildBelt } from './beltGrid.js';
+import { GRID, BELT_PACK, packBelt, unpackBelt, loadBelt, buildBelt } from './beltGrid.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
@@ -92,9 +93,35 @@ header("THE SHADER'S KEPLER SOLVE (Danby's start, 12 Newton steps, float32) agai
 
 {
   header("The faint belt's grid (beltGrid.js): binning keeps each body's light and place");
-  // The main-belt points stand in for the faint file (the same packing).
-  const all = bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength);
-  const B = loadBelt(all), days = 400;
+  // The main-belt points stand in for the faint file, packed as it is, made
+  // 12 magnitudes fainter to fall in its range of H (the light's checks are
+  // ratios, so the shift does not change them).
+  const mb = [];
+  for (let j = 0; j < d.count; j++) {
+    const k = { a: d.a[j], e: d.e[j], i: d.i[j], node: d.node[j], peri: d.peri[j], M: d.M[j], H: d.H[j] + 12 };
+    if (['MBA', 'IMB', 'OMB', 'MCA'].includes(SB_CLASSES[d.cls[j]]) && k.a >= BELT_PACK.aLo && k.a <= BELT_PACK.aHi && k.e <= BELT_PACK.eHi) mb.push(k);
+  }
+  const packed = packBelt(mb);
+  // The 12-byte packing against the 16-byte one it was made from: positions
+  // at the epoch and ten years on, and the light.
+  const u = unpackBelt(packed.buffer);
+  for (const days of [0, 3650]) {
+    let s2 = 0, worst = 0;
+    for (let j = 0; j < mb.length; j++) {
+      const q = { a: u.a[j], e: u.e[j], i: u.i[j], node: u.node[j], peri: u.peri[j], M: u.M[j] };
+      const err = dist(keplerAu(mb[j], SB_EPOCH_JD + days), keplerAu(q, SB_EPOCH_JD + days)) * AU;
+      s2 += err * err; worst = Math.max(worst, err);
+    }
+    const rms = Math.sqrt(s2 / mb.length);
+    const yr = (days / 365.25).toFixed(0);
+    console.log(`  ${mb.length} main-belt bodies in 12 bytes against 16, ${yr} years on: rms ${rms.toFixed(0)} km, worst ${worst.toFixed(0)} km (a cell is ${(2 * GRID.halfXY / GRID.nx * AU / 1e6).toFixed(1)} million km)`);
+    check(`the 12-byte packing moves them by a few hundredths of a cell at most, ${yr} years on (rms under 100,000 km, worst under 300,000 km)`, rms < 100000 && worst < 300000);
+  }
+  const light = (H) => H.reduce((s, h) => s + Math.pow(10, -0.4 * h), 0);
+  const lr = light([...u.H]) / light(mb.map((k) => k.H));
+  console.log(`  their light, packed against unpacked: ${lr.toFixed(5)}`);
+  check('the packing keeps their light (to 0.2%)', Math.abs(lr - 1) < 2e-3);
+  const B = loadBelt(packed.buffer), days = 400;
   const grid = buildBelt(B, days);
   const { nx, ny, nz, halfXY, halfZ } = GRID;
   const cx = (ix) => -halfXY + (ix + 0.5) * (2 * halfXY / nx), cy = (iy) => -halfXY + (iy + 0.5) * (2 * halfXY / ny), cz = (iz) => -halfZ + (iz + 0.5) * (2 * halfZ / nz);
@@ -106,20 +133,22 @@ header("THE SHADER'S KEPLER SOLVE (Danby's start, 12 Newton steps, float32) agai
   }
   // ...against the bodies' own, placed by the exact solution.
   let t0 = 0, t1 = [0, 0, 0], inside = 0;
-  for (let j = 0; j < d.count; j++) {
-    const p = keplerAu({ a: d.a[j], e: d.e[j], i: d.i[j], node: d.node[j], peri: d.peri[j], M: d.M[j] }, SB_EPOCH_JD + days);
+  for (let j = 0; j < u.count; j++) {
+    const p = keplerAu({ a: u.a[j], e: u.e[j], i: u.i[j], node: u.node[j], peri: u.peri[j], M: u.M[j] }, SB_EPOCH_JD + days);
     const gx = (p[0] + halfXY) * nx / (2 * halfXY) - 0.5, gy = (p[1] + halfXY) * ny / (2 * halfXY) - 0.5, gz = (p[2] + halfZ) * nz / (2 * halfZ) - 0.5;
     if (gx < 0 || gy < 0 || gz < 0 || gx >= nx - 1 || gy >= ny - 1 || gz >= nz - 1) continue;
-    const w = Math.pow(10, -0.4 * d.H[j]) / (p[0] ** 2 + p[1] ** 2 + p[2] ** 2);
+    const w = Math.pow(10, -0.4 * u.H[j]) / (p[0] ** 2 + p[1] ** 2 + p[2] ** 2);
     t0 += w; t1 = t1.map((x, k) => x + w * p[k]); inside++;
   }
   const centre = dist(s1.map((x) => x / s0), t1.map((x) => x / t0));
-  console.log(`  ${inside} of ${d.count} bodies inside the grid; light ${(s0 / t0).toFixed(5)} of theirs; centre ${(centre * AU).toFixed(0)} km apart`);
+  console.log(`  ${inside} of ${u.count} bodies inside the grid; light ${(s0 / t0).toFixed(5)} of theirs; centre ${(centre * AU).toFixed(0)} km apart`);
   check('the grid holds the light of the bodies inside it (to 0.1%)', Math.abs(s0 / t0 - 1) < 1e-3);
   check('its light-weighted centre is theirs (within 0.001 au)', centre < 1e-3);
   const belt = new URL('../../public/data/smallbodies-belt.bin', import.meta.url);
   if (fs.existsSync(belt)) {
     const fb = fs.readFileSync(belt), FB = loadBelt(fb.buffer.slice(fb.byteOffset, fb.byteOffset + fb.byteLength));
+    console.log(`  smallbodies-belt.bin: ${(fb.length / 1e6).toFixed(2)} MB, ${BELT_PACK.bytes} bytes a body`);
+    check('the faint belt file holds the bodies smallbodies.json counts, 12 bytes each', fb.length === meta.beltCount * BELT_PACK.bytes);
     const t = performance.now(); buildBelt(FB, days);
     console.log(`  the faint belt (${FB.count} bodies) binned in ${(performance.now() - t).toFixed(0)} ms`);
   }

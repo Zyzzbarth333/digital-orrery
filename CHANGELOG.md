@@ -243,7 +243,9 @@ once it has releases. Until then, everything sits under Unreleased.
   sky's dimming are checked from other planets and in transits (#67).
 - The Earth's sky costs less near the Earth: frames 40 % shorter on an
   integrated GPU with the Earth in view, and 23 % in low orbit at a day a
-  second, with the same look (this pull request).
+  second, with the same look (#122).
+- The faint belt's file is a quarter smaller, 17.4 MB instead of 23.1 MB,
+  so the haze loads sooner on a slow link (this pull request).
 
 ### The console
 - Source tags open each value's equation and source, set in a bundled
