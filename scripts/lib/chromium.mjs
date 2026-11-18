@@ -13,7 +13,7 @@
 // Needs Node 22 (or Node 20 with --experimental-websocket).
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -80,10 +80,28 @@ export function gpuEnv(gpu) {
   return env;
 }
 
+// Profiles left by a run that was killed outright (no clean-up runs then):
+// any over ten minutes old that no running process names. Other sessions'
+// live browsers name theirs on their command lines, so they are kept.
+const PROFILE = 'orrery-chromium-';
+function sweepProfiles() {
+  let names;
+  try { names = readdirSync(tmpdir()).filter((d) => d.startsWith(PROFILE)); } catch { return; }
+  if (!names.length) return;
+  const old = names.map((d) => join(tmpdir(), d)).filter((d) => { try { return Date.now() - statSync(d).mtimeMs > 600e3; } catch { return false; } });
+  if (!old.length) return;
+  let cmdlines = '';
+  try {
+    for (const pid of readdirSync('/proc')) if (/^\d+$/.test(pid)) { try { cmdlines += readFileSync(`/proc/${pid}/cmdline`, 'utf8'); } catch { /* gone */ } }
+  } catch { return; } // no /proc: leave them
+  for (const d of old) if (!cmdlines.includes(d)) rmSync(d, { recursive: true, force: true });
+}
+
 // A headless browser on its first page: { proc, cdp, profile, close }.
 // close() is safe to call twice and never throws.
 export async function launch({ gpu = 'intel', width = 1200, height = 750 } = {}) {
-  const profile = mkdtempSync(join(tmpdir(), 'orrery-chromium-'));
+  sweepProfiles();
+  const profile = mkdtempSync(join(tmpdir(), PROFILE));
   const proc = spawn(findChrome(), [
     '--headless=new', '--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist',
     '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',

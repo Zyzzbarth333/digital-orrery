@@ -80,9 +80,17 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   median over `--rounds` (3); each round's numbers, with the 90th
   percentile and the worst frame, go to stderr, and all of them to
   `--json FILE`. `--size` (1920x1080) and `--dpr` (1) set the viewport.
+- **A busy machine.** Under heavy load the page can stall for seconds:
+  its camera flight never ends, or it draws a handful of frames while
+  timed. Such a sample is loaded afresh up to `--retries` times (2), then
+  left out. The table is still printed, with the missing samples listed
+  under it, and the script exits with status 1. The page's own errors and
+  the load average at each sample are printed as well.
 - **Clean-up.** The browser and the servers run in their own process
   groups with a fresh profile, and are stopped by group, with the profile
-  removed, at the end, on an error or on Ctrl-C.
+  removed, at the end, on an error or on Ctrl-C. A run killed outright
+  leaves its profile behind; the next launch removes any over ten minutes
+  old that no running process names.
 
 The machine is shared: two browsers on one GPU time each other, so run
 one benchmark at a time, and read the before and after of one run rather
