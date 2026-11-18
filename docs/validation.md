@@ -243,27 +243,32 @@ thin to matter to the orbit.
   seven major moons (601–606, 608) about the centre.
 - **Runs:** as at Io, with Titan's nodes every 10 minutes in place of
   $J_4$ (Saturn's is under $10^{-15}$ km/s² out here).
+- **Titan's nodes** are two hours apart since November 2026; the runs
+  before had them three hours apart (below).
 
 | Moons in the kernel | 3 min after closest approach | 9 h after | Closest approach (Horizons: 4,188.89 km) |
 | --- | ---: | ---: | ---: |
 | none (system at its barycentre) | 1,074 km | 22,134 km | 4,426 km |
-| `moons.js` | 0.003 km | 0.807 km | 4,188.90 km |
-| Horizons' moons | 0.012 km | 0.234 km | 4,188.91 km |
-| Horizons', Titan as Cassini's track has it | 0.015 km | 0.093 km | 4,188.91 km |
-| the same, without Titan's $J_2$ and $C_{22}$ | 0.010 km | 0.431 km | 4,188.91 km |
-| the same, Titan's nodes every 10 min | 0.016 km | 0.007 km | 4,188.91 km |
+| `moons.js` | 0.003 km | 0.712 km | 4,188.89 km |
+| Horizons' moons | 0.013 km | 0.204 km | 4,188.90 km |
+| Horizons', Titan as Cassini's track has it | 0.016 km | 0.004 km | 4,188.90 km |
+| the same, without Titan's $J_2$ and $C_{22}$ | 0.011 km | 0.369 km | 4,188.90 km |
+| the same, Titan's nodes every 10 min | 0.016 km | 0.007 km | 4,188.90 km |
 
-- **What is left is the kernel's own Titan.** Its Hermite nodes are three
-  hours apart, the spacing that holds Titan to 100 m
-  ([kernel](physics/nbody-kernel.md#moons)); at closest approach they put
-  it 27 m from the table. A pass this slow is sensitive to that: with the
-  nodes every 10 minutes, 7 m is left after nine hours.
+- **The kernel follows Cassini to 4 m** nine hours after the pass, given
+  Titan where Cassini's track has it.
+- **That needed the kernel's own Titan to be closer.** A pass this slow is
+  sensitive to where Titan is. Its Hermite nodes were three hours apart,
+  the spacing that held Titan to 100 m; at closest approach they put it
+  27 m from the table, and Cassini was 0.093 km off nine hours on. Two
+  hours apart, to 10 m ([kernel](physics/nbody-kernel.md#moons)), they put
+  it 14 m off and leave 4 m; nodes every 10 minutes change nothing more.
 - **Titan's field is measured too.** Its $J_2$ and $C_{22}$ (Iess et al.
-  2010) take the error from 0.431 km to 0.093 km.
+  2010) take the error from 0.369 km to 0.004 km.
 - **Horizons is nearly consistent here.** Its Titan is 0.04 km from the one
-  Cassini's track has, and that alone makes 0.14 km of the difference
+  Cassini's track has, and that alone makes 0.2 km of the difference
   between the third and fourth rows. `moons.js`'s Titan (sat441) leaves
-  0.81 km.
+  0.71 km.
 
 The same file checks:
 

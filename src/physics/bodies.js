@@ -135,21 +135,31 @@ const differenced = (key, tt0) => (t) => {
 // (Jupiter's by 20 km with Io, Pluto's by 2,100 km with Charon): nodes every
 // 6 hours hold it to 0.04 km. Each moon about its planet gets the widest
 // spacing that divides this and keeps the cubic's error, a n^4 D^4 / 384
-// for orbit radius a and mean motion n, under NODE_TOL; Io, Europa,
-// Ganymede and Callisto share Io's, since JupiterMoons gives all four at
-// once. docs/physics/nbody-kernel.md#moons has the measured errors.
+// for orbit radius a and mean motion n, under NODE_TOL.
+//
+// NODE_TOL is 10 m. A slow pass is that sensitive to where the moon is: on
+// Cassini's T45 pass of Titan (6 km/s, 1,613 km up) Titan's nodes three
+// hours apart (100 m) put it 27 m off at closest approach, and Cassini 0.09
+// km off nine hours on; two hours apart (10 m), 0.004 km (flyby.test.mjs
+// case 3c). Io, Europa, Ganymede and Callisto share one spacing, Io's,
+// since JupiterMoons gives all four at once, held to GALILEAN_TOL (100 m):
+// that already holds Ganymede and Callisto under a metre, and at 10 m Io's
+// nodes would cost a third of a run among them while moving neither of
+// Juno's checked passes (cases 3 and 3b) by more than a metre.
+// docs/physics/nbody-kernel.md#moons has the measured errors.
 const CENTRE_SPACING = 6 * 3600;
-const NODE_TOL = 0.1;               // km
+const NODE_TOL = 0.01;              // km
+const GALILEAN_TOL = 0.1;           // km
 const DIVISORS = [];
 for (let d = 1; d <= CENTRE_SPACING; d++) if (CENTRE_SPACING % d === 0) DIVISORS.push(d);
-function moonSpacing(key) {
+function moonSpacing(key, tol = NODE_TOL) {
   const m = MOON_DATA[key], n = 2 * Math.PI / (m.P * 86400);
-  const D = (384 * NODE_TOL / m.a) ** 0.25 / n;
+  const D = (384 * tol / m.a) ** 0.25 / n;
   return DIVISORS.filter((d) => d <= D).pop();
 }
 const GALILEAN = ['io', 'europa', 'ganymede', 'callisto'];
 export const MOON_SPACING = Object.fromEntries(Object.keys(MOON_DATA).map((k) => [k, moonSpacing(k)]));
-for (const k of GALILEAN) MOON_SPACING[k] = Math.min(...GALILEAN.map(moonSpacing));
+for (const k of GALILEAN) MOON_SPACING[k] = Math.min(...GALILEAN.map((g) => moonSpacing(g, GALILEAN_TOL)));
 
 // A system is split inside EXPAND times its sphere of influence and folded
 // up again outside COLLAPSE times it. Inside the sphere a craft may be in
