@@ -15,7 +15,8 @@ import fs from 'node:fs';
 import dns from 'node:dns';
 import { createState, advance } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
-import { KERNEL_EPOCH_MS, kernelSeconds } from './kernelHost.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, aimTo, stepCraft } from './kernelHost.js';
+import { makeEnvironment } from './environment.js';
 import { helioStateEqj } from './ephemeris.js';
 
 dns.setDefaultResultOrder('ipv4first');
@@ -156,6 +157,74 @@ export function findEvents(steps, threshold, gap = 3) {
     e.kind = e.peak <= 1.5 * norm(e.net) ? 'burn' : 'join';
   }
   return events;
+}
+
+// Where Horizons' interpolation rings across a join between solutions:
+// runs of steps whose residuals point against their neighbours' (cosine
+// under -0.5), each over minKms and twenty times the window's median. A
+// burn's steps all point the same way; ringing swings back and forth, its
+// steps' magnitudes large and their sum small (LRO's join two minutes
+// after lunar orbit insertion: 450 m/s of steps, 3.6 m/s in sum). Each
+// region [first, last] step index, a step wider either side.
+export function ringingRegions(steps, minKms = 1e-6) {
+  if (!steps.length) return [];
+  const n = steps.map((s) => norm(s.dv));
+  const median = [...n].sort((a, b) => a - b)[n.length >> 1];
+  const big = (i) => n[i] > minKms && n[i] > 20 * median;
+  const regions = [];
+  for (let i = 0; i + 1 < steps.length; i++) {
+    if (!(big(i) && big(i + 1) && dot(steps[i].dv, steps[i + 1].dv) < -0.5 * n[i] * n[i + 1])) continue;
+    const r = regions.at(-1);
+    if (r && i - r[1] <= 3) r[1] = i + 1; else regions.push([i, i + 1]);
+  }
+  return regions.map(([a, b]) => [Math.max(0, a - 1), Math.min(steps.length - 1, b + 1)]);
+}
+
+// A burn the samples can't resolve in time, fitted as the engine would fly
+// it: a steady push of seconds sec centred on the span (msFrom, msTo) the
+// samples ring across, along one J2000 direction, its change solved for (by
+// the kernel's aim, kernelHost.aimTo) so that the craft flown from a clean
+// sample ten minutes before the span reaches the sample half an hour after
+// it (a minute after, the position hardly constrains the velocity). rows: about key; craft: { mass, area, cr } as the environment takes
+// it. Returns { t0, t1 (ms), dv (km/s), missKm, offMms (the velocity left
+// at the sample after: how well one steady push stands for the burn) }, or
+// null.
+export function fitSteadyBurn(rows, msFrom, msTo, key, sec, craft, { scanS = 600, stepS = 30, centreMs = null } = {}) {
+  // The centre: given, or the one within scanS of the span's middle that
+  // leaves the least velocity at the far sample.
+  const fitAt = (mid) => {
+    const t0 = Math.round(mid - sec * 500), t1 = t0 + Math.round(sec * 1000);
+    const pre = [...rows].reverse().find((p) => p.ms <= Math.min(msFrom, t0) - 600e3), post = rows.find((p) => p.ms >= Math.max(msTo, t1) + 1800e3);
+    if (!pre || !post) return null;
+    const env = makeEnvironment(sys, craft);
+    const s0 = coast(pre, t0, key, env, 'sun'), B = bodyState(key, post.ms);
+    const target = add(post.r, B.r), vTarget = add(post.v, B.v);
+    const k = aimTo(sys, { r: s0.r, v: s0.v, t0: kt(t0), T: kt(post.ms), target, env: craft, spread: (t1 - t0) / 1000, damped: true, rounds: 8 });
+    if (!k) return null;
+    const n = norm(k.dv);
+    const res = stepCraft(sys, { id: 0, version: 0, r: s0.r, v: s0.v, t: kt(t0), tEnd: kt(post.ms), primary: null, maxSteps: 1e6, env: craft,
+      burns: [{ t0: kt(t0), t1: kt(t1), dir: k.dv.map((x) => x / n), F: n * 1000 / ((t1 - t0) / 1000), m0: 1, mdot: 0, scripted: true }] });
+    return { t0, t1, dv: k.dv, missKm: k.after, offMms: norm(sub(res.v, vTarget)) * 1e6, centreMs: mid };
+  };
+  if (centreMs !== null) return fitAt(centreMs);
+  const mid0 = (msFrom + msTo) / 2;
+  let best = null;
+  for (let d = -scanS; d <= scanS; d += stepS) {
+    const f = fitAt(mid0 + d * 1000);
+    if (f && f.missKm < 0.1 && (!best || f.offMms < best.offMms)) best = f;
+  }
+  return best;
+}
+
+// A burn the samples can't resolve in time (LRO's after lunar orbit
+// insertion, which Horizons' interpolation rings across): one steady push
+// of the whole change dv (km/s, in the axes of the rows' centre `key`) from
+// msFrom to msTo, along it in the orbital frame about key at the middle
+// (p: the state there), or in J2000 axes. The shape burnFromSamples returns.
+export function steadyBurn(msFrom, msTo, dv, p, key, eqj = false) {
+  const m = norm(dv), sec = (msTo - msFrom) / 1000;
+  const L = eqj || !p ? [[1, 0, 0], [0, 1, 0], [0, 0, 1]] : frameAbout(key, p, (msFrom + msTo) / 2, key);
+  return { intervals: [[msFrom, msTo, ...L.map((ax) => Math.round(dot(dv, ax) / m * 1e6) / 1e6), Math.round(m / sec * 1e9) / 1e6]], dv, ignitionMs: msFrom, cutoffMs: msTo, peak: m / sec * 1000 };
 }
 
 // A burn from samples every few seconds through it (rows), as the app's

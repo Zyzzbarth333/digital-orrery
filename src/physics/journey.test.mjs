@@ -18,13 +18,14 @@ import * as X from './transfers.js';
 import { restrictedStaging, restrictedPayloadRatio, sizeLauncher, launchBudget, launcherFor, STAGE_TECH } from './staging.js';
 import { LAUNCHERS } from './launchers.js';
 import * as J from './journey.js';
-import { propagate } from './orbital.js';
+import { propagate, lambert } from './orbital.js';
 import { planFlight, flyJourney, flightTrouble, JOURNEY_CRAFT } from './journeyFlight.js';
 import * as F from './feasibility.js';
 import * as PP from './parkingPlane.js';
 import { ZONAL } from './bodies.js';
 import { bodyAxesEqj } from './orientation.js';
 import { stepCraft } from './kernelHost.js';
+import { nelderMead } from './trajsearch.js';
 import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS, createKernelHost, kernelSeconds } from './kernelHost.js';
 import * as LD from './landing.js';
@@ -635,10 +636,13 @@ header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira 200
   const mm = (stay, via) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
     { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: stay, dateMs: D('2026-10-24T00:00:00Z') },
     { id: 2, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z'), ...(via ? { via } : {}) }] });
-  const j23 = mm(23), s23 = J.solveJourney(j23), L = s23.legs[1], bp = L.brokenPlane;
+  // (The planner flies these legs with a deep-space burn, CASE 13; the
+  // broken plane is chosen here by name.)
+  const legDv = (x) => x.depDv + x.midDv + x.arrDv;
+  const j23 = mm(23), s23 = J.solveJourney(j23), L = J.solveJourney(mm(23, 'brokenplane')).legs[1], bp = L.brokenPlane, ds = s23.legs[1].deepSpace;
   const dir = J.solveJourney(mm(23, 'direct')).legs[1];
-  console.log(`  23 d at the Moon: ${bp.angleDeg.toFixed(2)} deg round the Sun; direct ${(dir.depDv + dir.arrDv).toFixed(2)} km/s on a plane tilted ${bp.directIncDeg.toFixed(1)} deg; broken plane ${(L.depDv + L.midDv + L.arrDv).toFixed(3)} km/s with ${(L.midDv * 1000).toFixed(1)} m/s at the break`);
-  check('at 180.4 deg the direct arc tilts over 10 deg and costs over three times the broken plane, which the planner takes', Math.abs(bp.angleDeg - 180) < 1 && bp.directIncDeg > 10 && dir.depDv + dir.arrDv > 3 * (L.depDv + L.midDv + L.arrDv) && L.arcs.length === 2);
+  console.log(`  23 d at the Moon: ${bp.angleDeg.toFixed(2)} deg round the Sun; direct ${(dir.depDv + dir.arrDv).toFixed(2)} km/s on a plane tilted ${bp.directIncDeg.toFixed(1)} deg; broken plane ${legDv(L).toFixed(3)} km/s with ${(L.midDv * 1000).toFixed(1)} m/s at the break; the plan's deep-space burn ${legDv(s23.legs[1]).toFixed(3)}`);
+  check('at 180.4 deg the direct arc tilts over 10 deg and costs over three times the broken plane; the planner takes a deep-space burn, cheaper still', Math.abs(bp.angleDeg - 180) < 1 && bp.directIncDeg > 10 && dir.depDv + dir.arrDv > 3 * legDv(L) && L.arcs.length === 2 && !!ds && legDv(s23.legs[1]) < legDv(L));
   const [a1, a2] = L.arcs, e = J.relState('earth', 'sun', L.depMs), m = J.relState('mars', 'sun', L.arrMs), nE = unit(cross(e.r, e.v));
   const tilt1 = Math.acos(Math.min(1, dot(nE, unit(cross(a1.r1, a1.v1))))) / deg;
   const B = propagate(a1.r1, a1.v1, (a1.t2 - a1.t1) / 1000, a1.mu), end = propagate(a2.r1, a2.v1, (a2.t2 - a2.t1) / 1000, a2.mu);
@@ -652,29 +656,142 @@ header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira 200
 
   // The price by the stay: the excess speed leaving the Earth's sphere
   // (the heliocentric part, before the Moon's phase is added) runs smoothly
-  // through 180 degrees; the direct arc's leaps.
+  // through 180 degrees on the broken plane; the direct arc's leaps.
   const vd = [], vdDirect = [];
-  for (let stay = 18; stay <= 30; stay++) { vd.push(norm(J.solveJourney(mm(stay)).legs[1].vinfDep)); vdDirect.push(norm(J.solveJourney(mm(stay, 'direct')).legs[1].vinfDep)); }
+  for (let stay = 18; stay <= 30; stay++) { vd.push(norm(J.solveJourney(mm(stay, 'brokenplane')).legs[1].vinfDep)); vdDirect.push(norm(J.solveJourney(mm(stay, 'direct')).legs[1].vinfDep)); }
   // (Smooth: the change from one day's step to the next, the second
   // difference.)
   const bend = (a) => Math.max(...a.slice(2).map((x, i) => Math.abs(x - 2 * a[i + 1] + a[i])));
   console.log(`  excess speed from the Earth, stays of 18 to 30 d: ${vd.map((x) => x.toFixed(2)).join(' ')} km/s (largest second difference ${(bend(vd) * 1000).toFixed(1)} m/s); direct ${vdDirect.map((x) => x.toFixed(2)).join(' ')} (${(bend(vdDirect) * 1000).toFixed(0)} m/s)`);
-  check('through 180 degrees the plan\'s excess speed runs smoothly (second difference under 20 m/s a day), where the direct arc\'s leaps by kilometres a second', bend(vd) < 0.02 && bend(vdDirect) > 1);
+  check('through 180 degrees the broken plane\'s excess speed runs smoothly (second difference under 20 m/s a day), where the direct arc\'s leaps by kilometres a second', bend(vd) < 0.02 && bend(vdDirect) > 1);
 
   // The lamp, the options, and the strip.
   const lamp = F.assess(j23, s23, {}).find((l) => l.key === 'plane'), lamp7 = F.assess(mm(7), J.solveJourney(mm(7)), {}).find((l) => l.key === 'plane');
   const opts = J.legOptions(j23, 1, { search: false }).options;
-  console.log(`  the plane lamp: ${lamp?.text}; options ${opts.map((o) => `${o.name} ${o.dv.toFixed(2)}`).join(', ')}`);
-  check('the plane lamp says the plane breaks, and when; none at 196 deg; the direct arc is listed for comparison and dearer', lamp?.level === 'caution' && Math.abs(lamp.bestMs - bp.ms) < 1 && !lamp7 && opts.find((o) => o.type === 'direct')?.dv > opts.find((o) => o.type === 'lambert').dv);
+  console.log(`  the plane lamp: ${lamp?.text}; options ${opts.map((o) => `${o.name} ${o.dv.toFixed(3)}`).join(', ')}`);
+  check('the plane lamp says where the deep-space burn is, and when; none at 196 deg; the broken plane and the direct arc are listed for comparison, both dearer', lamp?.level === 'caution' && Math.abs(lamp.bestMs - ds.ms) < 1 && !lamp7 && opts.find((o) => o.type === 'direct')?.dv > opts.find((o) => o.type === 'lambert').dv && opts.find((o) => o.type === 'brokenplane')?.dv > opts.find((o) => o.type === 'lambert').dv);
 
   // Flown in the full model, 20 days at the Moon (183.4 deg, where the
-  // direct arc is 12 m/s cheaper on paper): the broken plane's corrections
-  // are its planned break and the usual trims, the direct arc's the cost of
-  // following a plane that will not hold.
+  // direct arc is 12 m/s cheaper on paper than the broken plane): the
+  // broken plane's and the deep-space burn's corrections are their planned
+  // burn and the usual trims, the direct arc's the cost of following a
+  // plane that will not hold.
   const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
-  const s20 = J.solveJourney(mm(20)), f20 = flyJourney(sys, planFlight(s20)), d20 = flyJourney(sys, planFlight(J.solveJourney(mm(20, 'direct'))));
-  console.log(`  20 d at the Moon, flown: broken plane ${(f20.correctionsDv * 1000).toFixed(0)} m/s of corrections (${(s20.legs[1].midDv * 1000).toFixed(0)} of them the planned break), Mars ${f20.arrivals[1].missKm.toFixed(1)} km off; direct ${(d20.correctionsDv * 1000).toFixed(0)} m/s, Mars ${d20.arrivals[1].missKm.toFixed(1)} km off`);
-  check('inside 6 deg of 180 the planner takes the broken plane; flown, it corrects under 250 m/s and reaches Mars within 20 km, against over 500 m/s for the direct arc', !!s20.legs[1].brokenPlane && f20.correctionsDv < 0.25 && f20.arrivals[1].missKm < 20 && !f20.impact && d20.correctionsDv > 0.5);
+  const s20 = J.solveJourney(mm(20)), b20 = J.solveJourney(mm(20, 'brokenplane'));
+  const f20 = flyJourney(sys, planFlight(s20)), g20 = flyJourney(sys, planFlight(b20)), d20 = flyJourney(sys, planFlight(J.solveJourney(mm(20, 'direct'))));
+  console.log(`  20 d at the Moon, flown: deep-space burn ${(f20.correctionsDv * 1000).toFixed(0)} m/s of corrections (${(s20.legs[1].midDv * 1000).toFixed(0)} of them the planned burn), Mars ${f20.arrivals[1].missKm.toFixed(1)} km off; broken plane ${(g20.correctionsDv * 1000).toFixed(0)} (${(b20.legs[1].midDv * 1000).toFixed(0)} planned), Mars ${g20.arrivals[1].missKm.toFixed(1)} km off; direct ${(d20.correctionsDv * 1000).toFixed(0)} m/s, Mars ${d20.arrivals[1].missKm.toFixed(1)} km off`);
+  check('inside 6 deg of 180 the planner takes the deep-space burn; flown, it and the broken plane each correct under 250 m/s and reach Mars within 20 km, against over 500 m/s for the direct arc', !!s20.legs[1].deepSpace && [f20, g20].every((f) => f.correctionsDv < 0.25 && f.arrivals[1].missKm < 20 && !f.impact) && d20.correctionsDv > 0.5);
+}
+
+header('CASE 13: the deep-space burn, against primer vector theory (Lawden 1963)');
+{
+  // Earth orbit (200 km) on 16 Nov 2026 to Mars orbit (400 km) on 20 Aug
+  // 2027, 180.4 deg round the Sun. Lawden's necessary conditions for an
+  // optimal impulsive trajectory [Lawden 1963; Prussing 2010, ch. 2]: the
+  // primer vector p (the velocity adjoint) is the unit burn direction at
+  // each interior burn, |p| <= 1 everywhere, and at a burn whose place and
+  // time are free p-dot is continuous and p . p-dot = 0. The jump in p-dot
+  // there is the gradient of the cost with B's place (Lion and Handelsman
+  // 1968; Jezewski, NASA TR R-454, 1975). p obeys the same linear equation
+  // as a small change in position, so along each arc it is fixed by its two
+  // ends through the arc's state transition matrix (here by central
+  // differences of propagate: an oracle apart from the planner's search).
+  const D = Date.parse, dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const add = (a, b) => a.map((x, i) => x + b[i]), sub = (a, b) => a.map((x, i) => x - b[i]), sc = (a, k) => a.map((x) => x * k), unit = (a) => sc(a, 1 / norm(a));
+  const mv = (M, v) => M.map((r) => dot(r, v));
+  const inv3 = (m) => { const [a, b, c] = m[0], [d, e, f] = m[1], [g, h, i] = m[2]; const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
+    return [[A, -(b * i - c * h), b * f - c * e], [B, a * i - c * g, -(a * f - c * d)], [C, -(a * h - b * g), a * e - b * d]].map((r) => r.map((x) => x / det)); };
+  const stm = (r0, v0, dt, mu) => {
+    const cols = [];
+    for (let k = 0; k < 6; k++) {
+      const h = k < 3 ? 1 : 1e-6, e = [0, 0, 0]; e[k % 3] = h;
+      const p = k < 3 ? propagate(add(r0, e), v0, dt, mu) : propagate(r0, add(v0, e), dt, mu), m = k < 3 ? propagate(sub(r0, e), v0, dt, mu) : propagate(r0, sub(v0, e), dt, mu);
+      cols.push([...sc(sub(p.r, m.r), 1 / (2 * h)), ...sc(sub(p.v, m.v), 1 / (2 * h))]);
+    }
+    const blk = (i0, j0) => [0, 1, 2].map((i) => [0, 1, 2].map((j) => cols[j0 + j][i0 + i]));
+    return { rr: blk(0, 0), rv: blk(0, 3), vr: blk(3, 0), vv: blk(3, 3) };
+  };
+  const E = J.bodyInfo('earth'), M = J.bodyInfo('mars'), rpE = E.radius + 200, rpM = M.radius + 400;
+  const em = (dep, via) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D(dep) }, waypoints: [{ id: 1, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z'), ...(via ? { via } : {}) }] });
+  // The primer at the ends: the gradient of each end burn with the excess
+  // velocity (sqrt(v^2 + 2 mu / rp) less the circular speed: its slope is
+  // v / sqrt(v^2 + 2 mu / rp), under 1, the Oberth effect).
+  const primer = (L) => {
+    const [A1, A2] = L.arcs, mu = A1.mu, T1 = (A1.t2 - A1.t1) / 1000, T2 = (A2.t2 - A2.t1) / 1000;
+    const vB = propagate(A1.r1, A1.v1, T1, mu).v, vi = L.vinfDep, va = L.vinfArr;
+    const p0 = sc(unit(vi), norm(vi) / Math.sqrt(dot(vi, vi) + 2 * E.mu / rpE)), pB = unit(sub(A2.v1, vB)), pf = sc(unit(va), -norm(va) / Math.sqrt(dot(va, va) + 2 * M.mu / rpM));
+    const S1 = stm(A1.r1, A1.v1, T1, mu), S2 = stm(A2.r1, A2.v1, T2, mu);
+    const pd0 = mv(inv3(S1.rv), sub(pB, mv(S1.rr, p0))), before = add(mv(S1.vr, p0), mv(S1.vv, pd0)), after = mv(inv3(S2.rv), sub(pf, mv(S2.rr, pB)));
+    let pmax = 0;
+    for (let i = 1; i < 40; i++) {
+      const a = stm(A1.r1, A1.v1, T1 * i / 40, mu), b = stm(A2.r1, A2.v1, T2 * i / 40, mu);
+      pmax = Math.max(pmax, norm(add(mv(a.rr, p0), mv(a.rv, pd0))), norm(add(mv(b.rr, pB), mv(b.rv, after))));
+    }
+    return { jump: sub(after, before), size: norm(before), along: dot(pB, before) / norm(before), pmax, rB: A2.r1 };
+  };
+  // The leg's price with B moved (both arcs re-solved), for the gradient.
+  const price = (L, rB) => {
+    const [A1, A2] = L.arcs, mu = A1.mu, a = J.relState('earth', 'sun', L.depMs), b = J.relState('mars', 'sun', L.arrMs);
+    const s1 = lambert(A1.r1, rB, (A1.t2 - A1.t1) / 1000, mu, true), s2 = lambert(rB, b.r, (A2.t2 - A2.t1) / 1000, mu, true);
+    return X.departureDv(norm(sub(s1.v1, a.v)), E.mu, rpE) + norm(sub(s2.v1, s1.v2)) + X.captureDv(norm(sub(s2.v2, b.v)), M.mu, rpM, 0);
+  };
+  const legDv = (x) => x.depDv + x.midDv + x.arrDv;
+  const L = J.solveJourney(em('2026-11-16T00:00:00Z')).legs[0], BP = J.solveJourney(em('2026-11-16T00:00:00Z', 'brokenplane')).legs[0];
+  const pd = primer(L), pb = primer(BP);
+  const grad = (Lg, p) => [0, 1, 2].map((k) => { const e = [0, 0, 0]; e[k] = 2000; return (price(Lg, add(p.rB, e)) - price(Lg, sub(p.rB, e))) / 4000; });
+  const gb = grad(BP, pb), gErr = norm(sub(gb, pb.jump)) / norm(pb.jump);
+  console.log(`  ${L.transferDeg.toFixed(1)} deg: deep-space burn ${legDv(L).toFixed(4)} km/s, ${(L.midDv * 1000).toFixed(1)} m/s at B (${(100 * (L.mid.ms - L.depMs) / (L.arrMs - L.depMs)).toFixed(1)} % of the flight, ${L.deepSpace.heightDeg.toFixed(2)} deg off the ecliptic); broken plane ${legDv(BP).toFixed(4)}`);
+  console.log(`  primer: deep-space burn, p-dot jumps ${(100 * norm(pd.jump) / pd.size).toFixed(1)} % of |p-dot| at B, p . p-dot ${(100 * pd.along).toFixed(1)} %, largest |p| ${pd.pmax.toFixed(5)}; broken plane ${(100 * norm(pb.jump) / pb.size).toFixed(0)} %, ${(100 * pb.along).toFixed(0)} %, ${pb.pmax.toFixed(5)}`);
+  console.log(`  the broken plane's cost gradient with B's place, by finite differences, against the jump in p-dot: ${(100 * gErr).toFixed(2)} % apart (${(norm(gb) * 1.496e8 * 1000).toFixed(0)} m/s per au)`);
+  check('the jump in p-dot at the broken plane\'s B is the gradient of the cost with its place (to 1 %), and it is large (over half |p-dot|): the broken plane is not optimal', gErr < 0.01 && norm(pb.jump) / pb.size > 0.5);
+  check('the deep-space burn meets Lawden\'s conditions: p-dot continuous at B (jump under 10 % of |p-dot|), p . p-dot near 0 (under 15 %), |p| <= 1 (to 1e-3); the broken plane\'s |p| passes 1 (by over 0.005); the burn is cheaper', norm(pd.jump) / pd.size < 0.1 && Math.abs(pd.along) < 0.15 && pd.pmax < 1.001 && pb.pmax > 1.005 && legDv(L) < legDv(BP));
+
+  // The search against a blind one: Nelder-Mead from twelve starts across
+  // B's angle and the time, on the same price.
+  const a = J.relState('earth', 'sun', L.depMs), mu = L.arcs[0].mu, n = unit([a.r[1] * a.v[2] - a.r[2] * a.v[1], a.r[2] * a.v[0] - a.r[0] * a.v[2], a.r[0] * a.v[1] - a.r[1] * a.v[0]]);
+  const u1 = unit(a.r), u2 = [n[1] * u1[2] - n[2] * u1[1], n[2] * u1[0] - n[0] * u1[2], n[0] * u1[1] - n[1] * u1[0]], R = norm(a.r), T = (L.arrMs - L.depMs) / 1000;
+  const free = ([th, rho, z, tau]) => {
+    if (!(tau > 0.02 && tau < 0.98 && rho > 0.2)) return Infinity;
+    const rB = sc(add(add(sc(u1, rho * Math.cos(th)), sc(u2, rho * Math.sin(th))), sc(n, z)), R);
+    const b = J.relState('mars', 'sun', L.arrMs), s1 = lambert(a.r, rB, tau * T, mu, true), s2 = s1 && lambert(rB, b.r, (1 - tau) * T, mu, true);
+    return s2 ? X.departureDv(norm(sub(s1.v1, a.v)), E.mu, rpE) + norm(sub(s2.v1, s1.v2)) + X.captureDv(norm(sub(s2.v2, b.v)), M.mu, rpM, 0) : Infinity;
+  };
+  let blind = Infinity;
+  for (const th of [0.8, 1.3, 1.8, 2.3]) for (const tau of [0.25, 0.5, 0.75]) {
+    let x = [th, 1 + 0.3 * th / 2, 0, tau];
+    for (let k = 0; k < 4; k++) x = nelderMead(free, x, [0.1, 0.05, 0.005, 0.05].map((d) => d / (1 + 2 * k)), { iterations: 400 });
+    blind = Math.min(blind, free(x));
+  }
+  console.log(`  a blind search from twelve starts: ${blind.toFixed(4)} km/s, the planner's ${legDv(L).toFixed(4)}`);
+  check('no start of the blind search finds the leg more than 0.5 m/s cheaper than the planner\'s search does', legDv(L) - blind < 5e-4);
+
+  // Across the band: never dearer than the direct arc or the broken plane,
+  // and its price continuous where it joins the direct arc at the edges
+  // (its burn there shrinks to nothing).
+  const days = [];
+  for (let d = 9; d <= 29; d++) {
+    const dep = `2026-11-${String(d).padStart(2, '0')}T00:00:00Z`, x = J.solveJourney(em(dep)).legs[0];
+    days.push({ d, x, dv: legDv(x), bp: legDv(J.solveJourney(em(dep, 'brokenplane')).legs[0]), dir: legDv(J.solveJourney(em(dep, 'direct')).legs[0]) });
+  }
+  const taken = days.filter((q) => q.x.deepSpace), jumps = days.slice(1).map((q, i) => Math.abs(q.dv - days[i].dv));
+  console.log(`  leaving 9 to 29 Nov: a deep-space burn on ${taken.length} days (${taken[0]?.d} to ${taken.at(-1)?.d} Nov, its burn ${taken.map((q) => (q.x.midDv * 1000).toFixed(0)).join(' ')} m/s); largest step in price from day to day ${(Math.max(...jumps) * 1000).toFixed(0)} m/s`);
+  check('leaving across the band the plan is never dearer than the direct arc or the broken plane (to 0.1 m/s), the burn is under 10 m/s where it takes over from the direct arc, and the price moves under 30 m/s a day', days.every((q) => q.dv <= Math.min(q.bp, q.dir) + 1e-4) && taken[0]?.x.midDv < 0.01 && Math.max(...jumps) < 0.03);
+
+  // Leaving the Moon (CASE 12's stays): the burn's shape is priced with the
+  // Moon at its mean phase, so the excess speed leaving the Earth runs as
+  // smoothly as the broken plane's; on the day's phase it is cheaper on all
+  // but one stay (22 d, where the Moon's phase prices it 23 m/s dearer).
+  const mm = (stay) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: stay, dateMs: D('2026-10-24T00:00:00Z') },
+    { id: 2, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z') }] });
+  const vd = [], cheaper = [], meanSaved = [];
+  for (let stay = 18; stay <= 30; stay++) {
+    const x = J.solveJourney(mm(stay)).legs[1], y = J.solveJourney({ ...mm(stay), waypoints: mm(stay).waypoints.map((w, i) => (i === 1 ? { ...w, via: 'brokenplane' } : w)) }).legs[1];
+    vd.push(norm(x.vinfDep)); cheaper.push(legDv(x) <= legDv(y)); meanSaved.push(x.deepSpace ? x.deepSpace.brokenMeanDv - x.deepSpace.meanDv : NaN);
+  }
+  const bend = (q) => Math.max(...q.slice(2).map((x, i) => Math.abs(x - 2 * q[i + 1] + q[i])));
+  console.log(`  from the Moon, stays of 18 to 30 d: excess speed ${vd.map((x) => x.toFixed(3)).join(' ')} km/s (largest second difference ${(bend(vd) * 1000).toFixed(1)} m/s); saved at the mean phase ${meanSaved.map((x) => (x * 1000).toFixed(0)).join(' ')} m/s; cheaper on the day on ${cheaper.filter(Boolean).length} of 13`);
+  check('from the Moon the plan\'s excess speed runs smoothly (second difference under 20 m/s a day) and the burn saves at the mean phase on every stay', bend(vd) < 0.02 && meanSaved.every((x) => x >= 0) && cheaper.filter(Boolean).length >= 12);
 }
 
 header("CASE 13: the parking orbit's plane over a stay (Curtis Sec. 4.7)");
@@ -806,7 +923,7 @@ header("CASE 13: the parking orbit's plane over a stay (Curtis Sec. 4.7)");
   check('the parking orbit lamp: the day near the planned one, at under half the planned day\'s extra', lamp?.level === 'caution' && lamp.bestMs === prof.plane.ms && prof.plane.dv < sol.legs[1].depDv + sol.legs[1].arrDv - sol.legs[1].plane.extraDv / 2);
 }
 
-header('CASE 14: burn nodes on a leg of two arcs (a broken plane, a bi-elliptic leg)');
+header('CASE 14: burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg)');
 {
   // A node with no burn leaves a two-arc leg as planned (its arcs are
   // Lambert's, so on target to 1 m and the same delta-v, as CASE 6 for one
@@ -818,8 +935,8 @@ header('CASE 14: burn nodes on a leg of two arcs (a broken plane, a bi-elliptic 
   const s0 = J.solveJourney(mm()), L0 = s0.legs[1], at = (f) => L0.depMs + f * (L0.arrMs - L0.depMs);
   const node = (f, n = {}) => [{ id: 7, ms: at(f), pro: 0, nor: 0, rad: 0, ...n }];
   const before = J.solveJourney(mm(node(0.25))), after = J.solveJourney(mm(node(0.75)));
-  console.log(`  broken plane, a node with no burn before the break: misses Mars by ${(before.legs[1].missKm * 1000).toFixed(3)} m, break ${(before.legs[1].midDv * 1000).toFixed(3)} m/s (planned ${(L0.midDv * 1000).toFixed(3)}); after it: ${(after.legs[1].missKm * 1000).toFixed(3)} m`);
-  check('a node with no burn before or after the break leaves the broken plane as planned: on target to 1 m, the same delta-v to 1e-9 km/s', [before, after].every((s) => s.legs[1].shaped && s.legs[1].missKm < 1e-3 && Math.abs(s.totalDv - s0.totalDv) < 1e-9 && Math.abs(s.legs[1].midDv - L0.midDv) < 1e-9));
+  console.log(`  deep-space burn, a node with no burn before the break: misses Mars by ${(before.legs[1].missKm * 1000).toFixed(3)} m, break ${(before.legs[1].midDv * 1000).toFixed(3)} m/s (planned ${(L0.midDv * 1000).toFixed(3)}); after it: ${(after.legs[1].missKm * 1000).toFixed(3)} m`);
+  check('a node with no burn before or after the break leaves the deep-space burn as planned: on target to 1 m, the same delta-v to 1e-9 km/s', [before, after].every((s) => s.legs[1].shaped && s.legs[1].missKm < 1e-3 && Math.abs(s.totalDv - s0.totalDv) < 1e-9 && Math.abs(s.legs[1].midDv - L0.midDv) < 1e-9));
   const pushed = J.solveJourney(mm(node(0.25, { pro: 0.05 }))), aimed = J.solveJourney(J.aimNode(mm(node(0.25, { pro: 0.05 })), 1, 7));
   console.log(`  a 50 m/s prograde node before the break: misses by ${(pushed.legs[1].missKm / 1e3).toFixed(0)} thousand km, the break ${(pushed.legs[1].midDv * 1000).toFixed(1)} m/s; aimed (at the break point): ${(aimed.legs[1].missKm * 1000).toFixed(3)} m off, total ${aimed.totalDv.toFixed(6)} km/s against ${s0.totalDv.toFixed(6)}`);
   check('a push before the break misses and the break burn pays for it; aiming the node at the break point brings it back on target to 1 m and to the plan\'s delta-v (1e-6 km/s)', pushed.legs[1].missKm > 1e5 && pushed.legs[1].midDv > L0.midDv && aimed.legs[1].missKm < 1e-3 && Math.abs(aimed.totalDv - s0.totalDv) < 1e-6);
@@ -840,7 +957,7 @@ header('CASE 14: burn nodes on a leg of two arcs (a broken plane, a bi-elliptic 
   const dep = planFlight(rb).events.find((e) => e.kind === 'depart' && e.body === 'mars');
   check('the flight: no aim at the break point ahead of a node before it; a bi-elliptic departure from Mars re-aimed, if it waits, at its apoapsis point', aimSun.length === 0 && dep?.reaim?.arrMs === rb.legs[1].mid.ms && !!dep.reaim.toEqj);
   const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), fl = flyJourney(sys, planFlight(J.solveJourney(mm(node(0.25, { pro: 0.02 })))));
-  console.log(`  broken plane with a 20 m/s node before the break, flown: Mars ${fl.arrivals[1].missKm.toFixed(1)} km off the planned periapsis, corrections ${(fl.correctionsDv * 1000).toFixed(0)} m/s`);
+  console.log(`  deep-space burn with a 20 m/s node before the break, flown: Mars ${fl.arrivals[1].missKm.toFixed(1)} km off the planned periapsis, corrections ${(fl.correctionsDv * 1000).toFixed(0)} m/s`);
   check('flown in the full model: the node as planned, Mars within 20 km of plan', !fl.impact && fl.arrivals[1].missKm < 20 && fl.burns.length >= 3);
 }
 

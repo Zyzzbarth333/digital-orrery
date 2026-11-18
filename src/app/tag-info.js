@@ -179,10 +179,22 @@ export const TAG_INFO = {
     tex: ['\\text{retrograde:}\\; i > 90°'],
     source: 'JPL SSD planetary satellite mean elements · docs/frontend/moons.md',
   },
-  'irr-radius': {
-    what: 'The moon\'s mean radius where it has been measured, or estimated from its brightness; most of the small ones have only been seen as points of light, and are drawn at a nominal size.',
+  'irr-size': {
+    what: 'The moon\'s diameter. Thirteen were measured from their heat in the infrared by NEOWISE; the rest are estimated from how bright they look, for an assumed dark albedo, uncertain by a quarter or more.',
+    tex: ['D = \\frac{2\\ \\text{au}}{\\sqrt{p}}\\, 10^{-0.2\\,(H - M_\\odot)}'],
+    where: 'H: the absolute magnitude; p: the albedo, 0.06 for Saturn\'s (as Denk takes it); M☉ = −26.71, the Sun\'s apparent V magnitude. Jupiter\'s and Neptune\'s estimates are Sheppard\'s own',
+    source: 'Grav et al. 2015 (NEOWISE); T. Denk, outer Saturnian moons table; the Minor Planet Center\'s discovery circulars; S. S. Sheppard\'s moon tables · docs/frontend/moons.md',
+  },
+  'irr-shape': {
+    what: 'The moon\'s shape where it is known at all: Himalia from Cassini\'s images, 22 of Saturn\'s from how their brightness swings as they turn, which gives the least the long axis can be over the short one. The app draws an ellipsoid of that ratio with the moon\'s volume; the others, as spheres.',
+    tex: ['\\frac{a}{b} \\ge 10^{0.4\\,\\Delta m}'],
+    where: 'Δm: the lightcurve\'s amplitude near zero phase; the third axis c is taken equal to b',
+    source: 'Denk et al. 2018 (Table 3); Porco et al. 2003 · docs/frontend/moons.md',
+  },
+  'irr-rotation': {
+    what: 'How long the moon takes to turn once, from the repeat of its lightcurve. No pole is known, so the app turns it about the pole of its orbit.',
     tex: [],
-    source: 'the moon\'s JPL Horizons object page',
+    source: 'Denk et al. 2018 (Table 3); Pilcher et al. 2012 for Himalia',
   },
   'irr-gm': {
     what: 'G times the moon\'s mass, where it has been measured (Himalia\'s from its pull on other moons and on spacecraft). The irregular moons do not pull on spacecraft in the app: the largest, Himalia, has a twenty-thousandth of Europa\'s GM.',
@@ -498,8 +510,19 @@ export const TAG_INFO = {
   'attitude-rcs': {
     what: 'The propellant the attitude thrusters have burned: pairs fired as couples, so a torque takes its size over the arm in thrust, drawn from the engine\'s tank at their specific impulse.',
     tex: ['m = \\frac{1}{I_{sp}\\,g_0}\\int \\sum_i \\frac{|\\tau_i|}{L_i}\\,dt'],
-    where: 'τ_i: the torque about body axis i (held against the disturbance while locked); L_i: the thrusters\' arm about it; I_sp = 290 s; g₀ = 9.80665 m/s²',
+    where: 'τ_i: the torque about body axis i (while locked, the hold\'s limit cycle instead); L_i: the thrusters\' arm about it; I_sp = 290 s; g₀ = 9.80665 m/s²',
     source: 'Curtis, 4th ed., §13.3; ArianeGroup 10 N bipropellant thruster (292 s) · docs/physics/sixdof.md',
+  },
+  // attitude.js limitCycle, holdThrust; craftAttitude.js hold
+  'attitude-hold': {
+    what: 'The propellant a held attitude costs. On-off thrusters keep it within a deadband by their smallest pulses, so it drifts across, a pulse turns it back, and so on: a limit cycle. A steady disturbance pushes it to one side, and then the pulses just cancel the disturbance.',
+    tex: [
+      '\\dot J_i = \\tfrac{2}{3}\\,\\frac{b^2 L_i}{\\theta_d I_i}\\quad \\text{for } \\varepsilon_i < \\tfrac{2}{9}',
+      '\\dot J_i = 3\\,\\frac{|\\tau_i|}{L_i}\\quad \\text{to } \\tfrac{3}{4},\\qquad \\frac{|\\tau_i|}{L_i}\\quad \\text{beyond}',
+      '\\varepsilon_i = \\frac{|\\tau_i|\\,\\theta_d I_i}{b^2 L_i^2},\\qquad \\dot m = \\frac{\\sum_i \\dot J_i}{I_{sp}\\,g_0}',
+    ],
+    where: 'b: the least pulse a thruster gives, 0.29 N s on the MISSION tab\'s craft (a pair fires, so the rate changes by 2bL/I); θ_d = 0.5°: the deadband; τ_i: the disturbance about axis i; L_i: the thrusters\' arm; I_i: the moment of inertia. With no disturbance, 2/3 of the centred cycle\'s b²L/(θ_d I)',
+    source: 'Jackson, Gonzalez and Sims, AIAA GN&C 2007 (NTRS 20080000345), eqs. (1)–(3); AJ10-220 data sheet (0.898 N s at 62.3 N) · docs/physics/sixdof.md',
   },
   // craftAttitude.js propellantInertia, inertiaFor
   'attitude-inertia': {
@@ -520,7 +543,7 @@ export const TAG_INFO = {
     what: 'How far the craft is from where the real one was at this time.',
     tex: ['d = |\\mathbf r(t) - \\mathbf r_\\text{flown}(t)|'],
     where: '𝐫_flown: the mission\'s reconstructed trajectory, interpolated between its points',
-    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno and DART: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
+    source: 'Artemis II: NASA JSC Best Estimated Trajectory (BET revF); Artemis I: NASA/JSC navigation\'s as-flown ephemeris, via JPL Horizons; Juno, DART and LRO: their navigation\'s reconstructions, via JPL Horizons · docs/validation.md',
   },
   'next-burn': {
     what: 'The real mission\'s next burn, as it was flown.',

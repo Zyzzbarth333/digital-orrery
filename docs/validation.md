@@ -83,6 +83,8 @@ used in any fit ([Irregular moons](frontend/moons.md#the-irregular-moons)).
 | tables of `jup347`, `jup348`, `jup349`, `sat455`, `sat456`, `sat457`, `sat459`, `nep104`, all 381 (2000–2049) | Horizons, which serves those kernels | within 0.51 km (Hermippe); S/2023 S 38, fitted to 1,000 km for its e = 0.909 orbit, 0.3 km at these dates |
 | fallback outside 2000–2049: JPL's mean elements with fitted corrections | Horizons, every 10 days 2000–2050 for the fit; five other dates for the check | each within its fit's worst; median 46 % of the orbit's size for Jupiter's, 15 % for Saturn's, 26 % for Neptune's: the Sun's pull, which no precessing ellipse follows |
 | sense of motion | each moon's state now against its elements' inclination | 305 retrograde of 381, all agree |
+| sizes | NEOWISE (Grav et al. 2015, Table 3); Denk's table and formula ($p$ = 0.06, $M_\odot$ = −26.71) | 13 measured diameters as published; Denk's formula gives his 119 sizes from their $H$ to 4.8 % (rounding), and sizes the 146 from the circulars |
+| shapes and spins | Denk et al. 2018, Table 3; Porco et al. 2003; Pilcher et al. 2012 | 23 ellipsoids of their moon's volume with the published $a/b$ (Kiviuq 2.32, Himalia 75/60); 25 rotation periods as published |
 
 ## Barycentres (`barycentres.test.mjs`)
 
@@ -456,7 +458,8 @@ and journeys flown by the kernel to their waypoints; the table is in
 | The parking orbit's plane: the node's J2 rate; the rate flown in the field against the kernel's, at Mars and at Jupiter (to J12); the trial orbit at the mean radius; the burn out of the plane; a year at Mars priced and flown, the node aimed at the approach, as planned and on the lamp's day | Curtis Ex 4.8, eqs. (4.52), (8.42); the kernel; a 7,200-point scan; the full-model flight | to the book's figures; 0.06 % at Mars and 0.03 % at Jupiter (within 0.25 %; J2 alone 2.5 % off there); the trial at the mean radius to 1 m, its node's rate 0.06 % apart from where it starts (started circular, 0.46 %); to 0.1 m/s; the node 0.000° off the plan's for 0.44 m/s; the planned day 2,829 m/s, flown 2,840 (0.4 %); the wait 13.24 d, flown 13.23 (2,027 against 2,022 m/s); the parking orbit lamp's day 2,008, flown 2,004 on time |
 | The full model's fallback to the bare one | the rules on the journey page | each kind of trouble a reason |
 | Near 180° round the Sun, the broken plane: lunar orbit to Mars, a 23- and a 20-day stay | Abilleira (ISSFD 2007); Curtis eq. (6.20); Napier's rule; the full-model flight | 4.572 km/s against the direct arc's 15.69; the break a pure plane change to 10⁻³; smooth through 180°; flown with 205 m/s of corrections against the direct arc's 679 |
-| Burn nodes on a leg of two arcs (a broken plane, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 1.1 km off |
+| Burn nodes on a leg of two arcs (a deep-space burn, a bi-elliptic leg) | Lambert's arcs as planned; the break point; the full-model flight | a node with no burn leaves both as planned (1 m, 54 m in five years); a node before the break aimed at it, back on target to 1 m; flown, Mars 0.7 km off |
+| Near 180°, the deep-space burn: Earth orbit to Mars orbit at 180.4°; leaving 9 to 29 Nov 2026; lunar orbit to Mars, stays of 18 to 30 days | Lawden's conditions on the primer vector (Lawden 1963; Prussing 2010); the primer's jump as the cost's gradient (Lion and Handelsman 1968; Jezewski 1975); a blind 12-start search | p-dot continuous at $B$ to 3 %, $\lvert\mathbf p\rvert \le 1$ to 10⁻⁴, where the broken plane's jumps 128 % and passes 1; nothing cheaper found; never dearer than the direct arc or the broken plane; the excess speed's second difference 4.3 m/s; 20 days at the Moon flown with 180 m/s of corrections, Mars 1.6 km off |
 
 ## Rockets (`rocket.test.mjs`, `rocket.xcheck.test.mjs`, `ork.test.mjs`)
 
@@ -546,6 +549,20 @@ navigation reconstruction and final solution (through JPL Horizons). See
 | The impact, on the final solution | 23.6 m from Dimorphos's centre at 6.14478 km/s, the centre's closest point 14 ms after the impact (Daly et al.: 25 ± 1 m, 6.1449 ± 0.0003 km/s, 23:14:24.183 at the surface) |
 | The app's file (`public/missions/dart.json`), flown as the app flies it | aimed: 23 m from Dimorphos's centre, for 2.59 m/s more than the flown burns; blind, 180 km |
 
+## Real flight: LRO's lunar capture (`missions.validate.mjs`)
+
+LRO from 18 to 28 June 2009 against its final reconstruction (from the PDS,
+through JPL Horizons). See [LRO](validation/lro.md).
+
+| Check | Result |
+| --- | --- |
+| The mid-course correction and LOI-1 | 1.310 m/s (published 1.3); LOI-1 527.17 m/s, ending 10:26:30 UTC (published: completed 10:26:26, 40 minutes) |
+| LOI-2 to LOI-5, which the samples can't resolve, fitted steady | 104.8, 110.5, 94.9 and 35.7 m/s; each leaves 0.6–1.6 m/s half an hour on |
+| 6 coast arcs, 0.3–3.2 days | out to the Moon within 0.46 km; in lunar orbit 10–125 m with GRAIL to degree 50 (gravity alone: 6–10 km) |
+| The Moon's field, degree by degree, a day at 200 km | 4.2 km (J2), 1.48 (10), 0.074 (20), 0.020 (50), 0.020 km (100) |
+| The orbits | 207 by 3,082 km after LOI-1 (published 220 by 3,100); 34 by 199 km at the end (30 by 216) |
+| The app's file (`public/missions/lro.json`), with a fix every 6 h | 0.1 km off at the end, 25.5 km at worst (blind: 3,424 km) |
+
 ## NASA's 6-DOF check cases (`nesc.test.mjs`)
 
 NASA's orbital check cases for 6-DOF simulations (NESC,
@@ -601,15 +618,20 @@ torque, and burns along the body axis to the kernel
 | A craft held prograde, two days at a day a second | its point-mass twin's frame | no attitude steps; no slower |
 | The thrusters' impulse for rest-to-rest turns of 10°, 90°, 120° and 170° | $2I\omega_\text{peak}/L$, the angular momentum given and taken back, over the thrusters' arm | within 0.17 % (tolerance 1 %): 169.9 N s against 170.2 N s for 90° in pitch, 59.8 g at 290 s |
 | The same through the craft: a 90° slew to prograde in a 400 km orbit | the same; the tank's loss against $J/(I_{sp}g_0)$ | 0.13 % (tolerance 1 %); the tank to 10⁻¹² kg |
-| Held prograde for 60 s | the gravity-gradient torque it holds against, $\sum_i \lvert\tau_i\rvert/L_i$ a second | to 10⁻⁸ (the clock's rounding) |
+| Held prograde for 60 s | the hold's limit cycle in closed form, each frame's | to 10⁻⁸ (the clock's rounding): 0.667 N s, 0.338 kg a day, against 1.5×10⁻⁵ N s for the gravity gradient alone |
+| The hold's limit cycle, centred, no disturbance, flown pulse by pulse (one 0.29 N s bit a thruster past the 0.5° deadband, sampled every 0.1 s), pitch and roll | Jackson et al.'s two-sided cycle, eqs. (1)–(2) (NTRS 20080000345) | to 0.5 % (tolerance 0.5 %): a firing every 97.80 s in pitch and 120.37 s in roll, both as eq. (1); the closed form without a disturbance 2/3 of eq. (2), exact |
+| The same from six random starts, disturbances of 0.003 to 0.1 and 0.9 to 5 times $R_2 L$ | the closed form: $\tfrac23 R_2$ two-sided, $\lvert\tau\rvert/L$ one-sided | within 5.0 % (tolerance 6 %) |
+| The same at 0.4 and 0.6 times $R_2 L$ | $3\lvert\tau\rvert/L$, two pulses to one | its own cycle within 0.35 % (tolerance 1 %); every random start between a third of it (one-sided for days first) and all of it |
+| The same at 0.15 and 0.2 times $R_2 L$, where the cycles mix | the closed form | within 30 % (tolerance 50 %) |
 | The tanks' inertia, 500 kg in two spheres of 0.37 m, 0.6 m fore and aft | $\tfrac25 mR^2$, plus $md^2$ across (parallel-axis theorem, Curtis ch. 9) | exact: 27.38 and 207.38 kg m²; full, the box's diag(1000, 1625, 1625) |
 | A 90° slew with 50 kg of propellant left | the controller's closed-form time for the inertia then ($I_{yy}$ 1,438 kg m²) | 33.52 s against 33.85 s (1.0 %, tolerance 6 %), faster than full (34.12 s) |
 | A node 20 m/s radial out an hour ahead, held prograde, at 1/4 s frames | the turn's lead $1.1\,t_\text{slew} + 5$ s; the point-mass craft with the same node | turn began 42.54 s ahead (as planned), locked 8.5 s before the node; 0° off the node's direction; 3 mm from the point mass after; back to prograde |
 | The same at 600 s frames | the same | turn began 41.54 s ahead (the orbital frame turns 2.7° in the lead); 46 mm from the point mass |
 | A node 10 s ahead | — | the log says it cannot settle in time |
-| The MISSION tab's craft, after ROCKET-tab stages got their own attitude | its spec as validated above | unchanged: the box, its tanks and its thrusters |
+| The MISSION tab's craft, after ROCKET-tab stages got their own attitude | its spec as validated above | unchanged: the box, its tanks and its thrusters (with its hold's deadband and bit) |
 | A ROCKET-tab stage's tensor: Saturn V's S-IVB at cutoff, 59.7 t dry with the spacecraft and 107.1 t of propellant at 320 kg/m³, 10.1 m across | the thin-walled cylinder's $m R^2$, $m(R^2/2 + L^2/12)$ and the solid propellant cylinder's $mR^2/2$, $m(R^2/4 + h^2/12)$ (Curtis ch. 9), against both bodies summed point by point | within 3×10⁻⁵ (tolerance 10⁻⁴): full, diag(2.887, 2.612, 2.612)×10⁶ kg m²; the tank holds the load at its density to 10⁻¹² |
 | The stage's thrusters | the MISSION craft's angular acceleration, full | equal on every axis (1.146°/s² in roll, 1.410°/s² in pitch and yaw) |
+| The stage's impulse bits | its thrusters' thrust times the default's 14.5 ms (0.29 N s at 20 N), in the same 0.5° deadband | exact: 82.9 N s in roll, 65.3 N s in pitch and yaw; held without a disturbance at 70 %, 92.4 kg a day |
 | A 90° slew to prograde by that stage with 70 % of its propellant, through the kernel | the controller's closed-form time for its inertia; $2I\omega_\text{max}/L$ | 33.52 s against 33.89 s (1.1 %, tolerance 6 %); 34,573 N s against 34,633 N s (0.17 %, tolerance 1 %), 12.2 kg |
 
 ## Not yet validated
@@ -668,6 +690,23 @@ torque, and burns along the body axis to the kernel
 | Baumbach's brightness at the limb | 10⁻⁶ (0.0532 + 1.425 + 2.565) of the disc's centre | 4.0432 × 10⁻⁶ |
 | Fall-off | steep inside 2 radii, then ρ^−2.5 | 0.5 % of the limb's at 2 radii; the ρ^−2.5 term alone by 6 |
 | In the scene | the disc's centre is 46,000/0.805 of white | 0.231 of white at the limb |
+
+## The other planets' rings (`rings.test.mjs`)
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Uranus's ten narrow rings: radius, eccentricity, inclination | Ring-Moon Systems Node table (γ's e read as 1.092×10⁻⁴, a slipped decimal) | within 2.6 km, 3 % and 0.0005° |
+| α, β, ε widths at periapse and apoapse | NSSDC: 4–10, 5–11, 20–96 km | 4.5–10.1, 5.3–11.7, 19.9–97.3 km |
+| ε optical depth from the Voyager PPS equivalent depth | tables: 0.5 to 2.3 | 0.47 to 2.30 |
+| Other rings' mean optical depth | tables' approximate values | within a factor of 2.2 (λ 0.09 for ~0.1, α 0.43 for ~0.4) |
+| Uranus's pole | French et al. 2024 | the IAU pole within 0.002° |
+| Ring 6's periapse a year on | its tabled rate, 2.762°/day: 28.80 km further out | 28.76 km |
+| Le Verrier, τ × width | Voyager PPS, 0.25 km | 0.30 km |
+| Fraternité's longitude | Voyager 1989; VLT 2007 (±0.6°); VLT 2016 (±0.3°) | at each, by construction of the interpolation |
+| Arcs' mean motion | 820.11213 °/day (1989–2007), 820.11178 (1989–2016) | 820.11204, 820.11168 |
+| The arcs' span and separations | 40°; 10.7°, 12°, 7.3° | 38.3°; as tabled |
+| Jupiter's gossamer rings' thickness from Amalthea's and Thebe's inclinations | ~2,300 and ~8,500 km | 2,532 and 8,520 km |
+| Dust phase function | averages 1; Throop et al. 2004: flat to 130°, few 10⁻⁶ I/F forward, ~10⁻⁷ back | 1.0000; 1.93×; 3.5×10⁻⁶ at 178°, 2.6×10⁻⁷ at 5° |
 
 ## How much of the Sun is in view (`discs.test.mjs`)
 
