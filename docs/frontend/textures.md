@@ -204,28 +204,46 @@ time: the weather that day, not that minute. Pure-black pixels are no data
 The last days are not whole. GIBS adds each pass some hours after it is
 taken (four to five, NASA says), and on 18 November 2026 at 10:20 UTC
 NOAA-21's mosaic for the day before covered only the Americas and the
-Pacific, 41 % of the globe against 84 % for a whole day; until then the
+Pacific, 41 % of the map against 84 % for a whole day; until then the
 app drew "yesterday" at now, so Africa, Europe and Asia had no weather.
 Within two days of now the sim's day is drawn over the two days before it
 (those at 2048×1024), each place from the newest pass that has it
 (`decode.worker.ts`): at now, the latest look the satellites have had at
 each place, today's where they have passed since 00 UTC. At that hour this
-gave 25 % from that day, 41 % from the day before and 18 % from the one
-before, the whole day's 84 %. A composite that includes today is fetched
+gave 25 %, 41 % and 18 % of the map from the three days, the whole day's
+84 %. A composite that includes today is fetched
 again hourly while it is shown, as the day fills in. Older days are whole
 and drawn alone.
 
-Nearer to live would take the geostationary satellites: GIBS also serves
-GOES-East and GOES-West GeoColor full-disc imagery every 10 minutes, about
-40 minutes behind. Each sees only its own third of the globe (the Americas
-and the Pacific), so the polar orbiters' days would still fill the rest.
-It is not drawn: a new source, to add only once asked for.
+**The geostationary frame.** Over the Americas and the Pacific the clouds
+are those of the sim's minute: GIBS's GOES-East (75.2° W) and GOES-West
+(137.2° W) GeoColor, a full-disc frame every 10 minutes, drawn over the
+days above (`layerComposite.js`). GIBS answers a time with the frame at
+or before it, and a time past its newest frame (40–60 minutes behind)
+with an empty image, so the app asks for the sim time but never within an
+hour of now. A frame is used where the Sun was more than 6° up at its
+time (GeoColor's night side is infrared cloud over a picture of city
+lights, which would hide the app's own) and within 70° of the satellite's
+nadir (past that the limb is smeared), fading over the last 10° of reach
+and as the Sun climbs to 20°, so a frame of one minute blends into a pass
+of another hour without a seam. It is followed while time runs at most 10
+minutes a second, fetched at most once a minute (two JPEGs of about
+0.8 MB), and dropped above that rate. At 17:00 UTC on 17 November 2026
+GOES-East gave 28 % of the globe and GOES-West 5 % more; near now, at dawn over the
+Americas, much less. The shares are of the globe's area (pixels weighted
+by the cosine of latitude). Asia, Africa, Europe and Australia keep the
+polar orbiters' daily look: GIBS carries Himawari's view of Asia and
+Australia only as infrared and red-band greyscale, not in colour, and no
+Meteosat.
+
+![South America at 17:00 UTC on 17 November 2026: before, the daily pass; after, the GOES frame of that minute, blended into the daily pass toward the edge of its reach](../images/daily-earth-goes.jpg)
 
 ![The Earth at 10:20 UTC on 18 November 2026: before, cloudless over Africa (the day before's mosaic had not reached it); after, the newest pass of the last three days at each place](../images/daily-earth-now.jpg)
 
-The Earth's readout has a **Clouds** row naming the newest day drawn and
-the days under it, with the share of the globe each gave on its source
-tag (GIBS). The image is
+The Earth's readout has a **Clouds** row naming what is drawn: the GOES
+frame's time where there is one (*17:00 UTC, 2026-11-17, GOES; elsewhere
+11-17 and before*), else the newest day and the days under it, with each
+layer's share of the globe on its source tag (GIBS). The image is
 calibrated like the base map (below), dropped when the sim moves more than
 about a day from it, and not fetched while time runs faster than
 a day per second.
