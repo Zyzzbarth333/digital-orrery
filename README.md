@@ -38,7 +38,7 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
   - the Sun, planets, 76 moons (and 381 irregular moons of Jupiter, Saturn and Neptune as a layer) and 135,353 asteroids and comets, at their real positions for any date, at true scale;
   - 16,892 Earth satellites from CelesTrak's element sets, moved by SGP4, with the ISS, Tiangong, Hubble, GPS, Galileo and the weather satellites' orbits;
   - the spacecraft at Mercury, the Moon, Mars and Jupiter, about the Sun-Earth L1 and L2 points and in cruise, on JPL Horizons' trajectories for 2026 and 2027;
-  - real surface maps and relief, Saturn's rings from Cassini measurements, Earth's clouds as satellites saw them that day under a physically based atmosphere;
+  - real surface maps and relief, Saturn's rings from Cassini measurements, Jupiter's, Uranus's and Neptune's from occultations and ring tables (their faint dust bright in forward scattering, Neptune's arcs where they were last measured), Earth's clouds as satellites saw them that day under a physically based atmosphere;
   - the real star field and Milky Way.
 - **Bodies to visit:** fly the camera to any planet, moon, barycentre, small body, Earth satellite or spacecraft, with a data plate whose values open their equation and source.
 - **Guides:** the gravity field of every body as flowing field lines, in four frames, the rotating one with its zero-velocity curves; spin axes and which way each body turns; Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls; the planets' magnetic fields as traced field lines (IGRF-14, JRM33, Cassini, Voyager, MESSENGER, and Ganymede's from Juno) and Mars's magnetised crust; the auroras: the Earth's ovals from NOAA's live OVATION Prime map when the clock is near now, otherwise for the day's Kp, Jupiter's and Saturn's main ovals, the footprints of Io, Europa, Ganymede and Enceladus, Uranus's, Neptune's and Ganymede's zones, and Mars's aurora; and the radiation belts of the Earth and the four giants along their L-shells.
@@ -46,11 +46,11 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
   - spacecraft fly under an n-body kernel in a Web Worker, with finite burns, the Earth's and Moon's gravity fields, drag and sunlight pressure;
   - the craft you launch carry an attitude: point them prograde, normal, radial, at a node or hold them still, and they turn in the time their thrusters' torque allows, under the gravity gradient and the air's torque, and burn along their body axis; the thrusters burn propellant, holding included (the limit cycle within a deadband), the craft turns faster as its tank empties, a stage launched from the ROCKET tab gets the inertia and thrusters of its own size, and it turns to each manoeuvre node by itself in time to settle ([docs/physics/sixdof.md](docs/physics/sixdof.md#attitude-in-the-app));
   - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown;
-  - Juno's deep-space burns and Earth flyby (2012–13), and DART's last five weeks to its impact on Dimorphos (2022), fly against their navigation teams' reconstructions.
+  - Juno's deep-space burns and Earth flyby (2012–13), DART's last five weeks to its impact on Dimorphos (2022), and LRO's capture into a low lunar orbit (2009) fly against their navigation teams' reconstructions.
 - **Planning:**
   - a journey of any number of legs, each leg's transfers compared (a deep-space burn where a leg runs nearly 180° round the Sun), shaped by hand on a plotting table;
   - a long stay in a planet's orbit turns the orbit's plane (the planet's $J_2$): the planner prices leaving out of it and suggests the day it holds the way out ([journeys](docs/physics/journey.md#the-parking-orbits-plane));
-  - flown by the kernel, with the rocket it needs.
+  - flown by the kernel, with the rocket it needs; the planets' major moons (Europa, Titan and the rest) with their own gravity, reached through their planet's well, captured, landed on (Titan through its air) and left.
 - **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, from the stack the planner sized for your journey, or from an OpenRocket design, and fly it from a real pad into orbit.
 
 The name nods to the orrery, a mechanical model of the solar system, and in particular to the Digital Orrery, the special-purpose computer built in the 1980s to integrate the long-term dynamics of the outer planets.

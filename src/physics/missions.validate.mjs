@@ -19,7 +19,7 @@
 import './deNode.js';
 import fs from 'node:fs';
 import { MISSIONS } from './missions.data.mjs';
-import { toRow, coast, about, norm, sub, add, dot, cross, unit, sys, kt, bodyState, distanceTo, closestApproach, burnFromSamples } from './flown.lib.mjs';
+import { toRow, coast, about, steadyBurn, fitSteadyBurn, norm, sub, add, dot, cross, unit, sys, kt, bodyState, distanceTo, closestApproach, burnFromSamples } from './flown.lib.mjs';
 import { makeEnvironment } from './environment.js';
 
 let failures = 0;
@@ -58,10 +58,19 @@ for (const id of ids) {
   // ---------------------------------------------------------------- 1
   header(`${id} CASE 1: the burns, against the published figures`);
   const env0 = makeEnvironment(sys, { mass: mass0, area: M.craft.area, cr: M.craft.cr });
-  const burns = events.filter((e) => e.kind === 'burn').map((e) => ({ e, ...burnFromSamples(e.rows, e.about, e.about, env0) }));
+  // A burn from its 10 s samples, or one whose samples ring, as one steady
+  // push of the change across its span (steadyBurn).
+  const steadyOf = (e) => {
+    // Refitted from the samples either side, over the build's length.
+    const fit = fitSteadyBurn(e.rows, e.ring[0], e.ring[1], e.about, (e.fit[1] - e.fit[0]) / 1000, { mass: mass0, area: M.craft.area, cr: M.craft.cr }, { centreMs: e.fitCentreMs });
+    return { ...steadyBurn(fit.t0, fit.t1, fit.dv, null, e.about, true), fit };
+  };
+  const burns = events.filter((e) => e.kind === 'burn').map((e) => ({ e, ...(e.steady
+    ? steadyOf(e)
+    : burnFromSamples(e.burnRange ? e.rows.filter((p) => p.ms >= e.burnRange[0] && p.ms <= e.burnRange[1]) : e.rows, e.about, e.about, env0, e.about === 'sun')) }));
   console.log('  burn                       ignition (UTC)       cutoff     length    ours m/s  published');
   const matched = M.published.map((p) => {
-    const b = burns.find((x) => (p.utc ? Math.abs(Date.parse(p.utc) - x.ignitionMs) < 3600e3 : p.day ? new Date(x.ignitionMs).toISOString().startsWith(p.day) : false) || (p.mps && Math.abs(norm(x.dv) * 1000 - p.mps) < 0.02 * p.mps));
+    const b = burns.find((x) => (p.endUtc && !p.towardMs ? Math.abs(Date.parse(p.endUtc) - x.cutoffMs) < 600e3 : p.utc ? Math.abs(Date.parse(p.utc) - x.ignitionMs) < 3600e3 : p.day ? new Date(x.ignitionMs).toISOString().startsWith(p.day) : false) || (p.mps && Math.abs(norm(x.dv) * 1000 - p.mps) < 0.02 * p.mps));
     return { p, b };
   });
   for (const b of burns) {
@@ -69,12 +78,20 @@ for (const id of ids) {
     console.log(`  ${(m?.p.name ?? 'found in the trajectory').padEnd(26)} ${hhmm(b.ignitionMs)}  ${hhmm(b.cutoffMs).slice(11)}  ${String(Math.round(len)).padStart(5)} s  ${mps.toFixed(3).padStart(9)}  ${m?.p.mps ? `${m.p.mps} m/s` : '—'}${m?.p.seconds ? `, ${m.p.seconds} s` : ''}`);
   }
   check(`every published burn is found in the trajectory (${M.published.length})`, matched.every((x) => x.b));
+  // Burns fitted steady (their samples ring): what one steady push leaves.
+  const steadyFits = burns.filter((b) => b.fit);
+  for (const b of steadyFits) console.log(`  ${hhmm(b.ignitionMs)}: fitted steady over ${((b.cutoffMs - b.ignitionMs) / 1000).toFixed(0)} s, ${(norm(b.dv) * 1000).toFixed(3)} m/s (its samples' sum ${b.e.mps.toFixed(3)}); half an hour on, ${(b.fit.missKm * 1000).toFixed(0)} m and ${(b.fit.offMms / 1000).toFixed(2)} m/s from the reconstruction`);
+  if (steadyFits.length) check(`each burn fitted steady leaves under ${C.steadyOffMms / 1000} m/s half an hour on, and is within 6 % of its samples' sum`, steadyFits.every((b) => b.fit.offMms < C.steadyOffMms && Math.abs(norm(b.dv) * 1000 / b.e.mps - 1) < 0.06));
   // Published times without a delta-v: an ignition (LICIACube's release),
   // or a span of thrusting (SMART Nav's toward Dimorphos).
   for (const { p, b } of matched.filter((x) => x.b && !x.p.mps)) {
     if (p.utc) check(`${p.name}: at ${hhmm(b.ignitionMs)} against ${hhmm(Date.parse(p.utc))} published (within a minute: published to the minute)`, Math.abs(b.ignitionMs - Date.parse(p.utc)) <= 60e3);
     if (p.towardMs) check(`${p.name}: thrusting from ${hhmm(b.ignitionMs)} against ${hhmm(p.towardMs)} published ("50 minutes prior to impact"; within a minute)`, Math.abs(b.ignitionMs - p.towardMs) <= 60e3);
     if (p.endUtc) check(`${p.name}: thrust ends ${hhmm(b.cutoffMs)} against ${hhmm(Date.parse(p.endUtc))} published (within the 10 s sampling)`, Math.abs(b.cutoffMs - Date.parse(p.endUtc)) <= 10e3);
+    if (p.seconds && !p.lengthUnresolved) {
+      const len = (b.cutoffMs - b.ignitionMs) / 1000, tolS = p.seconds % 60 ? 2 : 60;
+      check(`${p.name}: ${len.toFixed(0)} s against ${p.seconds} s published (within ${tolS} s, a figure given to the ${tolS === 2 ? 'second' : 'minute'}, and the 10 s sampling)`, Math.abs(len - p.seconds) <= tolS + 10);
+    }
   }
   for (const { p, b } of matched.filter((x) => x.b && x.p.mps)) {
     const mps = norm(b.dv) * 1000, len = (b.cutoffMs - b.ignitionMs) / 1000;
@@ -82,12 +99,12 @@ for (const id of ids) {
     // its rounding plus a tenth of a percent.
     const tol = 0.5 + 1e-3 * p.mps;
     check(`${p.name}: ${mps.toFixed(2)} m/s against ${p.mps} m/s published (within ${tol.toFixed(2)} m/s)`, Math.abs(mps - p.mps) < tol);
-    if (p.seconds) {
+    if (p.seconds && !p.lengthUnresolved) {
       // "29 minutes 39 seconds" to the second; "30 minutes" to the minute.
-      const tolS = p.seconds % 60 ? 2 : 30;
-      check(`${p.name}: ${len.toFixed(0)} s against ${p.seconds} s published (within ${tolS} s; the trajectory's samples are ${fx.fine.slice(1)} s apart)`, Math.abs(len - p.seconds) <= tolS + 10);
+      const tolS = p.seconds % 60 ? 2 : 60;
+      check(`${p.name}: ${len.toFixed(0)} s against ${p.seconds} s published (within ${tolS} s, a figure given to the ${tolS === 2 ? 'second' : 'minute'}, and the ${fx.fine.slice(1)} s sampling)`, Math.abs(len - p.seconds) <= tolS + 10);
     }
-    if (p.utc) check(`${p.name}: ignition ${hhmm(b.ignitionMs)} against ${hhmm(Date.parse(p.utc))} published (within a minute)`, Math.abs(b.ignitionMs - Date.parse(p.utc)) <= 60e3);
+    if (p.utc) check(`${p.name}: ignition ${hhmm(b.ignitionMs)} against ${hhmm(Date.parse(p.utc))} published (within ${(p.utcTolS ?? 60) / 60} min${p.utcTolS ? `: ${p.utcNote}` : ''})`, Math.abs(b.ignitionMs - Date.parse(p.utc)) <= (p.utcTolS ?? 60) * 1000);
   }
 
   // ---------------------------------------------------------------- 2
@@ -103,7 +120,8 @@ for (const id of ids) {
   const first = { ...toRow(fx.daily[0]), about: centre }, last = { ...toRow(fx.last ?? fx.daily.at(-1)), about: centre };
   const starts = [first, ...events.map((e) => ({ ...e.rows.at(-1), about: e.about }))];
   const ends = [...events.map((e) => ({ ...e.rows[0], about: e.about })), last];
-  const arcs = starts.map((a, i) => [a, ends[i]]).filter(([a, b]) => b.ms - a.ms >= 86400e3);
+  // Arcs of a day or more (M.minArcH: LRO's in lunar orbit are a day or less).
+  const arcs = starts.map((a, i) => [a, ends[i]]).filter(([a, b]) => b.ms - a.ms >= (M.minArcH ?? 24) * 3600e3);
   // The craft's mass falls at each burn: the rocket equation at the engine's
   // Isp, each burn's change drawn at its cutoff.
   const ve = M.craft.isp * G0 / 1000;
@@ -135,6 +153,38 @@ for (const id of ids) {
   // The app flies the craft with the fitted strength (craft.appCr), as it
   // flies Orion with Artemis I's.
   if (M.craft.appCr) check(`the app's craft (Cr ${M.craft.appCr}) is within 2 % of the fit (Cr ${(M.craft.cr * k).toFixed(3)})`, Math.abs(M.craft.appCr / (M.craft.cr * k) - 1) < 0.02);
+
+  // The orbits reached (M.orbits): osculating about the body, from the
+  // first sample after the burn named (or the last sample of all), its
+  // periapsis and apoapsis heights above the mean radius.
+  if (M.orbits) {
+    header(`${id} CASE 3b: the orbits reached`);
+    const { rvToElements } = await import('./orbital.js');
+    for (const o of M.orbits) {
+      const e = o.after === 'last' ? null : matched.find((x) => x.p.name === o.after)?.b?.e;
+      const p = o.after === 'last' ? { ...toRow(fx.last), about: centre } : { ...e.rows.at(-1), about: e.about };
+      const key = 'moon', B = bodyState(key, p.ms), C0 = bodyState(p.about, p.ms);
+      const r = sub(add(p.r, C0.r), B.r), vv = sub(add(p.v, C0.v), B.v);
+      const el = rvToElements(r, vv, sys.bodyAt(key, kt(p.ms)).mu);
+      const peri = el.a * (1 - el.e) - RADIUS[key], apo = el.a * (1 + el.e) - RADIUS[key];
+      console.log(`  after ${o.after}: ${peri.toFixed(1)} by ${apo.toFixed(1)} km, inclination ${(el.i * 180 / Math.PI).toFixed(2)} deg to the J2000 equator (published ${o.periKm} by ${o.apoKm} km: ${o.note})`);
+      check(`after ${o.after}, the orbit within ${C.orbitPct} % of the published ${o.periKm} by ${o.apoKm} km (osculating, at one instant)`, Math.abs(peri / o.periKm - 1) * 100 < C.orbitPct && Math.abs(apo / o.apoKm - 1) * 100 < C.orbitPct);
+    }
+  }
+  // The body's field by degree (M.fieldDegrees) on the last coast arc.
+  if (M.fieldDegrees) {
+    // The longest arc about the body.
+    const FD = M.fieldDegrees, [a, b] = arcs.filter(([x]) => x.about === FD.body).reduce((p, q) => (q[1].ms - q[0].ms > p[1].ms - p[0].ms ? q : p));
+    header(`${id} CASE 3c: the ${FD.body}'s field by degree, ${hhmm(a.ms)} to ${hhmm(b.ms)}`);
+    const rows = [];
+    for (const n of FD.degrees) {
+      const e = makeEnvironment(sys, { mass: mass0, area: M.craft.area, cr: M.craft.cr * k, massAt, [FD.body]: { degree: n } });
+      rows.push({ n, d: norm(sub(coast(a, b.ms, a.about, e, b.about).r, b.r)) });
+    }
+    for (const x of rows) console.log(`  degree ${String(x.n).padStart(3)}: ${x.d.toFixed(3)} km at the end`);
+    check(`each degree up to ${FD.degrees.at(-1)} brings the arc closer to the reconstruction, or leaves it within a metre`, rows.every((x, i) => i === 0 || x.d < rows[i - 1].d + 1e-3));
+    check(`with the field to degree ${FD.degrees.at(-1)}, the arc ends within ${C.fieldKm} km`, rows.at(-1).d < C.fieldKm);
+  }
 
   // ---------------------------------------------------------------- 4
   if (M.flybys.length) header(`${id} CASE 4: the flybys`);
@@ -259,15 +309,19 @@ for (const id of ids) {
     // Frames of an hour (the app at high warp), of a minute within a day of
     // each flyby.
     const near = data.flybys.map((f) => Date.parse(f.utc));
-    const flyApp = ({ aimed = false } = {}) => {
+    // fixHours: a tracking fix that often (the file's own, data.fixHours,
+    // as the app flies it by default).
+    const flyApp = ({ aimed = false, fixHours = null } = {}) => {
       const s0 = file.startState(), c = new Craft({ name: file.name, r: s0.r, v: s0.v, t: s0.t, sys, ...model });
       c.setScript(file.script());
       const client = new KernelClient(), run = { aimNext: 0, aimedDv: 0 };
       const step = (t) => { c.advanceClock(t); if (aimed) file.aimStep(c, sys, run); client.tick([c]); if (aimed) { file.aimStep(c, sys, run); client.tick([c]); } };
-      let worst = 0;
+      let worst = 0, prev = file.startMs;
       const lows = data.flybys.map(() => ({ d: Infinity }));
       for (let ms = file.startMs; ms < file.endMs && !c.crashed && !c.error;) {
         ms = Math.min(file.endMs, ms + (near.some((x) => Math.abs(x - ms) < 864e5) ? 60e3 : 3600e3));
+        for (const f of file.fixesBetween(prev, ms, fixHours)) { step(kt(f)); const x = file.fixAt(f); c.setState(x.r, x.v, x.t); }
+        prev = ms;
         step(kt(ms));
         const at = kernelMs(c.kState.t), d = file.distanceFromFlown(c.kState.r, at);
         if (d !== null) worst = Math.max(worst, d);
@@ -280,13 +334,17 @@ for (const id of ids) {
       return { worst, end: file.distanceFromFlown(c.kState.r, kernelMs(c.kState.t)), lows, aimedDv: run.aimedDv, error: c.error, crashed: c.crashed, endState };
     };
     const show = (label, x) => console.log(`  ${label.padEnd(36)} ${x.lows.length ? `flybys ${x.lows.map((l) => `${l.d.toFixed(1)} km`).join(', ')}   ` : ''}at the end ${x.end.toFixed(1)} km, worst ${x.worst.toFixed(1)} km${x.crashed ? ', crashed' : ''}${x.error ? `, ${x.error}` : ''}`);
-    const blind = flyApp(), aimed = flyApp({ aimed: true });
+    // As the app flies it by default: aimed, or (a file with fixHours) the
+    // burns as flown with a tracking fix that often.
+    const blind = flyApp(), aimed = data.fixHours ? flyApp({ fixHours: data.fixHours }) : flyApp({ aimed: true });
+    const aimedOnly = data.fixHours ? flyApp({ aimed: true }) : null;
     const flownLow = data.flybys.map((f) => f.distanceKm - RADIUS[f.body]);
     if (flownLow.length) console.log(`  the file's flybys: ${flownLow.map((x) => `${x.toFixed(1)} km`).join(', ')} (at the minute nearest)`);
     show('every burn replayed as flown', blind);
-    show(`burns aimed (+${aimed.aimedDv.toFixed(2)} m/s)`, aimed);
+    show(data.fixHours ? `burns as flown, a fix every ${data.fixHours} h` : `burns aimed (+${aimed.aimedDv.toFixed(2)} m/s)`, aimed);
+    if (aimedOnly) show(`burns aimed, no fixes (+${aimedOnly.aimedDv.toFixed(2)} m/s)`, aimedOnly);
     check(`the file's burns are the trajectory's: each published one within 1 %`, matched.filter((x) => x.b && x.p.mps).every(({ p }) => { const fb = data.burns.find((b) => b.name === p.name); return fb && Math.abs(fb.mps / p.mps - 1) < 0.01; }));
-    check(`as the app flies it, aimed: within ${C.appEndKm} km at the end and ${C.appWorstKm} km throughout, every flyby within ${C.appFlybyKm} km of the flown`, !aimed.error && aimed.end < C.appEndKm && aimed.worst < C.appWorstKm && aimed.lows.every((l, i) => Math.abs(l.d - flownLow[i]) < C.appFlybyKm));
+    check(`as the app flies it${data.fixHours ? `, with a fix every ${data.fixHours} h` : ', aimed'}: within ${C.appEndKm} km at the end and ${C.appWorstKm} km throughout, every flyby within ${C.appFlybyKm} km of the flown`, !aimed.error && aimed.end < C.appEndKm && aimed.worst < C.appWorstKm && aimed.lows.every((l, i) => Math.abs(l.d - flownLow[i]) < C.appFlybyKm));
     check(`the aimed burns add under ${C.appAimedMps} m/s to the flown ones (${aimed.aimedDv.toFixed(2)} m/s)`, aimed.aimedDv < C.appAimedMps);
     if (impact) {
       // Each flight's end, flown on to the target.

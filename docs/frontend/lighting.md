@@ -340,6 +340,10 @@ are drawn a pale tan. Saturn's shadow on the rings uses the eclipse formula
 above. Not modelled: the strong backscatter (opposition surge) and
 multiple scattering in the dense rings.
 
+Jupiter's, Uranus's and Neptune's rings use the same layer photometry with
+$A$ split between dark particles and forward-scattering dust
+([rings](rings.md#light)). Saturn's keeps a constant $A$ of 1.
+
 Not modelled yet: sunlight refracted by Earth's atmosphere into its umbra
 (the copper colour of a lunar eclipse, $10^{-4}$ to $10^{-6}$ of full Moon
 brightness, so near-black at a daylight exposure). Earth's atmosphere is

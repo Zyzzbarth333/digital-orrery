@@ -380,6 +380,28 @@ system's slope, it gives the brightness from anywhere.
 geometric albedo from NASA's fact sheets and Horizons.
 [Lighting](frontend/lighting.md)
 
+**Optical depth (τ).** How much a layer dims light passing through it: a
+beam is cut to $e^{-\tau}$. A ring's *normal* optical depth is measured
+straight through it; seen at an angle whose cosine is $\mu$, the path is
+$\tau/\mu$. Saturn's B ring is near-opaque (τ over 2), Uranus's ε ring
+0.5 to 2.3, Jupiter's main ring a few millionths. Stellar occultations
+measure it, as the star fades behind the ring.
+[The other planets' rings](frontend/rings.md)
+
+**Equivalent depth.** A narrow ring's optical depth summed across its
+width, $\int\tau\,dr$, in km: what an occultation measures best when the
+ring is barely resolved. [The other planets' rings](frontend/rings.md)
+
+**Forward scattering.** Light carried on nearly in the direction it was
+going. Dust grains a few microns across scatter mostly forward, so a dusty
+ring is brightest with the Sun behind it (at high phase angle), and nearly
+invisible lit from the front: Jupiter's rings were found and mapped that
+way. [The other planets' rings](frontend/rings.md)
+
+**Phase angle.** The angle at a body between the Sun and the observer: 0°
+fully lit from behind the observer, 180° lit from straight behind the body.
+[Lighting](frontend/lighting.md)
+
 **HDR, exposure, tone mapping.** The sky is computed in real brightness,
 from the Sun to faint stars. An exposure, set like a camera's, and a
 tone-mapping curve fit it to the screen. [Lighting](frontend/lighting.md)
