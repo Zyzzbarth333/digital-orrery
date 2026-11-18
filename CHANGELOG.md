@@ -298,6 +298,7 @@ once it has releases. Until then, everything sits under Unreleased.
 
 ### The console
 - The body rail keeps every planet in view at a laptop's height (1440×900, 1366×768): it scrolls as one, so no list in it is squashed to a row and its foot (keys, how it works, credits) is always reachable. On a phone the page no longer slides sideways (the guides row scrolls in its own strip, and opening the console no longer pans the app), and the sky keeps about 180 px when the data or the console is open, where it fell to about 20 px (this pull request).
+- The plotting table's GO board names the rocket it checks (STACK's sized stack, the ROCKET tab's "Journey's stack"), and the ROCKET tab says when it shows another vehicle, with a key to fly the journey's stack. The irregular-moon list says "retrograde" in place of "(r)", and the journey's date control reads "When a date slides: later ones follow / later ones stay" (this pull request).
 - Source tags open each value's equation and source, set in a bundled
   math font (#31, #36, #37). The app has an icon (#31).
 - The console's HDR sky and camera flights (#28).
