@@ -119,7 +119,9 @@ surface along the plane) to the cutoff state, which is `ascentToState`'s.
 
 ![The ROCKET tab with Saturn V: FLY THE ASCENT draws its climb, LAUNCH FROM THE PAD starts the clock at 10 s a second, and the camera follows the craft away from Florida with its path behind it](../clips/rocket-launch.webp)
 
-The ROCKET tab:
+The ROCKET tab, in sections that fold away. Each header says what it holds,
+so a folded section still reads: the vehicle, its mass and delta-v; the job,
+its pad and what it needs; and the flight, once flown.
 - **Vehicle:** each stage's numbers, and the stack's delta-v, burn times
   and thrust-to-weight. Starting points: four real launchers
   ([below](#real-launchers)), a generic two-stage launcher sized for 22 t to
@@ -133,7 +135,9 @@ The ROCKET tab:
   the inclination asked for, lifting off at the clock. The ascent is
   drawn (altitude stretched), with the orbit it reaches and its losses.
   Then either:
-  - **Launch from the pad:** the clock goes to ten seconds before liftoff
+  - **Launch from the pad:** armed first, as the MISSION tab's launch is
+    (ARM says what will fly; DISARM, Esc or a new ascent stands it down).
+    The clock goes to ten seconds before liftoff
     and runs at 10 s a second. The craft climbs along the ascent in the
     scene, with the rest of the planned climb drawn ahead of it, and the
     MISSION tab reads out its time, height and speed. At engine cutoff it

@@ -10,7 +10,7 @@
 // table's STACK station sizes for the journey (staging.js stackAsLauncher),
 // with the journey itself as a job.
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import {
@@ -205,8 +205,20 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
   // The same launch watched from the pad: the clock goes back to liftoff
   // and runs at 10 s a second, the craft climbs along the ascent in the
   // scene, and at cutoff it flies on as above.
+  // Launch from the pad is armed first, then fired, as the MISSION tab's
+  // launch is (DESIGN.md, What real panels do). A new ascent, Esc, or
+  // DISARM stands it down.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => { setArmed(false); }, [flight]);
+  useEffect(() => {
+    if (!armed) return;
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setArmed(false); } };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, [armed]);
   const launch = () => {
-    if (!flight?.res || !orbit) return;
+    if (!flight?.res || !orbit || !armed) return;
+    setArmed(false);
     const axes = bodyAxesEqj('earth', new Date(flight.liftoffMs));
     const track = ascentTrack(flight.res, { lat: flight.pad.lat, lon: flight.pad.lon, az: flight.az, earthFixedAtLiftoff: axes });
     const { name, props } = reached();
@@ -218,10 +230,17 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
     onFlown(c.id);
   };
 
+  // Each section's header says what it holds, so a folded section still
+  // reads: the vehicle, the job and what it needs, and the flight.
+  const JOBS: Record<Job, string> = { orbit: 'Orbit', gto: 'Geostationary transfer', moon: 'The Moon', planner: 'Planner window', journey: 'The journey' };
+  const vehicleNote = bad ? 'needs every figure' : `${custom ? 'Custom' : P0.label.split(' (')[0]} · ${stages.length} stage${stages.length === 1 ? '' : 's'}${perf ? ` · ${fmt(perf.liftoff / 1000, 1)} t · ${fmt(perf.dv / 1000, 2)} km/s` : ''}`;
+  const jobNote = `${JOBS[job]} · ${P.name.split(',')[0]}${needed !== null ? ` · needs ${fmt(needed / 1000, 2)} km/s${margin !== null ? (margin >= 0 ? ', the stack has it' : `, ${fmt(-margin / 1000, 2)} short`) : ''}` : ''}`;
+  const launchNote = flight?.res && orbit ? (Number.isFinite(orbit.apo) ? `flown: ${fmt(orbit.peri, 0)} × ${fmt(orbit.apo, 0)} km` : 'flown: escape') : flight && !flight.res ? 'flown: no orbit' : 'not flown yet';
+
   return (
     <div className="tab-body rocket">
       <details className="section" open>
-        <summary className="strip">Vehicle</summary>
+        <summary className="strip"><span>Vehicle</span><span className="sum-note" title={vehicleNote}>{vehicleNote}</span></summary>
         <div className="form-grid">
           <label className="num wide"><span className="engraved">Start from</span>
             <select className="input" value={preset} onChange={(e) => usePreset(Number(e.target.value))}>
@@ -292,7 +311,7 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
       </details>
 
       <details className="section" open>
-        <summary className="strip">The job</summary>
+        <summary className="strip"><span>The job</span><span className={`sum-note${margin !== null && margin < 0 ? ' short' : ''}`} title={jobNote}>{jobNote}</span></summary>
         <div className="keys-row wrap" role="radiogroup" aria-label="Job">
           {([['orbit', 'Orbit'], ['gto', 'Geostationary transfer'], ['moon', 'The Moon'], ['planner', 'Planner window'], ['journey', 'The journey']] as const).map(([k, label]) => (
             <button key={k} className="key small" role="radio" aria-checked={job === k} onClick={() => setJob(k)}>{label}</button>
@@ -331,7 +350,7 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
       </details>
 
       <details className="section" open>
-        <summary className="strip">Launch</summary>
+        <summary className="strip"><span>Launch</span><span className="sum-note" title={launchNote}>{launchNote}</span></summary>
         <div className="form-grid">
           <label className="num"><span className="engraved" title="height of the pitchover, after a vertical climb">Pitchover at</span>
             <input className="input" type="number" min={50} step={50} aria-invalid={!(pitchAlt >= 50)} value={pitchAlt} onChange={(e) => { setPitchAlt(Number(e.target.value)); setFlight(null); }} /><span className="unit">m</span>
@@ -361,10 +380,13 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
                 );
               })}
             </tbody></table>
-            <div className="keys-row">
-              <button className="key primary" onClick={launch}>Launch from the pad</button>
+            <div className="keys-row wrap launch-row">
+              <button className="key arm" aria-pressed={armed} onClick={() => setArmed(true)} disabled={armed}>{armed ? 'Armed' : 'Arm'}</button>
+              <button className="key primary" onClick={launch} disabled={!armed}>Launch from the pad</button>
+              {armed && <button className="key" onClick={() => setArmed(false)}>Disarm</button>}
               <button className="key" onClick={insert}>Put it in orbit</button>
             </div>
+            {armed && <p className="hint" aria-live="polite">Launches {reached().name} at {iso(flight.liftoffMs)} UTC, azimuth {fmt(flight.az, 1)}°, to {Number.isFinite(orbit.apo) ? `${fmt(orbit.peri, 0)} × ${fmt(orbit.apo, 0)} km` : 'escape'}. Disarm or Esc to stand down.</p>}
             <p className="hint">Launch from the pad sets the clock to ten seconds before liftoff and runs it at 10 s a second while the craft climbs; Put it in orbit jumps the clock to {flight.res.remaining ? 'cutoff' : 'burnout'} (BACK undoes it). Either way the payload flies on as a craft with {flight.res.remaining ? 'the upper stage\'s engine and its propellant' : 'no propellant'}.</p>
           </>
         )}
@@ -430,8 +452,8 @@ function OrkSection() {
   const noFlights = design && !design.d.simulations.some(hasFlight);
 
   return (
-    <details className="section" open>
-      <summary className="strip">OpenRocket design</summary>
+    <details className="section" open={!!design}>
+      <summary className="strip"><span>OpenRocket design</span><span className="sum-note">{design ? `${design.file}${sim ? ` · ${sim.name}` : ''}` : 'a model rocket, compared with OpenRocket'}</span></summary>
       <div className="keys-row">
         <button className="key" aria-disabled={busy} onClick={() => { if (!busy) input.current?.click(); }}>{busy ? 'Reading…' : design ? 'Open another' : 'Open .ork file'}</button>
         <input ref={input} type="file" accept=".ork" hidden onChange={(e) => void open(e.target.files?.[0])} />

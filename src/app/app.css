@@ -428,6 +428,10 @@ details.section > summary { list-style: none; cursor: pointer; margin: calc(2 * 
 details.section > summary::-webkit-details-marker { display: none; }
 details.section > summary::after { content: '+'; font-family: var(--mono); }
 details.section[open] > summary::after { content: '−'; }
+/* A section's header says what it holds, so a folded one still reads. */
+details.section > summary .sum-note { flex: 1 1 auto; min-width: 0; margin: 0 calc(1.5 * var(--u)); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--sans); letter-spacing: 0.02em; text-transform: none; color: var(--label-dim); }
+details.section > summary .sum-note.short { color: var(--warn-ink); }
+details.section > summary > span:first-child { flex: none; white-space: nowrap; }
 .input.select { appearance: none; padding-right: 26px;
   background: var(--window) no-repeat right 10px center / 9px 6px
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 6'%3E%3Cpath d='M0 0h9L4.5 6z' fill='%23ecd9b0'/%3E%3C/svg%3E"); }
