@@ -84,8 +84,11 @@ once it has releases. Until then, everything sits under Unreleased.
   Europa, Titan is entered at its planned height, a moon flyby is aimed at
   the moon, not its planet, and leaving Europa for Earth is flown within
   1 % of the planner's price. Captures and departures burn near
-  impulsively, centred on the periapsis, as the plan prices them (this
-  pull request).
+  impulsively, as the plan prices them (#105). The parking orbit at such a
+  moon now holds the way out through its stay: its plane is set by the
+  last aim down the planet's well, two days out, allowing for the stay's
+  turn of it (ten degrees over six days at Europa), so leaving Europa for
+  Earth costs 0.3 % over its price, not 0.9 % (this pull request).
 - A leg that runs nearly 180 degrees round the Sun is planned on a broken
   plane: in the departure's orbit plane to about halfway, then a burn that
   turns the plane onto the target. Leaving lunar orbit for Mars after 23
@@ -126,7 +129,7 @@ once it has releases. Until then, everything sits under Unreleased.
   final reconstruction (`?mission=lro`), down to its 30 km commissioning
   orbit in the Moon's GRAIL field, checked degree by degree; burns the
   reconstruction can't resolve are fitted as the engine would fly them
-  (this pull request).
+  (#113).
 - MESSENGER's cruise to Mercury, 2004 to 2011, flies in the app against
   JHU/APL's reconstruction (`?mission=messenger`): six flybys, every burn
   within 1.1 % and 1.7° of APL's record, and the sunlight it steered by
@@ -246,7 +249,12 @@ once it has releases. Until then, everything sits under Unreleased.
   L1–L3. The spin axes show which way each body turns, with Venus, Uranus
   and Pluto marked retrograde. Orbit lines fade where they pass close to
   the camera against their size, so a body's own orbit no longer cuts
-  across the view when zoomed in on it (this pull request).
+  across the view when zoomed in on it (#103).
+- The gravity field's rotating-frame contours are unbroken lines, worked
+  out at every pixel; a readout beside the cursor gives the field there
+  exactly. A followed craft's osculating conic fades close in as the
+  trails do. The rail fits a short window: the planets keep three rows,
+  the guides four, and the rail scrolls past that (this pull request).
 - A sharp Milky Way and a Sun that keeps one size (#34). The belt's haze
   costs a fifth as much on an integrated GPU (#55).
 - Stars twinkle when seen through the Earth's lower atmosphere (#61). The

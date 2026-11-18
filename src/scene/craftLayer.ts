@@ -5,6 +5,9 @@
 // craft's drawn position, its osculating conic about its primary (amber) and
 // the path it has flown (pale). Lines are drawn relative to the primary and
 // placed at the primary's render position, like the bodies' orbit lines.
+// Like them, the conic and the trail fade where they pass the camera at
+// under 5 % of their orbit's size (orbitTrail.ts), so a craft followed
+// close in is not crossed by its own orbit as a straight bright line.
 // Closer than a tenth of the craft's distance from its primary, where the
 // conic's uniform samples (and float32 about the primary) would miss the
 // craft, the conic and the trail's last stretch are drawn every frame
@@ -24,7 +27,7 @@
 // An SVG overlay rather than lines in the scene, at a fixed size.
 
 import * as THREE from 'three';
-import { orbitTrailMaterial, reachOf } from './orbitTrail';
+import { fadeCloseIn, orbitTrailMaterial, reachOf } from './orbitTrail';
 import { conicAround } from './craftPaths';
 
 type V3 = [number, number, number];
@@ -84,10 +87,11 @@ function attitudeSvg(): SVGSVGElement {
 // Ecliptic km -> render units (x, z, -y) / unit.
 const toRender = (a: number[], unitKm: number, out: THREE.Vector3) => out.set(a[0] / unitKm, a[2] / unitKm, -a[1] / unitKm);
 
-function lineOf(colour: number, opacity: number): THREE.Line {
+function lineOf(colour: number, opacity: number, fade = false): THREE.Line {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
   const m = new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity, toneMapped: false, depthWrite: false });
+  if (fade) fadeCloseIn(m);
   m.userData.base = new THREE.Color(colour);
   const line = new THREE.Line(g, m);
   line.frustumCulled = false;
@@ -104,9 +108,11 @@ function setPoints(line: THREE.Line, pts: V3[], unitKm: number): void {
   line.geometry.setAttribute('position', new THREE.BufferAttribute(arr, 3));
   line.geometry.setAttribute('u', new THREE.BufferAttribute(u, 1));
   line.geometry.setDrawRange(0, pts.length);
-  // A trail fades close in, against its size about the primary (orbitTrail.ts).
+  // The trail and the conic fade close in, against their size about the
+  // primary (orbitTrail.ts); the close-in copies share their materials.
   const m = line.material as THREE.ShaderMaterial;
-  if (m.uniforms?.reach) m.uniforms.reach.value = reachOf(arr);
+  const reach = m.uniforms?.reach ?? m.userData.reach;
+  if (reach) reach.value = reachOf(arr);
 }
 
 // Points relative to the craft, written into a line's own buffer (grown
@@ -170,7 +176,7 @@ export class CraftLayer {
         marker.innerHTML = '<span class="glyph"></span><span class="name"></span>';
         marker.addEventListener('click', () => this.onPick(v.id));
         this.overlay.appendChild(marker);
-        const conic = lineOf(0xffb22e, 0.55), trail = trailOf(0xffcf7a);
+        const conic = lineOf(0xffb22e, 0.55, true), trail = trailOf(0xffcf7a);
         const near = new THREE.Line(new THREE.BufferGeometry(), conic.material);
         near.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
         const nearTrail = new THREE.Line(new THREE.BufferGeometry(), trail.material);

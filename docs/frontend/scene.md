@@ -163,7 +163,12 @@ large against the camera's distance, stay. At 1.3 million km from the
 Earth its own orbit's line is gone and the Moon's stays; at 4 million km
 from Saturn, likewise Saturn's and its moons'. At system scale every line
 is far from the camera against its size and is drawn as before. A craft's
-flown trail fades the same way against its size about its primary.
+flown trail and its osculating conic (amber) fade the same way against
+their size about the primary (`fadeCloseIn` for the conic's plain line
+material), so a craft in low orbit followed from 30 km is no longer
+crossed by its own orbit as a straight line; from 3,000 km the whole
+ellipse shows as before. A real mission's flown path (pale green) is
+left as it is: it is what a craft is compared against close in.
 
 The line is a faint outline of the whole orbit with a glowing trail behind
 the body (`orbitTrail.ts`). Each vertex carries $u$, its time offset from the
