@@ -10,13 +10,28 @@
 // is still busy, nothing is sent and the next request simply covers a longer
 // span, so a slow step makes physics late, never wrong. Results go back to the
 // crafts, which drop any computed from a state they have changed since.
+//
+// Each request to the Worker carries a time budget (budgetMs, kernelHost.js):
+// the kernel stops when it runs out and the craft's next request carries on
+// from where it stopped. A long request (Artemis II's entry under guidance,
+// 3-4 s at a day a second) is so flown in pieces, the Worker answers every
+// fraction of a second, and the reply timeout is left for a Worker that has
+// died. On this thread (no Worker, or after a fallback) a request still runs
+// to its end in one go, as Node's checks expect.
 
 import { createKernelHost } from './kernelHost.js';
 
 export class KernelClient {
-  constructor({ useWorker = true, replyTimeoutMs = 2000 } = {}) {
+  // budgetMs: the Worker's time per request. replyTimeoutMs: how long a
+  // Worker may stay silent with a request (and no aim) in flight before it
+  // is taken for dead; its first reply also waits for the DE442 table to
+  // load (kernel.worker.js). createWorker: makes the Worker (a stand-in in
+  // Node's checks); Vite bundles kernel.worker.js only from the literal
+  // new Worker(new URL(...)) below.
+  constructor({ useWorker = true, budgetMs = 200, replyTimeoutMs = 15000, createWorker = null } = {}) {
     this.busy = false;
     this.sentAt = 0;
+    this.budgetMs = budgetMs;
     this.replyTimeoutMs = replyTimeoutMs;
     this.inflight = new Map();
     this.aiming = new Map();     // id -> resolve, for aim requests
@@ -25,9 +40,9 @@ export class KernelClient {
     this.mode = 'main-thread';
     this.host = null;
     this.worker = null;
-    if (useWorker && typeof Worker !== 'undefined') {
+    if (useWorker && (createWorker || typeof Worker !== 'undefined')) {
       try {
-        this.worker = new Worker(new URL('./kernel.worker.js', import.meta.url), { type: 'module' });
+        this.worker = createWorker ? createWorker() : new Worker(new URL('./kernel.worker.js', import.meta.url), { type: 'module' });
         this.worker.onmessage = (e) => (e.data && e.data.type === 'aimed' ? this.onAimed(e.data) : this.onReply(e.data));
         this.worker.onerror = (e) => this.fallBack(`worker error: ${e.message || e}`);
         this.worker.onmessageerror = () => this.fallBack('worker reply could not be read');
@@ -59,10 +74,11 @@ export class KernelClient {
   // (src/physics/craft.js).
   tick(crafts) {
     if (this.busy) {
-      // A Worker that never answers would otherwise freeze every craft (an
-      // aim ahead of the step in its queue may take a while).
+      // A Worker that never answers would otherwise freeze every craft. A
+      // live one answers within its budget, so this is for a dead one (an
+      // aim ahead of the step in its queue may take a while, so not then).
       if (this.worker && !this.aiming.size && performance.now() - this.sentAt > this.replyTimeoutMs) {
-        this.fallBack(`no reply in ${this.replyTimeoutMs} ms`);
+        this.fallBack(`no reply in ${this.replyTimeoutMs} ms, the worker looks stuck`);
       } else {
         return false;
       }
@@ -76,7 +92,7 @@ export class KernelClient {
     if (reqs.length === 0) return false;
     this.busy = true;
     this.sentAt = performance.now();
-    const msg = { type: 'step', crafts: reqs };
+    const msg = { type: 'step', crafts: reqs, ...(this.worker ? { budgetMs: this.budgetMs } : {}) };
     if (this.worker) {
       this.worker.postMessage(msg);
     } else {

@@ -35,12 +35,13 @@
 // advance; a change of primary (the body whose sphere of influence holds the
 // craft) is reported and the advance continues.
 //
-// Each call has a step budget. Steps are never stretched to meet it: when it
-// runs out the advance stops short of tEnd and says so (complete: false), and
-// the caller continues from state.t next time. A stretched step near a planet
+// Each call has a step budget (and optionally a time budget, opts.deadline).
+// Steps are never stretched to meet it: when it runs out the advance stops
+// short of tEnd and says so (complete: false), and the caller continues from
+// state.t next time. A stretched step near a planet
 // can pass straight through it.
 
-import { advanceEncke, perturbationRatio, ENCKE_IN, DP45 } from './encke.js';
+import { advanceEncke, perturbationRatio, ENCKE_IN, DP45, outOfTime } from './encke.js';
 import { addJ2, below } from './zonal.js';
 import { locateImpact, dp45Dense, hermiteAt } from './impact.js';
 
@@ -180,6 +181,10 @@ function soiInfo(bodies, muSun) {
 //   fixedStep   use this |h| for every step instead of the eta rule
 //   maxSteps    step budget for this call (default 200,000). When it runs out
 //               the advance stops early with complete: false.
+//   deadline    optional wall-time budget: a performance.now() time (ms)
+//               after which the advance stops early the same way (encke.js
+//               outOfTime). The kernel worker sets it so one request never
+//               holds the worker for seconds.
 //   sunRadius   km (default 695,700); closer than this is an impact on 'sun'
 //   breakpoints sorted times (forward advances only) that steps must end on
 //               exactly, e.g. where a burn starts or stops
@@ -323,7 +328,7 @@ function advanceCowellRK(state, tEnd, opts, stopOnEntry) {
   const bps = (breakpoints && dir > 0) ? breakpoints : null;
 
   while (dir * (tEnd - state.t) > 0) {
-    if (steps >= maxSteps) return { steps, floorSteps, events, complete: false };
+    if (steps >= maxSteps || outOfTime(opts.deadline, steps)) return { steps, floorSteps, events, complete: false };
     let cap = hMax;
     if (opts.stepCap) cap = Math.min(cap, opts.stepCap(state.t, helio(state.t, r, hB), helioV(state.t, v)));
     // On a conic that dips inside the primary, keep the old fixed-fraction
@@ -539,7 +544,7 @@ function advanceCowell(state, tEnd, opts, stopOnEntry) {
       while (bp < bps.length && bps[bp] <= state.t) bp++;
       if (bp < bps.length && bps[bp] < tEnd) remaining = bps[bp] - state.t;
     }
-    if (steps >= maxSteps) return { steps, floorSteps, events, complete: false };
+    if (steps >= maxSteps || outOfTime(opts.deadline, steps)) return { steps, floorSteps, events, complete: false };
     // The last step lands exactly on tEnd. Comparing against a fixed epsilon
     // instead fails once t is large: at t ~ 1e8 s a leftover of 1e-8 s is
     // below one ulp, t stops advancing and the loop drifts r without time.
