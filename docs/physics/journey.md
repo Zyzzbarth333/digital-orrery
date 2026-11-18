@@ -251,10 +251,13 @@ on 20 Aug 2027 (180.4° round the Sun):
 - **Over neighbouring days**, leaving 9 to 29 November, the plan is never
   dearer than either, and its price runs smoothly where the direct arc's
   leaps.
-- **Flown in the full model**, the deep-space burn takes 112 m/s of
-  corrections, 42 of them its planned burn, and reaches Mars 1.2 km off.
-  The broken plane takes 113 m/s. The direct arc, which the craft's first
-  leg always flew before, takes 687 m/s.
+- **Flown in the full model**, the deep-space burn takes 86 m/s of
+  corrections, 42 of them its planned burn, and reaches Mars 1.8 km off.
+  The broken plane takes 87 m/s. The direct arc, which the craft's first
+  leg always flew before, takes 973 m/s. (Before the aims at a planet left
+  its bending to it, 112, 113 and 687: the direct arc's aims chase a plane
+  that turns with every kilometre the craft is off it, so where they start
+  from moves its cost by hundreds of m/s.)
 
 ### The deep-space burn
 
@@ -928,7 +931,8 @@ Each step, in time order:
      (0.3 %; 0.9 % before the plane was set down the well). On a leg of two arcs the burn is aimed at the break point, as
      the leg's first aim is; the aim after it is 1.3 m/s, then the
      deep-space burn (179 m/s planned, 348 flown as the aim from there) and
-     the last aim at the Earth; the Earth 3.1 km off.
+     the last aim at the Earth, 0.1 m/s (62 before the aims at a planet
+     left its bending to it); the Earth 3.8 km off.
    - **A swing-by of the planet** (a root that falls inward to a
      periapsis closer to the planet than the radius of the moon's sphere
      of influence, 66,000 km for the Moon): one more aim comes first,
@@ -1246,7 +1250,7 @@ orbits, waits 454 days.
 | Restricted and optimal staging | Ex 13.4, 13.5 | 5.657, 7.407, 7.928 km/s; 200,000 kg and the stage masses to the book's figures |
 | Legs chained, stays, orbit changes, options, choosing one | the journey's own rules | all hold |
 | Jupiter's orbit to Europa, then to Ganymede | geometry; Europa at 671,100 km and 13.74 km/s | legs about Jupiter; within 1 % and 2 % |
-| Mariner 10, flown by the kernel (NASA's dates) | the plan | Venus 0.5 km, Mercury 0.2 km off the planned periapsis |
+| Mariner 10, flown by the kernel (NASA's dates) | the plan | Venus 0.4 km, Mercury 0.2 km off the planned periapsis |
 | Earth to Mars, captured | the plan | 1.5 km |
 | Round the Moon and home | the plan | Moon 17 km; home 3 km from the aimed point |
 | Earth orbit, Moon orbit for 3 days, home | the plan | Moon 2.4 km; home 0.2 km |
@@ -1294,7 +1298,7 @@ orbits, waits 454 days.
 | The swing-by margin | its formula | none from two planet radii out, flat there; 50 m/s at half a radius up, 810 at a tenth, without bound at the surface |
 | Ten days into the stay | the Earth's radius | the cheaper hyperbola dives to a 673 km perigee and is not taken; the other, 3.814 km/s about the Moon, is, with no margin |
 | The price an hour at a time, stays of 18 to 30 days (the 21-day leg's excess velocity) | the Moon's motion | largest step 39 m/s, near day 22, where the Moon passes nearly opposite the way out and the two hyperbolas swap; the old rule (no swing-by under half the Moon's distance unless both were) jumped 707 m/s on day 20.8 |
-| Earth orbit to Europa orbit, 30 days, home, flown (porkchop from 1 Jan 2027, the best phase leaving) | the plan, Europa reached and left via Jupiter | every aim at Europa (but the first, at the deep-space burn's point); 0.1 km off the planned periapsis (within 5 km); capture 5,810 m/s against 5,787 (within 3 %); left for 5,575 against 5,557 (0.3 %, within 3 %), the first aim after it 1.3 m/s; Earth 3.1 km off |
+| Earth orbit to Europa orbit, 30 days, home, flown (porkchop from 1 Jan 2027, the best phase leaving) | the plan, Europa reached and left via Jupiter | every aim at Europa (but the first, at the deep-space burn's point); 0.1 km off the planned periapsis (within 5 km); capture 5,810 m/s against 5,787 (within 3 %); left for 5,575 against 5,557 (0.3 %, within 3 %), the first aim after it 1.3 m/s; Earth 3.8 km off, the last aim 0.1 m/s (62 before the aims left the planets' bending to them) |
 | The same: the parking orbit's plane | the way out, as the stay turns it | 0.04° off at the trims (within 0.5°; 10° when left to them); the departure 0.3 % over its price (within 1 %) |
 | Earth orbit to a Europa landing, flown | the plan | down at 2.1 m/s, 1,681 m/s for the descent |
 | Earth orbit to Titan, landing through the air, flown | the plan | aimed at Titan; the entry perigee 1,000.01 km for 1,000 (within 5 km) |
@@ -1309,7 +1313,7 @@ orbits, waits 454 days.
 | The same leg, a blind search | twelve Nelder-Mead starts | nothing cheaper (under 0.5 m/s) |
 | Leaving 9 to 29 Nov 2026 | the direct arc and the broken plane | never dearer than either; its burn 0 m/s where it takes over, 73 at most; under 30 m/s a day |
 | Lunar orbit to Mars, stays of 18 to 30 days | smoothness; the broken plane | the excess speed's second difference at most 4.3 m/s (under 20); 0 to 46 m/s saved at the mean phase; cheaper on the day on 12 of 13 |
-| A craft's own first leg at 180.4°: from near the Earth, its orbit tilted 1°, to Mars orbit on 20 Aug 2027 | Abilleira [5]; Lawden [6]; the craft's orbit plane; two-body; the full-model flight | direct 12.72 km/s, tilted 14.3°; broken plane 5.474, its first arc in the craft's plane to 10⁻⁶°; the plan's deep-space burn 5.471; leaving 9 to 29 Nov never dearer than either and smooth; flown with 112 m/s of corrections, Mars 1.2 km off, against the direct arc's 687 |
+| A craft's own first leg at 180.4°: from near the Earth, its orbit tilted 1°, to Mars orbit on 20 Aug 2027 | Abilleira [5]; Lawden [6]; the craft's orbit plane; two-body; the full-model flight | direct 12.72 km/s, tilted 14.3°; broken plane 5.474, its first arc in the craft's plane to 10⁻⁶°; the plan's deep-space burn 5.471; leaving 9 to 29 Nov never dearer than either and smooth; flown with 86 m/s of corrections, Mars 1.8 km off, against the direct arc's 973 (112 and 687 before the aims at a planet left its bending to it) |
 
 ## Limits
 
