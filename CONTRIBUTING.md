@@ -70,8 +70,9 @@ A change can't break any of these.
   or files from other teams or people.
 - **Rendering changes are measured.** Time a frame on an integrated GPU
   as well as a discrete one, before and after, and give the numbers in
-  the pull request ([docs/performance.md](docs/performance.md) has the
-  method).
+  the pull request. `npm run bench:frames` does this and prints the table
+  to paste ([docs/performance.md](docs/performance.md#measuring) has the
+  method and how to build main to compare against).
 - **The interface follows [DESIGN.md](DESIGN.md).** The console is 70s
   flight hardware, in its own look: don't borrow another app's or game's
   interface.

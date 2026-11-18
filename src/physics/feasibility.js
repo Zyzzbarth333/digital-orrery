@@ -7,10 +7,10 @@
 //                                  departure date from when it can first
 //                                  leave, each date's best flight time
 //   assess(journey, sol, opts)     the plotting table's lamps: window, phase,
-//                                  plane, wait, delta-v, no window, miss,
-//                                  flyby
+//                                  parking, wait, delta-v, no window, plane,
+//                                  miss, flyby
 
-import { solveJourney, solveLeg, legGeometry, bodyInfo, phaseOption, planeOption, planePricer } from './journey.js';
+import { solveJourney, solveLeg, legGeometry, bodyInfo, phaseOption, planeOption, planePricer, BROKEN_ALWAYS } from './journey.js';
 import { hohmannCircular } from './transfers.js';
 
 const DAY_MS = 86400e3;
@@ -89,7 +89,7 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
   const dvOf = (L) => (L?.ok ? L.depDv + L.arrDv + L.midDv : Infinity);
 
   // Window: a leg leaving well off its cheapest date (unless that date is
-  // within the plane lamp's reach: it says why).
+  // within the parking orbit lamp's reach: it says why).
   let worst = null;
   const dearPlane = (L) => L?.ok && L.plane?.priced && !L.plane.aimed && L.plane.extraDv > Math.max(0.05, 0.03 * dvOf(L));
   for (const p of profiles) {
@@ -119,7 +119,7 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
     }
   }
 
-  // Plane: a leg leaving a planet's orbit whose turned plane makes the
+  // Parking orbit: a leg leaving a planet's orbit whose turned plane makes the
   // planned day dear (more than 50 m/s and 3 % of the leg): the day near it
   // the plane holds the way out, once the profile has it.
   for (const L of sol.legs) {
@@ -129,8 +129,8 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
     const off = `the parking orbit's plane ${pl.angleDeg.toFixed(0)}° off the way out`;
     if (o && now - o.dv > Math.max(0.05, 0.03 * now)) {
       const d = o.waitDays;
-      lamps.push({ key: 'plane', level: 'caution', leg: L.index, text: `Leave ${name(L.from)} ${iso(o.ms)} for its orbit's plane: ${o.dv.toFixed(2)} km/s, not ${now.toFixed(2)} (${d === 0 ? 'the same day' : d > 0 ? `${d} d later` : `${-d} d earlier`}; ${off} as planned)`, bestMs: o.ms, waitDays: d });
-    } else lamps.push({ key: 'plane', level: 'caution', leg: L.index, text: `Leaving ${name(L.from)}: ${off}, ${(pl.extraDv * 1000).toFixed(0)} m/s extra` });
+      lamps.push({ key: 'parking', level: 'caution', leg: L.index, text: `Leave ${name(L.from)} ${iso(o.ms)} for its orbit's plane: ${o.dv.toFixed(2)} km/s, not ${now.toFixed(2)} (${d === 0 ? 'the same day' : d > 0 ? `${d} d later` : `${-d} d earlier`}; ${off} as planned)`, bestMs: o.ms, waitDays: d });
+    } else lamps.push({ key: 'parking', level: 'caution', leg: L.index, text: `Leaving ${name(L.from)}: ${off}, ${(pl.extraDv * 1000).toFixed(0)} m/s extra` });
     break;
   }
 
@@ -156,6 +156,23 @@ export function assess(journey, sol, { budget = Infinity, profiles = [] } = {}) 
         lamps.push({ key: 'nowindow', level: 'warn', leg: p.k, text: `No date leaving ${name(sol.legs[p.k].from)} before ${iso(p.points.at(-1).ms)} fits the budget (best ${p.best.dv.toFixed(2)} km/s, room ${Math.max(0, room).toFixed(2)})` });
         break;
       }
+    }
+  }
+
+  // Plane: a leg near 180 degrees round its central body, where Lambert's
+  // plane is ill-defined, flown on a broken plane (journey.js brokenPlane),
+  // or, where none could be found, direct on a plane that will not hold.
+  for (const L of sol.legs) {
+    if (!L?.ok || L.geometry !== 'between' || L.resonance) continue;
+    const bp = L.brokenPlane;
+    if (bp) {
+      lamps.push({ key: 'plane', level: 'caution', leg: L.index, text: `To ${name(L.to)}: ${bp.angleDeg.toFixed(1)}° round the ${name(L.central)}, so the plane breaks on ${iso(bp.ms)}, ${(bp.dv * 1000).toFixed(0)} m/s (${bp.turnDeg.toFixed(2)}°)${Number.isFinite(bp.directDv) ? `; direct ${bp.directDv.toFixed(2)} km/s, tilted ${bp.directIncDeg.toFixed(1)}°` : ''}`, bestMs: bp.ms });
+      break;
+    }
+    const off = Math.abs((L.transferDeg ?? 0) - 180) * Math.PI / 180;
+    if (L.transferDeg !== undefined && off < BROKEN_ALWAYS && !L.nodes?.length) {
+      lamps.push({ key: 'plane', level: 'warn', leg: L.index, text: `To ${name(L.to)}: ${L.transferDeg.toFixed(1)}° round the ${name(L.central)}, its plane ill-defined, flown direct; move the arrival a few days` });
+      break;
     }
   }
 

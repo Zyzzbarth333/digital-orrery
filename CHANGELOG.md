@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- `npm run bench:frames` times the app's frames on the integrated and the discrete GPU, a build against main, and prints the table a pull request needs (this pull request).
 - The README is half as long: what is accurate and what is not, with the roadmap, is now [docs/accuracy.md](docs/accuracy.md), the credits are [docs/credits.md](docs/credits.md), and the project's folders are in [How it fits together](docs/architecture.md). The accuracy page describes the kernel as it is now: error-controlled Dormand–Prince, Encke's method, impacts at the surface (this pull request).
 - Clips of the app running in the README and the docs (a flight to the Earth, time warp, Jupiter's moons, the guides, a launch, the plotting table and Artemis II), and `npm run docs:clips` to film them again (this pull request).
 - Screenshots in the README, a glossary, an architecture diagram, and the credits as tables (this pull request).
@@ -22,6 +23,12 @@ once it has releases. Until then, everything sits under Unreleased.
   the craft's attitude at its marker. Real missions and journeys stay
   point masses. A followed craft's marker no longer vanishes when the
   camera is under a kilometre away (this pull request).
+- A 6-DOF craft's attitude thrusters burn propellant from its tank, shown
+  in the ATTITUDE readout; its inertia falls as the tank empties, so it
+  turns faster light; and it turns to each manoeuvre node by itself, in
+  time to settle before the node fires (AUTO NODE TURN), saying in the
+  log when it can't. The node mode now holds the direction it burned
+  along afterwards (this pull request).
 - Plan a journey of any number of legs, compare each leg's transfers, fly
   it in the kernel and size the rocket for it (#41). Shape it by hand with
   burn nodes and flyby aims (#44). Plan it on a full-screen plotting table
@@ -38,7 +45,7 @@ once it has releases. Until then, everything sits under Unreleased.
   J2 regresses its node, about 9° a day 400 km over Mars), and the planner
   now prices it. The departure is priced out of the plane on the planned
   day, the leg shows how far off the plane is, and the window strip prices
-  each date with it. A plane lamp, an option and a mark on the strip give
+  each date with it. A parking orbit lamp, an option and a mark on the strip give
   the day near the planned one when the plane holds the way out. After a
   year at Mars the plan's price for the departure is within 5 % of the
   flight's, and the flight's wait for the plane within a day. The Moon is
@@ -52,6 +59,13 @@ once it has releases. Until then, everything sits under Unreleased.
   the Earth: its aims are at the Moon itself, and a landing after a long
   capture works its descent out from the orbit it is in (this pull
   request).
+- A leg that runs nearly 180 degrees round the Sun is planned on a broken
+  plane: in the departure's orbit plane to about halfway, then a burn that
+  turns the plane onto the target. Leaving lunar orbit for Mars after 23
+  days costs 4.57 km/s, not 15.69, and the price no longer leaps as the
+  stay changes. The flight no longer pays hundreds of metres a second
+  chasing a plane that won't hold. A plane lamp says where the plane breaks,
+  and the direct arc is listed beside it for comparison (this pull request).
 - The ROCKET tab flies OpenRocket designs (#29). It starts from real
   launchers, Saturn V, Falcon 9 and Electron, greyed as published (#35).
 - Artemis I and II fly in the app against NASA's trajectories (#19, #21,

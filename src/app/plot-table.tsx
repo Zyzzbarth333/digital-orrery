@@ -35,7 +35,7 @@ const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
 const nameOf = (k: string) => { try { return bodyInfo(k).name as string; } catch { return k; } };
 interface Lamp { key: string; level: 'off' | 'go' | 'caution' | 'warn'; text: string; leg?: number }
-const LAMP_NAME: Record<string, string> = { window: 'Window', phase: 'Phase', plane: 'Plane', wait: 'Wait', dv: 'Delta-v', nowindow: 'No window', miss: 'Miss', flyby: 'Flyby', kernel: 'Kernel' };
+const LAMP_NAME: Record<string, string> = { window: 'Window', phase: 'Phase', wait: 'Wait', dv: 'Delta-v', nowindow: 'No window', plane: 'Plane', parking: 'Parking orbit', miss: 'Miss', flyby: 'Flyby', kernel: 'Kernel' };
 
 // Delta-v a pulled tab adds each second: its square, so a small pull is
 // fine work (up to 240 m/s a second at the stalk's full length).

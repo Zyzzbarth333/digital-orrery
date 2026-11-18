@@ -43,10 +43,10 @@ New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fi
 - **Guides:** spin axes, Earth's and the Moon's real gravity fields, spheres of influence, Lagrange points and the strongest pulls; the planets' magnetic fields as traced field lines (IGRF-14, JRM33, Cassini, Voyager, MESSENGER); the auroras: the Earth's ovals from NOAA's live OVATION Prime map when the clock is near now, otherwise for the day's Kp, Jupiter's and Saturn's main ovals and Io's footprint, and Uranus's and Neptune's zones; and the radiation belts of the Earth, Jupiter and Saturn along their L-shells.
 - **Missions:**
   - spacecraft fly under an n-body kernel in a Web Worker, with finite burns, the Earth's and Moon's gravity fields, drag and sunlight pressure;
-  - the craft you launch carry an attitude: point them prograde, normal, radial, at a node or hold them still, and they turn in the time their thrusters' torque allows, under the gravity gradient and the air's torque, and burn along their body axis ([docs/physics/sixdof.md](docs/physics/sixdof.md#attitude-in-the-app));
+  - the craft you launch carry an attitude: point them prograde, normal, radial, at a node or hold them still, and they turn in the time their thrusters' torque allows, under the gravity gradient and the air's torque, and burn along their body axis; the thrusters burn propellant, the craft turns faster as its tank empties, and it turns to each manoeuvre node by itself in time to settle ([docs/physics/sixdof.md](docs/physics/sixdof.md#attitude-in-the-app));
   - Artemis I and II fly against NASA's reconstructed trajectories, down to Orion's entry and splashdown.
 - **Planning:**
-  - a journey of any number of legs, each leg's transfers compared, shaped by hand on a plotting table;
+  - a journey of any number of legs, each leg's transfers compared (a broken plane where a leg runs nearly 180° round the Sun), shaped by hand on a plotting table;
   - a long stay in a planet's orbit turns the orbit's plane (the planet's $J_2$): the planner prices leaving out of it and suggests the day it holds the way out ([journeys](docs/physics/journey.md#the-parking-orbits-plane));
   - flown by the kernel, with the rocket it needs.
 - **Rockets:** build a launch vehicle stage by stage, or start from Saturn V, Falcon 9 or Electron, or open an OpenRocket design, and fly it from a real pad into orbit.

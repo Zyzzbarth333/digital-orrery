@@ -305,7 +305,7 @@ export function JourneySummary({ store }: { store: JourneyStore }) {
         <table className="readout"><tbody>
           <tr><th scope="row">Route</th><td className="value">{store.title()}<span className="alt">{store.dates()} · {fmt(sol.durationDays, 0)} d</span></td><td /></tr>
           <tr><th scope="row">Δv</th><td className="value">{sol.ok ? `${fmt(sol.totalDv, 3)} km/s` : 'a leg has no solution'}<span className="alt">{sol.burns.length} burns, against a {fmt(store.budget, 1)} km/s budget</span></td><td className="src"><SourceTag src="Σ burns" derived info="journey-total" /></td></tr>
-          {lamps.filter((l) => l.level !== 'off').map((l) => <tr key={l.key}><th scope="row">{l.key === 'dv' ? 'Budget' : l.key === 'nowindow' ? 'No window' : l.key[0].toUpperCase() + l.key.slice(1)}</th><td className={`value${l.level === 'warn' ? ' bad' : ''}`}>{l.text}</td><td /></tr>)}
+          {lamps.filter((l) => l.level !== 'off').map((l) => <tr key={l.key}><th scope="row">{l.key === 'dv' ? 'Budget' : l.key === 'nowindow' ? 'No window' : l.key === 'parking' ? 'Parking orbit' : l.key[0].toUpperCase() + l.key.slice(1)}</th><td className={`value${l.level === 'warn' ? ' bad' : ''}`}>{l.text}</td><td /></tr>)}
         </tbody></table>
       ) : <p className="hint">No journey yet: plan one in the plotting table, from the pad, an orbit or a craft, through any number of flybys, orbits and landings.</p>}
       <div className="keys-row">
