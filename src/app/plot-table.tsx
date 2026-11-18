@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
-import { useJourney, type JourneyStore, type JourneyMarkView } from './journey';
+import { useJourney, ledgerLines, type JourneyStore, type JourneyMarkView } from './journey';
 import { JourneyPanel } from './journey-panel';
 import { PorkchopPanel } from './planner-panel';
 import { StackStation } from './plot-stack';
@@ -351,8 +351,16 @@ function Ledger({ store, lamps }: { store: JourneyStore; lamps: Lamp[] }) {
       </label>
       <p className="hint">From the parking orbit on: what the upper stage and the ship carry.</p>
       <table className="readout compact"><tbody>
-        {sol.burns.map((x, i) => <tr key={i}><th scope="row">{iso(x.ms)}</th><td className="value">{fmt(x.dv, 3)}<span className="alt">{x.label}</span></td><td /></tr>)}
+        {ledgerLines(sol).flatMap((x, i) => [
+          x.paid
+            ? <tr key={i} className={x.note ? 'has-note' : ''}><th scope="row">{iso(x.ms)}</th><td className="value">{fmt(x.dv, 3)}<span className="alt">{x.label}</span></td><td className="src">{(x.kind === 'land' || x.kind === 'ascend') && <SourceTag src="2-body" derived info="landing" />}{x.kind === 'flyby' && <SourceTag src="B-plane" derived info="flyby" />}</td></tr>
+            : <tr key={i} className="credit-row has-note"><th scope="row">{iso(x.ms)}</th><td className="value">{x.kind === 'assist' ? `+${fmt(x.creditDv ?? 0, 3)}` : 'free'}<span className="alt">{x.kind === 'assist' ? `${x.label}, a credit` : `${x.label}, no burn`}</span></td><td className="src"><SourceTag src={x.kind === 'assist' ? 'assist' : 'entry'} derived info={x.kind === 'assist' ? 'flyby-credit' : 'landing'} /></td></tr>,
+          // What it pays for (or why it is free), across the ledger's width.
+          x.note ? <tr key={`n${i}`} className={`note-row${x.paid ? '' : ' credit-row'}`}><td colSpan={3}>{x.note}</td></tr> : null,
+        ])}
         <tr><th scope="row">Total</th><td className="value">{fmt(sol.totalDv, 3)} km/s<span className="alt">{sol.totalDv > b ? `over by ${fmt(sol.totalDv - b, 2)}` : `${fmt(b - sol.totalDv, 2)} to spare`}</span></td><td className="src"><SourceTag src="Σ burns" derived info="journey-total" /></td></tr>
+        {sol.creditDv > 0 && <tr className="credit-row has-note"><th scope="row">Assists</th><td className="value">+{fmt(sol.creditDv, 3)} km/s</td><td className="src"><SourceTag src="assist" derived info="flyby-credit" /></td></tr>}
+        {sol.creditDv > 0 && <tr className="note-row credit-row"><td colSpan={3}>What the flybys gave beyond their burns. Shown beside the total, not taken off it: the total is already lower for them.</td></tr>}
       </tbody></table>
       <div className="ledger-bar" aria-hidden="true">
         {sol.burns.map((x, i) => { const l = acc; acc += x.dv; return <i key={i} style={{ left: `${(100 * l) / max}%`, width: `${(100 * x.dv) / max}%` }} className={`k${i % 3}`} />; })}

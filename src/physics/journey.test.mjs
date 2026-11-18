@@ -1283,6 +1283,47 @@ if (header('CASE 21: a long stay in a low lunar orbit: the eccentricity the fiel
   check('75 days 200 km over the Moon: the plan has the orbit hold, 20 km to spare, and no lamp; the flight comes home', oHigh.fallDays === null && oHigh.lowKm >= 20 && !lHigh && !moon200.flown.impact);
 }
 
+if (header('CASE 22: what the ledger pays for and what it credits: landings, flybys')) {
+  const muM = J.bodyInfo('moon').mu, RM = J.bodyInfo('moon').radius, vc = Math.sqrt(muM / (RM + 100));
+  // An orbit at the Moon, then a landing there: an orbit change about the
+  // Moon (a local leg), which once cost nothing. Now its descent is the
+  // orbit's circular speed, as a landing straight from Earth's is.
+  const trip = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-12-01T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: 1, dateMs: D('2026-12-05T00:00:00Z') },
+    { id: 2, body: 'moon', kind: 'land', altKm: 100, stayDays: 2, dateMs: D('2026-12-06T12:00:00Z') },
+    { id: 3, body: 'earth', kind: 'land', altKm: 120, dateMs: D('2026-12-13T00:00:00Z') }] };
+  const s = J.solveJourney(trip), lines = J.ledgerLines(s), down = s.burns.find((b) => b.kind === 'land'), up = s.burns.find((b) => b.kind === 'ascend');
+  for (const l of lines) console.log(`  ${l.paid ? `${(l.dv * 1000).toFixed(0).padStart(5)} m/s` : '     free'}  ${l.label}${l.note ? `: ${l.note}` : ''}`);
+  check('Moon orbit then a Moon landing: the descent is priced at the 100 km orbit\'s circular speed (1.63 km/s), and its note says powered descent', s.legs[1].geometry === 'local' && near(down.dv, vc, 1e-9) && /powered descent 1\.63 km\/s/.test(down.note));
+  check('lifting off again: the ascent priced at the same speed, said so', up && up.dv > vc && /powered ascent to a 100 km orbit 1\.63 km\/s/.test(up.note));
+  const entry = lines.find((l) => l.kind === 'entry');
+  check('home through the air: a free ledger line, "entry and parachutes, no propulsive Δv", and no burn', entry && !entry.paid && /entry and parachutes, no propulsive Δv/.test(entry.note) && !s.burns.some((b) => b.kind === 'land' && b.body === 'earth'));
+  // Flown: down on the Moon from the orbit change, up, and home.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const plan = planFlight(s), f = flyJourney(sys, plan), L = f.landings.find((x) => x.body === 'moon');
+  for (const l of f.log.filter((x) => /^(landed|liftoff|entry)/.test(x))) console.log(`  ${l}`);
+  check('flown: down on the Moon from the orbit at under 3 m/s, for more than the ideal descent and under 15 % over it; up again and home by entry; no trouble', L?.how === 'descent' && L.speed < 0.003 && L.dv > vc && L.dv < 1.15 * vc && L.ascentDv > 0 && f.landings.some((x) => x.body === 'earth' && x.how === 'entry') && flightTrouble(plan, f).length === 0);
+  // From an Earth orbit straight down: the orbit change's first burn
+  // lowers the perigee into the air, and nothing circularises there.
+  const ret = J.solveJourney({ start: { body: 'earth', kind: 'orbit', altKm: 400, dateMs: D('2026-12-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'earth', kind: 'land', altKm: 120, dateMs: D('2026-12-01T02:00:00Z') }] });
+  const fr = flyJourney(sys, planFlight(ret));
+  console.log(`  from a 400 km orbit: ${ret.burns.map((b) => `${b.label} ${(b.dv * 1000).toFixed(0)} m/s`).join('; ')}; flown: ${fr.log.join('; ')}`);
+  check('from a 400 km Earth orbit to a landing: one deorbit burn (the Hohmann transfer\'s first, 81 m/s), no circularising one, and down by entry', ret.burns.length === 1 && near(ret.burns[0].dv, X.hohmannCircular(MU_E, 6378.14 + 400, 6378.14 + 120).dv1, 2e-3) && fr.landings[0]?.how === 'entry' && !fr.impact);
+
+  // Flybys: the assist is a credit, never a cost. Unpowered, the
+  // heliocentric change is 2 v_inf sin(delta / 2) (Curtis Sec. 8.9), and
+  // the planet's own velocity cancels: the craft's heliocentric velocity
+  // out less in is v_inf,out - v_inf,in.
+  const g = J.solveJourney({ start: { body: 'earth', kind: 'pad', altKm: 200, dateMs: D('1989-10-18T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'venus', kind: 'flyby', altKm: 16000, dateMs: D('1990-02-10T00:00:00Z') }, { id: 2, body: 'earth', kind: 'flyby', altKm: 960, dateMs: D('1990-12-08T00:00:00Z') }] });
+  const [cv, ce] = g.credits.filter((c) => c.kind === 'assist'), fv = g.flybys[0], fe = g.flybys[1];
+  const vIn = g.legs[0].arcs.at(-1), vInHelio = J.relState('venus', 'sun', fv.ms).v.map((x, i) => x + g.legs[0].vinfArr[i]), vOutHelio = g.legs[1].arcs[0].v1;
+  for (const c of g.credits) console.log(`  ${c.label}: +${c.helioDv.toFixed(3)} km/s heliocentric, credit ${c.creditDv.toFixed(3)}: ${c.note}`);
+  check('the Earth flyby at the end, unpowered: its credit is 2 v_inf sin(delta/2), free, and adds nothing to the total', ce && fe.dv === 0 && near(ce.creditDv, 2 * fe.vinf * Math.sin(fe.delta / 2), 1e-9) && /free \(unpowered\)/.test(ce.note));
+  check('the Venus flyby, powered: its heliocentric change is the arcs\' velocity out less in, the credit that less its burn, and the burn\'s note says why it is paid', vIn && near(cv.helioDv, norm(vOutHelio.map((x, i) => x - vInHelio[i])), 1e-6) && near(cv.creditDv, cv.helioDv - fv.dv, 1e-12) && /makes up the difference/.test(g.burns.find((b) => b.kind === 'flyby').note));
+  check('the total is the burns alone: the credits are shown, not subtracted', near(g.totalDv, g.burns.reduce((a, b) => a + b.dv, 0), 1e-12) && g.creditDv > 0);
+}
+
 // A case named that isn't in the file is a failure, so a part of npm test
 // can't run nothing.
 for (const n of named) if (!seen.has(n)) { console.log(`  FAIL  no CASE ${n} in this file`); failures++; }

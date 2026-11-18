@@ -9,7 +9,7 @@
 
 import type { SimClock } from './clock';
 import type { Mission } from './mission';
-import { useJourney, type JourneyStore } from './journey';
+import { useJourney, ledgerLines, type JourneyStore } from './journey';
 import { useStack } from './plot-stack';
 import { assess } from '../physics/feasibility.js';
 import { bodyInfo } from '../physics/journey.js';
@@ -58,7 +58,13 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
   const lo = lamp('lowOrbit');
   if (lo) rows.push(lo.level === 'warn' ? { key: 'Orbits', state: 'nogo', text: lo.text, fix: 'Shorten the stay or raise the orbit in PLOT' } : { key: 'Orbits', state: 'go', text: lo.text });
   const fb = lamps.filter((l) => l.key === 'flyby');
-  rows.push(fb.some((l) => l.level === 'warn') ? { key: 'Flybys', state: 'nogo', text: fb.map((l) => l.text).join('; ') } : { key: 'Flybys', state: 'go', text: sol.flybys.some(Boolean) ? (fb.length ? fb.map((l) => l.text).join('; ') : 'Every pass above its floor') : 'None' });
+  // What each flyby gives (credited, not spent) and what a powered one pays.
+  const gives = sol.flybys.filter(Boolean).map((f) => `${bodyInfo(f!.body).name} +${fmt(f!.gain, 2)} km/s heliocentric ${f!.dv > 0 ? `for ${fmt(f!.dv * 1000, 0)} m/s (credit ${fmt(Math.max(0, f!.gain - f!.dv), 2)})` : 'free'}`).join(' · ');
+  const powered = sol.flybys.some((f) => f && f.dv > 0) ? 'A powered pass pays only for the speed the pull cannot change, at periapsis, and any turn the lowest pass cannot give.' : undefined;
+  rows.push(fb.some((l) => l.level === 'warn') ? { key: 'Flybys', state: 'nogo', text: fb.map((l) => l.text).join('; ') } : { key: 'Flybys', state: 'go', text: sol.flybys.some(Boolean) ? `${fb.length ? fb.map((l) => l.text).join('; ') : 'Every pass above its floor'} · ${gives}` : 'None', fix: powered });
+  // Landings: how each is paid for.
+  const lands = ledgerLines(sol).filter((l) => (l.paid && l.kind === 'land') || (!l.paid && l.kind === 'entry'));
+  if (lands.length) rows.push({ key: 'Landings', state: 'go', text: lands.map((l) => l.paid ? `${bodyInfo(l.body).name}: ${fmt(l.dv, 2)} km/s, ${l.note}` : `${bodyInfo(l.body).name}: ${l.note}`).join(' · ') });
   // Vehicle.
   const can = real.filter((r) => r.can).map((r) => r.label);
   // The stack sized in STACK, which the ROCKET tab flies as "Journey's stack".
