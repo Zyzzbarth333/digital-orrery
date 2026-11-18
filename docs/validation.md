@@ -676,6 +676,23 @@ torque, and burns along the body axis to the kernel
 | Fall-off | steep inside 2 radii, then ρ^−2.5 | 0.5 % of the limb's at 2 radii; the ρ^−2.5 term alone by 6 |
 | In the scene | the disc's centre is 46,000/0.805 of white | 0.231 of white at the limb |
 
+## The other planets' rings (`rings.test.mjs`)
+
+| Check | Reference | Result |
+| --- | --- | --- |
+| Uranus's ten narrow rings: radius, eccentricity, inclination | Ring-Moon Systems Node table (γ's e read as 1.092×10⁻⁴, a slipped decimal) | within 2.6 km, 3 % and 0.0005° |
+| α, β, ε widths at periapse and apoapse | NSSDC: 4–10, 5–11, 20–96 km | 4.5–10.1, 5.3–11.7, 19.9–97.3 km |
+| ε optical depth from the Voyager PPS equivalent depth | tables: 0.5 to 2.3 | 0.47 to 2.30 |
+| Other rings' mean optical depth | tables' approximate values | within a factor of 2.2 (λ 0.09 for ~0.1, α 0.43 for ~0.4) |
+| Uranus's pole | French et al. 2024 | the IAU pole within 0.002° |
+| Ring 6's periapse a year on | its tabled rate, 2.762°/day: 28.80 km further out | 28.76 km |
+| Le Verrier, τ × width | Voyager PPS, 0.25 km | 0.30 km |
+| Fraternité's longitude | Voyager 1989; VLT 2007 (±0.6°); VLT 2016 (±0.3°) | at each, by construction of the interpolation |
+| Arcs' mean motion | 820.11213 °/day (1989–2007), 820.11178 (1989–2016) | 820.11204, 820.11168 |
+| The arcs' span and separations | 40°; 10.7°, 12°, 7.3° | 38.3°; as tabled |
+| Jupiter's gossamer rings' thickness from Amalthea's and Thebe's inclinations | ~2,300 and ~8,500 km | 2,532 and 8,520 km |
+| Dust phase function | averages 1; Throop et al. 2004: flat to 130°, few 10⁻⁶ I/F forward, ~10⁻⁷ back | 1.0000; 1.93×; 3.5×10⁻⁶ at 178°, 2.6×10⁻⁷ at 5° |
+
 ## How much of the Sun is in view (`discs.test.mjs`)
 
 | Check | Reference | Result |
