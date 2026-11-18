@@ -83,6 +83,8 @@ used in any fit ([Irregular moons](frontend/moons.md#the-irregular-moons)).
 | tables of `jup347`, `jup348`, `jup349`, `sat455`, `sat456`, `sat457`, `sat459`, `nep104`, all 381 (2000–2049) | Horizons, which serves those kernels | within 0.51 km (Hermippe); S/2023 S 38, fitted to 1,000 km for its e = 0.909 orbit, 0.3 km at these dates |
 | fallback outside 2000–2049: JPL's mean elements with fitted corrections | Horizons, every 10 days 2000–2050 for the fit; five other dates for the check | each within its fit's worst; median 46 % of the orbit's size for Jupiter's, 15 % for Saturn's, 26 % for Neptune's: the Sun's pull, which no precessing ellipse follows |
 | sense of motion | each moon's state now against its elements' inclination | 305 retrograde of 381, all agree |
+| sizes | NEOWISE (Grav et al. 2015, Table 3); Denk's table and formula ($p$ = 0.06, $M_\odot$ = −26.71) | 13 measured diameters as published; Denk's formula gives his 119 sizes from their $H$ to 4.8 % (rounding), and sizes the 146 from the circulars |
+| shapes and spins | Denk et al. 2018, Table 3; Porco et al. 2003; Pilcher et al. 2012 | 23 ellipsoids of their moon's volume with the published $a/b$ (Kiviuq 2.32, Himalia 75/60); 25 rotation periods as published |
 
 ## Barycentres (`barycentres.test.mjs`)
 
