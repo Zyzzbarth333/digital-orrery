@@ -32,7 +32,7 @@
 
 import * as THREE from 'three';
 import { eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
-import { parseGpCsv, satrecOf, stateEqj, temeToEqj, inShadow, R_EARTH_KM } from '../physics/satellites.js';
+import { parseGpCsv, satrecOf, stateEqj, stateTeme, temeToEqj, apply, inShadow, R_EARTH_KM } from '../physics/satellites.js';
 import { orbitTrailMaterial } from './orbitTrail';
 
 type V3 = [number, number, number];
@@ -42,6 +42,21 @@ const REFRESH_S = 5;
 // 0.7 MB to the GPU, and at a day a second the points are a blur anyway.
 const REFRESH_MIN_MS = 100;
 const ORBIT_SAMPLES = 129;
+// The focused one's orbit close up. Within CLOSE_SHARE of its distance
+// from the Earth, the stretch of NEAR_SPAN orbit samples either side of
+// it (a fifth of the orbit, 3,700 km in low orbit) is drawn every frame by
+// SGP4 relative to the satellite, with the satellite as a vertex and
+// NEAR_STEPS steps each way growing as the square of the step count, from
+// a far-line sample to the next far-line sample. The orbit line's 128
+// chords sag 2 km off a low orbit, which passes beside a satellite seen
+// from closer than a tenth of its radius (and float32 about the Earth puts
+// another metre on it). Steps growing as the square keep the sag seen from
+// the satellite the same all the way out, span / (2 R m^2) = 3e-4 rad,
+// under a pixel; outside the stretch the far line's 2 km sag is at least
+// 0.5 R from the camera, under a pixel too. An osculating ellipse instead
+// strays from SGP4's path by 0.6 km a twentieth of an orbit on (J2), 2 km
+// at the stretch's ends, so it would not meet the far line there.
+const CLOSE_SHARE = 0.1, NEAR_SPAN = 12, NEAR_STEPS = 32, NEAR_N = 2 * NEAR_STEPS + 1;
 // The points' peak (a display value) at D_REF km from the camera, its cap,
 // and the shadow's share.
 const PEAK_REF = 0.35, D_REF_KM = 40000, PEAK_MAX = 1.2, SHADOW = 0.2;
@@ -156,6 +171,14 @@ export class SatelliteLayer {
   private orbits = new Map<number, Orbit>();
   private orbitAt = new Map<number, { tc: number; period: number }>();   // every named one's last sampling
   private crowdLines: THREE.LineSegments | null = null;
+  private crowdRow = new Map<number, number>();      // NORAD id -> its orbit's row in crowdLines
+  // The focused one's close-up stretch (CLOSE_SHARE): one line, made once,
+  // with the orbit shader for a line of its own or a plain colour for a
+  // constellation member's; and the constellation segments it has hidden.
+  private near: THREE.Line | null = null;
+  private nearTrail: THREE.ShaderMaterial | null = null;
+  private nearPlain: THREE.LineBasicMaterial | null = null;
+  private crowdHidden: { row: number; lo: number; hi: number } | null = null;
   private material: THREE.ShaderMaterial;
   private points: THREE.Points | null = null;
   private buffer: THREE.InterleavedBuffer | null = null;
@@ -204,6 +227,7 @@ export class SatelliteLayer {
     if (this.points) this.points.visible = on;
     for (const o of this.orbits.values()) o.line.visible = on;
     if (this.crowdLines) this.crowdLines.visible = on;
+    if (this.near && !on) this.near.visible = false;
     if (!on) for (const el of this.markers.values()) el.style.display = 'none';
   }
 
@@ -354,7 +378,10 @@ export class SatelliteLayer {
     // The constellations: segments k -> k + 1 of each orbit.
     const segs = ORBIT_SAMPLES - 1, pos = new Float32Array(crowd.length * segs * 6), col = new Float32Array(crowd.length * segs * 6);
     const c = new THREE.Color();
+    this.crowdRow.clear();
+    this.crowdHidden = null;
     crowd.forEach((j, q) => {
+      this.crowdRow.set(ids[j], q);
       c.set(COLOUR_OF[this.named.find((x) => x.id === ids[j])!.group]).lerp(WHITE, 0.35);
       for (let k = 0; k < segs; k++) {
         const o = (q * segs + k) * 6;
@@ -438,8 +465,100 @@ export class SatelliteLayer {
     }
     // The focused one's own point would sit a little off its marker so near
     // the camera (float32): hidden within twice its distance.
-    const f = this.focusId !== null ? this.positionKm(this.focusId, timeMs, earth) : null;
-    u.uHide.value = f ? 2 * Math.hypot(f[0] - cam[0], f[1] - cam[1], f[2] - cam[2]) / UNIT_KM + 0.001 : 0;
+    const M = this.focusId !== null ? temeToEqj(timeMs) : null;
+    const fs = M ? stateEqj(this.sats.get(this.focusId!)!, timeMs, M) as { r: V3; v: V3 } | null : null;
+    const f = fs ? eqjToEcl(fs.r) as V3 : null;
+    const fRel: V3 | null = f && [earth[0] + f[0] - cam[0], earth[1] + f[1] - cam[1], earth[2] + f[2] - cam[2]];
+    u.uHide.value = fRel ? 2 * Math.hypot(fRel[0], fRel[1], fRel[2]) / UNIT_KM + 0.001 : 0;
+    this.placeNear(timeMs, fs, fRel, M, level);
+  }
+
+  // Close to the focused satellite: its orbit's stretch about it, from SGP4
+  // this frame, placed at its render position (rel, km from the camera);
+  // the far line (or its constellation's segments) leaves that stretch to
+  // it. Ends on far-line samples, so the two meet at a vertex.
+  private placeNear(timeMs: number, s: { r: V3 } | null, rel: V3 | null, M: number[][] | null, level: number): void {
+    const id = this.focusId, at = id !== null ? this.orbitAt.get(id) : undefined, o = id !== null ? this.orbits.get(id) : undefined;
+    const row = id !== null ? this.crowdRow.get(id) : undefined;
+    const drawnFar = o ? o.line.visible : row !== undefined && !!this.crowdLines?.visible;
+    const close = !!s && !!rel && !!at && drawnFar && Math.hypot(rel[0], rel[1], rel[2]) < CLOSE_SHARE * Math.hypot(s.r[0], s.r[1], s.r[2]);
+    // The sample the satellite is at, along the far line (0 to 128).
+    const x = close ? ((timeMs - at!.tc) / at!.period + 0.5) * (ORBIT_SAMPLES - 1) : NaN;
+    const lo = Math.max(0, Math.floor(x) - NEAR_SPAN), hi = Math.min(ORBIT_SAMPLES - 1, Math.ceil(x) + NEAR_SPAN);
+    const on = close && x >= 0 && x <= ORBIT_SAMPLES - 1;
+    for (const [oid, line] of this.orbits) {
+      const gap = (line.line.material as THREE.ShaderMaterial).uniforms.gap.value as THREE.Vector2;
+      if (on && oid === id) gap.set(((lo + hi) / 2) / (ORBIT_SAMPLES - 1) - 0.5, (hi - lo) / 2 / (ORBIT_SAMPLES - 1));
+      else gap.set(0, -1);
+    }
+    this.hideCrowd(on && !o && row !== undefined ? { row: row!, lo, hi } : null);
+    if (!on) { if (this.near) this.near.visible = false; return; }
+    const near = this.near ?? this.makeNear();
+    const rec = this.sats.get(id!)!, { tc, period } = at!, r0 = s!.r;
+    const tLo = tc + (lo / (ORBIT_SAMPLES - 1) - 0.5) * period, tHi = tc + (hi / (ORBIT_SAMPLES - 1) - 0.5) * period;
+    const g = near.geometry, pos = g.getAttribute('position') as THREE.BufferAttribute, us = g.getAttribute('u') as THREE.BufferAttribute;
+    const pa = pos.array as Float32Array, ua = us.array as Float32Array, v = this.tmp;
+    let last: number[] = r0;
+    for (let k = -NEAR_STEPS; k <= NEAR_STEPS; k++) {
+      const q = k / NEAR_STEPS, t = k === 0 ? timeMs : timeMs + (k < 0 ? timeMs - tLo : tHi - timeMs) * q * Math.abs(q);
+      const st = k === 0 ? null : stateTeme(rec, t);
+      if (st) last = apply(M!, st.r);
+      const p = k === 0 ? r0 : last, i = k + NEAR_STEPS;
+      v.set(p[0] - r0[0], p[1] - r0[1], p[2] - r0[2]).applyMatrix3(this.toRenderM).multiplyScalar(1 / UNIT_KM);
+      pa[i * 3] = v.x; pa[i * 3 + 1] = v.y; pa[i * 3 + 2] = v.z;
+      ua[i] = (t - tc) / period;
+    }
+    pos.needsUpdate = true; us.needsUpdate = true;
+    near.position.set(rel![0] / UNIT_KM, rel![2] / UNIT_KM, -rel![1] / UNIT_KM);
+    const group = this.named.find((n) => n.id === id)!.group;
+    if (o) {
+      // As the far line is drawn: its colour, trail and focused level.
+      const m = this.nearTrail!, fm = (o.line.material as THREE.ShaderMaterial).uniforms;
+      m.uniforms.colour.value.copy(fm.colour.value);
+      m.uniforms.now.value = fm.now.value;
+      m.uniforms.level.value = fm.level.value;
+      near.material = m;
+    } else {
+      this.nearPlain!.color.set(COLOUR_OF[group]).lerp(WHITE, 0.35).multiplyScalar(CROWD_OPACITY * level);
+      near.material = this.nearPlain!;
+    }
+    near.visible = true;
+  }
+
+  private makeNear(): THREE.Line {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NEAR_N * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('u', new THREE.BufferAttribute(new Float32Array(NEAR_N), 1).setUsage(THREE.DynamicDrawUsage));
+    this.nearTrail = orbitTrailMaterial(0xffffff, 0.22, 0.12);
+    this.nearPlain = new THREE.LineBasicMaterial({ transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending });
+    this.near = new THREE.Line(g, this.nearTrail);
+    this.near.frustumCulled = false;
+    this.scene.add(this.near);
+    return this.near;
+  }
+
+  // A constellation member's far segments lo to hi, blacked out (the line
+  // set adds its colours) while the close-up stretch draws them; the last
+  // ones put back.
+  private hideCrowd(want: { row: number; lo: number; hi: number } | null): void {
+    const h = this.crowdHidden;
+    if (h === want || (h && want && h.row === want.row && h.lo === want.lo && h.hi === want.hi) || !this.crowdLines) return;
+    const col = this.crowdLines.geometry.getAttribute('color') as THREE.BufferAttribute | undefined;
+    if (!col) return;
+    const a = col.array as Float32Array, segs = ORBIT_SAMPLES - 1, c = new THREE.Color();
+    const paint = (x: { row: number; lo: number; hi: number }, on: boolean) => {
+      const id = [...this.crowdRow].find(([, q]) => q === x.row)?.[0];
+      const n = this.named.find((y) => y.id === id);
+      if (on && n) c.set(COLOUR_OF[n.group]).lerp(WHITE, 0.35); else c.setRGB(0, 0, 0);
+      for (let k = x.lo; k < x.hi; k++) {
+        const o = (x.row * segs + k) * 6;
+        a[o] = a[o + 3] = c.r; a[o + 1] = a[o + 4] = c.g; a[o + 2] = a[o + 5] = c.b;
+      }
+    };
+    if (h) paint(h, true);
+    if (want) paint(want, false);
+    col.needsUpdate = true;
+    this.crowdHidden = want;
   }
 
   // ----- The named ones -----
@@ -573,6 +692,7 @@ export class SatelliteLayer {
     this.material.dispose();
     for (const o of this.orbits.values()) { this.scene.remove(o.line); o.line.geometry.dispose(); (o.line.material as THREE.Material).dispose(); }
     if (this.crowdLines) { this.scene.remove(this.crowdLines); this.crowdLines.geometry.dispose(); (this.crowdLines.material as THREE.Material).dispose(); }
+    if (this.near) { this.scene.remove(this.near); this.near.geometry.dispose(); this.nearTrail?.dispose(); this.nearPlain?.dispose(); }
     for (const el of this.markers.values()) el.remove();
   }
 }
