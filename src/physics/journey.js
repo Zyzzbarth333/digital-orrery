@@ -1048,23 +1048,45 @@ export function legOptions(journey, k, { search = true } = {}) {
   // already.
   const plane = planePricer(sol, k);
   const legDv = (L) => L.depDv + L.arrDv + L.midDv + joinIn(L) + (plane && L !== asIs ? plane(L) : 0);
-  const ds = asIs.ok ? asIs.deepSpace : null, bpl = asIs.ok ? asIs.brokenPlane : null, near = ds ?? bpl, ms = (x) => `${(x * 1000).toFixed(0)} m/s`;
-  if (asIs.ok && g.kind !== 'local') options.push({ type: 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : ds ? 'Deep-space burn, as scheduled' : bpl ? 'Broken plane, as scheduled' : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch,
-    ...(ds ? { note: `${ds.angleDeg.toFixed(1)}° round the ${C.name}: ${ms(ds.dv)} on ${new Date(ds.ms).toISOString().slice(0, 10)}, ${ds.heightDeg.toFixed(2)}° off the departure's plane, reshapes the transfer` } : bpl ? { note: `${bpl.angleDeg.toFixed(1)}° round the ${C.name}: the plane turned ${bpl.turnDeg.toFixed(2)}° on the way, for ${ms(bpl.dv)}` } : {}) });
-  // Near 180 degrees, the broken plane (beside a deep-space burn) and the
-  // direct arc on one plane, for comparison.
+  // Near 180 degrees the leg is the planner's own choice (a deep-space burn
+  // or a broken plane) unless one was chosen by hand (via 'direct',
+  // 'brokenplane' or 'deepspace'). Each of the others is listed beside it,
+  // and the planner's own choice is listed as 'lambert' (choosing it hands
+  // the leg back to the planner), so a choice by hand can always be undone.
+  const ms = (x) => `${(x * 1000).toFixed(0)} m/s`;
   const vinIn = inbound?.ok && inbound.vinfArr && P.kind === 'flyby' ? norm(inbound.vinfArr) : null;
-  if (ds) {
+  const byHand = ['direct', 'brokenplane', 'deepspace'].includes(journey.waypoints[k]?.via) ? journey.waypoints[k].via : null;
+  const auto = byHand && asIs.ok ? solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'lambert', vinfIn: vinIn }) : asIs;
+  const kindOf = (L) => (!L?.ok ? null : L.deepSpace ? 'deepspace' : L.brokenPlane ? 'brokenplane' : 'direct');
+  const ds = asIs.ok ? asIs.deepSpace : null, bpl = asIs.ok ? asIs.brokenPlane : null;
+  const near = ds ?? bpl ?? (auto?.ok ? auto.deepSpace ?? auto.brokenPlane : null);
+  const directNote = near ? `its plane tilted ${near.directIncDeg?.toFixed(1)}° to the departure's: ill-defined this near 180°, and dear to fly` : null;
+  const dsNote = (x) => `${x.angleDeg.toFixed(1)}° round the ${C.name}: ${ms(x.dv)} on ${new Date(x.ms).toISOString().slice(0, 10)}, ${x.heightDeg.toFixed(2)}° off the departure's plane, reshapes the transfer`;
+  const bpNote = (x) => `${x.angleDeg.toFixed(1)}° round the ${C.name}: the plane turned ${x.turnDeg.toFixed(2)}° on the way, for ${ms(x.dv)}`;
+  if (asIs.ok && g.kind !== 'local') {
+    const k0 = near ? kindOf(asIs) : null;
+    options.push({ type: byHand ?? 'lambert', name: asIs.resonance ? `As scheduled (resonant ${asIs.resonance.N}:${asIs.resonance.M})` : k0 === 'deepspace' ? 'Deep-space burn, as scheduled' : k0 === 'brokenplane' ? 'Broken plane, as scheduled' : k0 === 'direct' ? 'Direct, one plane, as scheduled' : 'Lambert, as scheduled', dv: legDv(asIs), tofDays: asIs.tofDays, depMs: asIs.depMs, arrMs: asIs.arrMs, revs: asIs.revs, branch: asIs.branch,
+      ...(ds ? { note: dsNote(ds) } : bpl ? { note: bpNote(bpl) } : k0 === 'direct' ? { note: directNote } : {}) });
+  }
+  // The planner's own choice, when the leg was set by hand to another.
+  if (byHand && auto?.ok && kindOf(auto) !== kindOf(asIs) && (auto.deepSpace || auto.brokenPlane)) {
+    const x = auto.deepSpace ?? auto.brokenPlane;
+    options.push({ type: 'lambert', name: auto.deepSpace ? 'Deep-space burn' : 'Broken plane', dv: legDv(auto), tofDays: auto.tofDays, depMs: auto.depMs, arrMs: auto.arrMs, revs: auto.revs, branch: auto.branch, note: `the planner's choice: ${auto.deepSpace ? dsNote(x) : bpNote(x)}` });
+  }
+  // The broken plane beside a deep-space burn, for comparison.
+  const dsAny = ds ?? (auto?.ok ? auto.deepSpace : null);
+  if (dsAny && kindOf(asIs) !== 'brokenplane') {
     const B = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'brokenplane', vinfIn: vinIn });
     if (B.ok && B.brokenPlane) {
-      const d = legDv(B) - legDv(asIs), mean = ds.brokenMeanDv - ds.meanDv;
+      const ref = kindOf(asIs) === 'deepspace' ? asIs : auto, d = legDv(B) - legDv(ref), mean = dsAny.brokenMeanDv - dsAny.meanDv;
       options.push({ type: 'brokenplane', name: 'Broken plane', dv: legDv(B), tofDays: B.tofDays, depMs: B.depMs, arrMs: B.arrMs, revs: 0, branch: 'single',
         note: `the plane turned ${B.brokenPlane.turnDeg.toFixed(2)}° on the way, for ${ms(B.brokenPlane.dv)}; ${d >= 0 ? `${ms(d)} dearer` : `${ms(-d)} cheaper on the day, for the ${bodyInfo(P.body).name}'s phase`}${g.viaA || g.viaB ? `, ${ms(mean)} dearer at the mean phase` : ''}` });
     }
   }
-  if (near) {
+  // The direct arc on one plane, for comparison.
+  if (near && kindOf(asIs) !== 'direct') {
     const D = solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via: 'direct', vinfIn: vinIn });
-    if (D.ok) options.push({ type: 'direct', name: 'Direct, one plane', dv: legDv(D), tofDays: D.tofDays, depMs: D.depMs, arrMs: D.arrMs, revs: D.revs, branch: D.branch, note: `its plane tilted ${near.directIncDeg?.toFixed(1)}° to the departure's: ill-defined this near 180°, and dear to fly` });
+    if (D.ok) options.push({ type: 'direct', name: 'Direct, one plane', dv: legDv(D), tofDays: D.tofDays, depMs: D.depMs, arrMs: D.arrMs, revs: D.revs, branch: D.branch, note: directNote });
   }
 
   if (g.kind === 'local') {
@@ -1225,7 +1247,7 @@ export function applyOption(journey, k, o) {
   if (o.type === 'resonance') w.resonance = o.resonance;
   w.chosen = o.type;
   w.revs = o.revs; w.branch = o.branch;
-  if (o.type === 'lambert' || o.type === 'direct' || o.type === 'brokenplane') return j;
+  if (o.type === 'lambert' || o.type === 'direct' || o.type === 'brokenplane' || o.type === 'deepspace') return j;
   const sol = solveJourney(journey), P = sol.stops[k];
   if (k === 0) j.start.dateMs = o.depMs;
   else if (P.kind !== 'flyby') j.waypoints[k - 1].stayDays = Math.max(0, (o.depMs - P.arrMs) / DAY_MS);

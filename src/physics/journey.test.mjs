@@ -1041,5 +1041,27 @@ header('CASE 17: the planets\' major moons, flown with their gravity: Europa, Ti
   check('a flyby of Europa via Jupiter is aimed at Europa and passes within 5 km of the planned periapsis, no trouble', fb.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'europa') && fb.f.arrivals[0].missKm < 5 && fb.trouble.length === 0);
 }
 
+header('CASE 18: near 180 degrees, a choice by hand can be undone');
+{
+  // Each option's price is the leg the option gives (the solver's own,
+  // to 1e-9 km/s), and the planner's choice stays in the list after the
+  // direct arc or the broken plane is chosen by hand.
+  const D = Date.parse;
+  const mm = (via) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'moon', kind: 'orbit', altKm: 100, stayDays: 23, dateMs: D('2026-10-24T00:00:00Z') },
+    { id: 2, body: 'mars', kind: 'orbit', altKm: 400, dateMs: D('2027-08-20T00:00:00Z'), ...(via ? { via } : {}) }] });
+  const legCost = (j) => { const L = J.solveJourney(j).legs[1]; return L.depDv + L.arrDv + L.midDv; };
+  const kind = (j) => { const L = J.solveJourney(j).legs[1]; return L.deepSpace ? 'deep-space burn' : L.brokenPlane ? 'broken plane' : 'direct'; };
+  const own = legCost(mm());
+  for (const via of [null, 'direct', 'brokenplane']) {
+    const j = mm(via), opts = J.legOptions(j, 1, { search: false }).options.filter((o) => ['lambert', 'direct', 'brokenplane', 'deepspace'].includes(o.type));
+    const used = opts.map((o) => ({ o, j2: J.applyOption(j, 1, o) })).map(({ o, j2 }) => ({ o, kind: kind(j2), err: Math.abs(legCost(j2) - o.dv) }));
+    console.log(`  chosen ${via ?? 'by the planner'}: ${used.map((u) => `${u.o.name} ${u.o.dv.toFixed(3)} (gives the ${u.kind}, off by ${u.err.toExponential(0)})`).join('; ')}`);
+    const back = used.find((u) => u.o.type === 'lambert');
+    check(`chosen ${via ?? 'by the planner'}: the deep-space burn, the broken plane and the direct arc each listed once, each priced as the leg it gives (1e-9 km/s), and one of them hands the leg back to the planner at ${own.toFixed(3)} km/s`,
+      used.length === 3 && new Set(used.map((u) => u.kind)).size === 3 && used.every((u) => u.err < 1e-9) && back?.kind === 'deep-space burn' && Math.abs(back.o.dv - own) < 1e-9);
+  }
+}
+
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
 process.exit(failures ? 1 : 0);

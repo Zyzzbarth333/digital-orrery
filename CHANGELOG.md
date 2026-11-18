@@ -106,6 +106,11 @@ once it has releases. Until then, everything sits under Unreleased.
   2026. Its price still runs smoothly as the dates change. "Broken plane"
   is listed beside it and can be chosen, and the plane lamp says where the
   burn is (this pull request).
+- Choosing the direct arc or the broken plane for a leg near 180 degrees
+  can be undone: the planner's deep-space burn stays in the leg's options,
+  where before only "Lambert, as scheduled" was left, priced as the direct
+  arc but giving the deep-space burn. A stay re-timed by an option shows
+  to a hundredth of a day, not as a long decimal (this pull request).
 - The ROCKET tab offers the journey's own stack, as the plotting table's
   STACK station sizes it, beside the real launchers, and the journey as
   its job: its ascent can be flown and launched from the pad. What sizing
