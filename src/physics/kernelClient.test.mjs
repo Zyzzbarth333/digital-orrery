@@ -85,12 +85,14 @@ let site = null;
   check(`every request is answered well inside the old 2 s timeout (longest ${longest.toFixed(0)} ms)`, longest < 1000);
   check('the capsule splashes down', c.crashed && c.splashed);
   // Flown in pieces, each piece's first step restarts the integrator and the
-  // guidance sees its cycles at other instants. The landing moves by less
-  // than a quarter of Orion's own miss on Artemis I, 2.1 nmi (3.9 km) from
-  // its target (AAS 24-174, Table 4).
+  // guidance sees its cycles at other instants, so where the pieces end
+  // (wall time here, as frames end them at lower warp) moves the landing:
+  // 0-1.4 km measured, cut by step counts from 5 to 500 and by budgets from
+  // 25 to 400 ms. Under half Orion's own miss on Artemis I, 2.1 nmi
+  // (3.9 km) from its target (AAS 24-174, Table 4).
   const d = norm(sub(c.impactSite.local, whole.impactSite.local)), dt = c.impactSite.t - whole.impactSite.t;
-  check(`it lands within 1 km of the one-request entry (${(d * 1000).toFixed(0)} m, ${dt.toFixed(1)} s apart)`, d < 1 && Math.abs(dt) < 10);
-  site = c.impactSite;
+  check(`it lands within 2 km of the one-request entry (${(d * 1000).toFixed(0)} m, ${dt.toFixed(1)} s apart)`, d < 2 && Math.abs(dt) < 10);
+  site = whole.impactSite;
 }
 
 header('CASE 2: two crafts share a budget');
@@ -121,7 +123,8 @@ header('CASE 3: a Worker that has died');
   warnings.length = 0;
   for (let i = 0; i < 20 && !o.crashed; i++) client.tick([o]);
   check(`it falls back to this thread ("${warnings[0] ?? ''}")`, client.mode === 'main-thread' && /looks stuck/.test(warnings[0] ?? ''));
-  check('and flies the craft there, to the same splashdown', o.crashed && o.splashed && norm(sub(o.impactSite.local, site.local)) < 1);
+  // There it runs to its end in one go: the one-request entry exactly.
+  check('and flies the craft there, to the one-request splashdown', o.crashed && o.splashed && norm(sub(o.impactSite.local, site.local)) < 1e-6);
 }
 
 console.warn = warn;

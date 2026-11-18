@@ -718,11 +718,13 @@ several times, and at a day a second the whole entry came in one request of
 3–4 s. The client took a Worker silent for 2 s for a dead one and moved the
 kernel onto the page's thread for good. Now the entry is flown in about 17
 requests, each answered in under 250 ms, and the client's timeout (15 s) is
-only for a Worker that has stopped answering. Split so, it lands 0.1–0.3 km
-from where the one-request entry lands and within 2 s of it, against
-Orion's 2.1 nmi (3.9 km) miss from its target on Artemis I [15]: each piece
+only for a Worker that has stopped answering. Where the pieces end moves
+the landing, as frames ending them at lower warp always have: each piece
 restarts the integrator, and the guidance samples its cycles at other
-instants. On the page's thread (no Worker, or after a fallback) requests
+instants. Cut by step counts from 5 to 500 and by budgets from 25 to
+400 ms, it lands 0–1.4 km and within 2.2 s from where the one-request
+entry lands, under half Orion's 2.1 nmi (3.9 km) miss from its target on
+Artemis I [16]. On the page's thread (no Worker, or after a fallback) requests
 still run to their end. Checked by `src/physics/kernelClient.test.mjs`.
 
 Results arrive a frame or so late, so a craft is drawn at its last exact state
@@ -739,9 +741,17 @@ About a primary with a J2 (Earth, the Moon), the primary's J2 is taken out
 of $\mathbf a_\text{other}$: it turns with the craft around its orbit, so
 held constant it would make things worse (0.24 km off after 10 minutes in
 low orbit, 115 km after an hour). The craft is instead carried by two-body
-motion plus J2, integrated with classical RK4 at 1/256 of the orbital
-period (at most 2,048 steps), with the other accelerations still held
-constant. That gives 5×10⁻⁵ km after 10 minutes and 6.5 m after an hour.
+motion plus J2, integrated with classical RK4, with the other accelerations
+still held constant. Each step is 1/256 of the period of a circular orbit at
+the craft's radius, taken afresh at each step (at most 2,048 steps), so in
+a circular orbit it is 1/256 of the period and on an eccentric one the steps
+shorten through perigee. That gives 5×10⁻⁵ km after 10 minutes and 6.5 m
+after an hour in low orbit. The steps were once sized on the whole orbit's
+period instead: just after Artemis II's injection (a 10-day orbit) they were
+57 minutes long from 6,600 km, and the drawn craft was 17,000 km off the
+kernel after a 15-hour lag (up to 78,000 km in the app, switched from real
+time to a day a second before the burn). Now it is 6 km
+(`src/physics/warp.test.mjs`).
 The environment beyond J2 (the Earth's field to degree 20, the upper air,
 sunlight) is evaluated once per step, at its middle, and held across the
 step's four stages; J2 is still taken at every stage. That field is most
@@ -751,7 +761,8 @@ cheaper at high warp. Against the kernel, a low orbit's carry stays within
 
 That is within 0.06 km in low orbit and 0.09 km in cruise in the browser.
 
-Two more rules keep long carries honest (`Craft.carryForward`):
+Three more rules keep long carries honest (`Craft.carryForward`,
+`Craft.airCarry`):
 - **In pieces near a body.** A carry longer than a quarter of the dynamical
   time $\sqrt{r^3/\mu}$ at the closest the osculating conic comes is split
   into that many pieces (at most 32), the acceleration found afresh at each.
@@ -765,6 +776,19 @@ Two more rules keep long carries honest (`Craft.carryForward`):
   of the moment), and coasts on. A 100 m/s burn ten minutes into an hour's
   carry is drawn within 0.2 km of the kernel; carried with the kernel's
   acceleration alone it was left out entirely.
+- **Not into the air.** A two-body carry with its perturbations held, and
+  the drag taken at the starting velocity, is no model of an entry: carried
+  a day from Artemis II's crew module separation while the kernel flew the
+  entry, the drawn capsule was 191 million km out at 2,700 km/s. So the carry
+  stops where the conic about the Earth first comes down to the entry
+  interface, 400,000 ft (121.92 km) above the equatorial radius [15], found
+  from the anomaly at that radius by Kepler's equation (`timeToRadius` in
+  `orbital.js`, checked against `propagate`). There the craft keeps its
+  place over the Earth until the kernel answers: 120.3 km up at 11.0 km/s,
+  1.6 km below the interface (the carry's J2 and Moon are not quite the
+  conic). Below the interface it is carried at most 2 s. The kernel flies
+  the entry itself, and the capsule then lies at its splashdown site. A
+  bare craft (a journey's, with no air in its model) is carried as before.
 
 At very high warp the kernel can still be a frame or more behind, most of
 all while it holds at a burn for an aimed correction: at a day a second the
@@ -849,4 +873,6 @@ relative).
 
 [14] E. Hairer, S. P. Nørsett, and G. Wanner, *Solving Ordinary Differential Equations I: Nonstiff Problems*, 2nd rev. ed. Berlin, Germany: Springer, 1993, doi: 10.1007/978-3-540-78862-1. Section II.6, dense output: the continuous extension of DOPRI5.
 
-[15] J. Rea, L. McNamara, and M. Kane, "Orion Artemis I entry performance," in *Proc. 46th Annu. AAS Guidance, Navigation and Control Conf.*, Feb. 2024, Paper AAS 24-174. NTRS 20240001314 (slides) and 20240000024 (paper). Table 4: splashdown 2.1 nmi from the target.
+[15] NASA, "Artemis II flight day 9: crew prepares to come home," NASA Artemis blog, Apr. 9, 2026. [Online]. Available: https://www.nasa.gov/blogs/missions/2026/04/09/artemis-ii-flight-day-9-crew-prepares-to-come-home/
+
+[16] J. Rea, L. McNamara, and M. Kane, "Orion Artemis I entry performance," in *Proc. 46th Annu. AAS Guidance, Navigation and Control Conf.*, Feb. 2024, Paper AAS 24-174. NTRS 20240001314 (slides) and 20240000024 (paper). Table 4: splashdown 2.1 nmi from the target.

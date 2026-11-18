@@ -63,6 +63,12 @@ once it has releases. Until then, everything sits under Unreleased.
 - The console's HDR sky and camera flights (#28).
 
 ### Fixes
+- Artemis II at a day a second reads true: switched there straight from
+  real time before the injection, its distance from the flown path no
+  longer jumps to tens of thousands of km while the kernel catches up, and
+  past separation the capsule waits at the entry interface for the kernel
+  instead of being drawn flying off to 100 million km, then lies at its
+  splashdown site (this pull request).
 - A craft in low orbit at high time warp no longer stalls the frame on an
   integrated GPU: the drawn craft's carry is 2.3–2.7× cheaper (this pull
   request).
