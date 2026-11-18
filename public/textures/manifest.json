@@ -173,8 +173,7 @@
       "tiles": "stars/milky-way-16k/{row}-{col}.webp",
       "width": 16384,
       "tile": 1024,
-      "gutter": 2,
-      "tilesKtx2": "stars/milky-way-16k/{row}-{col}.ktx2"
+      "gutter": 2
     },
     "points": "stars/hipparcos.bin",
     "pointFormat": "int16 x y z (x 32767), V x 1000, B-V x 1000",
@@ -217,7 +216,6 @@
     "pluto/day.webp": "pluto/day.ktx2",
     "rhea/day.webp": "rhea/day.ktx2",
     "saturn/day.webp": "saturn/day.ktx2",
-    "stars/milky-way-8k.webp": "stars/milky-way-8k.ktx2",
     "tethys/day.webp": "tethys/day.ktx2",
     "triton/day.webp": "triton/day.ktx2",
     "uranus/day.webp": "uranus/day.ktx2",

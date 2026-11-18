@@ -11,7 +11,7 @@
 //   uploaded (SRGB8_ALPHA8 or RGBA8);
 // - store rows from the south (KTXorientation "ru"), as the WebP is flipped
 //   when it is decoded, so the shaders see the same layout.
-// Reads headers only: about 170 files in well under a second.
+// Reads headers only, in well under a second.
 
 import assert from 'node:assert/strict';
 import { openSync, readSync, closeSync, existsSync, readFileSync } from 'node:fs';
@@ -100,18 +100,21 @@ ok(`every map listed has a KTX2 that matches its WebP (${maps.length} maps)`, ()
   console.log(`   ${count.etc1s} ETC1S, ${count.uastc} UASTC`);
 });
 
-ok(`every map the app loads is listed (bodies and the sky)`, () => {
+// Every body's map has a KTX2. The sky (the 8k Milky Way, its preview and
+// its 16k tiles) ships as WebP only, so its download stays small; built
+// with build_ktx2.py --sky, its files are checked below as well.
+ok(`every body's map is listed`, () => {
   const want = [];
   for (const e of Object.values(manifest.bodies)) {
     want.push(...(e.dayMonthly ?? []));
     for (const key of ['day', 'night', 'normal']) if (e[key]) want.push(e[key]);
   }
-  want.push(manifest.stars.map);      // not the preview, which stays WebP to be on screen fast
   const listed = new Set(maps.map(([w]) => w));
   assert.deepEqual(want.filter((p) => !listed.has(p)), []);
 });
 
-ok(`the sky's 16k tiles as KTX2, one codec for the texture array (${tiles.length} tiles)`, () => {
+ok(`the sky's 16k tiles, if they have KTX2s, are all there, in one codec for the texture array (${tiles.length} tiles)`, () => {
+  if (!tiles.length) return;          // the sky ships as WebP only
   assert.equal(tiles.length, (detail.width / detail.tile) * (detail.width / 2 / detail.tile));
   const models = new Set(tiles.map(([webp, k]) => check(webp, k, { mips: false, normal: false })));
   assert.equal(models.size, 1, `tiles mix ${[...models]}`);

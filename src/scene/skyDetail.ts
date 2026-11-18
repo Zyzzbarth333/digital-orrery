@@ -12,9 +12,11 @@
 //
 // Tiles in view for a quarter second are fetched and decoded in the worker
 // (surfaces.ts decodeImage), and uploaded one a frame (4.2 MB, about the
-// uploader's budget). Where the GPU takes a Basis target (ktx2.ts), the
-// tiles' KTX2 copies are transcoded instead and the array is compressed:
-// 25 MB in BC7, not 101; if one fails, the tiles go back to the WebP.
+// uploader's budget). If the manifest lists KTX2 copies of the tiles
+// (build_ktx2.py --sky; not shipped, to keep the download small) and the
+// GPU takes a Basis target (ktx2.ts), those are transcoded instead and the
+// array is compressed: 25 MB in BC7, not 101; if one fails, the tiles go
+// back to the WebP.
 
 import * as THREE from 'three';
 import { decodeImage } from './surfaces';

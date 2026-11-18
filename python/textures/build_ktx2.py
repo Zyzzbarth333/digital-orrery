@@ -75,8 +75,16 @@ def ktx_tool() -> str:
     return exe
 
 
-def jobs(manifest: dict) -> list[tuple[str, str, bool]]:
-    """(map path, 'colour' or 'normal', with mipmaps) for every map."""
+def jobs(manifest: dict, sky: bool = False) -> list[tuple[str, str, bool]]:
+    """(map path, 'colour' or 'normal', with mipmaps) for every map; the
+    sky's only with sky=True.
+
+    The sky (the 8k Milky Way and its 16k tiles) ships as WebP only, by the
+    user's choice of 18 November 2026: in UASTC, the only codec that kept
+    it looking the same, it took a quarter of the video memory but doubled
+    the download every visitor makes (15 to 34 MB, and the tiles 59 to 97
+    MB), and the Milky Way costs little on the GPU. --sky encodes it again;
+    the app takes it wherever the manifest lists it."""
     out: list[tuple[str, str, bool]] = []
     for entry in manifest["bodies"].values():
         for p in entry.get("dayMonthly", []):
@@ -86,7 +94,7 @@ def jobs(manifest: dict) -> list[tuple[str, str, bool]]:
                 out.append((entry[k], "colour", True))
         if "normal" in entry:
             out.append((entry["normal"], "normal", True))
-    stars = manifest.get("stars", {})
+    stars = manifest.get("stars", {}) if sky else {}
     # Not the 2k preview: it is there to be on screen fast, and a WebP is
     # decoded before the transcoder has even loaded; it is freed seconds
     # later, when the full map is up.
@@ -244,6 +252,7 @@ def main() -> int:
     ap.add_argument("--only", default="", help="map paths or prefixes, comma separated")
     ap.add_argument("--measure", action="store_true", help="compare each KTX2 and WebP with its master")
     ap.add_argument("--report", type=Path, help="write the measurements here as JSON")
+    ap.add_argument("--sky", action="store_true", help="the Milky Way and its 16k tiles as well (not shipped)")
     ap.add_argument("--jobs", type=int, default=4, help="parallel encodes (measuring runs two at most: an 8k map takes about 2 GB)")
     args = ap.parse_args()
     masters.set_source(args.src)
@@ -251,7 +260,7 @@ def main() -> int:
 
     manifest_path = OUT / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
-    todo = jobs(manifest)
+    todo = jobs(manifest, args.sky)
     only = [p for p in args.only.split(",") if p]
     sel = [j for j in todo if not only or any(j[0].startswith(p) for p in only)]
 

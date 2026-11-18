@@ -354,14 +354,24 @@ in view:
 
 ## GPU-compressed maps
 
-Every map also ships as a KTX 2.0 file [24] of Basis Universal data [25],
-and the app loads that where the GPU can take it (`ktx2.ts`). A WebP
+Every body's map also ships as a KTX 2.0 file [24] of Basis Universal
+data [25], and the app loads that where the GPU can take it (`ktx2.ts`). A WebP
 decodes to 8-bit RGBA, so an 8192 × 4096 map with its mipmaps takes 179 MB
 of video memory. The KTX2 is transcoded in the browser, by three.js's
 `KTX2Loader` [27] in its workers, to a block-compressed format the GPU
 samples as it is, at one byte a texel: BC7 on desktop GPUs, ASTC or ETC2 on
-phones. The same map then takes 45 MB, and the 16k sky tiles' array 25 MB
-instead of 101.
+phones. The same map then takes 45 MB.
+
+**The sky stays WebP.** The Milky Way and its 16k tiles were encoded and
+measured too (below), but they ship as WebP only. In UASTC, the one codec
+that kept them looking the same, they took a quarter of the video memory
+(43 MiB, not 171, and the tiles' array 25 MB, not 101), but the 8k map
+went from 15 to 34 MB and the tiles from 59 to 97 MB. Every visitor
+downloads the sky at start, while the Milky Way costs about a millisecond
+a frame on the Intel GPU ([performance](../performance.md#the-belts-haze-and-the-load)),
+so the download won (the user's choice, 18 November 2026).
+`build_ktx2.py --sky` encodes them again, and the app takes them,
+tiles included, wherever the manifest lists them.
 
 **Two codecs.** Basis has two kinds of data:
 
@@ -415,8 +425,8 @@ and it is freed a few seconds later, when the full map is up.
 | iapetus/day | 2048 × 1024 | UASTC | 0.59 → 1.93 | 40.8 / 40.1 | 0.988 / 0.988 | 30.3 dB, SSIM 0.935 |
 | triton/day | 4096 × 2048 | ETC1S | 0.44 → 0.77 | 45.0 / 41.8 | 0.986 / 0.979 |  |
 | charon/day | 2048 × 1024 | ETC1S | 0.23 → 0.29 | 42.7 / 37.7 | 0.983 / 0.968 |  |
-| stars/milky-way-8k | 8192 × 4096 | UASTC | 14.99 → 34.00 | 39.7 / 39.1 | 0.992 / 0.987 | 30.1 dB, SSIM 0.869 |
-| stars/milky-way-16k (128 tiles) | 1028 × 1028 each | UASTC | 59.0 → 97.1 in all | 38.7 / 37.5 mean | 0.993 / 0.984 mean | two tiles: 27.2 and 32.4 dB, SSIM 0.892 and 0.937 |
+| stars/milky-way-8k (not shipped) | 8192 × 4096 | UASTC | 14.99 → 34.00 | 39.7 / 39.1 | 0.992 / 0.987 | 30.1 dB, SSIM 0.869 |
+| stars/milky-way-16k, 128 tiles (not shipped) | 1028 × 1028 each | UASTC | 59.0 → 97.1 in all | 38.7 / 37.5 mean | 0.993 / 0.984 mean | two tiles: 27.2 and 32.4 dB, SSIM 0.892 and 0.937 |
 
 Measured on 18 November 2026 with `build_ktx2.py --measure`, each against
 the lossless master: PSNR over the three channels; SSIM of the Rec. 709
@@ -431,9 +441,9 @@ ETC1S maps measure up to 8 dB below their WebP; at three times their size
 they look the same, the Earth's months (the largest gap) included.
 
 In the app, the sky through the Milky Way's core (from Pluto, at DPR 1 on
-the Intel GPU, the bottom row above) differs from the WebP by 41.9 dB in
-UASTC and 36.5 dB in ETC1S, whose blotches of green and blue show at three
-times the size.
+the Intel GPU) differed from the WebP's by 41.9 dB in UASTC, which could not
+be told from it, and 36.5 dB in ETC1S, whose blotches of green and blue
+showed at three times the size.
 
 **Loading.** `TextureUploader` puts the transcoded levels up as it does a
 WebP's bitmap: an immutable texture (`texStorage2D` in the compressed
@@ -442,7 +452,8 @@ format, sRGB for colour maps), filled in strips of whole block rows with
 mipmapping to do, since the file carries its levels (box-filtered from the
 master). Levels larger than the GPU takes are skipped. The rows are stored
 from the south, as the WebP is flipped when it is decoded, so the shaders
-need no change. The sky's tiles go into a compressed texture array.
+need no change. KTX2 sky tiles, where listed, go into a compressed texture
+array.
 
 **Falling back.** The WebP is loaded instead when the GPU takes none of
 these formats (without `WEBGL_compressed_texture_s3tc_srgb`, BC1 cannot be
@@ -453,11 +464,11 @@ A WebGL extension works only on the context that enabled it, so each
 renderer enables them itself: React's StrictMode makes the scene twice in
 development, and the second renderer once drew Mars black.
 
-**Costs.** The KTX2 files take 314 MB of the repository (the WebP 128 MB;
-the 16k tiles 97 MB of it, the 8k sky 34 MB), and the UASTC maps are
-larger downloads: 34 MB for the sky every visitor loads, against 15 MB.
-What that does to loading, memory and frame time is in
-[performance](../performance.md#gpu-compressed-maps).
+**Costs.** The KTX2 files take 183 MB of the repository (the WebP 128 MB),
+and the UASTC maps are larger downloads than their WebP: 25 MB for the
+Moon against 5.5, 29.5 MB for Mars against 7.8. The start, which loads only
+the sky, adds just the transcoder (0.8 MB). What this does to loading,
+memory and frame time is in [performance](../performance.md#gpu-compressed-maps).
 
 ## Rebuilding
 
@@ -490,6 +501,7 @@ whole blocks, levels, codec, sRGB or linear, and the row order.
 ```bash
 python3 python/textures/build_ktx2.py --only moon/,stars/milky-way-8k
 python3 python/textures/build_ktx2.py --measure --report quality.json
+python3 python/textures/build_ktx2.py --sky        # the Milky Way and its tiles too (not shipped)
 ```
 
 Each 8k map's comparison holds about 2 GB, so `--measure` runs two at a
