@@ -1343,6 +1343,30 @@ if (header('CASE 23: why a window opens: the phase angle at departure (legPhase)
   check('an orbit change has no phase angle', J.legPhase(local, 0) === null);
 }
 
+if (header('CASE 24: a flyby of a moon via its planet, near 180 degrees round the Sun: aimed at the moon')) {
+  // From the pad on 19 Nov 2026 the plotting table's porkchop for Io orbit
+  // leaves 30 Nov 2027 and reaches Io 12 Apr 2031; the stop made a flyby on
+  // those dates. The leg is near 180 degrees round the Sun, so it takes a
+  // deep-space burn (journey.js halfTurn), and that branch dropped the
+  // excess velocity about the moon at a flyby (moonArr). The flight then
+  // aimed at Jupiter with Io's periapsis offset, 69,309 km from its centre
+  // (inside it: 71,492 km), its aim found no burn, and the craft hit
+  // Jupiter. The Lambert branch has kept it since the moons were flown
+  // with their gravity (CASE 17's Europa flyby); the bi-elliptic leg and a
+  // craft's own leg never set it.
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const j = { start: { body: 'earth', kind: 'pad', altKm: 200, dateMs: D('2027-11-30T16:38:29.937Z'), latDeg: 28.5 }, waypoints: [{ id: 1, body: 'io', kind: 'flyby', altKm: 400, stayDays: 0, dateMs: D('2031-04-12T08:07:36.666Z') }] };
+  const s = J.solveJourney(j), L = s.legs[0], p = planFlight(s), f = flyJourney(sys, p), a = f.arrivals[0];
+  const aims = p.events.filter((e) => e.kind === 'aim' && e.ms > L.depMs + 30 * DAY_MS).map((e) => e.body);
+  console.log(`  Earth to an Io flyby: ${L.transferDeg.toFixed(1)} deg round the Sun, a deep-space burn ${L.deepSpace ? 'taken' : 'not taken'}; ${L.moonArr ? `${L.moonArr.speed.toFixed(3)} km/s about Io` : 'no excess about Io'}; aims at ${[...new Set(aims)].join(', ')}; ${f.impact ? `hits ${f.impact.body}` : `Io passed ${a.closest.toFixed(1)} km from its centre, planned ${a.plannedRp.toFixed(1)}`}`);
+  check('the leg near 180 degrees takes a deep-space burn and keeps the excess velocity about Io', L.deepSpace && L.moonArr && L.moonArr.speed > 5);
+  check('flown in the full model: every aim near Io is at Io, not Jupiter; Io passed within 5 km of the planned periapsis; nothing hit; no trouble', aims.length > 0 && aims.every((b) => b === 'io') && !f.impact && a.missKm < 5 && flightTrouble(p, f).length === 0);
+  // The other branches that reach a moon via its planet.
+  const be = J.solveLeg({ body: 'earth', kind: 'orbit', altKm: 200 }, { body: 'io', kind: 'flyby', altKm: 400 }, D('2027-11-30T00:00:00Z'), D('2045-01-01T00:00:00Z'), { via: 'bielliptic' });
+  const cr = J.solveJourney({ ...j, start: { body: 'earth', kind: 'craft', dateMs: j.start.dateMs, state: J.relState('earth', 'sun', D('2027-11-28T00:00:00Z')) } }).legs[0];
+  check('a bi-elliptic leg and a craft\'s own leg to Io keep the excess velocity about Io too', be.ok && be.moonArr && cr.ok && cr.geometry === 'craft' && cr.moonArr);
+}
+
 // A case named that isn't in the file is a failure, so a part of npm test
 // can't run nothing.
 for (const n of named) if (!seen.has(n)) { console.log(`  FAIL  no CASE ${n} in this file`); failures++; }

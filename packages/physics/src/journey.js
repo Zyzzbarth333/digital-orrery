@@ -577,8 +577,10 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
       out.vinfDep = sub(h.arcs[0].v1, a.v); out.vinfArr = sub(h.v2, b.v);
       out.depDv = departCost(P, out.vinfDep, g.A, mA);
       out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
-      out.moonDep = P.kind === 'flyby' ? null : moonEnd(mA, out.vinfDep, P.body, false);
-      out.moonArr = Q.kind === 'flyby' ? null : moonEnd(mB, out.vinfArr, Q.body, true);
+      // (At a flyby too, as below: the flight aims it at the moon. Without
+      // it, an Io flyby near 180 degrees was aimed at Jupiter and hit it.)
+      out.moonDep = moonEnd(mA, out.vinfDep, P.body, false);
+      out.moonArr = moonEnd(mB, out.vinfArr, Q.body, true);
       delete out.v2;
       return { ...out, revs: 0, branch: 'single', ok: true, endA: g.endA, endB: g.endB };
     }
@@ -863,6 +865,8 @@ function solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out, mA = null, mB = nu
   out.arrDv = arriveCost(Q, out.vinfArr, g.B, mB);
   out.midDv = norm(sub(s2.v1, s1.v2));
   out.mid = { ms: tMid, r: apoPt };
+  out.moonDep = moonEnd(mA, out.vinfDep, P.body, false);
+  out.moonArr = moonEnd(mB, out.vinfArr, Q.body, true);
   return { ...out, ok: true, revs: 0, endA: g.endA, endB: g.endB };
 }
 
@@ -1151,11 +1155,13 @@ function solveCraftLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, dsm = true }
     const h = halfTurn({ r: r1, v: v0 }, b, depMs, arrMs, mu, cost, mean, sol, { via, dsm, pick: revs ? { revs } : null });
     if (h) {
       const { v2, ...legFields } = h;
-      return { ...base, ...legFields, vinfArr: sub(v2, b.v), depDv: norm(sub(h.arcs[0].v1, v0)), arrDv: arriveCost(Q, sub(v2, b.v), B, mB), ok: true, revs: 0, branch: 'single', endB: g.endB ?? Q.body };
+      return { ...base, ...legFields, vinfArr: sub(v2, b.v), depDv: norm(sub(h.arcs[0].v1, v0)), arrDv: arriveCost(Q, sub(v2, b.v), B, mB), moonArr: moonEnd(mB, sub(v2, b.v), Q.body, true), ok: true, revs: 0, branch: 'single', endB: g.endB ?? Q.body };
     }
   }
   if (!sol) return { ...base, ok: false, error: 'no Lambert arc from the craft between these dates' };
-  return { ...base, arcs: [{ r1, v1: sol.v1, t1: depMs, t2: arrMs, mu }], vinfArr: sub(sol.v2, b.v), depDv: norm(sub(sol.v1, v0)), arrDv: arriveCost(Q, sub(sol.v2, b.v), B, mB), ok: true, revs: sol.revs, branch: sol.branch, endB: g.endB ?? Q.body };
+  // (Reaching a moon via its planet, the excess about the moon, as
+  // solveLeg's: the flight aims at the moon by it.)
+  return { ...base, arcs: [{ r1, v1: sol.v1, t1: depMs, t2: arrMs, mu }], vinfArr: sub(sol.v2, b.v), depDv: norm(sub(sol.v1, v0)), arrDv: arriveCost(Q, sub(sol.v2, b.v), B, mB), moonArr: moonEnd(mB, sub(sol.v2, b.v), Q.body, true), ok: true, revs: sol.revs, branch: sol.branch, endB: g.endB ?? Q.body };
 }
 
 // ---------------- why a window opens: the phase angle ----------------
