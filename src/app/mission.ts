@@ -139,7 +139,9 @@ const SPENT_S = 60;
 
 export class Mission {
   readonly sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
-  readonly client = new KernelClient();
+  // Its Worker starts at start() (App.tsx, once React has kept this
+  // Mission) or the first request.
+  readonly client = new KernelClient({ lazy: true });
   crafts: Craft[] = [];
   private snap: MissionSnapshot = { version: 0, selected: null };
   private listeners = new Set<() => void>();
@@ -165,6 +167,12 @@ export class Mission {
     this.snap = { ...this.snap, version: this.snap.version + 1 };
     for (const fn of this.listeners) fn();
   }
+
+  // Starts the kernel's worker, which loads its tables, and stops it (a
+  // Mission replaced by a hot reload, or the app unmounted: App.tsx's
+  // useLifetime).
+  start(): void { this.client.start(); }
+  dispose(): void { this.client.dispose(); this.listeners.clear(); }
 
   select(id: number | null): void { this.snap = { ...this.snap, selected: id }; this.emit(true); }
 

@@ -74,7 +74,9 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
   (`earth-fill` with the clock held), `craft-warp`
   (`craft-far` with the clock at a day a second), the ringed planets
   (`saturn`, `jupiter`, `jupiter-in`, `uranus`, `neptune`),
-  the Earth with all 16,892 satellites on (`sats`, 20,000 km) and the ISS
+  the Earth with all 16,892 satellites on (`sats`, 20,000 km), every set on
+(`sats-all`) and the same three years on (`sats-later`, [a long
+run](#a-long-run)), and the ISS
   followed from 0.1 km (`sat-near`, its close-up orbit drawn) and from
   20,000 km with its passes and ground track (`sat-track`, and
   `sat-track-warp` at an hour a second) run by name, and `all` runs every
@@ -129,6 +131,30 @@ npm run bench:frames -- --gpu intel,nvidia --base-dist /tmp/orrery-main/dist
 
 Read the before and after of one run rather than numbers from different
 runs. On a busy machine repeat runs differ by 10 to 20 %.
+
+**A long run.** `npm run bench:soak` (`scripts/bench-soak.mjs`) keeps one
+page open for `--minutes` (25), doing in cycles of about four minutes
+what a user does: every rail switch on, timed, then half off and on again
+and all off; the clock up to a year a second and back, and a day a second
+backwards; flights to Mars, Jupiter, Saturn, the Moon and the Sun; five
+FIND searches; the plotting table opened, its stations stepped through,
+and closed; a craft launched into low orbit, followed at 3 km and an hour
+a second, and removed; the phone layout with its sheet raised and
+lowered. Each cycle starts and ends at the Earth from 20,000 km, every
+layer off, at real time, where it times the frame. Every 10 s it samples
+the frame, the JS heap, DOM nodes and listeners, three.js's geometries,
+textures, programs and the whole frame's draw calls, the hand-uploaded
+maps' video memory, the live workers and their messages in flight, long
+tasks, and the GPU and page processes' memory (their cgroup's, which on
+the integrated GPU holds its textures). It exits with status 1, after a
+table of the first quarter of the cycles against the last, if the
+reference frame, the frame with every layer on, the heap, the GPU and
+page memory, the geometries, textures, DOM nodes, listeners or workers
+climb. `--per-layer` also times each switch alone every cycle, `--profile`
+takes a 3 s CPU profile with every layer on and prints the functions with
+the most self time, `--skip` leaves steps out, and `--json` keeps every
+sample. It holds the GPU lock and caps its browser as `bench:frames`
+does.
 
 ## The test suite
 
@@ -550,6 +576,83 @@ Every difference is the machine's load: the Earth close-up runs none of
 the new code and moved as much, and the Intel rounds swung 20–35 ms in
 both builds. The RTX's frame gap stayed at 16.7 ms throughout. The ground
 track costs nothing measurable.
+
+### A long run
+
+The report: the app lagged after layers were switched on, and did not
+recover. #168 switched every layer on and off three times at the Earth
+and found the frame back at 13 ms each time. `npm run bench:soak`
+([measuring](#measuring)) runs for 25 minutes instead, doing the other
+things a user does in between, on the Intel GPU (19 November 2026, main
+at 311be9b, a production build, 1440 × 900).
+
+**What stayed flat.** With every layer off, at the reference view, the
+frame (14.6 → 15.0 ms), the GPU and page processes' memory (about
+1.8 GB), three.js's 157 geometries, 23 textures and 33 programs, the
+maps' video memory (455 MB once every body has been seen), DOM nodes
+and the 8 workers were the same in the last cycles as in the first. The
+workers' messages in flight did not build up, and the KTX2 transcoder's
+three stayed three. Switching the layers on and off over and over,
+without the rest of the cycle, did not slow the frame either (41–50 ms
+with every layer on, over eight cycles).
+
+**What climbed.** The frame with every layer on, cycle after cycle:
+
+| Every layer on, Intel | Cycle 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| main, frame (ms) | 38.0 | 31.4 | 33.9 | 37.9 | 41.5 | 65.5 | 45.5 |
+| main, SDP4's resonance steps (ms of each 3 s) | 0 | 404 | 521 | 702 | 924 | 1,452 | 1,336 |
+| this change, frame (ms) | 35.2 | 28.5 | 24.9 | 28.0 | 28.4 | 25.9 | 28.6 |
+
+(An earlier run on main, eight cycles: 30, 48, 42, 59, 45, 58, 76 and
+116 ms.) A CPU profile of each cycle (`--profile`) put the growing time
+in one function: satellite.js's `dspace`, called from `sgp4` from the
+satellite layer's `label`, which places the 85 named satellites every
+frame on the main thread. Each cycle's warp leaves the clock about three
+years further from the element sets' epoch, and for a 12- or 24-hour
+orbit (GPS, Molniya, the geostationary belt) satellite.js integrated the
+resonance terms from the epoch at every call, in 720-minute steps
+([satellites](frontend/satellites.md#moving-them-sgp4)). So any time the
+clock had run far, the satellite layers cost more, and stayed so until
+the clock came back. The first cycle is cheaper only because it comes
+before the warp; its frame is heavier for loading each layer as it is
+switched on.
+
+`sgp4.js` now keeps the integrator's state between calls, as Vallado's
+code does: the same states to the last bit, and no steps left to take
+on the next frame. Every layer on, the frame stays at 25–29 ms from the
+second cycle to the seventh, and the profiles no longer show `dspace`.
+The same in one page each, every satellite set on, the Earth from
+20,000 km, the clock started at a date and running at real time
+(milliseconds of `dspace` in each 3 s profile in brackets):
+
+| Clock | main | this change |
+| --- | ---: | ---: |
+| 19 November 2026 (the epochs' week) | 15.5 (1) | 14.5 (2) |
+| three years on | 15.9 (612) | 16.1 (1) |
+| fifteen years on | 37.4 (1,415) | 13.8 (5) |
+
+Three years on, the Intel GPU's frame hides the 3.6 ms of script: it
+waits for the GPU anyway. The script shows once it outgrows the GPU's
+time, with more layers on or the clock further out. `npm run
+bench:frames -- earth sats-all sats-later` (three rounds interleaved,
+load average 2–6) agrees: 24.8 → 24.4 ms with every set on, 23.6 → 22.0
+three years on.
+
+`bench:soak` now fails a run whose every-layer-on frame climbs, from
+the second cycle (the first loads the layers), as well as one whose
+reference frame or memory does. Its listener count is taken after a full
+collection: without one it swung between about 1,000 and 3,600 in both
+builds with when V8 had last collected, and with one it holds at 970–984.
+
+**In development only.** Each hot reload of `App.tsx` made a new
+`Mission` (Fast Refresh runs `useMemo` again), whose kernel worker was
+never stopped, and StrictMode's double render made a second one that
+React threw away: 2 kernel workers at the start and 8 after three
+reloads. Now `App.tsx`'s `useLifetime` starts a `Mission` once React has
+kept it and disposes of it once nothing holds it, in a way StrictMode's
+double effect does not trip, and the kernel client starts its worker
+lazily. One kernel worker, before and after three reloads.
 
 ### GPU-compressed maps
 

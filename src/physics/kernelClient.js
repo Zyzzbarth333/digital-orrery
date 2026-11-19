@@ -34,8 +34,15 @@ export class KernelClient {
   // is answered. loadTimeoutMs: how long the loading may take
   // (a fetch that hangs), from the Worker's start. createWorker: makes the
   // Worker (a stand-in in Node's checks); Vite bundles kernel.worker.js only
-  // from the literal new Worker(new URL(...)) below.
-  constructor({ useWorker = true, budgetMs = 200, replyTimeoutMs = 15000, aimTimeoutMs = 60000, loadTimeoutMs = 120000, createWorker = null } = {}) {
+  // from the literal new Worker(new URL(...)) below. lazy: the Worker
+  // starts at start() or the first request, not here (App.tsx: React's
+  // StrictMode builds a Mission it then throws away, whose Worker nothing
+  // would stop).
+  constructor({ useWorker = true, budgetMs = 200, replyTimeoutMs = 15000, aimTimeoutMs = 60000, loadTimeoutMs = 120000, createWorker = null, lazy = false } = {}) {
+    this.useWorker = useWorker;
+    this.createWorker = createWorker;
+    this.started = false;
+    this.disposed = false;
     this.busy = false;
     this.sentAt = 0;
     this.startedAt = performance.now();
@@ -52,6 +59,16 @@ export class KernelClient {
     this.mode = 'main-thread';
     this.host = null;
     this.worker = null;
+    if (!lazy) this.start();
+  }
+
+  // Starts the Worker (once; a no-op after dispose()), which loads its
+  // tables at once.
+  start() {
+    if (this.started || this.disposed) return;
+    this.started = true;
+    this.startedAt = performance.now();
+    const { useWorker, createWorker } = this;
     if (useWorker && (createWorker || typeof Worker !== 'undefined')) {
       try {
         this.worker = createWorker ? createWorker() : new Worker(new URL('./kernel.worker.js', import.meta.url), { type: 'module' });
@@ -91,6 +108,8 @@ export class KernelClient {
   // crafts: objects with id, buildRequest(), applyResult(res) and dropped()
   // (src/physics/craft.js).
   tick(crafts) {
+    if (this.disposed) return false;
+    this.start();
     if (this.busy) {
       // A Worker that never answers would otherwise freeze every craft. A
       // live one answers within its budget, so this is for a dead one. An
@@ -157,6 +176,8 @@ export class KernelClient {
   // there answers null as the worker's failure does (it runs inside the
   // frame loop, mission.ts).
   aim(req) {
+    if (this.disposed) return Promise.resolve(null);
+    this.start();
     const id = ++this.aimId, msg = { type: 'aim', id, ...req };
     if (!this.worker) {
       try {
@@ -179,6 +200,7 @@ export class KernelClient {
   // Aims still waiting answer null, so nothing waits on a client that is
   // gone.
   dispose() {
+    this.disposed = true;
     if (this.worker) this.worker.terminate();
     this.worker = null;
     for (const resolve of this.aiming.values()) resolve(null);

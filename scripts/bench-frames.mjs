@@ -82,6 +82,10 @@ const SCENARIOS = {
   'sat-near': { label: 'The ISS followed', query: `?focus=earth&${DATE}`, km: 0.1, setup: ISS },
   'sats-all': { label: 'Earth satellites, every set on', query: `?focus=earth&${DATE}`, km: 20000, setup: setsOn(ALL_SETS) },
   'sats-all-hour': { label: 'Earth satellites, every set on, 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: setsOn(ALL_SETS), rate: 3600 },
+  // The same three years on from the element sets' epoch (the snapshot's,
+  // November 2026), where SDP4 integrated the 12- and 24-hour orbits from
+  // their epochs at every call until sgp4.js kept its integrator's state.
+  'sats-later': { label: 'Earth satellites, every set on, three years on', query: '?focus=earth&t=2029-11-10T15:00Z', km: 20000, setup: setsOn(ALL_SETS) },
   'sats-hour': { label: 'Earth satellites, all on, 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON, rate: 3600 },
   'sat-track': { label: 'The ISS followed, its passes and ground track', query: `?focus=earth&${DATE}`, km: 20000, setup: ISS },
   'sat-track-warp': { label: 'The same at 1 h/s', query: `?focus=earth&${DATE}`, km: 20000, setup: ISS, rate: 3600 },
