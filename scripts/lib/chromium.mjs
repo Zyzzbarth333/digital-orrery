@@ -37,11 +37,14 @@ const killGroup = (pid, sig) => { try { process.kill(-pid, sig); } catch { /* go
 
 // The process group's exit: SIGTERM, then SIGKILL after ms if the leader
 // is still up, then SIGKILL for any helper left in the group.
-function stopGroup(proc, ms = 5000) {
+// A leader that has already gone (a browser killed at its memory cap) is
+// fine: only the helpers left in its group are swept.
+export function stopGroup(proc, ms = 5000) {
   return new Promise((done) => {
+    let t;
     const finish = () => { clearTimeout(t); killGroup(proc.pid, 'SIGKILL'); done(); };
     if (proc.exitCode !== null || proc.signalCode !== null) return finish();
-    const t = setTimeout(() => killGroup(proc.pid, 'SIGKILL'), ms);
+    t = setTimeout(() => killGroup(proc.pid, 'SIGKILL'), ms);
     proc.once('exit', finish);
     killGroup(proc.pid, 'SIGTERM');
   });
