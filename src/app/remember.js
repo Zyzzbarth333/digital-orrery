@@ -17,6 +17,8 @@ export const LAYERS_KEY = 'orrery.layers.v1';
 // The console's TYPE step (1, 2 or 3; app.css html[data-type]), in
 // localStorage: a reader's own setting, kept for this browser.
 export const TYPE_KEY = 'orrery.type.v1';
+// Whether the single-key shortcuts are on ('off' turns them off; shortcuts.ts).
+export const SHORTCUTS_KEY = 'orrery.shortcuts.v1';
 
 /** The TYPE step a stored value names: 1, 2 or 3, else 1. */
 export function parseType(text) {

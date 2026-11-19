@@ -14,11 +14,12 @@
 // on the screen, land where they should. Tapping the peek toggles peek and
 // half; the latch is a button (aria-expanded) that steps through the stops,
 // and ArrowUp and ArrowDown step too. Above peek, one history entry lets
-// Back drop it to peek. With reduced motion it jumps between stops.
+// Back drop it to peek. With reduced motion it jumps between stops. Focus
+// moving below what half shows opens it fully.
 //
 // Pointer events and CSS only, no library.
 
-import { useEffect, useId, useLayoutEffect, useRef, type ReactNode, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode, type FocusEvent as ReactFocusEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type Ref } from 'react';
 
 export type Stop = 'peek' | 'half' | 'full';
 const ORDER: Stop[] = ['peek', 'half', 'full'];
@@ -314,6 +315,18 @@ export function Sheet({ stop, onStop, side, label, peek, children, onRest, above
     if ((e.target as Element).closest('button, a, input, select, .tag-pop')) return;
     latest.current.onStop(stop === 'peek' ? 'half' : stop === 'half' ? 'peek' : 'half');
   };
+  // Focus that lands below what half shows (Tab from the console's tabs:
+  // the body does not scroll at half) opens the sheet fully, and the
+  // control is scrolled into view once it has settled (WCAG 2.4.11).
+  const onBodyFocus = (e: ReactFocusEvent) => {
+    if (stop !== 'half') return;
+    const t = e.target as HTMLElement;
+    const r = t.getBoundingClientRect();
+    const vh = window.visualViewport?.height ?? window.innerHeight;
+    if (r.top >= 0 && r.bottom <= vh) return;
+    onStop('full');
+    window.setTimeout(() => { if (document.activeElement === t) t.scrollIntoView({ block: 'nearest' }); }, reduced.current?.matches ? 0 : 500);
+  };
   const step = (dir: 1 | -1) => {
     const i = ORDER.indexOf(stop) + dir;
     if (ORDER[i]) onStop(ORDER[i]);
@@ -339,7 +352,7 @@ export function Sheet({ stop, onStop, side, label, peek, children, onRest, above
         </button>
         {peek}
       </div>
-      <div className="sheet-body" id={bodyId} ref={body} tabIndex={-1} inert={stop === 'peek' || undefined}>
+      <div className="sheet-body" id={bodyId} ref={body} tabIndex={-1} inert={stop === 'peek' || undefined} onFocus={onBodyFocus}>
         {children}
       </div>
       <span className="sheet-safe" ref={safe} aria-hidden="true" />

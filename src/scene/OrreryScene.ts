@@ -600,6 +600,10 @@ export class OrreryScene {
     this.scale = new RenderScale(dpr, new URLSearchParams(location.search).get('scale') === 'fixed');
     this.renderer.toneMapping = TONE_MAPPING;
     this.renderer.setClearColor(0x000000, 1);
+    // A text alternative for the drawing (WCAG 1.1.1): what it is, and where
+    // its contents can be read; the view plate says what it is on.
+    this.renderer.domElement.setAttribute('role', 'img');
+    this.renderer.domElement.setAttribute('aria-label', 'The 3D sky: the Sun, planets, moons and craft at their true places for the clock\'s time. The rail lists them, and the plate reads out the one in view.');
     container.appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(45, 1, NEAR_MAX, 1e10);
@@ -1008,6 +1012,12 @@ export class OrreryScene {
   private camDist = 1.6e9;
 
   // Back onto the focus after a pan (a double-click, C, or the view plate's key).
+  // A step of the view from a key or the view plate's pad, so turning and
+  // zooming need no drag, wheel or pinch (WCAG 2.1.1, 2.5.1, 2.5.7):
+  // turn by radians (as a drag would), or zoom by a factor (as the wheel).
+  turn(dAz: number, dEl: number): void { this.rig.rotate(dAz, dEl); }
+  zoomStep(factor: number): void { this.zoomBy(factor); }
+
   recentre(): void {
     this.rig.recentre();
     this.notifyPan();

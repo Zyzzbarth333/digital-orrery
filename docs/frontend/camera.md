@@ -11,7 +11,11 @@ elevation in the ecliptic frame. Dragging turns it (0.005 rad per pixel; on touc
 pan and zoom, below);
 the wheel zooms by e^(0.0015 Δy) per event and the distance eases to the
 new value over about a quarter of a second, in log distance, so a zoom
-reads as one motion rather than steps. The pivot is the target's live
+reads as one motion rather than steps. Without a drag, wheel or pinch
+(WCAG 2.2's 2.1.1, 2.5.1 and 2.5.7; [accessibility audit](../ux/accessibility.md)),
+Shift and the arrow keys turn and tilt it 15° a press, `[` and `]` zoom by
+1.25, and the view plate's VIEW key opens a pad of the same steps as word
+keys (UP, DOWN, LEFT, RIGHT, IN, OUT). The pivot is the target's live
 position (a body from the ephemeris, a craft from the kernel) plus a
 settling offset, described below.
 

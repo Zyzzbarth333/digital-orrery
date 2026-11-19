@@ -63,7 +63,7 @@ as tasks for a later think-aloud test (usability.gov suggests 10–12 tasks).
 | 8 | Match with the real world | 2 | C3, v∞, "osculating" and the source codes are unexplained where they appear (scenarios 1, 8). | Done: every readout label carries a plain-language explanation on hover |
 | 9 | Help and documentation | 2 | Nothing links to the docs that explain the physics. | Done: a "How it works" link in the rail |
 | 10 | Visibility of status | 1 | LAG and KERNEL are explained only on hover. | Kept: the mission tab states lag in words; hover detail is enough |
-| 11 | Flexibility and efficiency | 1 | No keyboard route into the plate's tabs. | Open: tabs are reachable with Tab; arrow-key tab switching later |
+| 11 | Flexibility and efficiency | 1 | No keyboard route into the plate's tabs. | Done: every tab list and radio group takes the arrow keys ([accessibility.md](accessibility.md), finding 9) |
 | 12 | Visibility of status | 3 | Found while checking the fixes: without WebGL the clock froze while RUN stayed lit, because the scene's frame loop is what advanced it; "the data panels still work" was half true. | Done: without WebGL a 100 ms timer runs the clock and the mission |
 | 13 | Consistency and standards | 3 | Found while checking: from 720 to about 1,100 px wide the header ran off the screen, hiding NOW and the lamps. | Done: the header wraps onto a second row in that range |
 | 14 | User control and freedom | 2 | Found while checking: pressing NOW again within a minute wiped the notice, so BACK was lost. | Done: a set of under a minute keeps the earlier notice |
@@ -169,7 +169,6 @@ fixed. The ones a user would meet:
   predicts. The kit is ready in [think-aloud/](think-aloud/README.md):
   updated scenarios, a facilitator script, a consent note, a recording sheet
   with SEQ and SUS, and a protocol for Firefox on the laptop.
-- Arrow-key switching between the console's tabs (finding 11).
 - The think-aloud test should include the overhaul's tasks: interrupt a
   flight, open a mission while Jupiter is in focus, follow a craft and
   change the rate.

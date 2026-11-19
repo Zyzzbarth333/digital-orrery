@@ -73,15 +73,31 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
     window.addEventListener('keydown', key, true);
     return () => window.removeEventListener('keydown', key, true);
   }, [store]);
+  // A modal table: focus moves in as it opens, everything under it is inert
+  // (Tab and a screen reader's cursor stay in the table), and focus goes
+  // back to what opened it as it closes.
+  const dialog = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const d = dialog.current;
+    if (!d) return;
+    const back = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    const under = [...(d.parentElement?.children ?? [])].filter((e): e is HTMLElement => e !== d && e instanceof HTMLElement && !e.inert);
+    for (const e of under) e.inert = true;
+    (d.querySelector<HTMLElement>('[role=tab][aria-selected=true]') ?? d).focus();
+    return () => {
+      for (const e of under) e.inert = false;
+      if (back?.isConnected) back.focus();
+    };
+  }, []);
   useEffect(() => { if (j.waypoints.length && sol.ok && (store.profilesFor !== store.version || store.kernel.forVersion !== store.version)) { const t = setTimeout(() => store.check(), 400); return () => clearTimeout(t); } }, [store.version]);
 
   return (
-    <div className="plot-table" role="dialog" aria-modal="true" aria-label="Plotting table">
+    <div className="plot-table" role="dialog" aria-modal="true" aria-labelledby="plot-title" ref={dialog} tabIndex={-1}>
       <header className="plot-head">
         <span className="pnl" aria-hidden="true">P1</span>
-        <h2 className="plot-title">Plotting table</h2>
+        <h2 className="plot-title" id="plot-title">Plotting table</h2>
         <div className="plot-stations" role="tablist" aria-label="Stations">
-          {STATIONS.map(([k, label, title]) => <button key={k} role="tab" aria-selected={station === k} aria-controls={`station-${k}`} className="key tab" title={title} onClick={() => setStation(k)}>{label}</button>)}
+          {STATIONS.map(([k, label, title]) => <button key={k} role="tab" id={`station-tab-${k}`} aria-selected={station === k} aria-controls={station === k ? `station-${k}` : undefined} className="key tab" title={title} onClick={() => setStation(k)}>{label}</button>)}
         </div>
         <span className="plot-route">{j.waypoints.length ? `${store.title()} · ${store.dates()}`
           : store.autoPlan ? 'No journey yet: choose a departure on the porkchop, or add a waypoint' : 'No journey yet: add a waypoint to begin'}</span>
@@ -92,7 +108,7 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
         <button className="key" onClick={() => store.setPlotOpen(false)} title="Back to the sky (Esc)">Close</button>
       </header>
       {station === 'plot' && <>
-        <div className="plot-body" id="station-plot" role="tabpanel">
+        <div className="plot-body" id="station-plot" role="tabpanel" aria-labelledby="station-tab-plot">
           <aside className="plot-left">
             <JourneyPanel store={store} clock={clock} mission={mission} onFlown={(id) => { store.setPlotOpen(false); onFlown(id); }} inTable />
             <details className="porkchop-details" open={!!store.autoPlan}>
@@ -105,8 +121,8 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
         </div>
         <Timeline store={store} cursor={cursor} setCursor={setCursor} />
       </>}
-      {station === 'stack' && <div className="plot-station" id="station-stack" role="tabpanel"><StackStation store={store} /></div>}
-      {station === 'go' && <div className="plot-station" id="station-go" role="tabpanel"><GoStation store={store} clock={clock} mission={mission} onFlown={onFlown} /></div>}
+      {station === 'stack' && <div className="plot-station" id="station-stack" role="tabpanel" aria-labelledby="station-tab-stack"><StackStation store={store} /></div>}
+      {station === 'go' && <div className="plot-station" id="station-go" role="tabpanel" aria-labelledby="station-tab-go"><GoStation store={store} clock={clock} mission={mission} onFlown={onFlown} /></div>}
     </div>
   );
 }

@@ -64,7 +64,9 @@ export function craftById(mission: Mission, id: number | null): { name: string; 
 }
 
 function Lamp({ on, label, title, kind = 'status' }: { on: boolean; label: string; title: string; kind?: 'status' | 'caution' | 'warning' }) {
-  return <span className={`lamp k-${kind}`} data-on={on} title={title} aria-label={`${label}: ${on ? 'on' : 'off'}`}><i aria-hidden="true" />{label}</span>;
+  // The state is said in hidden text: an aria-label on a plain span is not
+  // read by every screen reader (ARIA names no generic element).
+  return <span className={`lamp k-${kind}`} data-on={on} title={title}><i aria-hidden="true" />{label}<span className="sr-only">{on ? ', on' : ', off'}</span></span>;
 }
 
 // How far the clock was set, in words: +2.05 yr, -3.2 d, +45 min.
@@ -166,6 +168,11 @@ function useLamps(mission: Mission) {
   const lamps = useMissionValue(mission, () => `${+mission.stepping}${+mission.lagging}${+mission.warning}${+mission.alarm}|${mission.warningText}`);
   return { flags: lamps.slice(0, 4), warningText: lamps.slice(5) };
 }
+// The master alarm, said once as it sounds (WCAG 4.1.3): the WARN lamp and
+// ACK show it, and this reads its reason to a screen reader.
+const WarnAlert = ({ on, text }: { on: boolean; text: string }) => (
+  <span className="sr-only" role="alert">{on ? `Warning: ${text || 'a craft has crashed or the kernel refused it'}` : ''}</span>
+);
 const AckKey = ({ mission }: { mission: Mission }) => (
   <button className="key small master" onClick={() => mission.acknowledge()} title="Acknowledge the master alarm">Ack</button>
 );
@@ -221,7 +228,7 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
   const playing = useClockValue(clock, (s) => s.playing);
   const jump = useClockValue(clock, (s) => s.lastJump);
   const live = useLive(clock);
-  const { flags } = useLamps(mission);
+  const { flags, warningText } = useLamps(mission);
   const { ref: bandRef, rows } = useBandRows(phone);
   const jumpNotice = jump && (
     <div className="notice jump" role="status">
@@ -246,6 +253,7 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
         <button className="key run" aria-pressed={playing} onClick={() => clock.setPlaying(!playing)} aria-keyshortcuts="Space"
           title={playing ? 'Time runs: press to hold it (Space)' : 'Time is held: press to run it (Space)'}>Run</button>
         {flags[3] === '1' && <AckKey mission={mission} />}
+        <WarnAlert on={flags[3] === '1'} text={warningText} />
         <button className="key find-key" onClick={onFind} aria-keyshortcuts="/" title="Find a body, a moon, a satellite, a spacecraft or a landing site (/)">Find</button>
       </header>
     );
@@ -270,6 +278,7 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
       </div>
       <FlightField mission={mission} consoleOpen={consoleOpen} onToggleConsole={onToggleConsole} following={following} onFollow={onFollow} />
       <Annunciator mission={mission} live={live} />
+      <WarnAlert on={flags[3] === '1'} text={warningText} />
     </header>
   );
 }
