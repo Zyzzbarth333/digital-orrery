@@ -44,7 +44,7 @@ CSPICE by `c/earth_orientation.c`:
 | 1 Jan 2000 to 9 Feb 2027 | `earth_latest_high_prec.bpc` (13 Nov 2026) | JPL's measured EOP to 13 Nov 2026, then its three-month prediction |
 | 9 Feb 2027 to 3 Nov 2126 | `earth_2026_260806_2126_predict.bpc` | NAIF's long-term extension: polar motion and nutation corrections held, UT1 running at the rate of TAI apart from the zonal tides |
 
-For each day, `src/physics/eop.build.mjs` fits the five parameters so that
+For each day, `pipelines/eop.build.mjs` fits the five parameters so that
 `earthRotation.js` reproduces ITRF93 at seven instants an hour apart around
 0h UTC. Polar motion turns with the crust and the nutation correction with
 the sky, so the quarter turn between the first and last instant tells them
@@ -74,7 +74,7 @@ often):
 cmake --build c/build
 c/build/earth_orientation python/data/kernels/pck/earth_latest_high_prec.bpc \
   python/data/kernels/pck/earth_2026_260806_2126_predict.bpc /tmp/itrf93.bin
-node src/physics/eop.build.mjs /tmp/itrf93.bin
+node pipelines/eop.build.mjs /tmp/itrf93.bin
 c/build/orrery_spice_ref src/physics/fixtures/spice_reference.json
 ```
 
@@ -106,7 +106,7 @@ astronomy-engine's `RotationAxis`.
 
 The 20 major moons the scene draws (Phobos to Charon) use the IAU models as
 NAIF's `pck00011_n0066.tpc` [4] gives them, the same constants SPICE's
-`IAU_<MOON>` frames use. `src/physics/pck.build.mjs` reads the kernel's
+`IAU_<MOON>` frames use. `pipelines/pck.build.mjs` reads the kernel's
 data blocks (a later assignment replacing an earlier one, as SPICE's pool
 does) and writes `src/physics/pck.data.js`. With $d$ days and $T$ Julian
 centuries TDB from J2000, as SPICE's `bodeul` evaluates them:

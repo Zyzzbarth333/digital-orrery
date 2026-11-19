@@ -6,15 +6,18 @@
 // read as data. The error says `HTTP <status>`, after `what` when given.
 // A network failure throws as fetch does.
 
-/** @param {string} url @param {string} [what] */
-async function get(url, what) {
+/** @param {string} url @param {string} [what] @returns {Promise<Response>} */
+export async function fetchOk(url, what) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(what ? `${what}: HTTP ${r.status}` : `HTTP ${r.status}`);
   return r;
 }
 
 /** @param {string} url @param {string} [what] @returns {Promise<any>} */
-export const getJson = async (url, what) => (await get(url, what)).json();
+export const getJson = async (url, what) => (await fetchOk(url, what)).json();
 
 /** @param {string} url @param {string} [what] @returns {Promise<ArrayBuffer>} */
-export const getBuffer = async (url, what) => (await get(url, what)).arrayBuffer();
+export const getBuffer = async (url, what) => (await fetchOk(url, what)).arrayBuffer();
+
+/** @param {string} url @param {string} [what] @returns {Promise<string>} */
+export const getText = async (url, what) => (await fetchOk(url, what)).text();

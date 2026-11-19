@@ -180,7 +180,7 @@ files run in parts:
   A case named that the file doesn't have fails, so a part can't silently
   run nothing.
 - **`missions.validate.mjs`, by mission**, as it already took them:
-  `node src/physics/missions.validate.mjs messenger`.
+  `node validation/missions.validate.mjs messenger`.
 
 `npm test -- journey` runs only the parts whose command contains
 `journey`. With more processors, `TEST_JOBS=8 npm test` is faster still:

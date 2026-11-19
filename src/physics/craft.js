@@ -572,13 +572,12 @@ export class Craft {
   // to absolute times, so the next request sends them again).
   dropped() {}
 
-  // res: a CraftResult, or a CraftFailure, which has an error and is not
-  // read further (the checker cannot narrow the union on a string, so the
-  // type is the result's with an optional error).
-  /** @param {CraftResult & { error?: string }} res */
+  // res: a CraftResult, or a CraftFailure (it has an error, and nothing
+  // else of it is read).
+  /** @param {CraftResult | CraftFailure} res */
   applyResult(res) {
     if (this.crashed) return;
-    if (res.error) { this.error = res.error; this.note(`kernel error: ${res.error}`); return; }
+    if ('error' in res) { this.error = res.error; this.note(`kernel error: ${res.error}`); return; }
     if (res.version !== this.version) return;
     const prev = this.kState.primary;
     this.kState = { r: res.r, v: res.v, t: res.t, primary: res.primary, accel: res.accel, withThrust: true };

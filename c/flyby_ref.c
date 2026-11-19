@@ -2,7 +2,7 @@
  *
  * Samples a body's geometric J2000 state about another from SPK kernels,
  * for the flyby checks where Horizons holds no reconstruction
- * (src/physics/flyby.fetch.mjs). Its output is in the form of a Horizons
+ * (pipelines/flyby.fetch.mjs). Its output is in the form of a Horizons
  * vector table (VEC_TABLE 2, CSV), between $$SOE and $$EOE, so the fetch
  * script reads both the same way:
  *

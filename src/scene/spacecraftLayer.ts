@@ -25,7 +25,7 @@
 import * as THREE from 'three';
 import { eqjToEcl } from '../physics/ephemeris.js';
 import { parseMonth, segmentAt, stateIn } from '../physics/spacecraft.js';
-import { getJson } from '../physics/fetchData.js';
+import { getBuffer, getJson } from '../physics/fetchData.js';
 import { orbitTrailMaterial } from './orbitTrail';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
 import { probeModelKey } from './probeModels';
@@ -70,6 +70,7 @@ export class SpacecraftLayer {
   private index: Index | null = null;
   private loading: Promise<void> | null = null;
   private months = new Map<string, Month | 'loading' | 'missing'>();
+  private fetching = new Map<string, Promise<void>>();     // a month's fetch, while it runs
   private markers = new Map<string, HTMLDivElement>();
   private paths = new Map<string, Path>();
   private toRenderM = eqjToRenderMatrix();
@@ -130,11 +131,30 @@ export class SpacecraftLayer {
       if (!this.index.months.includes(key)) { this.months.set(key, 'missing'); return null; }
       this.months.set(key, 'loading');
       const base = `${this.baseUrl}data/spacecraft/${key}`;
-      void Promise.all([fetch(`${base}.json`).then((r) => r.json()), fetch(`${base}.bin`).then((r) => r.arrayBuffer())])
+      this.fetching.set(key, Promise.all([getJson(`${base}.json`, `${key}.json`), getBuffer(`${base}.bin`, `${key}.bin`)])
         .then(([json, bin]) => { this.months.set(key, parseMonth(json, bin)); this.resample(); })
-        .catch((err) => { console.warn(`spacecraft ${key} not loaded: ${err}`); this.months.delete(key); });
+        .catch((err) => { console.warn(`spacecraft ${key} not loaded: ${err}`); this.months.delete(key); })
+        .finally(() => this.fetching.delete(key)));
     }
     return null;
+  }
+
+  // Resolves once a craft has a place at now() (true), or false once its
+  // month has arrived with no state that day, is missing or failed to load,
+  // fetching the index and the month if need be. A state whose centre has
+  // no place yet (the scene before its first frame) is waited for, 10 s at
+  // most.
+  async placed(key: string, now: () => number): Promise<boolean> {
+    await this.loadIndex();
+    for (let i = 0; i < 100 && !this.disposed; i++) {
+      const t = now();
+      if (this.positionKm(key, t)) return true;
+      const wait = this.fetching.get(new Date(t).toISOString().slice(0, 7));
+      if (wait) { await wait; continue; }
+      if (!this.stateAbout(key, t)) return false;
+      await new Promise((ok) => setTimeout(ok, 100));
+    }
+    return false;
   }
 
   // A craft's state about its own centre at t (UTC ms), J2000 equatorial,
