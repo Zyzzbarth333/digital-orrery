@@ -29,14 +29,15 @@ export interface LegPlane { priced: boolean; why?: string; body?: string; aimed?
 // A stay in lunar orbit before the leg: the eccentricity the Moon's field
 // raises over it (journey.js moonStay).
 export interface StayOrbit { altKm: number; stayDays: number; toDays: number; iDeg: number; eMax: number; lowKm: number; lowMs: number; fallMs: number | null; fallDays: number | null; safeAltKm?: number | null }
-export interface Flyby { byHand?: boolean; body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; vinfOut?: number; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
+export interface Flyby { byHand?: boolean; body: string; dv: number; delta: number; rp: number; gain: number; bT: number; bR: number; aim: number; vinf: number; vinfOut?: number; about: string; tooTight?: boolean; unpoweredOnly?: boolean; periapsisDv: number; steerDv: number }
 // A burn, and what it pays for (note: a landing's capture and descent, a
 // powered flyby's reason).
 export interface Burn { ms: number; body: string; dv: number; kind: string; label: string; leg: number; note?: string }
-// What costs nothing: a flyby's gravity assist (its heliocentric change and
-// the credit against buying it with the engine) or a landing through the
-// air (journey.js solveJourney).
-export interface Credit { ms: number; body: string; dv: 0; kind: 'assist' | 'entry'; label: string; leg: number; note: string; helioDv?: number; creditDv?: number }
+// What costs nothing: a flyby's gravity assist (its change of velocity,
+// gainDv, about the Sun or for a moon about its planet, about; and the
+// credit against buying it with the engine) or a landing through the air
+// (journey.js solveJourney).
+export interface Credit { ms: number; body: string; dv: 0; kind: 'assist' | 'entry'; label: string; leg: number; note: string; gainDv?: number; about?: string; creditDv?: number }
 export type LedgerLine = (Burn & { paid: true }) | (Credit & { paid: false });
 export interface JourneySolution { stops: Stop[]; legs: Leg[]; flybys: (Flyby | undefined)[]; burns: Burn[]; credits: Credit[]; totalDv: number; creditDv: number; startMs: number; endMs: number; durationDays: number; ok: boolean; error?: string }
 const solveJourney = (j: Journey) => solveJs(j) as unknown as JourneySolution;

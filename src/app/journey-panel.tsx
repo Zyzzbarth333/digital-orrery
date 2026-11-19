@@ -15,7 +15,7 @@ import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import { useJourney, ledgerLines, type JourneyStore, type Waypoint, type Leg, type Flyby } from './journey';
 import { SourceTag } from './source-tag';
-import { journeyBodies, legOptions, applyOption, bodyInfo, defaultArrival } from '@digital-orrery/physics/journey.js';
+import { journeyBodies, legOptions, applyOption, assistFrame, bodyInfo, defaultArrival } from '@digital-orrery/physics/journey.js';
 import { assess } from '@digital-orrery/physics/feasibility.js';
 import { eqjToEcl } from '@digital-orrery/physics/ephemeris.js';
 
@@ -25,7 +25,7 @@ const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const nameOf = (k: string) => { try { return bodyInfo(k).name as string; } catch { return k; } };
 const KINDS: [Waypoint['kind'], string][] = [['flyby', 'Flyby'], ['orbit', 'Orbit'], ['land', 'Land']];
 
-interface Option { type: string; name: string; dv: number; tofDays?: number; depMs?: number; arrMs?: number; selectable?: boolean; unreachable?: boolean; beatsHohmann?: boolean; note?: string; windowNote?: string | null; ideal?: boolean; ok?: boolean; flyable?: boolean; gain?: number; delta?: number; rp?: number; bT?: number; bR?: number; tooTight?: boolean; vinf?: number }
+interface Option { type: string; name: string; dv: number; tofDays?: number; depMs?: number; arrMs?: number; selectable?: boolean; unreachable?: boolean; beatsHohmann?: boolean; note?: string; windowNote?: string | null; ideal?: boolean; ok?: boolean; flyable?: boolean; gain?: number; delta?: number; rp?: number; bT?: number; bR?: number; tooTight?: boolean; vinf?: number; about?: string }
 
 export function JourneyPanel({ store, clock, mission, onFlown, inTable = false }: { store: JourneyStore; clock: SimClock; mission: Mission; onFlown: (id: number) => void; inTable?: boolean }) {
   useJourney(store);
@@ -231,7 +231,7 @@ function LegLine({ leg, fb, last, entry }: { leg?: Leg; fb?: Flyby; last: boolea
         <tr><th scope="row">Flyby</th><td className="value">{fb.dv > 0 ? `${fmt(fb.dv * 1000, 0)} m/s burn` : 'unpowered, free'} · turn {fmt(fb.delta * 180 / Math.PI, 1)}°<span className="alt">{fb.byHand ? 'aimed by hand · ' : ''}periapsis {fmt(fb.rp - bodyInfo(fb.body).radius, 0)} km up{fb.byHand && fb.rp < bodyInfo(fb.body).radius ? ' (below the surface!)' : ''} · B·T {fmt(fb.bT, 0)}, B·R {fmt(fb.bR, 0)} km{fb.tooTight ? ' · the turn needs a lower pass: steered at the edge of its sphere' : ''}{last ? '' : ''}</span>{fb.dv > 0 && <span className="alt">Why it is paid: the pull turns the path but cannot change the speed about {nameOf(fb.body)} ({fmt(fb.vinf, 2)} km/s in{fb.vinfOut ? `, ${fmt(fb.vinfOut, 2)} out` : ''}), so {fmt(fb.periapsisDv * 1000, 0)} m/s at periapsis makes up the difference{fb.steerDv > 5e-4 ? `, and ${fmt(fb.steerDv * 1000, 0)} m/s steers the turn the pass cannot give` : ''}.</span>}</td><td className="src"><SourceTag src="B-plane" derived info="flyby" /></td></tr>
       )}
       {fb && (
-        <tr className="credit-row"><th scope="row">Assist</th><td className="value">+{fmt(fb.gain, 3)} km/s<span className="alt">heliocentric change (v∞ out less in), a credit, not a cost{fb.dv > 0 ? `: ${fmt(Math.max(0, fb.gain - fb.dv), 3)} km/s after the ${fmt(fb.dv * 1000, 0)} m/s burn` : ': free'}</span></td><td className="src"><SourceTag src="assist" derived info="flyby-credit" /></td></tr>
+        <tr className="credit-row"><th scope="row">Assist</th><td className="value">+{fmt(fb.gain, 3)} km/s<span className="alt">{fb.about === 'sun' ? 'heliocentric change' : `change ${assistFrame(fb.about)}`} (v∞ out less in, about {nameOf(fb.body)}), a credit, not a cost{fb.dv > 0 ? `: ${fmt(Math.max(0, fb.gain - fb.dv), 3)} km/s after the ${fmt(fb.dv * 1000, 0)} m/s burn` : ': free'}</span></td><td className="src"><SourceTag src="assist" derived info="flyby-credit" /></td></tr>
       )}
     </tbody></table>
   );
@@ -259,7 +259,7 @@ function LegOptions({ store, k }: { store: JourneyStore; k: number }) {
             <th scope="row">{o.name}
               <span className="alt">
                 {o.type === 'assist'
-                  ? `turns v∞ ${fmt(o.vinf ?? 0, 2)} km/s by ${fmt((o.delta ?? 0) * 180 / Math.PI, 1)}°: ${fmt(o.gain ?? 0, 2)} km/s of heliocentric change for ${fmt(o.dv * 1000, 0)} m/s of burn`
+                  ? `turns v∞ ${fmt(o.vinf ?? 0, 2)} km/s by ${fmt((o.delta ?? 0) * 180 / Math.PI, 1)}°: ${fmt(o.gain ?? 0, 2)} km/s of ${o.about && o.about !== 'sun' ? `change ${assistFrame(o.about)}` : 'heliocentric change'} for ${fmt(o.dv * 1000, 0)} m/s of burn`
                   : [o.depMs && `leaves ${iso(o.depMs)}`, o.windowNote, o.ideal && 'circular coplanar orbits', o.beatsHohmann === true && 'beats Hohmann', o.beatsHohmann === false && 'costs more than Hohmann', o.unreachable && 'its window is not this date: the flyby fixes the departure', o.note].filter(Boolean).join(' · ')}
               </span>
             </th>

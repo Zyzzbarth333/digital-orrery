@@ -211,6 +211,14 @@ function moonEnd(m, vinf, key, arrive) {
   const x = moonRoot(m, vinf, key, arrive);
   return { vinf: x.vinf, speed: x.speed, margin: x.margin, cost: x.cost, rp: x.rp, ahead: x.ahead, swingby: x.swingby, rm: m.r, vAbout: x.vAbout, angleDeg: Math.acos(Math.max(-1, Math.min(1, dot(unit(x.vAbout), unit(m.v))))) * 180 / Math.PI, bestSpeed: moonSpeed(norm(vinf), bodyInfo(key), true, arrive) };
 }
+// A leg's excess velocity about the body at its end (arriving) or its
+// start (leaving): reaching or leaving a moon via its planet, the excess
+// about the moon (moonEnd), not the planet's; otherwise the leg's own,
+// already about that body. A flyby of a moon turns the excess about the
+// moon: the planet's is the speed at the edge of the planet's sphere, which
+// the moon's pull does not see.
+const excessIn = (L) => (L?.ok ? (L.moonArr?.vinf ?? L.vinfArr) : null);
+const excessOut = (L) => (L?.ok ? (L.moonDep?.vinf ?? L.vinfDep) : null);
 
 // ---------------- the parking orbit's plane over a stay ----------------
 
@@ -564,7 +572,10 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
     // cost: the end burns, the moons where they are on the day. mean: the
     // same with each moon at its best phase (moonSpeed), smooth in the
     // excess velocity, which shapes the deep-space burn.
-    const ends = (mAt, mBt) => (v1, v2) => departCost(P, sub(v1, a.v), g.A, mAt) + arriveCost(Q, sub(v2, b.v), g.B, mBt) + (P.kind === 'flyby' ? (vinfIn !== null ? Math.abs(norm(sub(v1, a.v)) - vinfIn) : norm(sub(v1, a.v)) * 1e-3) : 0) + (Q.kind === 'flyby' ? norm(sub(v2, b.v)) * 1e-3 : 0);
+    // (Leaving a flyby of a moon via its planet, vinfIn is about the moon,
+    // so the speed it is matched against is too: moonSpeed.)
+    const outSpeed = (mAt, v1) => (mAt ? moonSpeed(sub(v1, a.v), g.A, mAt, false) : norm(sub(v1, a.v)));
+    const ends = (mAt, mBt) => (v1, v2) => departCost(P, sub(v1, a.v), g.A, mAt) + arriveCost(Q, sub(v2, b.v), g.B, mBt) + (P.kind === 'flyby' ? (vinfIn !== null ? Math.abs(outSpeed(mAt, v1) - vinfIn) : norm(sub(v1, a.v)) * 1e-3) : 0) + (Q.kind === 'flyby' ? norm(sub(v2, b.v)) * 1e-3 : 0);
     const cost = ends(mA, mB), mean = g.viaA || g.viaB ? ends(g.viaA || null, g.viaB || null) : cost;
     if (via === 'bielliptic') return solveBiEllipticLeg(P, Q, depMs, arrMs, g, a, b, out, mA, mB);
     const s = bestArc(a.r, b.r, tof, mu, cost, pick ? pick.revs : g.resonant ? Math.max(2, maxRevs) : maxRevs, pick);
@@ -971,15 +982,21 @@ function entryNote(leg, Q, B) {
     : '. A last touchdown burn, if the lander has one, is not costed';
   return `${at}entry and parachutes, no propulsive Δv${tail}`;
 }
-// A flyby's gravity assist: the heliocentric velocity it changes,
-// |v_inf,out - v_inf,in| (the planet's own velocity cancels: Curtis Sec.
+// A flyby's gravity assist: the velocity it changes, |v_inf,out - v_inf,in|
+// about the body flown by (the body's own velocity cancels: Curtis Sec.
 // 8.9), which a burn would have to buy. The credit is that less the burn
-// at the flyby, if it is powered.
+// at the flyby, if it is powered. A planet's (or a small body's) is a
+// change about the Sun; a moon's, about its planet: the craft is in the
+// planet's well there, and the turn changes its orbit about the planet.
+// (A change of velocity is the same vector in any frame; the frame named
+// is the orbit it changes.)
+export const assistFrame = (about) => (about === 'sun' ? 'heliocentric' : `about ${bodyInfo(about).name}`);
 function assistNote(fb) {
-  const turn = `turns the path ${(fb.delta * 180 / Math.PI).toFixed(1)}°`;
+  const turn = `turns the path ${(fb.delta * 180 / Math.PI).toFixed(1)}° (v∞ ${kms(fb.vinf)} about ${bodyInfo(fb.body).name})`;
+  const change = `${kms(fb.gain)} of ${fb.about === 'sun' ? 'heliocentric change' : `change ${assistFrame(fb.about)}`}`;
   return fb.dv > 0
-    ? `${turn}, ${kms(fb.gain)} of heliocentric change for a ${ms0(fb.dv)} burn: ${kms(Math.max(0, fb.gain - fb.dv))} the engine did not have to give`
-    : `${turn}, ${kms(fb.gain)} of heliocentric change, free (unpowered): ${kms(fb.gain)} the engine did not have to give`;
+    ? `${turn}, ${change} for a ${ms0(fb.dv)} burn: ${kms(Math.max(0, fb.gain - fb.dv))} the engine did not have to give`
+    : `${turn}, ${change}, free (unpowered): ${kms(fb.gain)} the engine did not have to give`;
 }
 // Why a flyby is powered: the pull turns the path but cannot change the
 // speed about the planet (a hyperbola's v_inf is the same in and out), so
@@ -1016,7 +1033,9 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     let leg;
     if (P.kind === 'craft' && k === 1) leg = solveCraftLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs });
     else {
-      const prev = legs[k - 2], vinfIn = P.kind === 'flyby' && prev?.ok && prev.vinfArr ? norm(prev.vinfArr) : null;
+      // (At a flyby, the excess speed about the body flown by: about a moon
+      // reached via its planet, the moon's.)
+      const prev = legs[k - 2], vin = P.kind === 'flyby' ? excessIn(prev) : null, vinfIn = vin ? norm(vin) : null;
       leg = solveLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs, branch: w.branch, maxRevs, vinfIn, resonance: w.resonance ?? null });
     }
     if ((leg.geometry === 'local' || leg.resonance) && leg.ok) {
@@ -1033,8 +1052,8 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     const leg = legs[k - 1];
     if (!leg.ok || !leg.resonance) continue;
     const P = S[k - 1], Q = S[k], w = journey.waypoints[k - 1];
-    const vinIn = P.kind === 'flyby' && legs[k - 2]?.ok ? legs[k - 2].vinfArr : null;
-    const vOut = Q.kind === 'flyby' && legs[k]?.ok ? legs[k].vinfDep : null;
+    const vinIn = P.kind === 'flyby' ? excessIn(legs[k - 2]) : null;
+    const vOut = Q.kind === 'flyby' ? excessOut(legs[k]) : null;
     const mag = vinIn ? norm(vinIn) : vOut ? norm(vOut) : leg.resonance.vinf;
     const B = bodyInfo(P.body), rpMin = B.radius + ((P.kind === 'flyby' ? P.altKm : Q.altKm) ?? 300);
     const at = (phi) => solveLeg(P, Q, P.depMs, Q.arrMs, { resonance: [leg.resonance.N, leg.resonance.M], vinfIn: mag, resonantPhi: phi });
@@ -1056,7 +1075,13 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
   for (let k = 1; k < S.length; k++) {
     const leg = legs[k - 1], w = journey.waypoints[k - 1], P = S[k - 1];
     const pw = k > 1 ? journey.waypoints[k - 2] : null;
-    const from = P.kind === 'flyby' && pw?.aim && legs[k - 2]?.ok && legs[k - 2].vinfArr ? { vinfIn: legs[k - 2].vinfArr, aim: pw.aim } : null;
+    // (A leg that stays in a moon's planet's system leaves the moon with its
+    // own excess about it, so the flyby aimed there turns the excess about
+    // the moon, excessIn. One that leaves the moon via its planet would need
+    // the excess about the planet the turned one gives, not worked out
+    // here: it turns the planet's, as before.)
+    const vinA = leg.moonDep ? legs[k - 2]?.ok && legs[k - 2].vinfArr : excessIn(legs[k - 2]);
+    const from = P.kind === 'flyby' && pw?.aim && vinA ? { vinfIn: vinA, aim: pw.aim } : null;
     if (leg.ok && leg.geometry !== 'local' && leg.geometry !== 'craft' && (from || w.nodes?.length)) {
       const sh = shapeLeg(leg, S[k], w.nodes ?? [], from);
       legs[k - 1] = sh.leg;
@@ -1077,24 +1102,29 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     L.plane = planeSummary(ctx, p);
     L.depDv += p.extra;
   }
-  // Flybys: the turn between the legs either side.
+  // Flybys: the turn between the legs either side, of the excess
+  // velocities about the body flown by (excessIn, excessOut: about a moon
+  // reached or left via its planet, the moon's, as the flight aims it).
+  // about: the body the gain changes the orbit about, the Sun for a
+  // planet, the planet for its moon.
   for (let k = 1; k < S.length; k++) {
     const Q = S[k];
     if (Q.kind !== 'flyby') continue;
     const inLeg = legs[k - 1], outLeg = legs[k];
-    const B = bodyInfo(Q.body), rpMin = B.radius + (Q.altKm ?? 300);
-    if (!inLeg.ok || !inLeg.vinfArr) continue;
-    if (aimed[k - 1]) flybys[k - 1] = { ...aimed[k - 1], body: Q.body, ms: Q.arrMs, vinf: norm(inLeg.vinfArr) };
-    else if (outLeg && outLeg.ok && outLeg.vinfDep) {
-      const f = X.poweredFlyby({ vinfIn: inLeg.vinfArr, vinfOut: outLeg.vinfDep, mu: B.mu, rpMin });
-      flybys[k - 1] = { ...f, body: Q.body, ms: Q.arrMs, vinf: norm(inLeg.vinfArr), vinfOut: norm(outLeg.vinfDep) };
+    const B = bodyInfo(Q.body), rpMin = B.radius + (Q.altKm ?? 300), about = B.parent ?? 'sun';
+    const vin = excessIn(inLeg), vout = excessOut(outLeg);
+    if (!vin) continue;
+    if (aimed[k - 1]) flybys[k - 1] = { ...aimed[k - 1], body: Q.body, about, ms: Q.arrMs, vinf: norm(vin) };
+    else if (vout) {
+      const f = X.poweredFlyby({ vinfIn: vin, vinfOut: vout, mu: B.mu, rpMin });
+      flybys[k - 1] = { ...f, body: Q.body, about, ms: Q.arrMs, vinf: norm(vin), vinfOut: norm(vout) };
     } else {
       // The last stop, or a flyby before a free leg: unpowered at the
       // given altitude, the turn about the ecliptic-most axis.
-      const n = unit(sub(Z, scale(unit(inLeg.vinfArr), dot(Z, unit(inLeg.vinfArr)))));
-      const f = X.flyby({ vinfIn: inLeg.vinfArr, mu: B.mu, rp: rpMin, normal: n });
-      const b = X.bPlane(inLeg.vinfArr, f.vinfOut, rpMin, B.mu);
-      flybys[k - 1] = { delta: f.delta, rp: rpMin, dv: 0, periapsisDv: 0, steerDv: 0, gain: f.gain, bT: b.bT, bR: b.bR, aim: f.aim, body: Q.body, ms: Q.arrMs, vinf: norm(inLeg.vinfArr), unpoweredOnly: true };
+      const n = unit(sub(Z, scale(unit(vin), dot(Z, unit(vin)))));
+      const f = X.flyby({ vinfIn: vin, mu: B.mu, rp: rpMin, normal: n });
+      const b = X.bPlane(vin, f.vinfOut, rpMin, B.mu);
+      flybys[k - 1] = { delta: f.delta, rp: rpMin, dv: 0, periapsisDv: 0, steerDv: 0, gain: f.gain, bT: b.bT, bR: b.bR, aim: f.aim, body: Q.body, about, ms: Q.arrMs, vinf: norm(vin), unpoweredOnly: true };
     }
   }
   // The burns, in order.
@@ -1118,7 +1148,7 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
   for (const leg of legs) {
     if (!leg.ok) continue;
     const Q = S[leg.index + 1], fb = flybys[leg.index], B = bodyInfo(Q.body);
-    if (fb) credits.push({ ms: fb.ms, body: Q.body, kind: 'assist', dv: 0, helioDv: fb.gain, creditDv: Math.max(0, fb.gain - fb.dv), label: `Gravity assist at ${B.name}`, leg: leg.index, note: assistNote(fb) });
+    if (fb) credits.push({ ms: fb.ms, body: Q.body, kind: 'assist', dv: 0, gainDv: fb.gain, about: fb.about, creditDv: Math.max(0, fb.gain - fb.dv), label: `Gravity assist at ${B.name}`, leg: leg.index, note: assistNote(fb) });
     if (Q.kind === 'land' && B.atmosphere) credits.push({ ms: leg.arrMs, body: Q.body, kind: 'entry', dv: 0, label: `Land on ${B.name}`, leg: leg.index, note: entryNote(leg, Q, B) });
   }
   const totalDv = burns.reduce((a, b) => a + b.dv, 0);
@@ -1335,8 +1365,10 @@ export function legOptions(journey, k, { search = true } = {}) {
   // inbound excess velocity onto its own (poweredFlyby), so its options
   // are compared with that included.
   const inbound = k > 0 ? sol.legs[k - 1] : null, PB = bodyInfo(P.body);
-  const joinIn = (L) => (P.kind === 'flyby' && inbound?.ok && inbound.vinfArr && L.vinfDep
-    ? X.poweredFlyby({ vinfIn: inbound.vinfArr, vinfOut: L.vinfDep, mu: PB.mu, rpMin: PB.radius + (P.altKm ?? 300) }).dv : 0);
+  // (About the body flown by: excessIn, excessOut.)
+  const vInbound = P.kind === 'flyby' ? excessIn(inbound) : null;
+  const joinIn = (L) => (vInbound && excessOut(L)
+    ? X.poweredFlyby({ vinfIn: vInbound, vinfOut: excessOut(L), mu: PB.mu, rpMin: PB.radius + (P.altKm ?? 300) }).dv : 0);
   // Leaving a planet's orbit after a long stay, the parking orbit's plane
   // as that day would have it (planePricer); the leg as scheduled has it
   // already.
@@ -1348,7 +1380,7 @@ export function legOptions(journey, k, { search = true } = {}) {
   // and the planner's own choice is listed as 'lambert' (choosing it hands
   // the leg back to the planner), so a choice by hand can always be undone.
   const ms = (x) => `${(x * 1000).toFixed(0)} m/s`;
-  const vinIn = inbound?.ok && inbound.vinfArr && P.kind === 'flyby' ? norm(inbound.vinfArr) : null;
+  const vinIn = vInbound ? norm(vInbound) : null;
   // (From a craft's own state, from where it is.)
   const legVia = (via) => (P.kind === 'craft' && k === 0 ? solveCraftLeg(P, Q, asIs.depMs, asIs.arrMs, { via }) : solveLeg(P, Q, asIs.depMs, asIs.arrMs, { via, vinfIn: vinIn }));
   const byHand = ['direct', 'brokenplane', 'deepspace'].includes(journey.waypoints[k]?.via) ? journey.waypoints[k].via : null;
@@ -1399,7 +1431,7 @@ export function legOptions(journey, k, { search = true } = {}) {
   if (g.resonant) {
     // Each resonant ratio open to the flyby's excess speed, costed by the
     // flybys it needs either side (the journey solved with that ratio).
-    const vin = inbound?.ok && inbound.vinfArr ? norm(inbound.vinfArr) : null;
+    const vi = excessIn(inbound), vin = vi ? norm(vi) : null;
     const fbCost = (s2) => (s2.flybys[k - 1]?.dv ?? 0) + (s2.flybys[k]?.dv ?? 0);
     for (const r of resonances(P.body, P.depMs, vin).slice(0, 8)) {
       const j2 = { ...journey, waypoints: journey.waypoints.map((x, i) => (i === k ? { ...x, resonance: [r.N, r.M] } : x)) };
@@ -1502,7 +1534,7 @@ export function phaseOption(journey, k, { sol = null, legDv = null } = {}) {
   return { ...o, type: 'phase', name: `Best phase of the ${name === 'Moon' ? 'Moon' : name}`, depDv: L.ok ? L.depDv : null, moonAngleDeg: L.moonDep?.angleDeg ?? null,
     note: `leave ${d === 0 ? 'as planned' : d > 0 ? `${d} d later` : `${-d} d earlier`}: ${name}'s velocity ${L.moonDep ? L.moonDep.angleDeg.toFixed(0) : '?'}° off the way out` };
 }
-const assistOption = (fb, Q) => ({ type: 'assist', name: `Gravity assist at ${bodyInfo(Q.body).name}`, selectable: false, dv: fb.dv, gain: fb.gain, delta: fb.delta, rp: fb.rp, bT: fb.bT, bR: fb.bR, tooTight: fb.tooTight, vinf: fb.vinf });
+const assistOption = (fb, Q) => ({ type: 'assist', name: `Gravity assist at ${bodyInfo(Q.body).name}`, selectable: false, dv: fb.dv, gain: fb.gain, delta: fb.delta, rp: fb.rp, bT: fb.bT, bR: fb.bR, tooTight: fb.tooTight, vinf: fb.vinf, about: fb.about });
 
 // A grid of departure (span days from the earliest; none if fixed) by
 // flight time (tMin to tMax days), then Nelder-Mead from the best cell.
@@ -1600,7 +1632,10 @@ export function journeyPath(sol, perArc = 160) {
   }
   sol.flybys.forEach((f, k) => {
     if (!f) return;
-    const leg = sol.legs[k], inV = leg?.vinfArr;
+    // (The axes of the excess the flyby turns, as its B·T and B·R are:
+    // about a moon, the moon's, unless the next leg leaves it via its
+    // planet, where an aim by hand still turns the planet's: shapeLeg.)
+    const leg = sol.legs[k], inV = sol.legs[k + 1]?.moonDep ? leg?.vinfArr : excessIn(leg);
     if (!inV) return;
     const ax = X.bPlaneAxes(inV);
     marks.push({ central: leg.central, at: at(leg.endB ?? f.body, leg.central, f.ms), ms: f.ms, label: `Aim at ${bodyInfo(f.body).name}`, dv: f.dv, kind: 'aim', id: `aim:${k}`, frame: { T: ax.T, R: ax.R, N: ax.S }, b: [f.bT, f.bR] });
