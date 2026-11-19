@@ -34,6 +34,8 @@ In motion (each clip is from the app as it runs, rebuilt by `npm run docs:clips`
 
 New to the terms? The [glossary](docs/glossary.md) explains them, and [How it fits together](docs/architecture.md) maps the code.
 
+**Try it in a browser, nothing to install: [zyzzbarth333.github.io/digital-orrery](https://zyzzbarth333.github.io/digital-orrery/)** (on a phone too).
+
 ## What it does
 
 - **The sky:**

@@ -3,11 +3,12 @@ name: Pages
 # Builds the app with its pinned data and deploys it to GitHub Pages, at
 # https://zyzzbarth333.github.io/digital-orrery/ (ADR-0001, phase B).
 #
-# Run by hand for now (Actions, Pages, Run workflow). Pages must first be
-# turned on in the repository's settings, with GitHub Actions as its source;
-# once a deploy has worked, add `push: branches: [main]` below.
+# Deploys on every merge to main, and by hand (Actions, Pages, Run workflow).
+# Pages is on in the repository's settings, with GitHub Actions as its source.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
