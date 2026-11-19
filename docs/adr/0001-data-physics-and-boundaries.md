@@ -1,6 +1,6 @@
 # ADR-0001: A hosted site, data out of git, and tidier boundaries
 
-**Status:** Proposed
+**Status:** Accepted (19 Nov 2026)
 **Date:** 19 Nov 2026
 **Deciders:** Isaac Ziebarth
 **Reviewed:** an independent design review, and a fact check of every hosting and packaging limit against the vendors' own documentation (19 Nov 2026)
