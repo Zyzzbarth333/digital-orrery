@@ -14,15 +14,21 @@
 // Where the GPU takes a format the Basis transcoder makes, maps with a KTX2
 // copy (manifest.ktx2) load that instead (ktx2.ts): already compressed, a
 // quarter of the video memory, uploaded the same way. The WebP is the
-// fallback, per map.
+// fallback, per map. A KTX2 map wider than 2048 px shows its 2048-wide
+// levels first, from the first few per cent of the file.
+//
+// Downloads go through the load queue (src/browser/loadQueue.ts): previews
+// first, then the full maps one at a time, the focused body's first.
 
 import * as THREE from 'three';
 import type { BodyKey } from './catalogue';
 import { applySurfaceMaps } from './bodyMaterial';
 import type { DecodeReply, DecodeRequest } from './decode.worker';
 import type { SkyDetailEntry } from './skyDetail';
-import { blockRowBytes, initKtx2, ktx2Ready, loadKtx2, type CompressedLevels } from './ktx2';
+import { blockRowBytes, initKtx2, ktx2Ready, loadKtx2, loadKtx2Staged, type CompressedLevels, type MapLoad } from './ktx2';
+import { BODY_BY_KEY } from './catalogue';
 import { getBuffer, getJson } from '../browser/fetchData.js';
+import { queued, type Lane } from '../browser/loadQueue.js';
 
 export interface SurfaceEntry {
   day?: string;                 // path under textures/
@@ -95,6 +101,9 @@ export class TextureUploader {
     this.gl = renderer.getContext() as WebGL2RenderingContext;
     this.aniso = renderer.capabilities.getMaxAnisotropy();
     initKtx2(renderer);
+    // The decode worker's script now, not with the first map: on a busy
+    // link it took 3 s to arrive, and the sky's preview waited for it.
+    startDecoder();
   }
   get pending(): number { return this.queue.length; }
 
@@ -201,23 +210,37 @@ export class TextureUploader {
 // relief maps are data); the bitmap is transferred back.
 let decoder: Worker | null = null;
 let nextId = 1;
-const waiting = new Map<number, { resolve: (r: { bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] }) => void; reject: (e: Error) => void }>();
+const waiting = new Map<number, { resolve: (r: { bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] }) => void; reject: (e: Error) => void; fetched?: () => void }>();
 
-export function decodeImage(url: string, opts: { premultiply: boolean; brightLuminance?: boolean; maxSize?: number; under?: string[]; masks?: DecodeRequest['masks'] }): Promise<{ bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] }> {
-  if (!decoder) {
-    decoder = new Worker(new URL('./decode.worker.ts', import.meta.url), { type: 'module' });
-    decoder.onmessage = (e: MessageEvent<DecodeReply>) => {
-      const w = waiting.get(e.data.id);
-      if (!w) return;
-      waiting.delete(e.data.id);
-      if ('error' in e.data) w.reject(new Error(e.data.error));
-      else w.resolve({ bitmap: e.data.bitmap, whiteLuminance: e.data.whiteLuminance, shares: e.data.shares });
-    };
-  }
+type Decoded = { bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] };
+type DecodeOpts = { premultiply: boolean; brightLuminance?: boolean; maxSize?: number; under?: string[]; masks?: DecodeRequest['masks'] };
+
+// load: its place in the load queue (src/browser/loadQueue.ts), held until
+// the worker has the files.
+export function decodeImage(url: string, opts: DecodeOpts, load?: { label: string; lane: Lane; rank?: number; tag?: string }): Promise<Decoded> {
+  if (load) return queued(load, (h) => decodeNow(url, opts, h.done));
+  return decodeNow(url, opts);
+}
+
+function startDecoder(): void {
+  if (decoder || typeof Worker !== 'function') return;
+  decoder = new Worker(new URL('./decode.worker.ts', import.meta.url), { type: 'module' });
+  decoder.onmessage = (e: MessageEvent<DecodeReply>) => {
+    const w = waiting.get(e.data.id);
+    if (!w) return;
+    if ('fetched' in e.data) { w.fetched?.(); return; }
+    waiting.delete(e.data.id);
+    if ('error' in e.data) w.reject(new Error(e.data.error));
+    else w.resolve({ bitmap: e.data.bitmap, whiteLuminance: e.data.whiteLuminance, shares: e.data.shares });
+  };
+}
+
+function decodeNow(url: string, opts: DecodeOpts, fetched?: () => void): Promise<Decoded> {
+  startDecoder();
   const id = nextId++;
   const abs = new URL(url, location.href).href;
   return new Promise((resolve, reject) => {
-    waiting.set(id, { resolve, reject });
+    waiting.set(id, { resolve, reject, fetched });
     decoder!.postMessage({ id, url: abs, ...opts, under: opts.under?.map((u) => new URL(u, location.href).href) } satisfies DecodeRequest);
   });
 }
@@ -227,10 +250,17 @@ export function decodeImage(url: string, opts: { premultiply: boolean; brightLum
 // changes). Browsers without createImageBitmap use a TextureLoader.
 // ktx2: the map's KTX2 copy, tried first where the GPU takes it; on any
 // failure the WebP loads instead.
-export async function loadTexture(url: string, colour: boolean, uploader: TextureUploader, ktx2?: string): Promise<THREE.Texture> {
+// load: where its downloads go in the load queue (a WebP is one bulk job
+// unless the lane says otherwise). onPreview: for a KTX2 map wider than
+// 2048 px, a texture of its 2048-wide levels first (userData.preview).
+export type MapQueue = MapLoad & { lane?: Lane };
+export async function loadTexture(url: string, colour: boolean, uploader: TextureUploader, ktx2?: string, load?: MapQueue, onPreview?: (t: THREE.Texture) => void): Promise<THREE.Texture> {
   if (ktx2 && ktx2Ready()) {
     try {
-      return await uploader.uploadCompressed(await loadKtx2(ktx2, colour), colour);
+      const preview = onPreview && ((levels: CompressedLevels) => void uploader.uploadCompressed(levels, colour)
+        .then((t) => { t.userData.preview = true; onPreview(t); }, () => {}));
+      const levels = load ? await loadKtx2Staged(ktx2, colour, load, preview) : await loadKtx2(ktx2, colour);
+      return await uploader.uploadCompressed(levels, colour);
     } catch (e) {
       if ((e as Error).message === 'WebGL context lost') throw e;
       console.warn(`KTX2 map failed, loading the WebP: ${(e as Error).message}`);
@@ -242,66 +272,106 @@ export async function loadTexture(url: string, colour: boolean, uploader: Textur
     t.wrapS = THREE.RepeatWrapping;
     return t;
   }
-  const { bitmap } = await decodeImage(url, { premultiply: true, maxSize: uploader.maxSize });
+  const { bitmap } = await decodeImage(url, { premultiply: true, maxSize: uploader.maxSize }, load && { ...load, lane: load.lane ?? 'bulk' });
   return uploader.upload(bitmap, colour);
 }
 
+// What each kind of map is called on the console's load lamp.
+const KIND = { day: 'surface', normal: 'relief', night: 'night side' } as const;
+// Their order among a body's full-size downloads: the day map first.
+const ORDER = { day: 0, night: 1, normal: 2 } as const;
+
 export class SurfaceLoader {
   private cache = new Map<string, Promise<THREE.Texture>>();
+  private previews = new Map<string, THREE.Texture>();   // shown until the full map is up
   private month = new Map<BodyKey, number>();
   private monthPath = new Map<BodyKey, string>();
 
   constructor(private uploader: TextureUploader) {}
 
-  load(path: string, colour: boolean): Promise<THREE.Texture> {
+  // A map, once. load: its place in the load queue; onPreview: its
+  // preview, if it has one and it is up before the full map.
+  load(path: string, colour: boolean, load?: MapQueue, onPreview?: (t: THREE.Texture) => void): Promise<THREE.Texture> {
     let p = this.cache.get(path);
     if (!p) {
       const k = ktx2Paths[path];
-      p = loadTexture(BASE + path, colour, this.uploader, k && BASE + k);
+      let full = false;
+      const q: Promise<THREE.Texture> = loadTexture(BASE + path, colour, this.uploader, k && BASE + k, load, (t) => {
+        if (full || this.cache.get(path) !== q) { t.dispose(); return; }
+        this.previews.set(path, t);
+        onPreview?.(t);
+      }).then((t) => { full = true; return t; });
+      p = q;
       this.cache.set(path, p);
     }
     return p;
   }
 
   // After a lost context: every map has to be loaded again.
-  reset(): void { this.cache.clear(); this.month.clear(); this.monthPath.clear(); this.uploader.clear(); }
+  reset(): void { this.cache.clear(); this.previews.clear(); this.month.clear(); this.monthPath.clear(); this.uploader.clear(); }
 
   // Free a map no longer shown (Earth's previous month: 78 MB each; the
   // sky's preview once the full map is up).
   drop(path: string): void {
+    this.dropPreview(path);
     const p = this.cache.get(path);
     if (!p) return;
     this.cache.delete(path);
     void p.then((t) => t.dispose());
   }
 
+  // Free a map's preview once the full map is in its place.
+  private dropPreview(path: string): void {
+    const t = this.previews.get(path);
+    if (!t) return;
+    this.previews.delete(path);
+    t.dispose();
+  }
+
+  // A body's maps, all asked for at once (each through the load queue,
+  // tagged with the body so they go first while it is the focus); each
+  // shows its preview, then the full map.
   async apply(key: BodyKey, entry: SurfaceEntry, material: THREE.ShaderMaterial, date: Date): Promise<void> {
-    const [normal, night] = await Promise.all([
-      entry.normal ? this.load(entry.normal, false) : undefined,
-      entry.night ? this.load(entry.night, true) : undefined,
+    const name = BODY_BY_KEY[key]?.name ?? key;
+    const one = async (kind: 'normal' | 'night', path: string, colour: boolean) => {
+      const t = await this.load(path, colour, { label: `${name} ${KIND[kind]}`, tag: key, order: ORDER[kind] }, (pre) => applySurfaceMaps(material, { [kind]: pre }));
+      applySurfaceMaps(material, { [kind]: t });
+      this.dropPreview(path);
+    };
+    await Promise.all([
+      entry.normal ? one('normal', entry.normal, false) : undefined,
+      entry.night ? one('night', entry.night, true) : undefined,
+      this.updateDay(key, entry, material, date),
     ]);
-    applySurfaceMaps(material, { normal, night });
-    await this.updateDay(key, entry, material, date);
   }
 
   // Load the day map (for Earth, the month's) if it is not the one in use.
   async updateDay(key: BodyKey, entry: SurfaceEntry, material: THREE.ShaderMaterial, date: Date): Promise<void> {
+    const load = { label: `${BODY_BY_KEY[key]?.name ?? key} ${KIND.day}`, tag: key, order: ORDER.day };
     if (entry.dayMonthly) {
       const m = date.getUTCMonth();
       if (this.month.get(key) === m) return;
       this.month.set(key, m);
       const path = entry.dayMonthly[m];
-      const day = await this.load(path, true);
+      const maps = (day: THREE.Texture) => ({ day, dayMeanLuminance: entry.dayMeanLuminance, dayWhiteLuminance: entry.dayWhiteLuminance });
+      // A preview only while no month is shown: a new month's preview would
+      // be coarser than the last month's full map.
+      const day = await this.load(path, true, load, (pre) => { if (this.month.get(key) === m && !this.monthPath.has(key)) applySurfaceMaps(material, maps(pre)); });
       // A month that arrives after the sim has moved on is freed at once
       // (78 MB each), unless it is the one on show.
       if (this.month.get(key) !== m) { if (this.monthPath.get(key) !== path) this.drop(path); return; }
-      applySurfaceMaps(material, { day, dayMeanLuminance: entry.dayMeanLuminance, dayWhiteLuminance: entry.dayWhiteLuminance });
+      applySurfaceMaps(material, maps(day));
+      this.dropPreview(path);
       const old = this.monthPath.get(key);
       this.monthPath.set(key, path);
       if (old && old !== path) this.drop(old);
     } else if (entry.day && !this.month.has(key)) {
       this.month.set(key, -1);
-      applySurfaceMaps(material, { day: await this.load(entry.day, true), dayMeanLuminance: entry.dayMeanLuminance, tint: entry.tint });
+      const path = entry.day;
+      const maps = (day: THREE.Texture) => ({ day, dayMeanLuminance: entry.dayMeanLuminance, tint: entry.tint });
+      const day = await this.load(path, true, load, (pre) => applySurfaceMaps(material, maps(pre)));
+      applySurfaceMaps(material, maps(day));
+      this.dropPreview(path);
     }
   }
 }
