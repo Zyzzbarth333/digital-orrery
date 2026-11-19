@@ -13,7 +13,7 @@ import { useJourney, ledgerLines, type JourneyStore } from './journey';
 import type { Remedy, RemedyOption } from './journey.worker';
 import { useStack } from './plot-stack';
 import { assess } from '@digital-orrery/physics/feasibility.js';
-import { bodyInfo, type Journey } from '@digital-orrery/physics/journey.js';
+import { assistFrame, bodyInfo, type Journey } from '@digital-orrery/physics/journey.js';
 import { flightVerdict } from '@digital-orrery/physics/remedies.js';
 
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -65,7 +65,8 @@ export function GoStation({ store, clock, mission, onFlown }: { store: JourneySt
   // What each flyby gives (credited, not spent) and what a powered one pays.
   // A row with nothing to report stays dark (N/A): green is never lit for
   // nothing (DESIGN.md, What real panels do).
-  const gives = sol.flybys.filter(Boolean).map((f) => `${bodyInfo(f!.body).name} +${fmt(f!.gain, 2)} km/s heliocentric ${f!.dv > 0 ? `for ${fmt(f!.dv * 1000, 0)} m/s (credit ${fmt(Math.max(0, f!.gain - f!.dv), 2)})` : 'free'}`).join(' · ');
+  // (A planet's change is heliocentric; a moon's, about its planet.)
+  const gives = sol.flybys.filter(Boolean).map((f) => `${bodyInfo(f!.body).name} +${fmt(f!.gain, 2)} km/s ${assistFrame(f!.about)} ${f!.dv > 0 ? `for ${fmt(f!.dv * 1000, 0)} m/s (credit ${fmt(Math.max(0, f!.gain - f!.dv), 2)})` : 'free'}`).join(' · ');
   const powered = sol.flybys.some((f) => f && f.dv > 0) ? 'A powered pass pays only for the speed the pull cannot change, at periapsis, and any turn the lowest pass cannot give.' : undefined;
   rows.push(fb.some((l) => l.level === 'warn') ? { key: 'Flybys', state: 'nogo', text: fb.map((l) => l.text).join('; '), remedy: pick('flybys') }
     : sol.flybys.some(Boolean) ? { key: 'Flybys', state: 'go', text: `${fb.length ? fb.map((l) => l.text).join('; ') : 'Every pass above its floor'} · ${gives}`, fix: powered }

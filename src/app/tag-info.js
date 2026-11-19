@@ -731,10 +731,10 @@ export const TAG_INFO = {
     source: 'Tremaine, Touma & Namouni 2009, AJ 137, 3706, eq. 16 · Jackson, Classical Electrodynamics, 3rd ed., §3.6 · GRAIL GL0660B (Konopliv et al. 2013) · docs/physics/journey.md#a-low-orbit-at-the-moon',
   },
   'flyby-credit': {
-    what: 'What a flyby gives: the change in the craft\'s heliocentric velocity, credited, not spent. The pull turns the excess velocity but leaves its size as it was, and the planet\'s own velocity cancels, so the change is the excess velocity out less in; a burn giving the same change would cost that much. A powered flyby pays only for the difference in speed (at periapsis) and any turn the lowest pass cannot give.',
-    tex: ['\Delta \mathbf v_\odot = \mathbf v_{\infty,\text{out}} - \mathbf v_{\infty,\text{in}},\quad |\Delta \mathbf v_\odot| = 2 v_\infty \sin\frac{\delta}{2}\ \text{(unpowered)}', '\text{credit} = |\Delta \mathbf v_\odot| - \Delta v_\text{burn}'],
-    where: 'δ: the turn; the credit is set beside the total, not taken off it',
-    source: 'Curtis, 4th ed., §8.9 (Example 8.6) · docs/physics/journey.md',
+    what: 'What a flyby gives: the change in the craft\'s velocity, credited, not spent. The pull turns the excess velocity about the body flown by but leaves its size as it was, and the body\'s own velocity cancels, so the change is the excess velocity out less in; a burn giving the same change would cost that much. A planet\'s flyby changes the craft\'s orbit about the Sun (heliocentric); a moon\'s, its orbit about the planet, and the excess velocity it turns is the one about the moon, not the planet\'s. A powered flyby pays only for the difference in speed (at periapsis) and any turn the lowest pass cannot give.',
+    tex: ['\\Delta \\mathbf v = \\mathbf v_{\\infty,\\text{out}} - \\mathbf v_{\\infty,\\text{in}},\\quad |\\Delta \\mathbf v| = 2 v_\\infty \\sin\\frac{\\delta}{2}\\ \\text{(unpowered)}', '\\text{credit} = |\\Delta \\mathbf v| - \\Delta v_\\text{burn}'],
+    where: 'v∞: the excess velocity about the body flown by (about a moon reached via its planet, the moon\'s, three-level patched conics); δ: the turn; the credit is set beside the total, not taken off it',
+    source: 'Curtis, 4th ed., §8.9 (Example 8.6) · docs/physics/journey.md#chaining-legs-and-the-gravity-assist',
   },
   landing: {
     what: 'How a landing is paid for. Airless (the Moon, Mercury, most moons): capture into the orbit before, then a powered descent of that orbit\'s circular speed, ideal. Through an atmosphere (Venus, Earth, Mars, Titan): entry and parachutes, no propulsive delta-v. Lifting off costs the orbit\'s circular speed again.',
