@@ -28,6 +28,7 @@ Done items stay ticked so the history reads in one place. When an item is taken,
 - [ ] Aim the Moon with a bending model in the Earth–Moon problem rather than at the B-plane point, to cut its 12 + 11 m/s of aims and 14 + 4 m/s of trims; and let a departure from a moon via its planet use the far-field aim too ([journeys](physics/journey.md)).
 - [ ] Name a leg's transfer on its tag (deep-space burn, broken plane), not LAMBERT for every leg.
 - [ ] Show one lamp when leaving a moon: the window and phase lamps now say the same thing.
+- [ ] The ROCKET tab's "Falcon 9 Block 5 (expendable)" preset asks for a 28.5° orbit from Kennedy at 28.6°, so it can't be flown as it comes.
 - [ ] The ROCKET tab and STACK on one pad latitude: STACK sizes for 28.5° and the tab flies from Kennedy's 28.627°, so an exactly sized stack reads 0.001 km/s short.
 - [ ] Size STACK's climb from a flown ascent, not a flat 1.5 km/s allowance, which runs low for stacks whose second stage climbs from about 1.5 km/s.
 - [ ] Check the bare-model fallback live: only its trouble rules are unit-tested.
@@ -38,7 +39,11 @@ Done items stay ticked so the history reads in one place. When an item is taken,
 
 - [ ] Jupiter's main ring from measured New Horizons LORRI profiles, in place of the fitted shape (in progress) ([rings](frontend/rings.md#what-is-measured-and-what-is-modelled)).
 - [ ] Jupiter's dust phase curve fitted to published data points; Uranus's dust lanes as Voyager saw them in forward scatter; Neptune's arcs after 2016 from JWST images ([rings](frontend/rings.md)).
-- [ ] The rings' shadows on Jupiter, Uranus and Neptune, and the moons' shadows on the rings ([rings](frontend/rings.md)).
+- [ ] The rings' shadows on Jupiter, Uranus and Neptune. The moons' shadows on the rings, and the rings' on the moons, are in (#176) ([rings](frontend/rings.md)).
+- [ ] An eclipse and transit finder: the next events, to jump to ([lighting](frontend/lighting.md)).
+- [ ] A telescope view (a narrow field of view), without which transits and occultations stay below a pixel.
+- [ ] Stratospheric aerosol (GloSSAC) for the Danjon darkening of lunar eclipses; it needs a download.
+- [ ] Real models of the spacecraft beyond Earth orbit and the real missions' other craft (in progress).
 - [ ] Light the ground with the sky's own light, from the multiple-scattering table, so the land near the terminator takes the sky's blue ([atmospheres](frontend/atmospheres.md)).
 - [ ] Mars's and Titan's skies, reusing the Earth's view table once their parameters have primary sources ([atmospheres](frontend/atmospheres.md)).
 - [ ] The irregular moons' tables beyond 2000–2049: the kernels cover about 1750–2200, at about 0.5 MB a year ([moons](frontend/moons.md)).
@@ -70,10 +75,19 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 - [x] The MISSION tab after a launch folds to a short panel, its sections saying what they hold (#165).
 - [x] The rail's lower sections as groups that fold away, each saying what it has on (in the phone's sheet; beside the sky the rail scrolls as one).
 - [ ] Wrap or expand the plotting table's long lamps at phone width.
+- [ ] Keep a plate's Epoch on one line on a laptop (it wraps between the date and the time), and set negatives such as "Horizons ID -31" with a true minus, as the guide plate does.
+- [ ] Take the README's screenshots again since the typography pass (#178, #180) and the phone layout (#177).
 
 ## Performance and tooling
 
 - [ ] Faster journey tests: the Europa round trip (case 17) alone takes about 70 s.
+- [ ] From the code audit of 19 Nov 2026:
+  - one `src/physics/vec.js` for the `dot`, `cross` and `norm` copied into about 40 files (two of which use `norm` to mean normalise);
+  - one focus target in the scene in place of five fields cleared by hand in eight `focusOn*` methods;
+  - `Readout`, `Row` and `fmtGroup` in their own module, ending the import cycles between `panels.tsx` and two plates;
+  - tests for the `Mission` and `JourneyStore` stores (stale worker replies, a failed fetch);
+  - `// @ts-check` on the files that cross the worker boundary;
+  - one `getJson` for the six loaders that each check `r.ok` their own way.
 - [ ] Time the gravity field at twice the pixel density and in a 4K window, and skip bodies whose pull is below a stated tolerance ([performance](performance.md)).
 - [ ] Trim the compressed maps' downloads near a body, which roughly double (the Moon's 25 MB against 5.5) ([textures](frontend/textures.md)).
 - [ ] Let `npm run bench:frames` settle its zoom at twice the pixel density, where the Earth and belt scenes now drop every sample ([performance](performance.md)).
