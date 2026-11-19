@@ -8,7 +8,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, aimNode as aimNodeJs, ledgerLines as ledgerLinesJs, type Journey, type Waypoint } from '@digital-orrery/physics/journey.js';
-import type { FlightRequest, FlightReply, ProfilesReply, LegProfile } from './journey.worker';
+import type { FlightRequest, FlightReply, ProfilesReply, LegProfile, RemediesRequest, RemediesReply, Remedies } from './journey.worker';
 import { getJson } from '../browser/fetchData.js';
 
 type V3 = [number, number, number];
@@ -108,6 +108,9 @@ export class JourneyStore {
   // Replace the journey and solve it by patched conics.
   set(j: Journey): void {
     this.journey = j;
+    // (A journey made elsewhere, such as the GO board's options, may carry
+    // waypoint ids of its own: new ones start past them.)
+    nextId = Math.max(nextId, ...j.waypoints.map((w) => (w.id ?? 0) + 1));
     try { this.solution = solveJourney(j); } catch (err) { this.solution = { ...this.solution, ok: false, legs: [], burns: [], credits: [], creditDv: 0, error: String(err) } as JourneySolution; }
     if (this.kernel.state !== 'flying') this.kernel = { state: 'idle' };
     this.bump();
@@ -195,12 +198,18 @@ export class JourneyStore {
     if (this.profilesFor !== this.version && this.profilesAsked !== undefined && this.profilesAsked !== this.version) { this.profileWorker?.terminate(); this.profileWorker = null; }
     const onProfiles = (e: MessageEvent<FlightReply | ProfilesReply>): boolean => {
       if (!('type' in e.data) || e.data.type !== 'profiles') return false;
-      if (e.data.forVersion === this.version) { this.profiles = e.data.profiles; this.profilesFor = e.data.forVersion; this.notify(); }
+      if (e.data.forVersion === this.version) { this.profiles = e.data.profiles; this.profilesFor = e.data.forVersion; this.notify(); this.askRemedies(); }
       return true;
     };
     if (!this.profileWorker) {
       this.profileWorker = new Worker(new URL('./journey.worker.ts', import.meta.url), { type: 'module' });
-      this.profileWorker.onmessage = (e: MessageEvent<FlightReply | ProfilesReply>) => { onProfiles(e); };
+      this.profileWorker.onmessage = (e: MessageEvent<FlightReply | ProfilesReply | RemediesReply>) => {
+        if ('type' in e.data && e.data.type === 'remedies') {
+          if (e.data.key === this.remediesKeyNow()) { this.remedies = e.data.remedies; this.remediesKey = e.data.key; this.notify(); }
+          return;
+        }
+        onProfiles(e as MessageEvent<FlightReply | ProfilesReply>);
+      };
     }
     if (!this.worker) {
       this.worker = new Worker(new URL('./journey.worker.ts', import.meta.url), { type: 'module' });
@@ -210,6 +219,7 @@ export class JourneyStore {
         const r = e.data as FlightReply;
         this.kernel = r.error ? { state: 'failed', error: r.error, forVersion: r.forVersion } : { state: 'done', reply: r, forVersion: r.forVersion };
         this.notify();
+        this.askRemedies();
       };
       this.worker.onerror = (e) => { this.kernel = { state: 'failed', error: e.message, forVersion: this.kernelFor }; this.notify(); };
     }
@@ -243,7 +253,31 @@ export class JourneyStore {
   autoPlan: string | null = null;
   // The ship's delta-v budget from the parking orbit on (km/s), for the lamps.
   budget = 8;
-  setBudget(b: number): void { this.budget = b; this.notify(); }
+  setBudget(b: number): void { this.budget = b; this.notify(); this.askRemedies(); }
+
+  // What to change where the GO board reads NO GO (remedies.js), worked out
+  // in the profiles' worker once the profiles and the kernel's flight are
+  // in for this version (about a second and a half for a moon of Jupiter:
+  // each option is the journey solved again). Asked again when the budget
+  // changes. The key names the state they were worked out for.
+  remedies: Remedies | null = null;
+  private remediesKey = '';
+  private remediesAsked = '';
+  private remediesKeyNow(): string | null {
+    const k = this.kernel;
+    if (this.profilesFor !== this.version || (k.state !== 'done' && k.state !== 'failed') || k.forVersion !== this.version) return null;
+    return `${this.version}|${this.budget}|${k.state}`;
+  }
+  // The options for the journey as it stands, or null while they are being
+  // worked out (or there is nothing to work them out from).
+  remediesNow(): Remedies | null { const key = this.remediesKeyNow(); return key && key === this.remediesKey ? this.remedies : null; }
+  private askRemedies(): void {
+    const key = this.remediesKeyNow();
+    if (!key || key === this.remediesAsked || !this.profileWorker) return;
+    this.remediesAsked = key;
+    const r = this.kernel.state === 'done' ? this.kernel.reply : null;
+    this.profileWorker.postMessage({ type: 'remedies', journey: this.journey, named: this.named, key, budget: this.budget, profiles: this.profiles, flight: r ? { impact: r.impact, arrivals: r.arrivals, correctionsDv: r.correctionsDv } : null } satisfies RemediesRequest);
+  }
 
   dispose(): void { this.worker?.terminate(); this.worker = null; this.profileWorker?.terminate(); this.profileWorker = null; }
 

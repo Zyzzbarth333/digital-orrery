@@ -8,7 +8,8 @@
 
 import { solveJourney, registerSmallBodies } from '@digital-orrery/physics/journey.js';
 import { planFlight, flyPlanned } from '@digital-orrery/physics/journeyFlight.js';
-import { legProfile } from '@digital-orrery/physics/feasibility.js';
+import { legProfile, assess } from '@digital-orrery/physics/feasibility.js';
+import { remedies } from '@digital-orrery/physics/remedies.js';
 import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
 import { KERNEL_EPOCH_MS } from '@digital-orrery/physics/kernelHost.js';
 import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
@@ -20,6 +21,14 @@ const ready = loadDeTable();
 let sys: ReturnType<typeof solarSystemBodies> | null = null;
 
 export interface FlightRequest { type?: 'flight' | 'profiles'; journey: Journey; named: unknown[]; forVersion: number }
+// What to change where the GO board reads NO GO (remedies.js), for the
+// journey, its profiles, the budget and the kernel's flight as they were
+// when asked; key names that state, so a stale answer is dropped.
+export interface RemediesRequest { type: 'remedies'; journey: Journey; named: unknown[]; key: string; budget: number; profiles: (LegProfile | null)[]; flight: Pick<FlightReply, 'impact' | 'arrivals' | 'correctionsDv'> | null }
+export interface RemedyOption { label: string; total: number; delta?: number; journey?: Journey; budget?: number }
+export interface Remedy { why: string | null; options: RemedyOption[] }
+export type Remedies = Record<'trajectory' | 'windows' | 'dv' | 'shaping' | 'orbits' | 'flybys' | 'launch', Remedy | null>;
+export interface RemediesReply { type: 'remedies'; key: string; remedies: Remedies | null }
 export interface ProfilePoint { ms: number; dv: number; tofDays: number }
 export interface LegProfile { k: number; fromMs: number; points: ProfilePoint[]; best: ProfilePoint | null; stepDays: number; phase: { ms: number; dv: number; tofDays: number; arrMs: number; angleDeg: number | null } | null;
   plane?: { ms: number; dv: number; tofDays: number; arrMs: number; angleDeg: number; aimed: boolean; waitDays: number; flight: { ms: number; waitDays: number; dv: number; angleDeg: number } } | null }
@@ -36,8 +45,21 @@ export interface FlightReply {
   model: 'full' | 'bare'; bareWhy: string | null; fullTrouble?: string[];
 }
 
-self.onmessage = async (e: MessageEvent<FlightRequest>) => {
+self.onmessage = async (e: MessageEvent<FlightRequest | RemediesRequest>) => {
   await ready;
+  if (e.data.type === 'remedies') {
+    const q = e.data;
+    if (q.named?.length) registerSmallBodies(q.named as never);
+    try {
+      const sol = solveJourney(q.journey);
+      const lamps = assess(q.journey, sol as never, { budget: q.budget, profiles: q.profiles as never });
+      self.postMessage({ type: 'remedies', key: q.key, remedies: remedies(q.journey, sol as never, { budget: q.budget, profiles: q.profiles as never, lamps: lamps as never, flight: q.flight as never }) as Remedies } satisfies RemediesReply);
+    } catch (err) {
+      console.warn('journey: what to change was not worked out', err);
+      self.postMessage({ type: 'remedies', key: q.key, remedies: null } satisfies RemediesReply);
+    }
+    return;
+  }
   const q = e.data, t0 = performance.now();
   if (q.type === 'profiles') {
     // Each leg's cheapest delta-v by departure date (feasibility.js).

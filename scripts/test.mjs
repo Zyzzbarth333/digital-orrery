@@ -38,7 +38,7 @@ const FILES = [
   'packages/physics/src/ork.test.mjs', 'packages/physics/src/entry.test.mjs', 'packages/physics/src/smallbodies.test.mjs',
   'packages/physics/src/scintillation.test.mjs', 'packages/physics/src/asteroids.test.mjs', 'packages/physics/src/gravityGuides.test.mjs',
   'packages/physics/src/gravityFlow.test.mjs', 'packages/physics/src/magnetic.test.mjs', 'packages/physics/src/aurora.test.mjs',
-  'packages/physics/src/moons.test.mjs', 'packages/physics/src/landingSites.test.mjs', 'packages/physics/src/irregularMoons.test.mjs', 'packages/physics/src/flyby.test.mjs',
+  'packages/physics/src/moons.test.mjs', 'packages/physics/src/landingSites.test.mjs', 'packages/physics/src/irregularMoons.test.mjs', 'packages/physics/src/flyby.test.mjs', 'packages/physics/src/remedies.test.mjs',
   'src/browser/kernelClient.test.mjs', 'packages/physics/src/barycentres.test.mjs', 'packages/physics/src/deTable.test.mjs', 'src/browser/dataLoad.test.mjs',
   'packages/physics/src/corona.test.mjs', 'packages/physics/src/rings.test.mjs', 'packages/physics/src/discs.test.mjs', 'packages/physics/src/umbra.test.mjs',
   'packages/physics/src/satellites.test.mjs', 'packages/physics/src/passes.test.mjs', 'packages/physics/src/spacecraft.test.mjs',

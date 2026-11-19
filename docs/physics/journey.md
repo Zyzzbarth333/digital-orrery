@@ -1489,6 +1489,64 @@ The table's other two stations:
   departure (BACK undoes it), gives a new craft the kernel's burns, and
   follows it.
 
+### What to change
+
+A row that reads NO GO says why and offers what to change
+(`packages/physics/src/remedies.js`). Each option is the journey changed
+and solved again by patched conics, so the delta-v beside it is the plan's
+own figure, not an estimate. A change that only re-plans the journey is one
+press away (RE-PLAN), as a click on a date in PLOT's timeline is; a budget
+is set with SET. The kernel then flies the new plan, and the board polls
+it again. The options are worked out in the profiles' worker once the
+profiles and the kernel's flight are in, about half a second to a second
+and a half for a moon of Jupiter.
+
+- **Trajectory, the craft hits a body.** The leg it hits it on, and how
+  the planned path meets that body, even one the user never listed:
+  - through a planet's well to its moon: the approach's periapsis about the
+    planet against its cloud tops (or surface), on the way in or past the
+    moon ("Io is reached through Jupiter's gravity: past Io, the approach
+    falls on to 52,794 km below its cloud tops");
+  - at the stop itself: the planned height, and how far lower the kernel's
+    flight came in ("The pass at Mars is planned 0 km up; the kernel's
+    flight came in 3 km lower and hit it");
+  - in passing: the planned path's closest approach to it, sampled along
+    the leg's arcs, and its date.
+
+  Where the plan keeps clear and the kernel's flight drifted in, it says
+  so. The options, at most three:
+  - **a stop in the planet's orbit before its moon,** inserted as PLOT adds
+    a waypoint (its porkchop optimum, the moon timed again from it), tried
+    half a radius up, a radius up and near the moon's distance, the
+    cheapest taken;
+  - **another departure date** from the leg's window profile, the cheapest
+    whose plan keeps a tenth of the body's radius clear of it;
+  - **a higher pass or orbit** at the stop, by twice what the kernel missed
+    it by (at least 200 km);
+  - **the flyby skipped,** when it is one in the way.
+- **Trajectory, a miss or too many corrections:** the last burn node
+  aimed (for a miss), and the departure date that saves most.
+- **Windows:** the leg's best date; with no date under the budget, the
+  budget that date needs.
+- **Delta-v over the budget:** the departure that saves most, a flyby
+  skipped where that is cheaper, and the budget raised to the total (up to
+  the next tenth of a km/s).
+- **Shaping:** the last node aimed, or taken out.
+- **Orbits** (a low lunar orbit that falls in the stay): a stay a day
+  short of the fall, or the orbit the lamp found safe.
+- **Flybys** (a pass underground, from an aim set by hand): the aim
+  cleared, or the flyby skipped.
+- **Launch** (a parking orbit inside the air): 120 km.
+
+Earth to Io orbit from the pad on 20 Nov 2026, against the default budget
+of 8 km/s, reads NO GO on Windows and Delta-v. Leaving Earth on 5 Jan 2029
+instead (13.11 km/s, 0.59 less) and setting the budget to 13.2 km/s takes it
+to GO in two presses.
+
+![The GO board for Earth to Io orbit against a budget of 8 km/s: Windows and Delta-v read NO GO, each with RE-PLAN to leave Earth on 2029-01-05 (13.11 km/s, 0.59 less) and SET to raise the budget](../images/go-board-io-orbit.jpg)
+
+![The GO board for a Mars flyby planned 0 km up: Trajectory reads NO GO, "The pass at Mars is planned 0 km up; the kernel's flight came in 3 km lower and hit it", with RE-PLAN to raise the pass to 200 km at the same 3.63 km/s](../images/go-board-mars-flyby-0.jpg)
+
 The PLANNER tab is now a summary of the journey (route, dates, delta-v
 and lamps) with the key to the table. The porkchop and NASA's list are in
 the table, under the journey's editor. A `?plan=` link opens the table

@@ -942,6 +942,13 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .go-row b { font: var(--t-label) var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--phosphor); font-weight: 400; }
 .go-row .plot-lamp { min-width: 0; text-align: center; font-size: var(--t-legend-sm); padding: 6px 4px; }
 .go-row small { display: block; color: #b9ad92; font-size: var(--t-small); margin-top: 2px; }
+/* A NO GO row's why, and what to change: each option with the journey's
+   delta-v after it and the key that makes the change. */
+.go-row small.go-why { color: var(--phosphor-dim); }
+.go-fixes { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.go-fixes li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.go-fixes li > span { color: var(--phosphor); }
+.go-fixes .key { min-width: 84px; }
 .go-station > .keys-row { background: linear-gradient(var(--panel), var(--panel-low)); padding: 10px 14px; }
 @media (max-width: 1100px) {
   .stack-station { grid-template-columns: minmax(0, 1fr); }
