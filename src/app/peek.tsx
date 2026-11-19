@@ -39,7 +39,7 @@ function recompute() {
 export function usePeek(pick: readonly (Row | null | undefined | false)[], prio = 0): void {
   const id = useId();
   const list = pick.filter((r): r is Row => !!r).slice(0, 2);
-  const key = list.map((r) => `${r.label}\u0000${r.value}\u0000${r.unit ?? ''}\u0000${r.src}`).join('\u0001');
+  const key = list.map((r) => `${r.label}\u0000${r.value}\u0000${r.unit ?? ''}\u0000${r.src}\u0000${r.derived ? 1 : 0}\u0000${r.info}\u0000${r.detail ?? ''}`).join('\u0001');
   useLayoutEffect(() => {
     const e = entries.get(id);
     if (e) e.rows = list; else entries.set(id, { prio, order: ++order, rows: list });
