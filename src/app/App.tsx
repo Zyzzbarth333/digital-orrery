@@ -502,10 +502,20 @@ export function App() {
   // match) lowers it to half, its plate at the top over the sky; CONSOLE
   // opens it at half.
   const lastView = useRef(view);
+  // When the user last pressed or typed inside the sheet: a view change
+  // that soon after was their choice there; one that wasn't (a followed
+  // craft ending, a flight finishing) leaves the sheet where it is.
+  const sheetUsed = useRef(0);
+  useEffect(() => {
+    const mark = (e: Event) => { if ((e.target as Element | null)?.closest?.('.sheet')) sheetUsed.current = performance.now(); };
+    window.addEventListener('pointerdown', mark, true);
+    window.addEventListener('keydown', mark, true);
+    return () => { window.removeEventListener('pointerdown', mark, true); window.removeEventListener('keydown', mark, true); };
+  }, []);
   useEffect(() => {
     if (lastView.current === view) return;
     lastView.current = view;
-    if (phone && stop === 'full') {
+    if (phone && stop === 'full' && performance.now() - sheetUsed.current < 2000) {
       if ((document.activeElement as HTMLElement | null)?.closest('.sheet')) (document.activeElement as HTMLElement).blur();
       setStop('half');
     }
