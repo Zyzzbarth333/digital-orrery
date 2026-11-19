@@ -206,7 +206,7 @@ The domain can come first: it is cheap and protects every link.
 3. [x] Add a clear "data missing: run `npm run data`" error in the app.
 4. [ ] Add the data sets to `.gitignore`. Run `npm run data` in the dev container, Codespaces and CI (cached).
 5. [x] Set `base` in `vite.config.js`, and add a Pages workflow: build, pull the pinned data, upload the artifact, deploy.
-6. [ ] Update the README with the site link, the partial-clone tip and the setup steps.
+6. [x] Update the README with the site link, the partial-clone tip and the setup steps.
 7. [ ] Ask the portfolio's maintainers to add an "Open the orrery" link to `projects/digital-orrery.html`.
 8. [ ] Gate:
    - a fresh clone in a clean container runs with `npm install && npm run data && npm run dev`;
