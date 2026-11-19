@@ -88,6 +88,7 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
   - tests for the `Mission` and `JourneyStore` stores (stale worker replies, a failed fetch);
   - `// @ts-check` on the files that cross the worker boundary;
   - one `getJson` for the six loaders that each check `r.ok` their own way.
+- [ ] From the second code audit of 19 Nov 2026: one helper for the three Python fetchers' repeated download code; checked `fwrite`, `fclose` and `malloc` in the C table writers; no bare `except Exception` in `python/spice_body_params.py`, so a wrong kernel path errors instead of giving silent `None`s.
 - [ ] Time the gravity field at twice the pixel density and in a 4K window, and skip bodies whose pull is below a stated tolerance ([performance](performance.md)).
 - [ ] Trim the compressed maps' downloads near a body, which roughly double (the Moon's 25 MB against 5.5) ([textures](frontend/textures.md)).
 - [ ] Let `npm run bench:frames` settle its zoom at twice the pixel density, where the Earth and belt scenes now drop every sample ([performance](performance.md)).

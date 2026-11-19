@@ -818,8 +818,11 @@ export class SatelliteLayer {
     try { last = Number(localStorage.getItem(LIVE_KEY)) || 0; } catch { /* storage off: no memory of the last */ }
     const wait = last + LIVE_MIN_MS - Date.now();
     if (wait > 0) return `CelesTrak updates every 2 hours: try again in ${Math.ceil(wait / 60e3)} min`;
+    // Marked once CelesTrak has answered, any answer (its usage policy counts
+    // requests); a request that never reached it (offline) uses up nothing.
+    let res: Response;
+    try { res = await fetch(LIVE_URL); } catch (e) { return `CelesTrak could not be reached: ${(e as Error).message ?? e}`; }
     try { localStorage.setItem(LIVE_KEY, String(Date.now())); } catch { /* as above */ }
-    const res = await fetch(LIVE_URL);
     if (res.status !== 200) return `CelesTrak answered HTTP ${res.status}: not asked again`;
     const text = await res.text();
     if (parseGpCsv(text).length < 1000) return 'CelesTrak\'s answer held no catalogue';
