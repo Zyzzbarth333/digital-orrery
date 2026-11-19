@@ -39,6 +39,9 @@ Today only the developer can run it.
 ## Decision
 
 1. **Host the app on GitHub Pages, built and deployed by GitHub Actions.** This is the main way anyone uses it, a phone visitor included. Nothing is downloaded or installed.
+   - It is a *project site* at `https://zyzzbarth333.github.io/digital-orrery/`, published from this repository.
+   - It sits beside the portfolio, which is the *user site* from the `Zyzzbarth333.github.io` repository. Each published site has its own 1 GB limit [2], so the orrery's data never touches the portfolio's repository or limits.
+   - The portfolio's project page (`projects/digital-orrery.html`) links to the live site; that change belongs to the portfolio's own repository.
 2. **Generated data leaves git.** It is published as versioned GitHub Release assets and pinned by a manifest in the repository. Each release is immutable and is never deleted, because older commits point at it.
    - The deploy workflow pulls the pinned data into the site.
    - Developers run `npm run data`, which fetches and verifies it, so a fresh clone still runs:
@@ -142,7 +145,8 @@ The physics package is worth its risk only with a gate that catches silent chang
 4. [ ] Add the data sets to `.gitignore`. Run `npm run data` in the dev container, Codespaces and CI (cached).
 5. [ ] Set `base` in `vite.config.js`, and add a Pages workflow: build, pull the pinned data, upload the artifact, deploy.
 6. [ ] Update the README with the site link, the partial-clone tip and the setup steps.
-7. [ ] Gate:
+7. [ ] Ask the portfolio's maintainers to add an "Open the orrery" link to `projects/digital-orrery.html`.
+8. [ ] Gate:
    - a fresh clone in a clean container runs with `npm install && npm run data && npm run dev`;
    - the deployed site loads on a phone.
 
