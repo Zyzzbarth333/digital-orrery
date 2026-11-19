@@ -5,7 +5,8 @@
 //   it and a new tab starts at home: what the camera is on, where it is
 //   (azimuth, elevation, distance, pan) and the clock (time, rate, running);
 // - the rail's layer switches, in localStorage, so they hold for this
-//   browser until changed.
+//   browser until changed;
+// - the TYPE step (the console's type size), in localStorage too.
 // Storage can be off or full (a private window, a blocked site): every read
 // and write is in try/catch, and a value that does not read back as what was
 // written is dropped field by field rather than trusted. Pure but for the
@@ -13,6 +14,15 @@
 
 export const VIEW_KEY = 'orrery.view.v1';
 export const LAYERS_KEY = 'orrery.layers.v1';
+// The console's TYPE step (1, 2 or 3; app.css html[data-type]), in
+// localStorage: a reader's own setting, kept for this browser.
+export const TYPE_KEY = 'orrery.type.v1';
+
+/** The TYPE step a stored value names: 1, 2 or 3, else 1. */
+export function parseType(text) {
+  const n = Number(text);
+  return n === 2 || n === 3 ? n : 1;
+}
 
 /** The rail's switches as a first visit has them. */
 export const DEFAULT_LAYERS = Object.freeze({

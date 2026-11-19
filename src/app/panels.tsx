@@ -12,6 +12,7 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExtern
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { dailyEarthInfo } from '../scene/clouds';
 import { useClock, useClockValue, type SimClock } from './clock';
+import { TYPE_KEY, parseType, readStore, writeStore } from './remember.js';
 import type { Mission } from './mission';
 import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf, type BaryKey, type BodyKey, type FocusKey, type MoonKey } from '../scene/catalogue';
 import { moonSource, moonKernel } from '../physics/moons.js';
@@ -73,7 +74,7 @@ export function craftById(mission: Mission, id: number | null): { name: string; 
   return a ? { name: a.craft.name, climbing: true, craft: a.craft } : null;
 }
 
-function Lamp({ on, label, title, kind = 'advisory' }: { on: boolean; label: string; title: string; kind?: 'advisory' | 'caution' | 'warning' }) {
+function Lamp({ on, label, title, kind = 'status' }: { on: boolean; label: string; title: string; kind?: 'status' | 'caution' | 'warning' }) {
   return <span className={`lamp k-${kind}`} data-on={on} title={title} aria-label={`${label}: ${on ? 'on' : 'off'}`}><i aria-hidden="true" />{label}</span>;
 }
 
@@ -158,7 +159,7 @@ function useLive(clock: SimClock): boolean {
 function RateField({ clock }: { clock: SimClock }) {
   const rate = useClockValue(clock, (s) => s.rate);
   return (
-    <div className="field">
+    <div className="field rate-field">
       <label className="engraved" htmlFor="rate">Rate</label>
       <select id="rate" className="rate" value={rate} onChange={(e) => clock.setRate(Number(e.target.value))}>
         {RATES.map((r) => <option key={r.rate} value={r.rate}>{r.label}</option>)}
@@ -167,8 +168,9 @@ function RateField({ clock }: { clock: SimClock }) {
   );
 }
 
-// Annunciator, after the Shuttle's caution and warning panel: green
-// advisories, amber caution, red warning. Every light is labelled (never
+// Annunciator, after the Shuttle's caution and warning panel: green status
+// (in tolerance, never an advisory: aviation keeps green off advisories),
+// amber caution, red warning. Every light is labelled (never
 // colour alone); a warning sounds the master alarm, which ACK clears, but
 // its light stays lit while the condition lasts.
 function useLamps(mission: Mission) {
@@ -182,6 +184,7 @@ function Annunciator({ mission, live, ack = true }: { mission: Mission; live: bo
   const { flags, warningText } = useLamps(mission);
   return (
     <div className="annunciator" role="group" aria-label="Status">
+      <span className="engraved status-label" aria-hidden="true">Status</span>
       <Lamp on={live} label="Live" title="The sim clock is within a minute of now" />
       <Lamp on={flags[0] === '1'} label="Kernel" title="The n-body kernel is stepping a craft" />
       <Lamp on={flags[1] === '1'} label="Lag" kind="caution" title="A craft is more than a minute behind the clock; the kernel catches up rather than take unsafe steps" />
@@ -189,6 +192,36 @@ function Annunciator({ mission, live, ack = true }: { mission: Mission; live: bo
       {ack && flags[3] === '1' && <AckKey mission={mission} />}
     </div>
   );
+}
+
+// The band keeps one row while its groups fit and otherwise takes two on
+// purpose (the clock, rate and time keys; then FLIGHT and STATUS), rather
+// than letting a flex row wrap wherever it breaks. Whether they fit is
+// measured: each group's own width, the gaps and the padding, against the
+// band's width, so it holds at any TYPE step, craft name or held clock.
+function useBandRows(phone: boolean) {
+  const ref = useRef<HTMLElement>(null);
+  const [rows, setRows] = useState<1 | 2>(1);
+  useLayoutEffect(() => {
+    const band = ref.current;
+    if (!band) return;
+    const measure = () => {
+      const cs = getComputedStyle(band);
+      const kids = [...band.children].filter((c) => getComputedStyle(c).position !== 'absolute') as HTMLElement[];
+      // The status label shows only on two rows: it is not counted.
+      const width = kids.reduce((w, c) => w + c.getBoundingClientRect().width - ((c.querySelector('.status-label') as HTMLElement | null)?.getBoundingClientRect().width ?? 0), 0);
+      const gap = parseFloat(cs.columnGap) || 0;
+      const need = width + gap * Math.max(0, kids.length - 1) + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      // A little slack either way, so it does not flicker at the edge.
+      setRows((r) => (need > band.clientWidth - (r === 1 ? 0 : 24) ? 2 : 1));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(band);
+    for (const c of band.children) ro.observe(c);
+    return () => ro.disconnect();
+  }, [phone]);
+  return { ref, rows };
 }
 
 export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, following, onFollow, onFind }: {
@@ -200,6 +233,7 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
   const jump = useClockValue(clock, (s) => s.lastJump);
   const live = useLive(clock);
   const { flags } = useLamps(mission);
+  const { ref: bandRef, rows } = useBandRows(phone);
   const jumpNotice = jump && (
     <div className="notice jump" role="status">
       <span>Clock set {span(jump.toMs - jump.fromMs)}</span>
@@ -228,10 +262,10 @@ export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, followi
     );
   }
   return (
-    <header className="band screw">
+    <header className="band screw" ref={bandRef} data-rows={rows}>
       <span className="pnl" aria-hidden="true">PNL F1</span>
       {wordmark}
-      <div className="field">
+      <div className="field utc-field">
         <span className="engraved" id="utc-label">UTC</span>
         <ClockWindow clock={clock} />
         {/* The jump notice hangs just under the clock it is about, so the
@@ -344,6 +378,30 @@ function LandingSitesRail({ on, onToggle, current, onFly }: SitesRail) {
         </select>
       </label>
     </RailGroup>
+  );
+}
+
+// The console's type size: three latching keys, as a panel's dimmer has
+// detents. 1 suits a laptop's layout; 3 reaches the readability standard's
+// sizes at a desk (DESIGN.md, Typography). Kept for this browser.
+const TYPE_LOCAL = (() => { try { return window.localStorage; } catch { return undefined; } })();
+function TypeKeys() {
+  const [step, setStep] = useState<1 | 2 | 3>(() => parseType(readStore(TYPE_LOCAL, TYPE_KEY)));
+  const choose = (n: 1 | 2 | 3) => {
+    setStep(n);
+    if (n === 1) delete document.documentElement.dataset.type; else document.documentElement.dataset.type = String(n);
+    writeStore(TYPE_LOCAL, TYPE_KEY, String(n));
+    // The sky's canvas and the panels' widths follow the new sizes.
+    window.dispatchEvent(new Event('resize'));
+  };
+  return (
+    <div className="type-keys" role="radiogroup" aria-labelledby="type-label">
+      <span className="engraved" id="type-label">Type</span>
+      {([1, 2, 3] as const).map((n) => (
+        <button key={n} type="button" className="key small" role="radio" aria-checked={step === n} onClick={() => choose(n)}
+          title={n === 1 ? 'Type to fit a laptop' : n === 2 ? 'Larger type' : 'Type at the readability standard\'s sizes (NASA-STD-3001): wider panels'}>{n}</button>
+      ))}
+    </div>
   );
 }
 
@@ -577,6 +635,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
             : <><kbd>?</kbd> keys</>} · <kbd>/</kbd> find
         </p>
         <p>Choose a body to fly there; drag to turn, right-drag or Shift-drag to pan, scroll to zoom.</p>
+        <TypeKeys />
         <div className="foot-links">
           <a href="https://github.com/Zyzzbarth333/digital-orrery/blob/main/docs/README.md" target="_blank" rel="noreferrer">How it works</a>
           <Credits />
