@@ -581,7 +581,7 @@ export function App() {
   const flight = { mission, consoleOpen, onToggleConsole: () => setConsoleOpen(!consoleOpen), following, onFollow: followCraft };
   const rail = (
     <BodyRail clock={clock} focus={following === null && small === null && sat === null && satCloud === null && probe === null ? focus : null} onSelect={chooseBody}
-      find={find} onKeys={() => setKeysOpen((o) => !o)}
+      find={find} onKeys={() => setKeysOpen((o) => !o)} onHover={(k) => scene.current?.setHover(k)}
       named={named} small={small} onSmall={(pdes) => scene.current?.focusOnSmall(pdes)}
       frame={frame} onFrame={setFrame}
       smallBodies={smallOn} onSmallBodies={setSmallLayer}

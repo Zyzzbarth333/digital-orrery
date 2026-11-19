@@ -182,14 +182,37 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
   display: flex; align-items: center; gap: 6px; white-space: nowrap; margin: -4px 0 0 -4px;
   font: var(--t-sky) var(--display); letter-spacing: 0.12em; text-transform: uppercase;
 }
-.body-marker .dot { width: 8px; height: 8px; border: 1px solid rgba(236, 217, 176, 0.75); }
+/* Labels in the sky rank themselves (DESIGN.md, Labels in the sky;
+   OrreryScene.placeLabels), so the sky stays the subject:
+   - the rest: label-dim on a cartographer's halo of window black, no plate
+     (8.9:1 against the halo, whatever lies behind);
+   - .near, the focus's parent and moons: phosphor-dim on a window plate
+     (6.0:1 over a lit disc, 14:1 on the sky);
+   - .focused and .hovered (a label or rail row pointed at): over the rest,
+     on a denser plate (7:1 or better over a lit disc);
+   - .overlap, a name that would overprint a higher one: faded under it,
+     there but not in the way, and full again when pointed at. */
+.body-marker { z-index: 1; }
+.body-marker.near { z-index: 2; }
+.body-marker.focused { z-index: 4; }
+.body-marker.hovered, .body-marker:hover { z-index: 5; }
+.body-marker.overlap { z-index: 0; }
+.body-marker .dot { width: 8px; height: 8px; border: 1px solid rgba(236, 217, 176, 0.5); }
 .body-marker.resolved .dot { visibility: hidden; }
-.body-marker .name { color: var(--phosphor-dim); background: rgba(18, 17, 16, 0.72); padding: 1px 5px; border-radius: 2px; }
-@media (hover: hover) and (pointer: fine) { .body-marker:hover .name { color: var(--phosphor-dim); } }
+.body-marker .name {
+  color: var(--label-dim); padding: 1px 5px; border-radius: 2px; background: transparent;
+  text-shadow: 0 0 2px var(--window), 0 0 2px var(--window), 0 0 4px var(--window);
+  transition: color 120ms ease, background-color 120ms ease, opacity 120ms ease;
+}
+.body-marker.near .dot { border-color: rgba(236, 217, 176, 0.75); }
+.body-marker.near .name { color: var(--phosphor-dim); background: rgba(18, 17, 16, 0.72); text-shadow: none; }
+.body-marker.hovered .name { color: var(--phosphor-dim); background: rgba(18, 17, 16, 0.85); text-shadow: none; }
+@media (hover: hover) and (pointer: fine) { .body-marker:hover .name { color: var(--phosphor-dim); background: rgba(18, 17, 16, 0.85); text-shadow: none; opacity: 1; } }
+.body-marker.overlap .name { opacity: 0.4; }
 .body-marker.quiet .name { visibility: hidden; }
 @media (hover: hover) and (pointer: fine) { .body-marker.quiet:hover .name { visibility: visible; position: relative; z-index: 1; } }
 .body-marker.focused .dot { border-color: var(--phosphor); box-shadow: 0 0 6px rgba(255, 178, 46, 0.7); }
-.body-marker.focused .name { color: var(--phosphor); }
+.body-marker.focused .name { color: var(--phosphor); background: rgba(18, 17, 16, 0.85); text-shadow: none; opacity: 1; }
 
 /* ---------------- header band ---------------- */
 .band {
@@ -252,7 +275,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
 .body-row .lamp-sq.bary { background: transparent; border-radius: 50%; border-color: var(--ink-muted); position: relative; box-shadow: none; }
 .body-row .lamp-sq.bary::after { content: ''; position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; margin: -1px 0 0 -1px; border-radius: 50%; background: var(--ink-muted); }
 .body-marker.bary .dot { border-radius: 50%; background: radial-gradient(circle, rgba(236, 217, 176, 0.9) 0 1px, transparent 1.5px); }
-.body-marker.bary .name { font-size: var(--t-sky-small); opacity: 0.85; }
+.body-marker.bary .name { font-size: var(--t-sky-small); }
 /* The frame switch, on the rail's distance column: about the Sun or the SSB. */
 .frame-key { min-height: 20px; padding: 1px 6px; background: transparent; border: 1px solid var(--seam-strong); border-radius: 2px; color: inherit; font: var(--t-legend-sm)/1.3 var(--sans); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; cursor: pointer; }
 @media (hover: hover) and (pointer: fine) { .frame-key:hover { border-color: var(--ink-muted); } }
@@ -645,7 +668,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 /* Small bodies (src/scene/smallBodies.ts): named ones get a smaller, dimmer
    marker than the planets'; the rail's toggles show their population colour. */
 .body-marker.small-body .dot { width: 5px; height: 5px; margin: 1px; border-color: rgba(236, 217, 176, 0.45); }
-.body-marker.small-body .name { opacity: 0.75; font-size: var(--t-sky-small); }
+.body-marker.small-body .name { font-size: var(--t-sky-small); }
 .body-marker.small-body.focused .name { opacity: 1; font-size: var(--t-sky); }
 .sb-pick { display: grid; gap: 4px; padding: var(--u) calc(1.5 * var(--u)) 0; }
 .sb-pick .input { height: 28px; font-size: var(--t-rail); }
@@ -958,7 +981,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .body-marker.site.entry .dot { width: 7px; height: 7px; border: 1.5px solid var(--site); border-radius: 50%; margin: 0; }
 .body-marker.site.entry .dot::after { content: ''; position: absolute; left: 2px; top: 2px; width: 3px; height: 3px; border-radius: 50%; background: var(--site); }
 .body-marker.site.touch .dot { width: 6px; height: 6px; border: 0; margin: 1px; background: var(--site); transform: rotate(45deg); }
-.body-marker.site .name { font-size: var(--t-sky); opacity: 0.85; }
+.body-marker.site .name { font-size: var(--t-sky); }
 .body-marker.site.crewed .name { color: var(--phosphor); opacity: 1; }
 .body-marker.site.focused .dot { filter: drop-shadow(0 0 4px rgba(255, 178, 46, 0.8)); }
 .body-marker.site.focused .name { opacity: 1; color: var(--phosphor); }
@@ -970,7 +993,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
    shadow. The rail's source line and the Latest key under the search. */
 .body-marker.satellite .dot { position: relative; width: 5px; height: 5px; margin: 1px; border-color: var(--sat, rgba(236, 217, 176, 0.6)); }
 .body-marker.satellite .dot::after { content: ''; position: absolute; left: -4px; right: -4px; top: 1px; height: 1px; background: var(--sat, rgba(236, 217, 176, 0.6)); opacity: 0.8; }
-.body-marker.satellite .name { opacity: 0.8; font-size: var(--t-sky); }
+.body-marker.satellite .name { font-size: var(--t-sky); }
 .body-marker.satellite.shadow { opacity: 0.55; }
 /* A craft or probe in a body's shadow: dimmed in its umbra, a little in its
    penumbra (OrreryScene.sunlightAt), as the satellites in the Earth's. */
@@ -1015,7 +1038,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .body-marker.spacecraft .dot::before, .body-marker.spacecraft .dot::after { content: ''; position: absolute; background: var(--probe, rgba(236, 217, 176, 0.7)); }
 .body-marker.spacecraft .dot::before { left: 3px; top: -3px; width: 1px; height: 13px; }
 .body-marker.spacecraft .dot::after { top: 3px; left: -3px; height: 1px; width: 13px; }
-.body-marker.spacecraft .name { opacity: 0.85; font-size: var(--t-sky); }
+.body-marker.spacecraft .name { font-size: var(--t-sky); }
 .body-marker.spacecraft.focused .name { opacity: 1; }
 
 /* ---------------- phones (docs/frontend/phone.md) ----------------

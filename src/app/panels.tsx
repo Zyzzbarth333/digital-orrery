@@ -429,7 +429,7 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find, onKeys, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides, satellites, irregular, sites, flow, onFlow, time }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; find?: FindApi; onKeys?: () => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void; time?: ReactNode }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find, onKeys, onHover, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides, satellites, irregular, sites, flow, onFlow, time }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; find?: FindApi; onKeys?: () => void; onHover?: (k: FocusKey | null) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void; time?: ReactNode }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -445,7 +445,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
   // A barycentre's row: under the Sun and Earth, or first in a planet's grid.
   const baryRow = (k: BaryKey, chip: boolean) => (
     <li key={k}>
-      <button className={`body-row ${chip ? 'moon-chip' : 'child'}`} aria-current={k === focus} onClick={() => onSelect(k)}
+      <button className={`body-row ${chip ? 'moon-chip' : 'child'}`} data-body={k} aria-current={k === focus} onClick={() => onSelect(k)}
         title={`${BARY_BY_KEY[k].name}: the centre of mass of ${BARY_BY_KEY[k].members}`}>
         <span className="lamp-sq bary" />
         <span>Barycentre</span>
@@ -504,7 +504,12 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
             AU · {frame === 'sun' ? 'Sun' : 'SSB'}</button>
           : <span title="distance from the Sun">AU</span>}
       </h2>
-      <ul className="body-list" ref={list} onClickCapture={noteChoice}>
+      {/* A row pointed at or focused names its body at full strength in the sky (OrreryScene.setHover). */}
+      <ul className="body-list" ref={list} onClickCapture={noteChoice}
+        onPointerOver={(e) => onHover?.(((e.target as Element).closest('[data-body]') as HTMLElement | null)?.dataset.body as FocusKey ?? null)}
+        onPointerLeave={() => onHover?.(null)}
+        onFocus={(e) => onHover?.(((e.target as Element).closest('[data-body]') as HTMLElement | null)?.dataset.body as FocusKey ?? null)}
+        onBlur={() => onHover?.(null)}>
         {BODIES.map((b, i) => {
           if (isPlanetMoon(b.key)) return null;
           const child = b.parent !== null && b.parent !== 'sun';
@@ -513,7 +518,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
           const shut = moons !== undefined && !shown(b.key);
           return [
             <li key={b.key}>
-              <button className={`body-row${child ? ' child' : ''}`} aria-current={b.key === focus}
+              <button className={`body-row${child ? ' child' : ''}`} data-body={b.key} aria-current={b.key === focus}
                 aria-expanded={moons !== undefined ? !shut : undefined}
                 onClick={() => onSelect(b.key)}
                 title={child ? `${b.name}, moon of ${BODY_BY_KEY[b.parent!].name}` : r === null ? b.name : `${b.name}: ${r.toFixed(3)} AU from the ${frame === 'sun' ? 'Sun' : 'solar system barycentre'}${shut ? `; choose to list its ${moons} moon${moons === 1 ? '' : 's'}` : ''}`}>
@@ -531,7 +536,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
                   {baryOf(b.key) && baryRow(baryOf(b.key)!, true)}
                   {BODIES.filter((m) => m.parent === b.key).map((m) => (
                     <li key={m.key}>
-                      <button className="body-row moon-chip" aria-current={m.key === focus} onClick={() => onSelect(m.key)} title={`${m.name}, moon of ${b.name}`}>
+                      <button className="body-row moon-chip" data-body={m.key} aria-current={m.key === focus} onClick={() => onSelect(m.key)} title={`${m.name}, moon of ${b.name}`}>
                         {lamp(m.colour)}
                         <span>{m.name}</span>
                       </button>
