@@ -123,9 +123,9 @@ npm run build
 - H or the HOME key: back to the opening view
 - A refresh in the same tab comes back to the same view, clock and layer switches; a new tab starts at home
 - Click a label or a name in the list: fly there (drag, scroll or Esc stops the flight; click the body in view again to reframe it)
-- Header: the RUN key runs or holds time; choose a rate (real time to one year per second), or jump back to now with NOW
+- Header: the RUN key runs or holds time; choose a rate (real time to one year per second), or jump back to now with NOW; press the clock (or T) to type a date and time in UTC, with ↑ ↓ stepping the part under the cursor
 - Header: FLIGHT shows the selected craft (press it to follow the craft); CONSOLE opens the flight console
-- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now, M flight console, H home, C centre after a pan, Esc stop a flight or close the console
+- Keys: Space run or pause, ← → step the rate, ↑ ↓ move through the bodies, N jump to now, T type a date and time, M flight console, H home, C centre after a pan, Esc stop a flight or close the console
 
 The data plate gives each value with its source (the provenance column): a solid tag for data, a dashed one for values worked out in the app; hover a tag for detail.
 

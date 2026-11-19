@@ -8,11 +8,12 @@
 // times a second, and the header and rail redraw only when what they show
 // changes.
 
-import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { dailyEarthInfo } from '../scene/clouds';
 import { cloudsRow } from './clouds-row';
 import { useClock, useClockValue, type SimClock } from './clock';
+import { formatUtc, parseUtc, stepAt } from './clock-entry';
 import { typeStep } from './type-step';
 import type { Mission } from './mission';
 import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf, type BaryKey, type BodyKey, type FocusKey, type MoonKey } from '../scene/catalogue';
@@ -80,14 +81,70 @@ function span(ms: number): string {
 }
 
 // The clock's window: the one part of the header that changes every second.
+// Pressed (or T), it becomes a field to type a date and time into, in UTC
+// (clock-entry.ts): Enter goes there, Esc puts the clock back, and the up
+// and down arrows step the part under the caret (Shift: ten at a time),
+// moving the sky as they go. BACK in the jump notice returns to where the
+// clock was before the typing began.
 function ClockWindow({ clock }: { clock: SimClock }) {
   const sec = useClockValue(clock, (s) => Math.floor(s.timeMs / 1000));
   const playing = useClockValue(clock, (s) => s.playing);
   const iso = new Date(sec * 1000).toISOString();
+  // prev: the jump BACK undid before the typing began, put back by Esc;
+  // sel: the part an arrow stepped, selected again after each redraw.
+  const [edit, setEdit] = useState<{ text: string; fromMs: number; prev: { fromMs: number } | null; moved: boolean; bad: boolean; sel?: [number, number] } | null>(null);
+  const field = useRef<HTMLInputElement>(null);
+  const editing = edit !== null;
+  useEffect(() => { if (editing) field.current?.select(); }, [editing]);
+  useLayoutEffect(() => { if (edit?.sel) field.current?.setSelectionRange(edit.sel[0], edit.sel[1]); }, [edit?.text, edit?.sel]);
+  const open = () => {
+    const { timeMs, lastJump } = clock.snapshot;
+    setEdit({ text: formatUtc(timeMs), fromMs: timeMs, prev: lastJump, moved: false, bad: false });
+  };
+  if (!edit) {
+    return (
+      <button type="button" className={`window clock clock-entry${playing ? '' : ' held'}`} onClick={open} aria-keyshortcuts="T"
+        aria-label={`UTC ${iso.slice(0, 10)} ${iso.slice(11, 19)}${playing ? '' : ', held'}. Type a date and time`} title="Type a date and time, in UTC (T)">
+        <time dateTime={iso}>{iso.slice(0, 10)} {iso.slice(11, 19)}</time>{!playing && <span className="hold">Hold</span>}
+      </button>
+    );
+  }
+  const close = () => setEdit(null);
+  const onKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const ms = parseUtc(edit.text, clock.snapshot.timeMs);
+      if (ms === null) { setEdit({ ...edit, bad: true }); e.preventDefault(); return; }
+      clock.setTime(ms, edit.fromMs);
+      close();
+    } else if (e.key === 'Escape') {
+      // Put the clock back where it was if the arrows moved it, with the
+      // jump BACK offered before (or none).
+      if (edit.moved) {
+        if (edit.prev) clock.setTime(edit.fromMs, edit.prev.fromMs);
+        else { clock.setTime(edit.fromMs, edit.fromMs); clock.dismissJump(); }
+      }
+      close();
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      const caret = e.currentTarget.selectionStart ?? 0;
+      const step = stepAt(edit.text, caret, (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 10 : 1), clock.snapshot.timeMs);
+      if (step) {
+        clock.setTime(step.ms, edit.fromMs);
+        setEdit({ ...edit, text: step.text, moved: true, bad: false, sel: step.sel });
+      } else setEdit({ ...edit, bad: true });
+    } else return;
+    // The app's own keys (Space, the arrows, Escape) leave a field alone.
+    e.preventDefault();
+  };
   return (
-    <time className={`window clock${playing ? '' : ' held'}`} dateTime={iso} aria-labelledby="utc-label">
-      {iso.slice(0, 10)} {iso.slice(11, 19)}{!playing && <span className="hold">Hold</span>}
-    </time>
+    <>
+      <input ref={field} className="window clock clock-input" value={edit.text} size={19} spellCheck={false} autoComplete="off" inputMode="text"
+        aria-label="Date and time, UTC" aria-invalid={edit.bad || undefined} aria-describedby="clock-help"
+        onChange={(e) => setEdit({ ...edit, text: e.target.value, bad: false, sel: undefined })} onKeyDown={onKey} onBlur={close} />
+      <div className="notice clock-help" id="clock-help" role={edit.bad ? 'alert' : undefined}>
+        {edit.bad ? <span>Not a date and time: try 2027-08-02 10:06</span>
+          : <span>UTC. <kbd>Enter</kbd> go, <kbd>Esc</kbd> cancel, <kbd>↑</kbd> <kbd>↓</kbd> step the part under the cursor</span>}
+      </div>
+    </>
   );
 }
 
