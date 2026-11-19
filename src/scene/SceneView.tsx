@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import type { SceneClock } from '../types/clock';
 import { OrreryScene } from './OrreryScene';
 import { missingDataSets } from './dataCheck';
+import { loadState, onLoadChange, type LoadJob } from '../browser/loadQueue.js';
 import type { FocusKey } from './catalogue';
 import type { Frame } from './OrreryScene';
 
@@ -44,6 +45,34 @@ const PAD: [ViewStep, string, string][] = [
   ['up', 'Up', 'Turn the view up (Shift ↑)'], ['in', 'In', 'Zoom in ( ] )'],
   ['left', 'Left', 'Turn the view left (Shift ←)'], ['down', 'Down', 'Turn the view down (Shift ↓)'], ['right', 'Right', 'Turn the view right (Shift →)'], ['out', 'Out', 'Zoom out ( [ )'],
 ];
+
+// What is loading, in a readout window at the sky's top left, while
+// anything is (src/browser/loadQueue.js): the most urgent download open,
+// its bytes so far, and how many more wait. Dark (gone) when nothing is,
+// and it fades in only after half a second, so a quick load never flashes
+// it. Redrawn at most four times a second.
+function LoadReadout() {
+  const [jobs, setJobs] = useState<{ open: LoadJob[]; waiting: LoadJob[] }>({ open: [], waiting: [] });
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const read = () => { timer = null; const s = loadState(); setJobs({ open: s.open.map((j) => ({ ...j })), waiting: s.waiting }); };
+    const off = onLoadChange(() => { timer ??= setTimeout(read, 250); });
+    read();
+    return () => { off(); if (timer) clearTimeout(timer); };
+  }, []);
+  const now = jobs.open.find((j) => j.lane === 'first') ?? jobs.open[0];
+  if (!now) return null;
+  const more = jobs.open.length - 1 + jobs.waiting.length;
+  const mb = (b: number) => (b / 1e6).toFixed(1);
+  return (
+    <div className="load-readout" role="status">
+      <span className="engraved">Loading</span>
+      <span className="name">{now.label}</span>
+      {now.total > 0 && <span className="bytes" aria-hidden="true">{mb(now.got)} / {mb(now.total)} MB</span>}
+      {more > 0 && <span className="more">+{more} queued</span>}
+    </div>
+  );
+}
 
 function ViewPlate({ view, flying, panned, onCentre, onHome, onView }: { view: Props['view']; flying: boolean; panned: boolean; onCentre?: () => void; onHome?: () => void; onView?: (s: ViewStep) => void }) {
   const [pad, setPad] = useState(false);
@@ -130,6 +159,7 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
     // The sky is the page's main content (a landmark a screen reader can jump to).
     <main className="scene-host" ref={hostRef} onPointerDown={seen} aria-label="Sky">
       <div className="scene-overlay" ref={overlayRef} />
+      {!failed && <LoadReadout />}
       {hint && !failed && hintHost && createPortal(<p className="touch-hint">Tap a name to fly there · drag to turn · two fingers to pan and zoom</p>, hintHost)}
       {!failed && (plateHost
         ? createPortal(<ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} onView={onView} />, plateHost)

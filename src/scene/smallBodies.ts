@@ -37,7 +37,8 @@ import { exactOrbit, positionAu, diameterFromH, parseIndex, searchIndex, decodeO
 import { ttMinusUtc } from '@digital-orrery/physics/timescale.js';
 import { BeltHaze } from './beltHaze';
 import { makeBodyMaterial } from './bodyMaterial';
-import { getBuffer, getJson, getText } from '../browser/fetchData.js';
+import { fetchOk, getBuffer, getJson, getText } from '../browser/fetchData.js';
+import { queued, Rank, readCounting } from '../browser/loadQueue.js';
 
 const AU_KM = 149597870.7, TAU = 2 * Math.PI;
 // The points of the bodies SB441's table covers (Ceres, Vesta, Eris and the
@@ -252,7 +253,11 @@ export class SmallBodyLayer {
       // Then the faint main belt, about 1.45 million more: too faint to see
       // one by one, so they are drawn as a haze from their real orbits.
       try {
-        this.haze.setBodies(await getBuffer(`${baseUrl}data/smallbodies-belt.bin`, 'smallbodies-belt.bin'));
+        // 17 MB: after the maps in view (src/browser/loadQueue.ts).
+        this.haze.setBodies(await queued({ label: 'Faint belt', lane: 'bulk', rank: Rank.extra }, async (h) => {
+          const r = await fetchOk(`${baseUrl}data/smallbodies-belt.bin`, 'smallbodies-belt.bin');
+          return (await readCounting(r, h)).buffer as ArrayBuffer;
+        }));
       } catch (err) { console.warn(`faint main belt not loaded: ${err}`); }
     } catch (err) {
       console.warn(`small bodies not loaded: ${err}`);

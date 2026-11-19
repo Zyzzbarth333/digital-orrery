@@ -59,6 +59,7 @@ import { MagneticLayer } from './magnetic';
 import { orbitTrailMaterial, reachOf } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, renderViewTable, type AtmosphereParams } from './atmosphere';
 import { BASE as TEXTURE_BASE, loadBinary, loadJson, loadManifest, SurfaceLoader, TextureUploader, type Manifest } from './surfaces';
+import { focusLoads, Rank } from '../browser/loadQueue.js';
 import { CameraRig, HOME, type Anchor } from './cameraRig';
 import { HdrPipeline } from './post';
 import { makeCorona, makeSunMaterial, SunGlare, visibleFraction } from './sun';
@@ -280,6 +281,7 @@ export class OrreryScene {
   readonly dailyEarth = new DailyEarth();
   private atmospheres = new Map<BodyKey, THREE.Mesh>();
   private unloadedSurfaces = new Set<BodyKey>();
+  private earthMapsIn = false;          // the Earth's maps are up (the clouds wait for them)
   private earthResolved = false;
   private glare = new SunGlare();
   private post: HdrPipeline;
@@ -708,7 +710,9 @@ export class OrreryScene {
         // The light between the stars, then the stars as points over it.
         const gain = (stars.gain ?? 1) * (stars.points ? MILKY_WAY_GAIN : 1);
         // A 2048-wide preview first (0.6 MB, on screen in about a second),
-        // then the full map, which takes seconds to decode, in its place.
+        // then the full map, which takes seconds to decode, in its place:
+        // the preview goes ahead of the queue's bulk downloads, the full
+        // map after the focused body's maps.
         const show = (tex: THREE.Texture) => {
           if (this.stars) { (this.stars.material as THREE.ShaderMaterial).uniforms.starMap.value = tex; return; }
           this.stars = makeStars(tex, renderToEqj(), stars.raAtLeftDeg, stars.raIncreasesRight, gain,
@@ -716,8 +720,8 @@ export class OrreryScene {
           this.scene.add(this.stars);
         };
         let full = false;
-        if (stars.preview) void this.surfaces.load(stars.preview, true).then((tex) => { if (!full) show(tex); }).catch(() => {});
-        void this.surfaces.load(stars.map, true).then((tex) => {
+        if (stars.preview) void this.surfaces.load(stars.preview, true, { label: 'Sky', lane: 'first', rank: Rank.sky }).then((tex) => { if (!full) show(tex); }).catch(() => {});
+        void this.surfaces.load(stars.map, true, { label: 'Sky', rank: Rank.sky }).then((tex) => {
           full = true;
           show(tex);
           if (stars.preview) this.surfaces.drop(stars.preview);
@@ -908,9 +912,12 @@ export class OrreryScene {
   }
 
   private loadSurfaces(key: BodyKey): void {
+    // The focus's downloads go first in the load queue (src/browser/loadQueue.ts).
+    if (key === this.focus) focusLoads(key);
     if (!this.manifest || !this.unloadedSurfaces.has(key)) return;
     this.unloadedSurfaces.delete(key);
     void this.surfaces.apply(key, this.manifest.bodies[key]!, this.materials.get(key)!, new Date(this.clock.snapshot.timeMs))
+      .then(() => { if (key === 'earth') this.earthMapsIn = true; })
       .catch(() => this.unloadedSurfaces.add(key));   // a lost context: load again on the next sighting
   }
 
@@ -1314,7 +1321,9 @@ export class OrreryScene {
     // The other barycentres (the planet systems' came with them).
     this.states.ssb = baryState('ssb', date);
     this.states.emb = baryState('emb', date);
-    if (this.earthResolved) this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
+    // The day's clouds (16 MB from NASA GIBS) once the Earth's own maps are
+    // in: before them, the mosaic took the link from the Earth's maps.
+    if (this.earthResolved && this.earthMapsIn) this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
     this.updateOrbits(tMs, now);
     this.updateNearOrbits(tMs);
 
@@ -1817,7 +1826,9 @@ export class OrreryScene {
       named.push({ el, x, y, key: b.key, r: b.radiusKm, rank: r });
       el.classList.toggle('resolved', radiusPx > 4);
       if (b.key === 'earth') this.earthResolved = radiusPx > 3;
-      if (radiusPx > 3) this.loadSurfaces(b.key);
+      // Not for a body only glimpsed in a flight (the Moon, leaving the
+      // Earth for Mars: 37 MB): the flight's goal loads from its start.
+      if (radiusPx > 3 && (!this.rig.flying || b.key === this.focus)) this.loadSurfaces(b.key);
       tier(el, b.key, r);
     }
     // Barycentres: hidden while they sit on their body's marker (unless

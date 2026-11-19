@@ -32,6 +32,7 @@
 
 import * as THREE from 'three';
 import { decodeImage, type TextureUploader } from './surfaces';
+import { Rank } from '../browser/loadQueue.js';
 import type { GeoMask } from './decode.worker';
 import { geoFrame, subsolar } from './layerComposite.js';
 import { brightLuminance } from './imageStats';
@@ -198,7 +199,7 @@ export class DailyEarth {
     // its bright-cloud level never replaces the shown day's.
     const uploader = this.uploader;
     const loaded: Promise<{ tex: THREE.Texture; white: number; shares?: number[] } | null> = uploader && typeof createImageBitmap === 'function'
-      ? decodeImage(url, { premultiply: false, brightLuminance: true, maxSize: uploader.maxSize, under, masks })
+      ? decodeImage(url, { premultiply: false, brightLuminance: true, maxSize: uploader.maxSize, under, masks }, { label: 'Clouds', lane: 'bulk', rank: Rank.extra })
         .then(({ bitmap, whiteLuminance, shares }) => {
           if (this.day !== day) { bitmap.close(); return null; }
           return uploader.upload(bitmap, true).then((tex) => ({ tex, white: whiteLuminance ?? 1, shares }));

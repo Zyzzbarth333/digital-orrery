@@ -165,6 +165,20 @@ the most self time, `--skip` leaves steps out, and `--json` keeps every
 sample. It holds the GPU lock and caps its browser as `bench:frames`
 does.
 
+**Loading over a slow network.** `npm run bench:load`
+(`scripts/bench-load.mjs`) times a first visit (a fresh browser profile)
+on a real GPU through a shaped link: every request, the page's and its
+workers', goes through one proxy (`scripts/lib/netshape.mjs`) that sends
+each direction round robin across connections at the profile's rate and
+holds it for half the round trip. `fast4g` is Chrome DevTools' Fast 4G
+preset (9 and 1.5 Mbit/s at 90 %, a 165 ms round trip [1]); `cable` is an
+NBN 50 service (50 / 20 Mbit/s, 20 ms). A local build is served over
+HTTP/2 with byte ranges, gzip and `max-age=600`, as Pages serves it, and
+`--url` times the live site instead. It reports the first frame, the sky,
+the Earth's maps from a link to the Earth and a flight from there to Mars,
+the bytes by kind, and each map's request, decode and upload times in the
+`--json` file ([loading over the network](#loading-over-the-network)).
+
 ### A phone's view
 
 The phone layout ([phone](frontend/phone.md)) draws the sky full-screen
@@ -878,6 +892,143 @@ profile now shows 111 ms (−83 %), and the main thread is busy 21 % of the
 time instead of 58 %. The data plate still re-renders ten times a second,
 since its numbers do change.
 
+## Loading over the network
+
+The frame rate holds (4 ms a frame on the NVIDIA GPU, 15–19 ms on the
+Intel, flat over long runs); what was slow is the loading. Measured on 20
+November 2026 with `npm run bench:load` ([measuring](#measuring)): main
+at 14d4483 against this change, local production builds served as Pages
+serves them, interleaved, two rounds, medians, 1920 × 1080 at DPR 1.
+
+**The live site loads as the local build does.** Interleaved with the
+local build of main over fast 4G on the Intel GPU (two rounds each), the
+live site's first frame came at 5.7–6.3 s (local 5.5–6.0), the first sky
+at 10.4–10.8 s (11.4–12.3), the Earth's day map at 14.6–15.9 s
+(16.2–17.5), Mars's maps 66–74 s after the flight started (76–82), and the
+same bytes: 39.6 MB at start, 138.4 MB for the Earth and Mars.
+
+**Where the time went (main).** On fast 4G, the network: of each map's
+time from asking to on screen, transcoding took 0.1–2.1 s and uploading
+0.1–0.6 s, the rest was the download (Mars's day map: 56 s of bytes, 2.1
+s of transcoding, 0.3 s of upload on the Intel GPU; 0.8 and 0.2 s on the
+NVIDIA). Everything shared the link at once:
+
+- The first frame waited for the DE442 tables (2.5 MB, gzipped) before
+  the app's code (0.9 MB) was even asked for (`main.tsx`).
+- The sky's 0.6 MB preview came down beside the full sky (15 MB) and
+  the faint belt (17 MB): about 6 s after the first frame.
+- From a link to the Earth, its 1.3 MB day map shared the link with its
+  relief map (4.9 MB), the belt, the full sky and the day's clouds from
+  NASA GIBS (17 MB).
+- A flight from the Earth to Mars loaded the Moon's maps on the way out
+  (37 MB, the Moon's disc passed three pixels), and Mars's day map (29.5
+  MB) waited for its relief map, so it was in 73–74 s after the flight
+  started, against a 3 s flight.
+
+**What changed** ([textures](frontend/textures.md#over-the-network)): a
+2048-wide preview of each large KTX2 map from the first bytes of its file
+(byte ranges, no new files), one queue that sends previews first and the
+full maps one at a time (the focused body's first, day map before relief,
+the clouds after the Earth's own maps), all of a body's maps asked for at
+once, nothing loaded for a body only passed in a flight, the app's code
+fetched alongside the tables, and the decode worker started with the
+scene.
+
+**Start (the Sun and the sky)**, s from navigation (main → this change):
+
+| | fast 4G, Intel | fast 4G, NVIDIA | cable, Intel | cable, NVIDIA |
+| --- | ---: | ---: | ---: | ---: |
+| First frame | 5.7 → 5.4 | 5.7 → 5.4 | 1.3 → 1.1 | 1.5 → 1.4 |
+| First sky (the preview) | 11.8 → 9.0 | 11.6 → 9.0 | 2.5 → 2.0 | 2.7 → 2.0 |
+| Full sky | 36.8 → 26.4 | 33.0 → 25.9 | 6.4 → 5.2 | 6.9 → 5.4 |
+| Nothing left to load | 42.1 → 41.9 | 42.1 → 42.0 | 6.5 → 6.0 | 6.9 → 6.2 |
+| Downloaded | 39.6 MB | 39.6 MB | 39.6 MB | 39.6 MB |
+
+**A link to the Earth, then a flight to Mars** (the Mars rows from the
+flight's start):
+
+| | fast 4G, Intel | fast 4G, NVIDIA | cable, Intel | cable, NVIDIA |
+| --- | ---: | ---: | ---: | ---: |
+| First frame | 5.7 → 5.1 | 5.7 → 5.4 | 1.2 → 1.1 | 1.6 → 1.4 |
+| Earth's day map shown | 14.2 → 10.0 | 15.3 → 10.2 | 3.2 → 2.0 | 3.6 → 2.4 |
+| Earth's day map, full size | 14.2 → 11.6 | 15.3 → 11.7 | 3.2 → 2.3 | 3.6 → 2.6 |
+| All the Earth's maps, full size | 25.2 → 17.9 | 24.2 → 17.6 | 3.7 → 3.5 | 3.8 → 3.8 |
+| Nothing left to load | 67.9 → 78.1 | 67.9 → 78.7 | 11.0 → 15.9 | 12.0 → 16.5 |
+| Mars's day map shown | 74.4 → 3.2 | 72.9 → 3.3 | 9.9 → 0.5 | 10.1 → 0.5 |
+| Mars's day map, full size | 74.4 → 31.8 | 72.9 → 35.3 | 9.9 → 5.0 | 10.1 → 4.9 |
+| Mars's day and relief maps, full size | 74.4 → 39.0 | 72.9 → 42.7 | 9.9 → 5.5 | 10.1 → 5.5 |
+| Downloaded | 138.4 → 101.8 MB | 138.4 → 101.8 MB | 138.4 → 101.8 MB | 138.4 → 101.8 MB |
+
+- **What is looked at comes first.** The Earth's day map shows 4–5 s
+  sooner on fast 4G and 1.2 s sooner on cable; Mars's shows 3.2 s after
+  the flight starts instead of 73 s (0.5 s instead of 10 on cable), and
+  is at full size in half the time. The previews are 2048 × 1024, a
+  quarter of an 8k map's width.
+- **The start downloads the same 39.6 MB**, in a better order: the full
+  sky is up 7–10 s sooner on fast 4G, the faint belt last.
+- **The Earth and Mars download 37 MB less**: the Moon's maps are no
+  longer fetched on the way out.
+- **The clouds come last.** The day's cloud mosaic now waits for the
+  Earth's own maps and the queue, so the last byte of a visit to the
+  Earth comes 5–11 s later than before; on fast 4G one round's clouds
+  came part-way (NASA's server, not shaped by this harness, varies).
+- **The first frame is the tables' now.** The app's code arrives in 1.3 s
+  beside the tables; the first frame (5.1–5.4 s on fast 4G) waits for the
+  2.5 MB of tables ([planned](#planned-in-order-of-payoff)).
+- **Prefetching the next body's maps: not done.** Mars's preview shows
+  3.2 s after a 3 s flight starts on fast 4G, and 0.5 s on cable, so
+  fetching it ahead could save at most a fraction of a second on the
+  slower link, for megabytes a visit that a metered link pays for.
+
+**Frame time** (`npm run bench:frames`, main → this change, three rounds,
+load average 2–9): within the run-to-run noise on both GPUs (Intel −1 to
++5 %; NVIDIA −22 to +11 %, and the belt's +11 % was 3.5 → 3.4 ms in five
+rounds):
+
+| Scenario | Intel frame | NVIDIA frame |
+| --- | ---: | ---: |
+| Earth close-up, 20,000 km | 15.7 → 16.0 | 3.6 → 3.7 |
+| The asteroid belt, 9 × 10⁸ km | 14.5 → 14.9 | 4.4 → 4.9 (five rounds: 3.5 → 3.4) |
+| Craft in LEO (6-DOF), 0.4 km | 16.6 → 16.5 | 6.1 → 6.3 |
+| Craft in LEO (6-DOF), 3,000 km | 16.6 → 17.4 | 6.2 → 6.2 |
+| Craft in LEO (point), 0.4 km | 15.6 → 16.0 | 5.1 → 4.0 |
+| Craft in LEO (point), 3,000 km | 16.0 → 16.2 | 3.9 → 4.0 |
+
+### A second visit, and what a CDN would change
+
+GitHub Pages answers every file with `Cache-Control: max-age=600` and an
+ETag made of the file's modification time and size, and every file's
+modification time is the deploy's (headers read on 19 November 2026: the
+maps, unchanged for days, carried the 14:16 deploy's time, the third
+deploy in 20 minutes that afternoon). Pages offers no way to set response
+headers. So a visitor back within ten minutes loads from the browser's
+cache, but after that every file is asked for again, and after any
+deploy every ETag has changed and every file downloads again: the
+39.6 MB of the start, 102 MB for the Earth and Mars, whether or not the
+data changed.
+
+Serving the data sets from Cloudflare R2 behind a custom domain on
+Cloudflare's CDN (ADR-0001) would change that:
+
+- **Each object carries its own `Cache-Control`** [2], so the data, under
+  paths that name their set's version (they are already versioned, and
+  `public/manifest.json` pins them), can be `public, max-age=31536000,
+  immutable`: a returning visitor downloads none of it until a new
+  version is pinned, and a deploy that leaves a set alone leaves its
+  files cached. Measured here as the difference between a first visit
+  and none: up to 39.6 MB and 42 s at start on fast 4G.
+- **No egress fees** [3]: the per-visit bytes above cost nothing to serve.
+- **Caveats.** Cloudflare's CDN caches an R2 bucket only on a custom
+  domain, not on `r2.dev`, and by default only some file types: `.ktx2`
+  and `.bin` need a cache rule [4]. The previews need byte ranges; R2's
+  own API reads ranges [2], but ranges through the custom domain should
+  be checked before the move (the app falls back to whole files if they
+  are not honoured).
+
+Until then the app could keep the data files in the browser's Cache
+Storage itself, keyed by each file's SHA-256 in `public/manifest.json`,
+which gives the same second visit on Pages.
+
 ## Planned, in order of payoff
 
 1. **Encke's method near a primary: done** ([n-body kernel](physics/nbody-kernel.md#enckes-method)).
@@ -908,3 +1059,25 @@ since its numbers do change.
    stays WebP, so the start downloads what it did.
 6. **WebAssembly for the kernel** only if, after these, profiling still
    puts the time in the integrator's arithmetic.
+7. **Loading: the first frame.** It now waits only for the DE442 tables
+   (2.5 MB gzipped, 2000–2050), 5.1–5.4 s on fast 4G
+   ([loading](#loading-over-the-network)). Split by decade, the first
+   frame would need the current decade's part.
+8. **Loading: a second visit.** The data cached for good, by R2 behind a
+   CDN or by the app in Cache Storage ([above](#a-second-visit-and-what-a-cdn-would-change)).
+9. **Loading: the full maps' size.** Most large maps are UASTC, 3–4 times
+   their WebP (Mars's day map: 29.5 MB against 7.8), for a quarter of the
+   video memory ([GPU-compressed maps](#gpu-compressed-maps)). On fast 4G
+   that is 30 s against 8 s for Mars's full map, after its preview. A
+   slow link could take the WebP instead, if the video memory allows.
+
+## References
+
+[1] Chrome DevTools, "NetworkManager.ts" (the throttling presets, `Fast4GConditions`), devtools-frontend. [Online]. Available: https://github.com/ChromeDevTools/devtools-frontend/blob/main/front_end/core/sdk/NetworkManager.ts
+
+[2] Cloudflare, "Workers API reference," R2 documentation (`httpMetadata.cacheControl`; `range` in `R2GetOptions`). [Online]. Available: https://developers.cloudflare.com/r2/api/workers/workers-api-reference/
+
+[3] Cloudflare, "Pricing," R2 documentation. [Online]. Available: https://developers.cloudflare.com/r2/pricing/
+
+[4] Cloudflare, "Public buckets," R2 documentation. [Online]. Available: https://developers.cloudflare.com/r2/buckets/public-buckets/
+

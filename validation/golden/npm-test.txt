@@ -1191,8 +1191,8 @@ CASE 22: what the ledger pays for and what it credits: landings, flybys
   PASS  flown: down on the Moon from the orbit at under 3 m/s, for more than the ideal descent and under 15 % over it; up again and home by entry; no trouble
   from a 400 km orbit: Deorbit at Earth 81 m/s; flown: entry at earth: down through the air before its perigee, falling at 47 m/s, set down there
   PASS  from a 400 km Earth orbit to a landing: one deorbit burn (the Hohmann transfer's first, 81 m/s), no circularising one, and down by entry
-  Gravity assist at Venus: +3.494 km/s heliocentric, credit 3.302: turns the path 33.2°, 3.49 km/s of heliocentric change for a 192 m/s burn: 3.30 km/s the engine did not have to give
-  Gravity assist at Earth: +7.255 km/s heliocentric, credit 7.255: turns the path 48.5°, 7.26 km/s of heliocentric change, free (unpowered): 7.26 km/s the engine did not have to give
+  Gravity assist at Venus: +3.494 km/s heliocentric, credit 3.302: turns the path 33.2° (v∞ 6.21 km/s about Venus), 3.49 km/s of heliocentric change for a 192 m/s burn: 3.30 km/s the engine did not have to give
+  Gravity assist at Earth: +7.255 km/s heliocentric, credit 7.255: turns the path 48.5° (v∞ 8.83 km/s about Earth), 7.26 km/s of heliocentric change, free (unpowered): 7.26 km/s the engine did not have to give
   PASS  the Earth flyby at the end, unpowered: its credit is 2 v_inf sin(delta/2), free, and adds nothing to the total
   PASS  the Venus flyby, powered: its heliocentric change is the arcs' velocity out less in, the credit that less its burn, and the burn's note says why it is paid
   PASS  the total is the burns alone: the credits are shown, not subtracted
@@ -1206,6 +1206,28 @@ CASE 23: why a window opens: the phase angle at departure (legPhase)
   PASS  the lead on the day is Mars's ecliptic longitude less the Earth's
   PASS  in the window (20 Nov 2026) the lead is within 10 deg of the Hohmann one, out of it (1 Mar 2026) over 100 deg off, and the leg costs far more
   PASS  an orbit change has no phase angle
+============================================================
+CASE 24: a flyby of a moon via its planet, near 180 degrees round the Sun: aimed at the moon
+============================================================
+  Earth to an Io flyby: 190.7 deg round the Sun, a deep-space burn taken; 8.637 km/s about Io; aims at io; Io passed 2221.7 km from its centre, planned 2221.5
+  PASS  the leg near 180 degrees takes a deep-space burn and keeps the excess velocity about Io
+  PASS  flown in the full model: every aim near Io is at Io, not Jupiter; Io passed within 5 km of the planned periapsis; nothing hit; no trouble
+  PASS  a bi-elliptic leg and a craft's own leg to Io keep the excess velocity about Io too
+============================================================
+CASE 25: a moon's flyby turns the excess velocity about the moon: the turn, the B-plane, the gain about the planet
+============================================================
+  Earth to an Io flyby: v_inf 8.637 km/s about Io (5.807 about Jupiter); turned 3.979 deg, 0.5997 km/s about Jupiter, B 2300.0 km (from the planet's excess it was 8.45 deg, 0.856 km/s); ledger: turns the path 4.0° (v∞ 8.64 km/s about Io), 0.60 km/s of change about Jupiter, free (unpowered): 0.60 km/s the engine did not have to give
+  PASS  Earth to an Io flyby: the flyby's v_inf is the excess about Io, its turn, gain and B-plane radius the hyperbola's for it (to 1e-9), the gain about Jupiter, credited in full (unpowered)
+  PASS  Earth to an Io flyby: the ledger and the credit say "about Jupiter", not heliocentric
+  PASS  the Io flyby: 8.64 km/s about Io turned 3.98 deg for 0.600 km/s about Jupiter (it was 8.45 deg and 0.86 km/s from the 5.81 about Jupiter)
+  CASE 17's Europa flyby: v_inf 24.166 km/s about Europa (6.132 about Jupiter); turned 0.304 deg, 0.1283 km/s about Jupiter, B 2066.3 km (from the planet's excess it was 4.55 deg, 0.487 km/s); ledger: turns the path 0.3° (v∞ 24.17 km/s about Europa), 0.13 km/s of change about Jupiter, free (unpowered): 0.13 km/s the engine did not have to give
+  PASS  CASE 17's Europa flyby: the flyby's v_inf is the excess about Europa, its turn, gain and B-plane radius the hyperbola's for it (to 1e-9), the gain about Jupiter, credited in full (unpowered)
+  PASS  CASE 17's Europa flyby: the ledger and the credit say "about Jupiter", not heliocentric
+  PASS  the Europa flyby: 24.17 km/s about Europa, nearly head on, turned 0.30 deg for 0.128 km/s about Jupiter (it was 4.55 deg and 0.49 km/s from the 6.13 about Jupiter)
+  PASS  the leg's assist option carries the excess about Io and the frame of its gain
+  joined to Europa orbit: v_inf 8.637 in, 7.812 out about Io, 75.8 deg apart; powered 9911 m/s (795 at periapsis, 9117 steered); 10.13 km/s about Jupiter
+  PASS  the Io flyby joined to a leg about Jupiter: both excesses about Io, the burn the powered flyby's between them, the gain their difference
+  PASS  a planet's flyby is still a heliocentric change, and its excess the leg's own
 RESULT: all checks PASSED
 
 >>> node src/physics/nesc.test.mjs
@@ -2731,6 +2753,48 @@ CASE 5: a moon's degree-2 field (J2 and C22), and Jupiter's zonals to J12, are t
   PASS  Ganymede's x axis points at Jupiter (cos 1.000000000), its z along its orbit's pole
 
 flyby: all checks passed
+
+>>> node src/physics/remedies.test.mjs
+============================================================
+CASE 1: the Trajectory row's verdict
+============================================================
+  PASS  go; a waypoint 51 km off is a miss; 1.4 km/s of corrections on a 13.7 km/s plan is too many, 1.3 not
+  PASS  an impact is a hit, unless it is the touchdown on a body the journey lands on (an arrival at a central body)
+============================================================
+CASE 2: why the craft hits Jupiter on the way to Io
+============================================================
+  Io is reached through Jupiter's gravity: the approach stays 352,272 km over its cloud tops; the kernel's flight drifted into it
+  PASS  named through its moon: "Io is reached through Jupiter's gravity", the approach's height over the cloud tops (the periapsis less the radius, to the km), and the kernel's flight drifted in
+  Io is reached through Jupiter's gravity: past Io, the approach falls on to 52,794 km below its cloud tops
+  PASS  half a day early, the approach is on course below the cloud tops past Io, and it says by how much
+  Venus is not in the plan, but the leg to Mars passes it on 2026-11-20, 53,466,991 km over its surface; the kernel's flight drifted into it
+  PASS  a body not in the plan is named, with the date and height of the plan's closest pass
+============================================================
+CASE 3: what to change: Earth to Io orbit, 13.7 km/s against a budget of 8
+============================================================
+  trajectory: Io is reached through Jupiter's gravity: the approach stays 352,272 km over its cloud tops; the kernel's flight drifted into it
+    Stop in Jupiter orbit first, 344,000 km up: 14.89 km/s, +1.21
+    Leave Earth 2029-01-05 instead: 13.11 km/s, -0.57
+  windows: 
+    Leave Earth 2029-01-05, its best date: 13.11 km/s, -0.57
+    Raise the budget to 13.2 km/s: 13.68 km/s (budget 13.2)
+  dv: 
+    Leave Earth 2029-01-05 instead: 13.11 km/s, -0.57
+    Raise the budget to 13.7 km/s: 13.68 km/s (budget 13.7)
+  worked out in <clock> ms
+  PASS  every option that changes the journey solves, at the total it states
+  PASS  the hit: a stop in Jupiter orbit before Io is offered, Jupiter then Io
+  PASS  the hit: another departure date whose approach keeps a tenth of a radius clear of the cloud tops
+  PASS  delta-v: the budget raised to the total, up a tenth of a km/s (13.7), and a cheaper departure first
+  PASS  rows that are not NO GO have nothing: shaping, orbits, flybys, launch
+  PASS  without a flight (the kernel still flying), no Trajectory options
+============================================================
+CASE 4: inserting a stop, and the launch row
+============================================================
+  Jupiter orbit 2031-12-22, Io 2032-01-12: 29.87 km/s against 13.68
+  PASS  a stop inserted before Io: Jupiter orbit at 70,000 km, then Io after it, both legs solved, in date order
+  PASS  a parking orbit inside the air: raised to 120 km, priced
+RESULT: all checks PASSED
 
 >>> node src/physics/kernelClient.test.mjs
 ============================================================

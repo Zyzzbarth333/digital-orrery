@@ -724,6 +724,22 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .console-head .tabs { flex: 1; padding-right: 0; }
 .key.tab.close { flex: 0 0 auto; padding: 0 10px; }
 
+/* ---------------- the load readout, in the sky ---------------- */
+/* A readout window like the view plate's, top left, while maps load. */
+.load-readout {
+  position: absolute; top: 16px; left: 16px; z-index: 3; pointer-events: none;
+  display: flex; align-items: baseline; gap: 8px; padding: 5px 10px;
+  background: rgba(18, 17, 16, 0.82); border-radius: 2px; box-shadow: 0 0 0 var(--hair) var(--seam-strong);
+  color: var(--phosphor); font: var(--t-text) var(--sans);
+  animation: load-in 0.2s 0.5s both;
+}
+.load-readout .engraved { font-size: var(--t-label); color: var(--label-dim); }
+.load-readout .name { text-transform: uppercase; letter-spacing: 0.06em; text-shadow: var(--glow); }
+.load-readout .bytes { font: var(--t-tag) var(--mono); font-variant-numeric: tabular-nums; color: var(--phosphor); }
+.load-readout .more { font: var(--t-tag) var(--mono); color: var(--phosphor-dim); }
+@keyframes load-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .load-readout { animation-duration: 0s; } }
+
 /* ---------------- the view plate, in the sky ---------------- */
 .view-plate {
   position: absolute; bottom: 16px; left: 16px; z-index: 3; pointer-events: none;
@@ -1045,6 +1061,13 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .go-row b { font: var(--t-label) var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--phosphor); font-weight: 400; }
 .go-row .plot-lamp { min-width: 0; text-align: center; font-size: var(--t-legend-sm); padding: 6px 4px; }
 .go-row small { display: block; color: #b9ad92; font-size: var(--t-small); margin-top: 2px; }
+/* A NO GO row's why, and what to change: each option with the journey's
+   delta-v after it and the key that makes the change. */
+.go-row small.go-why { color: var(--phosphor-dim); }
+.go-fixes { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.go-fixes li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.go-fixes li > span { color: var(--phosphor); }
+.go-fixes .key { min-width: 84px; }
 .go-station > .keys-row { background: linear-gradient(var(--panel), var(--panel-low)); padding: 10px 14px; }
 @media (max-width: 1100px) {
   .stack-station { grid-template-columns: minmax(0, 1fr); }

@@ -20,19 +20,25 @@ import { fetchOk } from '../browser/fetchData.js';
 // is over sunCos (the subsolar point sunLat, sunLon at the frame's time).
 export interface GeoMask { satLon: number; reachDeg: number; sunLat: number; sunLon: number; sunCos: number }
 export interface DecodeRequest { id: number; url: string; premultiply: boolean; brightLuminance?: boolean; maxSize?: number; under?: string[]; masks?: (GeoMask | null)[] }
-export type DecodeReply = { id: number; bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] } | { id: number; error: string };
+// A reply, or first a note that the files are fetched (the load queue,
+// src/browser/loadQueue.ts, lets the next download start while this one
+// decodes).
+export type DecodeReply = { id: number; bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] } | { id: number; error: string } | { id: number; fetched: true };
 
-async function fetchBitmap(url: string, premultiply: boolean): Promise<ImageBitmap> {
-  const r = await fetchOk(url, url);
-  return createImageBitmap(await r.blob(), {
-    imageOrientation: 'flipY', colorSpaceConversion: 'none', premultiplyAlpha: premultiply ? 'premultiply' : 'none',
-  });
-}
+const fetchBlob = async (url: string): Promise<Blob> => (await fetchOk(url, url)).blob();
+
+const decode = (blob: Blob, premultiply: boolean): Promise<ImageBitmap> => createImageBitmap(blob, {
+  imageOrientation: 'flipY', colorSpaceConversion: 'none', premultiplyAlpha: premultiply ? 'premultiply' : 'none',
+});
+
+const fetched = (id: number) => (self as unknown as Worker).postMessage({ id, fetched: true } satisfies DecodeReply);
 
 // The images layered at the size of the first that loaded (the others
 // scaled to it): the bitmap and each image's share of the pixels.
-async function composite(urls: string[], masks: (GeoMask | null)[] = []): Promise<{ bitmap: ImageBitmap; shares: number[] }> {
-  const got = await Promise.all(urls.map((u) => fetchBitmap(u, false).catch(() => null)));
+async function composite(id: number, urls: string[], masks: (GeoMask | null)[] = []): Promise<{ bitmap: ImageBitmap; shares: number[] }> {
+  const blobs = await Promise.all(urls.map((u) => fetchBlob(u).catch(() => null)));
+  fetched(id);
+  const got = await Promise.all(blobs.map((b) => (b ? decode(b, false).catch(() => null) : null)));
   const first = got.find((b) => b);
   if (!first) throw new Error(`${urls[0]}: none of the layers loaded`);
   const W = first.width, H = first.height;
@@ -55,8 +61,12 @@ self.onmessage = async (e: MessageEvent<DecodeRequest>) => {
   try {
     let shares: number[] | undefined;
     let bitmap: ImageBitmap;
-    if (under?.length) ({ bitmap, shares } = await composite([url, ...under], masks));
-    else bitmap = await fetchBitmap(url, premultiply);
+    if (under?.length) ({ bitmap, shares } = await composite(id, [url, ...under], masks));
+    else {
+      const blob = await fetchBlob(url);
+      fetched(id);
+      bitmap = await decode(blob, premultiply);
+    }
     // Larger than the GPU takes: scaled down here, as three.js's own loader
     // would have done.
     const max = e.data.maxSize ?? Infinity;

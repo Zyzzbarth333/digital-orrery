@@ -237,7 +237,9 @@ separately. Choosing the body already in view reframes it at the default.
 
 ## Maps on the way
 
-A flight starts loading the target's surface maps at once. They are decoded
-in a worker and uploaded 4 MB per frame
-([textures](textures.md#loading)), so they are usually ready on arrival
-and the flight never stalls.
+A flight starts loading the target's surface maps at once, ahead of any
+other full-size map, and bodies passed on the way load nothing. They are
+decoded in a worker and uploaded 4 MB per frame
+([textures](textures.md#loading)), so the flight never stalls; over a
+slow link each map shows a 2048-wide preview first
+([over the network](textures.md#over-the-network)).
