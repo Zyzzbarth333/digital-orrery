@@ -157,7 +157,7 @@ const CLIPS = {
     query: `?focus=earth&${DATE}`,
     settle: 15000, // the Earth's maps loaded before filming
     async setup(p) {
-      await p.button('All active');
+      await p.button('Active satellites');
       await p.wait(2500);
       await p.zoomTo(90000, 0);
       await p.wait(1500);
