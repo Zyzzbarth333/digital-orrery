@@ -97,7 +97,7 @@ const COLOUR_OF = Object.fromEntries(SAT_GROUPS.map((g) => [g.key, g.colour])) a
 export type SatLayerKey = 'active' | 'debris' | 'rocket-bodies' | 'analyst';
 type Rgb = [number, number, number];
 export const SAT_LAYERS: { key: SatLayerKey; label: string; file: string; lit: Rgb; dark: Rgb; gain: number; hint: string }[] = [
-  { key: 'active', label: 'All active', file: 'satellites.csv', lit: [0.95, 0.93, 0.86], dark: [0.55, 0.62, 0.80], gain: 1,
+  { key: 'active', label: 'Active satellites', file: 'satellites.csv', lit: [0.95, 0.93, 0.86], dark: [0.55, 0.62, 0.80], gain: 1,
     hint: 'Every active satellite CelesTrak lists, moved by SGP4; the named ones with their orbits. Dimmer in the Earth\'s shadow' },
   { key: 'debris', label: 'Debris clouds', file: 'satellites-debris.csv', lit: [0.86, 0.50, 0.38], dark: [0.50, 0.44, 0.56], gain: 0.55,
     hint: 'The tracked pieces of the three breakups CelesTrak keeps as groups: Fengyun-1C (2007), and Cosmos 2251 and Iridium 33 (2009)' },
