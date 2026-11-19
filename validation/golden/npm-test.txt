@@ -1,3 +1,10 @@
+>>> node scripts/lib/chromium.test.mjs
+ok 1 a leader that exited on its own: stopGroup settles, no error
+ok 2 a leader killed by a signal (the memory cap): stopGroup settles, no error
+ok 3 a leader still running: SIGTERM ends it and stopGroup settles
+ok 4 a leader that ignores SIGTERM: SIGKILL after the wait
+chromium: 4 passed
+
 >>> node src/app/tex.test.mjs
 ok 1 plain text of common forms
 ok 2 MathML structure
@@ -11,6 +18,27 @@ ok 1 every map listed has a KTX2 that matches its WebP (39 maps)
 ok 2 every body's map is listed
 ok 3 the sky's 16k tiles, if they have KTX2s, are all there, in one codec for the texture array (0 tiles)
 3 checks passed
+
+>>> node src/scene/ktx2Range.test.mjs
+ok 1 the maps cut for a preview include UASTC and ETC1S ones
+ok 2 the header and level index fit in the first bytes asked for
+ok 3 saturn/day.ktx2: the preview is levels 1.. from the first 0.18 of 0.5 MB
+ok 4 earth/night.ktx2: the preview is levels 2.. from the first 0.10 of 0.6 MB
+ok 5 triton/day.ktx2: the preview is levels 1.. from the first 0.24 of 0.8 MB
+ok 6 earth/normal.ktx2: the preview is levels 2.. from the first 0.31 of 4.9 MB
+ok 7 callisto/day.ktx2: the preview is levels 1.. from the first 1.63 of 5.9 MB
+ok 8 ganymede/day.ktx2: the preview is levels 1.. from the first 1.65 of 6.1 MB
+ok 9 a map no wider than the preview is not cut
+
+>>> node src/physics/loadQueue.test.mjs
+ok 1 first jobs start at once, side by side
+ok 2 a bulk job waits for the first jobs, then bulk jobs go one at a time
+ok 3 done() frees the place before the job settles (decoding overlaps the next download)
+ok 4 a first job asked for while a bulk job downloads starts at once; the next bulk waits for both
+ok 5 bulk jobs go by rank, then in the order asked
+ok 6 within a rank, a lower order goes first (a body's day map before its relief)
+ok 7 the focused body's waiting jobs go first, and lose that when the focus moves on
+ok 8 a failing job gives up its place, and the state and listeners follow the queue
 
 >>> node src/scene/layerComposite.test.mjs
 The frame asked for
