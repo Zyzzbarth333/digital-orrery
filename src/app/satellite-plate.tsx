@@ -8,6 +8,7 @@
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
+import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { eclToEqj } from '../physics/ephemeris.js';
 import { stateTeme, temeToEqj, apply, groundSpeeds, meanOrbit, inShadow, type satrecOf } from '../physics/satellites.js';
@@ -72,6 +73,8 @@ export function SatellitePlate({ clock, sat, source, track = null }: { clock: Si
     { label: 'Drag term', value: o.bstar === 0 ? '0' : o.bstar.toExponential(4), unit: '/R⊕', alt: 'B*', src: 'CelesTrak', info: 'sat-elements' },
   );
   if (source) rows.push({ label: 'Element sets', value: source.live ? 'live' : 'snapshot', alt: `fetched ${source.fetched.slice(0, 16).replace('T', ' ')} UTC`, src: 'CelesTrak', info: 'sat-elements', detail: source.label });
+  // The phone's peek: its height and speed.
+  usePeek(byLabel(rows, 'Height', 'Speed'));
   return (
     <div className="tab-body">
       <div className="plate-head">
@@ -106,6 +109,8 @@ export function SatCloudPlate({ cloud }: { cloud: SatCloudView }) {
     { label: 'Epochs', value: cloud.epochs.median.slice(0, 16).replace('T', ' '), unit: 'UTC', alt: `median; the oldest ${cloud.epochs.first.slice(0, 10)}`, src: 'CelesTrak', info: 'sat-epoch' },
     { label: 'Element sets', value: 'snapshot', alt: `fetched ${cloud.fetched.slice(0, 16).replace('T', ' ')} UTC`, src: 'CelesTrak', info: 'sat-elements', detail: cloud.query },
   ];
+  // The phone's peek: how many pieces, and when it broke up.
+  usePeek(byLabel(rows, 'Pieces tracked', 'Breakup'));
   return (
     <div className="tab-body">
       <div className="plate-head">

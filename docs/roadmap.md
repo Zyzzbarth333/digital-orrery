@@ -65,9 +65,10 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 - [x] The ROCKET tab split into vehicle, job and launch (#161).
 - [x] One search over every body, moon, small body and craft, and a `?` sheet of the keyboard shortcuts.
 - [x] A name and a touch hint on phones (#162).
-- [ ] A phone layout of its own: the sky full-screen, with the plate and console as sheets over it. The touch hint now sits over the FOLLOW chip once a craft is followed.
+- [x] A phone layout of its own: the sky full-screen under a band of the clock, RUN and FIND, with the plate, the rail and the console in one sheet over it; the touch hint is a line of its peek ([phone layout](frontend/phone.md)).
+- [ ] Try the phone layout on a real phone: the sheet's drag and fling, Back, the keyboard and the safe areas.
 - [x] The MISSION tab after a launch folds to a short panel, its sections saying what they hold (#165).
-- [ ] The rail's lower sections as groups that fold away.
+- [x] The rail's lower sections as groups that fold away, each saying what it has on (in the phone's sheet; beside the sky the rail scrolls as one).
 - [ ] Wrap or expand the plotting table's long lamps at phone width.
 
 ## Performance and tooling

@@ -12,6 +12,7 @@
 // satellites 2.5 MB (0.9 MB compressed), the rest 0.8 MB together.
 
 import { useState } from 'react';
+import { RailGroup, onNote } from './panels';
 import { SAT_GROUPS, SAT_LAYERS, layerColour, type NamedSat, type SatSource, type SatCloud, type SatLayerKey } from '../scene/satellites';
 
 export interface SatelliteApi {
@@ -37,8 +38,7 @@ export function SatelliteRail({ api }: { api: SatelliteApi }) {
   const any = SAT_LAYERS.some((l) => api.layers[l.key]);
   const pick = api.cloud !== null ? `cloud:${api.cloud}` : api.current ?? '';
   return (
-    <>
-      <h2 className="strip split"><span>Satellites</span><span title="shown">On</span></h2>
+    <RailGroup title="Satellites" note={onNote(SAT_LAYERS.filter((l) => api.layers[l.key]).map((l) => l.label))}>
       <ul className="body-list small-bodies">
         {SAT_LAYERS.map((l) => (
           <li key={l.key}>
@@ -87,6 +87,6 @@ export function SatelliteRail({ api }: { api: SatelliteApi }) {
           )}
         </>
       )}
-    </>
+    </RailGroup>
   );
 }

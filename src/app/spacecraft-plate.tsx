@@ -8,6 +8,7 @@
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
+import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { PROBE_GROUPS, type Probe, type SpacecraftLayer } from '../scene/spacecraftLayer';
@@ -52,6 +53,8 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
     { label: 'Held as', value: c.spacingMin ? `every ${c.spacingMin[0]}–${c.spacingMin[1]} min` : '—', alt: `within ${layer.tolKm} km of Horizons (worst ${c.maxErrKm.toFixed(2)} km)`, src: 'packed', derived: true, info: 'probe-packing' },
   );
   const group = PROBE_GROUPS.find((g) => g.key === c.group);
+  // The phone's peek: how far from Earth, and how fast.
+  usePeek(byLabel(rows, 'From Earth', 'Speed'));
   return (
     <div className="tab-body">
       <div className="plate-head">

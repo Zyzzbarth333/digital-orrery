@@ -8,7 +8,7 @@
 // times a second, and the header and rail redraw only when what they show
 // changes.
 
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
+import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { dailyEarthInfo } from '../scene/clouds';
 import { useClock, useClockValue, type SimClock } from './clock';
@@ -33,6 +33,8 @@ import { siderealDays, obliquity, solarDays, density, escapeSpeed, sunRotationDa
 import type { GuideKey } from '../scene/guides';
 import type { FlowFrame, FlowPlane } from '../scene/gravityFlow';
 import type { MagneticKey } from '../scene/magnetic';
+import { PhoneContext } from './phone';
+import { usePeek, byLabel } from './peek';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -139,76 +141,159 @@ function FlightField({ mission, consoleOpen, onToggleConsole, following, onFollo
   );
 }
 
-export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, following, onFollow }: {
-  clock: SimClock; mission: Mission; consoleOpen: boolean; onToggleConsole: () => void; following: number | null; onFollow: (id: number) => void;
-}) {
+// Whether the clock is within a minute of now. The clock is silent while
+// held, but the present moves on: re-read every second then.
+function useLive(clock: SimClock): boolean {
   const playing = useClockValue(clock, (s) => s.playing);
-  const rate = useClockValue(clock, (s) => s.rate);
-  const jump = useClockValue(clock, (s) => s.lastJump);
   const live = useClockValue(clock, (s) => Math.abs(s.timeMs - Date.now()) < 60e3);
-  // The clock is silent while held, but the present moves on: re-read LIVE
-  // (and NOW's state) every second.
   const [, setTick] = useState(0);
   useEffect(() => {
     if (playing) return;
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, [playing]);
+  return live;
+}
+
+function RateField({ clock }: { clock: SimClock }) {
+  const rate = useClockValue(clock, (s) => s.rate);
+  return (
+    <div className="field">
+      <label className="engraved" htmlFor="rate">Rate</label>
+      <select id="rate" className="rate" value={rate} onChange={(e) => clock.setRate(Number(e.target.value))}>
+        {RATES.map((r) => <option key={r.rate} value={r.rate}>{r.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+// Annunciator, after the Shuttle's caution and warning panel: green
+// advisories, amber caution, red warning. Every light is labelled (never
+// colour alone); a warning sounds the master alarm, which ACK clears, but
+// its light stays lit while the condition lasts.
+function useLamps(mission: Mission) {
   const lamps = useMissionValue(mission, () => `${+mission.stepping}${+mission.lagging}${+mission.warning}${+mission.alarm}|${mission.warningText}`);
-  const [flags, warningText] = [lamps.slice(0, 4), lamps.slice(5)];
-  const s = { playing, rate };
+  return { flags: lamps.slice(0, 4), warningText: lamps.slice(5) };
+}
+const AckKey = ({ mission }: { mission: Mission }) => (
+  <button className="key small master" onClick={() => mission.acknowledge()} title="Acknowledge the master alarm">Ack</button>
+);
+function Annunciator({ mission, live, ack = true }: { mission: Mission; live: boolean; ack?: boolean }) {
+  const { flags, warningText } = useLamps(mission);
+  return (
+    <div className="annunciator" role="group" aria-label="Status">
+      <Lamp on={live} label="Live" title="The sim clock is within a minute of now" />
+      <Lamp on={flags[0] === '1'} label="Kernel" title="The n-body kernel is stepping a craft" />
+      <Lamp on={flags[1] === '1'} label="Lag" kind="caution" title="A craft is more than a minute behind the clock; the kernel catches up rather than take unsafe steps" />
+      <Lamp on={flags[2] === '1'} label="Warn" kind="warning" title={warningText || 'A craft has crashed or the kernel refused it'} />
+      {ack && flags[3] === '1' && <AckKey mission={mission} />}
+    </div>
+  );
+}
+
+export function TimeBand({ clock, mission, consoleOpen, onToggleConsole, following, onFollow, onFind }: {
+  clock: SimClock; mission: Mission; consoleOpen: boolean; onToggleConsole: () => void; following: number | null; onFollow: (id: number) => void;
+  onFind?: () => void;
+}) {
+  const phone = useContext(PhoneContext);
+  const playing = useClockValue(clock, (s) => s.playing);
+  const jump = useClockValue(clock, (s) => s.lastJump);
+  const live = useLive(clock);
+  const { flags } = useLamps(mission);
+  const jumpNotice = jump && (
+    <div className="notice jump" role="status">
+      <span>Clock set {span(jump.toMs - jump.fromMs)}</span>
+      <button className="key small" onClick={() => clock.undoJump()} title={`Back to ${new Date(jump.fromMs).toISOString().slice(0, 16).replace('T', ' ')} UTC`}>Back</button>
+      <button className="key small" onClick={() => clock.dismissJump()} aria-label="Dismiss">OK</button>
+    </div>
+  );
+  const wordmark = <h1 className="wordmark">digital-orrery<span className="tagline">The real solar system, now, from NASA ephemerides</span></h1>;
+  // A phone's band: the clock, one RUN key (lit while time runs) and FIND;
+  // the rate, NOW, FLIGHT and the lamps are in the sheet (TimeControls),
+  // and only the master alarm's ACK comes up here.
+  if (phone) {
+    return (
+      <header className="band">
+        {wordmark}
+        <div className="field">
+          <span className="sr-only" id="utc-label">UTC</span>
+          <ClockWindow clock={clock} />
+          {jumpNotice}
+        </div>
+        <button className="key run" aria-pressed={playing} onClick={() => clock.setPlaying(!playing)} aria-keyshortcuts="Space"
+          title={playing ? 'Time runs: press to hold it (Space)' : 'Time is held: press to run it (Space)'}>Run</button>
+        {flags[3] === '1' && <AckKey mission={mission} />}
+        <button className="key find-key" onClick={onFind} aria-keyshortcuts="/" title="Find a body, a moon, a satellite, a spacecraft or a landing site (/)">Find</button>
+      </header>
+    );
+  }
   return (
     <header className="band screw">
       <span className="pnl" aria-hidden="true">PNL F1</span>
-      <h1 className="wordmark">digital-orrery<span className="tagline">The real solar system, now, from NASA ephemerides</span></h1>
+      {wordmark}
       <div className="field">
         <span className="engraved" id="utc-label">UTC</span>
         <ClockWindow clock={clock} />
         {/* The jump notice hangs just under the clock it is about, so the
             header keeps its width (inline where the header wraps). */}
-        {jump && (
-          <div className="notice jump" role="status">
-            <span>Clock set {span(jump.toMs - jump.fromMs)}</span>
-            <button className="key small" onClick={() => clock.undoJump()} title={`Back to ${new Date(jump.fromMs).toISOString().slice(0, 16).replace('T', ' ')} UTC`}>Back</button>
-            <button className="key small" onClick={() => clock.dismissJump()} aria-label="Dismiss">OK</button>
-          </div>
-        )}
+        {jumpNotice}
       </div>
-      <div className="field">
-        <label className="engraved" htmlFor="rate">Rate</label>
-        <select id="rate" className="rate" value={s.rate} onChange={(e) => clock.setRate(Number(e.target.value))}>
-          {RATES.map((r) => <option key={r.rate} value={r.rate}>{r.label}</option>)}
-        </select>
-      </div>
+      <RateField clock={clock} />
       {/* RUN and HOLD latch like tape-deck keys: the lit key is the state. */}
       <div className="keys-row" role="radiogroup" aria-label="Time">
-        <button className="key run" role="radio" aria-checked={s.playing} onClick={() => clock.setPlaying(true)} title="Run time (Space)">Run</button>
-        <button className="key hold" role="radio" aria-checked={!s.playing} onClick={() => clock.setPlaying(false)} title="Hold time (Space)">Hold</button>
+        <button className="key run" role="radio" aria-checked={playing} onClick={() => clock.setPlaying(true)} title="Run time (Space)">Run</button>
+        <button className="key hold" role="radio" aria-checked={!playing} onClick={() => clock.setPlaying(false)} title="Hold time (Space)">Hold</button>
         <button className="key" onClick={() => clock.setTime(Date.now())} disabled={live} title={live ? 'Already at the present' : 'Jump to now (N)'}>Now</button>
       </div>
       <FlightField mission={mission} consoleOpen={consoleOpen} onToggleConsole={onToggleConsole} following={following} onFollow={onFollow} />
-      {/* Annunciator, after the Shuttle's caution and warning panel: green
-          advisories, amber caution, red warning. Every light is labelled
-          (never colour alone); a warning sounds the master alarm, which ACK
-          clears, but its light stays lit while the condition lasts. */}
-      <div className="annunciator" role="group" aria-label="Status">
-        <Lamp on={live} label="Live" title="The sim clock is within a minute of now" />
-        <Lamp on={flags[0] === '1'} label="Kernel" title="The n-body kernel is stepping a craft" />
-        <Lamp on={flags[1] === '1'} label="Lag" kind="caution" title="A craft is more than a minute behind the clock; the kernel catches up rather than take unsafe steps" />
-        <Lamp on={flags[2] === '1'} label="Warn" kind="warning" title={warningText || 'A craft has crashed or the kernel refused it'} />
-        {flags[3] === '1' && <button className="key small master" onClick={() => mission.acknowledge()} title="Acknowledge the master alarm">Ack</button>}
-      </div>
+      <Annunciator mission={mission} live={live} />
     </header>
   );
 }
+
+// The phone sheet's time and flight section: what the band holds beside
+// the sky (the rate, NOW, FLIGHT and the lamps), under the rail.
+export function TimeControls({ clock, mission, consoleOpen, onToggleConsole, following, onFollow }: {
+  clock: SimClock; mission: Mission; consoleOpen: boolean; onToggleConsole: () => void; following: number | null; onFollow: (id: number) => void;
+}) {
+  const live = useLive(clock);
+  return (
+    <section className="time-controls" aria-labelledby="time-label">
+      <h2 className="strip" id="time-label">Time and flight</h2>
+      <div className="time-row">
+        <RateField clock={clock} />
+        <button className="key" onClick={() => clock.setTime(Date.now())} disabled={live} aria-keyshortcuts="N" title={live ? 'Already at the present' : 'Jump to now (N)'}>Now</button>
+      </div>
+      <FlightField mission={mission} consoleOpen={consoleOpen} onToggleConsole={onToggleConsole} following={following} onFollow={onFollow} />
+      <Annunciator mission={mission} live={live} ack={false} />
+    </section>
+  );
+}
+
+// A rail section's heading. Beside the sky it is a nomenclature strip over
+// the section; in the phone's sheet the section folds away under it, and
+// the heading says in a line what it has on.
+export function RailGroup({ title, note, children }: { title: string; note: string; children: ReactNode }) {
+  const phone = useContext(PhoneContext);
+  if (!phone) {
+    return <><h2 className="strip split"><span>{title}</span><span title="shown">On</span></h2>{children}</>;
+  }
+  return (
+    <details className="section rail-group">
+      <summary className="strip"><span>{title}</span><span className="sum-note">{note}</span></summary>
+      {children}
+    </details>
+  );
+}
+// "Main belt, Comets" or "none".
+export const onNote = (labels: string[]) => labels.length ? labels.join(', ') : 'none shown';
 
 // The irregular moons (src/scene/irregularMoons.ts): a layer to show or
 // hide, off by default. Each one is flown to from the FIND field.
 export interface IrregularRail { on: boolean; onToggle: (on: boolean) => void }
 function IrregularMoonsRail({ on, onToggle }: IrregularRail) {
   return (
-    <>
-      <h2 className="strip split"><span>Irregular moons</span><span title="shown">On</span></h2>
+    <RailGroup title="Irregular moons" note={on ? `${IRREGULAR_MOONS.length} shown` : 'none shown'}>
       <ul className="body-list small-bodies">
         <li>
           <button className="body-row" role="switch" aria-checked={on} onClick={() => onToggle(!on)}
@@ -219,7 +304,7 @@ function IrregularMoonsRail({ on, onToggle }: IrregularRail) {
           </button>
         </li>
       </ul>
-    </>
+    </RailGroup>
   );
 }
 
@@ -236,8 +321,7 @@ const SITE_BODY_COUNT = new Set(LANDING_SITES.map(siteBody)).size;
 const siteSuffix = (s: LandingSite) => s.kind === 'crash' || s.impact ? ', crashed' : s.kind === 'estimate' ? ', not found' : s.kind === 'entry' ? ', entry' : s.kind === 'impact' ? ', impact' : s.kind === 'touch' ? ', touched' : '';
 function LandingSitesRail({ on, onToggle, current, onFly }: SitesRail) {
   return (
-    <>
-      <h2 className="strip split"><span>Landings</span><span title="shown">On</span></h2>
+    <RailGroup title="Landings" note={on ? `${LANDING_SITES.length} sites shown` : 'none shown'}>
       <ul className="body-list small-bodies">
         <li>
           <button className="body-row" role="switch" aria-checked={on} onClick={() => onToggle(!on)}
@@ -259,7 +343,7 @@ function LandingSitesRail({ on, onToggle, current, onFly }: SitesRail) {
           ))}
         </select>
       </label>
-    </>
+    </RailGroup>
   );
 }
 
@@ -295,7 +379,7 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find, onKeys, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides, satellites, irregular, sites, flow, onFlow }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; find?: FindApi; onKeys?: () => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find, onKeys, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides, satellites, irregular, sites, flow, onFlow, time }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; find?: FindApi; onKeys?: () => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void; time?: ReactNode }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -410,8 +494,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
         })}
       </ul>
       {smallBodies && onSmallBodies && (
-        <>
-          <h2 className="strip split"><span>Small bodies</span><span title="shown">On</span></h2>
+        <RailGroup title="Small bodies" note={onNote(SMALL_BODY_ROWS.filter((g) => smallBodies[g.key]).map((g) => g.label))}>
           <ul className="body-list small-bodies">
             {SMALL_BODY_ROWS.map((g) => (
               <li key={g.key}>
@@ -444,14 +527,13 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
               </select>
             </label>
           )}
-        </>
+        </RailGroup>
       )}
       {irregular && <IrregularMoonsRail {...irregular} />}
       {sites && <LandingSitesRail {...sites} />}
       {satellites}
       {guides && onGuides && (
-        <>
-          <h2 className="strip split"><span>Guides</span><span title="shown">On</span></h2>
+        <RailGroup title="Guides" note={onNote(GUIDE_ROWS.filter((g) => guides[g.key]).map((g) => g.label))}>
           <ul className="body-list small-bodies guides">
             {GUIDE_ROWS.map((g) => (
               <li key={g.key}>
@@ -486,8 +568,9 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
               </li>
             ))}
           </ul>
-        </>
+        </RailGroup>
       )}
+      {time}
       <div className="rail-foot">
         <p>
           {onKeys ? <button type="button" className="foot-key" {...{ [KEYS_TOGGLE]: '' }} onClick={onKeys} aria-keyshortcuts="?" title="Every keyboard shortcut (?)"><kbd>?</kbd> keys</button>
@@ -805,6 +888,20 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     }
     rows.push({ label: 'Galactic orbit', value: fmtGroup(galacticYears() / 1e6, 0), unit: 'million yr', alt: 'once round the Galaxy\'s centre', src: 'VLBA', derived: true, info: 'galactic-orbit' });
   }
+  // The phone's peek: a planet's (and the Sun's) distance from Earth and
+  // light time; a moon's distance from its planet and period; the Earth's
+  // own distance and speed.
+  const parent = b.parent && b.parent !== 'sun' ? BODY_BY_KEY[b.parent] : null;
+  const row = (l: string) => rows.find((r) => r.label === l);
+  let fromParent: Row | undefined;
+  if (pm && parent) {
+    const src = moonSource(focus as MoonKey, date);
+    fromParent = { label: `From ${parent.name}`, value: fmtGroup(norm(sub3(st.r, bodyState(parent.key, date).r))), unit: 'km', src: src === 'table' ? 'JPL' : src === 'theory' ? 'AE' : 'JPL', info: 'moon-orbit' };
+  }
+  usePeek(fromParent ? [fromParent, row('Orbital period')]
+    : focus === 'moon' ? byLabel(rows, 'From Earth', 'Orbital period')
+      : focus === 'earth' ? byLabel(rows, ssb ? 'From the SSB' : 'From the Sun', 'Speed')
+        : byLabel(rows, 'From Earth', 'Light time'));
   const kind = focus === 'sun' ? (ssb ? 'Star, swinging about the barycentre' : 'Star, at the centre of the frame') : b.parent && b.parent !== 'sun' ? `Moon of ${BODY_BY_KEY[b.parent].name}` : focus === 'pluto' ? 'Dwarf planet' : 'Planet';
   return (
     <div className="tab-body">
@@ -849,6 +946,8 @@ export function BaryPlate({ clock, bary, frame = 'sun' }: { clock: SimClock; bar
     label: `${body.name}'s centre`, value: fmtGroup(off, off < 100 ? 3 : 0), unit: 'km', alt: `${(off / body.radiusKm).toFixed(3)} ${body.name} radii from it${off > body.radiusKm ? ', outside the body' : ''}`,
     src: bary === 'ssb' ? eph : bary === 'emb' ? 'DE442' : 'JPL', derived: true, info: bary === 'ssb' ? 'ssb-offset' : 'bary-offset',
   });
+  // The phone's peek: how far from Earth, and from the frame's centre.
+  usePeek(byLabel(rows, 'From Earth', ssb ? 'From the SSB' : 'From the Sun'));
   const kind = bary === 'ssb' ? 'Centre of mass of the solar system' : bary === 'emb' ? 'Centre of mass of Earth and the Moon' : `Centre of mass of the ${body.name} system`;
   return (
     <div className="tab-body">

@@ -8,6 +8,7 @@
 
 import { useClock, type SimClock } from './clock';
 import { Readout, fmtGroup, type Row } from './panels';
+import { usePeek } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { SITE_SOURCES, TIME_SOURCES, MOON_RADIUS_KM, SMALL_BODY_NAMES, landedText, sunElevationDeg, siteBody, siteRadii, onSmallBody, type LandingSite } from '../physics/landingSites.js';
@@ -80,6 +81,8 @@ export function LandingSitePlate({ clock, site: s }: { clock: SimClock; site: La
     : small
       ? `${bodyName} is drawn as a sphere of its size with no rotation model, so the site is not marked on it; the camera goes to the body.`
       : `Drawn on ${bodyName}'s reference ${radii && radii[0] !== radii[2] ? `ellipsoid (${fmtGroup(radii[0], 0)} × ${fmtGroup(radii[2], 0)} km)` : `sphere (${fmtGroup(radii![0], 1)} km)`}, turned with its IAU rotation model.`;
+  // The phone's peek: the body it is on, and when it landed.
+  usePeek([{ label: 'On', value: bodyName, ...where }, rows[0]]);
   return (
     <div className="tab-body">
       <div className="plate-head">

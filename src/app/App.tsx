@@ -1,9 +1,13 @@
 // src/app/App.tsx
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { PHONE_QUERY, SIDE_QUERY, PhoneContext, useMedia } from './phone';
+import { Sheet, type Stop } from './sheet';
+import { Peek } from './peek';
+import { CraftPeek } from './mission-panel';
 import { SimClock } from './clock';
 import { SceneView } from '../scene/SceneView';
-import { BodyRail, Plate, RATES, TimeBand, craftById } from './panels';
+import { BodyRail, Plate, RATES, TimeBand, TimeControls, craftById } from './panels';
 import { best, PER_GROUP, type FindApi, type FindHit } from './find';
 import { KeySheet } from './key-sheet';
 import { FlightConsole, type ConsoleTab } from './console';
@@ -89,12 +93,6 @@ const SAT_SHOWN: Record<SatLayerKey, string> = {
 const PROBE_WHERE = Object.fromEntries(PROBE_GROUPS.map((g) => [g.key,
   g.key === 'cruise' ? 'in cruise' : g.key === 'lagrange' ? 'near Sun-Earth L1 or L2' : g.key === 'moon' ? 'at the Moon' : `at ${g.label}`])) as Record<Probe['group'], string>;
 
-// Whether a media query matches, kept current.
-function useMedia(query: string): boolean {
-  const mql = useMemo(() => matchMedia(query), [query]);
-  return useSyncExternalStore((fn) => { mql.addEventListener('change', fn); return () => mql.removeEventListener('change', fn); }, () => mql.matches);
-}
-
 export function App() {
   const init = useMemo(initialState, []);
   const clock = useMemo(() => {
@@ -120,13 +118,25 @@ export function App() {
     if (inside) requestAnimationFrame(() => document.querySelector<HTMLElement>('.console-key')?.focus());
   };
   const wide = useMedia('(min-width: 1680px)');
+  // A phone (docs/frontend/phone.md): the sky under a slim band, and one
+  // sheet with three stops; on a short touch screen the sheet is on the right.
+  const phone = useMedia(PHONE_QUERY);
+  const side = useMedia(SIDE_QUERY) && phone;
+  // The sheet always opens at peek, even after a refresh that restores the view.
+  const [stop, setStop] = useState<Stop>('peek');
+  // How much of the sky the sheet covers at rest, for the camera's offset.
+  const [cover, setCover] = useState({ bottom: 0, right: 0 });
+  // Where the view plate and the touch hint go on a phone (the sheet's top
+  // edge, the peek), once they are mounted.
+  const [plateHost, setPlateHost] = useState<HTMLDivElement | null>(null);
+  const [hintHost, setHintHost] = useState<HTMLDivElement | null>(null);
   // How much of the sky the console covers on the right (none where it
   // docks below the sky on a phone): the 3D view keeps the body clear of it.
   const dockRef = useRef<HTMLDivElement>(null);
   const [inset, setInset] = useState(0);
   useLayoutEffect(() => {
     const dock = dockRef.current;
-    if (!consoleOpen || !dock) { setInset(0); return; }
+    if (!consoleOpen || !dock || phone) { setInset(0); return; }
     const measure = () => {
       const host = document.querySelector('.scene-host');
       if (!host) return;
@@ -138,7 +148,7 @@ export function App() {
     const ro = new ResizeObserver(measure);
     ro.observe(dock); ro.observe(document.body);
     return () => ro.disconnect();
-  }, [consoleOpen]);
+  }, [consoleOpen, phone]);
   const mission = useMemo(() => new Mission(), []);
   // ?debug exposes the mission as window.mission (as the scene's
   // window.orrery), for headless checks of the craft's state.
@@ -415,6 +425,11 @@ export function App() {
   // lists these (key-sheet.tsx). Ignored while a form control has focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // On a phone, Escape lowers the sheet to peek first (FIND's field
+      // included, once its list is closed).
+      if (e.key === 'Escape' && phone && stop !== 'peek' && !e.defaultPrevented) {
+        setStop('peek'); (document.activeElement as HTMLElement | null)?.blur?.(); e.preventDefault(); return;
+      }
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (e.altKey || e.ctrlKey || e.metaKey || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
       // Escape stops a flight first (the scene handles that), then closes
@@ -422,7 +437,7 @@ export function App() {
       if (e.key === 'Escape') { if (!e.defaultPrevented && consoleOpen) closeConsole(); return; }
       if (e.key === 'm' || e.key === 'M') { setConsoleOpen(!consoleOpen); e.preventDefault(); return; }
       // / finds (the rail's FIND field); ? lists the keys (the sheet closes itself).
-      if (e.key === '/') { if (!journey.plotOpen) { document.getElementById('find')?.focus(); e.preventDefault(); } return; }
+      if (e.key === '/') { if (!journey.plotOpen) { openFind(); e.preventDefault(); } return; }
       if (e.key === '?') { setKeysOpen(true); e.preventDefault(); return; }
       // H goes home; C puts the camera back on what it is on after a pan.
       if (e.key === 'h' || e.key === 'H') { goHome(); e.preventDefault(); return; }
@@ -446,46 +461,118 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clock, focus, consoleOpen, small, sat, satCloud, probe, journey]);
+  }, [clock, focus, consoleOpen, small, sat, satCloud, probe, journey, phone, stop]);
 
   const view = [focus, small, sat, satCloud, probe, following].join('|');
   const viewKey = useRef(view);
   viewKey.current = view;
   const infoView = info && info.view === view ? info : null;
+  const viewName = following !== null ? followName : probeView?.name ?? siteView?.name ?? irregularMoonOn?.name ?? satView?.named.name ?? (cloudView ? `${cloudView.name} debris` : undefined) ?? smallBody?.name ?? focusName(focus);
 
+  // FIND (the band's key on a phone, or /): the field, focused at once (a
+  // phone shows its keyboard only for a focus inside the tap), and on a
+  // phone the sheet at full with the field at its top, the console closed.
+  function openFind() {
+    const field = document.getElementById('find') as HTMLInputElement | null;
+    if (!phone) { field?.focus(); return; }
+    setConsoleOpen(false);
+    setStop('full');
+    const go = () => {
+      const f = document.getElementById('find');
+      const bodyEl = f?.closest('.sheet-body');
+      if (!f || !bodyEl) return;
+      // At peek the body is inert, and an inert field takes no focus: lift
+      // it now, inside the tap (React leaves it lifted at full).
+      bodyEl.removeAttribute('inert');
+      f.focus({ preventScroll: true });
+      const box = f.closest('.find') ?? f;
+      bodyEl.scrollTop += box.getBoundingClientRect().top - bodyEl.getBoundingClientRect().top;
+    };
+    go();
+    // With the console open the field mounts on the next render.
+    requestAnimationFrame(go);
+  }
+  // On a phone: choosing something from the open sheet (a body row, a FIND
+  // match) lowers it to half, its plate at the top over the sky; CONSOLE
+  // opens it at half.
+  const lastView = useRef(view);
+  useEffect(() => {
+    if (lastView.current === view) return;
+    lastView.current = view;
+    if (phone && stop === 'full') {
+      if ((document.activeElement as HTMLElement | null)?.closest('.sheet')) (document.activeElement as HTMLElement).blur();
+      setStop('half');
+    }
+  }, [view, phone, stop]);
+  const wasOpen = useRef(consoleOpen);
+  useEffect(() => {
+    if (consoleOpen && !wasOpen.current && phone) setStop('half');
+    wasOpen.current = consoleOpen;
+  }, [consoleOpen, phone]);
+
+  const plate = (
+    <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide && !phone} small={smallBody} irregular={infoView ? null : irregularMoonOn}
+      sat={infoView?.guide ? <GuidePlate clock={clock} pick={infoView.guide} />
+        : infoView?.orbit ? <OrbitPlate clock={clock} body={infoView.orbit} />
+        : siteView ? <LandingSitePlate clock={clock} site={siteView} />
+        : probeView && scene.current ? <SpacecraftPlate clock={clock} probe={probeView} layer={scene.current.spacecraft} />
+        : satView ? <SatellitePlate clock={clock} sat={satView} source={scene.current?.satellites.sourceOf(satView.named.id) ?? satNamed.source} track={scene.current?.groundTrack ?? null} />
+        : cloudView ? <SatCloudPlate cloud={cloudView} /> : null} />
+  );
+  const flight = { mission, consoleOpen, onToggleConsole: () => setConsoleOpen(!consoleOpen), following, onFollow: followCraft };
+  const rail = (
+    <BodyRail clock={clock} focus={following === null && small === null && sat === null && satCloud === null && probe === null ? focus : null} onSelect={chooseBody}
+      find={find} onKeys={() => setKeysOpen((o) => !o)}
+      named={named} small={small} onSmall={(pdes) => scene.current?.focusOnSmall(pdes)}
+      frame={frame} onFrame={setFrame}
+      smallBodies={smallOn} onSmallBodies={setSmallLayer}
+      satellites={<><SatelliteRail api={satApi} /><SpacecraftRail api={probeApi} /></>}
+      guides={guidesOn} onGuides={setGuide}
+      flow={flowOpts} onFlow={(o) => { setFlowOpts(o); scene.current?.guides.setFlow(o.frame, o.plane); }}
+      irregular={{ on: irregularOn, onToggle: setIrregularLayer }}
+      sites={{ on: sitesOn, onToggle: setSitesLayer, current: siteView?.key ?? null, onFly: (key) => scene.current?.focusOnSite(key) }}
+      time={phone ? <TimeControls clock={clock} {...flight} /> : undefined} />
+  );
+  const flightConsole = consoleOpen && (
+    <div className="console-dock" id="flight-console" ref={dockRef}>
+      <FlightConsole clock={clock} mission={mission} journey={journey} tab={tab} setTab={setTab} onClose={closeConsole}
+        onFocusCraft={followCraft} autoPlan={init.plan} />
+    </div>
+  );
+
+  // The scene keeps its place in the tree whichever layout shows, so a
+  // window crossing 720 px never rebuilds it.
   return (
-    <div className="app">
+    <PhoneContext.Provider value={phone}>
+    <div className={`app${phone ? ' phone' : ''}${side ? ' side' : ''}`}>
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); }} onReady={onReady}
-        onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={inset}
-        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: probeView?.name ?? siteView?.name ?? irregularMoonOn?.name ?? satView?.named.name ?? (cloudView ? `${cloudView.name} debris` : undefined) ?? smallBody?.name ?? focusName(focus) }}
-        flying={flying} frame={frame} panned={panned} onCentre={() => scene.current?.recentre()} onHome={goHome} />
-      <TimeBand clock={clock} mission={mission} consoleOpen={consoleOpen} onToggleConsole={() => setConsoleOpen(!consoleOpen)}
-        following={following} onFollow={followCraft} />
-      <BodyRail clock={clock} focus={following === null && small === null && sat === null && satCloud === null && probe === null ? focus : null} onSelect={chooseBody}
-        find={find} onKeys={() => setKeysOpen((o) => !o)}
-        named={named} small={small} onSmall={(pdes) => scene.current?.focusOnSmall(pdes)}
-        frame={frame} onFrame={setFrame}
-        smallBodies={smallOn} onSmallBodies={setSmallLayer}
-        satellites={<><SatelliteRail api={satApi} /><SpacecraftRail api={probeApi} /></>}
-        guides={guidesOn} onGuides={setGuide}
-        flow={flowOpts} onFlow={(o) => { setFlowOpts(o); scene.current?.guides.setFlow(o.frame, o.plane); }}
-        irregular={{ on: irregularOn, onToggle: setIrregularLayer }}
-        sites={{ on: sitesOn, onToggle: setSitesLayer, current: siteView?.key ?? null, onFly: (key) => scene.current?.focusOnSite(key) }} />
-      <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide} small={smallBody} irregular={infoView ? null : irregularMoonOn}
-        sat={infoView?.guide ? <GuidePlate clock={clock} pick={infoView.guide} />
-          : infoView?.orbit ? <OrbitPlate clock={clock} body={infoView.orbit} />
-          : siteView ? <LandingSitePlate clock={clock} site={siteView} />
-          : probeView && scene.current ? <SpacecraftPlate clock={clock} probe={probeView} layer={scene.current.spacecraft} />
-          : satView ? <SatellitePlate clock={clock} sat={satView} source={scene.current?.satellites.sourceOf(satView.named.id) ?? satNamed.source} track={scene.current?.groundTrack ?? null} />
-          : cloudView ? <SatCloudPlate cloud={cloudView} /> : null} />
-      {consoleOpen && (
-        <div className="console-dock" id="flight-console" ref={dockRef}>
-          <FlightConsole clock={clock} mission={mission} journey={journey} tab={tab} setTab={setTab} onClose={closeConsole}
-            onFocusCraft={followCraft} autoPlan={init.plan} />
-        </div>
+        onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={phone ? cover.right : inset} insetBottom={phone ? cover.bottom : 0}
+        view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: viewName }}
+        flying={flying} frame={frame} panned={panned} onCentre={() => scene.current?.recentre()} onHome={goHome}
+        plateHost={phone && !side ? plateHost : null} hintHost={phone ? hintHost : null} />
+      <TimeBand clock={clock} {...flight} onFind={openFind} />
+      {phone ? (
+        <Sheet stop={stop} onStop={setStop} side={side} label="Readouts and controls" aboveRef={setPlateHost}
+          onRest={(c) => setCover((o) => (o.bottom === c.bottom && o.right === c.right ? o : c))}
+          peek={<Peek name={viewName} hintRef={setHintHost} />}>
+          {/* The plate stays mounted under the console: the peek reads its values. */}
+          <div className="sheet-main" hidden={consoleOpen || undefined}>
+            {plate}
+            {rail}
+          </div>
+          {flightConsole}
+          {following !== null && <CraftPeek clock={clock} mission={mission} id={following} />}
+        </Sheet>
+      ) : (
+        <>
+          {rail}
+          {plate}
+          {flightConsole}
+        </>
       )}
       {journey.plotOpen && <PlotTable store={journey} clock={clock} mission={mission} onFlown={(id) => { setTab('mission'); followCraft(id); }} />}
       {keysOpen && <KeySheet onClose={() => setKeysOpen(false)} />}
     </div>
+    </PhoneContext.Provider>
   );
 }
