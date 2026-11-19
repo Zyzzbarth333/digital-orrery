@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SceneClock } from '../types/clock';
 import { OrreryScene } from './OrreryScene';
+import { missingDataSets } from './dataCheck';
 import type { FocusKey } from './catalogue';
 import type { Frame } from './OrreryScene';
 
@@ -102,6 +103,10 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
 
   useEffect(() => { sceneRef.current?.setFrame(frame); }, [frame]);
 
+  // The data in public/ (ADR-0001): a clone without it says how to get it.
+  const [missing, setMissing] = useState<string[]>([]);
+  useEffect(() => { let on = true; void missingDataSets(import.meta.env.BASE_URL).then((m) => { if (on) setMissing(m); }); return () => { on = false; }; }, []);
+
   return (
     <div className="scene-host" ref={hostRef} onPointerDown={seen}>
       <div className="scene-overlay" ref={overlayRef} />
@@ -109,6 +114,12 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
       {!failed && (plateHost
         ? createPortal(<ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} />, plateHost)
         : <ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} />)}
+      {missing.length > 0 && (
+        <div className="scene-error caution" role="alert">
+          The app's data is missing here ({missing.join(', ')}). In a clone, run “npm run data” to fetch it, then reload.
+          <small>public/manifest.json lists what it should hold (README, Quick start).</small>
+        </div>
+      )}
       {lost && !failed && (
         <div className="scene-error caution" role="alert">
           The graphics card dropped the 3D view (this happens after sleep or a driver reset). It comes back when the browser restores it; the panels and the clock keep running.
