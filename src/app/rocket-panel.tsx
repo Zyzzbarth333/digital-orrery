@@ -24,6 +24,8 @@ import { GuardedKey } from './guarded-key';
 import { rvToElements } from '../physics/orbital.js';
 import { orkXml, readOrk, vehicleFromOrk, flyOrk } from '../physics/ork.js';
 import { stackAsLauncher } from '../physics/staging.js';
+import { stackShape } from '../physics/stackShape.js';
+import type { StackShape } from '../scene/craftModels';
 import { useStack } from './plot-stack';
 import type { JourneyStore } from './journey';
 
@@ -192,7 +194,10 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
     const fuel = left + si.slice(k + 1).reduce((a, x) => a + x.prop, 0);
     const dryMass = payload * 1000 + si.slice(k).reduce((a, x) => a + x.dry, 0);
     const capacity = si.slice(k).reduce((a, x) => a + x.prop, 0);
-    return { name: `${custom && P0.source ? 'Custom ' : ''}${P0.label.split(' (')[0]} from ${flight!.pad.name.split(',')[0]}`, props: { dryMass, fuel, area: Math.PI * diameter * diameter / 4, diameter, capacity, thrust: si[k].thrust, isp: si[k].isp } };
+    // Its shape in the scene (stackShape.js): the launcher's published one,
+    // or worked out from the stages once the design is the user's own.
+    const shape = stackShape({ key: (P0 as { key?: string }).key, stages, diameter }, { custom }) as StackShape;
+    return { name: `${custom && P0.source ? 'Custom ' : ''}${P0.label.split(' (')[0]} from ${flight!.pad.name.split(',')[0]}`, props: { dryMass, fuel, area: Math.PI * diameter * diameter / 4, diameter, capacity, thrust: si[k].thrust, isp: si[k].isp, shape, stage: k } };
   };
   const insert = () => {
     if (!flight?.res || !orbit) return;
@@ -226,7 +231,8 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
     clock.setTime(flight.liftoffMs - 10e3);
     clock.setRate(10);
     clock.setPlaying(true);
-    const c = mission.launchAscent(flight.liftoffMs, track, name, props);
+    const seps = flight.res.events.filter((e: { type: string }) => e.type === 'separation').map((e: { t: number }) => e.t);
+    const c = mission.launchAscent(flight.liftoffMs, track, name, props, seps);
     c.note(`launched ${iso(flight.liftoffMs)} UTC from ${flight.pad.name}, azimuth ${fmt(flight.az, 1)} deg; in orbit ${fmt(flight.res.burnout.t, 0)} s later`, c.kState.t);
     onFlown(c.id);
   };

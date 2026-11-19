@@ -34,7 +34,7 @@ const FILES = [
   ...JOURNEY_PARTS.map((cases) => `${JOURNEY} ${cases.join(' ')}`),
   `${JOURNEY} --except ${JOURNEY_PARTS.flat().join(' ')}`,
   'src/physics/nesc.test.mjs', 'src/physics/attitude.test.mjs', 'src/physics/environment.test.mjs',
-  'src/physics/rocket.test.mjs', 'src/physics/rocket.xcheck.test.mjs', 'src/physics/launchers.test.mjs',
+  'src/physics/rocket.test.mjs', 'src/physics/rocket.xcheck.test.mjs', 'src/physics/launchers.test.mjs', 'src/physics/stackShape.test.mjs',
   'src/physics/ork.test.mjs', 'src/physics/entry.test.mjs', 'src/physics/smallbodies.test.mjs',
   'src/physics/scintillation.test.mjs', 'src/physics/asteroids.test.mjs', 'src/physics/gravityGuides.test.mjs',
   'src/physics/gravityFlow.test.mjs', 'src/physics/magnetic.test.mjs', 'src/physics/aurora.test.mjs',

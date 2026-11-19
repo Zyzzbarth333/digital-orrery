@@ -349,6 +349,8 @@ kbd {
 .craft-marker.burn .glyph { border-color: var(--key-lit); background: var(--key-lit); box-shadow: 0 0 10px var(--key-lit); }
 .craft-marker.lost .glyph { border-color: var(--warn); background: transparent; }
 .craft-marker.lost .name { color: var(--warn); text-decoration: line-through; }
+/* Drawn as its model close up (craftModels.ts): the glyph gives way, the name stays. */
+.craft-marker.modelled .glyph { visibility: hidden; }
 /* The attitude indicator (craftLayer.ts): drawn lines over the sky, under the marker. */
 .craft-att { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .craft-att path { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }

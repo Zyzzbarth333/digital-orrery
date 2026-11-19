@@ -22,8 +22,14 @@
 // pointing away from the camera fainter, the reference it is turning to
 // as a dashed amber stalk, and a short orange plume aft while it burns.
 // An SVG overlay rather than lines in the scene, at a fixed size.
+//
+// Close up, a craft that says what it is (CraftView.model) is drawn as a
+// model at its true size once it spans 3 pixels (craftModels.ts): its
+// marker's glyph gives way, and the indicator's box and plume, which the
+// model now shows, are left out; the axes stay.
 
 import * as THREE from 'three';
+import { CraftModels, type CraftModelSpec, type ModelLight, type ModelPose } from './craftModels';
 import { orbitTrailMaterial, reachOf } from './orbitTrail';
 import { conicAround } from './craftPaths';
 
@@ -49,6 +55,11 @@ export interface CraftView {
   // The craft's state relative to its primary (ecliptic km, km/s), the
   // primary's GM and how far a hyperbola is drawn: for the close-up conic.
   orbit?: { r: V3; v: V3; mu: number; rMax: number };
+  // Its close-up model: what it is, its body axes (ecliptic unit vectors:
+  // the attitude's, or the pointing the scene draws it at) and whether its
+  // engine burns; and any spent stages falling away from it.
+  model?: { spec: CraftModelSpec; axes: [V3, V3, V3]; firing: boolean };
+  pieces?: ModelPose[];
 }
 
 // near and nearTrail: the close-up conic and trail end, sharing the
@@ -141,6 +152,8 @@ export class CraftLayer {
   private tmp = new THREE.Vector3();
   private tmp2 = new THREE.Vector3();
   private level = 1;
+  private models: CraftModels;
+  private modelled = new Set<string>();
 
   // Lines are drawn at a display level: 1 / the exposure the HDR output
   // applies.
@@ -156,10 +169,18 @@ export class CraftLayer {
     }
   }
 
-  constructor(private scene: THREE.Scene, private overlay: HTMLElement, private onPick: (id: number) => void) {}
+  constructor(private scene: THREE.Scene, private overlay: HTMLElement, private onPick: (id: number) => void) {
+    this.models = new CraftModels(scene);
+  }
 
-  // Before rendering: lines in place. cam: the camera's ecliptic km.
-  place(views: CraftView[], cam: V3, unitKm: number): void {
+  // The view's scale, for sizing the models: pixels per radian at the centre.
+  setView(pxPerRad: number): void { this.models.setView(pxPerRad); }
+  // Whether craft id's model is drawn this frame.
+  modelShown(id: number): boolean { return this.modelled.has(`c${id}`); }
+
+  // Before rendering: lines and models in place. cam: the camera's
+  // ecliptic km; light: the Sun's and the Earth's places for the models.
+  place(views: CraftView[], cam: V3, unitKm: number, light: Omit<ModelLight, 'shade'> | null = null): void {
     const seen = new Set<number>();
     for (const v of views) {
       seen.add(v.id);
@@ -203,6 +224,14 @@ export class CraftLayer {
       d.marker.classList.toggle('selected', v.selected);
     }
     this.setLevel(this.level);
+    if (light) {
+      const poses: ModelPose[] = [];
+      for (const v of views) {
+        if (v.model && !v.crashed) poses.push({ key: `c${v.id}`, spec: v.model.spec, rEcl: v.rEcl, axes: v.model.axes, firing: v.model.firing });
+        if (v.pieces) poses.push(...v.pieces);
+      }
+      this.modelled = this.models.update(poses, cam, { ...light, shade: this.shade });
+    }
     for (const [id, d] of this.drawn) {
       if (seen.has(id)) continue;
       this.scene.remove(d.conic, d.trail, d.near, d.nearTrail);
@@ -244,6 +273,7 @@ export class CraftLayer {
       const sl = this.shade?.(v.rEcl);
       d.marker.classList.toggle('eclipse', sl?.state === 'umbra');
       d.marker.classList.toggle('penumbra', sl?.state === 'penumbra');
+      d.marker.classList.toggle('modelled', this.modelShown(v.id));
       // Shown when in front of the camera, by its view-space depth: a craft
       // followed from under a kilometre is nearer than the scene's near
       // plane, where the projected depth alone would hide it.
@@ -285,9 +315,10 @@ export class CraftLayer {
     const u = BOX_PX / (2 * BOX[0]);
     const corner = (i: number) => { const [a, b, e] = c(i); return [(a * X.x + b * Y.x + e * Z.x) * u, (a * X.y + b * Y.y + e * Z.y) * u]; };
     const pts = Array.from({ length: 8 }, (_, i) => corner(i));
-    paths[0].setAttribute('d', BOX_EDGES.map(([i, j]) => `M${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}L${pts[j][0].toFixed(1)} ${pts[j][1].toFixed(1)}`).join(''));
+    const modelled = this.modelShown(v.id);
+    paths[0].setAttribute('d', modelled ? '' : BOX_EDGES.map(([i, j]) => `M${pts[i][0].toFixed(1)} ${pts[i][1].toFixed(1)}L${pts[j][0].toFixed(1)} ${pts[j][1].toFixed(1)}`).join(''));
     paths[1].setAttribute('d', A.target ? seg(screen(A.target), AXIS_PX) : '');
-    paths[2].setAttribute('d', A.firing ? seg(X, -(BOX_PX / 2 + 10), -BOX_PX / 2) : '');
+    paths[2].setAttribute('d', A.firing && !modelled ? seg(X, -(BOX_PX / 2 + 10), -BOX_PX / 2) : '');
     const axis = (el: Element, s: { x: number; y: number; away: boolean }, L: number) => { el.setAttribute('d', seg(s, L)); el.classList.toggle('away', s.away); };
     axis(paths[3], Y, SIDE_PX); axis(paths[4], Z, SIDE_PX); axis(paths[5], X, AXIS_PX);
     d.att.style.display = '';
@@ -295,6 +326,7 @@ export class CraftLayer {
   }
 
   dispose(): void {
+    this.models.dispose();
     for (const d of this.drawn.values()) { this.scene.remove(d.conic, d.trail, d.near, d.nearTrail); if (d.flown) this.scene.remove(d.flown); d.marker.remove(); d.att?.remove(); }
     this.drawn.clear();
   }

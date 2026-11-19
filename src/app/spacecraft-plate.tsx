@@ -69,6 +69,7 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
         <p>{predicted
           ? `The clock is past Horizons' last update of this craft (${c.revised ?? 'no date given'}): its trajectory here is a prediction, and manoeuvres planned since are not in it.`
           : `The clock is before Horizons' last update of this craft (${c.revised}): its trajectory here is fitted to tracking.`} The app places it where Horizons does, and flies none of it. Choose a body in the rail to leave it.</p>
+        <p>Not modelled close up: it stays a marker at any distance. The app draws only its own craft and the ISS, Tiangong and Hubble as models.</p>
         {c.conicDays > 0 && <p>On {c.conicDays} of its days Horizons' prediction follows a plain conic, a simplified forecast: its place there is a guide, not a fix.</p>}
       </div>
     </div>
