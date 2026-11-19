@@ -15,7 +15,7 @@
 
 import { useId, useLayoutEffect, useSyncExternalStore, type ReactNode, type Ref } from 'react';
 import { SourceTag } from './source-tag';
-import type { Row } from './panels';
+import type { Row } from './readout';
 
 // The rows each mounted chooser gave: the plate in view (priority 0), and
 // a followed craft over it (priority 1). The highest priority shows, and

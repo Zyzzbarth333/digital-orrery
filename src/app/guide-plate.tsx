@@ -8,7 +8,7 @@
 // as the clock runs, with its source tag, as on the bodies' plate.
 
 import { useClock, type SimClock } from './clock';
-import { Readout, fmtGroup, type Row } from './panels';
+import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODIES, BODY_BY_KEY, type BodyKey, type FocusKey } from '../scene/catalogue';
