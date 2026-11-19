@@ -170,6 +170,29 @@ the arrow keys step the part under the caret
 
 37 passed, 0 failed
 
+>>> node src/scene/sky.test.mjs
+  PASS  a good parallax gives one distance, with its error
+  PASS  plx/err just under 5 gives a range, not a value
+  PASS  a parallax within its error of zero gives only a least distance
+  PASS  no parallax gives none
+  PASS  the distance row never shows a bare 1/plx of a noisy parallax
+  PASS  Bayer and Flamsteed labels
+  PASS  a star is called by its IAU name, else its designations, else HIP
+  PASS  FIND matches every way of writing a Bayer designation
+  PASS  FIND writes a superscript as a digit too ("alpha1 Cen")
+  PASS  the pick takes the brighter star in the circle over a fainter one at the pointer
+  PASS  but a star at the pointer wins over one a magnitude brighter at the edge
+  PASS  nothing outside the circle is picked
+  PASS  a star the point layer does not draw cannot be picked
+  PASS  B-V 0.65 is about the Sun's temperature
+  PASS  RA and Dec read as an atlas gives them
+  PASS  stars-info.bin has a row for every star of the point layer
+  PASS  Betelgeuse decodes as the catalogues give it
+  PASS  88 constellations, each with lines between stars of the layer
+  PASS  Orion's lines join Betelgeuse
+
+19 passed, 0 failed
+
 >>> node src/physics/orbital.test.mjs
 ============================================================
 CASE 1: Circular LEO propagation

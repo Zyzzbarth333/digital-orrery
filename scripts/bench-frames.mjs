@@ -63,6 +63,7 @@ const setsOn = (keys) => `(async () => { const L = orrery.satellites; for (const
 const ALL_SETS = ['active', 'debris', 'rocket-bodies', 'analyst'];
 // The Moon's landing sites switched on, and Apollo 11's flown to.
 const SITES_ON = '(orrery.sites?.setOn(true), true)';
+const SKY_ON = '(async () => { const s = orrery.sky; if (!s) return true; s.setLines(true); s.setNames(true); await s.load(); return true; })()';
 const SITE_NEAR = "(orrery.sites.setOn(true), orrery.focusOnSite('apollo11'), true)";
 // A spacecraft beyond Earth flown to as FIND does: its index loaded, the
 // layer off (the flight waits for the craft's month of data).
@@ -107,6 +108,9 @@ const SCENARIOS = {
   // The landing sites' layer on (a build without it times the Moon alone),
   // and Apollo 11's site framed from low over it.
   'moon-sites': { label: 'Moon, landing sites on', query: `?focus=moon&${DATE}`, km: 20000, setup: SITES_ON },
+  // The constellations' lines and names on, their catalogue loaded (a build
+  // without them times the Earth alone).
+  'sky': { label: 'Earth, constellation lines and names on', query: `?focus=earth&${DATE}`, km: 20000, setup: SKY_ON },
   'site-near': { label: 'Apollo 11\'s site framed', query: `?focus=moon&${DATE}`, km: 140, setup: SITE_NEAR, ready: '!!orrery.focusSmall' },
 };
 const DEFAULTS = ['earth', 'belt', 'craft-near', 'craft-far', 'point-near', 'point-far'];

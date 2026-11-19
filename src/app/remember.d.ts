@@ -9,6 +9,7 @@ export interface Layers {
   guides: Bools<'axes' | 'field' | 'spheres' | 'lagrange' | 'pulls' | 'flow' | 'magnetic' | 'aurora' | 'belts'>;
   flow: { frame: 'inertial' | 'falling' | 'others' | 'rotating'; plane: 'orbit' | 'view' };
   frame: 'sun' | 'ssb';
+  sky: Bools<'lines' | 'names'>;
 }
 export interface KeptCam { az: number; el: number; dist: number; pan: [number, number, number] }
 export interface KeptClock { timeMs: number; rate: number; playing: boolean }

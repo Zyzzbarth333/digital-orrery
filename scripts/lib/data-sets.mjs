@@ -27,6 +27,7 @@ export const SETS = {
   data: { dir: 'data', source: 'pipelines/*.fetch.mjs (CelesTrak, SBDB, NOAA, Horizons and others)' },
   missions: { dir: 'missions', source: 'pipelines/missions.build.mjs, pipelines/artemis*.export.mjs' },
   trajbrowser: { dir: 'trajbrowser', source: 'pipelines/trajbrowser.fetch.mjs (NASA Ames Trajectory Browser)' },
+  sky: { dir: 'sky', source: 'python/textures/sky.py (Hipparcos, IAU WGSN names, BSC5, d3-celestial constellations)' },
 };
 
 // Files under a set's folder that are not part of the published set: the

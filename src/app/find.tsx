@@ -27,7 +27,7 @@ export interface SmallSearch {
   count: number;
 }
 
-export type FindGroup = 'bodies' | 'irregular' | 'small' | 'satellites' | 'spacecraft' | 'sites';
+export type FindGroup = 'bodies' | 'irregular' | 'small' | 'satellites' | 'spacecraft' | 'sites' | 'stars' | 'constellations';
 export const FIND_GROUPS: { key: FindGroup; label: string }[] = [
   { key: 'bodies', label: 'Planets and moons' },
   { key: 'irregular', label: 'Irregular moons' },
@@ -35,6 +35,8 @@ export const FIND_GROUPS: { key: FindGroup; label: string }[] = [
   { key: 'satellites', label: 'Satellites' },
   { key: 'spacecraft', label: 'Beyond Earth' },
   { key: 'sites', label: 'Landing sites' },
+  { key: 'stars', label: 'Stars' },
+  { key: 'constellations', label: 'Constellations' },
 ];
 // How many of each kind the list shows.
 export const PER_GROUP = 3;

@@ -38,6 +38,12 @@
    "files": 1,
    "bytes": 10544,
    "source": "pipelines/trajbrowser.fetch.mjs (NASA Ames Trajectory Browser)"
+  },
+  "sky": {
+   "version": "3ce1d6cfa3b4",
+   "files": 3,
+   "bytes": 3306458,
+   "source": "python/textures/sky.py (Hipparcos, IAU WGSN names, BSC5, d3-celestial constellations)"
   }
  },
  "files": [
@@ -5086,6 +5092,24 @@
    "set": "trajbrowser",
    "bytes": 10544,
    "sha256": "d8c9114d99f9fdd2edb9551bbd1e593ed71091a43dee56a04194e3598f8e1768"
+  },
+  {
+   "path": "sky/constellations.json",
+   "set": "sky",
+   "bytes": 18504,
+   "sha256": "4074182db5fede4c2a6ebaf1b5941fbe761a0f523784da6e5399b80ae0629e5a"
+  },
+  {
+   "path": "sky/names.json",
+   "set": "sky",
+   "bytes": 342859,
+   "sha256": "93aefa30643a112b71fbb7f79fb4caccf12f2a59ed751eacea2db224513fc9c5"
+  },
+  {
+   "path": "sky/stars-info.bin",
+   "set": "sky",
+   "bytes": 2945095,
+   "sha256": "03072a92ec659d2071f34b884e406d70554f64cc0298ad7ba1cf1d13f2039448"
   }
  ]
 }

@@ -41,6 +41,7 @@ import { makeRings, tauTexture, MAX_RING_CASTERS, type RingProfile } from './rin
 import { JupiterRings, makeNeptuneRings, makeUranusRings, type LorriFile, type PpsFile, type RingFrame } from './ringSystems';
 import { jdFromTt } from '@digital-orrery/physics/rings.js';
 import { makeStarPoints, makeStars, resetStars, setStarScale, setStarTwinkle } from './stars';
+import { SkyLayer } from './skyLayer';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { SurfacePatch } from './surfacePatch';
@@ -317,6 +318,8 @@ export class OrreryScene {
   // line clicked, by its body (guide-plate.tsx gives each a plate).
   onGuidePick: (pick: { cls: string; text: string; title: string; focus: FocusKey }) => void = () => {};
   onOrbitPick: (key: BodyKey) => void = () => {};
+  // A star clicked (its index in the point layer), or null for a click on empty sky.
+  onStarPick: (index: number | null) => void = () => {};
   // Spacecraft: the mission steps on each frame (after the clock), the scene
   // draws what craftSource returns, and the camera can follow one craft.
   onFrame: (timeMs: number, jumps: number) => void = () => {};
@@ -385,6 +388,8 @@ export class OrreryScene {
   smallBodies!: SmallBodyLayer;
   // The irregular moons of Jupiter, Saturn and Neptune (irregularMoons.ts).
   irregulars!: IrregularMoonLayer;
+  // The interactive sky: picking stars, constellation lines and names (skyLayer.ts).
+  sky!: SkyLayer;
   satellites!: SatelliteLayer;   // Earth satellites, for the rail's switch
   groundTrack!: GroundTrack;     // the plate's satellite's ground track and place (satellite-passes.tsx)
   spacecraft!: SpacecraftLayer;  // spacecraft beyond Earth orbit, from JPL Horizons
@@ -728,9 +733,11 @@ export class OrreryScene {
         });
         if (stars.points) {
           void loadBinary(stars.points).then((buf) => {
-            this.starPoints = makeStarPoints(new Int16Array(buf), renderToEqj().transpose(), this.scale.max);
+            const data = new Int16Array(buf);
+            this.starPoints = makeStarPoints(data, renderToEqj().transpose(), this.scale.max);
             setStarScale(this.starPoints, this.scale.max, this.renderer.getPixelRatio());
             this.scene.add(this.starPoints);
+            this.sky.setStars(this.starPoints, data);
           });
         }
       }
@@ -750,6 +757,10 @@ export class OrreryScene {
     this.smallBodies.setScale(this.scale.max, this.renderer.getPixelRatio());
     this.smallBodies.onPick = (pdes) => this.focusOnSmall(pdes);
     this.irregulars = new IrregularMoonLayer(this.scene, this.overlay);
+    const eqjToRender = renderToEqj().transpose();
+    this.sky = new SkyLayer(this.scene, this.overlay, import.meta.env.BASE_URL, (d) => this.behindDisc(d));
+    this.sky.eqjToRender = (v) => v.applyMatrix3(eqjToRender).normalize();
+    this.sky.onPick = (i) => this.onStarPick(i);
     this.irregulars.setScale(this.renderer.getPixelRatio());
     this.irregulars.onPick = (key) => this.focusOnSmall(`irr:${key}`);
     this.sites = new LandingSiteLayer(this.overlay);
@@ -957,6 +968,50 @@ export class OrreryScene {
     return best;
   }
 
+  // Whether a body's disc covers a direction seen from the camera (render
+  // axes): a star or a constellation's name behind a planet cannot be picked.
+  private behindDisc(d: THREE.Vector3): boolean {
+    for (const m of this.meshes.values()) {
+      if (!m.visible) continue;
+      const c = m.position, along = c.x * d.x + c.y * d.y + c.z * d.z;
+      if (along <= 0) continue;
+      const r = Math.max(m.scale.x, m.scale.y, m.scale.z);
+      if (c.lengthSq() - along * along < r * r) return true;
+    }
+    return false;
+  }
+
+  // Turn the view to a star (its index in the point layer), so it sits
+  // above the centre, clear of the body the camera is on (turnTo). Not on a
+  // landing site, whose view is turned in the site's frame.
+  turnToStar(index: number): void {
+    if (this.siteFrom || this.drawnSiteKey()) return;
+    const d = this.sky.dir(index, new THREE.Vector3());
+    this.turnTo(d);
+  }
+  // Turn the view to a direction in render axes, offset as turnToStar's.
+  turnTo(dRender: THREE.Vector3): void {
+    const s: Vec3 = [dRender.x, -dRender.z, dRender.y];          // render to ecliptic axes
+    // Tilt the view direction away from the star, towards the ecliptic's
+    // south, so the star sits above the centre: by a sixth of the field of
+    // view, or by the body's own apparent radius and 3 deg more where it
+    // looks larger, up to 0.4 of the field.
+    const up: Vec3 = Math.abs(s[2]) > 0.99 ? [1, 0, 0] : [0, 0, 1];
+    const k = [s[1] * up[2] - s[2] * up[1], s[2] * up[0] - s[0] * up[2], s[0] * up[1] - s[1] * up[0]];
+    const kn = Math.hypot(k[0], k[1], k[2]);
+    const fov = (this.camera.fov * Math.PI) / 180;
+    const R = this.focusCraftId === null && !isBary(this.focus) ? BODY_BY_KEY[this.focus as BodyKey]?.radiusKm ?? 0 : 0;
+    const body = Math.asin(Math.min(1, R / Math.max(R, this.rig.goalDistance)));
+    const a = -Math.min(0.4 * fov, Math.max(fov / 6, body + (3 * Math.PI) / 180));
+    const kk: Vec3 = [k[0] / kn, k[1] / kn, k[2] / kn];
+    // Rodrigues: s rotated about kk by a.
+    const kxs = [kk[1] * s[2] - kk[2] * s[1], kk[2] * s[0] - kk[0] * s[2], kk[0] * s[1] - kk[1] * s[0]];
+    const v = [0, 1, 2].map((i) => s[i] * Math.cos(a) + kxs[i] * Math.sin(a)) as Vec3;
+    // The camera sits at -v from the pivot: offset = dist (cos el cos az, cos el sin az, sin el).
+    const az = Math.atan2(-v[1], -v[0]), el = Math.asin(Math.max(-1, Math.min(1, -v[2])));
+    this.rig.flyTo(this.rig.destination, this.rig.goalDistance, { az, el });
+  }
+
   private attachControls(): void {
     // A guide's tag (pooled in the overlay by guides.ts and magnetic.ts):
     // its plate, from what it shows.
@@ -986,6 +1041,7 @@ export class OrreryScene {
       if (down.size >= 2) return;                 // a third finger: ignored
       down.set(e.pointerId, { x: e.clientX, y: e.clientY });
       el.setPointerCapture(e.pointerId);
+      this.sky.hover(null);             // the tag goes while pressed; the next move brings it back
       if (down.size === 1) {
         mode = e.button === 2 || e.button === 1 || e.shiftKey ? 'pan' : 'turn';
         [lx, ly] = [e.clientX, e.clientY]; sx = lx; sy = ly; travel = 0; button = e.button;
@@ -1002,13 +1058,23 @@ export class OrreryScene {
       if (e.type === 'pointerup' && travel < 4 && button === 0 && !this.journeyLayer.click(sx, sy)) {
         const key = this.pickOrbit(sx, sy);
         if (key) this.onOrbitPick(key);
+        else {
+          const box = el.getBoundingClientRect();
+          this.sky.onPick(this.sky.pickAt(sx - box.left, sy - box.top, this.camera, box.width, box.height, e.pointerType === 'touch'));
+        }
       }
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
+    el.addEventListener('pointerleave', () => this.sky.hover(null));
     el.addEventListener('pointermove', (e) => {
       const p = down.get(e.pointerId);
-      if (!p) return;
+      if (!p) {
+        const box = el.getBoundingClientRect();
+        this.sky.hover({ x: e.clientX - box.left, y: e.clientY - box.top, touch: e.pointerType === 'touch' });
+        return;
+      }
+      this.sky.hover(null);
       p.x = e.clientX; p.y = e.clientY;
       const [x, y] = mid();
       if (down.size === 1) travel = Math.max(travel, Math.hypot(x - sx, y - sy));
@@ -1469,6 +1535,7 @@ export class OrreryScene {
     // Each atmosphere's view table, from where the camera is now.
     for (const shell of this.atmospheres.values()) renderViewTable(this.renderer, shell, this.camera, shell.position, shell.userData.sunDir, UNIT_KM);
     this.surfacePatch.update(SurfacePatch.nearest(this.meshes, (k) => k === 'sun'));
+    this.sky.update(this.camera, this.viewW, this.viewH, 1 / this.renderer.toneMappingExposure, this.adapt);
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
     this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.viewW, this.viewH);

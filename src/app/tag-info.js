@@ -24,6 +24,60 @@ const VIS_VIVA = 'a = \\left(\\frac{2}{r} - \\frac{v^2}{\\mu}\\right)^{-1}';
 
 /** @satisfies {Record<string, { what: string, tex: string[], where?: string, source: string }>} */
 export const TAG_INFO = {
+  // ---------------- the star plate (star-plate.tsx, docs/frontend/interactive-sky.md) ----------------
+  'star-name': {
+    what: 'The star\'s proper name as the IAU\'s Working Group on Star Names adopted it. Most stars have none: only about six hundred are named.',
+    tex: [],
+    source: 'IAU WGSN, IAU Catalog of Star Names (exopla.net), read 19 Nov 2026; the names are in the public domain · docs/frontend/interactive-sky.md',
+  },
+  'star-designation': {
+    what: 'The star\'s names in the catalogues: Bayer\'s Greek letter and Flamsteed\'s number with the constellation, and its numbers in the Hipparcos (HIP), Henry Draper (HD) and Bright Star (HR) catalogues.',
+    tex: [],
+    where: 'HIP and HD from the Hipparcos catalogue; Bayer, Flamsteed and HR from the Bright Star Catalogue, matched by HD number',
+    source: 'ESA, The Hipparcos and Tycho Catalogues, SP-1200 (1997); Hoffleit and Warren, The Bright Star Catalogue, 5th revised ed. (1991); both via NASA HEASARC',
+  },
+  'star-constellation': {
+    what: 'The constellation the star\'s Bayer or Flamsteed designation names. Stars with neither are not yet placed: the IAU boundaries come in a later step.',
+    tex: [],
+    source: 'The Bright Star Catalogue, 5th revised ed. (1991), via NASA HEASARC; the names and genitives as the IAU gives them',
+  },
+  'star-mag': {
+    what: 'How bright the star looks, in Johnson V: each magnitude is 2.512 times fainter, and the faintest a dark-adapted eye sees is about 6.5. Where Hipparcos found the star varying, the row says by how much: under 0.06, 0.06 to 0.6, or over 0.6 mag.',
+    tex: ['\\frac{F_1}{F_2} = 10^{-0.4\\,(m_1 - m_2)}'],
+    source: 'ESA, The Hipparcos and Tycho Catalogues, SP-1200 (1997), fields H5 and H6, via NASA HEASARC',
+  },
+  'star-colour': {
+    what: 'The star\'s colour index B−V: how much fainter it is in blue light than in visual. Hot blue stars are near −0.3, the Sun 0.65, cool red stars over 1.5. The swatch is the colour the sky draws it, from the temperature this implies.',
+    tex: ['T = 4600\\left(\\frac{1}{0.92\\,(B-V) + 1.7} + \\frac{1}{0.92\\,(B-V) + 0.62}\\right)\\ \\text{K}'],
+    where: 'T: the effective temperature of a black body of that colour (Ballesteros 2012), a rough guide for giants and reddened stars',
+    source: 'B−V: Hipparcos (1997), field H37; F. J. Ballesteros, EPL 97, 34008 (2012)',
+  },
+  'star-spectral': {
+    what: 'The star\'s spectral type, as the catalogue gives it: the class (O B A F G K M, hot to cool), a number within it, and the luminosity class (I supergiant, III giant, V dwarf, like the Sun\'s G2V).',
+    tex: [],
+    source: 'ESA, The Hipparcos and Tycho Catalogues, SP-1200 (1997), field H76 (mostly from the Michigan Spectral Survey and the HD catalogue), via NASA HEASARC',
+  },
+  'star-parallax': {
+    what: 'How far the star shifts against the distant sky as the Earth goes round the Sun: half the shift, in milliarcseconds, with its one-sigma error.',
+    tex: [],
+    source: 'ESA, The Hipparcos and Tycho Catalogues, SP-1200 (1997), fields H11 and H16, via NASA HEASARC',
+  },
+  'star-distance': {
+    what: 'How far away the star is, from its parallax. Shown as a value only when the parallax is at least five times its error; otherwise as the range its one-sigma bounds give, or as a least distance when the lower bound reaches zero. One over a noisy parallax is biased and can be badly wrong, so it is never shown bare.',
+    tex: ['d = \\frac{1000}{\\varpi}\\ \\text{pc}, \\quad \\sigma_d = \\frac{1000\\,\\sigma_\\varpi}{\\varpi^2}', '1\\ \\text{pc} = 3.26156\\ \\text{ly}'],
+    where: 'ϖ: the parallax in milliarcseconds; σϖ its error',
+    source: 'Hipparcos (1997); T. E. Lutz and D. H. Kelker, PASP 85, 573 (1973); C. A. L. Bailer-Jones, PASP 127, 994 (2015) · docs/frontend/interactive-sky.md',
+  },
+  'star-position': {
+    what: 'Where the star is on the sky: right ascension and declination in the ICRS, at the catalogue\'s epoch, 1991.25. The sky draws it there: a star\'s own motion moves it at most a few arcminutes in a century.',
+    tex: [],
+    source: 'ESA, The Hipparcos and Tycho Catalogues, SP-1200 (1997), fields H8 and H9, via NASA HEASARC',
+  },
+  'star-pm': {
+    what: 'The star\'s own motion across the sky, in right ascension (times the cosine of the declination) and declination, in milliarcseconds a year. The sky does not move the stars by it.',
+    tex: [],
+    source: 'ESA, The Hipparcos and Tycho Catalogues, SP-1200 (1997), fields H12 and H13, via NASA HEASARC',
+  },
   // ---------------- the data plate (panels.tsx) ----------------
   frame: {
     what: 'The origin of every position in the app: the centre of the Sun.',

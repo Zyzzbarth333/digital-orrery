@@ -299,6 +299,9 @@ plotting table, kept out of the panel palette:
 - **Guides:** `#ff9a66` a retrograde spin axis and the pull arrows, `#9fc9b8`
   Hill spheres, `#8dffa0` the Kp-driven auroral oval; the gravity field's
   bar runs to `#2f8fb0`, and the flow legend from `#3d5a64` to `#8fc8d8`.
+- **The sky:** `#5f7f99` constellation lines, `#8fa9bf` their names and the
+  Sky rail's lamps; the chosen star's ring is phosphor amber, open at four
+  points so it never covers the star.
 - **Plotting-table lamps:** go `#1f3a1b`, caution `#4a3c0e` and warn
   `#4b130b` fields, with **lamp-ink-off** `#c9bfa6` for an unlit lamp's
   legend (6.5:1 on lamp-dark, so it reads lit or unlit); `#3a3328` for the

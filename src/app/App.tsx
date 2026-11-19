@@ -29,6 +29,8 @@ import { IRREGULAR_MOONS, irregularMoon } from '../scene/irregularMoons';
 import { LANDING_SITES, SITE_BY_KEY } from '@digital-orrery/physics/landingSites.js';
 import { LandingSitePlate, siteBodyName } from './landing-site-plate';
 import { GuidePlate, OrbitPlate, type GuidePick } from './guide-plate';
+import { StarPlate } from './star-plate';
+import { starTitle, bayerLabel } from '../scene/skyCatalogue';
 import type { NamedSat, SatSource, SatCloud, SatLayerKey } from '../scene/satellites';
 import { SatelliteRail, type SatelliteApi } from './satellite-rail';
 import { SatellitePlate, SatCloudPlate } from './satellite-plate';
@@ -244,10 +246,11 @@ export function App() {
   const [smallOn, setSmallOn] = useState<Record<string, boolean>>(saved.small);
   const [guidesOn, setGuidesOn] = useState<Record<GuideKey | MagneticKey, boolean>>(saved.guides);
   const [flowOpts, setFlowOpts] = useState<{ frame: FlowFrame; plane: FlowPlane }>(saved.flow);
+  const [skyOn, setSkyOn] = useState<{ lines: boolean; names: boolean }>(saved.sky);
   // Every switch, kept for this browser as it changes.
   useEffect(() => {
-    writeStore(local, LAYERS_KEY, JSON.stringify({ small: smallOn, irregular: irregularOn, sites: sitesOn, sats: satLayers, probes: probeOn, guides: guidesOn, flow: flowOpts, frame }));
-  }, [smallOn, irregularOn, sitesOn, satLayers, probeOn, guidesOn, flowOpts, frame]);
+    writeStore(local, LAYERS_KEY, JSON.stringify({ small: smallOn, irregular: irregularOn, sites: sitesOn, sats: satLayers, probes: probeOn, guides: guidesOn, flow: flowOpts, frame, sky: skyOn }));
+  }, [smallOn, irregularOn, sitesOn, satLayers, probeOn, guidesOn, flowOpts, frame, skyOn]);
   const setGuide = (k: GuideKey | MagneticKey, on: boolean) => {
     setGuidesOn((g) => ({ ...g, [k]: on }));
     if (k === 'magnetic' || k === 'aurora' || k === 'belts') scene.current?.magnetic.set(k, on); else scene.current?.guides.set(k, on);
@@ -258,6 +261,10 @@ export function App() {
   };
   const setIrregularLayer = (on: boolean) => { setIrregularOn(on); scene.current?.irregulars.setOn(on); };
   const setSitesLayer = (on: boolean) => { setSitesOn(on); scene.current?.sites.setOn(on); };
+  const setSkyLayer = (k: 'lines' | 'names', on: boolean) => {
+    setSkyOn((s) => ({ ...s, [k]: on }));
+    if (k === 'lines') scene.current?.sky.setLines(on); else scene.current?.sky.setNames(on);
+  };
   // The ? sheet of keyboard shortcuts (key-sheet.tsx).
   const [keysOpen, setKeysOpen] = useState(false);
   // Whether the camera is panned off what it is on (the view plate offers the way back).
@@ -296,15 +303,23 @@ export function App() {
   // A guide's tag or an orbit line clicked (guide-plate.tsx): its plate
   // shows until the view changes (another body, craft or pick) or a body
   // is chosen in the rail.
-  const [info, setInfo] = useState<{ guide?: GuidePick; orbit?: BodyKey; view: string } | null>(null);
+  const [info, setInfo] = useState<{ guide?: GuidePick; orbit?: BodyKey; star?: number; view: string } | null>(null);
   const chooseBody = (k: FocusKey) => { setInfo(null); setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); scene.current?.focusOn(k); };
 
   // The rail's FIND field (find.tsx): every kind the app flies to, in one
   // search. A pick flies as the rail's own controls do; where the found
   // one's layer is off, it is switched on first through the same state as
   // its switch (live: the switches now, as the picks read them later).
-  const live = useRef({ smallOn, satLayers, irregularOn, sitesOn, probeOn });
-  live.current = { smallOn, satLayers, irregularOn, sitesOn, probeOn };
+  const live = useRef({ smallOn, satLayers, irregularOn, sitesOn, probeOn, skyOn });
+  live.current = { smallOn, satLayers, irregularOn, sitesOn, probeOn, skyOn };
+  // A star chosen (in the sky or from FIND): its plate (a stowed plate
+  // opens to show it, as for a guide), and its ring in the sky.
+  const chooseStar = (i: number) => {
+    setInfo({ star: i, view: viewKey.current });
+    panels.open('plate');
+    // Named once the catalogue is in (the first pick may come before it).
+    void scene.current?.sky.load().then(() => setInfo((x) => (x?.star === i ? { ...x } : x)), () => {});
+  };
   // The catalogues fetched on FIND's first focus: the spacecraft's index,
   // and the satellites' named ones and debris clouds (before their sets load).
   const findCat = useRef<{ probes: readonly Probe[]; named: readonly NamedSat[]; clouds: readonly SatCloud[] }>({ probes: [], named: [], clouds: [] });
@@ -317,6 +332,7 @@ export function App() {
         smallSearch.load(),
         (scene.current?.spacecraft.loadIndex() ?? Promise.resolve([])).then((probes) => { findCat.current.probes = probes; }),
         (scene.current?.satellites.catalogue() ?? Promise.resolve({ named: [], clouds: [] })).then((c) => { findCat.current.named = c.named; findCat.current.clouds = c.clouds; }),
+        scene.current?.sky.load() ?? Promise.resolve(null),
       ],
       now: (q) => {
         const hits: FindHit[] = [];
@@ -374,6 +390,34 @@ export function App() {
             pick: () => { const was = live.current.sitesOn; if (!was) setSitesLayer(true); scene.current?.focusOnSite(site.key); return was ? null : 'Landing sites shown'; },
           });
         }
+        // The stars: by name or designation (sky.searchIndex), or by HIP or HD number.
+        const sky = scene.current?.sky, idx = sky?.searchIndex(), cat = sky?.ready;
+        if (sky && idx && cat) {
+          const starHit = (i: number): FindHit => {
+            const n = cat.names.get(i), con = cat.constellations.find((c) => c.abbr === n?.con);
+            const des = n?.iau ? (n && bayerLabel(n)) : null;
+            return {
+              id: `star:${i}`, group: 'stars', label: starTitle(n, cat.info.hip[i]),
+              kind: [des, `V ${sky.magOf(i).toFixed(2)}`, con ? `in ${con.name}` : null].filter(Boolean).join(', '),
+              pick: () => { scene.current?.turnToStar(i); chooseStar(i); return null; },
+            };
+          };
+          const num = /^\s*(hip|hd)\s*(\d+)\s*$/i.exec(q);
+          const byNum = num ? (num[1].toLowerCase() === 'hip' ? idx.byHip : idx.byHd).get(Number(num[2])) : undefined;
+          if (byNum !== undefined) hits.push(starHit(byNum));
+          else for (const e of best(idx.entries, q, (e) => e.names)) hits.push(starHit(e.index));
+          for (const c of best(cat.constellations, q, (c) => [c.name, c.abbr, c.en, c.gen])) {
+            hits.push({
+              id: `con:${c.abbr}`, group: 'constellations', label: c.name, kind: c.en === c.name ? c.abbr : `${c.en}, ${c.abbr}`,
+              pick: () => {
+                const was = live.current.skyOn.lines;
+                if (!was) setSkyLayer('lines', true);
+                scene.current?.turnTo(sky.labelDir(c));
+                return was ? null : 'Constellation lines shown';
+              },
+            });
+          }
+        }
         return hits;
       },
       // The asteroids and comets: a found point is adopted (smallBodies.ts),
@@ -406,6 +450,8 @@ export function App() {
     // A pick asks what it is: a stowed plate opens to say (stow.tsx).
     sc.onGuidePick = (guide) => { setInfo({ guide, view: viewKey.current }); panels.open('plate'); };
     sc.onOrbitPick = (orbit) => { setInfo({ orbit, view: viewKey.current }); panels.open('plate'); };
+    // A click on empty sky closes a star's plate (and nothing else).
+    sc.onStarPick = (i) => { if (i !== null) chooseStar(i); else setInfo((x) => (x?.star !== undefined ? null : x)); };
     sc.onSmallPick = (pdes) => { setFollowing(null); setSmall(pdes); setSat(null); setSatCloud(null); setProbe(null); };
     sc.onSatPick = (id) => { setFollowing(null); setSmall(null); setSat(id); setSatCloud(null); setProbe(null); };
     sc.onSatCloudPick = (key) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(key); setProbe(null); };
@@ -423,6 +469,8 @@ export function App() {
     }
     if (irregularOn) sc.irregulars.setOn(true);
     if (sitesOn) sc.sites.setOn(true);
+    if (skyOn.lines) sc.sky.setLines(true);
+    if (skyOn.names) sc.sky.setNames(true);
     for (const [k, on] of Object.entries(satLayers)) if (on) sc.satellites.setLayer(k as SatLayerKey, true);
     if (probeOn) sc.spacecraft.setOn(true);
     sc.guides.setFlow(flowOpts.frame, flowOpts.plane);
@@ -527,6 +575,13 @@ export function App() {
   const viewKey = useRef(view);
   viewKey.current = view;
   const infoView = info && info.view === view ? info : null;
+  // The ring round the star whose plate is open.
+  const starShown = infoView?.star ?? null;
+  useEffect(() => { scene.current?.sky.select(starShown); }, [starShown]);
+  // The star whose plate is open names the phone's sheet (its peek shows
+  // the star's values); the view plate still names what the camera is on.
+  const skyCat = starShown !== null ? scene.current?.sky.ready : null;
+  const starName = starShown !== null ? starTitle(skyCat?.names.get(starShown), skyCat?.info.hip[starShown]) : null;
   const viewName = following !== null ? followName : probeView?.name ?? siteView?.name ?? irregularMoonOn?.name ?? satView?.named.name ?? (cloudView ? `${cloudView.name} debris` : undefined) ?? smallBody?.name ?? focusName(focus);
 
   // FIND (the band's key on a phone, or /): the field, focused at once (a
@@ -589,7 +644,8 @@ export function App() {
 
   const plate = (
     <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide && !phone && pins.plate} small={smallBody} irregular={infoView ? null : irregularMoonOn}
-      sat={infoView?.guide ? <GuidePlate clock={clock} pick={infoView.guide} />
+      sat={infoView?.star !== undefined && scene.current ? <StarPlate index={infoView.star} sky={scene.current.sky} />
+        : infoView?.guide ? <GuidePlate clock={clock} pick={infoView.guide} />
         : infoView?.orbit ? <OrbitPlate clock={clock} body={infoView.orbit} />
         : siteView ? <LandingSitePlate clock={clock} site={siteView} />
         : probeView && scene.current ? <SpacecraftPlate clock={clock} probe={probeView} layer={scene.current.spacecraft} />
@@ -608,6 +664,7 @@ export function App() {
       flow={flowOpts} onFlow={(o) => { setFlowOpts(o); scene.current?.guides.setFlow(o.frame, o.plane); }}
       irregular={{ on: irregularOn, onToggle: setIrregularLayer }}
       sites={{ on: sitesOn, onToggle: setSitesLayer, current: siteView?.key ?? null, onFly: (key) => scene.current?.focusOnSite(key) }}
+      sky={{ lines: skyOn.lines, names: skyOn.names, onToggle: setSkyLayer }}
       time={phone ? <TimeControls clock={clock} {...flight} /> : undefined} />
   );
   const flightConsole = consoleOpen && (
@@ -632,7 +689,7 @@ export function App() {
       {phone ? (
         <Sheet stop={stop} onStop={setStop} side={side} label="Readouts and controls" aboveRef={setPlateHost}
           onRest={(c) => setCover((o) => (o.bottom === c.bottom && o.right === c.right ? o : c))}
-          peek={<Peek name={viewName} hintRef={setHintHost} />}>
+          peek={<Peek name={starName ?? viewName} hintRef={setHintHost} />}>
           {/* The plate stays mounted under the console: the peek reads its values. */}
           <div className="sheet-main" hidden={consoleOpen || undefined}>
             {plate}

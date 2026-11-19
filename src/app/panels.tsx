@@ -399,6 +399,31 @@ function IrregularMoonsRail({ on, onToggle }: IrregularRail) {
   );
 }
 
+// The sky (src/scene/skyLayer.ts): the constellations' lines and their
+// names, two layers, off by default. Stars are picked in the sky itself,
+// or found with FIND.
+export interface SkyRail { lines: boolean; names: boolean; onToggle: (k: 'lines' | 'names', on: boolean) => void }
+function SkyRailGroup({ lines, names, onToggle }: SkyRail) {
+  const shown = [lines && 'lines', names && 'names'].filter(Boolean) as string[];
+  const row = (k: 'lines' | 'names', on: boolean, label: string, title: string) => (
+    <li>
+      <button className="body-row" role="switch" aria-checked={on} onClick={() => onToggle(k, !on)} title={title}>
+        <span className="lamp-sq" style={{ background: on ? 'var(--sky-line)' : 'transparent', borderColor: 'var(--sky-line)' }} />
+        <span>{label}</span>
+        <span className="dist">{on ? 'on' : 'off'}</span>
+      </button>
+    </li>
+  );
+  return (
+    <RailGroup title="Sky" note={shown.length ? `constellation ${shown.join(' and ')}` : 'none shown'}>
+      <ul className="body-list small-bodies">
+        {row('lines', lines, 'Constellation lines', 'The 88 constellations\' figures, as the IAU\'s charts draw them (Sky & Telescope, after H. A. Rey): an aid, not the sky')}
+        {row('names', names, 'Constellation names', 'Each constellation\'s Latin name, at its middle')}
+      </ul>
+    </RailGroup>
+  );
+}
+
 // The landing sites (src/scene/landingSites.ts): a layer to show or hide,
 // off by default, and each site to fly to, the Moon's in the order they
 // landed, then each other body's.
@@ -486,7 +511,7 @@ const GUIDE_ROWS: { key: GuideKey | MagneticKey; label: string; colour: string; 
 const MOON_COUNT: Partial<Record<BodyKey, number>> = {};
 for (const b of BODIES) if (isPlanetMoon(b.key)) MOON_COUNT[b.parent!] = (MOON_COUNT[b.parent!] ?? 0) + 1;
 
-export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find, onKeys, onHover, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides, satellites, irregular, sites, flow, onFlow, time }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; find?: FindApi; onKeys?: () => void; onHover?: (k: FocusKey | null) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void; time?: ReactNode }) {
+export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find, onKeys, onHover, smallBodies, onSmallBodies, named = [], small = null, onSmall, guides, onGuides, satellites, irregular, sites, sky, flow, onFlow, time }: { clock: SimClock; focus: FocusKey | null; onSelect: (k: FocusKey) => void; frame?: Frame; onFrame?: (f: Frame) => void; find?: FindApi; onKeys?: () => void; onHover?: (k: FocusKey | null) => void; smallBodies?: Record<string, boolean>; onSmallBodies?: (key: 'belt' | 'neo' | 'trojans' | 'outer' | 'comets' | 'colours', on: boolean) => void; named?: readonly Named[]; small?: string | null; onSmall?: (pdes: string) => void; guides?: Record<GuideKey | MagneticKey, boolean>; onGuides?: (key: GuideKey | MagneticKey, on: boolean) => void; satellites?: ReactNode ; irregular?: IrregularRail; sites?: SitesRail; sky?: SkyRail; flow?: { frame: FlowFrame; plane: FlowPlane }; onFlow?: (o: { frame: FlowFrame; plane: FlowPlane }) => void; time?: ReactNode }) {
   // Redraw when a shown distance (two decimals) changes, not every tick.
   // Moons show none (they sit at their planet's). In the SSB frame the
   // distances are from the solar system barycentre, the Sun's included.
@@ -643,6 +668,7 @@ export function BodyRail({ clock, focus, onSelect, frame = 'sun', onFrame, find,
       )}
       {irregular && <IrregularMoonsRail {...irregular} />}
       {sites && <LandingSitesRail {...sites} />}
+      {sky && <SkyRailGroup {...sky} />}
       {satellites}
       {guides && onGuides && (
         <RailGroup title="Guides" note={onNote(GUIDE_ROWS.filter((g) => guides[g.key]).map((g) => g.label))}>
