@@ -1268,7 +1268,9 @@ export class OrreryScene {
     // Camera position in km (ecliptic): about the pivot (cameraRig.ts). A
     // followed craft that is gone hands the camera back to the focus body.
     if (!this.rig.update(dtReal)) {
-      this.setFocusTarget(null);        // a craft gone, a satellite SGP4 can no longer place
+      // A craft gone, or a satellite SGP4 can no longer place; a small body
+      // stays the target, as before.
+      if (this.target?.kind !== 'small') this.setFocusTarget(null);
       this.onFocusChange(this.focus);   // the app stops showing FOLLOW
       this.rig.flyTo(this.bodyAnchor(this.focus), this.arrivalDist(this.focus, false));
       this.rig.update(0);
