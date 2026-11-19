@@ -353,13 +353,16 @@ export class MagneticLayer {
     this.on[key] = on;
     if (on && !this.loading) {
       this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js'), import('../physics/ovation.js'), import('../physics/ringCurrent.js'), import('../physics/sunField.js'), import('../physics/t89.js'), import('../physics/boundaries.js')])
-        .then(([m, a, b, o, r, sf, t, bd]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; this.rc = r; this.sf = sf; this.t89 = t; this.bnd = bd; });
+        .then(([m, a, b, o, r, sf, t, bd]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; this.rc = r; this.sf = sf; this.t89 = t; this.bnd = bd; })
+        // A failed load (a redeploy renamed its chunks under an open tab, the
+        // network dropped) is tried again the next time a layer goes on.
+        .catch((e) => { console.warn('magnetic layer: not loaded:', e); this.loading = null; this.kpLoaded = false; throw e; });
     }
     // Kp drives the Earth's ovals and its T89 magnetosphere.
     if ((key === 'aurora' || key === 'magnetic') && on && !this.kpLoaded) {
       this.kpLoaded = true;
       void this.loading!.then(() => fetch(`${this.baseUrl}data/kp.json`)).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-        .then((j) => this.aur!.installKp(j)).catch((e) => console.warn('kp.json:', e));
+        .then((j) => this.aur!.installKp(j)).catch((e) => { console.warn('kp.json:', e); this.kpLoaded = false; });
     }
   }
 
