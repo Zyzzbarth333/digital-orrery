@@ -11,14 +11,14 @@
 // B. The same models fitted on the whole mission up to a cut (burns as the
 //    BET shows them), then flown to entry interface.
 // C. Earth's J3 and J4 (EGM2008) on the arcs nearest Earth.
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import fs from 'node:fs';
-import { createState, advance } from '../src/physics/nbody.js';
-import { solarSystemBodies } from '../src/physics/bodies.js';
-import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '../src/physics/kernelHost.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { cross, norm, unit } from '../src/physics/vec.js';
-const bet = JSON.parse(fs.readFileSync(new URL('../src/physics/fixtures/artemis2_bet.json', import.meta.url)));
+import { createState, advance } from '@digital-orrery/physics/nbody.js';
+import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '@digital-orrery/physics/kernelHost.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { cross, norm, unit } from '@digital-orrery/physics/vec.js';
+const bet = JSON.parse(fs.readFileSync(new URL('../packages/physics/src/fixtures/artemis2_bet.json', import.meta.url)));
 const rows = bet.states.map((s) => ({ ms: Date.parse(s[0]), r: s.slice(2, 5), v: s.slice(5, 8) }));
 const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
 const EARTH = sys.bodiesAt(0).findIndex((b) => b.key === 'earth');

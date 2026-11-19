@@ -1,13 +1,13 @@
 // src/app/porkchop.worker.ts
 //
 // The planner's porkchop grid, off the main thread: zero-revolution Lambert
-// arcs (src/physics/porkchop.js) from Earth to a destination for every
+// arcs (packages/physics/src/porkchop.js) from Earth to a destination for every
 // (departure date, time of flight) cell, on astronomy-engine states.
 
-import { porkchopGrid, range } from '../physics/porkchop.js';
-import { helioStateEcl } from '../physics/ephemeris.js';
-import { GRAVITATIONAL_PARAMETERS as GM, PLANETS } from '../utils/constants.js';
-import { loadDeTable } from '../physics/deLoad.js';
+import { porkchopGrid, range } from '@digital-orrery/physics/porkchop.js';
+import { helioStateEcl } from '@digital-orrery/physics/ephemeris.js';
+import { GRAVITATIONAL_PARAMETERS as GM, PLANETS } from '@digital-orrery/physics/constants.js';
+import { loadDeTable } from '../browser/deLoad.js';
 
 const ready = loadDeTable();
 

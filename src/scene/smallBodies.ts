@@ -1,6 +1,6 @@
 // src/scene/smallBodies.ts
 //
-// The asteroids and comets (src/physics/smallBodies.js): about 135,000
+// The asteroids and comets (packages/physics/src/smallBodies.js): about 135,000
 // points, each moved along its orbit by the GPU. Every frame only the time
 // and the camera's position change; the vertex shader solves Kepler's
 // equation for each body from its elements (a, e, i, node, peri, M at the
@@ -33,11 +33,11 @@
 // ecliptic (x, z, -y).
 
 import * as THREE from 'three';
-import { exactOrbit, positionAu, diameterFromH, parseIndex, searchIndex, decodeOne, kindOfClass, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '../physics/smallBodies.js';
-import { ttMinusUtc } from '../physics/timescale.js';
+import { exactOrbit, positionAu, diameterFromH, parseIndex, searchIndex, decodeOne, kindOfClass, SB_CLASSES, SB_GROUPS, SB_EPOCH_JD, SB_K1 } from '@digital-orrery/physics/smallBodies.js';
+import { ttMinusUtc } from '@digital-orrery/physics/timescale.js';
 import { BeltHaze } from './beltHaze';
 import { makeBodyMaterial } from './bodyMaterial';
-import { getBuffer, getJson, getText } from '../physics/fetchData.js';
+import { getBuffer, getJson, getText } from '../browser/fetchData.js';
 
 const AU_KM = 149597870.7, TAU = 2 * Math.PI;
 // The points of the bodies SB441's table covers (Ceres, Vesta, Eris and the

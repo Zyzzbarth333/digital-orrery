@@ -15,9 +15,9 @@ import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import { useJourney, ledgerLines, type JourneyStore, type Waypoint, type Leg, type Flyby } from './journey';
 import { SourceTag } from './source-tag';
-import { journeyBodies, legOptions, applyOption, bodyInfo, defaultArrival } from '../physics/journey.js';
-import { assess } from '../physics/feasibility.js';
-import { eqjToEcl } from '../physics/ephemeris.js';
+import { journeyBodies, legOptions, applyOption, bodyInfo, defaultArrival } from '@digital-orrery/physics/journey.js';
+import { assess } from '@digital-orrery/physics/feasibility.js';
+import { eqjToEcl } from '@digital-orrery/physics/ephemeris.js';
 
 const DAY_MS = 86400e3;
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });

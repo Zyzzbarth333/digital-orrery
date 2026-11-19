@@ -40,7 +40,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseGpCsv, isGeostationary } from '../src/physics/satellites.js';
+import { parseGpCsv, isGeostationary } from '@digital-orrery/physics/satellites.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE = join(homedir(), '.cache', 'digital-orrery', 'celestrak');

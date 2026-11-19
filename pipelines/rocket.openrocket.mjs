@@ -143,4 +143,4 @@ for (const d of DESIGNS) {
   const total = S.stages.reduce((s, x) => s + x.prop + x.dry, S.payload);
   console.log(`${d.key}: ${S.stages.map((x) => `${x.name}: burns ${(x.prop * 1000).toFixed(1)} g (motors hold ${(x.ratedProp * 1000).toFixed(1)} g), drops ${(x.dry * 1000).toFixed(1)} g`).join('; ')}; payload ${(S.payload * 1000).toFixed(1)} g; liftoff ${m[0].toFixed(4)} kg (stages and payload add to ${total.toFixed(4)}); apogee ${f.summary.maxAltitude.toFixed(2)} m at ${apogeeTime.toFixed(3)} s, top speed ${f.summary.maxVelocity.toFixed(2)} m/s`);
 }
-fs.writeFileSync(new URL('../src/physics/fixtures/rocket_xcheck.json', import.meta.url), JSON.stringify(out));
+fs.writeFileSync(new URL('../packages/physics/src/fixtures/rocket_xcheck.json', import.meta.url), JSON.stringify(out));

@@ -29,7 +29,7 @@
 //      refined once), as mission design does.
 //
 //   node validation/artemis2.design.mjs     (about 20 s)
-// writes src/physics/fixtures/artemis2_design.json and
+// writes packages/physics/src/fixtures/artemis2_design.json and
 // public/missions/artemis2-plan.json (the plan, for the app).
 //
 //   node validation/artemis2.design.mjs --flown-entry-angle
@@ -39,12 +39,12 @@
 // remaining differences (it does not; see the docs).
 
 import fs from 'node:fs';
-import { createState, advance } from '../src/physics/nbody.js';
-import { vnbDirection } from '../src/physics/kernelHost.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { ORION_ENGINE } from '../src/physics/orion.js';
-import { bodyAxesEqj } from '../src/physics/orientation.js';
-import { lambert, propagate } from '../src/physics/orbital.js';
+import { createState, advance } from '@digital-orrery/physics/nbody.js';
+import { vnbDirection } from '@digital-orrery/physics/kernelHost.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { ORION_ENGINE } from '@digital-orrery/physics/orion.js';
+import { bodyAxesEqj } from '@digital-orrery/physics/orientation.js';
+import { lambert, propagate } from '@digital-orrery/physics/orbital.js';
 import {
   rows, fineRows, nearRows, sys, kt, sub, add, norm, dot, cross, unit, helioOf, geocentric, closest, vnb,
 } from './artemis2.lib.mjs';
@@ -291,7 +291,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv.includes('--
     tried: tried.map((d) => ({ ignitionMs: d.ignitionMs, dvKms: d.mag })),
     comparison: { max: cmp.max, farthest: cmp.farthest, flownEi: cmp.flownEi, oursEi: cmp.oursEi, series: cmp.series },
   };
-  fs.writeFileSync(new URL('../src/physics/fixtures/artemis2_design.json', import.meta.url), JSON.stringify(out));
+  fs.writeFileSync(new URL('../packages/physics/src/fixtures/artemis2_design.json', import.meta.url), JSON.stringify(out));
   // The plan as a mission file for the app: the same start, the flown path
   // taken from artemis2.json (flownFrom),
   // with our injection burn (5 s intervals on the rocket equation, held in

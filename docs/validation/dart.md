@@ -45,7 +45,7 @@ strikes 23 m from the centre.
 - **Sampling:** `npm run build:missions -- dart` fetches DART every hour
   about the Sun, every 10 s through each event, every second for
   Dimorphos and the final solution. The fixture is
-  `src/physics/fixtures/dart.json` (281 kB); the app's file is
+  `packages/physics/src/fixtures/dart.json` (281 kB); the app's file is
   `public/missions/dart.json` (341 kB).
 
 ## The burns

@@ -47,7 +47,7 @@ export class SimClock implements SceneClock {
   }
 
   // Setting the time is a jump: spacecraft are re-anchored at the new time
-  // rather than integrated across the gap (src/physics/craft.js).
+  // rather than integrated across the gap (packages/physics/src/craft.js).
   setTime(timeMs: number): void {
     const fromMs = this.state.timeMs;
     // A set within a minute of where the clock already is (NOW pressed at

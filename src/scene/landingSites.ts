@@ -1,6 +1,6 @@
 // src/scene/landingSites.ts
 //
-// The landing sites (src/physics/landingSites.js) as a layer the rail
+// The landing sites (packages/physics/src/landingSites.js) as a layer the rail
 // shows or hides, off by default (docs/frontend/landing-sites.md): the
 // Moon's, and those on Mars, Venus, Mercury, Titan, Jupiter and Saturn.
 // Each site is a marker in the HTML overlay, pinned to its point on its
@@ -20,9 +20,9 @@
 // (x, y, z) = ecliptic (x, z, -y).
 
 import * as THREE from 'three';
-import { eqjToEcl } from '../physics/ephemeris.js';
-import { LANDING_SITES, SITE_BY_KEY, siteBody, onSmallBody, siteFixedKm, siteNormal, siteRadii, type LandingSite } from '../physics/landingSites.js';
-import { dot, cross, norm, unit } from '../physics/vec.js';
+import { eqjToEcl } from '@digital-orrery/physics/ephemeris.js';
+import { LANDING_SITES, SITE_BY_KEY, siteBody, onSmallBody, siteFixedKm, siteNormal, siteRadii, type LandingSite } from '@digital-orrery/physics/landingSites.js';
+import { dot, cross, norm, unit } from '@digital-orrery/physics/vec.js';
 
 type Vec3 = [number, number, number];
 const UNIT_KM = 1000;

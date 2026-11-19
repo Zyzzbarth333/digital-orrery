@@ -3,7 +3,7 @@
 // The real missions beyond Artemis flown by the app's kernel against their
 // reconstructed trajectories (docs/validation/<id>.md). Each mission's
 // reference is its navigation team's reconstruction through JPL Horizons,
-// held as a fixture (src/physics/fixtures/<id>.json, npm run
+// held as a fixture (packages/physics/src/fixtures/<id>.json, npm run
 // build:missions -- <id>); its published burns and flybys are in
 // missions.data.mjs. Every mission gets the same five cases:
 //
@@ -16,11 +16,11 @@
 //
 //   node validation/missions.validate.mjs [id ...]   (all, by default)
 
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import fs from 'node:fs';
 import { MISSIONS } from './missions.data.mjs';
 import { toRow, coast, about, steadyBurn, fitSteadyBurn, fitSunlightPieces, norm, sub, add, dot, cross, unit, sys, kt, bodyState, distanceTo, closestApproach, burnFromSamples } from './flown.lib.mjs';
-import { makeEnvironment } from '../src/physics/environment.js';
+import { makeEnvironment } from '@digital-orrery/physics/environment.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
@@ -42,12 +42,12 @@ function geodeticHeight(r, ms) {
   const N = a / Math.sqrt(1 - e2 * Math.sin(lat) ** 2);
   return { h: p / Math.cos(lat) - N, lat: lat * 180 / Math.PI, lon: Math.atan2(y, x) * 180 / Math.PI };
 }
-const ORI = await import('../src/physics/orientation.js');
+const ORI = await import('@digital-orrery/physics/orientation.js');
 
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(MISSIONS);
 for (const id of ids) {
   const M = MISSIONS[id], C = M.checks;
-  const fixPath = new URL(`../src/physics/fixtures/${id}.json`, import.meta.url);
+  const fixPath = new URL(`../packages/physics/src/fixtures/${id}.json`, import.meta.url);
   if (!fs.existsSync(fixPath)) { console.log(`${id}: no fixture; run npm run build:missions -- ${id} (skipped)`); continue; }
   const fx = JSON.parse(fs.readFileSync(fixPath));
   const centre = fx.centre;
@@ -215,7 +215,7 @@ for (const id of ids) {
   // periapsis and apoapsis heights above the mean radius.
   if (M.orbits) {
     header(`${id} CASE 3b: the orbits reached`);
-    const { rvToElements } = await import('../src/physics/orbital.js');
+    const { rvToElements } = await import('@digital-orrery/physics/orbital.js');
     for (const o of M.orbits) {
       const e = o.after === 'last' ? null : matched.find((x) => x.p.name === o.after)?.b?.e;
       const p = o.after === 'last' ? { ...toRow(fx.last), about: centre } : { ...e.rows.at(-1), about: e.about };
@@ -366,10 +366,10 @@ for (const id of ids) {
   // ---------------------------------------------------------------- 5
   header(`${id} CASE 5: the app's mission file (public/missions/${id}.json), flown as the app flies it`);
   {
-    const { RealMission } = await import('../src/physics/realMission.js');
-    const { Craft } = await import('../src/physics/craft.js');
-    const { KernelClient } = await import('../src/physics/kernelClient.js');
-    const { kernelMs } = await import('../src/physics/kernelHost.js');
+    const { RealMission } = await import('@digital-orrery/physics/realMission.js');
+    const { Craft } = await import('@digital-orrery/physics/craft.js');
+    const { KernelClient } = await import('../src/browser/kernelClient.js');
+    const { kernelMs } = await import('@digital-orrery/physics/kernelHost.js');
     const data = JSON.parse(fs.readFileSync(new URL(`../public/missions/${id}.json`, import.meta.url)));
     const file = new RealMission({ ...data, id });
     const model = { ...data.craftModel, vent: null };

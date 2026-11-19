@@ -37,7 +37,7 @@ above Mercury, and a 862 m/s capture burn that turned 30° as it fired.
   full environment. Each event is fetched every 10 s about the body whose
   sphere of influence holds it. Each flyby, and the day of the approach
   to MOI, is fetched every minute about its planet. The fixture is
-  `src/physics/fixtures/messenger.json` (3.7 MB); the app's file,
+  `packages/physics/src/fixtures/messenger.json` (3.7 MB); the app's file,
   `public/missions/messenger.json` (3.4 MB), is within 108 m of every
   sample it leaves out. The Horizons cache is 43 MB.
 

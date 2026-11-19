@@ -1,7 +1,7 @@
 # CSPICE reference generator
 
 `orrery_spice_ref.c` uses NAIF's CSPICE toolkit and the DE442 ephemeris to write
-`src/physics/fixtures/spice_reference.json`. The JavaScript tests (`node src/physics/orbital.test.mjs`)
+`packages/physics/src/fixtures/spice_reference.json`. The JavaScript tests (`node packages/physics/src/orbital.test.mjs`)
 read that file, so they need neither SPICE nor a build to run, but every number they check against comes
 from JPL's own toolkit.
 
@@ -15,7 +15,7 @@ The fixture holds:
 - the J2000 to body-fixed rotation (`pxform_c`) of the Sun, the planets, the Moon, Pluto and the
   planets' 20 major moons (`IAU_PHOBOS` … `IAU_CHARON`) at four epochs, for `orientation.test.mjs`;
 - the Earth's (ITRF93) at 408 instants from 2000 to 2126, for the Earth orientation table;
-- the triaxial radii (`bodvrd_c` `RADII`) of the same 31 bodies, for checking `src/physics/pck.data.js`;
+- the triaxial radii (`bodvrd_c` `RADII`) of the same 31 bodies, for checking `packages/physics/src/pck.data.js`;
 - the toolkit version, every kernel loaded, and the GM of each body the JS kernel uses, from `python/data/gm_de442.tpc` (system barycentres for Mercury to Neptune, the Earth and Moon themselves).
 
 ## Regenerate
@@ -38,7 +38,7 @@ The fixture holds:
    ```bash
    cmake -S c -B c/build -DCMAKE_BUILD_TYPE=Release
    cmake --build c/build
-   c/build/orrery_spice_ref src/physics/fixtures/spice_reference.json
+   c/build/orrery_spice_ref packages/physics/src/fixtures/spice_reference.json
    ```
 
 The output is deterministic (a fixed-seed generator picks the two-body cases), so regenerating it with
@@ -55,7 +55,7 @@ kernels above plus NAIF's two Artemis II SPKs from
 
 ```bash
 cmake --build c/build
-c/build/artemis2_ref src/physics/fixtures/artemis2_bet.json 600
+c/build/artemis2_ref packages/physics/src/fixtures/artemis2_bet.json 600
 ```
 
 The second argument is the sampling step in seconds. Pairs of UTC times
@@ -166,17 +166,17 @@ the year after the last, the tolerance (km), the leapseconds kernel, the
 planetary SPK, the asteroid SPK and the NAIF ids. It prints each body's
 interval, coefficients and worst heliocentric error against `spkezr_c`;
 with `SB_REFERENCE=<file>` set it also writes the SPK states the
-JavaScript test checks against (`src/physics/fixtures/asteroids_sb441.json`).
+JavaScript test checks against (`packages/physics/src/fixtures/asteroids_sb441.json`).
 
 ## The Moon's landing sites
 
 `landing_sites_ref.c` puts ten landing sites' published coordinates on the Moon's 1,737.4 km sphere
 (`latrec_c`) and turns them from MOON_ME into J2000 (`pxform_c`) at four instants, for
-`src/physics/landingSites.test.mjs` ([docs/frontend/landing-sites.md](../docs/frontend/landing-sites.md)). It needs
+`packages/physics/src/landingSites.test.mjs` ([docs/frontend/landing-sites.md](../docs/frontend/landing-sites.md)). It needs
 the kernels above.
 
 ```bash
 cmake --build c/build --target landing_sites_ref
-c/build/landing_sites_ref src/physics/fixtures/landing_sites_spice.json
+c/build/landing_sites_ref packages/physics/src/fixtures/landing_sites_spice.json
 ```
 

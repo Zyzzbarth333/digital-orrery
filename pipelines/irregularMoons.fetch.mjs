@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import dns from 'node:dns';
-import { elementState } from '../src/physics/moons.js';
+import { elementState } from '@digital-orrery/physics/moons.js';
 
 dns.setDefaultResultOrder('ipv4first');
 const CACHE = path.join(os.homedir(), '.cache', 'digital-orrery', 'moons');
@@ -359,7 +359,7 @@ for (const [key, m] of Object.entries(moons)) {
   console.log(key.padEnd(12), m.kernel, JSON.stringify(m.fit));
 }
 
-fs.writeFileSync(new URL('../src/physics/irregularMoons.data.js', import.meta.url), `// src/physics/irregularMoons.data.js (written by irregularMoons.fetch.mjs; do not edit)
+fs.writeFileSync(new URL('../packages/physics/src/irregularMoons.data.js', import.meta.url), `// packages/physics/src/irregularMoons.data.js (written by irregularMoons.fetch.mjs; do not edit)
 //
 // The irregular moons of Jupiter, Saturn and Neptune (irregularMoons.js).
 // Elements: JPL Solar System Dynamics, Planetary Satellite Mean Elements,
@@ -384,5 +384,5 @@ fs.writeFileSync(new URL('../src/physics/irregularMoons.data.js', import.meta.ur
 
 export const IRREGULAR_DATA = ${JSON.stringify(moons, null, 1)};
 `);
-fs.writeFileSync(new URL('../src/physics/fixtures/irregular_moons_horizons.json', import.meta.url), JSON.stringify(checks));
+fs.writeFileSync(new URL('../packages/physics/src/fixtures/irregular_moons_horizons.json', import.meta.url), JSON.stringify(checks));
 console.log(`wrote ${Object.keys(moons).length} moons`);

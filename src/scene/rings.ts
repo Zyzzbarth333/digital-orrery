@@ -34,7 +34,7 @@
 
 import * as THREE from 'three';
 import { ELLIPSOID_SHADOW, VISIBLE_FRACTION } from './bodyMaterial';
-import { DUST, JUPITER } from '../physics/rings.js';
+import { DUST, JUPITER } from '@digital-orrery/physics/rings.js';
 
 export const MAX_NARROW = 16;
 // Moons whose shadows a flat ring system takes at once.

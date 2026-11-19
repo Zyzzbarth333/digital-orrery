@@ -26,7 +26,7 @@
 
 import * as THREE from 'three';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
-import { frameAccel, rotatingFrame, criticalLevels } from '../physics/gravityFlow.js';
+import { frameAccel, rotatingFrame, criticalLevels } from '@digital-orrery/physics/gravityFlow.js';
 
 export type FlowFrame = 'inertial' | 'falling' | 'others' | 'rotating';
 export type FlowPlane = 'orbit' | 'view';

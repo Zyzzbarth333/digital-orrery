@@ -1,0 +1,14 @@
+{
+  "name": "@digital-orrery/physics",
+  "version": "0.2.0",
+  "private": true,
+  "description": "The orrery's physics: ephemerides, the n-body kernel, journeys, satellites and the space environment, for the browser and Node. Not published; its interface is not frozen (ADR-0001).",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.12.0" },
+  "exports": { "./*": "./src/*" },
+  "dependencies": {
+    "astronomy-engine": "^2.1.19",
+    "satellite.js": "7.1.0"
+  }
+}

@@ -3,7 +3,7 @@
 // The 3D solar system, at true scale and true positions.
 //
 // Positions: every frame, each body's heliocentric ecliptic J2000 state comes
-// from the ephemeris (src/physics/ephemeris.js: DE442's table for 2000-2050,
+// from the ephemeris (packages/physics/src/ephemeris.js: DE442's table for 2000-2050,
 // astronomy-engine outside it). Orbit lines
 // are sampled from the same ephemeris, not drawn as ellipses.
 //
@@ -27,24 +27,24 @@
 // and label in an HTML overlay.
 
 import * as THREE from 'three';
-import { helioStateEcl, eqjToEcl, eclToEqj, ttSeconds } from '../physics/ephemeris.js';
-import { bodyAxesEqj } from '../physics/orientation.js';
-import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
-import { moonTablesVersion, wantMoonTables } from '../physics/moonTables.js';
-import { baryStateEqj } from '../physics/barycentres.js';
+import { helioStateEcl, eqjToEcl, eclToEqj, ttSeconds } from '@digital-orrery/physics/ephemeris.js';
+import { bodyAxesEqj } from '@digital-orrery/physics/orientation.js';
+import { systemEqj, moonPositionEqj, MOONS_OF } from '@digital-orrery/physics/moons.js';
+import { moonTablesVersion, wantMoonTables } from '@digital-orrery/physics/moonTables.js';
+import { baryStateEqj } from '@digital-orrery/physics/barycentres.js';
 import type { SceneClock } from '../types/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, systemOf, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, setRingPlane, setUmbraTable, shadowAxes } from './bodyMaterial';
-import { EARTH_OCCULTING_KM, umbraTable } from '../physics/umbra.js';
-import { sunlight } from '../physics/discs.js';
+import { EARTH_OCCULTING_KM, umbraTable } from '@digital-orrery/physics/umbra.js';
+import { sunlight } from '@digital-orrery/physics/discs.js';
 import { makeRings, tauTexture, MAX_RING_CASTERS, type RingProfile } from './rings';
 import { JupiterRings, makeNeptuneRings, makeUranusRings, type LorriFile, type PpsFile, type RingFrame } from './ringSystems';
-import { jdFromTt } from '../physics/rings.js';
+import { jdFromTt } from '@digital-orrery/physics/rings.js';
 import { makeStarPoints, makeStars, resetStars, setStarScale, setStarTwinkle } from './stars';
 import { DailyEarth } from './clouds';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { SurfacePatch } from './surfacePatch';
-import { clampAboveSurface } from '../physics/surfaceClamp.js';
+import { clampAboveSurface } from '@digital-orrery/physics/surfaceClamp.js';
 import { JourneyLayer } from './journeyLayer';
 import type { JourneyView, JourneyHandlers } from '../types/journey';
 import { SmallBodyLayer } from './smallBodies';
@@ -54,7 +54,7 @@ import { GroundTrack } from './groundTrack';
 import { SpacecraftLayer } from './spacecraftLayer';
 import { GuideLayer } from './guides';
 import { LandingSiteLayer, axesToEcl, siteFrame, type SitePlace } from './landingSites';
-import { SITE_BY_KEY, siteBody, onSmallBody } from '../physics/landingSites.js';
+import { SITE_BY_KEY, siteBody, onSmallBody } from '@digital-orrery/physics/landingSites.js';
 import { MagneticLayer } from './magnetic';
 import { orbitTrailMaterial, reachOf } from './orbitTrail';
 import { EARTH_ATMOSPHERE, makeAtmosphere, renderViewTable, type AtmosphereParams } from './atmosphere';

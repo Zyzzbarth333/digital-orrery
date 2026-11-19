@@ -17,10 +17,10 @@
 // public/ephemeris/earth-orientation-2000-2126.bin.
 
 import fs from 'node:fs';
-import { earthFixedMatrix } from '../src/physics/earthRotation.js';
-import { utcMsAtTt, ttSeconds } from '../src/physics/ephemeris.js';
-import { ttMinusUtc } from '../src/physics/timescale.js';
-import { EOP_FORMAT } from '../src/physics/eop.js';
+import { earthFixedMatrix } from '@digital-orrery/physics/earthRotation.js';
+import { utcMsAtTt, ttSeconds } from '@digital-orrery/physics/ephemeris.js';
+import { ttMinusUtc } from '@digital-orrery/physics/timescale.js';
+import { EOP_FORMAT } from '@digital-orrery/physics/eop.js';
 
 const [inPath, outPath = new URL('../public/ephemeris/earth-orientation-2000-2126.bin', import.meta.url)] = process.argv.slice(2);
 if (!inPath) { console.error('usage: node pipelines/eop.build.mjs <samples.bin> [out.bin]'); process.exit(1); }

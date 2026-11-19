@@ -17,7 +17,7 @@ only at the edges (rendering, the UI, external data).
 
 ## Inertial frame: J2000 equatorial (EQJ)
 
-The kernel, the ephemeris adapter (`src/physics/ephemeris.js`) and the SPICE
+The kernel, the ephemeris adapter (`packages/physics/src/ephemeris.js`) and the SPICE
 fixture all use the J2000 mean equator and equinox. That is SPICE's `J2000`
 frame [1] and astronomy-engine's `EQJ` [2]; it is the ICRF to within about 0.02
 arcseconds (a frame bias that matters only far below the accuracy here).
@@ -51,7 +51,7 @@ $$
 $$
 
 Velocities use the same axis map without the scaling. Nothing in
-`src/physics/` uses scene coordinates; see [the 3D scene](../frontend/scene.md).
+`packages/physics/src/` uses scene coordinates; see [the 3D scene](../frontend/scene.md).
 
 ## Centre: the Sun for the app, the barycentre for the kernel
 

@@ -28,14 +28,14 @@ numbers below are from November 2026.
   at 0.2–1 km in the coast arcs.
 - **Sampling:** `c/artemis2_ref.c` samples Orion's state every 10 minutes
   with CSPICE, along with DE442's Moon at the same instants. It writes
-  `src/physics/fixtures/artemis2_bet.json` (263 kB), so the check needs
+  `packages/physics/src/fixtures/artemis2_bet.json` (263 kB), so the check needs
   neither SPICE nor the kernels to run.
 
 ## The burns: ours against NASA's
 
 The SPK breaks into six continuous segments at burns. `c/artemis2_ref.c`
 also samples a window around each burn every 5 s
-(`src/physics/fixtures/artemis2_burns.json`, 341 kB).
+(`packages/physics/src/fixtures/artemis2_burns.json`, 341 kB).
 - **Measuring:** for each 5-second interval, the flown state is carried
   across it by the kernel's gravity. What it falls short of the next flown
   state is that interval's thrust. Intervals above 0.3 mm/s² belong to a
@@ -510,10 +510,10 @@ Artemis II SPKs in `python/data/kernels/spk/missions/artemis2/`:
 
 ```bash
 cmake --build c/build
-c/build/artemis2_ref src/physics/fixtures/artemis2_bet.json 600
-c/build/artemis2_ref src/physics/fixtures/artemis2_near.json 60 \
+c/build/artemis2_ref packages/physics/src/fixtures/artemis2_bet.json 600
+c/build/artemis2_ref packages/physics/src/fixtures/artemis2_near.json 60 \
   2026-04-03T00:05:00 2026-04-03T03:00:00  2026-04-10T19:05:00 2026-04-10T23:54:00
-c/build/artemis2_ref src/physics/fixtures/artemis2_burns.json 5 \
+c/build/artemis2_ref packages/physics/src/fixtures/artemis2_burns.json 5 \
   2026-04-02T23:40:00 2026-04-03T00:05:00  2026-04-05T01:15:00 2026-04-05T01:50:00 \
   2026-04-06T02:55:00 2026-04-06T03:15:00  2026-04-07T23:55:00 2026-04-08T00:15:00 \
   2026-04-10T02:45:00 2026-04-10T03:05:00  2026-04-10T18:45:00 2026-04-10T19:05:00

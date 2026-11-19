@@ -3,7 +3,7 @@
 Every model is checked against an independent reference. `npm test` runs all
 of these; the numbers below are what the checks measured (November 2026, on
 `main`). References: NAIF CSPICE N0067 with DE442 (`c/orrery_spice_ref.c`
-writes `src/physics/fixtures/spice_reference.json`), Curtis's worked examples,
+writes `packages/physics/src/fixtures/spice_reference.json`), Curtis's worked examples,
 the rocket equation, and an independent adaptive RK4 integrator written in the
 tests (it shares no code with the models).
 
@@ -1137,6 +1137,19 @@ browser engines may round `Math.sin`, `pow` and `exp` differently, so there
 `--tol 1e-12` compares to a relative tolerance and reports the largest
 difference. `npm run golden:record` rewrites the fixtures. Do that only for
 a change that is meant to move numbers, and say why in its commit.
+
+The test files' paths are compared as they were recorded: the move put
+them under `packages/physics/src/` and `src/browser/`, and `MOVED` in
+`golden.mjs` maps both back to `src/physics/`.
+
+**In browser engines** (`validation/browser/gate.mjs`), the flown-mission
+validations and the NESC check run in Chromium, Firefox and WebKit through
+Playwright. Each must pass as many checks as it does under Node, with none
+failing. Every run is a module worker on a Vite server, with `node:fs`
+replaced by synchronous requests (`validation/browser/shims/`), so the
+data loads as Node loads it. The same run reports how far each engine's
+numbers are from the golden snapshot. Playwright isn't a dependency of the
+app; the script's header says how to install it beside the repository.
 
 ## References
 

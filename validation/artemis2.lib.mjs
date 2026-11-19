@@ -10,16 +10,16 @@
 //   artemis2_burns.json   every 5 seconds, in a window around each burn
 //   artemis2_near.json    every minute, near Earth between burns
 
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import fs from 'node:fs';
-import { createState, advance } from '../src/physics/nbody.js';
-import { solarSystemBodies } from '../src/physics/bodies.js';
-import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '../src/physics/kernelHost.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { dot, cross, norm, unit } from '../src/physics/vec.js';
+import { createState, advance } from '@digital-orrery/physics/nbody.js';
+import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '@digital-orrery/physics/kernelHost.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { dot, cross, norm, unit } from '@digital-orrery/physics/vec.js';
 export { dot, cross, norm, unit };
 
-const load = (name) => JSON.parse(fs.readFileSync(new URL(`../src/physics/fixtures/${name}`, import.meta.url)));
+const load = (name) => JSON.parse(fs.readFileSync(new URL(`../packages/physics/src/fixtures/${name}`, import.meta.url)));
 const toRows = (f) => f.states.map((s) => ({
   ms: Date.parse(s[0]), seg: s[1], r: s.slice(2, 5), v: s.slice(5, 8), moonR: s.slice(8, 11), moonV: s.slice(11, 14),
 }));

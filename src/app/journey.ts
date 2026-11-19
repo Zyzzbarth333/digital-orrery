@@ -7,9 +7,9 @@
 // through useJourney(); the scene through view().
 
 import { useSyncExternalStore } from 'react';
-import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, aimNode as aimNodeJs, ledgerLines as ledgerLinesJs, type Journey, type Waypoint } from '../physics/journey.js';
+import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, aimNode as aimNodeJs, ledgerLines as ledgerLinesJs, type Journey, type Waypoint } from '@digital-orrery/physics/journey.js';
 import type { FlightRequest, FlightReply, ProfilesReply, LegProfile } from './journey.worker';
-import { getJson } from '../physics/fetchData.js';
+import { getJson } from '../browser/fetchData.js';
 
 type V3 = [number, number, number];
 const DAY_MS = 86400e3;

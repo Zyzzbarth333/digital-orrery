@@ -5,7 +5,7 @@ body at once, each body's spin axis and the way it turns, its real gravity
 field on the surface, its sphere of influence and Hill sphere, the Lagrange
 points, and the strongest pulls on a body. Each has its own switch in the
 rail's **Guides** section and is off until switched on. Code:
-`src/physics/gravityGuides.js`, `gravityFlow.js` and `spin.js` (the
+`packages/physics/src/gravityGuides.js`, `gravityFlow.js` and `spin.js` (the
 physics, tested in `gravityGuides.test.mjs` and `gravityFlow.test.mjs`),
 `src/scene/guides.ts`, `gravityField.ts` and `gravityFlow.ts` (the
 drawing).

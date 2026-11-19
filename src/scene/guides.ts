@@ -23,11 +23,11 @@
 
 import * as THREE from 'three';
 import { BODIES, BODY_BY_KEY, type BodyKey } from './catalogue';
-import { hillRadius, lagrangePoints, soiRadius, strongestPulls } from '../physics/gravityGuides.js';
-import { rvToElements } from '../physics/orbital.js';
+import { hillRadius, lagrangePoints, soiRadius, strongestPulls } from '@digital-orrery/physics/gravityGuides.js';
+import { rvToElements } from '@digital-orrery/physics/orbital.js';
 import { GravityFieldLayer } from './gravityField';
 import { GravityFlowLayer, type FlowFrame, type FlowPlane } from './gravityFlow';
-import { spinRate } from '../physics/spin.js';
+import { spinRate } from '@digital-orrery/physics/spin.js';
 import { ScreenLines } from './screenLines';
 
 export type GuideKey = 'axes' | 'field' | 'spheres' | 'lagrange' | 'pulls' | 'flow';

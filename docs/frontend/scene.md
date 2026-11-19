@@ -2,7 +2,7 @@
 
 How the front end draws the solar system at true scale and true positions.
 Code: `src/scene/` (three.js, TypeScript) and `src/app/` (React panels).
-Nothing in `src/physics/` depends on it.
+Nothing in `packages/physics/src/` depends on it.
 
 ## True scale, true positions
 
@@ -13,7 +13,7 @@ HTML marker (a ring and its name) at its projected position. The ring hides
 once the body's disc is wider than 4 px, and a moon's marker hides while it
 sits within 14 px of its planet's, unless the moon is focused.
 
-Positions come from `helioStateEcl` in `src/physics/ephemeris.js`, re-read
+Positions come from `helioStateEcl` in `packages/physics/src/ephemeris.js`, re-read
 every frame:
 - **Every planet, Pluto and the Moon, 2000–2050:** DE442 itself, through a
   Chebyshev table, within a metre
@@ -37,7 +37,7 @@ every frame:
 ## Shapes
 
 Each body is its IAU triaxial ellipsoid, from NAIF's pck00011 (`radiiKm` in
-`catalogue.ts`, from `src/physics/pck.data.js`; table in
+`catalogue.ts`, from `packages/physics/src/pck.data.js`; table in
 [orientation](../physics/orientation.md#shapes)). Every mesh is one unit
 sphere with its poles on local $Z$, scaled to $(a, b, c)$ along local $X$,
 $Y$, $Z$ and turned each frame to the body-fixed axes of

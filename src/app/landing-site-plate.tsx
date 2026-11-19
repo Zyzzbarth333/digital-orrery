@@ -11,9 +11,9 @@ import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
-import { SITE_SOURCES, TIME_SOURCES, MOON_RADIUS_KM, SMALL_BODY_NAMES, landedText, sunElevationDeg, siteBody, siteRadii, onSmallBody, type LandingSite } from '../physics/landingSites.js';
-import { bodyAxesEqj } from '../physics/orientation.js';
-import { eclToEqj } from '../physics/ephemeris.js';
+import { SITE_SOURCES, TIME_SOURCES, MOON_RADIUS_KM, SMALL_BODY_NAMES, landedText, sunElevationDeg, siteBody, siteRadii, onSmallBody, type LandingSite } from '@digital-orrery/physics/landingSites.js';
+import { bodyAxesEqj } from '@digital-orrery/physics/orientation.js';
+import { eclToEqj } from '@digital-orrery/physics/ephemeris.js';
 
 const KIND: Record<LandingSite['kind'], string> = {
   crewed: 'Crewed landing', lander: 'Robotic landing', rover: 'Where a rover stopped',

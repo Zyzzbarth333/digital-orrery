@@ -1,7 +1,7 @@
 // pipelines/missions.build.mjs
 //
 // Builds a real mission beyond Artemis from its JPL Horizons trajectory
-// (missions.data.mjs): the validation fixture, src/physics/fixtures/<id>.json,
+// (missions.data.mjs): the validation fixture, packages/physics/src/fixtures/<id>.json,
 // and the app's mission file, public/missions/<id>.json.
 //
 //   npm run build:missions -- juno2013      (needs a network the first time)
@@ -24,13 +24,13 @@
 //    interpolated (RealMission.flownAt), and the script reports how far that
 //    is from every coarse sample left out.
 
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import fs from 'node:fs';
 import { MISSIONS } from '../validation/missions.data.mjs';
 import { vectors, toRow, stepResiduals, findEvents, burnFromSamples, ringingRegions, steadyBurn, fitSteadyBurn, norm, sub, iso, bodyState, distanceTo, sys, kt, coast } from '../validation/flown.lib.mjs';
-import { RealMission } from '../src/physics/realMission.js';
-import { primaryOf } from '../src/physics/nbody.js';
-import { makeEnvironment } from '../src/physics/environment.js';
+import { RealMission } from '@digital-orrery/physics/realMission.js';
+import { primaryOf } from '@digital-orrery/physics/nbody.js';
+import { makeEnvironment } from '@digital-orrery/physics/environment.js';
 
 const id = process.argv[2];
 const M = MISSIONS[id];
@@ -254,7 +254,7 @@ const fixture = {
   // the validation's account of what the kernel leaves out.
   stepResidualMmS: (() => { const d = steps.map((s) => norm(s.dv) * 1e6).sort((x, y) => x - y); return [0.5, 0.9, 0.99].map((q) => Math.round(d[Math.floor(q * d.length)] * 1e4) / 1e4); })(),
 };
-const fixPath = new URL(`../src/physics/fixtures/${id}.json`, import.meta.url);
+const fixPath = new URL(`../packages/physics/src/fixtures/${id}.json`, import.meta.url);
 fs.writeFileSync(fixPath, JSON.stringify(fixture));
 
 // 4. The mission file.

@@ -2,17 +2,22 @@
 
 The app is three layers. The **data** is ephemeris tables, catalogues and
 maps, built offline from JPL, NAIF, NASA and USGS sources and shipped in
-`public/`. The **physics** is plain JavaScript in `src/physics/`, with no
-three.js in it, so every module also runs in Node and in its tests. The
-**front end** is React for the console and three.js for the sky.
+`public/`. The **physics** is plain JavaScript in the
+`@digital-orrery/physics` workspace (`packages/physics/`), with no three.js
+in it, so every module also runs in Node and in its tests. The **front
+end** is React for the console and three.js for the sky.
 
 **The physics reads its data through a loader it is handed**
-(`src/physics/dataLoad.js`). A loader answers a path under the data root:
-`fetchLoader` (`fetchData.js`) fetches it under the site's base URL in the
-browser, and `fsLoader` (`nodeData.js`) reads it from `public/` under
-Node. Either one says to run `npm run data` when a file is missing. The
-browser's entry points are `deLoad.js` and `moonLoad.js`, and Node's are
-`deNode.js` and `moonNode.js`; all four are one line around the same code.
+(`packages/physics/src/dataLoad.js`). A loader answers a path under the
+data root: `fetchLoader` (`fetchData.js`) fetches it under the site's base
+URL in the browser, and `fsLoader` (`nodeData.js`) reads it from `public/`
+under Node. Either one says to run `npm run data` when a file is missing.
+The browser's entry points are `deLoad.js` and `moonLoad.js`, and Node's
+are `deNode.js` and `moonNode.js`; all four are one line around the same
+code. The app imports the physics by name
+(`@digital-orrery/physics/ephemeris.js`); its browser side, which the
+package leaves out because it needs a bundler (`import.meta.env`, `new
+Worker`), is in `src/browser/`.
 
 ![The parts of the app and the calls between them](diagrams/architecture.svg)
 
@@ -71,11 +76,14 @@ digital-orrery/
 ├── src/
 │   ├── app/                 # React: the console, panels, planner, rocket, clock, styles
 │   ├── scene/               # three.js: bodies, sky, orbits, small bodies, guides, camera
-│   ├── physics/             # orbital core, n-body kernel and Worker, ephemerides, moons,
-│   │   │                    #   orientation, environment, rocket, journeys, and their tests
-│   │   └── fixtures/        # reference data the tests check against (CSPICE, Horizons, NASA)
-│   ├── types/               # types the scene and the app share (the clock, journey views)
-│   └── utils/constants.js
+│   ├── browser/             # the physics in the browser: data through fetch, the kernel's
+│   │                        #   Worker and its client, and their tests
+│   └── types/               # types the scene and the app share (the clock, journey views)
+├── packages/
+│   └── physics/             # @digital-orrery/physics, an npm workspace (not published)
+│       └── src/             # orbital core, n-body kernel, ephemerides, moons, orientation,
+│           │                #   environment, rocket, journeys, constants, and their tests
+│           └── fixtures/    # reference data the tests check against (CSPICE, Horizons, NASA)
 ├── pipelines/               # offline scripts that fetch and build the data in public/
 │                            #   (*.fetch, *.build, *.export, *.horizons): npm run fetch:*, build:*
 ├── validation/              # the flown-mission checks (Artemis I and II, Juno, DART, LRO,

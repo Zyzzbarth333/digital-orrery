@@ -4,7 +4,7 @@
 // Division publishes the lowest-delta-v transfers to each planet
 // (https://trajbrowser.arc.nasa.gov); public/trajbrowser/planets.json holds
 // them for 2026-2040 (pipelines/trajbrowser.fetch.mjs). Beside each, our
-// own transfer between the same two dates (src/physics/trajsearch.js: the
+// own transfer between the same two dates (packages/physics/src/trajsearch.js: the
 // Lambert arc, up to two revolutions, with NASA's conventions), so the two
 // can be compared. A row can set the porkchop to its window, or be flown.
 //
@@ -13,9 +13,9 @@
 // the same search to it in a new tab.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { transfer } from '../physics/trajsearch.js';
-import { helioStateEcl } from '../physics/ephemeris.js';
-import { getJson } from '../physics/fetchData.js';
+import { transfer } from '@digital-orrery/physics/trajsearch.js';
+import { helioStateEcl } from '@digital-orrery/physics/ephemeris.js';
+import { getJson } from '../browser/fetchData.js';
 
 export interface TbTransfer { depMs: number; arrMs: number; c3: number; injectionDv: number; postDv: number; route: string }
 interface TbBody { spk: number; muKm3s2: number; radiusKm: number; rPeriKm: number }

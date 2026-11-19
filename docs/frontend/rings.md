@@ -1,10 +1,10 @@
 # The rings of Jupiter, Uranus and Neptune
 
-Code: `src/physics/rings.js` (the data and geometry, no three.js),
+Code: `packages/physics/src/rings.js` (the data and geometry, no three.js),
 `src/scene/rings.ts` (the shaders), `src/scene/ringSystems.ts` (building
 and placing them each frame), `python/textures/fetch_rings.py` and the
 `uranus_rings` recipe in `python/textures/sources.py`. Checks:
-`src/physics/rings.test.mjs`. Saturn's rings, from a Cassini profile, are in
+`packages/physics/src/rings.test.mjs`. Saturn's rings, from a Cassini profile, are in
 [textures](textures.md#saturns-rings) and
 [lighting](lighting.md#saturns-rings); all four systems share one ring
 photometry.
@@ -331,7 +331,7 @@ production build's exposure times the factor given, on the Intel GPU:
 
 ## Validation
 
-`node src/physics/rings.test.mjs`, against the tables the data come from
+`node packages/physics/src/rings.test.mjs`, against the tables the data come from
 and independent ones:
 
 - Uranus: each ring's radius, eccentricity and inclination against the
@@ -384,7 +384,7 @@ python3 python/textures/build_textures.py --only jupiter_rings
 
 writes `public/textures/jupiter/rings_lorri.json` (the shells, the median
 profile and each image's geometry, pointing fit and equivalent width; about
-20 minutes). Everything else is in `src/physics/rings.js`.
+20 minutes). Everything else is in `packages/physics/src/rings.js`.
 
 ## Not modelled
 

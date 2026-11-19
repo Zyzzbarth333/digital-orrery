@@ -15,21 +15,21 @@
 // sample, and says so.
 //
 // Writes public/data/spacecraft/ (index.json, a .json and .bin a month)
-// and src/physics/fixtures/spacecraft_horizons.json: Horizons samples that
+// and packages/physics/src/fixtures/spacecraft_horizons.json: Horizons samples that
 // were not kept, one a month a craft, for spacecraft.test.mjs.
 //
 // Horizons asks for no more than one request at a time; the script waits
 // a second between them, and stops on any answer it can't read.
 
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { bodyConstants, PLANET_GM, MU_SUN } from '../src/physics/bodies.js';
-import { stateIn, KEPLER, HERMITE } from '../src/physics/spacecraft.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { bodyConstants, PLANET_GM, MU_SUN } from '@digital-orrery/physics/bodies.js';
+import { stateIn, KEPLER, HERMITE } from '@digital-orrery/physics/spacecraft.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE = join(homedir(), '.cache', 'digital-orrery', 'horizons-craft');

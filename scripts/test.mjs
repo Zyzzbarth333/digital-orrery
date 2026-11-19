@@ -19,7 +19,7 @@ import { spawn } from 'node:child_process';
 import os from 'node:os';
 import { MISSIONS as MISSION_DATA } from '../validation/missions.data.mjs';
 
-const JOURNEY = 'src/physics/journey.test.mjs';
+const JOURNEY = 'packages/physics/src/journey.test.mjs';
 // The journey cases that fly for longest, in parts of their own (CASE 12's
 // three flights round the Sun, CASE 17's to Europa and Titan); the rest
 // together. CASE 21 takes CASE 20's flight, so they run in one part.
@@ -28,20 +28,20 @@ const MISSIONS = Object.keys(MISSION_DATA);
 
 const FILES = [
   'src/app/tex.test.mjs', 'src/scene/ktx2.test.mjs', 'src/scene/layerComposite.test.mjs', 'src/app/craft-state.test.mjs', 'src/app/remember.test.mjs', 'src/app/stores.test.mjs', 'src/app/clouds-row.test.mjs',
-  'src/physics/orbital.test.mjs', 'src/physics/porkchop.test.mjs', 'src/physics/nbody.test.mjs',
-  'src/physics/orientation.test.mjs', 'src/physics/surfaceClamp.test.mjs', 'src/physics/bodyfacts.test.mjs',
-  'src/physics/craft.test.mjs', 'src/physics/warp.test.mjs', 'src/physics/trajsearch.test.mjs',
+  'packages/physics/src/orbital.test.mjs', 'packages/physics/src/porkchop.test.mjs', 'packages/physics/src/nbody.test.mjs',
+  'packages/physics/src/orientation.test.mjs', 'packages/physics/src/surfaceClamp.test.mjs', 'packages/physics/src/bodyfacts.test.mjs',
+  'src/browser/craft.test.mjs', 'packages/physics/src/warp.test.mjs', 'packages/physics/src/trajsearch.test.mjs',
   ...JOURNEY_PARTS.map((cases) => `${JOURNEY} ${cases.join(' ')}`),
   `${JOURNEY} --except ${JOURNEY_PARTS.flat().join(' ')}`,
-  'src/physics/nesc.test.mjs', 'src/physics/attitude.test.mjs', 'src/physics/environment.test.mjs',
-  'src/physics/rocket.test.mjs', 'src/physics/rocket.xcheck.test.mjs', 'src/physics/launchers.test.mjs', 'src/physics/stackShape.test.mjs',
-  'src/physics/ork.test.mjs', 'src/physics/entry.test.mjs', 'src/physics/smallbodies.test.mjs',
-  'src/physics/scintillation.test.mjs', 'src/physics/asteroids.test.mjs', 'src/physics/gravityGuides.test.mjs',
-  'src/physics/gravityFlow.test.mjs', 'src/physics/magnetic.test.mjs', 'src/physics/aurora.test.mjs',
-  'src/physics/moons.test.mjs', 'src/physics/landingSites.test.mjs', 'src/physics/irregularMoons.test.mjs', 'src/physics/flyby.test.mjs',
-  'src/physics/kernelClient.test.mjs', 'src/physics/barycentres.test.mjs', 'src/physics/deTable.test.mjs', 'src/physics/dataLoad.test.mjs',
-  'src/physics/corona.test.mjs', 'src/physics/rings.test.mjs', 'src/physics/discs.test.mjs', 'src/physics/umbra.test.mjs',
-  'src/physics/satellites.test.mjs', 'src/physics/passes.test.mjs', 'src/physics/spacecraft.test.mjs',
+  'packages/physics/src/nesc.test.mjs', 'packages/physics/src/attitude.test.mjs', 'packages/physics/src/environment.test.mjs',
+  'packages/physics/src/rocket.test.mjs', 'packages/physics/src/rocket.xcheck.test.mjs', 'packages/physics/src/launchers.test.mjs', 'packages/physics/src/stackShape.test.mjs',
+  'packages/physics/src/ork.test.mjs', 'packages/physics/src/entry.test.mjs', 'packages/physics/src/smallbodies.test.mjs',
+  'packages/physics/src/scintillation.test.mjs', 'packages/physics/src/asteroids.test.mjs', 'packages/physics/src/gravityGuides.test.mjs',
+  'packages/physics/src/gravityFlow.test.mjs', 'packages/physics/src/magnetic.test.mjs', 'packages/physics/src/aurora.test.mjs',
+  'packages/physics/src/moons.test.mjs', 'packages/physics/src/landingSites.test.mjs', 'packages/physics/src/irregularMoons.test.mjs', 'packages/physics/src/flyby.test.mjs',
+  'src/browser/kernelClient.test.mjs', 'packages/physics/src/barycentres.test.mjs', 'packages/physics/src/deTable.test.mjs', 'src/browser/dataLoad.test.mjs',
+  'packages/physics/src/corona.test.mjs', 'packages/physics/src/rings.test.mjs', 'packages/physics/src/discs.test.mjs', 'packages/physics/src/umbra.test.mjs',
+  'packages/physics/src/satellites.test.mjs', 'packages/physics/src/passes.test.mjs', 'packages/physics/src/spacecraft.test.mjs',
   'validation/artemis2.validate.mjs', 'validation/artemis1.validate.mjs',
   ...MISSIONS.map((id) => `validation/missions.validate.mjs ${id}`),
 ];
@@ -51,11 +51,11 @@ const FILES = [
 const SECONDS = {
   [`${JOURNEY} 17`]: 58, [`${JOURNEY} 12`]: 58, [`${JOURNEY} 20 21`]: 51, 'validation/artemis1.validate.mjs': 43,
   'validation/missions.validate.mjs messenger': 37, 'validation/artemis2.validate.mjs': 29,
-  [`${JOURNEY} 5`]: 28, [`${JOURNEY} 15 16 8`]: 32, 'src/physics/entry.test.mjs': 24,
-  'validation/missions.validate.mjs lro': 24, 'src/physics/attitude.test.mjs': 23,
-  [`${JOURNEY} 9 10`]: 21, 'src/physics/kernelClient.test.mjs': 20, 'src/physics/environment.test.mjs': 19,
-  'src/physics/craft.test.mjs': 17, 'src/physics/nesc.test.mjs': 12, 'validation/missions.validate.mjs juno2013': 10,
-  'src/physics/trajsearch.test.mjs': 10, 'src/physics/warp.test.mjs': 4,
+  [`${JOURNEY} 5`]: 28, [`${JOURNEY} 15 16 8`]: 32, 'packages/physics/src/entry.test.mjs': 24,
+  'validation/missions.validate.mjs lro': 24, 'packages/physics/src/attitude.test.mjs': 23,
+  [`${JOURNEY} 9 10`]: 21, 'src/browser/kernelClient.test.mjs': 20, 'packages/physics/src/environment.test.mjs': 19,
+  'src/browser/craft.test.mjs': 17, 'packages/physics/src/nesc.test.mjs': 12, 'validation/missions.validate.mjs juno2013': 10,
+  'packages/physics/src/trajsearch.test.mjs': 10, 'packages/physics/src/warp.test.mjs': 4,
 };
 
 const argv = process.argv.slice(2);

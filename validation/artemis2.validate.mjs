@@ -35,14 +35,14 @@
 //   node validation/artemis2.validate.mjs [--json out.json]
 
 import fs from 'node:fs';
-import { advance, createState } from '../src/physics/nbody.js';
-import { solarSystemBodies } from '../src/physics/bodies.js';
-import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs, stepCraft, vnbDirection } from '../src/physics/kernelHost.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { Craft } from '../src/physics/craft.js';
-import { ORION_CRAFT } from '../src/physics/orion.js';
-import { KernelClient } from '../src/physics/kernelClient.js';
-import { RealMission } from '../src/physics/realMission.js';
+import { advance, createState } from '@digital-orrery/physics/nbody.js';
+import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs, stepCraft, vnbDirection } from '@digital-orrery/physics/kernelHost.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { Craft } from '@digital-orrery/physics/craft.js';
+import { ORION_CRAFT } from '@digital-orrery/physics/orion.js';
+import { KernelClient } from '../src/browser/kernelClient.js';
+import { RealMission } from '@digital-orrery/physics/realMission.js';
 import { flyDesign, TARGETS, MASS0 } from './artemis2.design.mjs';
 import {
   rows, sys, kt, sub, norm, helioOf, geocentric, closest, craftMoon, betMoon, splitError,
@@ -256,7 +256,7 @@ const tliSteps = (() => {
 })();
 
 // ---------------- 7. our own plan ----------------
-const plan = JSON.parse(fs.readFileSync(new URL('../src/physics/fixtures/artemis2_design.json', import.meta.url)));
+const plan = JSON.parse(fs.readFileSync(new URL('../packages/physics/src/fixtures/artemis2_design.json', import.meta.url)));
 const pf = flyDesign(plan.dvKms, plan.ignitionMs), pc = plan.comparison;
 const ftps = (kms) => kms * 1e6 / 304.8, tli7 = burns.find((b) => b.key === 'TLI');
 const angle = (a, b) => Math.acos(Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / Math.hypot(...a) / Math.hypot(...b))) * 180 / Math.PI;

@@ -18,7 +18,7 @@
 //   ecliptic's north as is square to that; Juno turns its main engine
 //   along a burn while one fires, its arrays as near the Sun as that lets.
 // - LICIACube, the CubeSat DART releases: a 6U box (probeModels.ts).
-// - A ROCKET tab stack (src/physics/stackShape.js): each stage and the
+// - A ROCKET tab stack (packages/physics/src/stackShape.js): each stage and the
 //   payload as cylinders and cones at their lengths and diameters, the
 //   engines' bells in each stage's lower end, the interstage closed over
 //   them while the stage below is attached. Built from its base, so on the
@@ -37,10 +37,10 @@
 
 import * as THREE from 'three';
 import { material, M_TO_RENDER, SHOW_PX, EARTH_BOND_ALBEDO, R_EARTH_KM, type Finish } from './satelliteModels';
-import { partsFrom } from '../physics/stackShape.js';
+import { partsFrom } from '@digital-orrery/physics/stackShape.js';
 import { asset, axisVec, type Asset } from './craftAssets';
 import { PROBE_MODELS, LICIACUBE, LICIACUBE_NOTE, probeNote, type Axis } from './probeModels';
-import { dot } from '../physics/vec.js';
+import { dot } from '@digital-orrery/physics/vec.js';
 
 type V3 = [number, number, number];
 const AU_KM = 1.495978707e8;

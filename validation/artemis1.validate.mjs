@@ -16,16 +16,16 @@
 import fs from 'node:fs';
 import { NASA_BURNS, AAS, massAfterBurns } from './artemis1.lib.mjs';
 import { helioOf, geocentric, sys, kt, MOON_RADIUS } from './artemis2.lib.mjs';
-import { advance } from '../src/physics/nbody.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { makeEnvironment } from '../src/physics/environment.js';
-import { ORION_CRAFT, ORION_ENGINE } from '../src/physics/orion.js';
-import { dot, norm } from '../src/physics/vec.js';
+import { advance } from '@digital-orrery/physics/nbody.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { makeEnvironment } from '@digital-orrery/physics/environment.js';
+import { ORION_CRAFT, ORION_ENGINE } from '@digital-orrery/physics/orion.js';
+import { dot, norm } from '@digital-orrery/physics/vec.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
 const header = (s) => { console.log('='.repeat(72)); console.log(s); console.log('='.repeat(72)); };
-const fx = JSON.parse(fs.readFileSync(new URL('../src/physics/fixtures/artemis1.json', import.meta.url)));
+const fx = JSON.parse(fs.readFileSync(new URL('../packages/physics/src/fixtures/artemis1.json', import.meta.url)));
 const row = (s) => ({ ms: Date.parse(s[0]), r: s.slice(1, 4), v: s.slice(4, 7) });
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const hhmm = (ms) => new Date(ms).toISOString().slice(5, 19).replace('T', ' ');
@@ -208,10 +208,10 @@ header("CASE 5: the app's mission file (public/missions/artemis1.json), flown as
   // before entry. Three ways: every burn replayed as flown; a tracking fix
   // every 12 h; and, as the app flies it by default, no fixes and every burn
   // after the first aimed from the craft (RealMission.aimStep).
-  const { RealMission } = await import('../src/physics/realMission.js');
-  const { Craft } = await import('../src/physics/craft.js');
-  const { KernelClient } = await import('../src/physics/kernelClient.js');
-  const { kernelMs } = await import('../src/physics/kernelHost.js');
+  const { RealMission } = await import('@digital-orrery/physics/realMission.js');
+  const { Craft } = await import('@digital-orrery/physics/craft.js');
+  const { KernelClient } = await import('../src/browser/kernelClient.js');
+  const { kernelMs } = await import('@digital-orrery/physics/kernelHost.js');
   const file = new RealMission(JSON.parse(fs.readFileSync(new URL('../public/missions/artemis1.json', import.meta.url))));
   const ORION = ORION_CRAFT;
   const flyApp = ({ aimed = false, fixHours = null } = {}) => {

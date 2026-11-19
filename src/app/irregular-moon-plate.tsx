@@ -2,7 +2,7 @@
 //
 // The data plate for an irregular moon the camera is on (chosen by its
 // marker or the rail's list): where it is about its planet now, as its point
-// is drawn (src/physics/irregularMoons.js: JPL's satellite ephemeris where
+// is drawn (packages/physics/src/irregularMoons.js: JPL's satellite ephemeris where
 // a table has it, else the mean elements), its mean orbit, which way it
 // goes round, its size, GM and discovery. Each value carries its source
 // tag, as on the bodies' plate.
@@ -12,8 +12,8 @@ import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import type { IrregularMoon } from '../scene/irregularMoons';
-import { irregularStateEqjAtTt, irregularSource } from '../physics/irregularMoons.js';
-import { eqjToEcl, ttSeconds } from '../physics/ephemeris.js';
+import { irregularStateEqjAtTt, irregularSource } from '@digital-orrery/physics/irregularMoons.js';
+import { eqjToEcl, ttSeconds } from '@digital-orrery/physics/ephemeris.js';
 import { keepDesignation } from './find';
 
 const C_KM_S = 299792.458;

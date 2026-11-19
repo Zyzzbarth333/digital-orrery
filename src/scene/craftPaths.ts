@@ -12,7 +12,7 @@
 //              30 periapsis radii if that is nearer)
 // with P toward periapsis (the eccentricity vector) and Q = h x P / |h x P|.
 
-import { dot, cross } from '../physics/vec.js';
+import { dot, cross } from '@digital-orrery/physics/vec.js';
 
 // The length as a square root of the dot product, not vec.js's Math.hypot:
 // several times faster, and Trail.push calls it for each craft each frame.

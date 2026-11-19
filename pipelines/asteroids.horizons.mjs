@@ -41,4 +41,4 @@ for (const n of CHECK_NUMBERS) {
   console.log(n, out.bodies[n].rows.length, 'dates', soln ?? '');
   await new Promise((r) => setTimeout(r, 1200));
 }
-fs.writeFileSync(new URL('../src/physics/fixtures/asteroids_horizons.json', import.meta.url), JSON.stringify(out, null, 1));
+fs.writeFileSync(new URL('../packages/physics/src/fixtures/asteroids_horizons.json', import.meta.url), JSON.stringify(out, null, 1));

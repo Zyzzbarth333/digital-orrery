@@ -2,7 +2,7 @@
 //
 // The faint main belt as a haze: the sunlight reflected by about 1.45
 // million asteroids too faint to see one by one, drawn from their real
-// orbits. A worker (beltHaze.worker.ts, running src/physics/beltGrid.js)
+// orbits. A worker (beltHaze.worker.ts, running packages/physics/src/beltGrid.js)
 // places every body on its orbit at the clock's time and bins its
 // brightness into a 3D grid; this draws the grid by marching rays through
 // it, so the cost does not grow with the number of bodies
@@ -25,9 +25,9 @@
 // halved (the square root), so the haze and the bright points read alike.
 
 import * as THREE from 'three';
-import { GRID } from '../physics/beltGrid.js';
-import { SB_EPOCH_JD } from '../physics/smallBodies.js';
-import { ttMinusUtc } from '../physics/timescale.js';
+import { GRID } from '@digital-orrery/physics/beltGrid.js';
+import { SB_EPOCH_JD } from '@digital-orrery/physics/smallBodies.js';
+import { ttMinusUtc } from '@digital-orrery/physics/timescale.js';
 
 const AU_KM = 149597870.7, UNIT_KM = 1000, AU = AU_KM / UNIT_KM;
 // The haze's display scale: the square root of its metered radiance times

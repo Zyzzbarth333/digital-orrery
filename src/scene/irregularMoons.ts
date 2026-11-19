@@ -1,6 +1,6 @@
 // src/scene/irregularMoons.ts
 //
-// The irregular moons of Jupiter, Saturn and Neptune (src/physics/
+// The irregular moons of Jupiter, Saturn and Neptune (packages/physics/src/
 // irregularMoons.js) as a layer the rail shows or hides, off by default
 // (docs/frontend/moons.md#the-irregular-moons). Each is a small point of
 // fixed size, a drawing aid like the markers rather than a photometric
@@ -17,9 +17,9 @@
 // 1000 km, render (x, y, z) = ecliptic (x, z, -y).
 
 import * as THREE from 'three';
-import { eqjToEcl, ttSeconds } from '../physics/ephemeris.js';
-import { IRREGULAR_DATA as RAW, IRREGULAR_KEYS, IRREGULARS_OF, irregularPositionEqjAtTt, irregularStateEqjAtTt, irregularSource } from '../physics/irregularMoons.js';
-import { moonTablesVersionOf, wantIrregularTables } from '../physics/moonTables.js';
+import { eqjToEcl, ttSeconds } from '@digital-orrery/physics/ephemeris.js';
+import { IRREGULAR_DATA as RAW, IRREGULAR_KEYS, IRREGULARS_OF, irregularPositionEqjAtTt, irregularStateEqjAtTt, irregularSource } from '@digital-orrery/physics/irregularMoons.js';
+import { moonTablesVersionOf, wantIrregularTables } from '@digital-orrery/physics/moonTables.js';
 import { makeBodyMaterial } from './bodyMaterial';
 
 type Vec3 = [number, number, number];

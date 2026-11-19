@@ -70,7 +70,7 @@ target_link_libraries(sb_cheb PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
 target_compile_options(sb_cheb PRIVATE -O2 -Wall -Wextra)
 
 # Ten of the Moon's landing sites in J2000 from MOON_ME, for
-# src/physics/landingSites.test.mjs (docs/frontend/landing-sites.md).
+# packages/physics/src/landingSites.test.mjs (docs/frontend/landing-sites.md).
 add_executable(landing_sites_ref landing_sites_ref.c)
 target_include_directories(landing_sites_ref PRIVATE "${CSPICE_ROOT}/include")
 target_link_libraries(landing_sites_ref PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)

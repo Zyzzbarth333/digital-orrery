@@ -10,15 +10,15 @@
 // mission's centre: 'sun' (heliocentric, as the kernel flies) or 'earth'.
 // Times are Unix ms, UTC.
 
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import fs from 'node:fs';
 import dns from 'node:dns';
-import { createState, advance } from '../src/physics/nbody.js';
-import { solarSystemBodies } from '../src/physics/bodies.js';
-import { KERNEL_EPOCH_MS, kernelSeconds, aimTo, stepCraft } from '../src/physics/kernelHost.js';
-import { makeEnvironment } from '../src/physics/environment.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { dot, cross, norm, unit } from '../src/physics/vec.js';
+import { createState, advance } from '@digital-orrery/physics/nbody.js';
+import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, aimTo, stepCraft } from '@digital-orrery/physics/kernelHost.js';
+import { makeEnvironment } from '@digital-orrery/physics/environment.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { dot, cross, norm, unit } from '@digital-orrery/physics/vec.js';
 export { dot, cross, norm, unit };
 
 dns.setDefaultResultOrder('ipv4first');

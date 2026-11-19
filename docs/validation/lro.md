@@ -32,7 +32,7 @@ degree, which Artemis's flybys at 130 km only touch.
   minutes about the Earth for the whole span, flown step by step in the
   full environment (in lunar orbit the Moon's field beyond J2 moves LRO by
   metres a minute), and every 10 s about the Moon through each event. The
-  fixture is `src/physics/fixtures/lro.json` (1.08 MB); the app's file,
+  fixture is `packages/physics/src/fixtures/lro.json` (1.08 MB); the app's file,
   `public/missions/lro.json` (810 kB).
 
 ## The burns

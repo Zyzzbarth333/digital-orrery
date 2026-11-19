@@ -1,6 +1,6 @@
 // pipelines/artemis1.fetch.mjs
 //
-// Builds src/physics/fixtures/artemis1.json from Artemis I's flown
+// Builds packages/physics/src/fixtures/artemis1.json from Artemis I's flown
 // trajectory in JPL Horizons (object -1023, "Artemis I / Spacecraft"),
 // whose source is NASA/JSC navigation's as-flown ephemeris,
 // Post_TLI_Orion_AsFlown_20221213_EPH_OEM: 16 Nov 2022 08:46 to 11 Dec
@@ -25,14 +25,14 @@
 // every minute through it, and so the coast arcs between events; the 5 s samples of the six large burns; the track every 30
 // minutes; and the farthest point from Earth.
 
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import fs from 'node:fs';
 import dns from 'node:dns';
-import { createState, advance } from '../src/physics/nbody.js';
-import { solarSystemBodies } from '../src/physics/bodies.js';
-import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '../src/physics/kernelHost.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { norm } from '../src/physics/vec.js';
+import { createState, advance } from '@digital-orrery/physics/nbody.js';
+import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '@digital-orrery/physics/kernelHost.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { norm } from '@digital-orrery/physics/vec.js';
 
 dns.setDefaultResultOrder('ipv4first');
 const API = 'https://ssd.jpl.nasa.gov/api/horizons.api';
@@ -125,6 +125,6 @@ const out = {
   track30: flown.filter((_, i) => i % 30 === 0).map((s) => s.map((x, k) => (k ? Number(x.toPrecision(10)) : x))),
   farthest: state(far),
 };
-const path = new URL('../src/physics/fixtures/artemis1.json', import.meta.url);
+const path = new URL('../packages/physics/src/fixtures/artemis1.json', import.meta.url);
 fs.writeFileSync(path, JSON.stringify(out));
 console.log(`${events.length} events (${events.filter((e) => e.kind === 'burn').length} burns); wrote fixtures/artemis1.json, ${(fs.statSync(path).size / 1024).toFixed(0)} kB`);

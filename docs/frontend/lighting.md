@@ -79,7 +79,7 @@ pure white, so it cannot show.
 The white-light corona is always drawn, as it is always there
 (`makeCorona`, `sun.ts`): a billboard around the Sun, in the plane through
 its centre facing the camera, out to six solar radii, with Baumbach's mean
-brightness of ten eclipses [1] (`src/physics/corona.js`),
+brightness of ten eclipses [1] (`packages/physics/src/corona.js`),
 
 $$
 \frac{I(\rho)}{I_\text{centre}} = 10^{-6}\left(0.0532\,\rho^{-2.5}
@@ -146,7 +146,7 @@ Light scatters in any eye or lens. Two parts, both before the tone curve:
   (6 June 2012, 01:29 UTC) the app leaves 0.999066 of the disc in view, a
   dip of 0.093 % (Venus's 58″ on the Sun's 1891″ gives 0.094 %); at
   Mercury's (11 November 2019, 15:20 UTC) 0.999974. The overlap itself
-  (`src/physics/discs.js`) is tested in `discs.test.mjs`.
+  (`packages/physics/src/discs.js`) is tested in `discs.test.mjs`.
 
   It used to be the CIE's disability glare for a young eye at 3 %
   ($\pi (10/\theta^3 + 5/\theta^2 + 0.05/\theta)$ of white): its
@@ -209,7 +209,7 @@ in). Turbulence a few kilometres up bends starlight by tiny, shifting
 amounts, so the light arriving at the ground is patchy on a scale of
 centimetres and a small aperture like the eye's pupil sees the star
 brighten and fade. In space, and above about 20 km, stars are steady, as
-astronauts see them. The model is `src/physics/scintillation.js`, applied
+astronauts see them. The model is `packages/physics/src/scintillation.js`, applied
 per star in the point stars' vertex shader (`stars.ts`):
 
 - **Turbulence.** The Hufnagel–Valley 5/7 profile [4] of the refractive-index
@@ -335,7 +335,7 @@ on 6 May 2025 12:30 UTC, the day of its equinox, Tethys's shadow.
 ### Light in the Earth's shadow
 
 The eclipsed Moon is lit by sunlight the Earth's air bends into the
-shadow (`src/physics/umbra.js`, the shader's `UMBRA_LIGHT`), the
+shadow (`packages/physics/src/umbra.js`, the shader's `UMBRA_LIGHT`), the
 classical refraction-and-extinction picture [9], [10]. A ray grazing the
 Earth at tangent height $h$ is bent toward the shadow's axis by
 

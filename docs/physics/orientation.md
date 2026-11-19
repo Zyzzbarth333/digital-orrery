@@ -2,7 +2,7 @@
 
 Which way each body is turned at a given time: needed to put a surface map
 on it with the right longitude under the Sun, and later for launch sites,
-ground tracks and landing. Code: `src/physics/orientation.js`.
+ground tracks and landing. Code: `packages/physics/src/orientation.js`.
 
 ## Body-fixed frames
 
@@ -75,7 +75,7 @@ cmake --build c/build
 c/build/earth_orientation python/data/kernels/pck/earth_latest_high_prec.bpc \
   python/data/kernels/pck/earth_2026_260806_2126_predict.bpc /tmp/itrf93.bin
 node pipelines/eop.build.mjs /tmp/itrf93.bin
-c/build/orrery_spice_ref src/physics/fixtures/spice_reference.json
+c/build/orrery_spice_ref packages/physics/src/fixtures/spice_reference.json
 ```
 
 The long-term file must start before the high-precision one ends. NAIF
@@ -108,7 +108,7 @@ The 20 major moons the scene draws (Phobos to Charon) use the IAU models as
 NAIF's `pck00011_n0066.tpc` [4] gives them, the same constants SPICE's
 `IAU_<MOON>` frames use. `pipelines/pck.build.mjs` reads the kernel's
 data blocks (a later assignment replacing an earlier one, as SPICE's pool
-does) and writes `src/physics/pck.data.js`. With $d$ days and $T$ Julian
+does) and writes `packages/physics/src/pck.data.js`. With $d$ days and $T$ Julian
 centuries TDB from J2000, as SPICE's `bodeul` evaluates them:
 
 $$
@@ -168,7 +168,7 @@ Umbriel, Titania, Oberon, Triton and Charon are spheres in pck00011.
 
 ## Rotation periods and tilts on the data plate
 
-`src/physics/bodyfacts.js` reads the same IAU model for the facts the data
+`packages/physics/src/bodyfacts.js` reads the same IAU model for the facts the data
 plate shows.
 - **Sidereal rotation:** $P = 360°/|\dot W|$, with $\dot W$ the mean rate
   of $W$ over 1,000 days from J2000 (the Moon's and Mercury's librations
@@ -217,7 +217,7 @@ density to 1 %. Two differ, and the plate says so:
 
 `npm test` runs `orientation.test.mjs`, which compares the axes with CSPICE
 `pxform_c` from J2000 to each body-fixed frame at four epochs from 2000 to
-2026 (the fixture is `src/physics/fixtures/spice_reference.json`, written by
+2026 (the fixture is `packages/physics/src/fixtures/spice_reference.json`, written by
 `c/orrery_spice_ref.c`; the angle of the worst axis, by `atan2`, since
 `acos` stops resolving below about 10⁻⁸ rad, 9 cm on the Earth):
 

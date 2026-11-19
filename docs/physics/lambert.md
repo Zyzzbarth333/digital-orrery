@@ -1,6 +1,6 @@
 # Lambert's problem
 
-`src/physics/orbital.js`: `lambert(r1, r2, tof, mu, prograde)`.
+`packages/physics/src/orbital.js`: `lambert(r1, r2, tof, mu, prograde)`.
 
 Given two position vectors and the time of flight between them, find the
 conic (and the velocities at each end) that connects them.
@@ -123,7 +123,7 @@ the worst to 5.8×10⁻⁹ of its distance.
 
 ## A trajectory search
 
-`src/physics/trajsearch.js` finds the lowest-Δv one-way transfers from Earth
+`packages/physics/src/trajsearch.js` finds the lowest-Δv one-way transfers from Earth
 to a destination, one per launch opportunity. It works the way NASA Ames's
 [Trajectory Browser](https://trajbrowser.arc.nasa.gov) [4] does, so the two can
 be set side by side:

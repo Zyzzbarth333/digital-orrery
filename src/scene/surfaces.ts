@@ -22,7 +22,7 @@ import { applySurfaceMaps } from './bodyMaterial';
 import type { DecodeReply, DecodeRequest } from './decode.worker';
 import type { SkyDetailEntry } from './skyDetail';
 import { blockRowBytes, initKtx2, ktx2Ready, loadKtx2, type CompressedLevels } from './ktx2';
-import { getBuffer, getJson } from '../physics/fetchData.js';
+import { getBuffer, getJson } from '../browser/fetchData.js';
 
 export interface SurfaceEntry {
   day?: string;                 // path under textures/

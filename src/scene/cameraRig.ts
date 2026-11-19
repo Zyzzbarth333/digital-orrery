@@ -27,7 +27,7 @@
 // clears it; recentre() eases it back onto the target with the same spring
 // as the settle.
 
-import { norm } from '../physics/vec.js';
+import { norm } from '@digital-orrery/physics/vec.js';
 
 type Vec3 = [number, number, number];
 

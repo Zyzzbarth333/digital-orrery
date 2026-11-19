@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Browser gate</title>
+<script type="module">
+  // validation/browser/index.html: gate.mjs calls runValidation for each run.
+  window.runValidation = (name, argv) => new Promise((resolve) => {
+    const w = new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' });
+    w.onmessage = ({ data }) => { w.terminate(); resolve(data); };
+    w.onerror = (e) => { w.terminate(); resolve({ lines: [], exitCode: 1, error: `worker error: ${e.message}`, seconds: 0 }); };
+    w.postMessage({ name, argv });
+  });
+  window.gateReady = true;
+</script>

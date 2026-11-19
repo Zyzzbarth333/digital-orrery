@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 
 // satellite.js's index also exports a WebAssembly build with a top-level
 // await, which the workers' bundle can't hold and the app never uses
-// (src/physics/sgp4.js). Its package exports only the index, so its files
+// (packages/physics/src/sgp4.js). Its package exports only the index, so its files
 // can't be imported by subpath: this resolves the package as usual (from
 // any checkout) and serves 'satellite.js' as the two files the app uses.
 function satelliteLite() {

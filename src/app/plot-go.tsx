@@ -11,8 +11,8 @@ import type { SimClock } from './clock';
 import type { Mission } from './mission';
 import { useJourney, ledgerLines, type JourneyStore } from './journey';
 import { useStack } from './plot-stack';
-import { assess } from '../physics/feasibility.js';
-import { bodyInfo } from '../physics/journey.js';
+import { assess } from '@digital-orrery/physics/feasibility.js';
+import { bodyInfo } from '@digital-orrery/physics/journey.js';
 
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);

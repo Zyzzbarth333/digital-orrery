@@ -1,6 +1,6 @@
 # Performance
 
-What each part costs, measured with `npm run bench` (`src/physics/bench.mjs`,
+What each part costs, measured with `npm run bench` (`packages/physics/src/bench.mjs`,
 Node 20, November 2026) for the physics and in a browser on real GPUs for
 the drawing ([rendering](#rendering)), and what is planned to make the slow
 parts fast.
@@ -202,7 +202,7 @@ files run in parts:
   21 together (21 takes 20's flight); 8, 15 and 16 together; 9 and 10
   together; and the rest (`--except`) in one more
   part, so a new case runs without being listed. Each file takes the cases
-  to run on its command line: `node src/physics/journey.test.mjs 12 17`.
+  to run on its command line: `node packages/physics/src/journey.test.mjs 12 17`.
   A case named that the file doesn't have fails, so a part can't silently
   run nothing.
 - **`missions.validate.mjs`, by mission**, as it already took them:

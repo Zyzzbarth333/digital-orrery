@@ -76,7 +76,7 @@ export function makeSunMaterial(): THREE.ShaderMaterial {
 }
 
 // The corona: a billboard around the Sun, in the plane through its centre
-// facing the camera, with Baumbach's mean brightness (src/physics/corona.js)
+// facing the camera, with Baumbach's mean brightness (packages/physics/src/corona.js)
 // in the Sun's colour (the K corona is scattered sunlight), relative to the
 // disc's centre. It is always drawn, as the corona is always there: at
 // 4e-6 of the disc at the limb it is lost in the glare until a body covers
@@ -232,5 +232,5 @@ export class SunGlare {
   }
 }
 
-// The fraction of the Sun's disc a body leaves in view (src/physics/discs.js).
-export { visibleFraction } from '../physics/discs.js';
+// The fraction of the Sun's disc a body leaves in view (packages/physics/src/discs.js).
+export { visibleFraction } from '@digital-orrery/physics/discs.js';

@@ -196,8 +196,8 @@ for (const [key, id] of [['phobos', 401], ['io', 501], ['callisto', 504], ['tita
   checks.moonsBary[key] = vectors(await horizons(`bary_${id}_month.txt`, { ...VEC, COMMAND: `'${id}'`, CENTER: `'500@${bary}'`, START_TIME: `'${MONTH[0]}'`, STOP_TIME: `'${MONTH[1]}'`, STEP_SIZE: "'1 d'" }));
 }
 
-const DATA = new URL('../src/physics/moons.data.js', import.meta.url);
-const writeData = () => fs.writeFileSync(DATA, `// src/physics/moons.data.js (written by moons.fetch.mjs; do not edit)
+const DATA = new URL('../packages/physics/src/moons.data.js', import.meta.url);
+const writeData = () => fs.writeFileSync(DATA, `// packages/physics/src/moons.data.js (written by moons.fetch.mjs; do not edit)
 //
 // Source: JPL Solar System Dynamics, Planetary Satellite Mean Elements,
 // ${ELEM_URL}, fetched ${fetched}. Epoch as given (2000-01-01.5 TDB, or
@@ -321,4 +321,4 @@ const round = (rows) => rows.map(([jd, x, y, z]) => [jd, Math.round(x * 10) / 10
 for (const k of Object.keys(checks.month)) { checks.month[k] = round(checks.month[k]); checks.years[k] = round(checks.years[k]); }
 for (const g of ['helio', 'moonsHelio', 'moonsBary']) for (const k of Object.keys(checks[g])) checks[g][k] = round(checks[g][k]);
 for (const k of Object.keys(checks.bary)) for (const span of ['month', 'years']) checks.bary[k][span] = round(checks.bary[k][span]);
-fs.writeFileSync(new URL('../src/physics/fixtures/moons_horizons.json', import.meta.url), JSON.stringify(checks));
+fs.writeFileSync(new URL('../packages/physics/src/fixtures/moons_horizons.json', import.meta.url), JSON.stringify(checks));

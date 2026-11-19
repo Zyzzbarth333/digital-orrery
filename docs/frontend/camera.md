@@ -31,7 +31,7 @@ it below the ground. Inside a body its surface isn't drawn, because its
 inside faces are culled, so the stars showed through. Each frame, a
 camera inside any body's ellipsoid is moved straight out from the body's
 centre to 5 m above the surface, still looking at its pivot
-(`src/physics/surfaceClamp.js`; `surfaceClamp.test.mjs` checks this on the
+(`packages/physics/src/surfaceClamp.js`; `surfaceClamp.test.mjs` checks this on the
 WGS-84 Earth, at the pole as at the equator and with the body turned).
 
 Above the ground, the bodies' 96 × 48 spheres were too coarse up close.

@@ -1,9 +1,9 @@
 """Fly the ROCKET tab's cross-check vehicles in RocketPy (MIT), 3-DOF.
 
-Reads src/physics/fixtures/rocket_xcheck.json (the vehicles as OpenRocket
+Reads packages/physics/src/fixtures/rocket_xcheck.json (the vehicles as OpenRocket
 flew them: stages, thrust curves, masses, drag against Mach; written by
 pipelines/rocket.openrocket.mjs) and writes
-src/physics/fixtures/rocketpy_xcheck.json: each vehicle's apogee, time to
+packages/physics/src/fixtures/rocketpy_xcheck.json: each vehicle's apogee, time to
 apogee and top speed in RocketPy's point-mass ("3 DOF") mode, flown calm and
 straight up from sea level on the equator in the standard atmosphere.
 

@@ -1,6 +1,6 @@
 # The space environment
 
-`src/physics/environment.js` holds the forces on a spacecraft beyond the
+`packages/physics/src/environment.js` holds the forces on a spacecraft beyond the
 point masses and J2 that the [n-body kernel](nbody-kernel.md) already has.
 Each one acts on the craft alone, so it enters the kernel the same way in
 Cowell's method and in Encke's: through the `extraAccel` hook, beside the
@@ -348,7 +348,7 @@ and 50 km over the north pole, 0.36 m off its axis (the oracle's
 longitude is undefined on it). On the axis itself the field is the mean
 of the field 0.36 m around it within 3×10⁻¹². Before the recursion was
 normalised it was off by up to 7×10⁻⁴ at degree 100. The fixture is
-`src/physics/fixtures/planet_fields.json`.
+`packages/physics/src/fixtures/planet_fields.json`.
 
 ## Sunlight pressure
 

@@ -8,7 +8,7 @@
 import type { Row } from './readout';
 import { BODIES, BODY_BY_KEY, maxRadiusKm, type BodyKey } from '../scene/catalogue';
 import { bodyState } from '../scene/OrreryScene';
-import { sunlight } from '../physics/discs.js';
+import { sunlight } from '@digital-orrery/physics/discs.js';
 
 export interface Sunlight { nu: number; by: string | null; state: 'lit' | 'penumbra' | 'umbra' }
 

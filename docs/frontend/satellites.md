@@ -19,12 +19,12 @@ are off until then, and each set's data loads the first time.
 
 ![Every active satellite round the Earth at a minute a second and then an hour a second: the low-orbit shell sweeps round under the camera as it turns, with the GPS and Galileo orbits and the geostationary ring further out](../clips/satellites.webp)
 
-Code: [`src/physics/satellites.js`](../../src/physics/satellites.js) (the
+Code: [`packages/physics/src/satellites.js`](../../packages/physics/src/satellites.js) (the
 physics), [`src/scene/satellites.ts`](../../src/scene/satellites.ts) and
 [`satellites.worker.ts`](../../src/scene/satellites.worker.ts) (drawing),
 [`satellite-rail.tsx`](../../src/app/satellite-rail.tsx) and
 [`satellite-plate.tsx`](../../src/app/satellite-plate.tsx) (the rail and
-the data plate); [`passes.js`](../../src/physics/passes.js) and
+the data plate); [`passes.js`](../../packages/physics/src/passes.js) and
 [`satellite-passes.tsx`](../../src/app/satellite-passes.tsx) (passes over
 a place, [below](#passes-over-a-place)).
 
@@ -120,7 +120,7 @@ low-inclination deep-space orbit, comes out 964 m off.
 
 satellite.js's index also exports a WebAssembly build, whose top-level
 `await` the app's worker bundles cannot hold. So
-[`sgp4.js`](../../src/physics/sgp4.js) imports the two plain-JavaScript
+[`sgp4.js`](../../packages/physics/src/sgp4.js) imports the two plain-JavaScript
 modules the app uses, the OMM reader and `sgp4`, by path. The package is
 pinned at 7.1.0 so the paths stay put.
 
@@ -157,7 +157,7 @@ $$\mathbf r_\text{J2000} = P^\text{T} N^\text{T} R_3(-E_{q,\text{geo}})\,\mathbf
 
 - *P* is the IAU 1976 precession.
 - *N* is the IAU 1980 nutation (the full 106-term series), the matrices
-  [`earthRotation.js`](../../src/physics/earthRotation.js) builds for the
+  [`earthRotation.js`](../../packages/physics/src/earthRotation.js) builds for the
   Earth's orientation ([Body orientation](../physics/orientation.md)).
 - *E*<sub>q,geo</sub> is the equation of the equinoxes without the
   kinematic terms added in 1994. Those terms belong to the Earth's rotation,
@@ -479,7 +479,7 @@ satellite can be drawn on the Earth, its next pass over the place brighter.
 | ![The Earth from 22,000 km at 18:23 UTC on 18 November 2026: the ISS's ground track in pale amber across the Atlantic and on round the Earth, the stretch of its pass over Greenwich in bright amber over Britain, just inside the night side](satellite-passes-track.jpg) | ![The plate's passes: the place's latitude, longitude and height, then each pass with a VISIBLE, DAYLIGHT or IN SHADOW lamp, its rise, peak and set with times, directions and ranges, and when it can be seen](satellite-passes-plate.jpg) |
 | The ISS over Greenwich, 18 Nov 2026 18:23 UTC: its ground track, the pass in bright amber | The plate's passes for the same evening |
 
-Code: [`src/physics/passes.js`](../../src/physics/passes.js) (the
+Code: [`packages/physics/src/passes.js`](../../packages/physics/src/passes.js) (the
 physics), [`passes.worker.ts`](../../src/app/passes.worker.ts) and
 [`satellite-passes.tsx`](../../src/app/satellite-passes.tsx) (the
 plate), [`groundTrack.ts`](../../src/scene/groundTrack.ts) (the line on
@@ -567,7 +567,7 @@ shows the epoch's age. Satellites that manoeuvre (the ISS reboosts,
 Starlink keeps station) jump to a new track with each new element set.
 
 **Checks** (`npm test`,
-[`satellites.test.mjs`](../../src/physics/satellites.test.mjs)):
+[`satellites.test.mjs`](../../packages/physics/src/satellites.test.mjs)):
 
 - **SGP4 and SDP4 against Vallado's verification set** [4]. The test
   covers the 33 cases of `SGP4-VER.TLE`, turned into OMM records, against
@@ -614,7 +614,7 @@ Starlink keeps station) jump to a new track with each new element set.
   radius, and the ISS in shadow for 39 % of an orbit at its epoch.
 
 **Pass checks** (`npm test`,
-[`passes.test.mjs`](../../src/physics/passes.test.mjs)), against
+[`passes.test.mjs`](../../packages/physics/src/passes.test.mjs)), against
 Heavens-Above's predictions [13] for the same element set: the ISS's,
 epoch 17 November 2026 20:24:46 UTC, as Heavens-Above's orbit page gave
 it. The fixture holds every pass above 10° from 18 to 28 November 2026

@@ -9,7 +9,7 @@
 
 import * as THREE from 'three';
 import { SKY_DETAIL_GLSL, SkyDetail, type SkyDetailEntry } from './skyDetail';
-import { twinkleAt } from '../physics/scintillation.js';
+import { twinkleAt } from '@digital-orrery/physics/scintillation.js';
 
 const vertex = /* glsl */ `
 #include <common>
@@ -97,7 +97,7 @@ export function resetStars(mesh: THREE.Mesh): void {
 // so the brightest saturate and bloom a little, as in a photograph. Each
 // sprite is only as wide as its star's glow above 1/512 of white, so the
 // tens of thousands of faint stars cost few fragments.
-// Twinkling (docs/frontend/lighting.md#twinkling, src/physics/scintillation.js):
+// Twinkling (docs/frontend/lighting.md#twinkling, packages/physics/src/scintillation.js):
 // only while the camera looks up through the Earth's lower atmosphere.
 // Each star's light is multiplied by a log-normal factor with mean 1,
 // exp(s n - s^2 / 2), n a smooth random signal of unit variance with its

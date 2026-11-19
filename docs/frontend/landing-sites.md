@@ -21,7 +21,7 @@ that is.
 
 ![IM-2 Athena's site near the south pole, the Sun 5° up: long shadows across the LOLA relief, the horizon level although the camera is upside down to the ecliptic](landing-sites-im2.jpg)
 
-Code: [`src/physics/landingSites.js`](../../src/physics/landingSites.js)
+Code: [`packages/physics/src/landingSites.js`](../../packages/physics/src/landingSites.js)
 (the sites, their sources and where they are),
 [`src/scene/landingSites.ts`](../../src/scene/landingSites.ts) (the
 markers), [`landing-site-plate.tsx`](../../src/app/landing-site-plate.tsx)

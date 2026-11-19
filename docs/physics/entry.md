@@ -2,10 +2,10 @@
 
 How a capsule comes home in the orrery: Orion's crew module flying a lifting
 entry, guided to its splashdown point, under its parachutes to the sea.
-The code is `src/physics/entry.js` (the force and the guidance) and
-`src/physics/orion.js` (the capsule and each mission's entry), wired into
+The code is `packages/physics/src/entry.js` (the force and the guidance) and
+`packages/physics/src/orion.js` (the capsule and each mission's entry), wired into
 the kernel's environment (`environment.js`) and the app's real missions
-(`src/app/mission.ts`). Checks: `src/physics/entry.test.mjs`.
+(`src/app/mission.ts`). Checks: `packages/physics/src/entry.test.mjs`.
 
 ## The capsule
 

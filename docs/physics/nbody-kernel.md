@@ -1,7 +1,7 @@
 # The n-body spacecraft kernel
 
-`src/physics/nbody.js` (the integrator), `src/physics/bodies.js` (the bodies),
-`src/physics/kernelHost.js` and `kernel.worker.js` (running it in a Web
+`packages/physics/src/nbody.js` (the integrator), `packages/physics/src/bodies.js` (the bodies),
+`packages/physics/src/kernelHost.js` and `kernel.worker.js` (running it in a Web
 Worker).
 
 A spacecraft is a test particle: it feels the Sun, the planets, the Moon,
@@ -355,7 +355,7 @@ from there next frame and shows that physics is behind the clock.
 Inside a body's sphere of influence the craft mostly follows a two-body
 conic about it, and the Cowell integrator above spends nearly all its steps
 following that conic. Encke's method follows the conic exactly and
-integrates only the small deviation from it. Code: `src/physics/encke.js`.
+integrates only the small deviation from it. Code: `packages/physics/src/encke.js`.
 
 Relative to the primary $P$, the craft is at
 $\boldsymbol\rho = \boldsymbol\rho_\text{ref} + \boldsymbol\delta$, where
@@ -734,7 +734,7 @@ evaluates a moon):
 ## Asteroids
 
 The sixteen most massive asteroids are point masses in the kernel
-(`src/physics/asteroids.js`). They are the perturbers JPL's small-body
+(`packages/physics/src/asteroids.js`). They are the perturbers JPL's small-body
 integrations use with DE441: Ceres, Pallas, Juno, Vesta, Iris, Hygiea,
 Eunomia, Psyche, Euphrosyne, 52 Europa, Cybele, Sylvia, Thisbe, Camilla,
 Davida and Interamnia.
@@ -819,7 +819,7 @@ end. Before its first answer the Worker loads its tables (DE442, the
 asteroids and the Earth's orientation: 3.2 MB, 26 s at 1 Mbit/s), and it
 says when they are in; the reply timeout counts from then, and the load has
 a timeout of its own (2 min) for a fetch that hangs. Checked by
-`src/physics/kernelClient.test.mjs`.
+`src/browser/kernelClient.test.mjs`.
 
 Results arrive a frame or so late, so a craft is drawn at its last exact state
 $(\mathbf r_0, \mathbf v_0, t_0)$ carried forward to the sim clock: along a
@@ -845,7 +845,7 @@ period instead: just after Artemis II's injection (a 10-day orbit) they were
 57 minutes long from 6,600 km, and the drawn craft was 17,000 km off the
 kernel after a 15-hour lag (up to 78,000 km in the app, switched from real
 time to a day a second before the burn). Now it is 6 km
-(`src/physics/warp.test.mjs`).
+(`packages/physics/src/warp.test.mjs`).
 The environment beyond J2 (the Earth's field to degree 20, the upper air,
 sunlight) is evaluated once per step, at its middle, and held across the
 step's four stages; J2 is still taken at every stage. That field is most

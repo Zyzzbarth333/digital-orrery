@@ -11,7 +11,7 @@
 // - onto a departure hyperbola from a 200 km parking orbit, with the excess
 //   velocity v_inf given as a speed along Earth's prograde, retrograde,
 //   outward or inward direction, or as a vector from the planner's Lambert
-//   arc (src/physics/launch.js: periapsis on the parking orbit, the outgoing
+//   arc (packages/physics/src/launch.js: periapsis on the parking orbit, the outgoing
 //   asymptote along v_inf, the lowest-inclination plane).
 //
 // Craft launched here carry an attitude by default (sixdof: craftAttitude.js,
@@ -21,38 +21,38 @@
 // sized to its stage (stageAttitude). Real missions and journeys stay point
 // masses, so their validations are untouched.
 //
-// Real missions (public/missions/*.json, src/physics/realMission.js): the
+// Real missions (public/missions/*.json, packages/physics/src/realMission.js): the
 // craft starts from its flown state, its burns are scripted as flown (all of
 // them, or only the first, leaving the corrections to you), the flown path
 // is drawn beside it, and its distance from that path is read out. Tracking
 // fixes, if chosen, reset it to the flown state every few hours, and a clock
 // set within the mission puts it where the real craft was.
 
-import { sunlight } from '../physics/discs.js';
+import { sunlight } from '@digital-orrery/physics/discs.js';
 import type { Sunlight } from './sunlight';
 import { useSyncExternalStore } from 'react';
-import { Craft } from '../physics/craft.js';
-import { KernelClient } from '../physics/kernelClient.js';
-import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '../physics/kernelHost.js';
-import type { AimRequest } from '../physics/kernelHost.js';
-import { solarSystemBodies } from '../physics/bodies.js';
-import { helioStateEqj } from '../physics/ephemeris.js';
-import { departureHyperbola } from '../physics/launch.js';
-import { JOURNEY_CRAFT } from '../physics/journeyFlight.js';
+import { Craft } from '@digital-orrery/physics/craft.js';
+import { KernelClient } from '../browser/kernelClient.js';
+import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '@digital-orrery/physics/kernelHost.js';
+import type { AimRequest } from '@digital-orrery/physics/kernelHost.js';
+import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { departureHyperbola } from '@digital-orrery/physics/launch.js';
+import { JOURNEY_CRAFT } from '@digital-orrery/physics/journeyFlight.js';
 import { craftWarns } from './craft-state.js';
-import { RealMission } from '../physics/realMission.js';
-import { ORION_CRAFT, ORION_ENTRIES, orionFor } from '../physics/orion.js';
+import { RealMission } from '@digital-orrery/physics/realMission.js';
+import { ORION_CRAFT, ORION_ENTRIES, orionFor } from '@digital-orrery/physics/orion.js';
 import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
-import { quatToMatrix } from '../physics/rigidbody.js';
-import { stageAttitude } from '../physics/craftAttitude.js';
+import { quatToMatrix } from '@digital-orrery/physics/rigidbody.js';
+import { stageAttitude } from '@digital-orrery/physics/craftAttitude.js';
 import type { CraftView } from '../scene/craftLayer';
 import { modelNote, ATTITUDE_NOTE, type CraftModelSpec, type ModelPose, type StackShape } from '../scene/craftModels';
 import { missionModelKey, LICIACUBE, PROBE_MODELS } from '../scene/probeModels';
-import { bodyAxesEqj } from '../physics/orientation.js';
-import { vnbToInertial } from '../physics/attitude.js';
-import { propagate } from '../physics/orbital.js';
-import { dot, cross, norm, unit } from '../physics/vec.js';
-import { getJson } from '../physics/fetchData.js';
+import { bodyAxesEqj } from '@digital-orrery/physics/orientation.js';
+import { vnbToInertial } from '@digital-orrery/physics/attitude.js';
+import { propagate } from '@digital-orrery/physics/orbital.js';
+import { dot, cross, norm, unit } from '@digital-orrery/physics/vec.js';
+import { getJson } from '../browser/fetchData.js';
 
 const MU_EARTH = 398600.4355;
 // Heights about the Earth are measured from its equatorial radius (WGS-84),
@@ -102,7 +102,7 @@ export const REAL_MISSIONS = [
   { id: 'messenger', label: 'MESSENGER · cruise to Mercury, 2004–11' },
 ];
 // Orion as the app flies a real mission: its mass falling burn by burn,
-// its sunlit area and its venting (ORION_CRAFT in src/physics/orion.js).
+// its sunlit area and its venting (ORION_CRAFT in packages/physics/src/orion.js).
 const ORION = ORION_CRAFT;
 
 

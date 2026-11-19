@@ -9,10 +9,10 @@ barycentre instead of the Sun's centre.
 
 ![The SSB frame: the solar system barycentre just outside the Sun, the Sun's path about it, and distances from it in the rail and plate](barycentre-ssb.jpg)
 
-Code: `src/physics/barycentres.js` (positions), `BARYS` in
+Code: `packages/physics/src/barycentres.js` (positions), `BARYS` in
 `src/scene/catalogue.ts`, the scene's `baryState` and `setFrame` in
 `src/scene/OrreryScene.ts`, `BaryPlate` in `src/app/panels.tsx`; checked by
-`src/physics/barycentres.test.mjs` and `src/physics/moons.test.mjs`.
+`packages/physics/src/barycentres.test.mjs` and `packages/physics/src/moons.test.mjs`.
 
 ## The barycentres
 

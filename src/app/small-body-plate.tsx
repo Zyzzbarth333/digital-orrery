@@ -2,7 +2,7 @@
 //
 // The data plate for a named asteroid or comet the camera is on (chosen by
 // its marker in the sky or from the rail's list): where it is now, as its
-// point is drawn (src/physics/smallBodies.js: JPL's SB441 for the largest,
+// point is drawn (packages/physics/src/smallBodies.js: JPL's SB441 for the largest,
 // the 2026 ellipse for the rest), and what JPL's Small-Body Database says
 // of it. Each value carries its source tag, as on the bodies' plate.
 
@@ -11,7 +11,7 @@ import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { jdOf, sizeOf, ASSUMED_ALBEDO, ASSUMED_COMET_KM, type Named } from '../scene/smallBodies';
-import { smallBodyFacts, SB_CLASS_NAMES, SB_GROUPS } from '../physics/smallBodies.js';
+import { smallBodyFacts, SB_CLASS_NAMES, SB_GROUPS } from '@digital-orrery/physics/smallBodies.js';
 import { keepDesignation } from './find';
 
 const AU_KM = 149597870.7;
