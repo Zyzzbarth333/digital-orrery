@@ -200,7 +200,8 @@ function bentAim(aimOff, vin, rp, mu, arrMs) {
   return (ms) => {
     const dt = (arrMs - ms) / 1000;
     if (!(dt > 0)) return aimOff;
-    const h = /** @type {{ r: number[], v: number[] }} */ (propagate(r0, v0, -dt, mu));   // (null only if the solve fails: not seen)
+    const h = propagate(r0, v0, -dt, mu);
+    if (!h) return aimOff;   // the solve failed: aim as for no bend
     return add(h.r, scale(h.v, dt));
   };
 }
@@ -301,7 +302,8 @@ export function planFlight(sol) {
     if (leg.ringArr) {
       const arc = leg.arcs[leg.arcs.length - 1];
       arriveMs = leg.arrMs - Math.min(1800e3, 0.05 * (arc.t2 - arc.t1));
-      aimOff = /** @type {State} */ (propagate(arc.r1, arc.v1, (arriveMs - arc.t1) / 1000, arc.mu)).r;
+      const short = propagate(arc.r1, arc.v1, (arriveMs - arc.t1) / 1000, arc.mu);
+      if (short) aimOff = short.r;   // else (the solve failed) the arc's end as it was
     }
     /** @param {string} key @param {Vec | null | undefined} vinf */
     const crossing = (key, vinf) => (KERNEL.has(key) && vinf ? sphereOfInfluence(key) / norm(vinf) : 0) * 1000;
@@ -448,7 +450,7 @@ function timeToPeriapsis(r, v, mu) {
 function asymptote(r, v, mu) {
   const en = dot(v, v) / 2 - mu / norm(r);
   if (!(en > 0)) return null;
-  const h = cross(r, v), ev = sub(scale(cross(v, h), 1 / mu), unit(r)), ec = norm(ev), th = Math.acos(-1 / ec);
+  const h = cross(r, v), ev = sub(scale(cross(v, h), 1 / mu), unit(r)), ec = norm(ev), th = Math.acos(Math.max(-1, Math.min(1, -1 / ec)));   // clamped: near a parabola, rounding puts -1/ec just past 1
   const p = unit(ev), q = unit(cross(h, p));
   return scale(add(scale(p, Math.cos(th)), scale(q, Math.sin(th))), Math.sqrt(2 * en));
 }
@@ -984,7 +986,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         }
       }
       const b1 = burn(s.t + durOf(Math.abs(d1)) / 2 + 1, [-Math.sign(d1) || -1, 0, 0], Math.abs(d1), 'vnb', e.body);
-      flyTo(/** @type {Burn} */ (b1).t1 + 10);   // (b1 is undefined only if d1 is 0)
+      flyTo((b1 ? b1.t1 : s.t) + 10);   // no burn when d1 is 0
       // Half an orbit down to the periapsis, the braking burn worked out two
       // minutes short of it (the Earth's pull and the Moon's J2 move a
       // periapsis by kilometres over the half orbit).
