@@ -14,6 +14,7 @@ export const SHORTCUTS: [string[], string][] = [
   [['←', '→'], 'Slower or faster rate'],
   [['↑', '↓'], 'The body before or after in the rail'],
   [['N'], 'Jump to now'],
+  [['T'], 'Type a date and time (UTC)'],
   [['M'], 'Open or close the flight console'],
   [['H'], 'Home: back to the opening view'],
   [['C'], 'Centre the view on the focus after a pan'],

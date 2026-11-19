@@ -380,6 +380,16 @@ kbd {
 .field:has(.notice.jump) { position: relative; }
 .notice.jump { position: absolute; top: calc(100% + 10px); left: 0; z-index: 6; box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen), 0 4px 10px rgba(0, 0, 0, 0.45); }
 .clock.held { color: var(--phosphor-dim); text-shadow: none; }
+/* The clock is a key too: pressed, it takes a typed date and time
+   (panels.tsx ClockWindow), in the same window and the same digits. */
+.clock-entry { border: 0; cursor: text; display: inline-flex; align-items: baseline; }
+.clock-entry:hover { box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen), 0 0 0 1px var(--phosphor-dim); }
+.clock-input { border: 0; width: auto; caret-color: var(--phosphor); }
+.clock-input:focus { outline: 2px solid var(--phosphor-dim); outline-offset: 2px; }
+.clock-input[aria-invalid] { color: var(--caution); }
+.field:has(.clock-input) .notice.jump { display: none; }
+.field:has(.notice.clock-help) { position: relative; }
+.notice.clock-help { position: absolute; top: calc(100% + 10px); left: 0; z-index: 6; text-transform: none; letter-spacing: 0; box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen), 0 4px 10px rgba(0, 0, 0, 0.45); }
 .clock .hold { margin-left: 10px; font: var(--t-legend) var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--phosphor-dim); }
 .legend { list-style: none; margin: 6px 0 var(--u); padding: 0; display: grid; gap: 4px; font-size: var(--t-small); color: var(--ink-muted); }
 .legend li { display: flex; align-items: center; gap: 8px; }
