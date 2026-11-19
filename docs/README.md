@@ -45,6 +45,7 @@ they come from, and how each part is checked.
 | [Spacecraft beyond Earth orbit](frontend/spacecraft.md) | Orbiters of Mercury, the Moon, Mars and Jupiter, L1 and L2 observatories and probes in cruise from JPL Horizons, held within 2 km by blended Kepler arcs; reconstructed or predicted; checked against held-out Horizons states |
 | [Earth satellites](frontend/satellites.md) | 16,892 active satellites from CelesTrak's GP elements, SGP4 via satellite.js, TEME to J2000, the GPU's points, the named ones' orbits, search and data plate; checked against Vallado's verification set and Horizons |
 | [Atmospheres](frontend/atmospheres.md) | Rayleigh, Mie and ozone single scattering along the view ray, sunlight reddening on the ground, checks |
+| [The interactive sky](frontend/interactive-sky.md) | Picking a star and its plate, constellation lines and names, FIND for stars; every catalogue's licence, and the later steps (boundaries, deep sky, a ground view) |
 | [Surface maps, rings, stars and daily Earth](frontend/textures.md) | Every source and its credit, map layout, relief from elevation, night lights, GIBS daily imagery, the Cassini ring profile, the star map |
 | [The other planets' rings](frontend/rings.md) | Jupiter's, Uranus's and Neptune's rings from occultations and ring tables: orbits, arcs, dust and forward scattering, and drawing rings narrower than a pixel |
 

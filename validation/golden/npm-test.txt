@@ -12,6 +12,27 @@ ok 2 every body's map is listed
 ok 3 the sky's 16k tiles, if they have KTX2s, are all there, in one codec for the texture array (0 tiles)
 3 checks passed
 
+>>> node src/scene/ktx2Range.test.mjs
+ok 1 the maps cut for a preview include UASTC and ETC1S ones
+ok 2 the header and level index fit in the first bytes asked for
+ok 3 saturn/day.ktx2: the preview is levels 1.. from the first 0.18 of 0.5 MB
+ok 4 earth/night.ktx2: the preview is levels 2.. from the first 0.10 of 0.6 MB
+ok 5 triton/day.ktx2: the preview is levels 1.. from the first 0.24 of 0.8 MB
+ok 6 earth/normal.ktx2: the preview is levels 2.. from the first 0.31 of 4.9 MB
+ok 7 callisto/day.ktx2: the preview is levels 1.. from the first 1.63 of 5.9 MB
+ok 8 ganymede/day.ktx2: the preview is levels 1.. from the first 1.65 of 6.1 MB
+ok 9 a map no wider than the preview is not cut
+
+>>> node src/physics/loadQueue.test.mjs
+ok 1 first jobs start at once, side by side
+ok 2 a bulk job waits for the first jobs, then bulk jobs go one at a time
+ok 3 done() frees the place before the job settles (decoding overlaps the next download)
+ok 4 a first job asked for while a bulk job downloads starts at once; the next bulk waits for both
+ok 5 bulk jobs go by rank, then in the order asked
+ok 6 within a rank, a lower order goes first (a body's day map before its relief)
+ok 7 the focused body's waiting jobs go first, and lose that when the focus moves on
+ok 8 a failing job gives up its place, and the state and listeners follow the queue
+
 >>> node src/scene/layerComposite.test.mjs
 The frame asked for
   PASS  at now: the 10-minute frame an hour back (GIBS is 40-60 minutes behind)
@@ -141,6 +162,29 @@ the arrow keys step the part under the caret
   PASS  text that isn't a date steps nothing
 
 37 passed, 0 failed
+
+>>> node src/scene/sky.test.mjs
+  PASS  a good parallax gives one distance, with its error
+  PASS  plx/err just under 5 gives a range, not a value
+  PASS  a parallax within its error of zero gives only a least distance
+  PASS  no parallax gives none
+  PASS  the distance row never shows a bare 1/plx of a noisy parallax
+  PASS  Bayer and Flamsteed labels
+  PASS  a star is called by its IAU name, else its designations, else HIP
+  PASS  FIND matches every way of writing a Bayer designation
+  PASS  FIND writes a superscript as a digit too ("alpha1 Cen")
+  PASS  the pick takes the brighter star in the circle over a fainter one at the pointer
+  PASS  but a star at the pointer wins over one a magnitude brighter at the edge
+  PASS  nothing outside the circle is picked
+  PASS  a star the point layer does not draw cannot be picked
+  PASS  B-V 0.65 is about the Sun's temperature
+  PASS  RA and Dec read as an atlas gives them
+  PASS  stars-info.bin has a row for every star of the point layer
+  PASS  Betelgeuse decodes as the catalogues give it
+  PASS  88 constellations, each with lines between stars of the layer
+  PASS  Orion's lines join Betelgeuse
+
+19 passed, 0 failed
 
 >>> node src/physics/orbital.test.mjs
 ============================================================

@@ -23,6 +23,8 @@
   --window: #121110;           /* readout windows */
   --phosphor: #ffb22e;         /* amber numerals: 10.5:1 on the window */
   --phosphor-dim: #ecd9b0;
+  /* The sky's aids (DESIGN.md, data encodings): constellation lines and names. */
+  --sky-line: #8fa9bf;
   --key: #d9531f;              /* the RUN key */
   --key-lit: #ff7a3d;
   --lamp-on: #7fe06a;
@@ -832,6 +834,24 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 }
 .guide-tag.pull { color: #ff9a66; translate: -50% -50%; }
 .guide-tag.mag-pole { color: var(--sheen); text-transform: none; letter-spacing: 0.06em; font-size: var(--t-sky-small); translate: -50% -110%; }
+.sky-name {
+  position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap; translate: -50% -50%;
+  font: var(--t-sky-small) var(--display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--sky-line);
+  /* The lowest-ranked body labels' halo (DESIGN.md, Labels in the sky): read over the Milky Way too. */
+  text-shadow: 0 0 2px var(--window), 0 0 2px var(--window), 0 0 4px var(--window);
+}
+/* The star chosen: a thin ring, open at four points so the star itself is not covered. */
+.sky-ring {
+  position: absolute; left: 0; top: 0; width: 22px; height: 22px; translate: -50% -50%; pointer-events: none;
+  border-radius: 50%; border: 1px solid var(--phosphor);
+  mask: conic-gradient(#000 0 40deg, transparent 0 50deg, #000 0 130deg, transparent 0 140deg, #000 0 220deg, transparent 0 230deg, #000 0 310deg, transparent 0 320deg, #000 0);
+}
+.sky-tag {
+  position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap; translate: 12px -50%;
+  font: var(--t-sky-small) var(--display); letter-spacing: 0.06em; color: var(--phosphor-dim);
+  background: rgba(18, 17, 16, 0.72); padding: 1px 4px; border-radius: 2px;
+}
+.star-swatch { display: inline-block; width: 0.7em; height: 0.7em; margin-right: 0.4em; vertical-align: 0.05em; border: 1px solid var(--seam-strong); }
 .guide-tag.mag-kp { color: #8dffa0; text-transform: none; letter-spacing: 0.06em; font-size: var(--t-sky-small); translate: -50% 20%; }
 .field-legend {
   position: absolute; left: calc(2 * var(--u)); bottom: calc(7 * var(--u)); width: 292px; pointer-events: auto;

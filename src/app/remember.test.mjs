@@ -19,7 +19,7 @@ ok('saved layers read back as written', () => {
   const l = structuredClone(DEFAULT_LAYERS);
   l.small.belt = false; l.small.colours = true; l.irregular = true; l.sites = true;
   l.sats.debris = true; l.probes = true; l.guides.magnetic = true; l.guides.flow = true;
-  l.flow = { frame: 'rotating', plane: 'view' }; l.frame = 'ssb';
+  l.flow = { frame: 'rotating', plane: 'view' }; l.frame = 'ssb'; l.sky.lines = true;
   assert.deepEqual(parseLayers(JSON.stringify(l)), l);
 });
 

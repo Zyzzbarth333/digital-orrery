@@ -51,6 +51,7 @@ export const DEFAULT_LAYERS = Object.freeze({
   guides: { axes: false, field: false, spheres: false, lagrange: false, pulls: false, flow: false, magnetic: false, aurora: false, belts: false },
   flow: { frame: 'falling', plane: 'orbit' },
   frame: 'sun',
+  sky: { lines: false, names: false },
 });
 const FLOW_FRAMES = ['inertial', 'falling', 'others', 'rotating'];
 const FLOW_PLANES = ['orbit', 'view'];
@@ -92,6 +93,7 @@ export function parseLayers(text) {
       plane: FLOW_PLANES.includes(s.flow?.plane) ? s.flow.plane : d.flow.plane,
     },
     frame: s.frame === 'ssb' ? 'ssb' : 'sun',
+    sky: bools(d.sky, s.sky),
   };
 }
 

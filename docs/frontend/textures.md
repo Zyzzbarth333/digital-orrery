@@ -38,7 +38,7 @@ attribution, with a link to the licence; the app's Credits list gives both.
 | Saturn's rings | Normal optical depth, 10 km bins | Cassini UVIS 126 Tau egress occultation (COUVIS_8001) | NASA PDS Ring-Moon Systems Node (Colwell et al.) |
 | Uranus's narrow rings | Equivalent depth and, for α, β and ε, the shape of τ across the ring | Voyager 2 PPS β Persei (λ: σ Sagittarii) occultations, 1 km (VG_2801) | NASA PDS Ring-Moon Systems Node; orbits from French et al. 2024 ([rings](rings.md)) |
 | Jupiter's main ring | Radial shape: normal I/F against radius, 14 shells | 16 New Horizons LORRI images at 11.7 and 15.3° phase (NHJULO_2001), reduced in `python/textures/lorri.py` | NASA/JHUAPL/SwRI, via the NASA PDS Ring-Moon Systems Node ([rings](rings.md#the-main-ring-from-new-horizons)) |
-| Stars | The Hipparcos main catalogue: 83,392 stars to V 9 with V and B−V | ESA 1997 (SP-1200), via NASA HEASARC | ESA, *The Hipparcos and Tycho Catalogues* (1997) |
+| Stars | The Hipparcos main catalogue: 83,392 stars to V 9 with V and B−V (each star's plate and names: [interactive sky](interactive-sky.md)) | ESA 1997 (SP-1200), via NASA HEASARC | ESA, *The Hipparcos and Tycho Catalogues* (1997) |
 | Milky Way | Map of the light between the stars (Hipparcos and Tycho stars removed), 8192×4096, refined to 16384×8192 in tiles where the screen can show it | Deep Star Maps 2020, Milky Way layer (Hipparcos-2, Tycho-2, Gaia DR2) | NASA/Goddard Space Flight Center Scientific Visualization Studio; Gaia DR2: ESA/Gaia/DPAC |
 
 The Venus surface is not shown: in visible light Venus is its cloud deck.
