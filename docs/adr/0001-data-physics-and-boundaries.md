@@ -106,6 +106,33 @@ The 1 GB Pages limit leaves about 450 MB of room [2]. If the data outgrows it, t
 
 The physics package is worth its risk only with a gate that catches silent changes. "Bit for bit" holds for a pure move on one pinned Node version. Across Node versions and browser engines, `Math.sin`, `pow` and `exp` aren't required to round identically, so comparisons there need stated tolerances.
 
+## Long term: where it lives
+
+GitHub Pages is the right place to start, but not to stay.
+- **Size:** each site has a 1 GB limit [2], and the data grows. The irregular moons past 2049 add about 0.5 MB of tables a year, and every new model or map adds tens of MB.
+- **Bandwidth:** the soft limit is 100 GB a month [2]. A first visit loads tens of MB, so a few thousand visits a month fit, but one widely shared post would not.
+- **Address:** a `github.io` address ties every saved link to GitHub.
+
+**The long-term shape:**
+- **The app** (a few MB of HTML and JavaScript) on GitHub Pages, deployed by Actions.
+- **The data** on Cloudflare R2. It has free egress and 10 GB-month of storage on the free tier [13], with no site-size cap, and is served through Cloudflare's CDN.
+- **The address:** a domain of the user's own, so links survive any change of host. R2 needs a custom domain for production traffic; its `r2.dev` address is for development [14].
+
+The cost is a domain (roughly A$15–30 a year), plus R2 storage beyond 10 GB.
+
+**Release assets don't replace R2.** They remain the pinned source of each data version for CI and `npm run data`, but a browser on another site can't fetch them: on 19 Nov 2026, neither GitHub's release download link (a 302 redirect) nor the file host it redirects to sent an `Access-Control-Allow-Origin` header.
+
+**Netlify and Vercel** have similar caps of about 100 GB a month on their free plans [15], so they are no better than Pages for this.
+
+**Phase B already prepares the move.** The manifest's SHA-256 hashes give each file a versioned name that a CDN can cache for ever, and the loaders already take a base URL. Moving the data to R2 is then a change of that base URL, plus an upload step in the deploy workflow.
+
+**Move the data when the first of these happens:**
+- the data passes about 800 MB;
+- Pages bandwidth nears 100 GB a month;
+- the user wants their own domain.
+
+The domain can come first: it is cheap and protects every link.
+
 ## Consequences
 
 **Easier:**
@@ -160,7 +187,7 @@ The physics package is worth its risk only with a gate that catches silent chang
    - **Speed:** `npm run bench` within a stated noise threshold.
 5. [ ] Don't publish or freeze the interface until a consumer exists.
 
-**Later, separate decisions:** rewriting the history; a shell-only PWA; publishing the physics; a CLI or service wrapper; exporting craft to OpenUSD for Isaac Sim.
+**Later, separate decisions:** a domain and moving the data to R2 (see Long term); rewriting the history; a shell-only PWA; publishing the physics; a CLI or service wrapper; exporting craft to OpenUSD for Isaac Sim.
 
 ## References
 
@@ -187,3 +214,9 @@ The physics package is worth its risk only with a gate that catches silent chang
 [11] NVIDIA, "Isaac Sim," GitHub repository. Licence: Apache-2.0. [Online]. Available: https://github.com/isaac-sim/IsaacSim. Accessed: Nov. 19, 2026.
 
 [12] NVIDIA, "Isaac Sim requirements." [Online]. Available: https://docs.isaacsim.omniverse.nvidia.com/latest/installation/requirements.html. Accessed: Nov. 19, 2026.
+
+[13] Cloudflare, "R2 pricing." [Online]. Available: https://developers.cloudflare.com/r2/pricing/. Accessed: Nov. 19, 2026.
+
+[14] Cloudflare, "R2 public buckets." [Online]. Available: https://developers.cloudflare.com/r2/buckets/public-buckets/. Accessed: Nov. 19, 2026.
+
+[15] Netlify, "Legacy pricing plans." [Online]. Available: https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-legacy-plans/legacy-pricing-plans/. Accessed: Nov. 19, 2026.
