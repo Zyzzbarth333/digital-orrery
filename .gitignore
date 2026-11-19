@@ -59,3 +59,12 @@ __pycache__/
 # The inner moons' tables outside 2020-2035, built locally by
 # `npm run build:moon-tables` (docs/frontend/moons.md)
 public/ephemeris/moons-extra/
+
+# The app's data (ADR-0001): published as GitHub Release assets, pinned by
+# public/manifest.json (which stays in git), and fetched by `npm run data`.
+public/textures/
+public/ephemeris/
+public/models/
+public/data/
+public/missions/
+public/trajbrowser/

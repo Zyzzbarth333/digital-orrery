@@ -103,7 +103,7 @@ npm run dev
 
 `npm run data` makes sure `public/` holds the maps, tables, models and catalogues the app loads (547 MB), at the versions `public/manifest.json` pins. It fetches any set that's missing from the project's GitHub Releases and checks every file's SHA-256. `npm run data -- --check` only reports. If the app finds its data missing, it says so in the sky.
 
-The repository's history is large (about 800 MB) while the data is still in git. A partial clone fetches past versions of files only when they're needed:
+The data is no longer in git, but the repository's history still holds its older versions (about 800 MB). A partial clone fetches those only when they're needed:
 
 ```bash
 git clone --filter=blob:none https://github.com/Zyzzbarth333/digital-orrery.git

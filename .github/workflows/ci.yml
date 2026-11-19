@@ -28,8 +28,19 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck
-      - name: Data matches the manifest
-        run: npm run data -- --verify --check
+      - name: Data cache (keyed on the manifest)
+        uses: actions/cache@v6
+        with:
+          path: |
+            public/textures
+            public/ephemeris
+            public/models
+            public/data
+            public/missions
+            public/trajbrowser
+          key: data-${{ hashFiles('public/manifest.json') }}
+      - name: Data (fetched from its releases, verified against the manifest)
+        run: npm run data -- --verify
       - name: Physics and app checks
         run: npm test
       - name: Production build

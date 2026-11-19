@@ -33,7 +33,18 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
-      - name: Data (fetch what git doesn't carry, verify all of it)
+      - name: Data cache (keyed on the manifest)
+        uses: actions/cache@v6
+        with:
+          path: |
+            public/textures
+            public/ephemeris
+            public/models
+            public/data
+            public/missions
+            public/trajbrowser
+          key: data-${{ hashFiles('public/manifest.json') }}
+      - name: Data (fetched from its releases, verified against the manifest)
         run: npm run data -- --verify
       - name: Build for /digital-orrery/
         run: npm run build

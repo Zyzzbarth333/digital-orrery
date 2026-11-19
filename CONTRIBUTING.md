@@ -99,7 +99,8 @@ A check that needs local data it can't find skips itself and says so.
 `npm test` never needs a network.
 
 **The data in `public/`** is pinned by `public/manifest.json`, which lists each file's size and SHA-256 by set (textures, ephemeris, models, data, missions, trajbrowser), with each set's version ([ADR-0001](docs/adr/0001-data-physics-and-boundaries.md)).
-- **After a pipeline changes a file there,** run `npm run data:manifest`. CI's `npm run data -- --verify --check` fails until the manifest matches the files.
+- **The data isn't in git:** the six set folders are ignored, and only the manifest is committed.
+- **After a pipeline changes a file there,** run `npm run data:manifest`, publish the changed set (below), and commit the manifest. CI fetches the data the manifest pins and verifies every file, so a manifest whose data isn't published fails.
 - **To publish a changed set,** run `npm run data:publish`. It shows what it would publish, and `-- --yes` packs each new version and creates its GitHub Release, `data-<set>-<version>`.
 - **A version is a hash of its files,** so the same content always has the same tag. A published release is never replaced or deleted, because older commits pin it.
 
