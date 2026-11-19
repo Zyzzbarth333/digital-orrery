@@ -115,9 +115,31 @@ rank 0 unless focused.
 
 ## Checked
 
-- Screenshots on the Intel UHD at 1440 × 900 and 1920 × 1080 through
-  `scripts/lib/chromium.mjs` (the images above), main against this change.
-- The NVIDIA screenshots and `npm run bench:frames` on both GPUs are in
-  the pull request.
+- Screenshots on the Intel UHD (the images above) and the RTX 5070 Ti at
+  1440 × 900 and 1920 × 1080 through `scripts/lib/chromium.mjs`, main
+  against this change. They render alike:
+
+  ![Jupiter at 1440 px on the RTX 5070 Ti, before and after](panels-before-after-nvidia.jpg)
+
+- `npm run bench:frames`, 20 November 2026, 1920 × 1080, 3 rounds
+  interleaved, main against this change with both panels pinned (the same
+  sky size), median frame cost in ms. The frame gap stayed 16.7 ms
+  throughout.
+
+  | Scenario | Intel UHD | RTX 5070 Ti |
+  | --- | ---: | ---: |
+  | Overview (the Sun) | 14.8 → 14.7 | 3.5 → 3.7 |
+  | Earth close-up | 15.2 → 15.6 | 3.7 → 3.7 |
+  | The asteroid belt | 14.9 → 14.6 | 3.7 → 3.6 |
+  | Craft in LEO (6-DOF), 0.4 km | | 4.2 → 4.4 |
+  | Craft in LEO (6-DOF), 3,000 km | | 4.4 → 4.2 |
+  | Craft in LEO (point), 0.4 km | | 4.0 → 4.0 |
+  | Craft in LEO (point), 3,000 km | 16.1 → 15.5 | 4.0 → 4.0 |
+
+  The NVIDIA overview's +0.2 ms is noise: over 5 more rounds main read
+  3.7–5.1 ms and this change 3.6–5.2 ms, crossing both ways, and the same
+  build without the labels' halo read the same (±0 %). On the Intel GPU
+  only four scenarios ran, under a 4 GB browser cap, the machine being
+  short of memory.
 - `remember.test.mjs`: pins read back as written, a bad field falls back
   alone, both stowed by default.
