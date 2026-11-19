@@ -264,6 +264,9 @@ export class SatelliteLayer {
   private model: SatelliteModel;
   private pxPerRad = 1000;
   get modelShown(): boolean { return this.model.shown; }
+  // Whether the craft models lit their lights this frame (then the real
+  // satellite models share them: satelliteModels.ts).
+  craftLit = false;
   private tmp = new THREE.Vector3();
   private disposed = false;
   source: SatSource | null = null;
@@ -642,7 +645,7 @@ export class SatelliteLayer {
     const fRel: V3 | null = f && [earth[0] + f[0] - cam[0], earth[1] + f[1] - cam[1], earth[2] + f[2] - cam[2]];
     u.uHide.value = fRel ? 2 * Math.hypot(fRel[0], fRel[1], fRel[2]) / UNIT_KM + 0.001 : 0;
     this.placeNear(timeMs, fs, fRel, M, level);
-    this.model.update(this.focusId, fs, fRel, this.sunEqj, this.toRenderM, this.pxPerRad, this.moonEqj);
+    this.model.update(this.focusId, fs, fRel, this.sunEqj, this.toRenderM, this.pxPerRad, this.moonEqj, timeMs, !this.craftLit);
   }
 
   // The view's scale, for sizing the model: pixels per radian at the centre.

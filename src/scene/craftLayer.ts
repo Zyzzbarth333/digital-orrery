@@ -175,6 +175,8 @@ export class CraftLayer {
 
   // The view's scale, for sizing the models: pixels per radian at the centre.
   setView(pxPerRad: number): void { this.models.setView(pxPerRad); }
+  // Whether its craft models lit the model lights this frame.
+  get modelsLit(): boolean { return this.models.lit; }
   // Whether craft id's model is drawn this frame.
   modelShown(id: number): boolean { return this.modelled.has(`c${id}`); }
   // Whether a model drawn by key (an extra pose's) is drawn this frame.

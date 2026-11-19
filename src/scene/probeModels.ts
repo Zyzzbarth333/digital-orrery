@@ -98,6 +98,60 @@ export function probeNote(key: string): string {
   return `Drawn close up by ${whose}, ${size}. The app does not carry its attitude: it is drawn with ${turned}, its arrays and antennas fixed as modelled. Until the model has loaded it stays a marker.`;
 }
 
+// The Earth satellites with a model of their own (satelliteModels.ts,
+// docs/frontend/satellites.md#close-up-models): NASA/JPL-Caltech's ISS and
+// Hubble from NASA's Eyes on the Earth, each packed into one GLB in
+// public/models/satellites. Tiangong has no free model and stays built in
+// code. Unlike a probe's, a satellite's model keeps its nodes, so its
+// arrays can turn:
+// - x, z: the model axes (in its own glTF axes) along the body's x and z.
+//   The ISS's body is its local vertical, local horizontal frame (x ram,
+//   z nadir); Hubble's is its V1 (the optical axis), V2 (the arrays'
+//   axis), V3.
+// - scale: as a probe's (the model at rest).
+// - joints: nodes turned about their own axis to bring their face axis as
+//   near the Sun as that axis lets, parents first: the ISS's alpha and beta
+//   joints as Eyes turns them. arrays: Hubble's wings are not nodes of
+//   their own, so every triangle farther than `beyond` m from the tube
+//   along `axis` (the arrays and their masts) is split off at load into a
+//   node of that name, turning about that axis through the cells' middle.
+// - hide: nodes left out (a stray cube inside the ISS's Unity node).
+// - dated: nodes shown only between dates (UTC), as Eyes shows them: the
+//   ISS's external payloads.
+export interface SatModel {
+  file: string; title: string; x: Axis; z: Axis;
+  scale: NonNullable<ProbeModel['scale']>;
+  joints: { node: string; axis: Axis; face: Axis }[];
+  arrays?: { node: string; axis: 'x' | 'y' | 'z'; beyond: number; cells: string };
+  hide?: string[];
+  dated?: { node: string; from: string; to?: string }[];
+}
+const ISS_BETA = ['20_P4_Truss_01', '20_P4_Truss_02', '32_S6_Truss_01', '32_S6_Truss_02', '23_S4_Truss_01', '23_S4_Truss_02', '08_P6_Truss_01', '08_P6_Truss_02'];
+export const SATELLITE_MODELS: Record<'iss' | 'hubble', SatModel> = {
+  iss: {
+    file: 'iss.glb', title: 'ISS', x: '+z', z: '-y',
+    scale: { part: null, axis: 'x', m: 109, what: '109 m across its arrays', cite: 'NASA, "Space station facts and figures"' },
+    joints: [
+      { node: '20_P4_Truss', axis: '+x', face: '-z' }, { node: '23_S4_Truss', axis: '+x', face: '-z' },
+      ...ISS_BETA.map((node) => ({ node, axis: '+y' as Axis, face: '-z' as Axis })),
+    ],
+    hide: ['Cube'],
+    dated: [
+      { node: '45_RapidScat', from: '2014-10-01T07:00Z', to: '2018-03-27T07:00Z' },
+      { node: 'Ecostress', from: '2018-07-06T05:34Z' },
+      { node: 'OCO3', from: '2019-05-10T00:00Z' },
+      { node: 'COWVR_TEMPEST', from: '2021-12-21T12:00Z' },
+      { node: 'EMIT', from: '2022-07-17T15:57Z' },
+    ],
+  },
+  hubble: {
+    file: 'hubble.glb', title: 'Hubble', x: '+y', z: '-z',
+    scale: { part: 'tex_01', axis: 'y', m: 13.2, what: '13.2 m long', cite: 'ESA/Hubble, "Fact sheet"' },
+    joints: [{ node: 'arrays', axis: '+x', face: '-z' }],
+    arrays: { node: 'arrays', axis: 'x', beyond: 2.3, cells: 'shiny_panel' },
+  },
+};
+
 // LICIACube, the 6U CubeSat DART released on 11 September 2022: built in
 // code at the 6U envelope, 10 by 22.6 by 36.6 cm (NASA's small spacecraft
 // technology report), its two solar panels left out. Its 14 kg is JHU/APL's.

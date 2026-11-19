@@ -381,8 +381,8 @@ export class CraftModels {
   // The real models' light (their materials are three's): the Sun and the
   // Earthshine as two directional lights, set from the first model drawn.
   // Three's Lambertian term is albedo / pi times the light, so each is pi
-  // times the simple models' irradiance. Nothing else in the scene is lit
-  // by three's lights.
+  // times the simple models' irradiance. Only the satellites' real models
+  // (satelliteModels.ts) are lit by three's lights besides.
   private sunLight = new THREE.DirectionalLight(0xffffff, 0);
   private earthLight = new THREE.DirectionalLight(0xffffff, 0);
   private lightSet = false;
@@ -390,6 +390,10 @@ export class CraftModels {
   constructor(private scene: THREE.Scene) {
     for (const l of [this.sunLight, this.earthLight]) { scene.add(l, l.target); }
   }
+
+  // Whether a model was drawn and lit this frame (the satellites' real
+  // models then share these lights: satelliteModels.ts).
+  get lit(): boolean { return this.lightSet; }
 
   // The view's scale: pixels per radian at the centre.
   setView(pxPerRad: number): void { this.pxPerRad = pxPerRad; }
