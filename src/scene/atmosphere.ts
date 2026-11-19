@@ -18,6 +18,7 @@
 // scale differs from 1 by 0.3 % at most, so only the shape changes.
 
 import * as THREE from 'three';
+import { VISIBLE_FRACTION } from './shadowGlsl';
 
 export interface AtmosphereParams {
   topKm: number;               // height of the shell above the surface
@@ -420,9 +421,13 @@ ${VIEW_PARAMS}
 uniform float irradiance;     // sunlight relative to 1 AU
 uniform sampler2D viewRayleigh;
 uniform sampler2D viewMie;
+uniform vec3 shellMoon;       // a moon's centre (the Earth's Moon), ground sphere's space, km; radius 0: none
+uniform float shellMoonR;
+uniform float shellSunA;      // the Sun's angular radius, rad
 varying vec3 vWorld;
 ${ATMO_FUNCS}
 ${VIEW_ENCODE}
+${VISIBLE_FRACTION}
 
 void main() {
   #include <logdepthbuf_fragment>
@@ -446,6 +451,18 @@ void main() {
   // In the scene's units a white surface lit face-on shows irradiance, so
   // scattered radiance shows as pi * L * irradiance.
   vec3 colour = PI * (R.rgb * phR + M * phM) * irradiance;
+  // A solar eclipse: the air in the Moon's shadow is not lit either. The
+  // ray's light is dimmed by the share of the Sun's disc the Moon leaves
+  // where the ray meets the ground, or at its lowest point (where its
+  // scattered light mostly comes from).
+  if (shellMoonR > 0.0) {
+    vec2 g = atmoSphere(p, d, atmoRg);
+    float t = ground ? g.x : clamp(-dot(p, d), max(top.x, 0.0), top.y);
+    vec3 m = shellMoon - (p + t * d);
+    float dm = length(m);
+    if (dot(m, viewSun) > 0.0)
+      colour *= visibleFraction(shellSunA, asin(clamp(shellMoonR / dm, 0.0, 1.0)), atan(length(cross(m, viewSun)), dot(m, viewSun)));
+  }
   gl_FragColor = vec4(colour, R.a);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -526,6 +543,7 @@ export function makeAtmosphere(a: AtmosphereParams, groundKm: number, unitKm: nu
     uniforms: {
       ...uniforms,
       irradiance: { value: 1 },
+      shellMoon: { value: new THREE.Vector3() }, shellMoonR: { value: 0 }, shellSunA: { value: 0.00465 },
       viewRayleigh: { value: target.textures[0] },
       viewMie: { value: target.textures[1] },
     },

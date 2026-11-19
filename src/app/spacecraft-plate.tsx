@@ -12,6 +12,7 @@ import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { PROBE_GROUPS, type Probe, type SpacecraftLayer } from '../scene/spacecraftLayer';
+import { sunlightAt, sunlightRow } from './sunlight';
 
 const AU_KM = 149597870.7, C_KM_S = 299792.458;
 const CENTRE_NAME: Record<string, string> = { sun: 'the Sun', mercury: 'Mercury', venus: 'Venus', earth: 'the Earth', moon: 'the Moon', mars: 'Mars', jupiter: 'Jupiter' };
@@ -43,6 +44,7 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
       { label: 'From the Sun', value: (Math.hypot(...helio) / AU_KM).toFixed(4), unit: 'AU', src: 'Horizons', derived: true, info: 'probe-position' },
       { label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'Horizons', derived: true, info: 'probe-position', detail: 'less the Earth\'s position (DE442)' },
       { label: 'Light time', value: lt < 60 ? lt.toFixed(3) : lt < 3600 ? (lt / 60).toFixed(2) : (lt / 3600).toFixed(3), unit: lt < 60 ? 's' : lt < 3600 ? 'min' : 'h', src: 'd/c', derived: true, info: 'light-time' },
+      sunlightRow(sunlightAt(helio, new Date(s.timeMs))),
     );
   } else {
     rows.push({ label: 'Motion', value: 'no data today', alt: 'outside the 2026–2027 span, or Horizons\' coverage', src: 'Horizons', info: 'probe-legs' });

@@ -233,10 +233,17 @@ export class CraftLayer {
   }
 
   // After the camera is set: markers at their projected positions.
+  // The Sun's share at a point (OrreryScene.sunlightAt): a craft in a
+  // body's umbra or penumbra has its marker marked (app.css).
+  shade: ((r: V3) => { nu: number; state: string; by: string | null }) | null = null;
+
   label(views: CraftView[], cam: V3, unitKm: number, camera: THREE.Camera, w: number, h: number): void {
     for (const v of views) {
       const d = this.drawn.get(v.id);
       if (!d) continue;
+      const sl = this.shade?.(v.rEcl);
+      d.marker.classList.toggle('eclipse', sl?.state === 'umbra');
+      d.marker.classList.toggle('penumbra', sl?.state === 'penumbra');
       // Shown when in front of the camera, by its view-space depth: a craft
       // followed from under a kilometre is nearer than the scene's near
       // plane, where the projected depth alone would hide it.

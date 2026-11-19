@@ -131,6 +131,8 @@ export class IrregularMoonLayer {
   private tmp = new THREE.Vector3();
   private focusKey: string | null = null;
   private focusMesh: THREE.Mesh;
+  // The focused one's sphere while drawn (OrreryScene casts shadows on it).
+  get focusSphere(): THREE.Mesh | null { return this.focusMesh.visible ? this.focusMesh : null; }
   private sunRender = new THREE.Vector3();
   onPick: (key: string) => void = () => {};
 

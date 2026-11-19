@@ -16,10 +16,10 @@
 // tube along the flight direction, its arrays turned to the Sun.
 //
 // Light: each face is Lambertian, ρ E μ0 with E the sunlight at the Earth
-// relative to 1 AU, as the bodies are lit (bodyMaterial.ts), dark in the
-// Earth's shadow (the same cylinder as the points', satellites.js
-// inShadow). Earthshine fills the faces turned to the Earth: the Earth's
-// Bond albedo (0.30) times the view factor of a face looking straight
+// relative to 1 AU, as the bodies are lit (bodyMaterial.ts), dimmed by the
+// share of the Sun's disc the Earth and the Moon leave it (satellites.js
+// sunFraction, as the points are). Earthshine fills the faces turned to
+// the Earth: the Earth's Bond albedo (0.30) times the view factor of a face looking straight
 // down at it, (R / r)^2, times how high the Sun stands under the
 // satellite, max(0, ŝ · r̂). The cells have a small glint (Blinn-Phong).
 //
@@ -28,7 +28,7 @@
 // it to well under a millimetre.
 
 import * as THREE from 'three';
-import { inShadow } from '../physics/satellites.js';
+import { sunFraction } from '../physics/satellites.js';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000;
@@ -213,7 +213,7 @@ export class SatelliteModel {
   // Each frame, for the focused satellite: its NORAD id, SGP4 state (J2000
   // km, km/s), its camera-relative ecliptic place (km), the Sun's
   // direction (J2000 unit), J2000 -> render, and the pixels per radian.
-  update(id: number | null, s: { r: V3; v: V3 } | null, rel: V3 | null, sunEqj: V3, toRender: THREE.Matrix3, pxPerRad: number): boolean {
+  update(id: number | null, s: { r: V3; v: V3 } | null, rel: V3 | null, sunEqj: V3, toRender: THREE.Matrix3, pxPerRad: number, moonEqj: V3 | null = null): boolean {
     const kind = id !== null ? modelOf(id) : null;
     const d = rel ? Math.hypot(rel[0], rel[1], rel[2]) : Infinity;
     const px = kind ? (MODEL_SPAN_M[kind] / 1000 / d) * pxPerRad : 0;
@@ -230,7 +230,8 @@ export class SatelliteModel {
     const sb: V3 = [dot(sunEqj, X), dot(sunEqj, Y), dot(sunEqj, Z)];
     const alpha = Math.atan2(sb[0], sb[2]);
     for (const p of b.pivots) p.rotation.set(0, alpha, 0);
-    const lit = inShadow(s.r, sunEqj) ? 0 : 1;
+    // The share of the Sun the Earth and the Moon leave (a penumbra dims it).
+    const lit = sunFraction(s.r, sunEqj, moonEqj).nu;
     const rr = Math.hypot(...s.r);
     const fill = EARTH_BOND_ALBEDO * (R_EARTH_KM / rr) ** 2 * Math.max(0, -dot(sunEqj, Z));
     toR(sunEqj, this.sun).normalize();

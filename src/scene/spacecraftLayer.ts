@@ -263,6 +263,10 @@ export class SpacecraftLayer {
 
   // After the camera is set: markers at their projected positions, shown
   // near their centre (an orbiter) or always (a probe), clear of each other.
+  // The Sun's share at a point (OrreryScene.sunlightAt): a craft in a
+  // body's umbra or penumbra has its marker marked (app.css).
+  shade: ((r: V3) => { nu: number; state: string; by: string | null }) | null = null;
+
   label(camera: THREE.Camera, w: number, h: number): void {
     const ix = this.index;
     if (!ix) return;
@@ -288,6 +292,9 @@ export class SpacecraftLayer {
       if (!quiet) placed.push([x, y]);
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
+      const sl = this.shade?.([o[0] + re[0], o[1] + re[1], o[2] + re[2]]);
+      el.classList.toggle('eclipse', sl?.state === 'umbra');
+      el.classList.toggle('penumbra', sl?.state === 'penumbra');
     }
   }
 

@@ -5,7 +5,7 @@
 //
 //   node src/physics/discs.test.mjs
 
-import { visibleFraction } from './discs.js';
+import { visibleFraction, sunVisible, sunlight } from './discs.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -48,6 +48,19 @@ check(visibleFraction(1, 1.0566, 0.03) === 0, '2024 total: none of the disc seen
 // 1891", so it hides (29/945.5)^2, about 0.09 %.
 const vt = 1 - visibleFraction(945.5, 29, 400);
 check(Math.abs(vt - (29 / 945.5) ** 2) < 1e-12, `2012 Venus transit hides ${(vt * 100).toFixed(3)} % of the disc`);
+
+// Seen from a point: the deepest body counts, and says who casts it.
+{
+  const AU = 149597870.7;
+  const sl = sunlight([AU, 0, 0], [{ key: 'earth', rel: [-10000, 0, 0], radius: 6378 }, { key: 'moon', rel: [0, 384400, 0], radius: 1737.4 }]);
+  check(sl.state === 'lit' && sl.nu === 1 && sl.by === null, 'nothing between the point and the Sun: lit');
+  const sl2 = sunlight([AU, 0, 0], [{ key: 'earth', rel: [10000, 0, 0], radius: 6378 }, { key: 'moon', rel: [0, 384400, 0], radius: 1737.4 }]);
+  check(sl2.state === 'umbra' && sl2.by === 'earth', 'the Earth ahead: its umbra');
+  const ant = sunlight([AU, 0, 0], [{ key: 'moon', rel: [384400, 0, 0], radius: 1737.4 }]);
+  check(ant.state === 'penumbra' && ant.nu > 0 && ant.nu < 0.1, `past the Moon's umbra's tip (374,000 km), on its line: annular, ${(ant.nu * 100).toFixed(1)} % of the Sun left`);
+  check(Math.abs(sunVisible([AU, 0, 0], [400000, 0, 0], 1737.4) - visibleFraction(Math.asin(695700 / AU), Math.asin(1737.4 / 400000), 0)) < 1e-12,
+    'sunVisible is the overlap of the two discs seen from the point');
+}
 
 if (failed) { console.log(`\n${failed} disc check(s) failed`); process.exit(1); }
 console.log('\ndiscs: all checks passed');

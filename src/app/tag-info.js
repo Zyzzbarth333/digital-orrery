@@ -885,11 +885,18 @@ export const TAG_INFO = {
   },
   // satellites.js inShadow
   'sat-shadow': {
-    what: 'Whether the Sun lights the satellite or the Earth hides it: behind the Earth and within the Earth\'s radius of the line through the Earth\'s centre from the Sun.',
-    tex: ['\\mathbf r\\cdot\\hat{\\mathbf s} < 0,\\quad |\\mathbf r - (\\mathbf r\\cdot\\hat{\\mathbf s})\\,\\hat{\\mathbf s}| < R_\\oplus'],
-    where: 'ŝ: the Sun\'s direction from the Earth (DE442). A cylinder: the umbra\'s cone narrows by 0.27° of its own, and the penumbra is left out (a few seconds in low orbit)',
-    source: 'docs/frontend/satellites.md',
+    what: 'How much of the Sun lights the satellite: the fraction of the Sun\'s disc that the Earth and the Moon leave in view, seen from it. Lit with all of it, a partial eclipse in a penumbra, in eclipse in an umbra.',
+    tex: ['\\nu = 1 - \\frac{A_\\text{overlap}(a, b, c)}{\\pi a^2}'],
+    where: 'a: the Sun\'s angular radius, b: the Earth\'s (or the Moon\'s), c: their separation, all seen from the satellite (DE442). The umbra and penumbra are true cones; the Earth\'s atmosphere is left out',
+    source: 'Montenbruck and Gill, Satellite Orbits, 3.4.2; docs/frontend/lighting.md',
   },
+  'craft-shadow': {
+    what: 'How much of the Sun lights the craft: the fraction of the Sun\'s disc that the bodies near it leave in view. Lit with all of it, a partial eclipse in a penumbra, in eclipse in an umbra.',
+    tex: ['\\nu = 1 - \\frac{A_\\text{overlap}(a, b, c)}{\\pi a^2}'],
+    where: 'a: the Sun\'s angular radius, b: the body\'s, c: their separation, seen from the craft. The deepest body counts',
+    source: 'Montenbruck and Gill, Satellite Orbits, 3.4.2; docs/frontend/lighting.md',
+  },
+
   // passes.js findPasses, lookAngles
   'sat-pass': {
     what: 'Where the satellite is in the sky from the place: SGP4\'s position turned from TEME into the Earth\'s own frame, then seen from the place on the WGS-84 ellipsoid. Azimuth is clockwise from north, elevation above the horizon, without refraction.',

@@ -167,6 +167,11 @@ The surface shader multiplies the sunlight at each point by $T_\odot$ from
 the same medium, so the light near the terminator, through hundreds of
 kilometres of air, is dimmer and redder.
 
+In a solar eclipse the air in the Moon's shadow is not lit either: the
+shell's scattered light along each view ray is dimmed by the share of the
+Sun the Moon leaves where the ray meets the ground, or at its lowest point
+([lighting](lighting.md#every-case)).
+
 ## Checks
 
 | Quantity | Model | Expected |

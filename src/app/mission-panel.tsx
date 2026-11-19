@@ -5,6 +5,7 @@
 // (tag "kernel"); orbital elements are the osculating two-body elements
 // about the craft's primary (dashed tag "2-body": worked out here).
 
+import { sunlightText } from './sunlight';
 import { useEffect, useState } from 'react';
 import type { SimClock } from './clock';
 import { useClock } from './clock';
@@ -144,6 +145,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
       ['About', P ? P.name : 'Sun', <SourceTag src="kernel" info="soi" />],
       [P ? 'Altitude' : 'From the Sun', `${fmt((rel.r - R), 1)} km`, <SourceTag src="kernel" info="altitude" detail={`n-body state (Encke near a planet, Cowell elsewhere) carried to the clock${altNote}`} />],
       ['Speed', `${fmt(rel.v, 4)} km/s`, <SourceTag src="kernel" info="craft-speed" detail={`relative to ${P ? P.name : 'the Sun'}`} />],
+      ['Sunlight', sunlightText(mission.sunlight(c)), <SourceTag src="shadow" derived info="craft-shadow" detail="the kernel's bodies, as its solar pressure takes them" />],
     ];
     // A journey's craft flies the full model; where its aims could not
     // converge there, the planner's model instead, and the row says why.

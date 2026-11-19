@@ -35,6 +35,7 @@
 // to, not through a Date's whole milliseconds (half a millisecond is 4 m of
 // the ISS's track).
 
+import { sunlight } from './discs.js';
 import { json2satrec, sgp4 } from './sgp4.js';
 import { precession1976, nutation1980, meanObliquity1980, R1, R3 } from './earthRotation.js';
 import { ttMinusUtc, J2000_UTC_MS } from './timescale.js';
@@ -198,14 +199,26 @@ export function meanOrbit(sat) {
   };
 }
 
-// The Earth's shadow, as a cylinder of the Earth's equatorial radius behind
-// it (the umbra's cone narrows by 0.27 deg: at GEO it is 1,300 km under
-// the cylinder's 6,378). sunDir: unit vector to the Sun, in the same frame
-// as r.
+// The Sun seen from a satellite: the fraction of its disc the Earth and
+// the Moon leave (discs.js sunlight: the umbra's and penumbra's true
+// cones, each about 200 km off a cylinder of the Earth's radius at GEO,
+// the penumbra 400 km wide there), and which casts it. r: the satellite from the
+// Earth's centre (km); sunDir: unit vector to the Sun, in the same frame;
+// moon: the Moon from the Earth's centre (km), or null. The Sun is taken at
+// 1 AU along sunDir (its distance moves the cones by under 0.1 %).
 export const R_EARTH_KM = 6378.137;
-export function inShadow(r, sunDir) {
-  const along = r[0] * sunDir[0] + r[1] * sunDir[1] + r[2] * sunDir[2];
-  if (along >= 0) return false;
-  const px = r[0] - along * sunDir[0], py = r[1] - along * sunDir[1], pz = r[2] - along * sunDir[2];
-  return px * px + py * py + pz * pz < R_EARTH_KM * R_EARTH_KM;
+export const R_MOON_KM = 1737.4;
+const AU_KM = 149597870.7;
+/** @param {number[]} r @param {number[]} sunDir @param {number[] | null} [moon] */
+export function sunFraction(r, sunDir, moon = null) {
+  const sunRel = [sunDir[0] * AU_KM - r[0], sunDir[1] * AU_KM - r[1], sunDir[2] * AU_KM - r[2]];
+  const bodies = [{ key: 'earth', rel: [-r[0], -r[1], -r[2]], radius: R_EARTH_KM }];
+  if (moon) bodies.push({ key: 'moon', rel: [moon[0] - r[0], moon[1] - r[1], moon[2] - r[2]], radius: R_MOON_KM });
+  return sunlight(sunRel, bodies);
+}
+
+// In shadow: under half the Sun's disc in view (the penumbra's middle).
+/** @param {number[]} r @param {number[]} sunDir @param {number[] | null} [moon] */
+export function inShadow(r, sunDir, moon = null) {
+  return sunFraction(r, sunDir, moon).nu < 0.5;
 }
