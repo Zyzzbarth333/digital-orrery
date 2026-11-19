@@ -214,7 +214,7 @@ The domain can come first: it is cheap and protects every link.
 
 **Phase C: the physics package, behind a two-tier gate**
 1. [x] Give the physics core an injectable data loader (`fetch` in the browser, `fs` in Node), so it runs outside the app.
-2. [ ] Before moving anything, record a golden snapshot: every number `npm test` prints, plus fixed-seed outputs of the kernel, ephemeris, journey and satellite APIs.
+2. [x] Before moving anything, record a golden snapshot: every number `npm test` prints, plus fixed-seed outputs of the kernel, ephemeris, journey and satellite APIs.
 3. [ ] Move the core into `packages/physics` as an npm workspace. Keep the Worker and `fetch` adapters in the app.
 4. [ ] Gate:
    - **Tier 1:** the snapshot reproduced bit for bit on the pinned Node version.
