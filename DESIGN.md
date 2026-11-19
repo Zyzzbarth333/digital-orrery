@@ -31,6 +31,7 @@ colors:
   warn-ink: "#ff8a73"
   warn-edge: "#7a1a0e"
   label-dim: "#b9ad92"
+  lamp-ink-off: "#c9bfa6"
   flown-line: "#4f9a86"
   warn: "#c62f1c"
   black: "#000000"
@@ -50,13 +51,13 @@ typography:
     letterSpacing: "0.08em"
   engraved:
     fontFamily: "Michroma, B612, sans-serif"
-    fontSize: "10px"
+    fontSize: "11px"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "0.14em"
   engraved-small:
     fontFamily: "Michroma, B612, sans-serif"
-    fontSize: "10px"
+    fontSize: "11px"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "0.14em"
@@ -74,25 +75,25 @@ typography:
     letterSpacing: "0.02em"
   body:
     fontFamily: "B612, system-ui, sans-serif"
-    fontSize: "13px"
+    fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.45
     letterSpacing: "0em"
   body-small:
     fontFamily: "B612, system-ui, sans-serif"
-    fontSize: "11px"
+    fontSize: "12px"
     fontWeight: 400
     lineHeight: 1.45
     letterSpacing: "0em"
   rail:
     fontFamily: "B612, system-ui, sans-serif"
-    fontSize: "12px"
+    fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.45
     letterSpacing: "0.06em"
   code:
     fontFamily: "B612 Mono, ui-monospace, monospace"
-    fontSize: "10px"
+    fontSize: "11px"
     fontWeight: 400
     lineHeight: 1.6
     letterSpacing: "0em"
@@ -102,6 +103,12 @@ typography:
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "0.08em"
+  legend:
+    fontFamily: "B612, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: "0.06em"
   equation:
     fontFamily: "Orrery Math, STIX Two Math, Cambria Math, Latin Modern Math, math"
     fontSize: "15px"
@@ -122,7 +129,7 @@ components:
   key:
     backgroundColor: "{colors.panel-raised}"
     textColor: "{colors.ink}"
-    typography: "{typography.engraved}"
+    typography: "{typography.legend}"
     rounded: "{rounded.key}"
     padding: "0 14px"
     height: "34px"
@@ -233,9 +240,10 @@ Standard quotes it [3].
   710 mm [4], and Michroma's and B612's capitals are 0.75 em, so at a desk
   that is about 14 px for text, 18 px for control legends and 23 px for
   group labels, each step about 25 % up as MIL-STD-1472 grades them
-  [3, §6.1.2.1.2–.5]. The console's 10–11 px engraving is below this; it is
-  the target for a typography pass, not yet applied. Panel codes stay
-  decoration.
+  [3, §6.1.2.1.2–.5]. The console sets type by role in three TYPE steps
+  (Typography, below): step 1 keeps a laptop's layout with text at 14 px
+  and legends at 12 px; step 3 reaches 18 px legends with the panels
+  widened. Panel codes stay decoration.
 
 Product truth is in [PRODUCT.md](PRODUCT.md).
 
@@ -288,15 +296,19 @@ plotting table, kept out of the panel palette:
   Hill spheres, `#8dffa0` the Kp-driven auroral oval; the gravity field's
   bar runs to `#2f8fb0`, and the flow legend from `#3d5a64` to `#8fc8d8`.
 - **Plotting-table lamps:** go `#1f3a1b`, caution `#4a3c0e` and warn
-  `#4b130b` fields, with `#8d877a` for an unlit lamp's ink; `#3a3328` for
-  the rules between their rows.
+  `#4b130b` fields, with **lamp-ink-off** `#c9bfa6` for an unlit lamp's
+  legend (6.5:1 on lamp-dark, so it reads lit or unlit); `#3a3328` for the
+  rules between their rows.
 
 ## Typography
 
-- **Michroma**, wide extended capitals: the wordmark, headings and every
-  engraved label.
-- **B612**, the Airbus cockpit face: body text and every number. Its digits
-  share one width, so values align and the clock never jitters.
+- **Michroma**, wide extended capitals: the wordmark, headings, the
+  nomenclature strips and the engraved labels beside values and fields.
+- **B612**, the Airbus cockpit face: body text and every number, and in
+  capitals the legends of controls (keys, tabs, lamps, disclosures). Its
+  digits share one width, so values align and the clock never jitters.
+  Michroma's wide capitals at a legend's 18 px would not fit a key; a
+  narrower face on the controls is how real panels did it too.
 - **B612 Mono**: codes only (source tags, panel designations, key caps).
 
 All three are SIL OFL and self-hosted.
@@ -312,34 +324,53 @@ it loads. (Noto Sans Math is left out: Chromium doesn't stretch with it.)
 
 ### Hierarchy
 
-| Role | Face and size |
-| --- | --- |
-| Plate heading | 26 px Michroma |
-| Clock | 17 px B612 (15 px on phones) |
-| Body and values | 13 px B612 |
-| Wordmark (rail) | 12 px Michroma |
-| Rail | 12 px B612, uppercase |
-| Engraved labels | 11 px or 10 px Michroma, tracked 0.14em |
-| Tags | 10 px B612 Mono |
-| Equations (tag detail) | 15 px math font, phosphor |
-| Panel codes | 9 px B612 Mono |
+Sizes are set by role (`--t-*` in `app.css`), in three TYPE steps chosen
+with the rail foot's TYPE keys and kept for the browser. Step 1 fits a
+laptop; step 3 reaches the readability standard's sizes, the plate and
+console widening by 15 % and 32 % (`--w`) and the rail, whose strips'
+titles are long, by 20 % and 42 % (`--wr`).
+
+| Role | Face | Step 1 | Step 2 | Step 3 |
+| --- | --- | ---: | ---: | ---: |
+| Plate heading | Michroma | 26 | 28 | 30 |
+| Clock | B612 | 17 | 19 | 22 |
+| Values, inputs, text | B612 | 14 | 15 | 16 |
+| Rail rows, lists | B612 | 13 | 15 | 17 |
+| Units, notes, hints | B612 | 12 | 13 | 14 |
+| Engraved labels | Michroma, 0.14em | 11 | 13 | 15 |
+| Nomenclature strips | Michroma, 0.12em | 12 | 16 | 18 |
+| Control legends | B612 capitals, 0.06em | 12 | 15 | 18 |
+| Small keys, plotting-table lamps | B612 capitals | 11 | 13 | 15 |
+| Tags | B612 Mono | 11 | 12 | 13 |
+| Labels in the sky | Michroma | 11 | 12 | 13 |
+| Small bodies', guides' labels | Michroma | 10 | 11 | 12 |
+| Equations (tag detail) | math font | 15 | 16 | 18 |
+| Panel codes | B612 Mono | 9 | 9 | 9 |
+| Key height | | 34 | 38 | 42 |
+
+![The flight console at 1440 px: before, 10 px legends and labels with Michroma keys; after at TYPE 1, the same layout with 14 px text and B612 legends; at TYPE 3, 18 px legends and the header in two rows](docs/images/console-type.jpg)
 
 Nothing is set below 10 px except the panel codes (decoration, 9 px):
 Michroma's wide capitals smear at 9 px on a 1× screen. Sizes are whole
 pixels, and labels in the sky sit on whole device pixels, so glyphs are
-never resampled.
+never resampled. The phone's layout (docs/frontend/phone.md) keeps its own
+rules on top of these.
 
 ## Layout
 
-- Desktop grid: a 64 px header band across the top; a 200 px rail, the sky
-  in the middle cell (centred on the focused body) and a 380 px plate.
+- Desktop grid: a header band across the top, 64 px when it holds one row;
+  a 212 px rail, the sky in the middle cell (centred on the focused body)
+  and a 396 px plate, both scaled with the TYPE step.
 - The flight console docks over the plate up to 1680 px wide, so the sky
   keeps its width; wider, it hangs over the sky's right edge (392 px) and
   the 3D view moves its centre left so the body in view stays clear.
 - The sky's bezel is a 7 px frame drawn over the canvas edge, with a 1 px lip
   and an inner shadow. The view plate sits inside it, lower left.
 - 8 px spacing unit.
-- Under 1300 px the header wraps onto two rows.
+- The header keeps one row while its groups fit, measured, and otherwise
+  takes two on purpose: the clock, rate and time keys, then FLIGHT and the
+  lamps under an engraved STATUS label, with the panel code in the first
+  row's free corner.
 - Under 1100 px the rail and plate narrow and the panel codes go.
 - Under 720 px the rail becomes a horizontal strip under the sky, the plate
   folds behind "Show data", the console takes the plate's place, the
@@ -370,7 +401,9 @@ casts a shadow onto the sky.
 
 ### Buttons
 
-Keys are 34 px high, engraved Michroma, with a raised bevel. RUN and HOLD
+Keys are 34 px high (38 and 42 at TYPE 2 and 3), their legends in B612
+capitals, with a raised bevel. A key that is unavailable has a flat, sunk
+face and muted ink (7.3:1), not a fade. RUN and HOLD
 are a radio pair (`role=radio`): RUN lights orange while time runs, HOLD
 stays pressed while it is held. NOW jumps to the present and is disabled
 when the clock is live. The primary key of a flow (Launch, Fly this,
@@ -397,7 +430,7 @@ lights and the plate reads EN ROUTE · Esc stop.
 
 ### Annunciator
 
-The header's lamps follow the flight-deck convention: green status (LIVE,
+The header's lamps follow the flight-deck convention (class `k-status`): green status (LIVE,
 KERNEL: in tolerance, not advisories, which aviation keeps off green [5, (e)]), amber caution (LAG) and red warning (WARN). Every lamp is labelled,
 so colour is never the only cue. A new warning lights WARN and flashes ACK;
 acknowledging stops the flash, but the lamp stays lit while the condition
@@ -427,7 +460,7 @@ select dressed as a window, with a drawn caret.
 ### Tabs
 
 The flight console's MISSION, PLANNER and ROCKET tabs are keys that stay
-pressed: the selected one is window black with amber engraving.
+pressed: the selected one is window black with an amber legend.
 
 ### Number inputs
 
