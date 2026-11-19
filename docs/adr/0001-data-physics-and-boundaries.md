@@ -207,7 +207,7 @@ The domain can come first: it is cheap and protects every link.
 4. [x] Add the data sets to `.gitignore`. Run `npm run data` in the dev container, Codespaces and CI (cached).
 5. [x] Set `base` in `vite.config.js`, and add a Pages workflow: build, pull the pinned data, upload the artifact, deploy.
 6. [x] Update the README with the site link, the partial-clone tip and the setup steps.
-7. [ ] Ask the portfolio's maintainers to add an "Open the orrery" link to `projects/digital-orrery.html`.
+7. [x] Ask the portfolio's maintainers to add an "Open the orrery" link to `projects/digital-orrery.html`. Done in Zyzzbarth333.github.io#41, 19 Nov 2026: the Code row links the live site, in a new tab, after the repository.
 8. [ ] Gate:
    - a fresh clone in a clean container runs with `npm install && npm run data && npm run dev`;
    - the deployed site loads on a phone.
