@@ -99,14 +99,21 @@ console.log('Mission: a real mission that cannot be fetched');
 {
   const before = workers.length;
   const m = new Mission();
-  check('the mission runs its kernel in a worker', workers.length === before + 1 && m.client.worker === workers.at(-1));
+  // The worker starts once App.tsx keeps the Mission (useLifetime), not
+  // when it is built: StrictMode builds one it throws away.
+  check('a new mission starts no worker of its own', workers.length === before && m.client.worker === null);
+  m.start();
+  m.start();
+  check('started, it runs its kernel in one worker', workers.length === before + 1 && m.client.worker === workers.at(-1));
   answers = [{ status: 404 }]; fetched = [];
   const err = await m.fetchReal('artemis1').then(() => null, (e) => e);
   check('a 404 rejects, naming the mission and the status', err?.message === 'mission artemis1: HTTP 404' && fetched[0].endsWith('missions/artemis1.json'));
   answers = [{ status: 200, body: { flownFrom: 'artemis1-flown' } }, { status: 404 }]; fetched = [];
   const err2 = await m.fetchReal('artemis1-plan').then(() => null, (e) => e);
   check('so does a 404 for the flown path it borrows (flownFrom)', err2?.message === 'mission artemis1-flown: HTTP 404' && fetched.length === 2);
-  m.client.dispose();
+  const w = workers.at(-1);
+  m.dispose();
+  check('disposed, its worker is stopped and it starts no other', w.terminated && m.client.worker === null && (m.start(), workers.length === before + 1));
 }
 
 console.log(`stores: ${passed} passed${failed ? `, ${failed} FAILED` : ''}`);
