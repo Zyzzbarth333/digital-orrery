@@ -34,14 +34,14 @@ layer the rail switches on ([below](#the-irregular-moons)).
 
 ![Jupiter at a day a second: Metis, Adrastea, Amalthea, Thebe and Io go round on their orbit lines, then the camera flies to Io](../clips/jupiter-moons.webp)
 
-Code: `src/physics/moons.js` (positions), `src/physics/moonTables.js` (the
+Code: `packages/physics/src/moons.js` (positions), `packages/physics/src/moonTables.js` (the
 satellite-ephemeris tables, fitted by `c/moon_cheb.c` into
 `public/ephemeris/moons/`, loaded by `moonLoad.js` in the browser and
-`moonNode.js` under Node), `src/physics/moons.data.js` (the fallback's
+`moonNode.js` under Node), `packages/physics/src/moons.data.js` (the fallback's
 elements and every moon's physical data, written by
-`pipelines/moons.fetch.mjs`), `src/physics/moons.test.mjs` (the checks),
+`pipelines/moons.fetch.mjs`), `packages/physics/src/moons.test.mjs` (the checks),
 and the scene's `systemStates` in `src/scene/OrreryScene.ts`; for the
-kernel, `src/physics/bodies.js` and `src/physics/flyby.test.mjs`.
+kernel, `packages/physics/src/bodies.js` and `packages/physics/src/flyby.test.mjs`.
 
 ## Positions
 
@@ -228,7 +228,7 @@ uses the barycentre's state and the system GM.
 ## How right they are
 
 `npm test` runs `moons.test.mjs` against Horizons vectors that were not used
-in any fit (`src/physics/fixtures/moons_horizons.json`): daily over November
+in any fit (`packages/physics/src/fixtures/moons_horizons.json`): daily over November
 2026, and on 1 January of each year 2000 to 2050. The fixture is rounded to
 0.1 km.
 
@@ -435,10 +435,10 @@ the only one with a measured GM.
 
 ![Himalia flown to: its NEOWISE size and Cassini's 1.25 elongation, lit, with its plate](moons-irregular-himalia.jpg)
 
-Code: `src/physics/irregularMoons.js` (positions),
-`src/physics/irregularMoons.data.js` (elements, sizes, GMs, discoveries and
+Code: `packages/physics/src/irregularMoons.js` (positions),
+`packages/physics/src/irregularMoons.data.js` (elements, sizes, GMs, discoveries and
 the fitted corrections, written by `pipelines/irregularMoons.fetch.mjs`),
-`src/physics/irregularMoons.test.mjs`, `src/scene/irregularMoons.ts` (the
+`packages/physics/src/irregularMoons.test.mjs`, `src/scene/irregularMoons.ts` (the
 layer) and `src/app/irregular-moon-plate.tsx`.
 
 ### Positions

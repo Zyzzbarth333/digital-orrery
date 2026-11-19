@@ -40,7 +40,7 @@
  *
  * With SB_REFERENCE=<file.json> set it also writes the SPK's heliocentric
  * states of each asteroid on the dates asteroids.horizons.mjs asks Horizons
- * for (src/physics/fixtures/asteroids_sb441.json), so the JavaScript tests
+ * for (packages/physics/src/fixtures/asteroids_sb441.json), so the JavaScript tests
  * check the table against SB441 itself without SPICE.
  */
 

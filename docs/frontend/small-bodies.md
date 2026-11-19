@@ -53,7 +53,7 @@ population as its swatch instead.
   precision.
 - **The faint belt's file** (`smallbodies-belt.bin`, loaded after the
   points) packs each body in 12 bytes instead (`packBelt` in
-  `src/physics/beltGrid.js`): 17.4 MB for 1.45 million bodies, down from
+  `packages/physics/src/beltGrid.js`): 17.4 MB for 1.45 million bodies, down from
   23.1 MB at 16 bytes.
   - a, uint16 over 1.3 to 4.7 au (7,800 km steps);
   - node, peri, M, uint16 (0.0055° steps, as above);
@@ -159,7 +159,7 @@ So they are drawn as a haze (`src/scene/beltHaze.ts`):
 
 1. **Binning** (`beltHaze.worker.ts`, off the main thread). Every body is
    placed on its orbit at the clock's time, by Kepler's equation.
-2. **The grid** (`src/physics/beltGrid.js`). Its reflected sunlight, 10^(−0.4 H) / r², is shared
+2. **The grid** (`packages/physics/src/beltGrid.js`). Its reflected sunlight, 10^(−0.4 H) / r², is shared
    among the 8 nearest cells of a 3D grid (`beltGrid.ts`): 256 × 256 × 48
    cells over ±5.6 au in x and y and ±1.6 au in z, heliocentric ecliptic.
    That takes about 0.7 s and is redone whenever the clock has moved
@@ -196,7 +196,7 @@ or hides the haze with the points.
 The ellipses drift: by 2000 or 2050 Ceres's 2026 ellipse is 14.6 million km
 from Ceres, Hygiea's 72 million. So the largest asteroids, and the other
 named bodies JPL's SB441 files cover, take their positions from those files
-instead (`src/physics/sbTable.js`).
+instead (`packages/physics/src/sbTable.js`).
 
 - **The source:** JPL's SB441 small-body ephemerides (Farnocchia 2021, JPL
   IOM 392R-21-005 [6]), integrated with the DE441 planets [7] and the largest
@@ -249,7 +249,7 @@ cmake --build c/build --target sb_cheb
 ```
 
 ```bash
-K=python/data/kernels; SB_REFERENCE=src/physics/fixtures/asteroids_sb441.json c/build/sb_cheb public/ephemeris/sb441-asteroids-2000-2050.bin 2000 2050 0.8 $K/lsk/naif0012.tls $K/spk/de442.bsp $K/spk/asteroids/sb441-n373s.bsp 2000001 2000002 2000003 2000004 2000007 2000010 2000015 2000016 2000031 2000052 2000065 2000087 2000088 2000107 2000511 2000704 2000021 2000433 2050000 2090377 2090482 2136108 2136199 2136472 2225088
+K=python/data/kernels; SB_REFERENCE=packages/physics/src/fixtures/asteroids_sb441.json c/build/sb_cheb public/ephemeris/sb441-asteroids-2000-2050.bin 2000 2050 0.8 $K/lsk/naif0012.tls $K/spk/de442.bsp $K/spk/asteroids/sb441-n373s.bsp 2000001 2000002 2000003 2000004 2000007 2000010 2000015 2000016 2000031 2000052 2000065 2000087 2000088 2000107 2000511 2000704 2000021 2000433 2050000 2090377 2090482 2136108 2136199 2136472 2225088
 ```
 
 ```bash

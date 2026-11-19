@@ -35,8 +35,8 @@
 // it to well under a millimetre.
 
 import * as THREE from 'three';
-import { sunFraction } from '../physics/satellites.js';
-import { dot, cross, unit } from '../physics/vec.js';
+import { sunFraction } from '@digital-orrery/physics/satellites.js';
+import { dot, cross, unit } from '@digital-orrery/physics/vec.js';
 import { asset, axisVec, type Asset } from './craftAssets';
 import { SATELLITE_MODELS } from './probeModels';
 

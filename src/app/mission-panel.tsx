@@ -11,8 +11,8 @@ import type { SimClock } from './clock';
 import { useClock } from './clock';
 import { useMission, REAL_MISSIONS, altitudeRadius, type Mission, type DepartureDirection, type RealBurns } from './mission';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
-import { kernelSeconds, kernelMs } from '../physics/kernelHost.js';
-import { heightAbove } from '../physics/entry.js';
+import { kernelSeconds, kernelMs } from '@digital-orrery/physics/kernelHost.js';
+import { heightAbove } from '@digital-orrery/physics/entry.js';
 import { SourceTag } from './source-tag';
 import { usePeek } from './peek';
 

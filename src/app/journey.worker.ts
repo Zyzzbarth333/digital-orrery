@@ -6,15 +6,15 @@
 // come back for "Fly this journey", its path for drawing beside the plan,
 // and each waypoint's closest approach for the planner's readout.
 
-import { solveJourney, registerSmallBodies } from '../physics/journey.js';
-import { planFlight, flyPlanned } from '../physics/journeyFlight.js';
-import { legProfile } from '../physics/feasibility.js';
-import { solarSystemBodies } from '../physics/bodies.js';
-import { KERNEL_EPOCH_MS } from '../physics/kernelHost.js';
-import { helioStateEqj } from '../physics/ephemeris.js';
-import { loadDeTable } from '../physics/deLoad.js';
+import { solveJourney, registerSmallBodies } from '@digital-orrery/physics/journey.js';
+import { planFlight, flyPlanned } from '@digital-orrery/physics/journeyFlight.js';
+import { legProfile } from '@digital-orrery/physics/feasibility.js';
+import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
+import { KERNEL_EPOCH_MS } from '@digital-orrery/physics/kernelHost.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { loadDeTable } from '../browser/deLoad.js';
 import { eqjToEclFast } from '../scene/craftPaths';
-import type { Journey } from '../physics/journey.js';
+import type { Journey } from '@digital-orrery/physics/journey.js';
 
 const ready = loadDeTable();
 let sys: ReturnType<typeof solarSystemBodies> | null = null;

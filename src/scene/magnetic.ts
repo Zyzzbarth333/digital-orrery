@@ -29,17 +29,17 @@
 
 import * as THREE from 'three';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
-import { getBuffer, getJson } from '../physics/fetchData.js';
+import { getBuffer, getJson } from '../browser/fetchData.js';
 
 export type MagneticKey = 'magnetic' | 'aurora' | 'belts';
-type Mag = typeof import('../physics/magnetic.js');
-type Aur = typeof import('../physics/aurora.js');
-type Belts = typeof import('../physics/belts.js');
-type RC = typeof import('../physics/ringCurrent.js');
-type SunMod = typeof import('../physics/sunField.js');
-type T89 = typeof import('../physics/t89.js');
-type Bnd = typeof import('../physics/boundaries.js');
-type Ovation = ReturnType<typeof import('../physics/ovation.js')['parseOvation']>;
+type Mag = typeof import('@digital-orrery/physics/magnetic.js');
+type Aur = typeof import('@digital-orrery/physics/aurora.js');
+type Belts = typeof import('@digital-orrery/physics/belts.js');
+type RC = typeof import('@digital-orrery/physics/ringCurrent.js');
+type SunMod = typeof import('@digital-orrery/physics/sunField.js');
+type T89 = typeof import('@digital-orrery/physics/t89.js');
+type Bnd = typeof import('@digital-orrery/physics/boundaries.js');
+type Ovation = ReturnType<typeof import('@digital-orrery/physics/ovation.js')['parseOvation']>;
 type Model = NonNullable<ReturnType<Mag['magneticModel']>>;
 type V3 = [number, number, number];
 
@@ -321,7 +321,7 @@ export class MagneticLayer {
   private kpLoaded = false;
   // NOAA's live aurora map, fetched while the auroras are on and the clock
   // is near now, at most every five minutes.
-  private ov: typeof import('../physics/ovation.js') | null = null;
+  private ov: typeof import('@digital-orrery/physics/ovation.js') | null = null;
   private ovation: Ovation | null = null;
   private ovationAsked = 0;
   private ovationMesh: THREE.Mesh | null = null;
@@ -353,7 +353,7 @@ export class MagneticLayer {
   set(key: MagneticKey, on: boolean): void {
     this.on[key] = on;
     if (on && !this.loading) {
-      this.loading = Promise.all([import('../physics/magnetic.js'), import('../physics/aurora.js'), import('../physics/belts.js'), import('../physics/ovation.js'), import('../physics/ringCurrent.js'), import('../physics/sunField.js'), import('../physics/t89.js'), import('../physics/boundaries.js')])
+      this.loading = Promise.all([import('@digital-orrery/physics/magnetic.js'), import('@digital-orrery/physics/aurora.js'), import('@digital-orrery/physics/belts.js'), import('@digital-orrery/physics/ovation.js'), import('@digital-orrery/physics/ringCurrent.js'), import('@digital-orrery/physics/sunField.js'), import('@digital-orrery/physics/t89.js'), import('@digital-orrery/physics/boundaries.js')])
         .then(([m, a, b, o, r, sf, t, bd]) => { this.mag = m; this.aur = a; this.belts = b; this.ov = o; this.rc = r; this.sf = sf; this.t89 = t; this.bnd = bd; })
         // A failed load (a redeploy renamed its chunks under an open tab, the
         // network dropped) is tried again the next time a layer goes on.

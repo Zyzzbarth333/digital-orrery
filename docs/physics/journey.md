@@ -7,10 +7,10 @@ Each leg's transfer options are set side by side, and you can pick one.
 The journey's delta-v is then turned into a stack of stages.
 
 The code:
-- **`src/physics/transfers.js`:** closed-form transfers and flyby pieces.
-- **`src/physics/journey.js`:** legs, chaining, options and drawing.
-- **`src/physics/journeyFlight.js`:** the kernel's flight.
-- **`src/physics/staging.js`:** the rocket.
+- **`packages/physics/src/transfers.js`:** closed-form transfers and flyby pieces.
+- **`packages/physics/src/journey.js`:** legs, chaining, options and drawing.
+- **`packages/physics/src/journeyFlight.js`:** the kernel's flight.
+- **`packages/physics/src/staging.js`:** the rocket.
 - **The app side:** `src/app/journey.ts` holds the store,
   `src/app/journey-panel.tsx` the panel, `src/app/journey.worker.ts` runs
   the kernel off the page's thread, and `src/scene/journeyLayer.ts` draws
@@ -1489,7 +1489,7 @@ with that porkchop computed.
 
 ## The flags
 
-`src/physics/feasibility.js` answers whether the journey can be flown, and
+`packages/physics/src/feasibility.js` answers whether the journey can be flown, and
 if not, when. It works from the window profile of each leg that can choose
 its departure (`legProfile`). That profile is the cheapest delta-v for
 each departure date, from when the leg can first leave, across 1.25

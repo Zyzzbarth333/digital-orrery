@@ -29,8 +29,8 @@ import { PorkchopPanel } from './planner-panel';
 import { StackStation } from './plot-stack';
 import { GoStation } from './plot-go';
 import { SourceTag } from './source-tag';
-import { stateOf, bodyInfo, applyOption, legPhase } from '../physics/journey.js';
-import { assess } from '../physics/feasibility.js';
+import { stateOf, bodyInfo, applyOption, legPhase } from '@digital-orrery/physics/journey.js';
+import { assess } from '@digital-orrery/physics/feasibility.js';
 
 type V3 = [number, number, number];
 type P2 = [number, number];

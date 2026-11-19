@@ -1,12 +1,12 @@
 // src/scene/beltHaze.worker.ts
 //
-// Runs the belt haze's binning (src/physics/beltGrid.js) off the main
+// Runs the belt haze's binning (packages/physics/src/beltGrid.js) off the main
 // thread: given the packed bodies once, then a time, it posts the grid as
 // half floats, scaled so its largest value is 30,000 (half float's
 // precision is relative, a part in 2,000, down to 6e-5 of that and below),
 // with the scale to undo it.
 
-import { loadBelt, buildBelt } from '../physics/beltGrid.js';
+import { loadBelt, buildBelt } from '@digital-orrery/physics/beltGrid.js';
 
 let belt: ReturnType<typeof loadBelt> | null = null;
 let first = true;

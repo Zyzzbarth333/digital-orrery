@@ -24,17 +24,17 @@
 import fs from 'node:fs';
 import dns from 'node:dns';
 import { helioOf, geocentric, sys, kt } from '../validation/artemis2.lib.mjs';
-import { advance, accelHeliocentric } from '../src/physics/nbody.js';
-import { createState } from '../src/physics/nbody.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { makeEnvironment } from '../src/physics/environment.js';
-import { tdbSeconds } from '../src/physics/timescale.js';
+import { advance, accelHeliocentric } from '@digital-orrery/physics/nbody.js';
+import { createState } from '@digital-orrery/physics/nbody.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { makeEnvironment } from '@digital-orrery/physics/environment.js';
+import { tdbSeconds } from '@digital-orrery/physics/timescale.js';
 import { massAfterBurns } from '../validation/artemis1.lib.mjs';
-import { ORION_CRAFT, ORION_ENGINE } from '../src/physics/orion.js';
-import { norm } from '../src/physics/vec.js';
+import { ORION_CRAFT, ORION_ENGINE } from '@digital-orrery/physics/orion.js';
+import { norm } from '@digital-orrery/physics/vec.js';
 
 dns.setDefaultResultOrder('ipv4first');
-const fx = JSON.parse(fs.readFileSync(new URL('../src/physics/fixtures/artemis1.json', import.meta.url)));
+const fx = JSON.parse(fs.readFileSync(new URL('../packages/physics/src/fixtures/artemis1.json', import.meta.url)));
 const row = (s) => ({ ms: Date.parse(s[0]), r: s.slice(1, 4), v: s.slice(4, 7) });
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const line = (s) => console.log(`${'='.repeat(72)}\n${s}\n${'='.repeat(72)}`);

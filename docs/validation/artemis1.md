@@ -32,7 +32,7 @@ from November 2026.
   fetches Orion every minute for the whole flight, and every 5 s around the
   six largest burns. Earth-centred, ICRF axes, UTC; cached in
   `~/.cache/digital-orrery/artemis1`. It writes
-  `src/physics/fixtures/artemis1.json` (434 kB):
+  `packages/physics/src/fixtures/artemis1.json` (434 kB):
   - every minute of each event;
   - the 5-second burn windows;
   - the track every 30 minutes;
@@ -133,7 +133,7 @@ alone, and 43.5 m and 5.35 m with the full model.
   The kernel flies Orion as a cannonball with C_r A/m = 4.0×10⁻³ m²/kg
   at the start (79.8 m² at C_r 1.3 for 26 t), rising to 5.1×10⁻³ as the
   propellant goes, shadows included. The app's Orion uses the same
-  (`ORION_CRAFT`, `src/physics/orion.js`): its mission burns draw down
+  (`ORION_CRAFT`, `packages/physics/src/orion.js`): its mission burns draw down
   its mass as they fly.
 - **Tides and relativity are below what this data can show:** a few
   centimetres and under a metre, against NASA's own joins of tens of

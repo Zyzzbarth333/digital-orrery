@@ -3,10 +3,10 @@
 // The ROCKET tab: build a launch vehicle stage by stage, see what it can
 // do, size it for a job (an orbit, the Moon, or the window picked in the
 // PLANNER), and fly it from a pad into the simulation
-// (docs/frontend/rocket.md). The physics is src/physics/rocket.js, after
+// (docs/frontend/rocket.md). The physics is packages/physics/src/rocket.js, after
 // Curtis, Orbital Mechanics for Engineering Students, chapter 13. It also
 // flies OpenRocket designs (.ork files) with the same ascent, beside
-// OpenRocket's own result (src/physics/ork.js), and the stack the plotting
+// OpenRocket's own result (packages/physics/src/ork.js), and the stack the plotting
 // table's STACK station sizes for the journey (staging.js stackAsLauncher),
 // with the journey itself as a job.
 
@@ -16,15 +16,15 @@ import type { Mission } from './mission';
 import {
   stackPerformance, optimalStaging, levelAscent, ascentToState, ascentTrack, launchAzimuth, rotationBonus, realAtmosphere,
   deltaVToOrbit, deltaVDeparture, deltaVToApoapsis, circularSpeed, surfaceSpeed, EARTH, G0,
-} from '../physics/rocket.js';
-import { bodyAxesEqj } from '../physics/orientation.js';
-import { LAUNCHERS } from '../physics/launchers.js';
+} from '@digital-orrery/physics/rocket.js';
+import { bodyAxesEqj } from '@digital-orrery/physics/orientation.js';
+import { LAUNCHERS } from '@digital-orrery/physics/launchers.js';
 import { SourceTag } from './source-tag';
 import { GuardedKey } from './guarded-key';
-import { rvToElements } from '../physics/orbital.js';
-import { orkXml, readOrk, vehicleFromOrk, flyOrk } from '../physics/ork.js';
-import { stackAsLauncher } from '../physics/staging.js';
-import { stackShape } from '../physics/stackShape.js';
+import { rvToElements } from '@digital-orrery/physics/orbital.js';
+import { orkXml, readOrk, vehicleFromOrk, flyOrk } from '@digital-orrery/physics/ork.js';
+import { stackAsLauncher } from '@digital-orrery/physics/staging.js';
+import { stackShape } from '@digital-orrery/physics/stackShape.js';
 import type { StackShape } from '../scene/craftModels';
 import { useStack } from './plot-stack';
 import type { JourneyStore } from './journey';
@@ -42,7 +42,7 @@ interface Preset {
 }
 
 // The presets: real launchers from their published figures
-// (src/physics/launchers.js), shown greyed until changed; then a generic
+// (packages/physics/src/launchers.js), shown greyed until changed; then a generic
 // two-stage launcher sized for 22 t to low orbit (not any real rocket), and
 // the single stage of Curtis's Example 13.3, which the tests check the
 // ascent against.
@@ -409,7 +409,7 @@ export function RocketPanel({ clock, mission, journey, onFlown }: { clock: SimCl
 
 // An OpenRocket design (.ork): one of the simulations OpenRocket saved in
 // it, flown by this app's ascent and set beside OpenRocket's own result
-// (src/physics/ork.js; docs/physics/rocket.md#openrocket-designs-in-the-rocket-tab).
+// (packages/physics/src/ork.js; docs/physics/rocket.md#openrocket-designs-in-the-rocket-tab).
 // The file is read in the browser and never leaves it.
 type OrkDesign = ReturnType<typeof readOrk>;
 interface OrkSim { index: number; name: string; status: string; branches: { length: number }[] }

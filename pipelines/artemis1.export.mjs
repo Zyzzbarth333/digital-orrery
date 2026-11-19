@@ -25,18 +25,18 @@
 //   body whose sphere of influence holds it (the Moon for the flybys and the
 //   distant retrograde orbit), as Orion's were.
 
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import fs from 'node:fs';
 import { NASA_BURNS, parseHorizons } from '../validation/artemis1.lib.mjs';
 import { helioOf, geocentric, sys, kt, vnb } from '../validation/artemis2.lib.mjs';
-import { advance } from '../src/physics/nbody.js';
-import { helioStateEqj } from '../src/physics/ephemeris.js';
-import { RealMission } from '../src/physics/realMission.js';
-import { dot, norm } from '../src/physics/vec.js';
+import { advance } from '@digital-orrery/physics/nbody.js';
+import { helioStateEqj } from '@digital-orrery/physics/ephemeris.js';
+import { RealMission } from '@digital-orrery/physics/realMission.js';
+import { dot, norm } from '@digital-orrery/physics/vec.js';
 
 const CACHE = `${process.env.HOME}/.cache/digital-orrery/artemis1/2022-11-16-08-47_2022-12-11-17-19_1m.txt`;
 if (!fs.existsSync(CACHE)) throw new Error(`no ${CACHE}: run npm run fetch:artemis1 first`);
-const fx = JSON.parse(fs.readFileSync(new URL('../src/physics/fixtures/artemis1.json', import.meta.url)));
+const fx = JSON.parse(fs.readFileSync(new URL('../packages/physics/src/fixtures/artemis1.json', import.meta.url)));
 const row = (s) => ({ ms: Date.parse(s[0]), r: s.slice(1, 4), v: s.slice(4, 7) });
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];

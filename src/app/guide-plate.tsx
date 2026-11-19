@@ -12,12 +12,12 @@ import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODIES, BODY_BY_KEY, type BodyKey, type FocusKey } from '../scene/catalogue';
-import { bodyAxesEqj } from '../physics/orientation.js';
-import { eclToEqj } from '../physics/ephemeris.js';
-import { spinRate } from '../physics/spin.js';
-import { soiRadius, hillRadius, lagrangePoints } from '../physics/gravityGuides.js';
-import { rvToElements } from '../physics/orbital.js';
-import { norm } from '../physics/vec.js';
+import { bodyAxesEqj } from '@digital-orrery/physics/orientation.js';
+import { eclToEqj } from '@digital-orrery/physics/ephemeris.js';
+import { spinRate } from '@digital-orrery/physics/spin.js';
+import { soiRadius, hillRadius, lagrangePoints } from '@digital-orrery/physics/gravityGuides.js';
+import { rvToElements } from '@digital-orrery/physics/orbital.js';
+import { norm } from '@digital-orrery/physics/vec.js';
 
 type V3 = [number, number, number];
 const DEG = 180 / Math.PI;

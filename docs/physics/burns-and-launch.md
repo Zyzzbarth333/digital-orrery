@@ -114,7 +114,7 @@ $\hat{\mathbf u}$ with speed $\sqrt{v_\infty^2 + 2\mu/R}$.
 
 ## Porkchop grid
 
-`src/physics/porkchop.js` [1, §8.11]. For each departure date and time of flight, the
+`packages/physics/src/porkchop.js` [1, §8.11]. For each departure date and time of flight, the
 Lambert arc between the two planets' heliocentric ecliptic states gives
 $\mathbf v_1$ and $\mathbf v_2$; then
 

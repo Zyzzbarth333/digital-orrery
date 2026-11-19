@@ -28,7 +28,7 @@
 
 import * as THREE from 'three';
 import { ATMO_FUNCS, ATMO_UNIFORMS, atmosphereUniforms, type AtmosphereParams } from './atmosphere';
-import { DEFLECTION_GROUND_RAD, REFRACTIVITY_SCALE_KM } from '../physics/umbra.js';
+import { DEFLECTION_GROUND_RAD, REFRACTIVITY_SCALE_KM } from '@digital-orrery/physics/umbra.js';
 import { VISIBLE_FRACTION } from './shadowGlsl';
 
 export const MAX_OCCLUDERS = 4;

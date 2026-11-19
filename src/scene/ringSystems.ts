@@ -9,8 +9,8 @@ import * as THREE from 'three';
 import {
   URANUS_NARROW, URANUS_BROAD, URANUS_DUST, NEPTUNE_NARROW, NEPTUNE_BROAD, ADAMS_ARC_DUST, ADAMS_WIGGLE,
   PARTICLE_ALBEDO, edgeAt, ringPlaneAt, ringAxes, fraterniteLongitude, galateaLongitude, arcsAt, URANUS_EPOCH_JD,
-} from '../physics/rings.js';
-import { MOON_DATA } from '../physics/moons.data.js';
+} from '@digital-orrery/physics/rings.js';
+import { MOON_DATA } from '@digital-orrery/physics/moons.data.js';
 import { makeFlatRings, makeDustRings, setMainShape, tauTexture, MAX_NARROW } from './rings';
 
 type Vec3 = [number, number, number];

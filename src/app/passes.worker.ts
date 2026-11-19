@@ -1,15 +1,15 @@
 // src/app/passes.worker.ts
 //
-// A satellite's passes over a place (src/physics/passes.js), off the main
+// A satellite's passes over a place (packages/physics/src/passes.js), off the main
 // thread: three days of the ISS take about 50 ms. The DE442 table brings
 // the Earth orientation parameters (UT1 and polar motion) and the Sun.
 //
 // In:  { id, omm, lat, lon, heightKm, fromMs, days }
 // Out: { id, passes, ms }
 
-import { satrecOf } from '../physics/satellites.js';
-import { siteOf, findPasses } from '../physics/passes.js';
-import { loadDeTable } from '../physics/deLoad.js';
+import { satrecOf } from '@digital-orrery/physics/satellites.js';
+import { siteOf, findPasses } from '@digital-orrery/physics/passes.js';
+import { loadDeTable } from '../browser/deLoad.js';
 
 const ready = loadDeTable();
 

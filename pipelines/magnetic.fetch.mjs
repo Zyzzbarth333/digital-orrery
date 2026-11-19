@@ -4,7 +4,7 @@
 //
 //   npm run fetch:magnetic
 //
-// - src/physics/magnetic.data.js: the planets' internal fields as Schmidt
+// - packages/physics/src/magnetic.data.js: the planets' internal fields as Schmidt
 //   semi-normalised Gauss coefficients (nT):
 //   - Earth, IGRF-14 (IAGA Working Group V-MOD, Alken et al. 2025): every
 //     epoch 1900 to 2025 to degree 13 (10 before 2000) and the 2025-30
@@ -17,7 +17,7 @@
 //     (M. James, MIT licence), which transcribes the papers' table.
 // - Mars's crustal field, Langlais et al. 2019 to degree 134 (from
 //   libinternalfield's transcription): its coefficients as a test fixture
-//   (src/physics/fixtures/langlais2019.json), and the app's map of the
+//   (packages/physics/src/fixtures/langlais2019.json), and the app's map of the
 //   radial field on the 3,393.5 km sphere, 720 x 360 cells, one signed byte
 //   each on marsCrustal.js's asinh scale (public/data/mars-crustal-br.bin).
 // - public/data/sun-pfss.json: the Sun's field, the Wilcox Solar
@@ -95,7 +95,7 @@ const cassini11 = readDat(await cached(`${LIF}/saturn/cassini11.dat`, 'magnetic/
 if (jrm33[0] !== 410993.4 || cassini11[0] !== 21140.2) throw new Error('JRM33 or Cassini 11: unexpected g10');
 
 const fmt = (a) => `[${a.map((v) => (Number.isInteger(v) ? v : Number(v.toPrecision(8)))).join(',')}]`;
-const js = `// src/physics/magnetic.data.js: written by magnetic.fetch.mjs (npm run fetch:magnetic); do not edit.
+const js = `// packages/physics/src/magnetic.data.js: written by magnetic.fetch.mjs (npm run fetch:magnetic); do not edit.
 //
 // Schmidt semi-normalised Gauss coefficients in nT, in the order
 // g10 g11 h11 g20 g21 h21 g22 h22 ... (see magnetic.js).
@@ -115,14 +115,14 @@ export const JRM33 = { a: 71492, n: 13, coeffs: ${fmt(jrm33)} };
 // Cassini 11 (Dougherty et al. 2018, doi:10.1126/science.aat5434; Cao et al. 2020, doi:10.1016/j.icarus.2019.113541), R_S 60,268 km.
 export const CASSINI11 = { a: 60268, n: 11, coeffs: ${fmt(cassini11)} };
 `;
-fs.writeFileSync(new URL('../src/physics/magnetic.data.js', import.meta.url), js);
+fs.writeFileSync(new URL('../packages/physics/src/magnetic.data.js', import.meta.url), js);
 console.log(`magnetic.data.js: IGRF-14 ${epochs[0]}-${epochs.at(-1)}, JRM33 to 13, Cassini 11 to 11 (${(js.length / 1024).toFixed(0)} kB)`);
 
 // ---- Mars's crustal field ----
 {
-  const { radialFieldGrid, encodeBr } = await import('../src/physics/marsCrustal.js');
+  const { radialFieldGrid, encodeBr } = await import('@digital-orrery/physics/marsCrustal.js');
   const NM = 134, mars = readDat(await cached(`${LIF}/mars/langlais2019.dat`, 'magnetic/langlais2019.dat'), NM);
-  fs.writeFileSync(new URL('../src/physics/fixtures/langlais2019.json', import.meta.url), JSON.stringify({
+  fs.writeFileSync(new URL('../packages/physics/src/fixtures/langlais2019.json', import.meta.url), JSON.stringify({
     source: 'Langlais et al. 2019 (doi:10.1029/2018JE005854), via libinternalfield (MIT): Schmidt g/h (nT) to degree 134 in magnetic.js order, reference radius 3393.5 km',
     a: 3393.5, n: NM, coeffs: mars,
   }));
@@ -136,7 +136,7 @@ console.log(`magnetic.data.js: IGRF-14 ${epochs[0]}-${epochs.at(-1)}, JRM33 to 1
 
 // ---- the Sun: WSO's PFSS coefficients ----
 {
-  const { parseWso } = await import('../src/physics/sunField.js');
+  const { parseWso } = await import('@digital-orrery/physics/sunField.js');
   const WSO = 'http://wso.stanford.edu/Harmonic.rad';
   fs.mkdirSync(`${CACHE}/magnetic/wso`, { recursive: true });
   const index = await (await fetch(`${WSO}/`, { headers: { 'User-Agent': 'digital-orrery magnetic model' } })).text();

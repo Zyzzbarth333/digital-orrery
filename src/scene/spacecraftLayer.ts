@@ -1,6 +1,6 @@
 // src/scene/spacecraftLayer.ts
 //
-// Spacecraft beyond Earth orbit (src/physics/spacecraft.js,
+// Spacecraft beyond Earth orbit (packages/physics/src/spacecraft.js,
 // docs/frontend/spacecraft.md): orbiters of Mercury, the Moon, Mars and
 // Jupiter, the observatories about the Sun-Earth L1 and L2 points and the
 // probes in cruise, where JPL Horizons places them. Each has a marker, a
@@ -23,9 +23,9 @@
 //   moves.
 
 import * as THREE from 'three';
-import { eqjToEcl } from '../physics/ephemeris.js';
-import { parseMonth, segmentAt, stateIn } from '../physics/spacecraft.js';
-import { getBuffer, getJson } from '../physics/fetchData.js';
+import { eqjToEcl } from '@digital-orrery/physics/ephemeris.js';
+import { parseMonth, segmentAt, stateIn } from '@digital-orrery/physics/spacecraft.js';
+import { getBuffer, getJson } from '../browser/fetchData.js';
 import { orbitTrailMaterial } from './orbitTrail';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
 import { probeModelKey } from './probeModels';

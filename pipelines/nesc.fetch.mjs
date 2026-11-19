@@ -1,6 +1,6 @@
 // pipelines/nesc.fetch.mjs
 //
-// Builds src/physics/fixtures/nesc_orbital.json from NASA's 6-DOF orbital
+// Builds packages/physics/src/fixtures/nesc_orbital.json from NASA's 6-DOF orbital
 // check cases (NASA Engineering and Safety Center, NASA/TM-2015-218675;
 // https://nescacademy.nasa.gov/flightsim/2015). The data are four NASA
 // simulations' results (the report masks which tool is which: sims A to D)
@@ -82,6 +82,6 @@ for (const dir of fs.readdirSync(CASES_DIR).sort()) {
   }
   console.log(`${key.padEnd(4)} tools ${letters.join('')}, spread ${Object.entries(spread).map(([k, v]) => `${k} ${v.toPrecision(3)} m`).join(', ')}`);
 }
-const path = new URL('../src/physics/fixtures/nesc_orbital.json', import.meta.url);
+const path = new URL('../packages/physics/src/fixtures/nesc_orbital.json', import.meta.url);
 fs.writeFileSync(path, JSON.stringify(out));
 console.log(`wrote ${path.pathname}, ${(fs.statSync(path).size / 1024).toFixed(0)} kB`);

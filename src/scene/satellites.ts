@@ -1,6 +1,6 @@
 // src/scene/satellites.ts
 //
-// Earth satellites (src/physics/satellites.js, docs/frontend/satellites.md):
+// Earth satellites (packages/physics/src/satellites.js, docs/frontend/satellites.md):
 // every active satellite in CelesTrak's catalogue as a point, the named ones
 // (the ISS, Tiangong, Hubble, GPS, Galileo, the geostationary weather
 // satellites, and any found by search) with a marker, a label and their
@@ -36,12 +36,12 @@
 // geocentric position to it.
 
 import * as THREE from 'three';
-import { eqjToEcl, eclToEqj } from '../physics/ephemeris.js';
-import { parseGpCsv, satrecOf, stateEqj, stateTeme, temeToEqj, apply, inShadow, R_EARTH_KM, R_MOON_KM } from '../physics/satellites.js';
+import { eqjToEcl, eclToEqj } from '@digital-orrery/physics/ephemeris.js';
+import { parseGpCsv, satrecOf, stateEqj, stateTeme, temeToEqj, apply, inShadow, R_EARTH_KM, R_MOON_KM } from '@digital-orrery/physics/satellites.js';
 import { VISIBLE_FRACTION } from './bodyMaterial';
 import { orbitTrailMaterial } from './orbitTrail';
 import { SatelliteModel } from './satelliteModels';
-import { getJson, getText } from '../physics/fetchData.js';
+import { getJson, getText } from '../browser/fetchData.js';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000;

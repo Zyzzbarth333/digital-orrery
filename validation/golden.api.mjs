@@ -7,7 +7,7 @@
 //
 // It installs no data: the caller does first (deNode.js under Node; the
 // browser's fetch loader elsewhere), so the same module can run in a
-// browser engine. The inputs live here, not in src/physics/fixtures, so the
+// browser engine. The inputs live here, not in packages/physics/src/fixtures, so the
 // snapshot does not depend on files that move.
 //
 //   ephemeris   the planets, the Moon and Pluto from the Sun, and the
@@ -23,18 +23,18 @@
 //   satellites  SGP4 and SDP4 (Vallado et al. 2006's verification TLEs)
 //               in TEME and J2000
 
-import { helioStateEqj, helioStateEqjAtTt, ttSeconds, utcMsAtTt, deltaT } from '../src/physics/ephemeris.js';
-import { baryStateEqj, BARY_KEYS } from '../src/physics/barycentres.js';
-import { eopAt } from '../src/physics/eop.js';
-import { earthFixedMatrix } from '../src/physics/earthRotation.js';
-import { moonStateEqjAtTt } from '../src/physics/moons.js';
-import { irregularStateEqjAtTt, irregularSource, IRREGULARS_OF } from '../src/physics/irregularMoons.js';
-import { sbIds, sbHelioState } from '../src/physics/sbTable.js';
-import { createKernelHost, KERNEL_EPOCH_MS } from '../src/physics/kernelHost.js';
-import { solarSystemBodies } from '../src/physics/bodies.js';
-import * as J from '../src/physics/journey.js';
-import { planFlight, flyJourney } from '../src/physics/journeyFlight.js';
-import { ommFromTle, satrecOf, stateTeme, stateEqj } from '../src/physics/satellites.js';
+import { helioStateEqj, helioStateEqjAtTt, ttSeconds, utcMsAtTt, deltaT } from '@digital-orrery/physics/ephemeris.js';
+import { baryStateEqj, BARY_KEYS } from '@digital-orrery/physics/barycentres.js';
+import { eopAt } from '@digital-orrery/physics/eop.js';
+import { earthFixedMatrix } from '@digital-orrery/physics/earthRotation.js';
+import { moonStateEqjAtTt } from '@digital-orrery/physics/moons.js';
+import { irregularStateEqjAtTt, irregularSource, IRREGULARS_OF } from '@digital-orrery/physics/irregularMoons.js';
+import { sbIds, sbHelioState } from '@digital-orrery/physics/sbTable.js';
+import { createKernelHost, KERNEL_EPOCH_MS } from '@digital-orrery/physics/kernelHost.js';
+import { solarSystemBodies } from '@digital-orrery/physics/bodies.js';
+import * as J from '@digital-orrery/physics/journey.js';
+import { planFlight, flyJourney } from '@digital-orrery/physics/journeyFlight.js';
+import { ommFromTle, satrecOf, stateTeme, stateEqj } from '@digital-orrery/physics/satellites.js';
 
 // Every number kept exactly: JSON's shortest form reads back to the same
 // double, and -0, NaN and the infinities, which JSON has not, become

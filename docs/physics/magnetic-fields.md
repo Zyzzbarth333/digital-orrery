@@ -35,17 +35,17 @@ draw. Mercury's and Ganymede's are too small to hold stable belts.
 
 ![The Earth with its magnetic field lines and auroral oval switched on, as the camera goes round from the day side to the night side, where the oval glows over the pole](../clips/magnetic-field.webp)
 
-Code: `src/physics/magnetic.js` (the field models and the tracer),
-`src/physics/t89.js` (the Earth's magnetosphere),
-`src/physics/boundaries.js` (magnetopauses, bow shocks and the solar wind),
-`src/physics/ringCurrent.js` (Saturn's ring current),
-`src/physics/sunField.js` (the Sun's field),
-`src/physics/aurora.js` (the ovals and the moons' footprints),
-`src/physics/ovation.js` (NOAA's live map), `src/physics/belts.js` (the
-radiation belts) and `src/physics/marsCrustal.js` (Mars's crust), tested
+Code: `packages/physics/src/magnetic.js` (the field models and the tracer),
+`packages/physics/src/t89.js` (the Earth's magnetosphere),
+`packages/physics/src/boundaries.js` (magnetopauses, bow shocks and the solar wind),
+`packages/physics/src/ringCurrent.js` (Saturn's ring current),
+`packages/physics/src/sunField.js` (the Sun's field),
+`packages/physics/src/aurora.js` (the ovals and the moons' footprints),
+`packages/physics/src/ovation.js` (NOAA's live map), `packages/physics/src/belts.js` (the
+radiation belts) and `packages/physics/src/marsCrustal.js` (Mars's crust), tested
 in `magnetic.test.mjs` and `aurora.test.mjs`; `src/scene/magnetic.ts` draws them. The coefficients
 come from `npm run fetch:magnetic` (`magnetic.fetch.mjs`), which writes
-`src/physics/magnetic.data.js`, `public/data/kp.json`,
+`packages/physics/src/magnetic.data.js`, `public/data/kp.json`,
 `public/data/sun-pfss.json` (the Sun's coefficients), Mars's map
 `public/data/mars-crustal-br.bin` and its coefficients'
 test fixture.

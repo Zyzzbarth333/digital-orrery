@@ -14,9 +14,9 @@ import { TrajBrowserPanel } from './trajbrowser-panel';
 import { JourneySummary } from './journey-panel';
 import type { JourneyStore } from './journey';
 import { SourceTag } from './source-tag';
-import { transfer } from '../physics/trajsearch.js';
-import { helioStateEcl, eclToEqj } from '../physics/ephemeris.js';
-import { GRAVITATIONAL_PARAMETERS as GM, PLANETS } from '../utils/constants.js';
+import { transfer } from '@digital-orrery/physics/trajsearch.js';
+import { helioStateEcl, eclToEqj } from '@digital-orrery/physics/ephemeris.js';
+import { GRAVITATIONAL_PARAMETERS as GM, PLANETS } from '@digital-orrery/physics/constants.js';
 
 interface Grid {
   nDep: number; nTof: number; depDays: number[]; tofDays: number[];

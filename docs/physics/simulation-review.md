@@ -670,7 +670,7 @@ Integrate Sutton and Graves' stagnation-point heating [204] into a heat load. Th
    - Cd against Mach, from a Component Analysis sweep [56] or from the simulation's Cd and Mach columns;
    - the thrust and mass histories;
    - q = ½ρv², from the density and total-velocity columns [39].
-5. Commit only numbers, for example `src/physics/fixtures/openrocket_*.json`, with the OpenRocket version and the jar's SHA-256.
+5. Commit only numbers, for example `packages/physics/src/fixtures/openrocket_*.json`, with the OpenRocket version and the jar's SHA-256.
 6. In `rocket.test.mjs`, feed the same Cd(Mach), curve and mass to `ascent()`.
    - Start with tolerances of 0.5 % on apogee and maximum speed, and 1 % on max-q.
    - Adjust them once measured. They are extrapolated from the 0.02 % point-mass closure [43].
@@ -992,7 +992,7 @@ Local files are given as repo-relative paths or as `~/` paths on the author's ma
 
 [54] CamPyRoS. [Online]. Available: https://github.com/cuspaceflight/CamPyRoS
 
-[55] `src/physics/rocket.js`, `src/physics/rocket.test.mjs`, `src/physics/atmosphere.js` (repo).
+[55] `packages/physics/src/rocket.js`, `packages/physics/src/rocket.test.mjs`, `packages/physics/src/atmosphere.js` (repo).
 
 [56] OpenRocket releases. [Online]. Available: https://github.com/openrocket/openrocket/releases ; https://api.github.com/repos/openrocket/openrocket/releases?per_page=4
 
@@ -1028,7 +1028,7 @@ Local files are given as repo-relative paths or as `~/` paths on the author's ma
 
 [72] NESC Bodies. [Online]. Available: https://nescacademy.nasa.gov/flightsim/2015/bodies
 
-[73] `pipelines/nesc.fetch.mjs`, `src/physics/nesc.test.mjs` (repo).
+[73] `pipelines/nesc.fetch.mjs`, `packages/physics/src/nesc.test.mjs` (repo).
 
 [74] tudat (archived). [Online]. Available: https://github.com/tudat-team/tudat
 
@@ -1040,9 +1040,9 @@ Local files are given as repo-relative paths or as `~/` paths on the author's ma
 
 [78] `docs/physics/nbody-kernel.md` (repo).
 
-[79] `src/physics/encke.js` (repo).
+[79] `packages/physics/src/encke.js` (repo).
 
-[80] `src/physics/nbody.js` (repo).
+[80] `packages/physics/src/nbody.js` (repo).
 
 [81] `docs/physics/environment.md` (repo).
 
@@ -1134,7 +1134,7 @@ Local files are given as repo-relative paths or as `~/` paths on the author's ma
 
 [125] NAIF Geometry Finder. [Online]. Available: https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/gf.html
 
-[126] `src/physics/entry.js`, `src/physics/environment.js`, `src/physics/craft.js` (repo, uncommitted).
+[126] `packages/physics/src/entry.js`, `packages/physics/src/environment.js`, `packages/physics/src/craft.js` (repo, uncommitted).
 
 [127] Engineering resource catalogue, through eng-tools `catalog_search`: the author's engineering resource catalogue (local).
 
@@ -1160,7 +1160,7 @@ Local files are given as repo-relative paths or as `~/` paths on the author's ma
 
 [138] NESC flight-sim 2023. [Online]. Available: https://nescacademy.nasa.gov/flightsim/2023
 
-[139] Repo and installed code: `src/physics/kernelClient.js`, `src/physics/kernelHost.js`, `src/physics/craft.js`, `src/physics/geopotential.js`, `src/app/clock.ts`, `src/scene/OrreryScene.ts`, `node_modules/three/src/renderers/webgl/WebGLCapabilities.js`, `node_modules/three/src/renderers/webgl-fallback/WebGLBackend.js`.
+[139] Repo and installed code: `src/browser/kernelClient.js`, `packages/physics/src/kernelHost.js`, `packages/physics/src/craft.js`, `packages/physics/src/geopotential.js`, `src/app/clock.ts`, `src/scene/OrreryScene.ts`, `node_modules/three/src/renderers/webgl/WebGLCapabilities.js`, `node_modules/three/src/renderers/webgl-fallback/WebGLBackend.js`.
 
 [140] Fiedler, Fix Your Timestep. [Online]. Available: https://gafferongames.com/post/fix_your_timestep/
 
@@ -1258,7 +1258,7 @@ Local files are given as repo-relative paths or as `~/` paths on the author's ma
 
 [187] MDN EXT_disjoint_timer_query. [Online]. Available: https://developer.mozilla.org/en-US/docs/Web/API/EXT_disjoint_timer_query
 
-[188] `pipelines/artemis1.fetch.mjs`, the Artemis II design notes and `src/physics/environment.js` (repo).
+[188] `pipelines/artemis1.fetch.mjs`, the Artemis II design notes and `packages/physics/src/environment.js` (repo).
 
 [189] Rea, McNamara & Kane, AAS 24-174 (slides). [Online]. Available: https://ntrs.nasa.gov/api/citations/20240001314/downloads/AAS_24_174_Orion_Artemis_I_Entry_Performance.pptx
 

@@ -13,7 +13,7 @@
 
 import { brightLuminance } from './imageStats';
 import { compositeLayers } from './layerComposite.js';
-import { fetchOk } from '../physics/fetchData.js';
+import { fetchOk } from '../browser/fetchData.js';
 
 // Where a geostationary frame is used: within reachDeg of the satellite's
 // nadir (on the equator at satLon) and where the Sun's elevation's sine

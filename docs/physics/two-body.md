@@ -1,6 +1,6 @@
 # Two-body propagation and orbital elements
 
-`src/physics/orbital.js`: `propagate`, `rvToElements`, `elementsToRv`.
+`packages/physics/src/orbital.js`: `propagate`, `rvToElements`, `elementsToRv`.
 
 ## Universal-variable propagation
 
@@ -129,7 +129,7 @@ orbit, the true longitude.
 Validated against NAIF `oscltx_c` [2] on the fixture cases ($e$ to 2×10⁻¹⁵,
 angles to 10⁻¹²°) and against Curtis Ex 4.3 and 4.7 [1].
 
-`Craft.elements()` (`src/physics/craft.js`) calls `rvToElements` on the
+`Craft.elements()` (`packages/physics/src/craft.js`) calls `rvToElements` on the
 state relative to the craft's primary: about the Sun in the ecliptic frame,
 so inclinations are from the ecliptic; about a planet in the J2000 equatorial
 frame, which for Earth is its mean equator. (An earlier helper mixed AU and

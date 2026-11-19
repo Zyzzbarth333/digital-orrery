@@ -1,11 +1,11 @@
 # Missions: spacecraft, launches, nodes and the planner
 
-How the app flies spacecraft. Code: `src/physics/craft.js` (the craft model,
-tested in `craft.test.mjs`), `src/physics/kernelClient.js` (the n-body
+How the app flies spacecraft. Code: `packages/physics/src/craft.js` (the craft model,
+tested in `craft.test.mjs`), `src/browser/kernelClient.js` (the n-body
 kernel in a Web Worker), `src/app/mission.ts`, `src/app/mission-panel.tsx`,
 `src/app/planner-panel.tsx`, `src/app/porkchop.worker.ts`, and
 `src/scene/craftLayer.ts` / `craftPaths.ts` for drawing. A craft's
-attitude: `src/physics/attitude.js` and `craftAttitude.js`.
+attitude: `packages/physics/src/attitude.js` and `craftAttitude.js`.
 
 The MISSION, PLANNER and ROCKET tabs live in the flight console
 (`src/app/console.tsx`), opened from the header's FLIGHT field (or M)
@@ -135,7 +135,7 @@ last line.
   (DSM-2's main-engine burn and its trim half an hour later) is two burns
   in the file.
 
-The app reads them all with `src/physics/realMission.js`. A file's states
+The app reads them all with `packages/physics/src/realMission.js`. A file's states
 are about its `centre` (the Earth, or the Sun for Juno), and it may carry
 its own craft (`craftModel`: mass, sunlit area, Cr and the engine's Isp);
 without one the craft is Orion. Its flown path is drawn about the same
@@ -316,7 +316,7 @@ gives way. Orion, the Saturn V and the real missions' probes are NASA's
 own models, the rest are built in code at their published sizes. The attitude indicator keeps its axes and the dashed stalk,
 but drops its wireframe box and plume, which the model now shows
 ([`craftModels.ts`](../../src/scene/craftModels.ts), the stacks'
-shapes in [`stackShape.js`](../../src/physics/stackShape.js)). The
+shapes in [`stackShape.js`](../../packages/physics/src/stackShape.js)). The
 MISSION tab's CLOSE UP section says what is modelled and what is not.
 
 | Craft | Model | Its sizes |
@@ -481,7 +481,7 @@ planet, rendezvous or flyby:
 - **NASA's optima:** the lowest eight per-opportunity optima from 2026 to
   2040, with their route, so gravity assists such as EVM show.
 - **Ours:** for each direct one, our own transfer between NASA's two dates
-  (`transfer()` in `src/physics/trajsearch.js`, up to two revolutions round
+  (`transfer()` in `packages/physics/src/trajsearch.js`, up to two revolutions round
   the Sun), under NASA's conventions, with the difference in percent. The
   same dates mean any difference is the modelling alone; its tooltip gives
   our C3 and the revolutions.

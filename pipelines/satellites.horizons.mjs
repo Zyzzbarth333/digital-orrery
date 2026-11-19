@@ -7,7 +7,7 @@
 // (public/data/satellites.csv), which is kept with them, so the check
 // stays put when the snapshot is fetched again.
 //
-//   src/physics/fixtures/iss_horizons.json
+//   packages/physics/src/fixtures/iss_horizons.json
 //
 // Run it after `npm run fetch:satellites`. Horizons says its ISS is
 // "TLE-based", so the two share the element set's own error (a kilometre
@@ -18,7 +18,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseGpCsv, epochMs } from '../src/physics/satellites.js';
+import { parseGpCsv, epochMs } from '@digital-orrery/physics/satellites.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const API = 'https://ssd.jpl.nasa.gov/api/horizons.api';

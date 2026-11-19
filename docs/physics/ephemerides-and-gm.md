@@ -5,8 +5,8 @@
 | | Used by | Accuracy |
 | --- | --- | --- |
 | **DE442** through SPICE (`python/data/metakernel.tm`) | the reference fixture, the C generator, the Python scripts | JPL's fit to radar, spacecraft tracking and occultations; the reference |
-| **DE442 table** (`src/physics/deTable.js`) | every planet, Pluto, the Moon and the SSB in the browser app and the kernel, 2000–2050 | Chebyshev series fitted to DE442: worst 0.3 mm (Moon), 3.7 mm (Earth), under 0.86 m for every body about the Sun; the Earth's acceleration within 1.5×10⁻⁹ m/s² |
-| **astronomy-engine** (`src/physics/ephemeris.js`) | every body outside the table (2000–2050, plus the margins it blends over), or if it fails to load | measured against DE442: within 2.3×10⁻⁵ of the distance and 1.3 m/s for Venus, Earth and Mars; within 9.3×10⁻⁵ and 9.4 m/s for all eight planets (`porkchop.test.mjs` case 1a); its Moon is 9–13 km from DE442's |
+| **DE442 table** (`packages/physics/src/deTable.js`) | every planet, Pluto, the Moon and the SSB in the browser app and the kernel, 2000–2050 | Chebyshev series fitted to DE442: worst 0.3 mm (Moon), 3.7 mm (Earth), under 0.86 m for every body about the Sun; the Earth's acceleration within 1.5×10⁻⁹ m/s² |
+| **astronomy-engine** (`packages/physics/src/ephemeris.js`) | every body outside the table (2000–2050, plus the margins it blends over), or if it fails to load | measured against DE442: within 2.3×10⁻⁵ of the distance and 1.3 m/s for Venus, Earth and Mars; within 9.3×10⁻⁵ and 9.4 m/s for all eight planets (`porkchop.test.mjs` case 1a); its Moon is 9–13 km from DE442's |
 
 ## DE442 in the app
 
@@ -200,7 +200,7 @@ $$
 2.47\times10^{-4}\ (\text{Saturn}),\quad 2.08\times10^{-4}\ (\text{Neptune}).
 $$
 
-`src/physics/bodies.js` now uses:
+`packages/physics/src/bodies.js` now uses:
 
 | Body in the kernel | Position | GM (km³/s²) |
 | --- | --- | --- |

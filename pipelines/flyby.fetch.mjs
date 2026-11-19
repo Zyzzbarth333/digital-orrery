@@ -159,6 +159,6 @@ for (const [key, C] of Object.entries(CASES)) {
   const ca = out.close.reduce((a, b) => (Math.hypot(b[1], b[2], b[3]) < Math.hypot(a[1], a[2], a[3]) ? b : a));
   console.log(`${key}: closest approach JD ${ca[0]} TDB, ${Math.hypot(ca[1], ca[2], ca[3]).toFixed(1)} km from the centre, ${Math.hypot(ca[4], ca[5], ca[6]).toFixed(3)} km/s`);
   const file = `fixtures/flyby_${name}_${key}.json`;
-  fs.writeFileSync(new URL(`../src/physics/${file}`, import.meta.url), JSON.stringify(out));
+  fs.writeFileSync(new URL(`../packages/physics/src/${file}`, import.meta.url), JSON.stringify(out));
   console.log(`wrote ${file} (${out.craft.length} rows a table)`);
 }

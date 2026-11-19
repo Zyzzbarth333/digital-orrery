@@ -1,6 +1,6 @@
 // pipelines/pck.build.mjs
 //
-// Writes src/physics/pck.data.js from NAIF's text PCK pck00011_n0066.tpc
+// Writes packages/physics/src/pck.data.js from NAIF's text PCK pck00011_n0066.tpc
 // (the IAU WGCCRE 2015 report's constants as NAIF keeps them; the kernel
 // is not in the repo, python/README.md says where to get it):
 //
@@ -21,10 +21,10 @@
 // Deimos's models and Mars's first 15 angles unchanged.
 
 import fs from 'node:fs';
-import { MOON_DATA } from '../src/physics/moons.data.js';
+import { MOON_DATA } from '@digital-orrery/physics/moons.data.js';
 
 const SRC = process.argv[2] ?? new URL('../python/data/kernels/pck/pck00011_n0066.tpc', import.meta.url).pathname;
-const OUT = new URL('../src/physics/pck.data.js', import.meta.url);
+const OUT = new URL('../packages/physics/src/pck.data.js', import.meta.url);
 
 export function parseTextKernel(text) {
   const pool = {};
@@ -88,7 +88,7 @@ function main() {
   }
   const fmt = (o) => JSON.stringify(o).replace(/"([a-z][A-Za-z]*|\d+)":/g, '$1: ');
   const lines = [
-    '// src/physics/pck.data.js (written by pck.build.mjs; do not edit)',
+    '// packages/physics/src/pck.data.js (written by pck.build.mjs; do not edit)',
     '//',
     `// Source: NAIF, ${SRC.split('/').pop()} (IAU WGCCRE 2015 report, Archinal et al. 2018,`,
     '// with its later corrections). RADII: km along body-fixed X, Y, Z. Rotation:',

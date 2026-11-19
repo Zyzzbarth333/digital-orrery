@@ -4,15 +4,15 @@
 // mean radii (constants.js, SPICE); GM values are DE442 (bodies.js): the
 // system GM for Mars to Neptune, whose positions are system barycentres.
 // Colours are approximate true mean colours, placeholders until real
-// textures arrive. The other planets' moons (src/physics/moons.js) carry
+// textures arrive. The other planets' moons (packages/physics/src/moons.js) carry
 // their radius, GM and geometric albedo from JPL Horizons. Every body's
 // shape is its IAU triaxial ellipsoid (pck00011, pck.data.js) where it has
 // one.
 
-import { PLANETS } from '../utils/constants.js';
-import { bodyConstants, MU_SUN, PLANET_GM as KERNEL_PLANET_GM } from '../physics/bodies.js';
-import { MOON_DATA } from '../physics/moons.data.js';
-import { RADII } from '../physics/pck.data.js';
+import { PLANETS } from '@digital-orrery/physics/constants.js';
+import { bodyConstants, MU_SUN, PLANET_GM as KERNEL_PLANET_GM } from '@digital-orrery/physics/bodies.js';
+import { MOON_DATA } from '@digital-orrery/physics/moons.data.js';
+import { RADII } from '@digital-orrery/physics/pck.data.js';
 
 export type PlanetKey =
   | 'sun' | 'mercury' | 'venus' | 'earth' | 'moon' | 'mars'
@@ -171,10 +171,10 @@ export const maxRadiusKm = (key: BodyKey): number => Math.max(...RADII_KM[key]);
 
 export const BODY_BY_KEY = Object.fromEntries(BODIES.map((b) => [b.key, b])) as Record<BodyKey, BodyInfo>;
 
-// A moon of a planet other than Earth (src/physics/moons.js draws these).
+// A moon of a planet other than Earth (packages/physics/src/moons.js draws these).
 export const isPlanetMoon = (key: BodyKey): key is MoonKey => !!BODY_BY_KEY[key].moon;
 
-// The barycentres the camera can centre on (src/physics/barycentres.js):
+// The barycentres the camera can centre on (packages/physics/src/barycentres.js):
 // the solar system's, the Earth-Moon pair's, and each planet system's with
 // moons drawn. `of` is the body it is listed and hidden behind; `viewKm`
 // how far away the camera arrives, to frame the system about it.

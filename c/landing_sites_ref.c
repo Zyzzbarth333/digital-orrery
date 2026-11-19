@@ -3,7 +3,7 @@
  *
  * A reference for the Moon's landing sites (docs/frontend/landing-sites.md):
  * where ten of them are in J2000 at several instants, worked out by NAIF's
- * CSPICE alone, for src/physics/landingSites.test.mjs.
+ * CSPICE alone, for packages/physics/src/landingSites.test.mjs.
  *
  * Each site's published planetocentric latitude and east longitude (the
  * LROC team's, in the mean-Earth/polar-axis frame) is put on a sphere of
@@ -14,7 +14,7 @@
  * draws each site.
  *
  * The coordinates are typed here from their sources, independently of
- * src/physics/landingSites.js: the test also checks that the two copies
+ * packages/physics/src/landingSites.js: the test also checks that the two copies
  * agree.
  *
  * Usage: landing_sites_ref <output.json>

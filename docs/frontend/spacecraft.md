@@ -10,7 +10,7 @@ these have no element sets.)
 
 ![Mars on 17 November 2026 with the spacecraft on: MRO low over the planet with its orbit, Mars Express further out on its elliptical orbit, and Odyssey and TGO hidden behind Mars](spacecraft-mars.jpg)
 
-Code: [`src/physics/spacecraft.js`](../../src/physics/spacecraft.js) (the
+Code: [`packages/physics/src/spacecraft.js`](../../packages/physics/src/spacecraft.js) (the
 packing and the filling-in),
 [`spacecraft.fetch.mjs`](../../pipelines/spacecraft.fetch.mjs) (the
 fetch), [`src/scene/spacecraftLayer.ts`](../../src/scene/spacecraftLayer.ts)
@@ -80,7 +80,7 @@ and *s<sub>b</sub>* at *t<sub>b</sub>*, either
 $$\mathbf r(t) = (1 - w)\,K(\mathbf s_a, t - t_a) + w\,K(\mathbf s_b, t - t_b),\qquad w = 3u^2 - 2u^3,\quad u = \frac{t - t_a}{t_b - t_a}$$
 
 where *K* carries a state along its own two-body orbit about the centre
-(universal variables, [`orbital.js`](../../src/physics/orbital.js)
+(universal variables, [`orbital.js`](../../packages/physics/src/orbital.js)
 `propagate` [2, Algs. 3.3, 3.4]), or the cubic Hermite curve through both
 positions with both velocities. The blend is exact at both ends, and in
 between it is off by what the centre's oblateness and the other bodies'
@@ -229,7 +229,7 @@ the trajectory the mission delivered. A reconstruction is good to metres or
 better; a prediction drifts from the real path as the craft manoeuvres.
 
 **Checks** (`npm test`,
-[`spacecraft.test.mjs`](../../src/physics/spacecraft.test.mjs)):
+[`spacecraft.test.mjs`](../../packages/physics/src/spacecraft.test.mjs)):
 
 - **Held-out Horizons states:** one a month a craft, from the middle of an
   interval (the furthest from both kept states), not used in the packing.

@@ -1,6 +1,6 @@
 # A 6-DOF vehicle in Earth orbit
 
-`src/physics/sixdof.js` propagates a rigid vehicle about the Earth: its
+`packages/physics/src/sixdof.js` propagates a rigid vehicle about the Earth: its
 position and velocity, and its attitude and body rates, together. It is
 checked against NASA's 6-DOF check cases [1] (below). The app's own
 spacecraft fly their translation in the n-body kernel
@@ -113,7 +113,7 @@ What is not reproduced:
 
 ## The MET atmosphere
 
-`src/physics/atmosphereMET.js` is the Marshall Engineering Thermosphere
+`packages/physics/src/atmosphereMET.js` is the Marshall Engineering Thermosphere
 (MET), the atmosphere all four NASA tools ran. It is NASA Marshall's
 version of Jacchia's 1970 [5] static diffusion model, with two of Jacchia's
 1971 [6] terms. It gives density, temperature and composition from 90 to

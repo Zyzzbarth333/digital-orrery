@@ -6,7 +6,7 @@ Done items stay ticked so the history reads in one place. When an item is taken,
 
 ## Accuracy
 
-- [x] Wire the Lambert core in `src/physics/orbital.js` into the porkchop delta-V grid, so the planner reads straight from the verified solver.
+- [x] Wire the Lambert core in `packages/physics/src/orbital.js` into the porkchop delta-V grid, so the planner reads straight from the verified solver.
 - [x] Replace the fixed-step integrator with a higher-order one whose step follows the local dynamical time.
 - [x] Add error-controlled adaptive stepping, and a two-body fast path for weakly perturbed orbits: Dormand–Prince 5(4) for Cowell's method (#72), and Encke's method near a primary ([the n-body kernel](physics/nbody-kernel.md#integrators)).
 - [x] Validate propagated trajectories against flown missions: Artemis I and II, the Juno, Cassini and Voyager 2 flybys, Juno's 2012–13 cruise, DART, LRO's capture and MESSENGER's cruise ([validation](validation.md)).
@@ -84,7 +84,7 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 - [ ] Visual regression baselines of key views (the Earth, Saturn's rings, an eclipse, the phone sheet), with parallax-threejs's harness, so a change that alters the scene's look is caught.
 - [ ] Faster journey tests: the Europa round trip (case 17) alone takes about 70 s.
 - [x] From the code audit of 19 Nov 2026:
-  - [x] one `src/physics/vec.js` for the `dot`, `cross` and `norm` copied into about 40 files (two of which use `norm` to mean normalise);
+  - [x] one `packages/physics/src/vec.js` for the `dot`, `cross` and `norm` copied into about 40 files (two of which use `norm` to mean normalise);
   - [x] one focus target in the scene in place of five fields cleared by hand in eight `focusOn*` methods;
   - [x] `Readout`, `Row` and `fmtGroup` in their own module, ending the import cycles between `panels.tsx` and two plates;
   - [x] tests for the `Mission` and `JourneyStore` stores (stale worker replies, a failed fetch);

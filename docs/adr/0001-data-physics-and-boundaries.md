@@ -215,12 +215,12 @@ The domain can come first: it is cheap and protects every link.
 **Phase C: the physics package, behind a two-tier gate**
 1. [x] Give the physics core an injectable data loader (`fetch` in the browser, `fs` in Node), so it runs outside the app.
 2. [x] Before moving anything, record a golden snapshot: every number `npm test` prints, plus fixed-seed outputs of the kernel, ephemeris, journey and satellite APIs.
-3. [ ] Move the core into `packages/physics` as an npm workspace. Keep the Worker and `fetch` adapters in the app.
-4. [ ] Gate:
+3. [x] Move the core into `packages/physics` as an npm workspace. Keep the Worker and `fetch` adapters in the app.
+4. [x] Gate:
    - **Tier 1:** the snapshot reproduced bit for bit on the pinned Node version.
    - **Tier 2:** every validation (Artemis I and II, Juno, DART, LRO, MESSENGER, NESC) passes at its stated tolerance on the pinned and current Node versions, and in Chromium, Firefox and WebKit through Playwright.
    - **Speed:** `npm run bench` within a stated noise threshold.
-5. [ ] Don't publish or freeze the interface until a consumer exists.
+5. [x] Don't publish or freeze the interface until a consumer exists.
 
 **Later, separate decisions:** a domain and moving the data to R2 (see Long term); rewriting the history; a shell-only PWA; publishing the physics; a CLI or service wrapper; exporting craft to OpenUSD for Isaac Sim.
 

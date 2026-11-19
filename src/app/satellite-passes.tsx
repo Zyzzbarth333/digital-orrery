@@ -4,13 +4,13 @@
 // longitude and height, kept in this browser's localStorage), then the
 // satellite's next passes over it in the coming three days, each with its
 // rise, culmination and set, where in the sky, and whether it can be seen.
-// The search runs in a worker (passes.worker.ts, src/physics/passes.js);
+// The search runs in a worker (passes.worker.ts, packages/physics/src/passes.js);
 // the ground track on the Earth is src/scene/groundTrack.ts.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useClockValue, type SimClock } from './clock';
 import { Readout, type Row } from './readout';
-import { siteOf, lookAt } from '../physics/passes.js';
+import { siteOf, lookAt } from '@digital-orrery/physics/passes.js';
 import type { PassRequest } from './passes.worker';
 import type { GroundTrack } from '../scene/groundTrack';
 import type { PlateSat } from './satellite-plate';

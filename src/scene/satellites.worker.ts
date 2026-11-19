@@ -18,7 +18,7 @@
 // Messages in:  { type: 'gp', set, csv } | { type: 'step', t, sets } | { type: 'orbits', t, ids, samples }
 // Messages out: { type: 'ready', set, count } | { type: 'step', t, sets, bufs } | { type: 'orbits', t, ids, buf, periods }
 
-import { parseGpCsv, satrecOf, stateTeme, temeToEqj, apply } from '../physics/satellites.js';
+import { parseGpCsv, satrecOf, stateTeme, temeToEqj, apply } from '@digital-orrery/physics/satellites.js';
 
 const MU = 398600.8;                 // km^3/s^2: WGS-72's, SGP4's own
 type Sat = ReturnType<typeof satrecOf>;

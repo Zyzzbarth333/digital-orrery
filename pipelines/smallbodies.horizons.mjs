@@ -14,7 +14,7 @@
 
 import fs from 'node:fs';
 import dns from 'node:dns';
-import { NOTABLE, SB_EPOCH_JD } from '../src/physics/smallBodies.js';
+import { NOTABLE, SB_EPOCH_JD } from '@digital-orrery/physics/smallBodies.js';
 
 dns.setDefaultResultOrder('ipv4first');
 const API = 'https://ssd.jpl.nasa.gov/api/horizons.api';
@@ -44,7 +44,7 @@ for (const pdes of Object.keys(NOTABLE)) {
   named.elements[pdes] = { e: Number(f[2]), i: Number(f[4]) * D2R, node: Number(f[5]) * D2R, peri: Number(f[6]) * D2R, M: Number(f[9]) * D2R, a: Number(f[11]) };
   console.log(pdes, named.elements[pdes].a.toFixed(4), named.elements[pdes].e.toFixed(4));
 }
-fs.writeFileSync(new URL('../src/physics/fixtures/smallbodies_named.json', import.meta.url), JSON.stringify(named, null, 1));
+fs.writeFileSync(new URL('../packages/physics/src/fixtures/smallbodies_named.json', import.meta.url), JSON.stringify(named, null, 1));
 
 const out = { source: 'JPL Horizons API, heliocentric (500@10) ecliptic J2000 vectors, TT', fetched: new Date().toISOString().slice(0, 10), bodies: {} };
 for (const b of CHECK_BODIES) {
@@ -61,4 +61,4 @@ for (const b of CHECK_BODIES) {
   console.log(b.pdes, out.bodies[b.pdes].length, 'dates');
   await new Promise((r) => setTimeout(r, 1500));
 }
-fs.writeFileSync(new URL('../src/physics/fixtures/smallbodies_horizons.json', import.meta.url), JSON.stringify(out, null, 1));
+fs.writeFileSync(new URL('../packages/physics/src/fixtures/smallbodies_horizons.json', import.meta.url), JSON.stringify(out, null, 1));

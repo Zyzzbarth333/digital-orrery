@@ -18,7 +18,7 @@
 import * as THREE from 'three';
 import type { BodyKey } from './catalogue';
 import { BODY_BY_KEY } from './catalogue';
-import { ZONAL } from '../physics/bodies.js';
+import { ZONAL } from '@digital-orrery/physics/bodies.js';
 import type { FieldQuery, FieldReply, FieldRequest } from './gravityField.worker';
 
 // One worker for every map, started the first time one is wanted.

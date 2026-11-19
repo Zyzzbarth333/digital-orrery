@@ -23,7 +23,7 @@
 //
 // npm run golden and npm run golden:record do the first and the fourth.
 
-import '../src/physics/deNode.js';
+import '@digital-orrery/physics/deNode.js';
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -71,6 +71,11 @@ const MASKS = [
   [/^(\s*)\([\d.]+ s\)$/, '$1(<clock> s)'],
 ];
 
+// The move into packages/physics (ADR-0001 phase C) changed where the test
+// files are, not what they print: their paths are compared as recorded,
+// when every one of them was under src/physics/.
+const MOVED = [[/packages\/physics\/src\//g, 'src/physics/'], [/src\/browser\//g, 'src/physics/']];
+
 // npm's own header, and test.mjs's closing summary (its timings and the
 // slowest parts, in an order that changes) up to the RESULT line.
 function normalise(text) {
@@ -85,7 +90,7 @@ function normalise(text) {
     // part's lines depends on timing: they go, sorted, to its end.
     if (/^KernelClient: /.test(line)) { floating.push(line); continue; }
     if (line.startsWith('>>> ')) flush();
-    for (const [re, to] of MASKS) line = line.replace(re, to);
+    for (const [re, to] of [...MOVED, ...MASKS]) line = line.replace(re, to);
     out.push(line);
   }
   flush();

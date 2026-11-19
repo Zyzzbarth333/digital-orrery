@@ -1,6 +1,6 @@
 # Rockets: stages, staging and the ascent
 
-`src/physics/rocket.js` holds the launch-vehicle physics. The ROCKET tab
+`packages/physics/src/rocket.js` holds the launch-vehicle physics. The ROCKET tab
 (`src/app/rocket-panel.tsx`) puts it to work. Both follow Curtis,
 *Orbital Mechanics for Engineering Students* (4th ed.), chapter 13 [1].
 
@@ -164,7 +164,7 @@ date and the pad.
 
 ## Real launchers
 
-The ROCKET tab starts from four real launchers (`src/physics/launchers.js`).
+The ROCKET tab starts from four real launchers (`packages/physics/src/launchers.js`).
 
 **How the figures show:**
 - A real launcher's figures sit in unlit, greyed windows as published.
@@ -348,7 +348,7 @@ another flight.
 
 **OpenRocket design** opens an `.ork` file and flies a simulation that
 OpenRocket saved in it, with the ascent above, beside OpenRocket's own
-result. The file is read in the browser (`src/physics/ork.js`) and never
+result. The file is read in the browser (`packages/physics/src/ork.js`) and never
 leaves it. Like the airbrakes project's reader, it takes OpenRocket's
 record of the flight rather than running OpenRocket.
 - **The file:** an `.ork` is XML, zipped (unzipped in the browser with

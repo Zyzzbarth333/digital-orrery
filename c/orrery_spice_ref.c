@@ -3,7 +3,7 @@
  *
  * Generates reference data for digital-orrery's JavaScript physics core from
  * NAIF's CSPICE toolkit and the DE442 ephemeris. Writes one JSON file that
- * src/physics/orbital.test.mjs reads, so the JS tests run without SPICE
+ * packages/physics/src/orbital.test.mjs reads, so the JS tests run without SPICE
  * installed but are still checked against it.
  *
  * Contents:
@@ -17,7 +17,7 @@
  *                at a few epochs, for checking astronomy-engine later
  *   orientation  J2000 -> body-fixed rotations of the Sun and planets
  *   earth        J2000 -> ITRF93 at 408 instants 2000-2126, for the Earth
- *                orientation table (src/physics/eop.js)
+ *                orientation table (packages/physics/src/eop.js)
  *
  * Frame: J2000 (equatorial, the same axes as astronomy-engine's EQJ).
  * Units: km, km/s, s, km^3/s^2, radians.
@@ -281,7 +281,7 @@ int main(int argc, char **argv) {
      instants (to the millisecond) across the Earth PCKs, and either side of
      the leap seconds and of the hand-over from the high-precision file to
      the long-term one (metakernel.tm loads the latter first, so the former
-     wins where both cover). For src/physics/eop.js. ---- */
+     wins where both cover). For packages/physics/src/eop.js. ---- */
   {
     const char *hpName = "earth_latest_high_prec.bpc";
     char hpPath[256];

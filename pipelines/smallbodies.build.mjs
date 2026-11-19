@@ -27,8 +27,8 @@
 import fs from 'node:fs';
 import { GROUPS, CACHE } from './smallbodies.fetch.mjs';
 import zlib from 'node:zlib';
-import { SB_CLASSES, SB_EPOCH_JD, SB_K1, NOTABLE, encodeIndex } from '../src/physics/smallBodies.js';
-import { packBelt } from '../src/physics/beltGrid.js';
+import { SB_CLASSES, SB_EPOCH_JD, SB_K1, NOTABLE, encodeIndex } from '@digital-orrery/physics/smallBodies.js';
+import { packBelt } from '@digital-orrery/physics/beltGrid.js';
 
 const K = 0.01720209895;                     // Gaussian gravitational constant, rad/day (au, solar masses)
 const D2R = Math.PI / 180, TAU = 2 * Math.PI;
@@ -36,7 +36,7 @@ const wrap = (x) => ((x % TAU) + TAU) % TAU;
 
 // The named bodies' elements at the epoch, from Horizons
 // (smallbodies.horizons.mjs): SBDB's solutions for some are years old.
-const FRESH = JSON.parse(fs.readFileSync(new URL('../src/physics/fixtures/smallbodies_named.json', import.meta.url))).elements;
+const FRESH = JSON.parse(fs.readFileSync(new URL('../packages/physics/src/fixtures/smallbodies_named.json', import.meta.url))).elements;
 
 // The cache, page by page (about 1.4 million rows in all).
 function* rowsOf() {

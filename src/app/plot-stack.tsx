@@ -10,8 +10,8 @@
 import { useMemo } from 'react';
 import { useJourney, type JourneyStore, type Vehicle } from './journey';
 import { SourceTag } from './source-tag';
-import { sizeLauncher, launchBudget, launcherFor, STAGE_TECH } from '../physics/staging.js';
-import { LAUNCHERS } from '../physics/launchers.js';
+import { sizeLauncher, launchBudget, launcherFor, STAGE_TECH } from '@digital-orrery/physics/staging.js';
+import { LAUNCHERS } from '@digital-orrery/physics/launchers.js';
 
 const fmt = (n: number, d = 2) => n.toLocaleString('en-AU', { minimumFractionDigits: d, maximumFractionDigits: d });
 type Tech = keyof typeof STAGE_TECH;

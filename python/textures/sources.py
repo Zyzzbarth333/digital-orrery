@@ -185,7 +185,7 @@ def uranus_rings(src, out, colour_map, heights_km, normal_map):
     1 mean signal (0 where unconstrained), 3 normal opacity (99 opaque).
 
     The geometry (radii, widths, eccentricities, inclinations, precession)
-    comes from French et al. 2024 (src/physics/rings.js), not from these
+    comes from French et al. 2024 (packages/physics/src/rings.js), not from these
     radius scales, which are offset by kilometres ring to ring. What is
     taken here is resolution-free: the equivalent depth E = integral of
     tau dr across the ring (km), averaged over ingress and egress, which the

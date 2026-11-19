@@ -17,8 +17,8 @@
 // every 50 ms of wall clock.
 
 import * as THREE from 'three';
-import { satrecOf, stateTeme } from '../physics/satellites.js';
-import { siteOf, temeToItrf, subPoint } from '../physics/passes.js';
+import { satrecOf, stateTeme } from '@digital-orrery/physics/satellites.js';
+import { siteOf, temeToItrf, subPoint } from '@digital-orrery/physics/passes.js';
 
 type Sat = ReturnType<typeof satrecOf>;
 export interface TrackSite { lat: number; lon: number; heightKm: number }
