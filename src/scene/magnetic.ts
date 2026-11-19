@@ -29,6 +29,7 @@
 
 import * as THREE from 'three';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
+import { getBuffer, getJson } from '../physics/fetchData.js';
 
 export type MagneticKey = 'magnetic' | 'aurora' | 'belts';
 type Mag = typeof import('../physics/magnetic.js');
@@ -361,7 +362,7 @@ export class MagneticLayer {
     // Kp drives the Earth's ovals and its T89 magnetosphere.
     if ((key === 'aurora' || key === 'magnetic') && on && !this.kpLoaded) {
       this.kpLoaded = true;
-      void this.loading!.then(() => fetch(`${this.baseUrl}data/kp.json`)).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      void this.loading!.then(() => getJson(`${this.baseUrl}data/kp.json`))
         .then((j) => this.aur!.installKp(j)).catch((e) => { console.warn('kp.json:', e); this.kpLoaded = false; });
     }
   }
@@ -551,7 +552,7 @@ export class MagneticLayer {
     // them, again every 10 minutes while it is.
     if (ms > now - 7 * 864e5 && ms < now + 2 * 3600e3 && now - this.windAsked > 10 * 60e3) {
       this.windAsked = now;
-      void fetch(B.PROPAGATED_URL).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      void getJson(B.PROPAGATED_URL)
         .then((j) => { this.windRows = B.parsePropagated(j); this.windLive.at = NaN; }).catch((e) => console.warn('solar wind:', e));
     }
     if (!(Math.abs(this.windLive.at - ms) < 60e3)) this.windLive = { at: ms, w: B.windNear(this.windRows, ms) };
@@ -751,7 +752,7 @@ export class MagneticLayer {
     const now = Date.now();
     if (!this.ov || Math.abs(date.getTime() - now) > 3 * 3600e3 || now - this.ovationAsked < 5 * 60e3) return;
     this.ovationAsked = now;
-    void fetch(this.ov.OVATION_URL).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    void getJson(this.ov.OVATION_URL)
       .then((j) => { this.ovation = this.ov!.parseOvation(j); }).catch((e) => console.warn('OVATION:', e));
   }
 
@@ -1186,7 +1187,7 @@ export class MagneticLayer {
     if (S.hcs) S.hcs.visible = f.focus === 'sun';
     if (!S.asked) {
       S.asked = true;
-      void fetch(`${this.baseUrl}data/sun-pfss.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((j) => { S.data = j; }).catch((e) => console.warn('sun-pfss.json:', e));
+      void getJson(`${this.baseUrl}data/sun-pfss.json`).then((j) => { S.data = j; }).catch((e) => console.warn('sun-pfss.json:', e));
     }
     if (!S.data) return;
     // The nearest rotation the table holds.
@@ -1307,7 +1308,7 @@ export class MagneticLayer {
     if (!M.group.visible || !mesh || !mat) return;
     if (!M.asked) {
       M.asked = true;
-      void fetch(`${this.baseUrl}data/mars-crustal-br.bin`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((buf) => {
+      void getBuffer(`${this.baseUrl}data/mars-crustal-br.bin`).then((buf) => {
         const s8 = new Int8Array(buf), u8 = new Uint8Array(s8.length);
         for (let i = 0; i < s8.length; i++) u8[i] = s8[i] + 128;
         const tex = new THREE.DataTexture(u8, 720, 360, THREE.RedFormat, THREE.UnsignedByteType);

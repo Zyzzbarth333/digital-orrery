@@ -41,6 +41,7 @@ import { parseGpCsv, satrecOf, stateEqj, stateTeme, temeToEqj, apply, inShadow, 
 import { VISIBLE_FRACTION } from './bodyMaterial';
 import { orbitTrailMaterial } from './orbitTrail';
 import { SatelliteModel } from './satelliteModels';
+import { getJson, getText } from '../physics/fetchData.js';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000;
@@ -317,7 +318,7 @@ export class SatelliteLayer {
 
   // satellites.json (10 kB): the named ones and the debris clouds, fetched once.
   private fetchMeta(): Promise<SatMeta> {
-    this.meta ??= fetch(`${this.baseUrl}data/satellites.json`).then((r) => { if (!r.ok) throw new Error(`satellites.json: HTTP ${r.status}`); return r.json(); });
+    this.meta ??= getJson(`${this.baseUrl}data/satellites.json`, 'satellites.json');
     return this.meta;
   }
 
@@ -343,7 +344,7 @@ export class SatelliteLayer {
     try {
       const meta$ = this.fetchMeta();
       const [csv, meta] = await Promise.all([
-        fetch(`${this.baseUrl}data/${LAYER_OF[k].file}`).then((r) => { if (!r.ok) throw new Error(`${LAYER_OF[k].file}: HTTP ${r.status}`); return r.text(); }),
+        getText(`${this.baseUrl}data/${LAYER_OF[k].file}`, LAYER_OF[k].file),
         meta$,
       ]);
       if (this.disposed) return;
