@@ -36,9 +36,10 @@ WCAG 2.2 level AA [1], with DESIGN.md's own panel rule on top: contrast of
   sheet; turning and zooming the view without a pointer.
 - **impeccable's `audit`** [2] for the code-level review: semantics,
   ARIA, motion and the theming tokens.
-- **Not run:** Deque's Axe plugin [3] is installed, but its server did not
-  connect during the audit, and axe-core was not added as a dependency, so
-  no axe rule set was run (see Still open). No
+- **Not run:** no axe rule set [3]. Deque's Axe plugin needs a paid
+  subscription and Node 22.19 or later (the laptop had Node 20 at the
+  time), and was uninstalled; axe-core was not added as a dependency (see
+  Still open). No
   screen reader was used: names and roles were read from Chromium's own
   accessibility tree, which is what NVDA, JAWS and VoiceOver are given on
   Chromium.
@@ -166,9 +167,8 @@ The VIEW pad open on the view plate, and the key sheet with its switch:
 
 ## Still open
 
-- **An axe pass.** The Axe plugin's server failed to connect, and
-  axe-core (MPL-2.0) was not added as a dev dependency without the owner's
-  say. With
+- **An axe pass.** axe-core (MPL-2.0) was not added as a dev dependency
+  without the owner's say, and the Axe plugin needs a paid subscription. With
   it, the probe can inject `axe.min.js` and run the `wcag2a`, `wcag2aa`,
   `wcag21aa` and `wcag22aa` rule sets in each state.
 - **A screen-reader pass** with NVDA on Firefox and VoiceOver on iOS, which
