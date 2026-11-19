@@ -1,3 +1,10 @@
+>>> node scripts/lib/chromium.test.mjs
+ok 1 a leader that exited on its own: stopGroup settles, no error
+ok 2 a leader killed by a signal (the memory cap): stopGroup settles, no error
+ok 3 a leader still running: SIGTERM ends it and stopGroup settles
+ok 4 a leader that ignores SIGTERM: SIGKILL after the wait
+chromium: 4 passed
+
 >>> node src/app/tex.test.mjs
 ok 1 plain text of common forms
 ok 2 MathML structure

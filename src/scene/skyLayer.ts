@@ -23,6 +23,7 @@
 
 import * as THREE from 'three';
 import { ScreenLines } from './screenLines';
+import { queued, readCounting } from '../browser/loadQueue.js';
 import { choose, decodeInfo, drawn, nameOf, searchNames, starTitle, type Candidate, type Constellation, type NameRow, type StarInfo, type StarNames } from './skyCatalogue';
 
 export const PICK_PX = 8;            // CSS px; a touch gets TOUCH_PX
@@ -97,7 +98,11 @@ export class SkyLayer {
     if (!this.catalogue) {
       const get = (p: string) => fetch(`${this.base}sky/${p}`).then((r) => { if (!r.ok) throw new Error(`sky/${p}: ${r.status}`); return r; });
       this.catalogue = Promise.all([
-        get('stars-info.bin').then((r) => r.arrayBuffer()),
+        // 2.95 MB, asked for by a pick, a hover, FIND or a Sky switch: the
+        // queue's first lane (src/browser/loadQueue.js), so it starts at once
+        // and shows on the load lamp. The two small tables go as they are.
+        queued({ label: 'Star catalogue', lane: 'first' }, async (h) =>
+          (await readCounting(await get('stars-info.bin'), h)).buffer as ArrayBuffer),
         get('names.json').then((r) => r.json() as Promise<{ stars: NameRow[] }>),
         get('constellations.json').then((r) => r.json() as Promise<{ constellations: Constellation[] }>),
       ]).then(([info, names, cons]) => {
