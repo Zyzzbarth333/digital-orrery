@@ -1413,6 +1413,7 @@ export class OrreryScene {
       if (fm) this.shadowOn(fm.material as THREE.ShaderMaterial, fm.position, Math.max(fm.scale.x, fm.scale.y, fm.scale.z), this.meshes.get('sun')!.position);
     }
     this.satellites.setView(this.viewH / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
+    this.satellites.craftLit = this.craftLayer.modelsLit;
     this.satellites.update(tMs, cam, this.states.earth.r, 1 / this.renderer.toneMappingExposure, this.adapt, this.states.moon.r);
     this.groundTrack.update(tMs, this.meshes.get('earth'), 1 / this.renderer.toneMappingExposure);
     this.spacecraft.update(tMs, cam, 1 / this.renderer.toneMappingExposure);

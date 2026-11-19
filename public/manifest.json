@@ -16,10 +16,10 @@
    "source": "c/ CSPICE fitters (DE442, moons, asteroids, Earth orientation)"
   },
   "models": {
-   "version": "16bb6e49add9",
-   "files": 55,
-   "bytes": 59812054,
-   "source": "NASA 3D Resources, NASA/JPL Eyes on the Solar System (docs/credits.md)"
+   "version": "9b080f7dee84",
+   "files": 57,
+   "bytes": 76488218,
+   "source": "NASA 3D Resources, NASA/JPL Eyes on the Solar System and Eyes on the Earth (docs/credits.md)"
   },
   "data": {
    "version": "ffb7607aa393",
@@ -4648,6 +4648,18 @@
    "set": "models",
    "bytes": 285972,
    "sha256": "c7603b4a67b41351eda453bae2e0194eeb8f79aa6a0b259a88dc88159f73100e"
+  },
+  {
+   "path": "models/satellites/hubble.glb",
+   "set": "models",
+   "bytes": 1718864,
+   "sha256": "6e18738ce125e6ad765059ef523df26f8ec4ee27459c044fdd19c60851ad3b11"
+  },
+  {
+   "path": "models/satellites/iss.glb",
+   "set": "models",
+   "bytes": 14957300,
+   "sha256": "09e8bb9dc94add57f4c25d120976faece56065b2d505c8cb1ac4dd4ee739efe5"
   },
   {
    "path": "models/saturn-v.glb",
