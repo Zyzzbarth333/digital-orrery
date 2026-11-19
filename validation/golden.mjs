@@ -67,6 +67,8 @@ const MASKS = [
   // passes.test.mjs: search times.
   [/300 calls take [\d.]+ ms kept against [\d.]+ ms from the epoch/, '300 calls take <clock> ms kept against <clock> ms from the epoch'],
   [/(passes found, .*), in \d+ ms$/, '$1, in <clock> ms'],
+  // remedies.test.mjs CASE 3: the time remedies() takes.
+  [/^  worked out in \d+ ms$/, '  worked out in <clock> ms'],
   // gravityFlow.test.mjs, artemis2.validate.mjs: a stage's wall time.
   [/^(\s*)\([\d.]+ s\)$/, '$1(<clock> s)'],
 ];
