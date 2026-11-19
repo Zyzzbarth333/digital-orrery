@@ -241,9 +241,11 @@ Standard quotes it [3].
   that is about 14 px for text, 18 px for control legends and 23 px for
   group labels, each step about 25 % up as MIL-STD-1472 grades them
   [3, §6.1.2.1.2–.5]. The console sets type by role in three TYPE steps
-  (Typography, below): step 1 keeps a laptop's layout with text at 14 px
-  and legends at 12 px; step 3 reaches 18 px legends with the panels
-  widened. Panel codes stay decoration.
+  (Typography, below): step 1 keeps a laptop's layout with text and
+  legends at 14 px and labels at 13; a wide screen starts at step 2; step 3
+  reaches 18 px legends with the panels widened. Group labels stop at
+  18 px, short of 23: a strip's title at 23 px Michroma would need a rail
+  near 400 px. Panel codes stay decoration.
 
 Product truth is in [PRODUCT.md](PRODUCT.md).
 
@@ -324,29 +326,33 @@ it loads. (Noto Sans Math is left out: Chromium doesn't stretch with it.)
 
 ### Hierarchy
 
-Sizes are set by role (`--t-*` in `app.css`), in three TYPE steps chosen
-with the rail foot's TYPE keys and kept for the browser. Step 1 fits a
-laptop; step 3 reaches the readability standard's sizes, the plate and
-console widening by 15 % and 32 % (`--w`) and the rail, whose strips'
-titles are long, by 20 % and 42 % (`--wr`).
+Sizes are set by role (`--t-*` in `app.css`), in three TYPE steps. A
+reader who has not chosen starts at step 1 on a laptop and step 2 on a
+screen 1,680 px wide or more; the rail foot's TYPE keys, or + and −, choose
+one, kept for the browser (`type-step.ts`). Step 3 reaches the readability
+standard's 18 px legends, the plate and console widening by 15 % and 32 %
+(`--w`) and the rail, whose strips' titles are long, by 28 % and 42 %
+(`--wr`). Two-word engraved labels in the plate (MEAN DENSITY, SURFACE
+GRAVITY) stack on two lines at step 1, as panel labels do, so the values
+keep their width.
 
 | Role | Face | Step 1 | Step 2 | Step 3 |
 | --- | --- | ---: | ---: | ---: |
 | Plate heading | Michroma | 26 | 28 | 30 |
 | Clock | B612 | 17 | 19 | 22 |
 | Values, inputs, text | B612 | 14 | 15 | 16 |
-| Rail rows, lists | B612 | 13 | 15 | 17 |
-| Units, notes, hints | B612 | 12 | 13 | 14 |
-| Engraved labels | Michroma, 0.14em | 11 | 13 | 15 |
-| Nomenclature strips | Michroma, 0.12em | 12 | 16 | 18 |
-| Control legends | B612 capitals, 0.06em | 12 | 15 | 18 |
-| Small keys, plotting-table lamps | B612 capitals | 11 | 13 | 15 |
-| Tags | B612 Mono | 11 | 12 | 13 |
+| Rail rows, lists | B612 | 14 | 15 | 17 |
+| Units, notes, hints | B612 | 13 | 14 | 15 |
+| Engraved labels | Michroma, 0.06em in the plate | 13 | 15 | 16 |
+| Nomenclature strips | Michroma, 0.08em | 13 | 16 | 18 |
+| Control legends | B612 capitals, 0.06em | 14 | 16 | 18 |
+| Small keys, plotting-table lamps | B612 capitals | 12 | 14 | 16 |
+| Tags | B612 Mono | 12 | 13 | 14 |
 | Labels in the sky | Michroma | 11 | 12 | 13 |
-| Small bodies', guides' labels | Michroma | 10 | 11 | 12 |
+| Small bodies', guides' labels | Michroma | 11 | 12 | 13 |
 | Equations (tag detail) | math font | 15 | 16 | 18 |
 | Panel codes | B612 Mono | 9 | 9 | 9 |
-| Key height | | 34 | 38 | 42 |
+| Key height | | 36 | 40 | 44 |
 
 ![The flight console at 1440 px: before, 10 px legends and labels with Michroma keys; after at TYPE 1, the same layout with 14 px text and B612 legends; at TYPE 3, 18 px legends and the header in two rows](docs/images/console-type.jpg)
 
@@ -359,8 +365,8 @@ rules on top of these.
 ## Layout
 
 - Desktop grid: a header band across the top, 64 px when it holds one row;
-  a 212 px rail, the sky in the middle cell (centred on the focused body)
-  and a 396 px plate, both scaled with the TYPE step.
+  a 236 px rail, the sky in the middle cell (centred on the focused body)
+  and a 412 px plate, both scaled with the TYPE step.
 - The flight console docks over the plate up to 1680 px wide, so the sky
   keeps its width; wider, it hangs over the sky's right edge (392 px) and
   the 3D view moves its centre left so the body in view stays clear.
@@ -401,7 +407,7 @@ casts a shadow onto the sky.
 
 ### Buttons
 
-Keys are 34 px high (38 and 42 at TYPE 2 and 3), their legends in B612
+Keys are 36 px high (40 and 44 at TYPE 2 and 3), their legends in B612
 capitals, with a raised bevel. A key that is unavailable has a flat, sunk
 face and muted ink (7.3:1), not a fade. RUN and HOLD
 are a radio pair (`role=radio`): RUN lights orange while time runs, HOLD
