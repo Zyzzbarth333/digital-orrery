@@ -199,7 +199,14 @@ burn):
 A flyby of such a moon is aimed at it too, by its excess velocity about the
 moon (`moonArr` is worked out for a flyby as well, though nothing is priced
 from it there): Europa passed 0.0 km off a planned 2,061 km periapsis,
-where it was aimed at Jupiter before.
+where it was aimed at Jupiter before. Every leg that reaches a moon via its
+planet carries `moonArr`: the Lambert arc, the deep-space burn and broken
+plane near 180 degrees, the bi-elliptic leg and a craft's own leg. The
+near-180° branch once dropped it at a flyby. Earth to an Io flyby on the
+plotting table's dates for Io (30 Nov 2027 to 12 Apr 2031, 190.7° round
+the Sun) was then aimed at Jupiter with Io's periapsis offset, 69,309 km
+from Jupiter's centre (its radius is 71,492 km), and hit it. Aimed at Io,
+it passes 0.2 km off the planned 2,221 km periapsis.
 
 ### Near 180 degrees: the broken plane
 
@@ -1637,6 +1644,7 @@ orbits, waits 454 days.
 | Earth orbit to a Europa landing, flown | the plan | down at 2.1 m/s, 1,681 m/s for the descent |
 | Earth orbit to Titan, landing through the air, flown | the plan | aimed at Titan; the entry perigee 1,000.01 km for 1,000 (within 5 km) |
 | Earth orbit to a Europa flyby, flown | the plan | aimed at Europa, not Jupiter; 0.0 km off the planned 2,061 km periapsis (within 5 km) |
+| Earth to an Io flyby on a leg 190.7° round the Sun (a deep-space burn), flown | the plan | aimed at Io, not Jupiter (before the fix the near-180° branch dropped the excess about Io, the aim at Jupiter was 69,309 km from its centre, and the craft hit Jupiter); 0.2 km off the planned 2,221 km periapsis (within 5 km); the bi-elliptic leg and a craft's own leg keep the excess about Io too |
 | Moon orbit, then a landing there (an orbit change about the Moon), up, home, flown in the full model | the orbit's circular speed; the flight | the descent priced 1.634 km/s (it was 0); flown down at 2.3 m/s for 1,869 m/s; up for 1,759; home by entry |
 | A 400 km Earth orbit straight to a landing | a Hohmann transfer's first burn (Curtis 6.2) | one 81 m/s deorbit burn, no circularising burn; flown, the full model's drag brings it down before perigee, set down by entry |
 | Galileo's first two flybys: Venus (powered) and Earth (unpowered) | $2v_\infty\sin(\delta/2)$ [1, Sec. 8.9]; the arcs' heliocentric velocities | Earth +7.26 km/s free; Venus +3.49 for a 192 m/s burn, the arcs' velocity out less in to 10⁻⁶ km/s, credit 3.30; the total the burns alone |
