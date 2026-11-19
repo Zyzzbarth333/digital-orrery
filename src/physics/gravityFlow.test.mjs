@@ -25,6 +25,7 @@ import { systemEqj, MOONS_OF } from './moons.js';
 import { bodyAxesEqj } from './orientation.js';
 import { IAU_W1, spinRate } from './spin.js';
 import { PLANETS } from '../utils/constants.js';
+import { dot, cross, norm } from './vec.js';
 
 let failed = 0;
 const check = (ok, msg) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${msg}`); if (!ok) failed++; };
@@ -32,9 +33,6 @@ const header = (s) => console.log(`\n${s}`);
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 
 // Every body the scene's field sums, heliocentric EQJ: the Sun, the
 // planets at their centres with their own GMs, and each moon with a GM.

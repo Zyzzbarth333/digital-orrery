@@ -41,9 +41,9 @@
 // matters for fast transfers to the giants), two-body everywhere.
 
 import { lambertRevs } from './orbital.js';
+import { norm } from './vec.js';
 
 const DAY_MS = 86400e3;
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 
 export const injectionDv = (vinf, mu, rPark) => Math.sqrt(vinf * vinf + 2 * mu / rPark) - Math.sqrt(mu / rPark);

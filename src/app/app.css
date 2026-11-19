@@ -978,6 +978,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .body-marker.spacecraft.penumbra, .craft-marker.penumbra { opacity: 0.8; }
 .body-marker.satellite.focused .name { opacity: 1; }
 .body-marker.satellite.modelled .dot { visibility: hidden; }
+.body-marker.spacecraft.modelled .dot { visibility: hidden; }
 .sat-source { margin: 0; padding: calc(0.5 * var(--u)) calc(1.5 * var(--u)) 0; font-size: var(--t-small); color: var(--ink-muted); }
 .sat-source .tag { font: var(--t-tag) var(--mono); border: 1px solid var(--ink); padding: 0 4px; color: var(--ink); }
 .sat-live { display: flex; align-items: center; gap: var(--u); padding: var(--u) calc(1.5 * var(--u)) 0; font-size: var(--t-small); color: var(--ink-muted); }

@@ -1,3 +1,4 @@
+// @ts-check
 // src/physics/journeyFlight.js
 //
 // A journey (journey.js, patched conics) flown by the n-body kernel
@@ -43,21 +44,61 @@ import { makeEnvironment } from './environment.js';
 import { aimingRadius } from './transfers.js';
 import { bodyAxesEqj } from './orientation.js';
 import { deorbitDv, designBraking, designTerminal, designAscent, planCapture, DESCENT_PERIAPSIS_KM, TOUCHDOWN_SPEED } from './landing.js';
+import { dot, cross, norm, unit } from './vec.js';
+
+/** @import { V3, Vec } from './vec.js' */
+/** @import { Burn, CraftEnv, BodySet } from './kernelHost.js' */
+/** @typedef {ReturnType<typeof import('./journey.js').solveJourney>} Solution */
+/** @typedef {{ r: number[], v: number[], t: number }} FlightState  the craft's state at kernel time t (s) */
+/** @typedef {{ mass: number, area: number, cr: number, cd: number, earth?: { degree?: number }, moon?: { degree?: number } }} Env */
+/** @typedef {{ body: string, offsetEqj: number[], arrive: number, without: string | null, central?: string }} AimTarget */
+/** @typedef {{ central: string, from: string, to?: string, toEqj?: number[], arrMs: number }} Reaim */
+/** @typedef {{ n0: number[], pole: number[], f1: number[], f2: number[], rate: number, stayS: number }} PlaneTurn */
+/** @typedef {{ wayOut?: number[], untilMs?: number, planeHold?: number[], planeTurn?: PlaneTurn }} OffsetInfo */
+/** @typedef {{ kind: 'depart', ms: number, body: string, vinfEqj: number[], rp: number, via: string | null, waitDays?: number, reaim: Reaim | null, aimPlanet?: number, aimAt?: AimTarget }} DepartEvent */
+/** @typedef {{ kind: 'depart-ring', ms: number, body: string, dv: number, dirEqj: number[] }} DepartRingEvent */
+/** @typedef {{ kind: 'aim', ms: number, body: string, offsetEqj: number[], arrive: number, without: string | null, central: string, farTo?: { ms: number, offsetEqj: number[] }, last?: boolean, replane?: { rp: number, wayOutEqj: number[], untilMs?: number } }} AimEvent */
+/** @typedef {{ kind: 'arrive', ms: number, body: string, waypoint: number, plannedRp: number, central: boolean, windowMs: number }} ArriveEvent */
+/**
+ * The kernel's schedule, one kind of event each (the flight reads its kind).
+ * @typedef {{ kind: 'impulse', ms: number, dvEqj: number[], node?: boolean, body?: undefined }
+ *   | { kind: 'liftoff', ms: number, body: string, rOrbit: number, waypoint: number }
+ *   | { kind: 'tangent', ms: number, body: string, dv: number, waypoint?: number }
+ *   | { kind: 'land', ms: number, body: string, waypoint: number, mode: string }
+ *   | DepartEvent
+ *   | DepartRingEvent
+ *   | { kind: 'impulse-rel', ms: number, body: string, vinfEqj: number[] }
+ *   | AimEvent
+ *   | { kind: 'approach', ms: number, body: string, rp: number, wayOutEqj?: number[], untilMs?: number, planeTurn?: PlaneTurn, planeHold?: number[] }
+ *   | ArriveEvent
+ *   | { kind: 'point', ms: number, waypoint: number, offsetEqj: number[], body: string }
+ *   | { kind: 'capture' | 'rendezvous', ms: number, body: string, rp: number }} PlanEvent
+ */
+/** @typedef {{ start: { r: number[], v: number[], ms: number } | null, events: PlanEvent[], unsupported: string[] }} Plan */
+/** @typedef {{ dt: number, d: number[], m: number, T: number, rb: number, vb: number, aimedKm?: number, offMs?: number }} DepartBurn */
+/** @typedef {{ body: string, t: number, speed?: number }} Impact */
+/** @typedef {{ type: string, body: string, t: number }} KernelEvent  (an event the kernel stops a step on) */
+/** @typedef {{ r: number[], v: number[] }} State */
+/** @typedef {{ key: string, local: number[] }} Site */
+/** @typedef {{ body: string, waypoint: number, t: number, local: number[], how: string, speed: number, lat: number, lon: number, until: number | null, entryKm?: number, dv?: number, ascentDv?: number }} Landing */
+/** @typedef {{ body: string, dv: number, impulsive: number, steered: boolean, pitchDeg: number[] | null, hohmann: { from: number, dv: number } | null, rc: number, a?: number, e?: number }} Capture */
+/** @typedef {{ waypoint: number, body: string, closest: number, plannedRp: number, missKm: number, at: number, central: boolean, landed: boolean }} Arrival */
+/** @typedef {ArriveEvent & { t0: number, t1: number, step: number, best: number, at: number, pointMiss?: number }} Watch */
+/** @typedef {{ burns: Burn[], path: { t: number, r: number[] }[], arrivals: Arrival[], log: string[], impact: Impact | null, correctionsDv: number, landings: Landing[], captures: Capture[], model: 'full' | 'bare', trouble: string[], gaveUp?: boolean }} Flight */
 
 const DAY = 86400;
+/** @param {Vec} a @param {Vec} b */
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+/** @param {Vec} a @param {Vec} b */
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+/** @param {Vec} a @param {number} k */
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => scale(a, 1 / norm(a));
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const Z = [0, 0, 1];
 // The bodies the kernel pulls with: the planets, the Moon and the planets'
 // major moons (bodies.js splits a planet's system near it), so each of
 // these is reached by aims without its pull, approach trims and a capture,
 // and left by a burn onto its own excess velocity.
-const PLANET_MOONS = ['mars', 'jupiter', 'saturn', 'uranus', 'neptune'].flatMap((p) => MAJOR_MOONS_OF[p] ?? []);
+const PLANET_MOONS = ['mars', 'jupiter', 'saturn', 'uranus', 'neptune'].flatMap((p) => /** @type {Record<string, string[]>} */ (MAJOR_MOONS_OF)[p] ?? []);
 // A craft the air brings down before its entry perigee, falling slower
 // than this (km/s), came down by entry, not by a crash: its speed was the
 // drag's doing, and the plan's parachutes take it from there.
@@ -79,14 +120,19 @@ const BURN_ARC = 10 * Math.PI / 180;
 // The aims on the way down a planet's well to its moon, at these multiples
 // of the planet's sphere-crossing time before the arrival.
 const VIA_PLANET_AIMS = [3, 0.5, 0.1, 0.02];
+/** @type {Env} */
 export const JOURNEY_ENV = { mass: JOURNEY_CRAFT.dryMass + JOURNEY_CRAFT.fuel, area: JOURNEY_CRAFT.area, cr: JOURNEY_CRAFT.cr, cd: JOURNEY_CRAFT.cd };
 
+/** @param {Vec} v */
 const ecl = (v) => eclToEqj(v);
 // A body's position at kernel time t: the kernel's own (a planet's moon
 // wherever its system is split or folded), or for a body the kernel lacks
 // (a small body) from its elements.
-const posAt = (sys, key, t) => (sys.bodiesAt(t).find((b) => b.key === key) ?? (MOON_IN_KERNEL.has(key) ? sys.bodyAt?.(key, t) : null))?.r.slice() ?? eclToEqj(stateOf(key, kernelMs(t)).r);
+/** @param {BodySet} sys @param {string} key @param {number} t */
+const posAt = (sys, key, t) => (sys.bodiesAt(t).find((/** @type {{ key: string }} */ b) => b.key === key) ?? (MOON_IN_KERNEL.has(key) ? sys.bodyAt?.(key, t) : null))?.r.slice() ?? eclToEqj(stateOf(key, kernelMs(t)).r);
+/** @param {string} key @param {number} ms */
 const state = (key, ms) => helioStateEqj(key, new Date(ms));
+/** @param {Vec} u @returns {V3} */
 const perpEcliptic = (u) => { const n = sub(Z, scale(u, dot(Z, u))); return norm(n) > 1e-9 ? unit(n) : [1, 0, 0]; };
 
 // The planned periapsis at a waypoint, relative to its body (ecliptic km):
@@ -94,6 +140,7 @@ const perpEcliptic = (u) => { const n = sub(Z, scale(u, dot(Z, u))); return norm
 // outbound excess velocity); for a capture, the hyperbola whose plane holds
 // the next departure's excess velocity too, so the parking orbit it leaves
 // from already contains it.
+/** @param {Solution} sol @param {number} k @param {OffsetInfo} [info] @returns {number[]} */
 function periapsisOffset(sol, k, info = {}) {
   const Q = sol.stops[k + 1], inLeg = sol.legs[k], outLeg = sol.legs[k + 1];
   if (inLeg.ringArr) return inLeg.ringArr;
@@ -144,6 +191,7 @@ function periapsisOffset(sol, k, info = {}) {
 // and the craft reaches the periapsis early (an hour at Venus). The
 // hyperbola is the incoming one through the B-plane point with the planned
 // periapsis radius, at its periapsis at arrMs (Curtis eqs. (8.71), (8.75)).
+/** @param {number[]} aimOff @param {number[]} vin @param {number} rp @param {number} mu @param {number} arrMs @returns {(ms: number) => number[]} */
 function bentAim(aimOff, vin, rp, mu, arrMs) {
   const u = unit(vin), b = unit(aimOff), vinf = norm(vin);
   const half = turnAngle(rp, vinf, mu) / 2, c = Math.cos(half), s = Math.sin(half);
@@ -153,17 +201,20 @@ function bentAim(aimOff, vin, rp, mu, arrMs) {
     const dt = (arrMs - ms) / 1000;
     if (!(dt > 0)) return aimOff;
     const h = propagate(r0, v0, -dt, mu);
+    if (!h) return aimOff;   // the solve failed: aim as for no bend
     return add(h.r, scale(h.v, dt));
   };
 }
 
 // The kernel's schedule for a solved journey. Returns { start: { r, v, ms },
 // events: [...] sorted by time, unsupported: [reasons] }.
+/** @param {Solution} sol @returns {Plan} */
 export function planFlight(sol) {
-  const events = [], unsupported = [];
+  const events = /** @type {PlanEvent[]} */ ([]), unsupported = /** @type {string[]} */ ([]);
   const S = sol.stops, L0 = sol.legs[0];
   if (!sol.ok) return { start: null, events, unsupported: ['the journey has a leg with no solution'] };
   // Where the craft starts.
+  /** @type {{ r: number[], v: number[], ms: number }} */
   let start;
   const s0 = S[0];
   if (s0.kind === 'craft') {
@@ -205,6 +256,7 @@ export function planFlight(sol) {
       continue;
     }
     // Leaving a stop where the craft was in orbit.
+    /** @type {DepartEvent | null} */
     let departEv = null;
     if (k > 0 && P.kind !== 'flyby') {
       // Off the ground first, into the low orbit, three hours before the
@@ -232,7 +284,7 @@ export function planFlight(sol) {
     // cancel), less the bending the target has given the craft by then. At
     // a central body (the Moon home to Earth) it is the planned point
     // itself, with everything.
-    const offInfo = {}, off = periapsisOffset(sol, k, offInfo);
+    const offInfo = /** @type {OffsetInfo} */ ({}), off = periapsisOffset(sol, k, offInfo);
     // The excess velocity about the waypoint's body: reaching a moon via its
     // planet (Mars to the Moon), the one about the moon where it is on the
     // day (journey.js moonArr), and the aim is at the moon itself, not at its
@@ -250,8 +302,10 @@ export function planFlight(sol) {
     if (leg.ringArr) {
       const arc = leg.arcs[leg.arcs.length - 1];
       arriveMs = leg.arrMs - Math.min(1800e3, 0.05 * (arc.t2 - arc.t1));
-      aimOff = propagate(arc.r1, arc.v1, (arriveMs - arc.t1) / 1000, arc.mu).r;
+      const short = propagate(arc.r1, arc.v1, (arriveMs - arc.t1) / 1000, arc.mu);
+      if (short) aimOff = short.r;   // else (the solve failed) the arc's end as it was
     }
+    /** @param {string} key @param {Vec | null | undefined} vinf */
     const crossing = (key, vinf) => (KERNEL.has(key) && vinf ? sphereOfInfluence(key) / norm(vinf) : 0) * 1000;
     const target = { body: leg.ringArr ? leg.central : viaMoon ? Q.body : (leg.endB ?? Q.body), offsetEqj: ecl(aimOff), arrive: arriveMs, without, central: leg.central };
     // At a planet, the B-plane point less the bending the planet has
@@ -259,6 +313,7 @@ export function planFlight(sol) {
     // Earth, at the Moon: there the Earth's pull is most of the bending, and
     // a hyperbola about the Moon from a day out is no guide to it.)
     const bent = without && !viaMoon && target.body === Q.body && leg.central === 'sun' ? bentAim(aimOff, vinQ, norm(off), bodyInfo(Q.body).mu, arriveMs) : null;
+    /** @param {number} ms */
     const targetAt = (ms) => (bent ? { ...target, offsetEqj: ecl(bent(ms)) } : target);
     // Leaving a planet's moon via the planet, the burn is set by side runs
     // to the excess about the planet: three-level patched conics are rough
@@ -281,7 +336,7 @@ export function planFlight(sol) {
     // Burn nodes dragged onto the leg are flown as planned (their burns as
     // planned vectors); the aims come after the last of them, so the flight
     // keeps the shape given and corrects only what is left.
-    const nodes = (leg.nodes ?? []).filter((n) => n.dv > 0);
+    const nodes = /** @type {{ ms: number, dv: number, dvVec: number[] }[]} */ ((leg.nodes ?? []).filter((/** @type {{ dv: number }} */ n) => n.dv > 0));
     for (const n of nodes) events.push({ kind: 'impulse', ms: n.ms, dvEqj: ecl(n.dvVec), node: true });
     const afterNodes = nodes.length ? nodes[nodes.length - 1].ms + 0.02 * dur : -Infinity;
     // A return to the body just left (a resonant orbit): the aims fly
@@ -310,6 +365,7 @@ export function planFlight(sol) {
       const toBreak = leg.mid ? { body: leg.central, offsetEqj: ecl(leg.mid.r), arrive: leg.mid.ms, without: null, central: leg.central } : targetAt(early);
       if (early < first - 3600e3) events.push({ kind: 'aim', ms: early, ...toBreak });
     }
+    /** @type {AimEvent[]} */
     const aims = [{ kind: 'aim', ms: first, ...targetAt(first) }];
     // Reaching a moon via its planet, the way in falls through the planet's
     // well, where a miss grows fast: more aims on the way down, at a few
@@ -374,6 +430,7 @@ export function planFlight(sol) {
 // from its centre), plannedRp, missKm, at (ms) }]), log, impact }.
 // Seconds to the periapsis of the two-body orbit through r, v (negative if
 // past it): the hyperbolic or elliptic anomaly from the state.
+/** @param {Vec} r @param {Vec} v @param {number} mu */
 function timeToPeriapsis(r, v, mu) {
   // e cos E = 1 - r/a, e sin E = r v_r / sqrt(mu a) on an ellipse;
   // e cosh F = 1 - r/a, e sinh F = r v_r / sqrt(-mu a) on a hyperbola.
@@ -389,15 +446,18 @@ function timeToPeriapsis(r, v, mu) {
 
 // The excess velocity of the two-body hyperbola through r, v about mu
 // (along its outgoing asymptote), or null on an ellipse.
+/** @param {Vec} r @param {Vec} v @param {number} mu */
 function asymptote(r, v, mu) {
   const en = dot(v, v) / 2 - mu / norm(r);
   if (!(en > 0)) return null;
-  const h = cross(r, v), ev = sub(scale(cross(v, h), 1 / mu), unit(r)), ec = norm(ev), th = Math.acos(-1 / ec);
+  const h = cross(r, v), ev = sub(scale(cross(v, h), 1 / mu), unit(r)), ec = norm(ev), th = Math.acos(Math.max(-1, Math.min(1, -1 / ec)));   // clamped: near a parabola, rounding puts -1/ec just past 1
   const p = unit(ev), q = unit(cross(h, p));
   return scale(add(scale(p, Math.cos(th)), scale(q, Math.sin(th))), Math.sqrt(2 * en));
 }
 // x with A x = b (3 by 3, Cramer), or null if A is singular.
+/** @param {number[][]} A @param {number[]} b */
 function solve3(A, b) {
+  /** @param {number[][]} m */
   const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
   const D = det(A);
   if (!(Math.abs(D) > 0)) return null;
@@ -406,6 +466,7 @@ function solve3(A, b) {
 
 // Seconds to the apoapsis of the ellipse through r, v (half a period from
 // the periapsis).
+/** @param {Vec} r @param {Vec} v @param {number} mu */
 function timeToApoapsis(r, v, mu) {
   const a = 1 / (2 / norm(r) - dot(v, v) / mu);
   if (!(a > 0)) return NaN;
@@ -417,13 +478,15 @@ function timeToApoapsis(r, v, mu) {
 
 // The kernel's bodies without one: a planet or the Moon left out of the
 // list, a planet's major moon left out of its split system (bodies.js omit).
+/** @type {Map<string, BodySet>} */
 const WITHOUT = new Map();
+/** @param {BodySet} sys @param {string} key */
 function withoutBody(sys, key) {
   const id = `${sys.epochMs}:${key}`;
   if (!WITHOUT.has(id)) WITHOUT.set(id, MOON_IN_KERNEL.has(key)
-    ? solarSystemBodies({ epochMs: sys.epochMs, omit: [key] })
+    ? solarSystemBodies({ epochMs: sys.epochMs, omit: /** @type {never[]} */ ([key]) })
     : solarSystemBodies({ epochMs: sys.epochMs, keys: KERNEL_BODIES.filter((b) => b !== key) }));
-  return WITHOUT.get(id);
+  return /** @type {BodySet} */ (WITHOUT.get(id));
 }
 
 // An aim that ends further than this from its point has not converged.
@@ -433,6 +496,7 @@ const AIM_CONVERGED_KM = 50;
 // troubles it logged (an aim, a departure, a descent or an ascent it could
 // not work out), a crash, a landing it planned and did not make, or a
 // waypoint missed by more than 50 km or 2 % of the planned periapsis.
+/** @param {Plan} plan @param {Flight} f */
 export function flightTrouble(plan, f) {
   const out = [...(f.trouble ?? [])];
   if (f.impact) out.push(`it hits ${bodyInfo(f.impact.body).name}`);
@@ -450,6 +514,7 @@ export function flightTrouble(plan, f) {
 // deadlineMs: the full model's flight is given up past this much wall time
 // (a long stay in a low lunar orbit, at degree 50, can take minutes), and
 // that is its trouble.
+/** @param {BodySet} sys @param {Plan} plan @param {{ samples?: number, env?: Env | null, deadlineMs?: number }} [options] */
 export function flyPlanned(sys, plan, { deadlineMs = 60e3, ...opts } = {}) {
   const full = flyJourney(sys, plan, { ...opts, model: 'full', deadlineMs }), why = flightTrouble(plan, full);
   if (!why.length) return { ...full, bareWhy: null };
@@ -458,8 +523,10 @@ export function flyPlanned(sys, plan, { deadlineMs = 60e3, ...opts } = {}) {
   return { ...bare, bareWhy: why.join('; ') };
 }
 
+/** @param {BodySet} sys @param {Plan} plan @param {{ samples?: number, model?: 'full' | 'bare', env?: Env | null, deadlineMs?: number }} [options] @returns {Flight} */
 export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envIn = null, deadlineMs = Infinity } = {}) {
   const wallEnd = Date.now() + deadlineMs;
+  /** @param {string} key */
   const without = (key) => withoutBody(sys, key);
   // The model it is flown in: 'full', the environment (environment.js: the
   // Earth's and the Moon's gravity fields, the tides, drag, sunlight and
@@ -471,17 +538,20 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   const searchEnv = env && { ...env, earth: { ...(env.earth ?? {}), degree: Math.min(env.earth?.degree ?? 20, 10) }, moon: { ...(env.moon ?? {}), degree: Math.min(env.moon?.degree ?? 50, TRIAL_MOON_DEGREE) } };
   // The same craft with the fields to degree 4, for an aim's sensitivities.
   const cheapEnv = env && { ...env, earth: { ...(env.earth ?? {}), degree: Math.min(env.earth?.degree ?? 20, 4) }, moon: { ...(env.moon ?? {}), degree: Math.min(env.moon?.degree ?? 50, 4) } };
+  /** @type {Flight} */
   const out = { burns: [], path: [], arrivals: [], log: [], impact: null, correctionsDv: 0, landings: [], captures: [], model: env ? 'full' : 'bare', trouble: [] };
   if (!plan.start) return out;
   // A body in the kernel's list now, or a planet's moon while its system is
   // folded (bodies.js bodyAt: the moon at its place with its own GM).
-  const body = (key, t) => sys.bodiesAt(t).find((b) => b.key === key) ?? (MOON_IN_KERNEL.has(key) ? sys.bodyAt?.(key, t) : undefined);
+  /** @param {string} key @param {number} t */
+  const body = (key, t) => sys.bodiesAt(t).find((/** @type {{ key: string }} */ b) => b.key === key) ?? (MOON_IN_KERNEL.has(key) ? sys.bodyAt?.(key, t) : undefined);
   let s = { r: [...plan.start.r], v: [...plan.start.v], t: kernelSeconds(new Date(plan.start.ms)) };
   const t0 = s.t, tEnd = kernelSeconds(new Date(plan.events.length ? plan.events[plan.events.length - 1].ms : plan.start.ms)) + DAY;
   const every = (tEnd - t0) / samples;
   out.path.push({ t: s.t, r: [...s.r] });
   // Closest approaches: each waypoint watched over a window about its
   // planned time, in fine steps, while the craft flies through it.
+  /** @type {Watch[]} */
   const watches = plan.events.filter((e) => e.kind === 'arrive').map((e) => {
     const T = kernelSeconds(new Date(e.ms)), w = e.windowMs / 1000;
     return { ...e, t0: T - w, t1: T + w, step: (2 * w) / 240, best: Infinity, at: NaN };
@@ -505,9 +575,10 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   // On the ground (held: { key, local }), the craft turns with the body:
   // its path follows the site. landingOn: the body a descent is coming down
   // to, where an impact is the touchdown (touch: the state there).
-  let held = null, landingOn = null, touch = null;
+  let held = /** @type {Site | null} */ (null), landingOn = /** @type {string | null} */ (null), touch = /** @type {FlightState | null} */ (null);
   // Fly to time t, recording the path; stops at an impact. chunk: the
   // longest stretch handed to the kernel at once.
+  /** @param {number} t @param {number} [chunk] */
   const flyTo = (t, chunk = every) => {
     while (held && s.t < t - 1e-6) {
       const tn = Math.min(t, s.t + every), x = siteAt(held, tn);
@@ -519,7 +590,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       let tn = Math.min(t, s.t + chunk);
       for (const w of watches) if (tn > w.t0 && s.t < w.t1) tn = Math.min(tn, Math.max(s.t + w.step, Math.min(w.t0, tn)), s.t + w.step);
       const res = stepCraft(sys, { id: 0, version: 0, r: s.r, v: s.v, t: s.t, tEnd: tn, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env } : {}) });
-      const hit = res.events.find((e) => e.type === 'impact');
+      const hit = res.events.find((/** @type {KernelEvent} */ e) => e.type === 'impact');
       s = { r: res.r, v: res.v, t: res.t };
       if (chunk >= every || s.t - out.path[out.path.length - 1].t >= every || s.t >= t - 1e-6) out.path.push({ t: s.t, r: [...s.r] });
       look();
@@ -529,35 +600,43 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       if (!res.complete) { out.log.push(`kernel stopped short at ${s.t}`); out.trouble.push('the kernel stopped short'); break; }
     }
   };
+  /** @param {number} t @param {number[]} dir @param {number} dvKmS @param {string | null} [frame] @param {string | null} [about] @param {number} [accel] @returns {Burn | undefined} */
   const burn = (t, dir, dvKmS, frame = null, about = null, accel = PLAN_ACCEL) => {
     const dur = (dvKmS * 1000) / accel;
     if (!(dur > 0)) return;
     // Centred on t: a finite burn loses least about its aim point.
-    const b = { t0: t - dur / 2, t1: t + dur / 2, dir: frame ? dir : unit(dir), F: accel, m0: 1, mdot: 0, scripted: true, ...(frame ? { frame, about } : {}) };
+    const b = { t0: t - dur / 2, t1: t + dur / 2, dir: frame ? dir : unit(dir), F: accel, m0: 1, mdot: 0, scripted: true, ...(frame ? { frame, about: /** @type {string} */ (about) } : {}) };
     out.burns.push(b);
     return b;
   };
+  /** @param {string} key @param {number} t */
   const bodyState = (key, t) => {
     const B = body(key, t);
     if (B) { const v = [0, 0, 0]; B.eph.velocity(t, v); return { r: B.r.slice(), v, mu: B.mu }; }
     const x = stateOf(key, kernelMs(t));
     return { r: eclToEqj(x.r), v: eclToEqj(x.v), mu: 0 };
   };
+  /** @param {string} key @param {number} t */
   const rel = (key, t) => { const B = bodyState(key, t); return { r: sub(s.r, B.r), v: sub(s.v, B.v), B }; };
+  /** @param {number} dv */
   const durOf = (dv) => (dv * 1000) / PLAN_ACCEL;
   const peri = new Map();
   // A body's axes at kernel time t (orientation.js); fixed axes for a body
   // with no rotation model (a small body).
+  /** @param {string} key @param {number} t */
   const axesOf = (key, t) => { try { return bodyAxesEqj(key, new Date(kernelMs(t))); } catch { return [[1, 0, 0], [0, 1, 0], [0, 0, 1]]; } };
   // A site's state at t: its body's, plus the body-fixed point turned
   // into space (and its velocity from the turn over a second).
+  /** @param {Site} S @param {number} t */
   function siteAt(S, t) {
+    /** @param {number} tt */
     const at = (tt) => { const [X, Y, W] = axesOf(S.key, tt); return [0, 1, 2].map((i) => X[i] * S.local[0] + Y[i] * S.local[1] + W[i] * S.local[2]); };
     const B = bodyState(S.key, t), d0 = at(t), d1 = at(t + 1);
     return { r: add(B.r, d0), v: add(B.v, sub(d1, d0)) };
   }
   // The surface beneath relative position d (km): the mean sphere, or the
   // Earth's ellipsoid about its pole, as the kernel's impacts take them.
+  /** @param {string} key @param {number[]} d @param {number} t */
   const surfaceUnder = (key, d, t) => {
     const b = body(key, t), u = unit(d);
     if (b?.surface && b.pole) { const z = dot(u, b.pole); return scale(u, 1 / Math.sqrt((1 - z * z) / b.surface.a ** 2 + z * z / b.surface.c ** 2)); }
@@ -565,6 +644,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   };
   // Down: the craft held at the point beneath it, the watch on the body
   // ended (it measured the way in), the landing recorded.
+  /** @param {string} key @param {number} waypoint @param {string} how @param {{ entryKm?: number, dv?: number }} [extra] */
   const setDown = (key, waypoint, how, extra = {}) => {
     const B = bodyState(key, s.t), [X, Y, W] = axesOf(key, s.t), d = surfaceUnder(key, sub(s.r, B.r), s.t);
     const ground = siteAt({ key, local: [dot(X, d), dot(Y, d), dot(W, d)] }, s.t), speed = norm(sub(s.v, ground.v));
@@ -583,12 +663,13 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   // then); leaving a moon via its planet, the planet's excess turned into
   // the moon's: the speed about the planet at the moon whose asymptote is
   // the planned one, less the moon's own.
+  /** @param {DepartEvent} e @param {number} tt @param {boolean} [planet] */
   const departWant = (e, tt, planet = false) => {
     let want = e.vinfEqj;
     if (e.reaim && Math.abs(tt - kernelSeconds(new Date(e.ms))) >= 3600) {
       const T = kernelSeconds(new Date(e.reaim.arrMs));
       const C = e.reaim.central === 'sun' ? { r: [0, 0, 0], v: [0, 0, 0] } : bodyState(e.reaim.central, tt), CT = e.reaim.central === 'sun' ? [0, 0, 0] : posAt(sys, e.reaim.central, T);
-      const P0 = bodyState(e.reaim.from ?? e.body, tt), to = e.reaim.toEqj ?? sub(posAt(sys, e.reaim.to, T), CT);
+      const P0 = bodyState(e.reaim.from ?? e.body, tt), to = e.reaim.toEqj ?? sub(posAt(sys, /** @type {string} */ (e.reaim.to), T), CT);
       const muC = e.reaim.central === 'sun' ? sys.muSun : bodyInfo(e.reaim.central).mu;
       const arc = lambert(sub(P0.r, C.r), to, T - tt, muC, true);
       if (arc) want = sub(arc.v1, sub(P0.v, C.v));
@@ -607,6 +688,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   // environment, less the body's own acceleration (its ephemeris velocity
   // differenced over a second).
   const envFn = env ? makeEnvironment(sys, env) : null;
+  /** @param {string} key */
   function localGravity(key) {
     const a = accelHeliocentric(s.r, sys.bodiesAt(s.t), sys.muSun);
     if (envFn) envFn(s.t, s.r, s.v, a, s.t);
@@ -623,8 +705,10 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   // each turn (about 2 km in a at 400 km over Mars, as cos 2u from the node),
   // round the same orbit, and the node's rate goes with the mean (-7/2 a
   // power of it: 2 km is 0.2 %, 13 degrees over a year at Mars).
+  /** @param {string} key @param {FlightState} [st] */
   function orbitShape(key, st = s) {
     const B0 = bodyState(key, st.t), r0 = sub(st.r, B0.r), v0 = sub(st.v, B0.v);
+    /** @param {number[]} r @param {number[]} v @param {number} mu */
     const aOf = (r, v, mu) => 1 / (2 / norm(r) - dot(v, v) / mu);
     const a0 = aOf(r0, v0, B0.mu);
     if (!(a0 > 0)) return null;
@@ -632,7 +716,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
     let x = st, lo = Infinity, hi = 0, sum = 0;
     for (let i = 1; i <= n; i++) {
       const res = stepCraft(sys, { id: 0, version: 0, r: x.r, v: x.v, t: x.t, tEnd: st.t + (T * i) / n, primary: null, burns: out.burns, maxSteps: 2e5, ...(env ? { env: searchEnv } : {}) });
-      if (!res.complete || res.events.some((q) => q.type === 'impact')) return null;
+      if (!res.complete || res.events.some((/** @type {KernelEvent} */ q) => q.type === 'impact')) return null;
       x = { r: res.r, v: res.v, t: res.t };
       const Bx = bodyState(key, x.t), d = sub(x.r, Bx.r);
       lo = Math.min(lo, norm(d)); hi = Math.max(hi, norm(d));
@@ -649,6 +733,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
   // out turned back by the rotation that took its plane from the one to the
   // other. Twice, as that rotation depends a little on the plane.
   // (tAt: r, v are the periapsis state at that time, not the craft's now.)
+  /** @param {string} key @param {number[]} r @param {number[]} v @param {number} rp @param {number[]} w @param {number} tUntil @param {number | null} [tAt] */
   function stayTurned(key, r, v, rp, w, tUntil, tAt = null) {
     const mu = bodyState(key, s.t).mu, hN = unit(cross(r, v));
     const tp = tAt === null ? Math.max(0, timeToPeriapsis(r, v, mu)) : 0, x = tAt === null ? propagate(r, v, tp, mu) : { r, v }, t0 = tAt ?? s.t + tp;
@@ -666,7 +751,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       const p = scale(unit(sub(x.r, scale(N, dot(x.r, N)))), rp), vc = scale(unit(cross(N, p)), Math.sqrt(mu / rp));
       const B0 = bodyState(key, t0);
       const res = stepCraft(sys, { id: 0, version: 0, r: add(B0.r, p), v: add(B0.v, vc), t: t0, tEnd: tUntil, primary: null, burns: [], maxSteps: 2e6, ...(trialEnv ? { env: trialEnv } : {}) });
-      if (!res.complete || res.events.some((q) => q.type === 'impact')) break;
+      if (!res.complete || res.events.some((/** @type {KernelEvent} */ q) => q.type === 'impact')) break;
       const B1 = bodyState(key, res.t), n1 = unit(cross(sub(res.r, B1.r), sub(res.v, B1.v)));
       // How far off the way out its plane ends, and the next try.
       const off = Math.abs(dot(n1, unit(w)));
@@ -712,13 +797,16 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       // (Leaving a moon via its planet, the way out about the moon at the
       // burn's own time: Europa goes 10 degrees round Jupiter in one turn of
       // a low orbit about it.)
+      /** @param {FlightState} [st] @returns {DepartBurn | null} */
       const cheapest = (st = s) => {
         const want0 = departWant(e, st.t), Bs = bodyState(e.body, st.t), B = Bs;
         const r = sub(st.r, Bs.r), v = sub(st.v, Bs.v);
         const a = 1 / (2 / norm(r) - dot(v, v) / B.mu), T = 2 * Math.PI * Math.sqrt(Math.abs(a) ** 3 / B.mu);
+        /** @param {number} dt @returns {DepartBurn | null} */
         const at = (dt) => {
           const want = e.via && dt ? departWant(e, st.t + dt) : want0;
           const x = dt ? propagate(r, v, dt, B.mu) : { r, v };
+          /** @type {DepartBurn | null} */
           let best = null;
           if (x) for (const v1 of asymptoteVelocities(x.r, want, B.mu)) {
             const d = sub(v1, x.v), m = norm(d);
@@ -726,11 +814,11 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
           }
           return best;
         };
-        let best = null, bi = 0;
+        let best = /** @type {DepartBurn | null} */ (null), bi = 0;
         for (let i = 0; i < 72; i++) { const c = at((T * i) / 72); if (c && (!best || c.m < best.m)) { best = c; bi = i; } }
         if (!best) return null;
         let lo = (T * (bi - 1)) / 72, hi = (T * (bi + 1)) / 72;
-        const gr = (Math.sqrt(5) - 1) / 2, m = (dt) => at(((dt % T) + T) % T)?.m ?? Infinity;
+        const gr = (Math.sqrt(5) - 1) / 2, m = (/** @type {number} */ dt) => at(((dt % T) + T) % T)?.m ?? Infinity;
         for (let k = 0; k < 30; k++) { const c = hi - gr * (hi - lo), d = lo + gr * (hi - lo); if (m(c) < m(d)) hi = d; else lo = c; }
         const g = at((((lo + hi) / 2) % T + T) % T);
         return g && g.m < best.m ? g : best;
@@ -741,21 +829,21 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       // The cheapest of the half days, then golden section within half a day
       // either side of it: the plane turns about 4.5 degrees in half a day
       // at 400 km over Mars, enough to cost per cent.
-      const t0 = s.t, side = (from, tt) => {
+      const t0 = s.t, side = (/** @type {FlightState} */ from, /** @type {number} */ tt) => {
         const res = stepCraft(sys, { id: 0, version: 0, r: from.r, v: from.v, t: from.t, tEnd: tt, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env: searchEnv } : {}) });
-        return res.complete && !res.events.some((q) => q.type === 'impact') ? { r: res.r, v: res.v, t: res.t } : null;
+        return res.complete && !res.events.some((/** @type {KernelEvent} */ q) => q.type === 'impact') ? { r: res.r, v: res.v, t: res.t } : null;
       };
-      let best = cheapest(), bestAt = s.t, st = { ...s };
+      let best = cheapest(), bestAt = s.t, st = /** @type {FlightState | null} */ ({ ...s });
       const onDay = best?.m, now0 = best, seen = [{ st: { ...s }, b: best }];
       for (let h = 0.5; h <= (e.waitDays ?? 30) && best; h += 0.5) {
-        st = side(st, t0 + h * DAY);
+        st = side(/** @type {FlightState} */ (st), t0 + h * DAY);
         if (!st) break;
         seen.push({ st, b: cheapest(st) });
       }
       const low = seen.reduce((q, x) => (x.b && (!q.b || x.b.m < q.b.m) ? x : q), seen[0]);
       if (low.b && now0 && low.b.m < now0.m * 0.98) {
         const k = seen.indexOf(low), from = seen[Math.max(0, k - 1)].st, hiT = seen[Math.min(seen.length - 1, k + 1)].st.t;
-        const f = (tt) => { const x = side(from, tt); return (x && cheapest(x)?.m) ?? Infinity; };
+        const f = (/** @type {number} */ tt) => { const x = side(from, tt); return (x && cheapest(x)?.m) ?? Infinity; };
         const g = (Math.sqrt(5) - 1) / 2;
         let a = from.t, b = hiT, c1 = b - g * (b - a), c2 = a + g * (b - a), f1 = f(c1), f2 = f(c2);
         for (let i = 0; i < 16; i++) {
@@ -769,6 +857,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       // Near impulsive, as for a capture: a harder burn where PLAN_ACCEL
       // would sweep more than BURN_ARC of the way round (5.7 km/s from a
       // low orbit about Europa would sweep 60 degrees in a fixed direction).
+      /** @param {DepartBurn} b */
       const accelOf = (b) => Math.max(PLAN_ACCEL, (b.m * 1000) / (BURN_ARC * b.rb / b.vb));
       // Leaving a planet's moon via the planet, the burn is then set so the
       // excess velocity about the planet is the one planned: Newton on the
@@ -780,15 +869,16 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         if (tb0 - (best.m * 1000) / accelOf(best) / 2 < s.t) tb0 += best.T;
         const st = stepCraft(sys, { id: 0, version: 0, r: s.r, v: s.v, t: s.t, tEnd: tb0, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env } : {}) });
         const want = departWant(e, tb0, true), muP = bodyInfo(e.via).mu, later = out.burns.filter((b) => b.t1 > tb0);
+        /** @param {number[]} dv */
         const excess = (dv) => {
-          const res = stepCraft(sys, { id: 0, version: 0, r: st.r, v: add(st.v, dv), t: tb0, tEnd: tb0 + e.aimPlanet, primary: null, burns: later, maxSteps: 2e6, ...(env ? { env: cheapEnv } : {}) });
-          if (!res.complete || res.events.some((q) => q.type === 'impact')) return null;
-          const P = bodyState(e.via, res.t);
+          const res = stepCraft(sys, { id: 0, version: 0, r: st.r, v: add(st.v, dv), t: tb0, tEnd: tb0 + /** @type {number} */ (e.aimPlanet), primary: null, burns: later, maxSteps: 2e6, ...(env ? { env: cheapEnv } : {}) });
+          if (!res.complete || res.events.some((/** @type {KernelEvent} */ q) => q.type === 'impact')) return null;
+          const P = bodyState(/** @type {string} */ (e.via), res.t);
           return asymptote(sub(res.r, P.r), sub(res.v, P.v), muP);
         };
         let d = best.d, f = st.complete ? excess(d) : null, off0 = f ? norm(sub(f, want)) : Infinity, off = off0;
         for (let it = 0; it < 6 && f && off > 1e-4; it++) {
-          const cols = [0, 1, 2].map((j) => { const dd = [...d]; dd[j] += 1e-4; const q = excess(dd); return q && scale(sub(q, f), 1e4); });
+          const cols = /** @type {number[][]} */ ([0, 1, 2].map((j) => { const dd = [...d]; dd[j] += 1e-4; const q = excess(dd); return q && scale(sub(q, /** @type {number[]} */ (f)), 1e4); }));   // (each is a vector: a null breaks out just below)
           if (cols.some((c) => !c)) break;
           const A = [0, 1, 2].map((i) => [cols[0][i], cols[1][i], cols[2][i]]), step = solve3(A, sub(want, f));
           if (!step) break;
@@ -802,7 +892,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         // planet's sphere, months of it, cheapest to correct in the burn
         // itself (an aim half a day on cost Europa to Earth 120 m/s; folded
         // into the burn, 5).
-        const A = e.aimAt, Tk = A && kernelSeconds(new Date(A.arrive));
+        const A = e.aimAt, Tk = /** @type {number} */ (A && kernelSeconds(new Date(A.arrive)));
         const k = A && st.complete ? aimTo(A.without ? without(A.without) : sys, { r: st.r, v: st.v, t0: tb0, T: Tk, target: add(posAt(sys, A.body, Tk), A.offsetEqj), burns: later, dv0: best.d, rounds: 3, damped: true, env, envJ: env && cheapEnv }) : null;
         if (k && k.after < k.miss) { best.d = k.dv; best.m = norm(k.dv); best.dt = tb0 - s.t; best.aimedKm = k.after; }
         best.offMs = off * 1000;
@@ -881,6 +971,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       // to a few thousandths, and the body's J2 swings its osculating
       // radius), so the burn along the velocity that puts the two-body
       // periapsis 15 km up (bisection), not the circular orbit's.
+      /** @param {number} dv */
       const rpAfter = (dv) => {
         const vv = sub(v, scale(unit(v), dv)), h = norm(cross(r, vv)), en = dot(vv, vv) / 2 - Bk.mu / norm(r);
         return (h * h / Bk.mu) / (1 + Math.sqrt(Math.max(0, 1 + 2 * en * h * h / (Bk.mu * Bk.mu))));
@@ -895,11 +986,12 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         }
       }
       const b1 = burn(s.t + durOf(Math.abs(d1)) / 2 + 1, [-Math.sign(d1) || -1, 0, 0], Math.abs(d1), 'vnb', e.body);
-      flyTo(b1.t1 + 10);
+      flyTo((b1 ? b1.t1 : s.t) + 10);   // no burn when d1 is 0
       // Half an orbit down to the periapsis, the braking burn worked out two
       // minutes short of it (the Earth's pull and the Moon's J2 move a
       // periapsis by kilometres over the half orbit).
       ({ r, v } = rel(e.body, s.t));
+      /** @param {number[]} rr @param {number[]} vv */
       const toPeri = (rr, vv) => { const tp = timeToPeriapsis(rr, vv, Bk.mu); return tp > 0 ? tp : tp + 2 * Math.PI * Math.sqrt((1 / (2 / norm(rr) - dot(vv, vv) / Bk.mu)) ** 3 / Bk.mu); };
       flyTo(s.t + toPeri(r, v) - 120);
       if (out.impact) break;
@@ -907,7 +999,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       const dtp = toPeri(r, v), x = propagate(r, v, dtp, Bk.mu) ?? { r, v };
       const br = designBraking({ r: x.r, v: x.v, mu: Bk.mu, R, hEnd: 1.5 });
       if (!br) { out.log.push(`descent to ${e.body}: no braking burn stops it above the ground`); out.trouble.push(`no braking burn sets it down on ${bodyInfo(e.body).name}`); landingOn = null; continue; }
-      const tB = s.t + dtp, scripted = (t0, t1, a, dir, frame) => { const b = { t0, t1, dir, F: a * 1000, m0: 1, mdot: 0, scripted: true, ...(frame ? { frame: 'vnb', about: e.body } : {}) }; out.burns.push(b); return b; };
+      const tB = s.t + dtp, scripted = (/** @type {number} */ t0, /** @type {number} */ t1, /** @type {number} */ a, /** @type {number[]} */ dir, /** @type {boolean} */ frame) => { const b = { t0, t1, dir, F: a * 1000, m0: 1, mdot: 0, scripted: true, ...(frame ? { frame: 'vnb', about: e.body } : {}) }; out.burns.push(b); return b; };
       scripted(tB, tB + br.dur, br.accel, [-1, 0, 0], true);
       flyTo(tB + br.dur + 0.5, 30);
       let term = null, match = 0;
@@ -926,8 +1018,8 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         // radially (the body's J2 and, in the full model, its field's
         // mascons change it by tenths of a percent: metres over the fall).
         term = designTerminal({ r, v, mu: localGravity(e.body) * dot(r, r), R, accel: 2.5 * g });
-        if (term) scripted(s.t + term.delay, s.t + term.delay + term.dur, term.accel, term.dir, false);
-        flyTo(s.t + (term ? term.delay + term.dur : 0) + 600, 1);
+        if (term) scripted(s.t + term.delay, s.t + term.delay + /** @type {number} */ (term.dur), term.accel, term.dir, false);
+        flyTo(s.t + (term ? term.delay + /** @type {number} */ (term.dur) : 0) + 600, 1);
       }
       if (out.impact) break;
       if (touch) s = touch;
@@ -953,9 +1045,9 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       const Bk = body(e.body, s.t), R = Bk.radius, g = Bk.mu / (R * R), B = bodyState(e.body, s.t);
       const r = sub(here.r, B.r), v = sub(here.v, B.v), up = unit(r), pole = axesOf(e.body, s.t)[2];
       const next = plan.events.find((x) => x.ms > e.ms && x.body === e.body && (x.kind === 'depart' || x.kind === 'depart-ring'));
-      const u = next ? (next.kind === 'depart' ? departWant(next, kernelSeconds(new Date(next.ms))) : next.dirEqj) : null;
+      const u = next ? (next.kind === 'depart' ? departWant(next, kernelSeconds(new Date(next.ms))) : /** @type {DepartRingEvent} */ (next).dirEqj) : null;
       let along = u ? sub(u, scale(up, dot(u, up))) : null;
-      if (!along || norm(along) < 1e-6 * norm(u)) along = cross(pole, up);
+      if (!along || norm(along) < 1e-6 * norm(/** @type {number[]} */ (u))) along = cross(pole, up);
       along = unit(along);
       if (dot(cross(up, along), pole) < 0) along = scale(along, -1);
       const accel = 5 * g;
@@ -1018,11 +1110,12 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       const tb = Math.max(tp, s.t);
       for (const w of watches) if (w.body === e.body && w.t0 <= tb && w.t1 >= tb) w.t1 = tb;
       const cap = dv > 0 ? planCapture({ r: x.r, v: x.v, mu: B.mu, R: bodyInfo(e.body).radius, rc, accel: accel / 1000 }) : null;
-      let tEnd = tb, flownDv = 0, moved = null;
+      let tEnd = tb, flownDv = 0, moved = /** @type {{ from: number, dv: number } | null} */ (null);
       // The orbit flown so far, from time t on (a side run to t, then a turn).
+      /** @param {number} t */
       const shapeAt = (t) => {
         const res = stepCraft(sys, { id: 0, version: 0, r: s.r, v: s.v, t: s.t, tEnd: t, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env } : {}) });
-        return res.complete && !res.events.some((q) => q.type === 'impact') ? orbitShape(e.body, { r: res.r, v: res.v, t: res.t }) : null;
+        return res.complete && !res.events.some((/** @type {KernelEvent} */ q) => q.type === 'impact') ? orbitShape(e.body, { r: res.r, v: res.v, t: res.t }) : null;
       };
       if (cap) {
         const half = cap.dur / 2;
@@ -1050,12 +1143,12 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         }
       } else if (dv > 0) {
         // (No steered burn found: retrograde from the periapsis, as before.)
-        tEnd = burn(tb + (dv * 1000) / accel / 2, [-1, 0, 0], dv, 'vnb', e.body, accel).t1; flownDv = dv;
+        tEnd = /** @type {Burn} */ (burn(tb + (dv * 1000) / accel / 2, [-1, 0, 0], dv, 'vnb', e.body, accel)).t1; flownDv = dv;
       }
       // The orbit it leaves, from the last burn's end (on a side run).
       const orbit = flownDv > 0 ? shapeAt(tEnd + 1) : null;
-      out.captures.push({ body: e.body, dv: flownDv, impulsive: Math.max(0, dv), steered: !!cap, pitchDeg: cap ? cap.pitch.map((p) => p * 180 / Math.PI) : null, hohmann: moved, rc, ...(orbit ? { a: orbit.aMean, e: orbit.e } : {}) });
-      out.log.push(`capture at ${e.body}: ${(flownDv * 1000).toFixed(0)} m/s (impulsive ${(Math.max(0, dv) * 1000).toFixed(0)}), ${cap ? `steered from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''} (pitch ${cap.pitch.map((p) => (p * 180 / Math.PI).toFixed(1)).join(' then ')} deg)${moved ? `, then Hohmann from a mean ${moved.from.toFixed(1)} km for ${(moved.dv * 1000).toFixed(1)} m/s` : ''}` : `retrograde from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''}`}${orbit ? `; the orbit's mean a ${orbit.aMean.toFixed(1)} km (planned ${rc.toFixed(1)}), e ${orbit.e.toFixed(4)}` : ''}`);
+      out.captures.push({ body: e.body, dv: flownDv, impulsive: Math.max(0, dv), steered: !!cap, pitchDeg: cap ? cap.pitch.map((/** @type {number} */ p) => p * 180 / Math.PI) : null, hohmann: moved, rc, ...(orbit ? { a: orbit.aMean, e: orbit.e } : {}) });
+      out.log.push(`capture at ${e.body}: ${(flownDv * 1000).toFixed(0)} m/s (impulsive ${(Math.max(0, dv) * 1000).toFixed(0)}), ${cap ? `steered from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''} (pitch ${cap.pitch.map((/** @type {number} */ p) => (p * 180 / Math.PI).toFixed(1)).join(' then ')} deg)${moved ? `, then Hohmann from a mean ${moved.from.toFixed(1)} km for ${(moved.dv * 1000).toFixed(1)} m/s` : ''}` : `retrograde from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''}`}${orbit ? `; the orbit's mean a ${orbit.aMean.toFixed(1)} km (planned ${rc.toFixed(1)}), e ${orbit.e.toFixed(4)}` : ''}`);
       continue;
     }
     flyTo(t);
@@ -1089,7 +1182,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         // back by the stay's turn of the plane (stayTurned, flown from that
         // periapsis: ten degrees over six days at Europa, Jupiter's pull and
         // Europa's own field), and the periapsis again in its plane.
-        const rp = e.replane.rp, peri = (ww) => {
+        const rp = e.replane.rp, peri = (/** @type {number[]} */ ww) => {
           const nn = vin && cross(vin, ww);
           if (!nn || !(norm(nn) > 1e-6 * norm(vin))) return null;
           const uin = unit(vin), uout = rotate(uin, unit(nn), turnAngle(rp, norm(vin), M.mu)), d = sub(uin, uout), b = add(uin, uout);
@@ -1112,11 +1205,12 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       // less that. (Its pull from there on is the next aim's.)
       if (k && e.farTo) {
         const tm = kernelSeconds(new Date(e.farTo.ms)), v1 = add(s.v, k.dv);
+        /** @param {BodySet} S */
         const run = (S) => stepCraft(S, { id: 0, version: 0, r: s.r, v: v1, t: s.t, tEnd: tm, primary: null, burns: future, maxSteps: 2e6, ...(env ? { env: cheapEnv } : {}) });
-        const a = run(sys), b = run(without(e.without));
-        if (a.complete && b.complete && ![a, b].some((x) => x.events.some((q) => q.type === 'impact'))) {
+        const a = run(sys), b = run(without(/** @type {string} */ (e.without)));
+        if (a.complete && b.complete && ![a, b].some((x) => x.events.some((/** @type {KernelEvent} */ q) => q.type === 'impact'))) {
           const d = add(sub(a.r, b.r), scale(sub(a.v, b.v), Tk - tm));
-          const k2 = aimTo(without(e.without), { r: s.r, v: s.v, t0: s.t, T: Tk, target: sub(add(posAt(sys, e.body, Tk), e.farTo.offsetEqj), d), burns: future, dv0: k.dv, rounds: 8, damped: true, env, envJ: env && cheapEnv });
+          const k2 = aimTo(without(/** @type {string} */ (e.without)), { r: s.r, v: s.v, t0: s.t, T: Tk, target: sub(add(posAt(sys, e.body, Tk), e.farTo.offsetEqj), d), burns: future, dv0: k.dv, rounds: 8, damped: true, env, envJ: env && cheapEnv });
           if (k2) k = k2;
         }
       }
@@ -1141,6 +1235,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         const { r, v, B } = rel(e.body, s.t);
         if (dot(r, v) > 0) break;                                   // past periapsis already
         const across = sub(r, scale(unit(v), dot(r, unit(v)))), bh = norm(across) > 0 ? unit(across) : unit(cross(v, Z));
+        /** @param {number[]} dv */
         const rpOf = (dv) => {
           const vv = add(v, dv), h = norm(cross(r, vv)), en = dot(vv, vv) / 2 - B.mu / norm(r);
           return (h * h / B.mu) / (1 + Math.sqrt(Math.max(0, 1 + 2 * en * h * h / (B.mu * B.mu))));
@@ -1148,7 +1243,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         let b0 = 0, b1 = 1e-4, f0 = rpOf([0, 0, 0]) - e.rp, f1 = rpOf(scale(bh, b1)) - e.rp;
         for (let i = 0; i < 30 && Math.abs(f1) > 0.1 && f1 !== f0; i++) { const b2 = b1 - f1 * (b1 - b0) / (f1 - f0); b0 = b1; f0 = f1; b1 = b2; f1 = rpOf(scale(bh, b1)) - e.rp; }
         let dv = Number.isFinite(b1) && Math.abs(b1) < 0.5 ? scale(bh, b1) : [0, 0, 0];
-        let w = e.wayOutEqj ? unit(e.wayOutEqj) : null;
+        let w = /** @type {number[] | null} */ (e.wayOutEqj ? unit(e.wayOutEqj) : null);
         if (w && pass === 0 && e.untilMs) w = stayTurned(e.body, r, v, e.rp, w, kernelSeconds(new Date(e.untilMs)));
         if (w) e.wayOutEqj = w;
         // Over a stay the plan prices the plane for (planeTurn: more than 30
@@ -1172,23 +1267,24 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         // plan's, less its part along the position. Otherwise (a short stay,
         // or a stay the plan does not price) the plane holds the way out.
         const pt = e.planeTurn, ph = e.planeHold;
-        let cond = null;
+        let cond = /** @type {((h: number[]) => number) | null} */ (null);
         if (ph) {
           const ru = unit(r), np = unit(sub(ph, scale(ru, dot(ph, ru)))), c = unit(cross(ru, np));
-          cond = (h) => dot(unit(h), c);
+          cond = (/** @type {number[]} */ h) => dot(unit(h), c);
         } else if (pt && Math.abs(dot(unit(r), pt.pole)) < 0.98) {
-          const nodeOf = (n) => { const q = cross(pt.pole, n); return Math.atan2(dot(q, pt.f2), dot(q, pt.f1)); };
+          const nodeOf = (/** @type {number[]} */ n) => { const q = cross(pt.pole, n); return Math.atan2(dot(q, pt.f2), dot(q, pt.f1)); };
           const c0 = dot(pt.n0, pt.pole), node0 = nodeOf(pt.n0);
-          cond = (h) => {
+          cond = (/** @type {number[]} */ h) => {
             const n = unit(h);
             let g = nodeOf(n) - node0 + pt.rate * pt.stayS * (dot(n, pt.pole) / c0 - 1);
             g -= 2 * Math.PI * Math.round(g / (2 * Math.PI));
             return g;
           };
-        } else if (w && norm(cross(w, unit(v))) > 0.02) cond = (h) => dot(unit(h), w);
+        } else if (w && norm(cross(w, unit(v))) > 0.02) cond = (/** @type {number[]} */ h) => dot(unit(h), w);
         if (cond) {
           const e2 = unit(cross(v, bh));
-          const F = (x) => { const d = add(scale(bh, x[0]), scale(e2, x[1])), h = cross(r, add(v, d)); return [(rpOf(d) - e.rp) / e.rp, cond(h)]; };
+          /** @param {number[]} x */
+          const F = (x) => { const d = add(scale(bh, x[0]), scale(e2, x[1])), h = cross(r, add(v, d)); return [(rpOf(d) - e.rp) / e.rp, /** @type {(h: number[]) => number} */ (cond)(h)]; };
           let x = [dot(dv, bh), 0];
           for (let it = 0; it < 12; it++) {
             const f = F(x);
@@ -1210,7 +1306,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         const m = norm(dv);
         if (m > 1e-7) {
           burn(s.t + durOf(m) / 2, dv, m);
-          const nodeOff = (q) => (cond && pt ? (cond(cross(r, q)) * 180 / Math.PI).toFixed(3) : '');
+          const nodeOff = (/** @type {number[]} */ q) => (cond && pt ? (cond(cross(r, q)) * 180 / Math.PI).toFixed(3) : '');
           out.log.push(`trim at ${e.body}: ${(m * 1000).toFixed(2)} m/s, periapsis ${rpOf([0, 0, 0]).toFixed(0)} to ${rpOf(dv).toFixed(0)} km${w ? `, the plane ${(Math.asin(Math.max(-1, Math.min(1, dot(unit(cross(r, v)), w)))) * 180 / Math.PI).toFixed(2)} to ${(Math.asin(Math.max(-1, Math.min(1, dot(unit(cross(r, add(v, dv))), w)))) * 180 / Math.PI).toFixed(2)} deg off the way out` : ''}${cond && pt ? `, the node on the planned day ${nodeOff(v)} to ${nodeOff(add(v, dv))} deg off the plan's` : ''}${ph ? `, the plane ${(Math.acos(Math.max(-1, Math.min(1, dot(unit(cross(r, v)), ph)))) * 180 / Math.PI).toFixed(3)} to ${(Math.acos(Math.max(-1, Math.min(1, dot(unit(cross(r, add(v, dv))), ph)))) * 180 / Math.PI).toFixed(3)} deg off the plan's` : ''}`);
         }
         const tp = s.t + timeToPeriapsis(r, add(v, dv), B.mu);

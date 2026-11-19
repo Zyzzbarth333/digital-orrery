@@ -41,6 +41,7 @@ import { parseGpCsv, satrecOf, stateEqj, stateTeme, temeToEqj, apply, inShadow, 
 import { VISIBLE_FRACTION } from './bodyMaterial';
 import { orbitTrailMaterial } from './orbitTrail';
 import { SatelliteModel } from './satelliteModels';
+import { getJson, getText } from '../physics/fetchData.js';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000;
@@ -317,7 +318,7 @@ export class SatelliteLayer {
 
   // satellites.json (10 kB): the named ones and the debris clouds, fetched once.
   private fetchMeta(): Promise<SatMeta> {
-    this.meta ??= fetch(`${this.baseUrl}data/satellites.json`).then((r) => { if (!r.ok) throw new Error(`satellites.json: HTTP ${r.status}`); return r.json(); });
+    this.meta ??= getJson(`${this.baseUrl}data/satellites.json`, 'satellites.json');
     return this.meta;
   }
 
@@ -343,7 +344,7 @@ export class SatelliteLayer {
     try {
       const meta$ = this.fetchMeta();
       const [csv, meta] = await Promise.all([
-        fetch(`${this.baseUrl}data/${LAYER_OF[k].file}`).then((r) => { if (!r.ok) throw new Error(`${LAYER_OF[k].file}: HTTP ${r.status}`); return r.text(); }),
+        getText(`${this.baseUrl}data/${LAYER_OF[k].file}`, LAYER_OF[k].file),
         meta$,
       ]);
       if (this.disposed) return;
@@ -818,8 +819,11 @@ export class SatelliteLayer {
     try { last = Number(localStorage.getItem(LIVE_KEY)) || 0; } catch { /* storage off: no memory of the last */ }
     const wait = last + LIVE_MIN_MS - Date.now();
     if (wait > 0) return `CelesTrak updates every 2 hours: try again in ${Math.ceil(wait / 60e3)} min`;
+    // Marked once CelesTrak has answered, any answer (its usage policy counts
+    // requests); a request that never reached it (offline) uses up nothing.
+    let res: Response;
+    try { res = await fetch(LIVE_URL); } catch (e) { return `CelesTrak could not be reached: ${(e as Error).message ?? e}`; }
     try { localStorage.setItem(LIVE_KEY, String(Date.now())); } catch { /* as above */ }
-    const res = await fetch(LIVE_URL);
     if (res.status !== 200) return `CelesTrak answered HTTP ${res.status}: not asked again`;
     const text = await res.text();
     if (parseGpCsv(text).length < 1000) return 'CelesTrak\'s answer held no catalogue';

@@ -100,18 +100,18 @@ last line.
   injection to just before entry: both powered lunar flybys and the
   distant retrograde orbit. Its file, `public/missions/artemis1.json`, is
   written from NASA/JSC navigation's as-flown ephemeris (through JPL
-  Horizons) by `src/physics/artemis1.export.mjs`
+  Horizons) by `pipelines/artemis1.export.mjs`
   (`npm run export:artemis1`, after `npm run fetch:artemis1`).
 - **Artemis II** (April 2026), from ten minutes before translunar
   injection to entry. Its file, `public/missions/artemis2.json`, is
   written from JSC's reconstructed trajectory by
-  `src/physics/artemis2.export.mjs`.
+  `pipelines/artemis2.export.mjs`.
 - **Juno** (August 2012 to November 2013), from five days before its
   first deep-space burn to seven weeks after its Earth flyby. Its file,
   `public/missions/juno2013.json`, is written from JPL's navigation
-  reconstruction (through JPL Horizons) by `src/physics/missions.build.mjs`
+  reconstruction (through JPL Horizons) by `pipelines/missions.build.mjs`
   (`npm run build:missions -- juno2013`), which builds every real mission
-  beyond Artemis from its facts in `src/physics/missions.data.mjs`
+  beyond Artemis from its facts in `validation/missions.data.mjs`
   ([Juno 2012–13](../validation/juno2013.md)).
 - **DART** (August to September 2022), its last five weeks to the impact
   on Dimorphos, ending on the final solution at the published impact
@@ -312,8 +312,8 @@ from under a kilometre, the marker used to vanish behind the near plane.
 Far off, a craft is its marker. Once the craft spans 3 pixels, it is
 drawn as a model at its true size, as the ISS, Tiangong and Hubble are
 ([satellites](satellites.md#close-up-models)), and its marker's glyph
-gives way. Orion and the Saturn V are NASA's own models, the rest are
-built in code at their published sizes. The attitude indicator keeps its axes and the dashed stalk,
+gives way. Orion, the Saturn V and the real missions' probes are NASA's
+own models, the rest are built in code at their published sizes. The attitude indicator keeps its axes and the dashed stalk,
 but drops its wireframe box and plume, which the model now shows
 ([`craftModels.ts`](../../src/scene/craftModels.ts), the stacks'
 shapes in [`stackShape.js`](../../src/physics/stackShape.js)). The
@@ -322,6 +322,7 @@ MISSION tab's CLOSE UP section says what is modelled and what is not.
 | Craft | Model | Its sizes |
 | --- | --- | --- |
 | Orion (Artemis I and II, and our own Artemis II plan) | NASA/JPL-Caltech's Artemis II model from NASA's Eyes on the Solar System [11]: the crew module, the European Service Module and its four wings, textured as flown; after separation the crew module alone, heat shield first | the model's own, in metres: the crew module 5.08 m across and 3.36 m high, as NASA gives it (5 m and 3.35 m [2]); the wings about 20.9 m tip to tip, where NASA gives 18.9 m [2]. The stand-in, while the model loads: the crew module and service module at NASA's sizes (4.79 m with the adapter, 7.9 m for the two [2]), each wing three 2 by 2 m panels, nearly 7 m long [3], [4], the ESM's main body about 2 m [4]; its body's width (4.1 m), the backshell and the bell taken to fit |
+| Juno, DART, LRO and MESSENGER (the real missions) | NASA's own models, from NASA 3D Resources and NASA's Eyes; DART releases LICIACube, a 6U CubeSat built in code | as published, or the model's own ([spacecraft](spacecraft.md#close-up-models)) |
 | The MISSION tab's craft | a 2 by 2 by 3 m box in gold foil, long along the thrust axis, with an engine bell aft | the box its attitude is sized for ([attitude](#attitude)) |
 | Saturn V (ROCKET tab) | NASA's model from NASA 3D Resources [12], cut at the stages' joints below; while it loads, the S-IC, S-II and S-IVB, the instrument unit, the spacecraft-LM adapter, the service module, the command module and the escape tower as cylinders and cones | the model is stretched to the whole's 363 ft and the S-IC's 33 ft (it is 7 % longer for its width than the real one). The joints and the stand-in: the S-IC 138 by 33 ft, the S-IVB 58.4 ft by 21 ft 8 in, the adapter 28 ft tapering from 22 ft to 12 ft 10 in [5]; the S-II 24.8 m long [6] and 33 ft across; the instrument unit 3.0 by 21.7 ft [7]; the whole 363 ft [8]. The 16.5 m the total leaves above the adapter is split here between the service module, the command module and the tower |
 | Falcon 9 (both presets) | two stages and the standard fairing, built in code: the first stage's nine bells, four stowed legs and four grid fins, the black interstage | 70 m with both stages, the interstage and the fairing, 3.66 m across; the fairing 5.2 m across and 13.2 m high [9]. SpaceX gives no stage lengths: the 56.8 m below the fairing is split by the stages' propellant volumes (45.0 and 11.8 m) |
@@ -496,7 +497,7 @@ How the data gets in:
 - **The browser can't be queried from a page.** It answers only form posts
   and sends no cross-origin headers.
 - **So it's fetched ahead of time.** `npm run fetch:trajbrowser`
-  (`src/physics/trajbrowser.fetch.mjs`) fetches its results once and writes
+  (`pipelines/trajbrowser.fetch.mjs`) fetches its results once and writes
   `public/trajbrowser/planets.json`. It's paced 15 s apart and cached in
   `~/.cache/digital-orrery/trajbrowser`, so reruns don't repeat finished
   queries.

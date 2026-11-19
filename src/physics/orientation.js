@@ -51,6 +51,7 @@ import { J2000_UTC_MS } from './timescale.js';
 import { earthFixedMatrix } from './earthRotation.js';
 import { eopAt } from './eop.js';
 import { isMoonKey, moonStateEqj } from './moons.js';
+import { cross, unit } from './vec.js';
 
 const AE_BODY = {
   sun: Astronomy.Body.Sun, mercury: Astronomy.Body.Mercury, venus: Astronomy.Body.Venus,
@@ -60,8 +61,6 @@ const AE_BODY = {
 };
 
 const DEG = Math.PI / 180;
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = (v) => { const n = Math.hypot(v[0], v[1], v[2]); return [v[0] / n, v[1] / n, v[2] / n]; };
 
 // Axes from a pole (a0, d0) and prime meridian W, radians.
 function axesFrom(a0, d0, W) {

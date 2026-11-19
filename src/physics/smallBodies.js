@@ -130,7 +130,7 @@ export function elementsOf(r, v, jd) {
   const h = [r[1] * v[2] - r[2] * v[1], r[2] * v[0] - r[0] * v[2], r[0] * v[1] - r[1] * v[0]], hn = Math.hypot(...h);
   const a = 1 / (2 / rn - v2 / mu);
   const ev = [0, 1, 2].map((d) => ((v2 - mu / rn) * r[d] - rv * v[d]) / mu), e = Math.hypot(...ev);
-  const i = Math.acos(h[2] / hn), node = Math.atan2(h[0], -h[1]);
+  const i = Math.acos(Math.max(-1, Math.min(1, h[2] / hn))), node = Math.atan2(h[0], -h[1]);   // rounding can pass 1 in the ecliptic
   // The argument of perihelion, from the ascending node in the orbit's
   // plane (the node's direction and the one 90 degrees on).
   const nx = Math.cos(node), ny = Math.sin(node);

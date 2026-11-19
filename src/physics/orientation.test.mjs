@@ -16,6 +16,7 @@ import { MOON_KEYS } from './moons.js';
 import { RADII } from './pck.data.js';
 import { earthFixedAt } from './environment.js';
 import { utcMsAtTt, ttSeconds } from './ephemeris.js';
+import { dot } from './vec.js';
 
 const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/spice_reference.json', import.meta.url)));
 const RADIUS_KM = {
@@ -132,7 +133,6 @@ check(tail.min >= TAIL_M[0] && tail.max <= TAIL_M[1] && tail.max - tail.min <= T
   for (const key of MOON_KEYS) for (const d of dates) {
     try {
       const [X, Y, Z] = bodyAxesEqj(key, d);
-      const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
       const c = [X[1] * Y[2] - X[2] * Y[1], X[2] * Y[0] - X[0] * Y[2], X[0] * Y[1] - X[1] * Y[0]];
       const err = Math.max(Math.abs(dot(X, X) - 1), Math.abs(dot(Y, Y) - 1), Math.abs(dot(Z, Z) - 1), Math.abs(dot(X, Y)), Math.abs(dot(c, Z) - 1));
       if (!(err < 1e-9)) bad.push(`${key} ${d.toISOString().slice(0, 10)} (${err})`);

@@ -20,11 +20,11 @@
 // exactly 180 deg) holds NaN.
 
 import { lambert } from './orbital.js';
+import { norm } from './vec.js';
 
 const DAY = 86400.0;
 
 function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
-function norm(a) { return Math.hypot(a[0], a[1], a[2]); }
 
 // Burn from a circular orbit of radius r about a body with parameter mu onto a
 // hyperbola with excess speed vinf (the Oberth-assisted departure/capture).

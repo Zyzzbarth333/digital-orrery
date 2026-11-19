@@ -7,7 +7,7 @@ compare that flight with the app's own kernel:
 - every coast between them;
 - the two lunar flybys and the farthest point from Earth.
 
-`npm test` runs `src/physics/artemis1.validate.mjs`;
+`npm test` runs `validation/artemis1.validate.mjs`;
 `npm run crosscheck:artemis1` runs the cross-checks. The numbers below are
 from November 2026.
 
@@ -28,7 +28,7 @@ from November 2026.
     of the physics.
   - **At the joins** the next solution corrects the last prediction. The
     size of that step is how far the real flight had drifted from it.
-- **Sampling:** `npm run fetch:artemis1` (`src/physics/artemis1.fetch.mjs`)
+- **Sampling:** `npm run fetch:artemis1` (`pipelines/artemis1.fetch.mjs`)
   fetches Orion every minute for the whole flight, and every 5 s around the
   six largest burns. Earth-centred, ICRF axes, UTC; cached in
   `~/.cache/digital-orrery/artemis1`. It writes
@@ -101,7 +101,7 @@ There are 77 arcs between events, from 1.2 to 24.7 hours, 589 hours in
 all. Each is flown by the kernel from the state a minute after one event
 to a minute before the next. `npm test` flies them with gravity alone and
 with the full environment; `npm run crosscheck:artemis1`
-(`src/physics/artemis1.crosscheck.mjs`) adds one force at a time, at an
+(`pipelines/artemis1.crosscheck.mjs`) adds one force at a time, at an
 eighth of the kernel's default step:
 
 | Model | Worst at the end | RMS | Median |

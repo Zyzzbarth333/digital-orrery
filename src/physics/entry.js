@@ -29,14 +29,11 @@
 // drogues, then the mains, to the descent rate of a splashdown.
 
 import { standardAtmosphere } from './atmosphere.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 const OMEGA = 7.2921158553e-5;               // rad/s
 const MU = 398600.4418, J2 = 1.08262668e-3, RE = 6378.137;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
 
 // The lift's direction for a bank angle sigma (rad), at position r
 // (geocentric) and air-relative velocity vAir.

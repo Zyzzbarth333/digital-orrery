@@ -12,10 +12,13 @@
 //              30 periapsis radii if that is nearer)
 // with P toward periapsis (the eccentricity vector) and Q = h x P / |h x P|.
 
-type V3 = [number, number, number];
-const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+import { dot, cross } from '../physics/vec.js';
+
+// The length as a square root of the dot product, not vec.js's Math.hypot:
+// several times faster, and Trail.push calls it for each craft each frame.
 const norm = (a: number[]) => Math.sqrt(dot(a, a));
-const cross = (a: number[], b: number[]): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+type V3 = [number, number, number];
 const scale = (a: number[], k: number): V3 => [a[0] * k, a[1] * k, a[2] * k];
 
 // The conic's shape: P, Q, the semi-axes a and b (both positive), e, and

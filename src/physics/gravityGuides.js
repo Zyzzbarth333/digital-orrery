@@ -3,7 +3,9 @@
 // Where each body's gravity matters (docs/physics/gravity-guides.md): the
 // sphere of influence, the Hill sphere, the five Lagrange points of a pair,
 // the strongest pulls on a body, and maps of a body's real gravity field.
-// Pure ES module, no dependencies.
+// Pure ES module; its only import is vec.js.
+
+import { cross } from './vec.js';
 
 // Sphere of influence (Laplace): inside it a body's pull, as a perturbation
 // of the Sun's, outweighs the Sun's as a perturbation of the body's; the
@@ -74,10 +76,6 @@ export function strongestPulls(target, bodies) {
     out.push({ key: b.key, accel: b.gm / (d * d), distance: d });
   }
   return out.sort((a, b) => b.accel - a.accel);
-}
-
-function cross(a, b) {
-  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
 // WGS 84's normal field (the reference ellipsoid's own gravity): its fully

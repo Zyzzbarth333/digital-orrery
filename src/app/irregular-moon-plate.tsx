@@ -8,7 +8,7 @@
 // tag, as on the bodies' plate.
 
 import { useClock, type SimClock } from './clock';
-import { Readout, fmtGroup, type Row } from './panels';
+import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import type { IrregularMoon } from '../scene/irregularMoons';

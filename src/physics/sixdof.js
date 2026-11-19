@@ -32,10 +32,10 @@
 
 import { geopotential } from './geopotential.js';
 import { quatNormalize, quatToMatrix, matVec, matTVec, invert3, attitudeRates } from './rigidbody.js';
+import { cross } from './vec.js';
 
 export { geopotential };
 
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 // The point-mass gravity-gradient torque (body axes, N m) on a body of
 // inertia I (kg m^2) at r (m) from a centre of gravitational parameter mu
@@ -160,6 +160,7 @@ export function makeModel(m) {
 // calling sample(state) at t0 and every outEvery s (and at tEnd).
 // A step never crosses a breakpoint or an output time.
 export function propagate6dof(model, s0, { tEnd, h = 1, outEvery = 60, sample }) {
+  if (!(h > 0) || !(outEvery > 0)) throw new Error(`propagate6dof: h (${h}) and outEvery (${outEvery}) must be positive`);
   let t = s0.t;
   let y = [...s0.r, ...s0.v, ...s0.q, ...s0.omega];
   const stops = [...new Set([...(model.breakpoints ?? []), tEnd])].filter((b) => b > t).sort((a, b) => a - b);

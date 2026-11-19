@@ -5,7 +5,7 @@
 // sheet on the right instead of along the bottom. The desktop layout is
 // everything else, unchanged.
 
-import { createContext, useMemo, useSyncExternalStore } from 'react';
+import { createContext, useCallback, useMemo, useSyncExternalStore } from 'react';
 
 export const PHONE_QUERY = '(max-width: 720px), (max-height: 500px) and (pointer: coarse)';
 // A short touch screen wide enough for a side sheet of 40 % (a landscape
@@ -15,7 +15,9 @@ export const SIDE_QUERY = '(max-height: 500px) and (pointer: coarse) and (min-wi
 // Whether a media query matches, kept current.
 export function useMedia(query: string): boolean {
   const mql = useMemo(() => matchMedia(query), [query]);
-  return useSyncExternalStore((fn) => { mql.addEventListener('change', fn); return () => mql.removeEventListener('change', fn); }, () => mql.matches);
+  // Stable per query: a new function each render makes React resubscribe.
+  const subscribe = useCallback((fn: () => void) => { mql.addEventListener('change', fn); return () => mql.removeEventListener('change', fn); }, [mql]);
+  return useSyncExternalStore(subscribe, () => mql.matches);
 }
 
 // Inside the phone's sheet: the rail's lower sections fold away

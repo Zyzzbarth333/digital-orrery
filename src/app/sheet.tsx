@@ -65,8 +65,13 @@ export function Sheet({ stop, onStop, side, label, peek, children, onRest, above
   const measure = (): Geom => {
     const band = document.querySelector('.band');
     const top = band ? Math.round(band.getBoundingClientRect().bottom) : 0;
-    const vh = window.visualViewport?.height ?? window.innerHeight;
-    const h = Math.max(120, Math.round(vh - top));
+    // The foot of what can be seen, in the layout viewport's coordinates
+    // the sheet is placed in: iOS scrolls the visual viewport down under a
+    // keyboard (offsetTop > 0), and its height alone would leave the foot
+    // below the keyboard.
+    const vv = window.visualViewport;
+    const vh = vv?.height ?? window.innerHeight;
+    const h = Math.max(120, Math.round((vv ? vv.offsetTop : 0) + vh - top));
     const peekH = Math.min(h, (head.current?.offsetHeight ?? 88) + (safe.current?.offsetHeight ?? 0));
     const half = Math.min(h, Math.max(peekH + 160, Math.round(vh * 0.5)));
     return { top, h, y: { peek: h - peekH, half: h - half, full: 0 } };
@@ -155,7 +160,8 @@ export function Sheet({ stop, onStop, side, label, peek, children, onRest, above
     if (band) ro.observe(band);
     ro.observe(document.documentElement);
     window.visualViewport?.addEventListener('resize', refit);
-    return () => { ro.disconnect(); window.visualViewport?.removeEventListener('resize', refit); };
+    window.visualViewport?.addEventListener('scroll', refit);
+    return () => { ro.disconnect(); window.visualViewport?.removeEventListener('resize', refit); window.visualViewport?.removeEventListener('scroll', refit); };
     // Measured once mounted; side changes the sheet's width.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [side]);
@@ -196,10 +202,32 @@ export function Sheet({ stop, onStop, side, label, peek, children, onRest, above
       if (pushed.current) { pushed.current = false; latest.current.onStop('peek'); }
     };
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      // Gone above peek (the window left the phone layout): its entry goes
+      // too, so Back isn't left with a step that does nothing.
+      if (pushed.current && history.state?.orrerySheet) { pushed.current = false; history.back(); }
+    };
   }, []);
 
   // ---- the drag ------------------------------------------------------------
+  // The pointer is captured only once a press becomes a drag (so a tap still
+  // clicks what it lands on); a press released off the sheet before then
+  // never reaches onPointerUp, so the window lets it go instead, or it would
+  // hold drag.current, and with it every later drag and refit, for good.
+  const letGo = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId || d.on) return;
+    drag.current = null;
+    if (Math.abs(current() - geom.current.y[shown.current]) >= 1) go(shown.current, 300);
+  };
+  useEffect(() => {
+    const up = (e: PointerEvent) => letGo(e);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || drag.current) return;
     const t = e.target as Element;

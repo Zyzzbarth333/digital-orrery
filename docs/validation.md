@@ -163,7 +163,7 @@ Juno flew 1,046 km over Ganymede on 7 June 2021
 (closest approach 16:57:20 TDB, 3,677.4 km from the centre, at 18.57 km/s),
 and Ganymede bent its path by about 0.28 km/s.
 
-- **Reference:** JPL Horizons vectors [1] (`src/physics/flyby.fetch.mjs`,
+- **Reference:** JPL Horizons vectors [1] (`pipelines/flyby.fetch.mjs`,
   `fixtures/flyby_juno_ganymede.json`): Juno (-61) about the Jupiter system
   barycentre, from JPL's reconstructed trajectory
   (`spk_rec_110805_*_260824`), every 10 minutes from 08:00 on 7 June to

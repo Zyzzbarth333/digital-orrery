@@ -10,6 +10,14 @@
 //   heat shield aft.
 // - The MISSION tab's craft: the 2 by 2 by 3 m box its attitude is sized
 //   for (craftAttitude.js), with an engine bell aft.
+// - A spacecraft beyond Earth, or the MISSION tab's Juno, DART, LRO or
+//   MESSENGER: NASA's own model (probeModels.ts, craftAssets.ts), drawn
+//   only once it has loaded (the marker stands in until then). The app
+//   carries none of their attitudes: each is turned here with its arrays,
+//   shields or antenna to the Sun (or the Earth), its up as near the
+//   ecliptic's north as is square to that; Juno turns its main engine
+//   along a burn while one fires, its arrays as near the Sun as that lets.
+// - LICIACube, the CubeSat DART releases: a 6U box (probeModels.ts).
 // - A ROCKET tab stack (src/physics/stackShape.js): each stage and the
 //   payload as cylinders and cones at their lengths and diameters, the
 //   engines' bells in each stage's lower end, the interstage closed over
@@ -30,7 +38,9 @@
 import * as THREE from 'three';
 import { material, M_TO_RENDER, SHOW_PX, EARTH_BOND_ALBEDO, R_EARTH_KM, type Finish } from './satelliteModels';
 import { partsFrom } from '../physics/stackShape.js';
-import { asset, type Asset } from './craftAssets';
+import { asset, axisVec, type Asset } from './craftAssets';
+import { PROBE_MODELS, LICIACUBE, LICIACUBE_NOTE, probeNote, type Axis } from './probeModels';
+import { dot } from '../physics/vec.js';
 
 type V3 = [number, number, number];
 const AU_KM = 1.495978707e8;
@@ -43,12 +53,16 @@ export type CraftModelSpec =
   | { kind: 'orion' }
   | { kind: 'capsule' }
   | { kind: 'box' }
-  | { kind: 'stack'; shape: StackShape; from: number; to?: number };
+  | { kind: 'stack'; shape: StackShape; from: number; to?: number }
+  | { kind: 'probe'; key: string }
+  | { kind: 'cubesat' };
 
 // A model to draw this frame: its key (one per drawn thing), what it is,
 // its heliocentric ecliptic place (km), its body axes (ecliptic unit
-// vectors) and whether its engine burns.
-export interface ModelPose { key: string; spec: CraftModelSpec; rEcl: V3; axes: [V3, V3, V3]; firing: boolean }
+// vectors) and whether its engine burns. A probe's axes are its own pointing
+// (CraftModels turns it); burn: the direction of the burn firing, if any
+// (ecliptic unit vector), for a probe whose engine the model shows.
+export interface ModelPose { key: string; spec: CraftModelSpec; rEcl: V3; axes: [V3, V3, V3]; firing: boolean; burn?: V3 }
 
 // Orion's sizes (m), from NASA's Orion by the Numbers [2], its ESM page
 // [3] unless said: the crew module 3.35 m high and 5 m across; the service
@@ -77,7 +91,7 @@ export const ATTITUDE_NOTE = {
 
 const SPAN: Record<'orion' | 'capsule' | 'box', number> = { orion: ORION.wingSpan, capsule: ORION.cmD, box: 3 };
 export function modelSpan(spec: CraftModelSpec): number {
-  return spec.kind === 'stack' ? spec.shape.span : SPAN[spec.kind];
+  return spec.kind === 'stack' ? spec.shape.span : spec.kind === 'probe' ? PROBE_MODELS[spec.key].span : spec.kind === 'cubesat' ? LICIACUBE.size[0] : SPAN[spec.kind];
 }
 // What the plate says of a stack's model.
 export function stackNote(shape: StackShape): string {
@@ -86,7 +100,8 @@ export function stackNote(shape: StackShape): string {
   return `Drawn close up as cylinders and cones at ${shape.published ? 'the published sizes' : 'sizes worked out from its stages'}, ${shape.total.toFixed(1)} m from its base to its nose, each stage dropped as it separates.${est} Fins, fairings' seams and the pad's tower are left out.`;
 }
 export function modelNote(spec: CraftModelSpec): string {
-  return spec.kind === 'orion' ? ORION_NOTE : spec.kind === 'capsule' ? CAPSULE_NOTE : spec.kind === 'box' ? BOX_NOTE : stackNote(spec.shape);
+  return spec.kind === 'orion' ? ORION_NOTE : spec.kind === 'capsule' ? CAPSULE_NOTE : spec.kind === 'box' ? BOX_NOTE
+    : spec.kind === 'probe' ? probeNote(spec.key) : spec.kind === 'cubesat' ? LICIACUBE_NOTE : stackNote(spec.shape);
 }
 
 const plumeVertex = /* glsl */ `
@@ -136,6 +151,8 @@ class Kit {
   group = new THREE.Group();
   mats = new Map<Finish, THREE.ShaderMaterial>();
   plumeMats: THREE.ShaderMaterial[] = [];
+  // An empty model (a probe before its model loads is never built).
+  built(): Built { return { group: this.group, wings: [], plume: null, mats: [], plumeMats: [], sig: 'none' }; }
   mat(f: Finish) { if (!this.mats.has(f)) this.mats.set(f, material(f)); return this.mats.get(f)!; }
   // A cylinder or cone along x from x0 to x0 + len, diameters d0 at x0
   // and d1 at the far end.
@@ -211,6 +228,12 @@ function buildBox(): Built {
   return { group: k.group, wings: [], plume, mats: [...k.mats.values()], plumeMats: k.plumeMats, sig: 'box' };
 }
 
+function buildCubesat(): Built {
+  const k = new Kit();
+  k.box(k.group, 'foil', LICIACUBE.size, [0, 0, 0]);
+  return { group: k.group, wings: [], plume: null, mats: [...k.mats.values()], plumeMats: k.plumeMats, sig: 'cubesat' };
+}
+
 // A stack from stage `from` up (to below stage `to`, for a spent stage),
 // its base at x = 0.
 function buildStack(shape: StackShape, from: number, to?: number): Built {
@@ -262,7 +285,38 @@ function joints(shape: StackShape): number[] {
 function assetOf(spec: CraftModelSpec): Asset | null {
   if (spec.kind === 'orion' || spec.kind === 'capsule') return asset('orion');
   if (spec.kind === 'stack' && spec.shape.key === 'saturn-v') return asset('saturn-v', joints(spec.shape));
+  if (spec.kind === 'probe') return asset(`probe:${spec.key}`);
   return null;
+}
+
+// A probe model's axis a (in the model's own axes) in its body axes: the
+// Sun (or Earth) axis is +x, its up +z (craftAssets.ts).
+function bodyAxis(key: string, a: Axis): THREE.Vector3 {
+  const P = PROBE_MODELS[key], fx = axisVec((P.sun ?? P.earth)!), fz = axisVec(P.up), fy = new THREE.Vector3().crossVectors(fz, fx), v = axisVec(a);
+  return new THREE.Vector3(v.dot(fx), v.dot(fy), v.dot(fz));
+}
+// Body axes (ecliptic) turning body vector u to world U, and body v as
+// near world V as is square to that (TRIAD).
+function triad(u: number[], v: number[], U: number[], V: number[]): [V3, V3, V3] {
+  const unitv = (a: number[]) => { const n = Math.hypot(a[0], a[1], a[2]); return [a[0] / n, a[1] / n, a[2] / n]; };
+  const cr = (a: number[], b: number[]) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const b1 = unitv(u), b2 = unitv(cr(u, v)), b3 = cr(b1, b2);
+  const w1 = unitv(U), w2 = unitv(cr(U, V)), w3 = cr(w1, w2);
+  const col = (i: number): V3 => [0, 1, 2].map((k) => w1[k] * b1[i] + w2[k] * b2[i] + w3[k] * b3[i]) as V3;
+  return [col(0), col(1), col(2)];
+}
+const parallel = (a: number[], b: number[]) => Math.abs(dot(a, b)) / (Math.hypot(a[0], a[1], a[2]) * Math.hypot(b[0], b[1], b[2])) > 0.99;
+// A probe's axes: its Sun (or Earth) axis to the Sun (or Earth), its up
+// toward the ecliptic's north; while a burn fires on a model whose engine
+// is known, its thrust along the burn and its Sun axis as near the Sun.
+export function probeAxes(key: string, rEcl: V3, sunEcl: V3, earthEcl: V3, burn?: V3): [V3, V3, V3] {
+  const P = PROBE_MODELS[key], at = P.earth ? earthEcl : sunEcl;
+  const T = [at[0] - rEcl[0], at[1] - rEcl[1], at[2] - rEcl[2]], N = [0, 0, 1];
+  if (burn && P.thrust) {
+    const tb = bodyAxis(key, P.thrust).toArray();
+    return parallel(tb, [1, 0, 0]) ? triad(tb, [0, 0, 1], burn, parallel(burn, N) ? [1, 0, 0] : N) : triad(tb, [1, 0, 0], burn, parallel(burn, T) ? N : T);
+  }
+  return triad([1, 0, 0], [0, 0, 1], T, parallel(T, N) ? [1, 0, 0] : N);
 }
 
 // A model from a loaded asset: its parts' shared meshes placed in the body
@@ -271,6 +325,22 @@ function buildAsset(spec: CraftModelSpec, A: Asset): Built {
   const k = new Kit(), inner = new THREE.Group();
   k.group.add(inner);
   let plume: THREE.Object3D | null = null;
+  if (spec.kind === 'probe') {
+    inner.add(A.parts.get('all')!.clone());
+    const t = PROBE_MODELS[spec.key].thrust;
+    if (t) {
+      // The engine aft, along -thrust (in body axes), at the bounds' face.
+      const tb = bodyAxis(spec.key, t), box = A.box!;
+      let aft = Infinity;                       // the nearest the bounds reach along thrust
+      for (let c = 0; c < 8; c++) aft = Math.min(aft, (c & 1 ? box.max.x : box.min.x) * tb.x + (c & 2 ? box.max.y : box.min.y) * tb.y + (c & 4 ? box.max.z : box.min.z) * tb.z);
+      const holder = new THREE.Group();
+      holder.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), tb);
+      k.group.add(holder);
+      plume = k.plume(aft, 0.4);
+      holder.add(plume);
+    }
+    return { group: k.group, wings: [], plume, mats: [], plumeMats: k.plumeMats, sig: `${sigOf(spec)}:asset` };
+  }
   if (spec.kind === 'stack') {
     const cuts = A.cuts ?? [], to = spec.to ?? cuts.length + 1;
     for (let i = spec.from; i < to; i++) { const p = A.parts.get(`stage${i}`); if (p) inner.add(p.clone()); }
@@ -287,14 +357,13 @@ function buildAsset(spec: CraftModelSpec, A: Asset): Built {
 
 function build(spec: CraftModelSpec): Built {
   const A = assetOf(spec);
-  const b = A ? buildAsset(spec, A) : spec.kind === 'orion' ? buildOrion(false) : spec.kind === 'capsule' ? buildOrion(true) : spec.kind === 'box' ? buildBox() : buildStack(spec.shape, spec.from, spec.to);
+  const b = A ? buildAsset(spec, A) : spec.kind === 'cubesat' ? buildCubesat() : spec.kind === 'orion' ? buildOrion(false) : spec.kind === 'capsule' ? buildOrion(true) : spec.kind === 'box' ? buildBox() : spec.kind === 'stack' ? buildStack(spec.shape, spec.from, spec.to) : new Kit().built();
   b.group.scale.setScalar(M_TO_RENDER);
   return b;
 }
-const sigOf = (s: CraftModelSpec) => (s.kind === 'stack' ? `stack:${s.shape.key}:${s.from}:${s.to ?? ''}` : s.kind);
+const sigOf = (s: CraftModelSpec) => (s.kind === 'stack' ? `stack:${s.shape.key}:${s.from}:${s.to ?? ''}` : s.kind === 'probe' ? `probe:${s.key}` : s.kind);
 const fullSig = (s: CraftModelSpec) => `${sigOf(s)}${assetOf(s) ? ':asset' : ''}`;
 
-const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const toRender = (a: number[], out: THREE.Vector3) => out.set(a[0], a[2], -a[1]);
 
 export interface ModelLight {
@@ -334,6 +403,8 @@ export class CraftModels {
       const rel: V3 = [p.rEcl[0] - cam[0], p.rEcl[1] - cam[1], p.rEcl[2] - cam[2]];
       const d = Math.hypot(rel[0], rel[1], rel[2]);
       if ((modelSpan(p.spec) / 1000 / d) * this.pxPerRad < SHOW_PX) continue;
+      // A probe is drawn only by its model (the first ask starts the load).
+      if (p.spec.kind === 'probe' && !assetOf(p.spec)) continue;
       let b = this.built.get(p.key);
       if (b && b.sig !== fullSig(p.spec)) { this.drop(p.key); b = undefined; }
       if (!b) { b = build(p.spec); this.built.set(p.key, b); this.scene.add(b.group); }
@@ -346,7 +417,7 @@ export class CraftModels {
   }
 
   private place(b: Built, p: ModelPose, rel: V3, L: ModelLight): void {
-    const [X, Y, Z] = p.axes;
+    const [X, Y, Z] = p.spec.kind === 'probe' ? probeAxes(p.spec.key, p.rEcl, L.sunEcl, L.earthEcl, p.firing ? p.burn : undefined) : p.axes;
     this.m.makeBasis(toRender(X, this.vx), toRender(Y, this.vy), toRender(Z, this.vz));
     b.group.quaternion.setFromRotationMatrix(this.m);
     b.group.position.set(rel[0] / UNIT_KM, rel[2] / UNIT_KM, -rel[1] / UNIT_KM);
