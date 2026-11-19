@@ -39,7 +39,7 @@ const FILES = [
   'src/physics/scintillation.test.mjs', 'src/physics/asteroids.test.mjs', 'src/physics/gravityGuides.test.mjs',
   'src/physics/gravityFlow.test.mjs', 'src/physics/magnetic.test.mjs', 'src/physics/aurora.test.mjs',
   'src/physics/moons.test.mjs', 'src/physics/landingSites.test.mjs', 'src/physics/irregularMoons.test.mjs', 'src/physics/flyby.test.mjs',
-  'src/physics/kernelClient.test.mjs', 'src/physics/barycentres.test.mjs', 'src/physics/deTable.test.mjs',
+  'src/physics/kernelClient.test.mjs', 'src/physics/barycentres.test.mjs', 'src/physics/deTable.test.mjs', 'src/physics/dataLoad.test.mjs',
   'src/physics/corona.test.mjs', 'src/physics/rings.test.mjs', 'src/physics/discs.test.mjs', 'src/physics/umbra.test.mjs',
   'src/physics/satellites.test.mjs', 'src/physics/passes.test.mjs', 'src/physics/spacecraft.test.mjs',
   'validation/artemis2.validate.mjs', 'validation/artemis1.validate.mjs',

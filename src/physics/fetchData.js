@@ -24,3 +24,12 @@ export const getBuffer = async (url, what) => (await fetchOk(url, what)).arrayBu
 
 /** @param {string} url @param {string} [what] @returns {Promise<string>} */
 export const getText = async (url, what) => (await fetchOk(url, what)).text();
+
+// The physics' loader in a browser thread (dataLoad.js): each path under
+// `base`, the site's base URL, fetched as above.
+/** @param {string} base @returns {import('./dataLoad.js').DataLoader} */
+export const fetchLoader = (base) => ({
+  buffer: (path, what) => getBuffer(`${base}${path}`, what),
+  json: (path, what) => getJson(`${base}${path}`, what),
+  text: (path, what) => getText(`${base}${path}`, what),
+});
