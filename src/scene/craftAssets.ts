@@ -16,7 +16,8 @@
 // - The ISS and Hubble: NASA/JPL-Caltech's models from NASA's Eyes on the
 //   Earth (probeModels.ts SATELLITE_MODELS), turned into the body axes,
 //   scaled and centred like a probe's, but with their nodes kept so their
-//   arrays can turn (satelliteModels.ts).
+//   arrays can turn (satelliteModels.ts), each moving part's meshes merged
+//   by material so the ISS draws in 93 meshes, not about 360.
 //
 // Each loads the first time its craft is close enough to draw (craftModels
 // asks), never before; until then, and if it fails, the craft is drawn by
@@ -29,6 +30,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ktx2Loader } from './ktx2';
 import { PROBE_MODELS, SATELLITE_MODELS, type Axis, type ProbeModel, type SatModel } from './probeModels';
 
@@ -221,6 +223,64 @@ function splitOff(m: THREE.Mesh, test: (c: THREE.Vector3) => boolean): THREE.Buf
   return split;
 }
 
+// A model's meshes merged into one per material in each rigid part, to
+// draw it in tens of calls, not hundreds (the ISS has about 360 meshes):
+// a part is the root or a named node that moves on its own (a joint, a
+// dated payload), with every mesh whose nearest such node it is. Each
+// merged mesh is a child of its part, in the part's frame. The node tree
+// stays: each old mesh becomes a plain node with the same name, place and
+// children, so the joints still turn what hangs from them.
+function merged(scene: THREE.Object3D, names: string[]): void {
+  scene.updateMatrixWorld(true);
+  const parts = new Set<THREE.Object3D>([scene]);
+  for (const n of names) { const o = scene.getObjectByName(n); if (o) parts.add(o); }
+  const partOf = (o: THREE.Object3D): THREE.Object3D => { let p = o; while (!parts.has(p)) p = p.parent!; return p; };
+  // By part, then by material and attribute layout (mergeGeometries needs
+  // the same attributes in each).
+  const groups = new Map<THREE.Object3D, Map<string, { mat: THREE.Material; geos: THREE.BufferGeometry[] }>>();
+  const meshes: THREE.Mesh[] = [];
+  scene.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
+  const inv = new THREE.Matrix4();
+  for (const m of meshes) {
+    const part = partOf(m), mat = m.material as THREE.Material, g0 = m.geometry as THREE.BufferGeometry;
+    const g = (g0.index ? g0 : g0.toNonIndexed()).clone();
+    for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
+    // Normals to float32 first: transforming quantised bytes in place would round them twice.
+    const n = g.getAttribute('normal');
+    if (n && !(n.array instanceof Float32Array)) {
+      const f = new Float32Array(n.count * 3);
+      for (let i = 0; i < n.count; i++) { f[3 * i] = n.getX(i); f[3 * i + 1] = n.getY(i); f[3 * i + 2] = n.getZ(i); }
+      g.setAttribute('normal', new THREE.BufferAttribute(f, 3));
+    }
+    g.applyMatrix4(inv.copy(part.matrixWorld).invert().multiply(m.matrixWorld));
+    if (!g.index) g.setIndex([...Array(g.getAttribute('position').count).keys()]);
+    const key = `${mat.uuid}|${Object.keys(g.attributes).sort().join(',')}`;
+    let byMat = groups.get(part);
+    if (!byMat) groups.set(part, (byMat = new Map()));
+    const e = byMat.get(key) ?? { mat, geos: [] };
+    e.geos.push(g); byMat.set(key, e);
+  }
+  // The old meshes become plain nodes.
+  for (const m of meshes) {
+    const o = new THREE.Object3D();
+    o.name = m.name; o.position.copy(m.position); o.quaternion.copy(m.quaternion); o.scale.copy(m.scale); o.visible = m.visible;
+    for (const c of [...m.children]) o.add(c);
+    if (parts.has(m)) { parts.delete(m); parts.add(o); for (const [k, v] of groups) if (k === m) { groups.delete(k); groups.set(o, v); } }
+    if (m === scene) continue;
+    const p = m.parent!, i = p.children.indexOf(m);
+    p.children[i] = o; o.parent = p; m.parent = null;
+  }
+  for (const [part, byMat] of groups) {
+    for (const { mat, geos } of byMat.values()) {
+      const g = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+      if (!g) continue;
+      const mesh = new THREE.Mesh(g, mat);
+      mesh.name = `${part.name || 'root'}:${mat.name}`;
+      part.add(mesh);
+    }
+  }
+}
+
 // A satellite: its nodes kept, Hubble's arrays split off into a node of
 // their own, turned into the body axes, scaled and centred on its bounds.
 function satellite(P: SatModel, scene: THREE.Object3D): Asset {
@@ -244,7 +304,8 @@ function satellite(P: SatModel, scene: THREE.Object3D): Asset {
     }
     scene.add(pivot);
   }
-  for (const name of P.hide ?? []) { const o = scene.getObjectByName(name); if (o) o.visible = false; }
+  for (const name of P.hide ?? []) scene.getObjectByName(name)?.removeFromParent();
+  merged(scene, [...P.joints.map((j) => j.node), ...(P.dated ?? []).map((d) => d.node)]);
   scene.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;

@@ -396,7 +396,11 @@ files, 26.7 MB and 6.9 MB. Each is packed into one GLB in
 `public/models/satellites`, 15.0 MB and 1.7 MB: the textures as WebP at
 quality 90, the normals as bytes (`KHR_mesh_quantization`), and the
 tangents dropped, since three works them out per pixel from the normal
-maps. The positions are as published.
+maps. The positions are as published. At load, each part that moves on
+its own (the station or telescope itself, each joint, each dated
+payload) has its meshes merged into one per material, so the ISS draws
+in 93 meshes instead of about 360, and the node tree stays so the joints
+still turn.
 
 The ISS model shows the station as it was about 2020: Pirs where Nauka
 has been since July 2021, and none of Nauka, Prichal, the Bishop airlock
