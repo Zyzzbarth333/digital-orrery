@@ -43,6 +43,8 @@ jobs:
         run: npm run data -- --verify
       - name: Physics and app checks
         run: npm test
+      - name: Golden snapshot of the physics' answers, bit for bit
+        run: node validation/golden.mjs --api
       - name: Production build
         run: npm run build
 

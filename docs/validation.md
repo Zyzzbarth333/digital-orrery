@@ -1102,6 +1102,42 @@ states and filled in between ([Spacecraft beyond Earth orbit](frontend/spacecraf
 | Spin sense of 61 bodies, from the app's orientation differenced | the sign of each IAU rate $W_1$ | all 61; size within 2 % (Phobos 0.65 %, its libration) |
 | Retrograde rotation | Venus 177°, Uranus 98°, Pluto 120° from their orbits' poles | exactly those three: 177.4°, 97.8°, 119.6° |
 
+## The golden snapshot (`validation/golden.mjs`)
+
+The validations above check the physics against outside references. The
+golden snapshot does something else: it records exactly what the physics
+gives today, so that a change meant to alter nothing (the move into
+`packages/physics` in [ADR-0001](adr/0001-data-physics-and-boundaries.md)
+phase C) can be shown to alter nothing. It has two fixtures:
+
+- **`validation/golden/npm-test.txt`:** every line `npm test` prints.
+  Values that come from the wall clock are replaced by `<clock>` (CPU times, and
+  `kernelClient.test.mjs`'s budgeted requests, whose entry lands anywhere
+  in 0 to 1.4 km). The script's `MASKS` list each one with the test it
+  comes from. The client's warnings on stderr go to the end of their part,
+  because where they fall among its lines depends on timing.
+- **`validation/golden/api.json`:** about 4,400 numbers, kept as whole
+  doubles, from fixed inputs (`golden.api.mjs`):
+  - the planets, the Moon, Pluto and the barycentres, inside DE442, in its
+    blends and outside it;
+  - time scales and the Earth's orientation;
+  - the moons, from their tables and the mean elements, and six irregular
+    moons;
+  - SB441's first eight asteroids;
+  - the kernel stepping a low orbit, a cruise and a finite burn;
+  - Earth to Mars and a Moon trip, solved and flown;
+  - six of Vallado et al.'s SGP4 verification satellites [4].
+
+`npm run golden` compares both parts bit for bit (the text line by line,
+the numbers with `Object.is`), and takes about two minutes, because it runs
+`npm test`. `node validation/golden.mjs --api` compares the API part alone
+in about five seconds; CI runs that on every pull request. Bit for bit
+holds only on the pinned Node version (`.nvmrc`). Other Node versions and
+browser engines may round `Math.sin`, `pow` and `exp` differently, so there
+`--tol 1e-12` compares to a relative tolerance and reports the largest
+difference. `npm run golden:record` rewrites the fixtures. Do that only for
+a change that is meant to move numbers, and say why in its commit.
+
 ## References
 
 [1] JPL Solar System Dynamics, "Horizons System" API. Vectors for Juno (-61), from JPL's reconstructed trajectory `spk_rec_110805_*_260824`, and for Cassini (-82), from its final post-mission reconstruction. [Online]. Available: https://ssd.jpl.nasa.gov/api/horizons.api
