@@ -417,7 +417,7 @@ export class Mission {
     R.lastMs = nowMs;
     // Aimed corrections: the kernel holds at each one's start, where it is
     // worked out from the craft's own state (RealMission.aimStep).
-    if (R.aimed) R.m.aimStep(c, this.sys, R, jumped, (req: object) => this.client.aim(req as AimRequest));
+    if (R.aimed) R.m.aimStep(c, this.sys, R, jumped, (req: AimRequest) => this.client.aim(req));
     else if (jumped) c.holdAt = null;
     this.entry(c, R, jumped);
   }

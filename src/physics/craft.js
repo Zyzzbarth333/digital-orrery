@@ -48,7 +48,7 @@ import { dot, cross, norm, unit } from './vec.js';
  * @typedef {RV & { t: number, primary: string | null, accel: number[], withThrust?: boolean }} KState
  * The kernel's state: at kernel time t, about its primary, with the
  * acceleration it held there (withThrust once it came from the kernel).
- * @typedef {{ t0: number, t1: number, dir: number[], F: number, m0: number, mdot: number, kind?: string, axis?: boolean, nodeDir?: number[], nodeId?: number, frame?: string, about?: string, scripted?: boolean, aimed?: boolean, mass0?: number, massFlow?: number }} Burn
+ * @typedef {import('./kernelHost.js').Burn & { kind?: string, axis?: boolean, nodeDir?: number[], nodeId?: number }} Burn
  * A burn segment (the engine's or a scripted one), in absolute kernel time.
  * @typedef {{ id: number, t: number, dv: number[] }} ManoeuvreNode
  * @typedef {{ key: string, local: number[], t: number }} Site

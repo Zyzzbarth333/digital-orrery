@@ -22,7 +22,7 @@
 import * as THREE from 'three';
 import { eqjToEcl } from '../physics/ephemeris.js';
 import { LANDING_SITES, SITE_BY_KEY, siteBody, onSmallBody, siteFixedKm, siteNormal, siteRadii, type LandingSite } from '../physics/landingSites.js';
-import { dot, cross, unit } from '../physics/vec.js';
+import { dot, cross, norm, unit } from '../physics/vec.js';
 
 type Vec3 = [number, number, number];
 const UNIT_KM = 1000;
@@ -55,7 +55,7 @@ export function siteFrame(site: LandingSite, centre: Vec3, axesEcl: Vec3[]): Sit
   const p = turn(siteFixedKm(site) as Vec3, axesEcl);
   const U = unit(turn(siteNormal(site) as Vec3, axesEcl));
   const e = cross(axesEcl[2], U);
-  const E = Math.hypot(e[0], e[1], e[2]) > 1e-9 ? unit(e) : axesEcl[1];   // at a pole, the body's +Y
+  const E = norm(e) > 1e-9 ? unit(e) : axesEcl[1];   // at a pole, the body's +Y
   const N = cross(U, E);
   return { P: [centre[0] + p[0], centre[1] + p[1], centre[2] + p[2]], E, N, U };
 }

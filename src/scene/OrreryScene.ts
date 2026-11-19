@@ -331,11 +331,12 @@ export class OrreryScene {
   //     then turns, its up that vertical (the frame loop);
   //   sat: an Earth satellite (satellites.ts), by NORAD id;
   //   probe: a spacecraft beyond Earth orbit (spacecraftLayer.ts).
-  focusTarget: FocusTarget | null = null;
-  get focusCraftId(): number | null { return this.focusTarget?.kind === 'craft' ? this.focusTarget.id : null; }
-  get focusSmall(): string | null { return this.focusTarget?.kind === 'small' ? this.focusTarget.id : null; }
-  get focusSat(): number | null { return this.focusTarget?.kind === 'sat' ? this.focusTarget.id : null; }
-  get focusProbe(): string | null { return this.focusTarget?.kind === 'probe' ? this.focusTarget.id : null; }
+  private target: FocusTarget | null = null;
+  get focusTarget(): FocusTarget | null { return this.target; }
+  get focusCraftId(): number | null { return this.target?.kind === 'craft' ? this.target.id : null; }
+  get focusSmall(): string | null { return this.target?.kind === 'small' ? this.target.id : null; }
+  get focusSat(): number | null { return this.target?.kind === 'sat' ? this.target.id : null; }
+  get focusProbe(): string | null { return this.target?.kind === 'probe' ? this.target.id : null; }
   onSmallPick: (pdes: string) => void = () => {};
   onSatPick: (id: number) => void = () => {};
   // A debris cloud picked (satellites.ts): the camera is on the Earth.
@@ -518,12 +519,12 @@ export class OrreryScene {
   // drawn as focused in its layer (a site's frame is left, too), and a
   // picked debris cloud is let go. The caller marks the new one.
   private setFocusTarget(next: FocusTarget | null): void {
-    const was = this.focusTarget;
+    const was = this.target;
     if (was?.kind === 'small') { this.leaveSite(); this.smallBodies.setFocus(null); this.irregulars.setFocus(null); }
     else if (was?.kind === 'sat') this.satellites.setFocus(null);
     else if (was?.kind === 'probe') this.spacecraft.setFocus(null);
     this.satellites.setCloud(null);
-    this.focusTarget = next;
+    this.target = next;
   }
   // Fly to a spacecraft beyond Earth orbit: 500 km out, or the distance last
   // zoomed to.
@@ -770,7 +771,7 @@ export class OrreryScene {
   // changes nothing.
   focusOn(key: FocusKey): void {
     if (this.rig.flying && this.rig.destination.id === `body:${key}`) return;
-    const reframe = key === this.focus && this.focusTarget === null;
+    const reframe = key === this.focus && this.target === null;
     this.setFocusTarget(null);
     this.focus = key;
     if (!isBary(key)) this.loadSurfaces(key);   // start now: the flight hides the upload
@@ -1735,7 +1736,7 @@ export class OrreryScene {
       el.classList.toggle('resolved', radiusPx > 4);
       if (b.key === 'earth') this.earthResolved = radiusPx > 3;
       if (radiusPx > 3) this.loadSurfaces(b.key);
-      el.classList.toggle('focused', b.key === this.focus && this.focusTarget === null);
+      el.classList.toggle('focused', b.key === this.focus && this.target === null);
     }
     // Barycentres: hidden while they sit on their body's marker (unless
     // focused). They are drawn over discs, the Sun's or a planet's, that
@@ -1745,7 +1746,7 @@ export class OrreryScene {
       const ndc = this.tmp.copy(this.baryPos.get(b.key)!).project(this.camera);
       if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
       const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
-      const focused = b.key === this.focus && this.focusTarget === null;
+      const focused = b.key === this.focus && this.target === null;
       const ps = screen.get(b.of);
       if (!focused && ps && Math.hypot(x - ps[0], y - ps[1]) < 14) { el.style.display = 'none'; continue; }
       el.style.display = '';
