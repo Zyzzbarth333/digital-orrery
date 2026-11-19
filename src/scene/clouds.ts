@@ -97,6 +97,29 @@ export function daysFor(simMs: number, nowMs: number): string[] {
   return Array.from({ length: n }, (_, i) => new Date(dayMs - i * DAY_MS).toISOString().slice(0, 10)).filter((d) => gibsLayer(d));
 }
 
+// What a load drew, for the readout, from the share of the globe each
+// layer gave (geostationary frames first, then the days, as decodeImage
+// was given them). Without shares (no worker) only the newest day is drawn.
+// Null when no layer gave any (GIBS can answer with images that have no
+// data), so that nothing is said to be drawn.
+export function drawnInfo(layer: string, geo: GeoLayer[], frameIso: string | null, days: string[], shares?: number[]): DailyEarthInfo | null {
+  const geoParts = shares ? geo.map((g, i) => ({ name: g.name, share: shares[i] })).filter((g) => g.share > 0) : [];
+  const dayShares = shares?.slice(geo.length);
+  const drawn = dayShares ? days.map((d, i) => ({ day: d, share: dayShares[i] })).filter((d) => d.share > 0) : [{ day: days[0], share: NaN }];
+  const geoInfo = geoParts.length ? { time: frameIso!, parts: geoParts } : null;
+  return geoInfo || drawn.length ? { layer, geo: geoInfo, days: drawn } : null;
+}
+
+// The credit line for what was drawn.
+export function gibsCredit(info: DailyEarthInfo): string {
+  const geo = info.geo;
+  const parts = [
+    ...(geo ? [`${geo.parts.map((g) => g.name).join(' and ')} GeoColor ${geo.time.slice(0, 16).replace('T', ' ')} UTC`] : []),
+    ...(info.days.length ? [`${info.layer.replace(/_/g, ' ')}, ${info.days.map((d) => d.day).join(' over ')}`] : []),
+  ];
+  return `${parts.join(' over ')}: NASA GIBS / EOSDIS`;
+}
+
 export function gibsUrl(layer: string, time: string, width = 4096, format: 'png' | 'jpeg' = 'png'): string {
   const q = new URLSearchParams({
     SERVICE: 'WMS', REQUEST: 'GetMap', VERSION: '1.3.0', LAYERS: layer, STYLES: '',
@@ -192,14 +215,9 @@ export class DailyEarth {
       const old = this.texture;
       this.texture = tex;
       this.loadedDayMs = dayMs;
-      // Without the worker (no createImageBitmap) only the newest day is drawn.
-      const geoParts = shares ? geo.map((g, i) => ({ name: g.name, share: shares[i] })).filter((g) => g.share > 0) : [];
-      const dayShares = shares?.slice(geo.length);
-      const drawn = dayShares ? days.map((d, i) => ({ day: d, share: dayShares[i] })).filter((d) => d.share > 0) : [{ day: days[0], share: NaN }];
-      const geoInfo = geoParts.length ? { time: frameIso!, parts: geoParts } : null;
-      this.credit = `${geoInfo ? `${geoParts.map((g) => g.name).join(' and ')} GeoColor ${frameIso!.slice(0, 16).replace('T', ' ')} UTC over ` : ''}`
-        + `${layer.id.replace(/_/g, ' ')}, ${drawn.map((d) => d.day).join(' over ')}: NASA GIBS / EOSDIS`;
-      publish({ layer: layer.id, geo: geoInfo, days: drawn });
+      const drawn = drawnInfo(layer.id, geo, frameIso, days, shares);
+      this.credit = drawn ? gibsCredit(drawn) : '';
+      publish(drawn);
       this.onChange(tex);
       old?.dispose();
     }).catch((err) => {

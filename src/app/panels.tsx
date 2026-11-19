@@ -11,6 +11,7 @@
 import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { dailyEarthInfo } from '../scene/clouds';
+import { cloudsRow } from './clouds-row';
 import { useClock, useClockValue, type SimClock } from './clock';
 import { typeStep } from './type-step';
 import type { Mission } from './mission';
@@ -798,23 +799,8 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
   // The weather drawn on the Earth: GOES's frame where it reaches, and the
   // day (or days) of GIBS's mosaic under it.
   if (focus === 'earth' && clouds) {
-    const [newest, ...older] = clouds.days;
-    const pct = (x: number) => `${Math.round(x * 100)} %`;
-    const sat = clouds.layer.replace(/_CorrectedReflectance_TrueColor$/, '').replace(/_/g, ' ').replace('NOAA', 'NOAA-').replace('SNPP', 'Suomi NPP');
-    const geo = clouds.geo;
-    const daily = `${sat}, about ${sat.startsWith('MODIS Terra') ? '10:30' : '13:30'} local time at each place`
-      + (Number.isFinite(newest.share) && (older.length || geo) ? `: ${clouds.days.map((d) => `${d.day} ${pct(d.share)}`).join(', ')} of the globe` : '');
-    rows.push(geo
-      ? {
-        label: 'Clouds', value: `${geo.time.slice(11, 16)} UTC`, src: 'GIBS', info: 'clouds',
-        alt: `${geo.time.slice(0, 10)}, GOES; elsewhere ${newest.day.slice(5)}${older.length ? ' and before' : ''}`,
-        detail: `${geo.parts.map((g) => `${g.name} ${pct(g.share)}`).join(', ')} of the globe: GeoColor at that minute, where the Sun was up and within 70° of the satellite. Elsewhere ${daily}. The rest shows the Blue Marble (night, gaps between passes)`,
-      }
-      : {
-        label: 'Clouds', value: newest.day, src: 'GIBS', info: 'clouds',
-        alt: older.length ? `newest pass; ${older.map((d) => d.day.slice(5)).join(', ')} under it` : 'that day, not live',
-        detail: daily + (older.length ? '; the rest shows the Blue Marble (polar night, gaps between passes)' : ''),
-      });
+    const row = cloudsRow(clouds);
+    if (row) rows.push(row);
   }
   if (focus !== 'sun' && (b.gm || pm)) {
     // The period of the osculating orbit at this instant, from the state:
