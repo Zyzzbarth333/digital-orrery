@@ -58,7 +58,7 @@ export interface CraftView {
   // Its close-up model: what it is, its body axes (ecliptic unit vectors:
   // the attitude's, or the pointing the scene draws it at) and whether its
   // engine burns; and any spent stages falling away from it.
-  model?: { spec: CraftModelSpec; axes: [V3, V3, V3]; firing: boolean };
+  model?: { spec: CraftModelSpec; axes: [V3, V3, V3]; firing: boolean; burn?: V3 };
   pieces?: ModelPose[];
 }
 
@@ -177,10 +177,14 @@ export class CraftLayer {
   setView(pxPerRad: number): void { this.models.setView(pxPerRad); }
   // Whether craft id's model is drawn this frame.
   modelShown(id: number): boolean { return this.modelled.has(`c${id}`); }
+  // Whether a model drawn by key (an extra pose's) is drawn this frame.
+  shownKey(key: string): boolean { return this.modelled.has(key); }
 
   // Before rendering: lines and models in place. cam: the camera's
   // ecliptic km; light: the Sun's and the Earth's places for the models.
-  place(views: CraftView[], cam: V3, unitKm: number, light: Omit<ModelLight, 'shade'> | null = null): void {
+  // extra: other craft's models to draw with these (the focused spacecraft
+  // beyond Earth, spacecraftLayer.ts), so one pair of lights serves all.
+  place(views: CraftView[], cam: V3, unitKm: number, light: Omit<ModelLight, 'shade'> | null = null, extra: ModelPose[] = []): void {
     const seen = new Set<number>();
     for (const v of views) {
       seen.add(v.id);
@@ -227,9 +231,10 @@ export class CraftLayer {
     if (light) {
       const poses: ModelPose[] = [];
       for (const v of views) {
-        if (v.model && !v.crashed) poses.push({ key: `c${v.id}`, spec: v.model.spec, rEcl: v.rEcl, axes: v.model.axes, firing: v.model.firing });
+        if (v.model && !v.crashed) poses.push({ key: `c${v.id}`, spec: v.model.spec, rEcl: v.rEcl, axes: v.model.axes, firing: v.model.firing, burn: v.model.burn });
         if (v.pieces) poses.push(...v.pieces);
       }
+      poses.push(...extra);
       this.modelled = this.models.update(poses, cam, { ...light, shade: this.shade });
     }
     for (const [id, d] of this.drawn) {
