@@ -10,6 +10,7 @@ import { SceneView, type ViewStep } from '../scene/SceneView';
 import { BodyRail, Plate, RATES, TimeBand, TimeControls, craftById } from './panels';
 import { best, PER_GROUP, type FindApi, type FindHit } from './find';
 import { KeySheet } from './key-sheet';
+import { Stow, panels, usePins } from './stow';
 import { OWN_KEYS, shortcuts } from './shortcuts';
 import { installArrowGroups } from './arrow-groups';
 import { typeStep } from './type-step';
@@ -141,6 +142,8 @@ export function App() {
     if (inside) requestAnimationFrame(() => document.querySelector<HTMLElement>('.console-key')?.focus());
   };
   const wide = useMedia('(min-width: 1680px)');
+  // Which side panels are pinned beside the sky; the rest are stowed (stow.tsx).
+  const pins = usePins();
   // A phone (docs/frontend/phone.md): the sky under a slim band, and one
   // sheet with three stops; on a short touch screen the sheet is on the right.
   const phone = useMedia(PHONE_QUERY);
@@ -400,8 +403,9 @@ export function App() {
     sc.setPaused(journey.plotOpen);
     sc.onCraftPick = (id) => { followCraft(id); openConsole('mission'); };
     sc.onFlight = setFlying;
-    sc.onGuidePick = (guide) => setInfo({ guide, view: viewKey.current });
-    sc.onOrbitPick = (orbit) => setInfo({ orbit, view: viewKey.current });
+    // A pick asks what it is: a stowed plate opens to say (stow.tsx).
+    sc.onGuidePick = (guide) => { setInfo({ guide, view: viewKey.current }); panels.open('plate'); };
+    sc.onOrbitPick = (orbit) => { setInfo({ orbit, view: viewKey.current }); panels.open('plate'); };
     sc.onSmallPick = (pdes) => { setFollowing(null); setSmall(pdes); setSat(null); setSatCloud(null); setProbe(null); };
     sc.onSatPick = (id) => { setFollowing(null); setSmall(null); setSat(id); setSatCloud(null); setProbe(null); };
     sc.onSatCloudPick = (key) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(key); setProbe(null); };
@@ -479,6 +483,11 @@ export function App() {
       if (e.key === 'Escape') { if (consoleOpen) closeConsole(); return; }
       if (!shortcuts.get()) return;
       if (e.key === 'm' || e.key === 'M') { setConsoleOpen(!consoleOpen); e.preventDefault(); return; }
+      // L and R pin or stow the rail (L1) and the plate (R1) beside the sky (stow.tsx).
+      if (!phone && (e.key === 'l' || e.key === 'L' || e.key === 'r' || e.key === 'R')) {
+        const id = e.key.toLowerCase() === 'l' ? 'rail' : 'plate';
+        panels.pin(id, !panels.get()[id]); e.preventDefault(); return;
+      }
       // / finds (the rail's FIND field); ? lists the keys (the sheet closes itself).
       if (e.key === '/') { if (!journey.plotOpen) { openFind(); e.preventDefault(); } return; }
       if (e.key === '?') { setKeysOpen(true); e.preventDefault(); return; }
@@ -523,7 +532,14 @@ export function App() {
   // phone the sheet at full with the field at its top, the console closed.
   function openFind() {
     const field = document.getElementById('find') as HTMLInputElement | null;
-    if (!phone) { field?.focus(); return; }
+    // Beside the sky: a stowed rail opens first (an inert field takes no
+    // focus), at once, as a key's action.
+    if (!phone) {
+      if (panels.get().rail) { field?.focus(); return; }
+      panels.open('rail', 'key');
+      requestAnimationFrame(() => document.getElementById('find')?.focus());
+      return;
+    }
     setConsoleOpen(false);
     setStop('full');
     const go = () => {
@@ -570,7 +586,7 @@ export function App() {
   }, [consoleOpen, phone]);
 
   const plate = (
-    <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide && !phone} small={smallBody} irregular={infoView ? null : irregularMoonOn}
+    <Plate clock={clock} focus={focus} frame={frame} covered={consoleOpen && !wide && !phone && pins.plate} small={smallBody} irregular={infoView ? null : irregularMoonOn}
       sat={infoView?.guide ? <GuidePlate clock={clock} pick={infoView.guide} />
         : infoView?.orbit ? <OrbitPlate clock={clock} body={infoView.orbit} />
         : siteView ? <LandingSitePlate clock={clock} site={siteView} />
@@ -603,7 +619,8 @@ export function App() {
   // window crossing 720 px never rebuilds it.
   return (
     <PhoneContext.Provider value={phone}>
-    <div className={`app${phone ? ' phone' : ''}${side ? ' side' : ''}`}>
+    <div className={`app${phone ? ' phone' : ''}${side ? ' side' : ''}`}
+      data-rail={phone ? undefined : pins.rail ? 'pinned' : 'stowed'} data-plate={phone ? undefined : pins.plate ? 'pinned' : 'stowed'}>
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={phone ? cover.right : inset} insetBottom={phone ? cover.bottom : 0}
         view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: viewName }}
@@ -624,8 +641,8 @@ export function App() {
         </Sheet>
       ) : (
         <>
-          {rail}
-          {plate}
+          <Stow id="rail" side="left" code="L1" name="bodies rail" keyName="L" wordmark legend="Bodies · Layers">{rail}</Stow>
+          <Stow id="plate" side="right" code="R1" name="data plate" keyName="R" legend={<>Data · <span className="spine-view">{viewName}</span></>}>{plate}</Stow>
           {flightConsole}
         </>
       )}

@@ -34,6 +34,7 @@ they come from, and how each part is checked.
 | [The 3D scene](frontend/scene.md) | True scale, the render frame, the floating origin, camera, orbit lines, time |
 | [Camera](frontend/camera.md) | The orbit camera, flights on van Wijk and Nuij's zoom-and-pan path, interrupting and redirecting them, zoom kept between bodies |
 | [Lighting](frontend/lighting.md) | Inverse-square sunlight and exposure, HDR and tone mapping, the Sun's disc and glare, bloom, point stars and adaptation, albedo and scattering laws, eclipses, ring photometry |
+| [Panels beside the sky, and labels in it](frontend/panels.md) | The rail and plate stowed to their spines until pinned (L, R, PIN, kept for the browser); the peek on hover, focus or a press, and its motion; the console beside a stowed plate; the sky's labels ranked by focus, kin and pointer, overlaps faded rather than hidden, with their contrast |
 | [The phone layout](frontend/phone.md) | The sky full-screen under a slim band; one sheet with peek, half and full stops (or a side sheet on a short touch screen), its drag, fling and Back; the peek's two sourced values by kind; the camera's offset above the sheet |
 | [Source tags](frontend/source-tags.md) | What each readout's tag opens: the value, its equation and its source; how it behaves, its accessibility, the MathML typesetting, and every reference the tags cite |
 | [Missions](frontend/mission.md) | The craft model, launches, manoeuvre nodes, the readout and its tags, the porkchop planner |

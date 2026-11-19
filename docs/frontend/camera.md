@@ -142,6 +142,9 @@ A refresh in the same tab comes back to where the user was
   bodies and their colours, the irregular moons, the landing sites, the
   satellite sets, the spacecraft, every guide and magnetic layer, the
   gravity field's frame and plane, and the distances' Sun or SSB frame.
+- **Which side panels are pinned**, in `localStorage` too: the rail and the
+  plate, each pinned beside the sky or stowed to its spine
+  ([panels.md](panels.md)); both stowed until chosen.
 - **Not kept:** a followed craft, satellite or spacecraft (a mission or a
   catalogue would have to load first): a refresh frames the body instead,
   the Earth for a satellite. Mid-flight, the destination is kept and framed

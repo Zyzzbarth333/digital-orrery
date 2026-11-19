@@ -17,6 +17,10 @@ export const VIEW_KEY: string;
 export const LAYERS_KEY: string;
 export const TYPE_KEY: string;
 export const SHORTCUTS_KEY: string;
+export const PINS_KEY: string;
+export interface Pins { rail: boolean; plate: boolean }
+export const DEFAULT_PINS: Readonly<Pins>;
+export function parsePins(text: string | null): Pins;
 export function parseType(text: string | null): 1 | 2 | 3;
 export const WIDE_TYPE_PX: number;
 export function defaultType(widthPx: number): 1 | 2;

@@ -50,6 +50,9 @@
   --rail-w: 236px;
   --plate-w: 412px;
   --console-w: 420px;
+  --spine-w: 32px;             /* a stowed panel's spine (stow.tsx) */
+  /* The drawer's curve, as the phone's sheet uses it (sheet.tsx EASE): steep at first, a gentle settle. */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --hair: 1px;                 /* rules and seams: one device pixel on 2x screens */
   /* Type by role (DESIGN.md, Typography): what a desk-distance reader needs
      (NASA-STD-3001 Vol 2: text 0.25 deg, labels 0.4 deg; at a desk about
@@ -115,8 +118,13 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
   position: fixed; inset: 0; overflow: clip;
   display: grid;
   grid-template-rows: minmax(var(--band-h), auto) minmax(0, 1fr);
-  grid-template-columns: calc(var(--rail-w) * var(--wr)) minmax(0, 1fr) calc(var(--plate-w) * var(--w));
+  --col-l: calc(var(--rail-w) * var(--wr));
+  --col-r: calc(var(--plate-w) * var(--w));
+  grid-template-columns: var(--col-l) minmax(0, 1fr) var(--col-r);
 }
+/* A stowed panel leaves only its spine beside the sky (stow.tsx). */
+.app[data-rail='stowed'] { --col-l: var(--spine-w); }
+.app[data-plate='stowed'] { --col-r: var(--spine-w); }
 
 /* ---------------- panels: sheet metal with screw heads ---------------- */
 .band, .rail, .plate {
@@ -319,6 +327,75 @@ kbd {
   border-radius: 2px; padding: 0 4px; box-shadow: 0 1px 0 var(--seam-strong);
 }
 .plate-toggle { display: none; margin-top: var(--u); }
+
+/* ---------------- stowed panels (stow.tsx) ----------------
+   Beside the sky, the rail (L1) and the plate (R1) fold back to a spine
+   unless pinned. The spine is one tall key of the panel's sheet metal: the
+   app's name on L1, the panel's code, name and key engraved down it, and a
+   grip of three ridges. Pointed at or focused, the panel slides out over
+   the sky from under its spine, casting a shadow as the console does. */
+.stow { grid-row: 2; position: relative; z-index: 5; display: flex; min-height: 0; min-width: 0; }
+.stow.left { grid-column: 1; }
+.stow.right { grid-column: 3; }
+.stow-drawer { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; position: relative; }
+.stow-drawer > .rail, .stow-drawer > .plate { flex: 1; min-height: 0; }
+/* The PIN key, in the panel's top corner beside its code. */
+.pin-key { position: absolute; top: 5px; right: 8px; z-index: 6; height: 22px; padding: 0 7px; }
+.pin-key[aria-pressed='true'] { background: var(--window); color: var(--phosphor); border-color: var(--window); box-shadow: inset 0 2px 4px #000; transform: translateY(1px); }
+.stow .pnl { right: calc(8px + 48px); top: 11px; }
+.stow .rail-mark { margin-top: calc(4 * var(--u)); }
+.stow .plate { padding-top: calc(4 * var(--u)); }
+/* Stowed: the drawer lies over the sky beside the spine, out of sight
+   past the window's edge until it opens. Closing, it stays visible while
+   it slides away. */
+.stow:not([data-pinned]) .stow-drawer {
+  position: absolute; top: 0; bottom: 0; z-index: 0;
+  transition: transform 180ms var(--ease-drawer), visibility 0s linear 180ms;
+  visibility: hidden;
+}
+.stow.left:not([data-pinned]) .stow-drawer {
+  left: 100%; width: calc(var(--rail-w) * var(--wr)); transform: translateX(calc(-100% - var(--spine-w)));
+  box-shadow: 10px 0 18px rgba(0, 0, 0, 0.55);
+}
+.stow.right:not([data-pinned]) .stow-drawer {
+  right: 100%; width: calc(var(--plate-w) * var(--w)); transform: translateX(calc(100% + var(--spine-w)));
+  box-shadow: -10px 0 18px rgba(0, 0, 0, 0.55);
+}
+.stow[data-open]:not([data-pinned]) .stow-drawer { transform: none; visibility: visible; transition: transform 240ms var(--ease-drawer), visibility 0s; }
+/* What a key opens or closes is there at once. */
+.stow[data-how='key']:not([data-pinned]) .stow-drawer { transition: none; }
+.stow:not([data-pinned]) .rail { border-right: var(--hair) solid var(--seam-strong); }
+.stow:not([data-pinned]) .plate { border-left: var(--hair) solid var(--seam-strong); }
+
+.stow-spine {
+  position: relative; z-index: 1; width: 100%; height: 100%; padding: calc(2 * var(--u)) 0; margin: 0;
+  display: flex; flex-direction: column; align-items: center; gap: calc(2 * var(--u));
+  background: linear-gradient(90deg, var(--panel-raised), var(--panel) 40%, var(--panel-low));
+  border: 0; border-radius: 0; color: var(--ink); cursor: pointer; overflow: hidden;
+}
+.stow.left .stow-spine { border-right: var(--hair) solid var(--seam-strong); }
+.stow.right .stow-spine { border-left: var(--hair) solid var(--seam-strong); }
+@media (hover: hover) and (pointer: fine) { .stow-spine:hover { background: linear-gradient(90deg, var(--sheen), var(--panel-raised) 40%, var(--panel)); } }
+.stow-spine[aria-expanded='true'] { background: var(--panel-sunk); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2); }
+/* Pressed, it sinks as a key does. */
+.stow-spine:active { background: var(--panel-sunk); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3); }
+.stow-spine:focus-visible { outline-offset: -4px; }
+/* Engraving down the spine, its letters' tops towards the sky on either side. */
+.spine-mark, .spine-legend { writing-mode: vertical-rl; white-space: nowrap; }
+.stow.right .spine-legend { transform: rotate(180deg); }
+.spine-mark { font: var(--t-railmark) var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); }
+.spine-legend { display: flex; align-items: center; gap: var(--u); min-height: 0; overflow: hidden; font: var(--t-label)/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--engrave); }
+.spine-name { overflow: hidden; text-overflow: ellipsis; }
+.spine-view { color: var(--ink); }
+.spine-code { font: 9px var(--mono); letter-spacing: 0.08em; color: var(--ink-muted); }
+.stow.right .spine-legend { order: 0; }
+/* The grip: three engraved ridges, a drawer's pull. */
+.spine-grip {
+  flex: none; width: 12px; height: 22px; margin-top: auto;
+  background: repeating-linear-gradient(transparent 0 5px, var(--seam-strong) 5px 6px, var(--sheen) 6px 7px) 0 2px / 100% 21px no-repeat;
+}
+.spine-key { flex: none; margin-bottom: 4px; }
+@media (max-width: 1100px) { .spine-code { display: none; } }
 
 /* ---------------- plate tabs ---------------- */
 .tabs { display: flex; gap: 4px; margin: 0 0 calc(2 * var(--u)); padding-right: calc(3 * var(--u)); }
@@ -621,6 +698,9 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 @media (min-width: 1680px) {
   .console-dock { grid-column: 2; justify-self: end; width: calc(var(--console-w) * var(--w)); max-width: 100%; }
 }
+/* With the plate stowed there is no plate to dock over: the console hangs
+   over the sky's right edge at any width, beside R1's spine. */
+.app[data-plate='stowed'] .console-dock { grid-column: 2; justify-self: end; width: calc(var(--console-w) * var(--w)); max-width: 100%; }
 .console {
   position: relative; flex: 1; min-width: 0; overflow-y: auto;
   background: linear-gradient(var(--panel), var(--panel-low)); color: var(--ink);

@@ -6,7 +6,9 @@
 //   (azimuth, elevation, distance, pan) and the clock (time, rate, running);
 // - the rail's layer switches, in localStorage, so they hold for this
 //   browser until changed;
-// - the TYPE step (the console's type size), in localStorage too.
+// - the TYPE step (the console's type size), in localStorage too;
+// - which side panels are pinned open beside the sky (stow.tsx), in
+//   localStorage too.
 // Storage can be off or full (a private window, a blocked site): every read
 // and write is in try/catch, and a value that does not read back as what was
 // written is dropped field by field rather than trusted. Pure but for the
@@ -19,6 +21,12 @@ export const LAYERS_KEY = 'orrery.layers.v1';
 export const TYPE_KEY = 'orrery.type.v1';
 // Whether the single-key shortcuts are on ('off' turns them off; shortcuts.ts).
 export const SHORTCUTS_KEY = 'orrery.shortcuts.v1';
+// Which of the side panels are pinned beside the sky (stow.tsx): the rail
+// (L1) and the plate (R1). A panel not pinned is stowed to its spine.
+export const PINS_KEY = 'orrery.pins.v1';
+
+/** The panels as a first visit has them: both stowed, so the sky comes first. */
+export const DEFAULT_PINS = Object.freeze({ rail: false, plate: false });
 
 /** The TYPE step a stored value names: 1, 2 or 3, else 1. */
 export function parseType(text) {
@@ -85,6 +93,11 @@ export function parseLayers(text) {
     },
     frame: s.frame === 'ssb' ? 'ssb' : 'sun',
   };
+}
+
+/** Which panels are pinned, from saved text: each a boolean, else its default. */
+export function parsePins(text) {
+  return bools(DEFAULT_PINS, parse(text));
 }
 
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);

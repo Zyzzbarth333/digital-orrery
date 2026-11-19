@@ -1,7 +1,7 @@
 // src/app/shortcuts.ts
 //
 // Whether the console's single-key shortcuts (App.tsx: Space, the arrows,
-// N, M, H, C, /, ?, + and -) are on. WCAG 2.2 SC 2.1.4 asks that a page's
+// N, M, L, R, H, C, /, ?, + and -) are on. WCAG 2.2 SC 2.1.4 asks that a page's
 // single-character shortcuts can be turned off, since a speech-input
 // user's words or a stray key otherwise fire them. The ? sheet holds the
 // switch; Escape and the controls' own keys work either way. The choice is

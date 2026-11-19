@@ -183,6 +183,8 @@ bezel:
   selected craft and the CONSOLE key) and indicator lamps;
 - a body rail, headed by the wordmark;
 - a data plate for the body in view;
+- the rail and plate stowed to their spines on the sky's edges until pinned,
+  so the sky comes first;
 - and, when opened, a flight console (MISSION, PLANNER, ROCKET), the app's
   own panel rather than any body's.
 
@@ -365,11 +367,14 @@ rules on top of these.
 ## Layout
 
 - Desktop grid: a header band across the top, 64 px when it holds one row;
-  a 236 px rail, the sky in the middle cell (centred on the focused body)
-  and a 412 px plate, both scaled with the TYPE step.
-- The flight console docks over the plate up to 1680 px wide, so the sky
-  keeps its width; wider, it hangs over the sky's right edge (392 px) and
-  the 3D view moves its centre left so the body in view stays clear.
+  the rail, the sky in the middle cell (centred on the focused body) and
+  the plate. A first visit has both panels stowed: each leaves a 32 px
+  spine, and the sky takes the rest. Pinned, the rail is 236 px and the
+  plate 412 px, both scaled with the TYPE step (Stowed panels, below).
+- The flight console docks over a pinned plate up to 1680 px wide, so the
+  sky keeps its width; wider, or with the plate stowed, it hangs over the
+  sky's right edge (392 px) and the 3D view moves its centre left so the
+  body in view stays clear.
 - The sky's bezel is a 7 px frame drawn over the canvas edge, with a 1 px lip
   and an inner shadow. The view plate sits inside it, lower left.
 - 8 px spacing unit.
@@ -436,6 +441,34 @@ lights and the plate reads EN ROUTE · Esc stop. Its VIEW key latches open
 a small pad above it, laid out as a hand controller's: UP, DOWN, LEFT and
 RIGHT turn the view a step, IN and OUT zoom, so nothing needs a drag or a
 pinch.
+
+### Stowed panels
+
+The rail (L1) and the plate (R1) fold back to a spine until pinned
+(docs/frontend/panels.md): a 32 px strip of the panel's own sheet metal,
+one tall key, engraved with the panel's code and name (and the app's name
+on L1, which the rail heads with), a grip of three ridges and the key cap of
+its shortcut, the letters facing the sky. Pointed at, it slides the panel
+out over the sky with the console's shadow, on the phone sheet's curve;
+focused or pressed, it opens at once. Pressed, the spine is sunk. The
+panel's PIN key, in its top corner beside the code, latches pressed while
+pinned, as CONSOLE does; L and R do the same. What a key opens is never
+animated, and pinning (a layout change) is not either.
+
+### Labels in the sky
+
+Labels are drawing aids and look it: Michroma capitals at the sky's sizes
+(Typography), never larger for importance. They rank themselves so the
+focus leads and the sky stays the subject:
+- the focus, phosphor on a dense window plate, and the body pointed at
+  (its label, or its row in the rail), phosphor-dim on the same, both over
+  the rest;
+- the focus's own (its parent, moons and barycentre), phosphor-dim on the
+  window plate;
+- the rest in label-dim on a halo of window black, without a plate;
+- a name that would overprint a higher one fades to 40 % under it, and is
+  full again when pointed at. It marks a body that is there; it is not
+  meant to be read, the one label under 6:1.
 
 ### Focus
 

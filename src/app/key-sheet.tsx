@@ -15,6 +15,8 @@ export const SHORTCUTS: [string[], string][] = [
   [['↑', '↓'], 'The body before or after in the rail'],
   [['N'], 'Jump to now'],
   [['M'], 'Open or close the flight console'],
+  [['L'], 'Pin the bodies rail beside the sky, or stow it to its spine'],
+  [['R'], 'Pin the data plate beside the sky, or stow it to its spine'],
   [['H'], 'Home: back to the opening view'],
   [['C'], 'Centre the view on the focus after a pan'],
   [['Shift', '←', '→'], 'Turn the view (or the sky\'s VIEW keys)'],
