@@ -393,7 +393,7 @@ async function main() {
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
     await cdp.send('Performance.enable');
-    cdp.on('Runtime.exceptionThrown', ({ exceptionDetails: x }) => { const m = (x.exception?.description ?? x.text).split('\n')[0]; ctx.errors.push(`page: ${m}`); log(`  page: ${m}`); });
+    cdp.on('Runtime.exceptionThrown', ({ exceptionDetails: x }) => { const m = (x.exception?.description ?? x.text).split('\n').slice(0, 3).map((l) => l.trim()).join(' | '); ctx.errors.push(`page: ${m}`); log(`  page: ${m}`); });
     cdp.on('Inspector.targetCrashed', () => { ctx.errors.push('the renderer crashed'); log('  page: the renderer crashed'); });
     await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: PRELUDE });
     await cdp.send('Emulation.setDeviceMetricsOverride', { ...o.view, deviceScaleFactor: 1, mobile: false });
@@ -442,5 +442,5 @@ async function main() {
   if (!v.ok) { console.error(`Climbs over the run: ${v.fails.join(', ')}`); process.exitCode = 1; }
 }
 
-export { verdict };
+export { verdict, PRELUDE };
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main().catch((e) => { console.error(e.stack ?? e.message); process.exit(1); });
