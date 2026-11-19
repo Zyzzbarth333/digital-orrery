@@ -498,6 +498,8 @@ export function App() {
       if (e.shiftKey && e.key.startsWith('Arrow')) { viewStep(e.key.slice(5).toLowerCase() as ViewStep); e.preventDefault(); return; }
       if (e.key === '[' || e.key === ']') { viewStep(e.key === ']' ? 'in' : 'out'); e.preventDefault(); return; }
       // H goes home; C puts the camera back on what it is on after a pan.
+      // T types a date and time into the clock (panels.tsx ClockWindow).
+      if (e.key === 't' || e.key === 'T') { document.querySelector<HTMLButtonElement>('.clock-entry')?.click(); e.preventDefault(); return; }
       if (e.key === 'h' || e.key === 'H') { goHome(); e.preventDefault(); return; }
       if (e.key === 'c' || e.key === 'C') { scene.current?.recentre(); e.preventDefault(); return; }
       const s = clock.snapshot;

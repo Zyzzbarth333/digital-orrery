@@ -97,6 +97,51 @@ cloudsRow: the Earth plate's Clouds row
 
 13 passed, 0 failed
 
+>>> node src/app/clock-entry.test.mjs
+reading what is typed, as UTC
+  PASS  the clock's own text
+  PASS  ISO with T and Z, no seconds
+  PASS  single-digit month, day and hour
+  PASS  a trailing UTC, and spaces around
+  PASS  a date alone is midnight
+  PASS  a time alone is on the clock's own day
+  PASS  fractional seconds are dropped
+  PASS  a leap day
+  PASS  the year 1000 and the year 2999
+refused
+  PASS  ""
+  PASS  "   "
+  PASS  "tomorrow"
+  PASS  "2027-02-30"
+  PASS  "2027-02-29"
+  PASS  "2027-13-01"
+  PASS  "2027-00-10"
+  PASS  "2027-08-02 24:00"
+  PASS  "2027-08-02 10:60"
+  PASS  "2027-08-02 10:06:61"
+  PASS  "2027-08-02+10:00"
+  PASS  "2027-08-02 10:06 +10:00"
+  PASS  "27-08-02"
+  PASS  "2027/08/02"
+  PASS  "10:06 2027-08-02"
+  PASS  "2027-08-02 10:06 10:07"
+formatting
+  PASS  the clock's text round-trips
+the arrow keys step the part under the caret
+  PASS  caret positions map to parts
+  PASS  a year
+  PASS  a month keeps its day where it can (31 Jan to 28 Feb)
+  PASS  a month back across a year
+  PASS  a day rolls the month
+  PASS  an hour rolls the day
+  PASS  ten minutes (Shift)
+  PASS  a second
+  PASS  the step selects its part
+  PASS  the instant matches the text
+  PASS  text that isn't a date steps nothing
+
+37 passed, 0 failed
+
 >>> node src/physics/orbital.test.mjs
 ============================================================
 CASE 1: Circular LEO propagation

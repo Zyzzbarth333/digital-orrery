@@ -14,6 +14,7 @@ export const SHORTCUTS: [string[], string][] = [
   [['←', '→'], 'Slower or faster rate'],
   [['↑', '↓'], 'The body before or after in the rail'],
   [['N'], 'Jump to now'],
+  [['T'], 'Type a date and time (UTC)'],
   [['M'], 'Open or close the flight console'],
   [['L'], 'Pin the bodies rail beside the sky, or stow it to its spine'],
   [['R'], 'Pin the data plate beside the sky, or stow it to its spine'],
