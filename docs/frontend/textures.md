@@ -243,7 +243,10 @@ Meteosat.
 The Earth's readout has a **Clouds** row naming what is drawn: the GOES
 frame's time where there is one (*17:00 UTC, 2026-11-17, GOES; elsewhere
 11-17 and before*), else the newest day and the days under it, with each
-layer's share of the globe on its source tag (GIBS). The image is
+layer's share of the globe on its source tag (GIBS). Where GIBS's images
+held no data at all the row is left out, and where only the GOES frame
+did, the row gives the frame and says no day was drawn under it
+(src/app/clouds-row.test.mjs). The image is
 calibrated like the base map (below), dropped when the sim moves more than
 about a day from it, and not fetched while time runs faster than
 a day per second.
