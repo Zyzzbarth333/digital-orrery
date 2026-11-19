@@ -201,11 +201,11 @@ The domain can come first: it is cheap and protects every link.
 4. [x] Gate: `npm run typecheck` and `npm test` pass, and the build output is byte-identical.
 
 **Phase B: data out of git, and the hosted site**
-1. [ ] Add `public/manifest.json`, listing each file's path, data set, version, size, SHA-256 and source.
-2. [ ] Add `npm run data`, which fetches the missing or changed data sets from pinned, immutable releases and verifies their hashes. Add `npm run data:publish` to make a release.
-3. [ ] Add a clear "data missing: run `npm run data`" error in the app.
+1. [x] Add `public/manifest.json`, listing each file's path, data set, version, size, SHA-256 and source.
+2. [x] Add `npm run data`, which fetches the missing or changed data sets from pinned, immutable releases and verifies their hashes. Add `npm run data:publish` to make a release.
+3. [x] Add a clear "data missing: run `npm run data`" error in the app.
 4. [ ] Add the data sets to `.gitignore`. Run `npm run data` in the dev container, Codespaces and CI (cached).
-5. [ ] Set `base` in `vite.config.js`, and add a Pages workflow: build, pull the pinned data, upload the artifact, deploy.
+5. [x] Set `base` in `vite.config.js`, and add a Pages workflow: build, pull the pinned data, upload the artifact, deploy.
 6. [ ] Update the README with the site link, the partial-clone tip and the setup steps.
 7. [ ] Ask the portfolio's maintainers to add an "Open the orrery" link to `projects/digital-orrery.html`.
 8. [ ] Gate:

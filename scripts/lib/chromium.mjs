@@ -407,16 +407,43 @@ export function pageApi(cdp) {
     },
     // The sky's wheel zoom to a camera distance (km), in steps over ms.
     // It reads the distance through ?debug's window.orrery (the camera rig's
-    // goal), and zooms as OrreryScene.onWheel does: a factor exp(0.0015 dy).
+    // goal). OrreryScene.onWheel zooms by exp(0.0015 dy), but the dy a page
+    // receives is not the one sent: the browser divides it by the device
+    // pixel ratio (at DPR 2 a zoom fell short and the benchmark timed out)
+    // and may scale it further. So the first step measures the zoom a unit
+    // of wheel gives here, the rest use that, and up to four more steps
+    // close what is left to within 0.5 %.
     async zoomTo(km, ms = 0) {
       await p.waitFor('!orrery.flying');
-      const now = await evaluate('orrery.rig.goalDistance');
-      const total = Math.log(km / now) / 0.0015;
-      const steps = Math.max(1, Math.round(ms / 50));
+      const goal = () => evaluate('orrery.rig.goalDistance');
+      // The goal once a wheel event has reached the page (it moves at once
+      // then), or as it is after a second if the camera's limits held it.
+      const moved = async (was) => {
+        for (let t = 0; t < 1000; t += 20) { const g = await goal(); if (g !== was) return g; await p.wait(20); }
+        return was;
+      };
       const [x, y] = await p.centre('canvas');
-      for (let i = 0; i < steps; i++) {
-        await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: total / steps });
-        if (steps > 1) await p.wait(ms / steps);
+      const wheel = (dy) => cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: dy });
+      let now = await goal();
+      if (Math.abs(Math.log(km / now)) < 0.005) return;
+      const steps = Math.max(1, Math.round(ms / 50));
+      let rate = 0.0015;                    // ln(zoom) per unit of wheel sent
+      const first = Math.log(km / now) / rate / steps;
+      await wheel(first);
+      const after = await moved(now);
+      if (Math.log(after / now) / first > 0) rate = Math.log(after / now) / first;
+      now = after;
+      for (let i = 1; i < steps; i++) {
+        await p.wait(ms / steps);
+        await wheel(Math.log(km / now) / rate / (steps - i));
+        now = await moved(now);
+      }
+      // The camera's limits can stop it short: give up once a step moves nothing.
+      for (let i = 0; i < 4 && Math.abs(Math.log(km / now)) >= 0.005; i++) {
+        await wheel(Math.log(km / now) / rate);
+        const next = await moved(now);
+        if (next === now) break;
+        now = next;
       }
     },
     // A <select>'s option by its leading text, as a choice would set it.

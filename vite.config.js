@@ -28,6 +28,8 @@ function satelliteLite() {
 }
 
 export default defineConfig({
+  // '/' locally; the Pages workflow builds for /digital-orrery/ (VITE_BASE).
+  base: process.env.VITE_BASE ?? '/',
   plugins: [satelliteLite(), react()],
   worker: { plugins: () => [satelliteLite()] },
   optimizeDeps: { exclude: ['satellite.js'] },
