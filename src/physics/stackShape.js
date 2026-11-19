@@ -10,7 +10,9 @@
 // it falls away when that stage separates), engine? (its bells, drawn in
 // the bottom of its length: their length, exit diameter, count, and the
 // ring the outer ones sit on as a share of the radius), skirt? (the
-// interstage's finish, where it is not the stage's own) }. A stage's
+// interstage's finish, where it is not the stage's own), legs and
+// gridFins (a booster's four stowed legs and four grid fins, drawn to
+// fit) }. A stage's
 // engines sit in the interstage above the stage below it while that is
 // attached: the scene closes the gap with a skirt from the lower stage's
 // diameter to its own. Each launcher says which sizes its maker or NASA
@@ -83,12 +85,12 @@ function falcon9(stages) {
   return {
     total, span: total,
     parts: [
-      { name: stages[0].name, length: l1, diameter: d, finish: 'white', stage: 0, engine: { length: 1.2, exit: 0.9, count: 9, spread: 0.68 } },
+      { name: stages[0].name, length: l1, diameter: d, finish: 'white', stage: 0, engine: { length: 1.2, exit: 0.9, count: 9, spread: 0.68 }, legs: true, gridFins: true },
       { name: stages[1].name, length: l2, diameter: d, finish: 'white', stage: 1, engine: { length: 3.0, exit: 3.3, count: 1 }, skirt: 'carbon' },
       { name: 'Fairing', length: fairing * 0.45, diameter: fd, finish: 'white' },
       { name: 'Fairing nose', length: fairing * 0.55, diameter: fd, top: 0.6, finish: 'white' },
     ],
-    est: ['the stages\' lengths (split by propellant volume)', 'the engines\' bells'],
+    est: ['the stages\' lengths (split by propellant volume)', 'the engines\' bells', 'the stowed legs and the grid fins'],
   };
 }
 

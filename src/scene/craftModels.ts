@@ -30,12 +30,13 @@
 import * as THREE from 'three';
 import { material, M_TO_RENDER, SHOW_PX, EARTH_BOND_ALBEDO, R_EARTH_KM, type Finish } from './satelliteModels';
 import { partsFrom } from '../physics/stackShape.js';
+import { asset, type Asset } from './craftAssets';
 
 type V3 = [number, number, number];
 const AU_KM = 1.495978707e8;
 const UNIT_KM = 1000;
 
-export interface StackPart { name: string; length: number; diameter: number; top?: number; finish: Finish; stage?: number; engine?: { length: number; exit: number; count: number; spread?: number }; skirt?: Finish }
+export interface StackPart { name: string; length: number; diameter: number; top?: number; finish: Finish; stage?: number; engine?: { length: number; exit: number; count: number; spread?: number }; skirt?: Finish; legs?: boolean; gridFins?: boolean }
 export interface StackShape { key: string | null; published: boolean; total: number; span: number; parts: StackPart[]; est: string[] }
 
 export type CraftModelSpec =
@@ -65,8 +66,8 @@ const ORION = {
 };
 const CM_CONE_H = 2.6, CM_TOP_D = 2.0, TUNNEL_D = 1.4;
 
-export const ORION_NOTE = 'Drawn close up as a simple model at NASA\'s published sizes: the 5 m crew module (3.35 m high) on its adapter, the European Service Module (4.79 m with the adapter, 7.9 m for the two) and four wings of three 2 m panels, 18.9 m tip to tip, each turned to the Sun. The backshell\'s shape, the service module\'s 4.1 m width and the engine\'s bell are taken to fit; the radiators, the auxiliary engines and the thrusters are left out.';
-export const CAPSULE_NOTE = 'Drawn close up as the crew module alone, 5 m across and 3.35 m high (NASA), heat shield first; the backshell\'s shape is taken to fit.';
+export const ORION_NOTE = 'Drawn close up by NASA/JPL-Caltech\'s Artemis II model from NASA\'s Eyes on the Solar System: the crew module, the European Service Module and its four wings as flown, at the model\'s own size (the crew module 5.08 m across and 3.36 m high; NASA gives 5 m and 3.35 m). Its wings stay as modelled, about 20.9 m tip to tip where NASA gives 18.9 m, and do not turn to the Sun. Until the model has loaded, and if it cannot, a simple model at NASA\'s published sizes stands in.';
+export const CAPSULE_NOTE = 'Drawn close up as the crew module alone, from NASA/JPL-Caltech\'s Artemis II model (Eyes on the Solar System), heat shield first.';
 export const BOX_NOTE = 'Drawn close up as the box its attitude is sized for: 2 by 2 by 3 m, long along the thrust axis, with an engine bell aft.';
 export const ATTITUDE_NOTE = {
   carried: 'Turned by its attitude, the engine aft.',
@@ -80,6 +81,7 @@ export function modelSpan(spec: CraftModelSpec): number {
 }
 // What the plate says of a stack's model.
 export function stackNote(shape: StackShape): string {
+  if (shape.key === 'saturn-v') return 'Drawn close up by NASA\'s Saturn V model (NASA 3D Resources), stretched to the published 363 ft long and 33 ft across (it is 7 % longer for its width than the real one) and cut at the stages\' joints, each stage dropped as it separates. Until the model has loaded, a simple model at the published sizes stands in.';
   const est = shape.est.length ? ` Not published, and worked out: ${shape.est.join('; ')}.` : '';
   return `Drawn close up as cylinders and cones at ${shape.published ? 'the published sizes' : 'sizes worked out from its stages'}, ${shape.total.toFixed(1)} m from its base to its nose, each stage dropped as it separates.${est} Fins, fairings' seams and the pad's tower are left out.`;
 }
@@ -226,17 +228,71 @@ function buildStack(shape: StackShape, from: number, to?: number): Built {
       if (!below) plume = k.plume(x, p.diameter * 0.9);
     }
     k.along(k.group, p.finish, x + eh, p.length - eh, p.diameter, p.top ?? p.diameter);
+    const R = p.diameter / 2;
+    // A booster's four legs folded along its lower body, between them four
+    // grid fins stowed flat under the interstage (Falcon 9's, to fit).
+    const around = (a: number, f: Finish, [sx, sy, sz]: V3, at: number, out: number) => {
+      const arm = new THREE.Object3D(); arm.rotation.x = a; k.group.add(arm);
+      k.box(arm, f, [sx, sy, sz], [at, R + out, 0]);
+    };
+    for (let q = 0; q < 4; q++) {
+      const a = (q * Math.PI) / 2;
+      if (p.legs) { around(a + Math.PI / 4, 'carbon', [Math.min(9, p.length * 0.25), 0.3, 0.9], x + 0.3 + Math.min(9, p.length * 0.25) / 2, 0.15); around(a + Math.PI / 4, 'carbon', [0.6, 0.5, 1.0], x + 0.3, 0.25); }
+      if (p.gridFins) around(a, 'metal', [1.4, 0.15, 1.2], x + p.length - 1.2, 0.08);
+    }
     x += p.length;
   });
   return { group: k.group, wings: [], plume, mats: [...k.mats.values()], plumeMats: k.plumeMats, sig: `stack:${shape.key}:${from}:${to ?? ''}` };
 }
 
+// The stages' joints (m from the base) of a shape: the tops of all but
+// its last stage, which carries the payload.
+function joints(shape: StackShape): number[] {
+  const out: number[] = [];
+  let x = 0;
+  shape.parts.forEach((p, i) => {
+    x += p.length;
+    const next = shape.parts[i + 1];
+    if (p.stage !== undefined && next?.stage !== undefined && next.stage !== p.stage) out.push(x);
+  });
+  return out;
+}
+// The real model a spec is drawn by, if it has one and it has loaded (the
+// first ask starts the load: craftAssets.ts).
+function assetOf(spec: CraftModelSpec): Asset | null {
+  if (spec.kind === 'orion' || spec.kind === 'capsule') return asset('orion');
+  if (spec.kind === 'stack' && spec.shape.key === 'saturn-v') return asset('saturn-v', joints(spec.shape));
+  return null;
+}
+
+// A model from a loaded asset: its parts' shared meshes placed in the body
+// axes, base or centre as the simple models have it, and the same plume.
+function buildAsset(spec: CraftModelSpec, A: Asset): Built {
+  const k = new Kit(), inner = new THREE.Group();
+  k.group.add(inner);
+  let plume: THREE.Object3D | null = null;
+  if (spec.kind === 'stack') {
+    const cuts = A.cuts ?? [], to = spec.to ?? cuts.length + 1;
+    for (let i = spec.from; i < to; i++) { const p = A.parts.get(`stage${i}`); if (p) inner.add(p.clone()); }
+    inner.position.x = -(spec.from > 0 ? cuts[spec.from - 1] : 0);
+    const lowest = (partsFrom(spec.shape, spec.from) as StackPart[])[0];
+    if (spec.to === undefined) plume = k.plume(0, lowest.diameter * 0.9);
+  } else {
+    inner.add(A.parts.get('cm')!.clone());
+    if (spec.kind === 'orion') { inner.add(A.parts.get('sm')!.clone()); plume = k.plume(A.base, ORION.bell.exit); }
+    else inner.position.x = -(0.4 + ORION.cmH / 2);              // the crew module about its middle
+  }
+  return { group: k.group, wings: [], plume, mats: [], plumeMats: k.plumeMats, sig: `${sigOf(spec)}:asset` };
+}
+
 function build(spec: CraftModelSpec): Built {
-  const b = spec.kind === 'orion' ? buildOrion(false) : spec.kind === 'capsule' ? buildOrion(true) : spec.kind === 'box' ? buildBox() : buildStack(spec.shape, spec.from, spec.to);
+  const A = assetOf(spec);
+  const b = A ? buildAsset(spec, A) : spec.kind === 'orion' ? buildOrion(false) : spec.kind === 'capsule' ? buildOrion(true) : spec.kind === 'box' ? buildBox() : buildStack(spec.shape, spec.from, spec.to);
   b.group.scale.setScalar(M_TO_RENDER);
   return b;
 }
 const sigOf = (s: CraftModelSpec) => (s.kind === 'stack' ? `stack:${s.shape.key}:${s.from}:${s.to ?? ''}` : s.kind);
+const fullSig = (s: CraftModelSpec) => `${sigOf(s)}${assetOf(s) ? ':asset' : ''}`;
 
 const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const toRender = (a: number[], out: THREE.Vector3) => out.set(a[0], a[2], -a[1]);
@@ -253,8 +309,18 @@ export class CraftModels {
   private vx = new THREE.Vector3(); private vy = new THREE.Vector3(); private vz = new THREE.Vector3();
   private sun = new THREE.Vector3(); private dn = new THREE.Vector3();
   private pxPerRad = 1000;
+  // The real models' light (their materials are three's): the Sun and the
+  // Earthshine as two directional lights, set from the first model drawn.
+  // Three's Lambertian term is albedo / pi times the light, so each is pi
+  // times the simple models' irradiance. Nothing else in the scene is lit
+  // by three's lights.
+  private sunLight = new THREE.DirectionalLight(0xffffff, 0);
+  private earthLight = new THREE.DirectionalLight(0xffffff, 0);
+  private lightSet = false;
 
-  constructor(private scene: THREE.Scene) {}
+  constructor(private scene: THREE.Scene) {
+    for (const l of [this.sunLight, this.earthLight]) { scene.add(l, l.target); }
+  }
 
   // The view's scale: pixels per radian at the centre.
   setView(pxPerRad: number): void { this.pxPerRad = pxPerRad; }
@@ -263,16 +329,18 @@ export class CraftModels {
   // its camera-relative place. Returns the keys drawn.
   update(poses: ModelPose[], cam: V3, light: ModelLight): Set<string> {
     const shown = new Set<string>();
+    this.lightSet = false;
     for (const p of poses) {
       const rel: V3 = [p.rEcl[0] - cam[0], p.rEcl[1] - cam[1], p.rEcl[2] - cam[2]];
       const d = Math.hypot(rel[0], rel[1], rel[2]);
       if ((modelSpan(p.spec) / 1000 / d) * this.pxPerRad < SHOW_PX) continue;
       let b = this.built.get(p.key);
-      if (b && b.sig !== sigOf(p.spec)) { this.drop(p.key); b = undefined; }
+      if (b && b.sig !== fullSig(p.spec)) { this.drop(p.key); b = undefined; }
       if (!b) { b = build(p.spec); this.built.set(p.key, b); this.scene.add(b.group); }
       this.place(b, p, rel, light);
       shown.add(p.key);
     }
+    if (!this.lightSet) this.sunLight.intensity = this.earthLight.intensity = 0;
     for (const [key, b] of this.built) if (!shown.has(key)) { if (poses.some((p) => p.key === key)) b.group.visible = false; else this.drop(key); }
     return shown;
   }
@@ -316,16 +384,28 @@ export class CraftModels {
       u.sunlit.value = lit; u.earthFill.value = fill; u.irradiance.value = irr;
     }
     if (b.plume) b.plume.visible = p.firing;
+    if (!this.lightSet) {
+      this.lightSet = true;
+      const at = b.group.position;
+      this.sunLight.position.copy(at).add(this.sun); this.sunLight.target.position.copy(at);
+      this.earthLight.position.copy(at).add(this.dn); this.earthLight.target.position.copy(at);
+      this.sunLight.intensity = Math.PI * irr * lit;
+      this.earthLight.intensity = Math.PI * irr * fill;
+      this.sunLight.target.updateMatrixWorld(); this.earthLight.target.updateMatrixWorld();
+    }
   }
 
   private drop(key: string): void {
     const b = this.built.get(key);
     if (!b) return;
     this.scene.remove(b.group);
-    b.group.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+    b.group.traverse((o) => { if (o instanceof THREE.Mesh && !o.userData.shared) o.geometry.dispose(); });   // an asset's meshes are shared
     for (const m of [...b.mats, ...b.plumeMats]) m.dispose();
     this.built.delete(key);
   }
 
-  dispose(): void { for (const key of [...this.built.keys()]) this.drop(key); }
+  dispose(): void {
+    for (const key of [...this.built.keys()]) this.drop(key);
+    for (const l of [this.sunLight, this.earthLight]) { this.scene.remove(l, l.target); l.dispose(); }
+  }
 }

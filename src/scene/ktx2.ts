@@ -66,6 +66,8 @@ export function initKtx2(renderer: THREE.WebGLRenderer): boolean {
 }
 
 export function ktx2Ready(): boolean { return loader !== null; }
+// The set-up loader, for glTF models whose textures are KTX2 (craftAssets.ts).
+export function ktx2Loader(): KTX2Loader | null { return loader; }
 
 // Fetch and transcode a KTX2 file. Rejects if the format it came out in has
 // no form this GPU takes (the caller then loads the WebP).
