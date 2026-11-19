@@ -1190,8 +1190,8 @@ CASE 22: what the ledger pays for and what it credits: landings, flybys
   PASS  flown: down on the Moon from the orbit at under 3 m/s, for more than the ideal descent and under 15 % over it; up again and home by entry; no trouble
   from a 400 km orbit: Deorbit at Earth 81 m/s; flown: entry at earth: down through the air before its perigee, falling at 47 m/s, set down there
   PASS  from a 400 km Earth orbit to a landing: one deorbit burn (the Hohmann transfer's first, 81 m/s), no circularising one, and down by entry
-  Gravity assist at Venus: +3.494 km/s heliocentric, credit 3.302: turns the path 33.2°, 3.49 km/s of heliocentric change for a 192 m/s burn: 3.30 km/s the engine did not have to give
-  Gravity assist at Earth: +7.255 km/s heliocentric, credit 7.255: turns the path 48.5°, 7.26 km/s of heliocentric change, free (unpowered): 7.26 km/s the engine did not have to give
+  Gravity assist at Venus: +3.494 km/s heliocentric, credit 3.302: turns the path 33.2° (v∞ 6.21 km/s about Venus), 3.49 km/s of heliocentric change for a 192 m/s burn: 3.30 km/s the engine did not have to give
+  Gravity assist at Earth: +7.255 km/s heliocentric, credit 7.255: turns the path 48.5° (v∞ 8.83 km/s about Earth), 7.26 km/s of heliocentric change, free (unpowered): 7.26 km/s the engine did not have to give
   PASS  the Earth flyby at the end, unpowered: its credit is 2 v_inf sin(delta/2), free, and adds nothing to the total
   PASS  the Venus flyby, powered: its heliocentric change is the arcs' velocity out less in, the credit that less its burn, and the burn's note says why it is paid
   PASS  the total is the burns alone: the credits are shown, not subtracted
@@ -1212,6 +1212,21 @@ CASE 24: a flyby of a moon via its planet, near 180 degrees round the Sun: aimed
   PASS  the leg near 180 degrees takes a deep-space burn and keeps the excess velocity about Io
   PASS  flown in the full model: every aim near Io is at Io, not Jupiter; Io passed within 5 km of the planned periapsis; nothing hit; no trouble
   PASS  a bi-elliptic leg and a craft's own leg to Io keep the excess velocity about Io too
+============================================================
+CASE 25: a moon's flyby turns the excess velocity about the moon: the turn, the B-plane, the gain about the planet
+============================================================
+  Earth to an Io flyby: v_inf 8.637 km/s about Io (5.807 about Jupiter); turned 3.979 deg, 0.5997 km/s about Jupiter, B 2300.0 km (from the planet's excess it was 8.45 deg, 0.856 km/s); ledger: turns the path 4.0° (v∞ 8.64 km/s about Io), 0.60 km/s of change about Jupiter, free (unpowered): 0.60 km/s the engine did not have to give
+  PASS  Earth to an Io flyby: the flyby's v_inf is the excess about Io, its turn, gain and B-plane radius the hyperbola's for it (to 1e-9), the gain about Jupiter, credited in full (unpowered)
+  PASS  Earth to an Io flyby: the ledger and the credit say "about Jupiter", not heliocentric
+  PASS  the Io flyby: 8.64 km/s about Io turned 3.98 deg for 0.600 km/s about Jupiter (it was 8.45 deg and 0.86 km/s from the 5.81 about Jupiter)
+  CASE 17's Europa flyby: v_inf 24.166 km/s about Europa (6.132 about Jupiter); turned 0.304 deg, 0.1283 km/s about Jupiter, B 2066.3 km (from the planet's excess it was 4.55 deg, 0.487 km/s); ledger: turns the path 0.3° (v∞ 24.17 km/s about Europa), 0.13 km/s of change about Jupiter, free (unpowered): 0.13 km/s the engine did not have to give
+  PASS  CASE 17's Europa flyby: the flyby's v_inf is the excess about Europa, its turn, gain and B-plane radius the hyperbola's for it (to 1e-9), the gain about Jupiter, credited in full (unpowered)
+  PASS  CASE 17's Europa flyby: the ledger and the credit say "about Jupiter", not heliocentric
+  PASS  the Europa flyby: 24.17 km/s about Europa, nearly head on, turned 0.30 deg for 0.128 km/s about Jupiter (it was 4.55 deg and 0.49 km/s from the 6.13 about Jupiter)
+  PASS  the leg's assist option carries the excess about Io and the frame of its gain
+  joined to Europa orbit: v_inf 8.637 in, 7.812 out about Io, 75.8 deg apart; powered 9911 m/s (795 at periapsis, 9117 steered); 10.13 km/s about Jupiter
+  PASS  the Io flyby joined to a leg about Jupiter: both excesses about Io, the burn the powered flyby's between them, the gain their difference
+  PASS  a planet's flyby is still a heliocentric change, and its excess the leg's own
 RESULT: all checks PASSED
 
 >>> node src/physics/nesc.test.mjs
