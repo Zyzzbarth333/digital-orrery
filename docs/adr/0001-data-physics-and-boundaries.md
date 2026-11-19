@@ -1,154 +1,185 @@
-# ADR-0001: Data out of git, physics as its own package, and tidier boundaries
+# ADR-0001: A hosted site, data out of git, and tidier boundaries
 
 **Status:** Proposed
 **Date:** 19 Nov 2026
 **Deciders:** Isaac Ziebarth
+**Reviewed:** an independent design review, and a fact check of every hosting and packaging limit against the vendors' own documentation (19 Nov 2026)
 
 ## Context
 
-The app is a static site. React and three.js run in the browser, and the physics (the n-body kernel, journeys, satellites and the rest) runs in Web Workers. There is no server and no deployment; people run it with `npm run dev`.
+**What the app is.** A static site: React and three.js in the browser, with the physics (n-body kernel, journeys, satellites) in Web Workers. It has no server and no deployment. It runs only through `npm run dev`, and `vite.config.js` sets no `base`, so it can't yet be served from a sub-path such as `/digital-orrery/`.
 
-**The code is already well layered.** Measured on 19 Nov 2026 with the graphify code graph and the imports:
-- `src/physics` (35,237 lines) imports nothing from `src/scene` or `src/app`, and depends on one package, astronomy-engine.
-- The scene imports physics 51 times, and the app imports physics 85 times and the scene 48 times.
-- The only back-reference is four type-only imports from `src/scene` into `src/app` (`SimClock` and the journey view types).
+**Who it is for** ([PRODUCT.md](../../PRODUCT.md)):
+- the engineer who reads exact values;
+- portfolio visitors "arriving from the author's GitHub Pages portfolio, often on a phone";
+- a developer who clones it;
+- someone who might reuse the physics.
+
+Today only the developer can run it.
+
+**The code is well layered.** Measured with the graphify code graph and the imports:
+- `src/physics` (35,237 lines) imports nothing from `src/scene` or `src/app`.
+- The scene imports the physics 51 times; the app imports the physics 85 times and the scene 48 times.
+- The only back-reference is four type-only imports from the scene into the app.
 
 **The data is the problem.**
-- `public/` holds 547 MB of generated data, committed to git without LFS. By folder:
+- `public/` holds 547 MB of generated data in 841 files, committed to git without LFS:
   - textures 299 MB;
   - ephemeris tables 133 MB;
   - 3D models 58 MB;
-  - catalogues 30 MB;
-  - missions 6 MB.
-- The pack is already 814 MiB, and every rebuild of a map or table adds its full size to history for good. GitHub recommends keeping a repository "ideally less than 1 GB" and blocks files over 100 MiB [1].
-- Offline programs make this data and talk to the app only through these files:
-  - the `c/` CSPICE Chebyshev fitters;
-  - `python/` textures;
-  - the `*.fetch.mjs` and `*.build.mjs` scripts.
+  - catalogues 30 MB.
+- The largest file is 30.3 MB.
+- The git pack is 814 MiB. GitHub recommends a repository "ideally less than 1 GB" [1].
+- Offline programs make this data (the `c/` CSPICE fitters, `python/` textures, and the `*.fetch`/`*.build` scripts), and the app reads it only as files.
 
-**`src/physics` mixes three things:** the runtime library, 23 offline pipeline scripts (`*.fetch`, `*.build`, `*.export`, `*.calibrate` and others), and 43 test and validation files.
+**`src/physics` mixes three things:** the runtime library, 23 offline pipeline scripts, and 43 test and validation files.
 
-**A working clone needs the data.** Whatever replaces committing it must keep "clone, install, run" working for anyone.
-
-**Other tools.** The user asked whether the physics should become a backend that other tools use, the way JuliaHub, OpenRocket or RASAero II stand apart. The simulation review ([simulation-review.md](../physics/simulation-review.md)) already recommends building checks in Python first and leaving Julia, JuliaHub and RASAero II for later. The ROCKET tab already reads OpenRocket `.ork` files.
+**The runtime isn't pinned.** The dev container runs Node 20 and CI runs Node 22, and there is no `.nvmrc` or `engines` field.
 
 ## Decision
 
-1. **The code stays one app in one repository.** There are no separate apps, repositories or services for now.
-2. **Generated data leaves git.** Each data set is published as a versioned GitHub Release asset, pinned by a manifest in the repository. `npm run data` downloads and verifies it, so a fresh clone still works:
-   ```
-   npm install
-   npm run data
-   npm run dev
-   ```
-   The dev container runs `npm run data` after it is created, and CI caches it.
-3. **The physics becomes its own package,** `packages/physics` (`@orrery/physics`) in an npm workspace. This happens only behind a verification gate (Action items, phase C), and is published only after it holds.
-4. **The boundaries are tidied in the repository first:**
+1. **Host the app on GitHub Pages, built and deployed by GitHub Actions.** This is the main way anyone uses it, a phone visitor included. Nothing is downloaded or installed.
+2. **Generated data leaves git.** It is published as versioned GitHub Release assets and pinned by a manifest in the repository. Each release is immutable and is never deleted, because older commits point at it.
+   - The deploy workflow pulls the pinned data into the site.
+   - Developers run `npm run data`, which fetches and verifies it, so a fresh clone still runs:
+     ```
+     npm install
+     npm run data
+     npm run dev
+     ```
+3. **The dev container and Codespaces run the same `npm run data` after creation.** The dev container is the developer's environment, not the way data is shipped.
+4. **Pin the runtime:** `.nvmrc` and `engines`, with the dev container and CI on the same Node version.
+5. **Tidy the boundaries in the repository first:**
    - pipelines into `pipelines/`;
    - validations into `validation/`;
    - shared types into `src/types/`;
    - a manifest entry for every data file.
-5. **No backend service now.** Once the physics package runs in Node unchanged, a command-line or HTTP wrapper around it is cheap. Other simulators (OpenRocket, RASAero II) connect through file formats, not shared code.
+6. **The code stays one app in one repository.** The physics moves into a workspace package only behind the verification gate below. It is not published, and its interface is not frozen, until something outside this repository uses it.
+7. **No backend service.** Other simulators (OpenRocket, RASAero II, NVIDIA Isaac Sim) are separate programs, and connect, if ever, through file formats or streams. None shares code with the orrery.
 
 ## Options considered
 
-### Data
+### Distribution, by audience
 
-#### A. Keep committing to git (today)
-| Dimension | Assessment |
-|---|---|
-| Complexity | None |
-| Cost | Free, but history only grows (814 MiB now) |
-| Scalability | Poor: every map rebuild adds its full size for ever |
-| Clone experience | Works, but slowly |
+| Option | Phone visitor | Developer | Physics user | Verdict |
+|---|---|---|---|---|
+| **A. Hosted site, GitHub Pages** | Best: a link, nothing to install | Can try before cloning | Can try it | **Chosen.** Under the 1 GB site limit, with 100 GB a month of soft bandwidth [2] |
+| **B. Release assets + `npm run data`** | n/a | **Chosen** for clones | **Chosen** with the package | Free, with no limit on total size or bandwidth; files under 2 GiB [3] |
+| **C. Git LFS** | Not served by Pages | Works with git-lfs | Works | **Rejected.** 10 GiB a month of bandwidth on GitHub Free (about 18 full clones), shared with the airbrakes repositories [4] |
+| **D. Dev container image with the data baked in** (GHCR) | n/a | Fast start | n/a | **Not now.** GHCR is free [5], but it means a new ~1 GB image for every data version. The plain dev container plus B does the same |
+| **E. Docker image to run** (nginx serving the build and data) | n/a | n/a | One command | **Only if asked for:** A already gives a link |
+| **F. Desktop app** (Tauri or Electron) | n/a | n/a | An installer | **Rejected.** About 550 MB installers. macOS needs notarisation and Windows warns without signing [6]. The Windows installer builders fail above 2 GB [7] |
+| **G. PWA offline cache** | Faster repeat visits | n/a | n/a | **Later, shell only.** Browsers allow up to 60 % of disk per origin [8], [9], but caching 547 MB on a phone is rude |
+| **H. Cloudflare Pages** | As A | n/a | n/a | **Rejected.** 25 MiB per-file cap [10]; two files are larger |
 
-#### B. Git LFS
-| Dimension | Assessment |
-|---|---|
-| Complexity | Low: `.gitattributes` rules, and `git lfs migrate` for history |
-| Cost | GitHub Free gives 10 GiB of storage and 10 GiB of bandwidth a month [2]. Beyond that, a $0 budget blocks LFS until the next month [2] |
-| Scalability | Bandwidth-bound: about 18 fresh clones of 547 MB use up the month |
-| Clone experience | Works with git-lfs installed. The airbrakes and flight-data repositories already share the LFS quota |
+**Why not "just a dev container"?** A dev container gives a developer the right tools in one step, but it still needs the data from somewhere. It doesn't help the phone visitor at all, and they're the audience PRODUCT.md names first. **Why not a self-contained app?** A desktop app bundles the data, which means 550 MB downloads, signing, and an update channel. The hosted site gives the same result, the app working without setup, through a link.
 
-#### C. GitHub Release assets with a manifest (chosen)
-| Dimension | Assessment |
-|---|---|
-| Complexity | Medium: a manifest, a fetch-and-verify script, and a publish script |
-| Cost | Free. "No limit on the total size of a release, nor bandwidth usage"; each file under 2 GiB [3] |
-| Scalability | Good: data versions are independent of code commits |
-| Clone experience | `npm run data` adds one step and about 550 MB of download. Partial fetches (one data set) are possible |
+### The physics
 
-#### D. A separate data repository or object bucket
-| Dimension | Assessment |
-|---|---|
-| Complexity | Medium to high: a second repository or a cloud account |
-| Cost | A repository is free but has the same size limits [1]; a bucket costs money and needs credentials |
-| Scalability | Good |
-| Clone experience | The same as C |
+1. **Leave it in `src/physics`, tidied** (phase A). This gets most of the benefit at no risk.
+2. **A workspace package, `packages/physics`.** It can be imported by Node tools, and it is the first step to a CLI or service. **Chosen as phase C**, behind the gate, with no publishing.
+3. **A separate repository or published library.** Premature: there is no outside consumer, and it adds release coordination between two repositories for one developer.
+4. **A backend service** (a JuliaHub-style server). It needs hosting and accounts, and the browser already runs the physics in workers. Not now.
 
-### Physics
+### Other simulators
+- **OpenRocket** already connects through `.ork` files (the ROCKET tab).
+- **RASAero II** is a Windows desktop tool; it would connect the same way.
+- **NVIDIA Isaac Sim** is a robotics simulator [11]:
+  - open source under Apache 2.0;
+  - PhysX rigid bodies, robots and sensors;
+  - Python, ROS 2 and OpenUSD interfaces.
 
-1. **Leave it in `src/physics`.** No risk, but the library, pipelines and tests stay mixed, and nothing outside the app can reuse it.
-2. **A workspace package, `packages/physics` (chosen).** The same repository and the same commits. It can be imported by the app, by Node tools, and later by other projects. It needs browser-only parts (Workers and `fetch`) moved out of its core.
-3. **A separate repository or published library now.** It would have its own versions and releases to coordinate across two repositories, for one developer. That is premature until something outside this repository uses it.
-4. **A backend service (a JuliaHub-style server).** It needs hosting, latency and accounts, and today's app works offline in the browser. The physics already runs in Web Workers, so a server would add little.
+  Its documentation doesn't describe orbital mechanics, and it needs an RTX GPU, with a minimum of an RTX 4080 with 16 GB of video memory [12]. This machine's RTX 5070 Ti Laptop has 12 GB. It could replay the orrery's craft (attitude and trajectory, exported as OpenUSD), or simulate a lander's touchdown. It isn't a backend for the orrery's physics.
+
+The [simulation review](../physics/simulation-review.md) already recommends leaving Julia, JuliaHub and RASAero II until Python oracles exist.
 
 ## Trade-off analysis
 
-**Data.** Release assets (C) beat LFS (B) on cost and scale for a public, often-cloned repository: LFS bandwidth is the binding limit, and other repositories already share that quota. C beats a bucket (D) on cost and credentials. What C costs is one extra setup step and a small amount of tooling, which the manifest also turns into a checked contract: each file's version, source and SHA-256 hash.
+A hosted site serves the audience the product exists for at no cost and with no setup. It also forces the data question: the deploy needs the data, and git can't carry it much longer.
 
-Shrinking the existing 814 MiB history needs a history rewrite (`git filter-repo`). That is a separate, later decision. It needs Isaac's explicit approval for that one rewrite, a bundle backup first, and the knowledge that GitHub keeps purged objects reachable until GitHub Support removes them.
+Release assets beat LFS because LFS bandwidth is the binding limit, and Pages doesn't serve LFS files. A manifest with SHA-256 hashes turns the offline tools' output into a checked contract between code and data.
 
-**Physics.** A workspace package gets most of a separate project's benefits (a clear public interface, reuse by Node tools, a later CLI or service) at little cost, because it stays in the same repository and commits. The risk is a silent change in results while code moves. The verification gate below exists for that.
+The 1 GB Pages limit leaves about 450 MB of room [2]. If the data outgrows it, the next step is serving the data sets from Release assets or a bucket, with the site fetching them. The code wouldn't change, because the loaders already take a base URL.
+
+The physics package is worth its risk only with a gate that catches silent changes. "Bit for bit" holds for a pure move on one pinned Node version. Across Node versions and browser engines, `Math.sin`, `pow` and `exp` aren't required to round identically, so comparisons there need stated tolerances.
 
 ## Consequences
 
 **Easier:**
-- Cloning, going forward: new data no longer adds to git's history. Everything tracked outside `public/` comes to 42 MB today, 27 MB of it the docs' images and clips.
-- Rebuilding maps and tables, which no longer bloats git.
-- Reusing the physics from Node scripts, other projects, or a later CLI or service.
+- Anyone can use it from a link, on a phone too.
+- A clone no longer grows by every map rebuild.
+- Data versions are explicit and checked.
+- The physics can later be used from Node.
 
 **Harder:**
-- One more setup step (`npm run data`).
-- Data releases must be published and pinned.
-- The physics package's interface becomes something to keep stable.
+- One more setup step for developers.
+- Data releases to publish and keep.
+- A deploy workflow to keep green.
+
+**Must handle:**
+- **Missing data:** Vite's fallback returns `index.html` for a missing file, which shows up as a confusing JSON parse error. The app must say "run `npm run data`".
+- **The existing 814 MiB history:** the README should suggest `git clone --filter=blob:none` until the history is rewritten.
 
 **To revisit:**
-- The history rewrite.
-- Publishing `@orrery/physics` to npm.
-- A service, if something outside the browser needs the physics live.
-- Julia, once Python oracles exist ([simulation-review.md](../physics/simulation-review.md)).
+- Rewriting the history: a separate decision, needing Isaac's explicit approval for that one rewrite, and a bundle backup first.
+- Data outgrowing 1 GB.
+- Publishing the physics.
+- A service.
+- Julia or Python oracles.
 
 ## Action items
 
-**Phase A: tidy boundaries (no behaviour change)**
-1. [ ] Move the offline scripts (`*.fetch.mjs`, `*.build.mjs`, `*.export.mjs`, `*.calibrate.mjs` and the like) from `src/physics` to `pipelines/`, and update `package.json` and `scripts/test.mjs`.
-2. [ ] Move the `*.validate.mjs` checks and their libraries to `validation/`.
-3. [ ] Move `SimClock`'s type and the journey view types into `src/types/`, so `src/scene` no longer imports `src/app`.
-4. [ ] Gate: `npm run typecheck` and `npm test` pass, and the build is byte-identical.
+**Phase A: tidy and pin (no behaviour change)**
+1. [ ] Pin Node: `.nvmrc`, `engines`, and the dev container and CI on the same version.
+2. [ ] Move the offline scripts from `src/physics` into `pipelines/`, and the `*.validate.mjs` checks and their libraries into `validation/`. Update `package.json` and `scripts/test.mjs`.
+3. [ ] Move the `SimClock` type and the journey view types into `src/types/`.
+4. [ ] Gate: `npm run typecheck` and `npm test` pass, and the build output is byte-identical.
 
-**Phase B: data out of git (going forward)**
+**Phase B: data out of git, and the hosted site**
 1. [ ] Add `public/manifest.json`, listing each file's path, data set, version, size, SHA-256 and source.
-2. [ ] Add `npm run data`, which downloads each missing or changed data set from a pinned release and verifies its hashes; `npm run data:publish` packs and uploads a data set.
-3. [ ] Add the data sets to `.gitignore`, and run `npm run data` in the dev container's `postCreateCommand` and in CI (cached).
-4. [ ] Update the README's setup steps and `docs/architecture.md`.
-5. [ ] Gate: a fresh clone in a clean container gets to a running app with `npm install && npm run data && npm run dev`.
+2. [ ] Add `npm run data`, which fetches the missing or changed data sets from pinned, immutable releases and verifies their hashes. Add `npm run data:publish` to make a release.
+3. [ ] Add a clear "data missing: run `npm run data`" error in the app.
+4. [ ] Add the data sets to `.gitignore`. Run `npm run data` in the dev container, Codespaces and CI (cached).
+5. [ ] Set `base` in `vite.config.js`, and add a Pages workflow: build, pull the pinned data, upload the artifact, deploy.
+6. [ ] Update the README with the site link, the partial-clone tip and the setup steps.
+7. [ ] Gate:
+   - a fresh clone in a clean container runs with `npm install && npm run data && npm run dev`;
+   - the deployed site loads on a phone.
 
-**Phase C: `@orrery/physics` behind a verification gate**
-1. [ ] Before moving anything, record a golden snapshot: every number `npm test` prints, plus fixed-seed outputs of the kernel, ephemeris, journey and satellite APIs.
-2. [ ] Move `src/physics`'s core into `packages/physics` as an npm workspace. Keep browser-only parts (`kernelClient`'s Worker, `fetchData`) in an adapter layer in the app.
-3. [ ] Gate:
-   - the golden snapshot is reproduced bit for bit;
-   - every validation (Artemis I and II, Juno, DART, LRO, MESSENGER, NESC) passes at its stated tolerance;
-   - `npm run bench:frames` shows no change on either GPU.
-4. [ ] Only then document its public interface and consider a version number.
+**Phase C: the physics package, behind a two-tier gate**
+1. [ ] Give the physics core an injectable data loader (`fetch` in the browser, `fs` in Node), so it runs outside the app.
+2. [ ] Before moving anything, record a golden snapshot: every number `npm test` prints, plus fixed-seed outputs of the kernel, ephemeris, journey and satellite APIs.
+3. [ ] Move the core into `packages/physics` as an npm workspace. Keep the Worker and `fetch` adapters in the app.
+4. [ ] Gate:
+   - **Tier 1:** the snapshot reproduced bit for bit on the pinned Node version.
+   - **Tier 2:** every validation (Artemis I and II, Juno, DART, LRO, MESSENGER, NESC) passes at its stated tolerance on the pinned and current Node versions, and in Chromium, Firefox and WebKit through Playwright.
+   - **Speed:** `npm run bench` within a stated noise threshold.
+5. [ ] Don't publish or freeze the interface until a consumer exists.
 
-**Later, separate decisions:** rewriting the existing history; publishing to npm; a CLI or service wrapper; Julia or Python oracles.
+**Later, separate decisions:** rewriting the history; a shell-only PWA; publishing the physics; a CLI or service wrapper; exporting craft to OpenUSD for Isaac Sim.
 
 ## References
 
 [1] GitHub, "About large files on GitHub." [Online]. Available: https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github. Accessed: Nov. 19, 2026.
 
-[2] GitHub, "Git Large File Storage billing." [Online]. Available: https://docs.github.com/en/billing/concepts/product-billing/git-lfs. Accessed: Nov. 19, 2026.
+[2] GitHub, "GitHub Pages limits." [Online]. Available: https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits. Accessed: Nov. 19, 2026.
 
 [3] GitHub, "About releases." [Online]. Available: https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases. Accessed: Nov. 19, 2026.
+
+[4] GitHub, "Git Large File Storage billing." [Online]. Available: https://docs.github.com/en/billing/concepts/product-billing/git-lfs. Accessed: Nov. 19, 2026.
+
+[5] GitHub, "GitHub Packages billing." [Online]. Available: https://docs.github.com/en/billing/concepts/product-billing/github-packages. Accessed: Nov. 19, 2026.
+
+[6] Tauri, "macOS code signing" and "Windows code signing." [Online]. Available: https://v2.tauri.app/distribute/sign/macos/ and https://v2.tauri.app/distribute/sign/windows/. Accessed: Nov. 19, 2026.
+
+[7] tauri-apps, "tauri," GitHub issue 7372. [Online]. Available: https://github.com/tauri-apps/tauri/issues/7372. Accessed: Nov. 19, 2026.
+
+[8] web.dev, "Storage for the web." [Online]. Available: https://web.dev/articles/storage-for-the-web. Accessed: Nov. 19, 2026.
+
+[9] WebKit, "Updates to storage policy." [Online]. Available: https://webkit.org/blog/14403/updates-to-storage-policy/. Accessed: Nov. 19, 2026.
+
+[10] Cloudflare, "Pages limits." [Online]. Available: https://developers.cloudflare.com/pages/platform/limits/. Accessed: Nov. 19, 2026.
+
+[11] NVIDIA, "Isaac Sim," GitHub repository. Licence: Apache-2.0. [Online]. Available: https://github.com/isaac-sim/IsaacSim. Accessed: Nov. 19, 2026.
+
+[12] NVIDIA, "Isaac Sim requirements." [Online]. Available: https://docs.isaacsim.omniverse.nvidia.com/latest/installation/requirements.html. Accessed: Nov. 19, 2026.

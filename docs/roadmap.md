@@ -80,7 +80,7 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 
 ## Performance and tooling
 
-- [ ] [ADR-0001](adr/0001-data-physics-and-boundaries.md): tidy the boundaries (`pipelines/`, `validation/`, shared types), move the generated data out of git into versioned release assets with `npm run data`, then make the physics its own package behind a verification gate.
+- [ ] [ADR-0001](adr/0001-data-physics-and-boundaries.md): pin Node and tidy the boundaries; move the generated data out of git into immutable release assets with `npm run data`, and host the app on GitHub Pages; then, behind a two-tier verification gate, make the physics a workspace package.
 - [ ] Visual regression baselines of key views (the Earth, Saturn's rings, an eclipse, the phone sheet), with parallax-threejs's harness, so a change that alters the scene's look is caught.
 - [ ] Faster journey tests: the Europa round trip (case 17) alone takes about 70 s.
 - [x] From the code audit of 19 Nov 2026:
