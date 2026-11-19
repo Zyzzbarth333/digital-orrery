@@ -73,9 +73,10 @@ hundreds of thousands of kilometres out ([below](#why-it-matters)).
   acceleration agrees to 2.7×10⁻⁹ m/s², with a steady 2×10⁻¹⁰ m/s² from
   what DE442 adds (relativity, asteroids). That scatter is the floor of
   DE442's own Chebyshev records.
-- **Loading:** `deLoad.js` fetches the table on the main thread before the
-  app is imported, and in each worker before its first job. Under Node,
-  `deNode.js` loads it as the first import of every test.
+- **Loading:** `dataLoad.js` installs the table through a loader it is
+  handed. `deLoad.js` hands it `fetch`, on the main thread before the app
+  is imported and in each worker before its first job. Under Node,
+  `deNode.js` hands it the disk, as the first import of every test.
 - **Time:** the app's clock is UTC, converted to TDB by `timescale.js`.
 
 Through that path, Earth at MSL's launch is 0.09 m from SPICE, and all

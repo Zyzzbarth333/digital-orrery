@@ -6,6 +6,14 @@ maps, built offline from JPL, NAIF, NASA and USGS sources and shipped in
 three.js in it, so every module also runs in Node and in its tests. The
 **front end** is React for the console and three.js for the sky.
 
+**The physics reads its data through a loader it is handed**
+(`src/physics/dataLoad.js`). A loader answers a path under the data root:
+`fetchLoader` (`fetchData.js`) fetches it under the site's base URL in the
+browser, and `fsLoader` (`nodeData.js`) reads it from `public/` under
+Node. Either one says to run `npm run data` when a file is missing. The
+browser's entry points are `deLoad.js` and `moonLoad.js`, and Node's are
+`deNode.js` and `moonNode.js`; all four are one line around the same code.
+
 ![The parts of the app and the calls between them](diagrams/architecture.svg)
 
 Each box is a module, and each arrow a call or import in the code at
