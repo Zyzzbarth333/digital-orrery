@@ -47,33 +47,34 @@
   --mono: 'B612 Mono', ui-monospace, monospace;
   --u: 8px;
   --band-h: 64px;
-  --rail-w: 212px;
-  --plate-w: 396px;
-  --console-w: 404px;
+  --rail-w: 236px;
+  --plate-w: 412px;
+  --console-w: 420px;
   --hair: 1px;                 /* rules and seams: one device pixel on 2x screens */
   /* Type by role (DESIGN.md, Typography): what a desk-distance reader needs
      (NASA-STD-3001 Vol 2: text 0.25 deg, labels 0.4 deg; at a desk about
-     14 px text, 18 px control legends, 23 px group labels). TYPE 1, the
-     default, keeps the console's layout on a laptop; TYPE 2 and 3 (the
-     rail foot's TYPE keys, html[data-type]) step up, 3 reaching the
-     standard's sizes, the panels widening with them (--w). */
+     14 px text, 18 px control legends, 23 px group labels). TYPE 1, a
+     laptop's default, keeps the console's layout; TYPE 2, a wide
+     screen's, and 3 (the rail foot's TYPE keys or + and -; type-step.ts)
+     step up, 3 reaching the standard's legend size, the panels widening
+     with them (--w, --wr). */
   --t-text: 14px;              /* values, inputs, body text (B612) */
-  --t-rail: 13px;              /* rail rows, lists */
-  --t-small: 12px;             /* units, notes, hints */
-  --t-label: 11px;             /* engraved labels (Michroma) */
-  --t-group: 12px;             /* nomenclature strips (Michroma) */
-  --t-legend: 12px;            /* control legends: keys, tabs, lamps (B612 capitals) */
-  --t-legend-sm: 11px;         /* small keys and plotting-table lamps */
-  --t-tag: 11px;               /* source tags, codes (B612 Mono) */
+  --t-rail: 14px;              /* rail rows, lists */
+  --t-small: 13px;             /* units, notes, hints */
+  --t-label: 13px;             /* engraved labels (Michroma) */
+  --t-group: 13px;             /* nomenclature strips (Michroma) */
+  --t-legend: 14px;            /* control legends: keys, tabs, lamps (B612 capitals) */
+  --t-legend-sm: 12px;         /* small keys and plotting-table lamps */
+  --t-tag: 12px;               /* source tags, codes (B612 Mono) */
   --t-sky: 11px;               /* labels in the sky */
-  --t-sky-small: 10px;         /* small bodies', guides' and barycentres' labels */
+  --t-sky-small: 11px;         /* small bodies', guides' and barycentres' labels */
   --t-clock: 17px;
   --t-heading: 26px;
   --t-wordmark: 14px;
-  --t-railmark: 12px;
-  --t-plot-title: 13px;
+  --t-railmark: 13px;
+  --t-plot-title: 14px;
   --t-math: 15px;
-  --key-h: 34px;
+  --key-h: 36px;
   --w: 1;                      /* the plate's and console's width, scaled with the type */
   --wr: 1;                     /* the rail's: more, as its strips' titles are long */
   --glow: 0 0 1px rgba(255, 178, 46, 0.45), 0 0 10px rgba(255, 178, 46, 0.16);   /* phosphor, kept tight so numerals stay sharp */
@@ -81,14 +82,14 @@
 }
 @media (min-resolution: 2dppx) { :root { --hair: 0.5px; } }
 html[data-type='2'] {
-  --t-text: 15px; --t-rail: 15px; --t-small: 13px; --t-label: 13px; --t-group: 16px; --t-legend: 15px; --t-legend-sm: 13px;
-  --t-tag: 12px; --t-sky: 12px; --t-sky-small: 11px; --t-clock: 19px; --t-heading: 28px; --t-wordmark: 16px; --t-railmark: 14px;
-  --t-plot-title: 15px; --t-math: 16px; --key-h: 38px; --w: 1.15; --wr: 1.2;
+  --t-text: 15px; --t-rail: 15px; --t-small: 14px; --t-label: 15px; --t-group: 16px; --t-legend: 16px; --t-legend-sm: 14px;
+  --t-tag: 13px; --t-sky: 12px; --t-sky-small: 12px; --t-clock: 19px; --t-heading: 28px; --t-wordmark: 16px; --t-railmark: 14px;
+  --t-plot-title: 16px; --t-math: 16px; --key-h: 40px; --w: 1.15; --wr: 1.28;
 }
 html[data-type='3'] {
-  --t-text: 16px; --t-rail: 17px; --t-small: 14px; --t-label: 15px; --t-group: 18px; --t-legend: 18px; --t-legend-sm: 15px;
-  --t-tag: 13px; --t-sky: 13px; --t-sky-small: 12px; --t-clock: 22px; --t-heading: 30px; --t-wordmark: 18px; --t-railmark: 16px;
-  --t-plot-title: 17px; --t-math: 18px; --key-h: 42px; --w: 1.32; --wr: 1.42;
+  --t-text: 16px; --t-rail: 17px; --t-small: 15px; --t-label: 16px; --t-group: 18px; --t-legend: 18px; --t-legend-sm: 16px;
+  --t-tag: 14px; --t-sky: 13px; --t-sky-small: 13px; --t-clock: 22px; --t-heading: 30px; --t-wordmark: 18px; --t-railmark: 16px;
+  --t-plot-title: 18px; --t-math: 18px; --key-h: 44px; --w: 1.32; --wr: 1.42;
 }
 
 * { box-sizing: border-box; }
@@ -139,7 +140,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
 /* Nomenclature strip: an engraved title on a black strip across a panel. */
 .strip {
   margin: 0; background: var(--window); color: var(--panel-raised); padding: 5px calc(2.25 * var(--u));
-  font: var(--t-group)/1.4 var(--display); letter-spacing: 0.12em; text-transform: uppercase;
+  font: var(--t-group)/1.4 var(--display); letter-spacing: 0.08em; text-transform: uppercase;
 }
 /* Caution hatching, for warning states only. */
 .caution {
@@ -271,7 +272,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: va
 .plate-head h2 { margin: 0 0 4px; font: var(--t-heading)/1.15 var(--display); letter-spacing: 0.08em; text-transform: uppercase; overflow-wrap: break-word; }
 .readout { width: 100%; border-collapse: collapse; }
 .readout th, .readout td { padding: 9px 0; border-bottom: var(--hair) solid var(--seam); vertical-align: baseline; }
-.readout th { text-align: left; font: var(--t-label)/1.4 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--engrave); width: 46%; }
+.readout th { text-align: left; font: var(--t-label)/1.4 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--engrave); width: 42%; }
 .readout td.value { text-align: right; font: var(--t-text) var(--sans); font-variant-numeric: tabular-nums; padding-right: var(--u); }
 .readout td.value .unit { color: var(--ink-muted); margin-left: 4px; font-size: var(--t-small); }
 .readout td.value .alt { display: block; color: var(--ink-muted); font-size: var(--t-small); }

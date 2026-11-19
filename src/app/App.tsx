@@ -10,6 +10,7 @@ import { SceneView } from '../scene/SceneView';
 import { BodyRail, Plate, RATES, TimeBand, TimeControls, craftById } from './panels';
 import { best, PER_GROUP, type FindApi, type FindHit } from './find';
 import { KeySheet } from './key-sheet';
+import { typeStep } from './type-step';
 import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
 import { JourneyStore, useJourney } from './journey';
@@ -421,8 +422,8 @@ export function App() {
   };
 
   // Keyboard: Space runs or pauses, left/right step the rate, up/down move
-  // through the bodies, N jumps to now, M opens the console, / finds and ?
-  // lists these (key-sheet.tsx). Ignored while a form control has focus.
+  // through the bodies, N jumps to now, M opens the console, / finds, + and
+  // - step the type and ? lists these (key-sheet.tsx). Ignored while a form control has focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // On a phone, Escape lowers the sheet to peek first (FIND's field
@@ -439,6 +440,9 @@ export function App() {
       // / finds (the rail's FIND field); ? lists the keys (the sheet closes itself).
       if (e.key === '/') { if (!journey.plotOpen) { openFind(); e.preventDefault(); } return; }
       if (e.key === '?') { setKeysOpen(true); e.preventDefault(); return; }
+      // + and - step the TYPE size (type-step.ts); = and _ are the same keys unshifted.
+      if (e.key === '+' || e.key === '=') { typeStep.set(typeStep.get() + 1); e.preventDefault(); return; }
+      if (e.key === '-' || e.key === '_') { typeStep.set(typeStep.get() - 1); e.preventDefault(); return; }
       // H goes home; C puts the camera back on what it is on after a pan.
       if (e.key === 'h' || e.key === 'H') { goHome(); e.preventDefault(); return; }
       if (e.key === 'c' || e.key === 'C') { scene.current?.recentre(); e.preventDefault(); return; }

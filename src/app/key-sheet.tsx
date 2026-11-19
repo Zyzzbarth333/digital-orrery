@@ -16,6 +16,7 @@ export const SHORTCUTS: [string[], string][] = [
   [['H'], 'Home: back to the opening view'],
   [['C'], 'Centre the view on the focus after a pan'],
   [['/'], 'Find any body, satellite or spacecraft'],
+  [['+', '−'], 'Larger or smaller type (the rail foot\'s TYPE keys)'],
   [['↑', '↓', 'Enter'], 'In FIND: move through the matches, fly to the marked one'],
   [['Esc'], 'Stop a flight, close a list, then the console'],
   [['?'], 'Show or hide these keys'],

@@ -24,6 +24,13 @@ export function parseType(text) {
   return n === 2 || n === 3 ? n : 1;
 }
 
+/** The TYPE step for a reader who has not chosen one: 2 where the screen
+ *  has room for the panels to widen (1680 CSS px and up), else 1. */
+export const WIDE_TYPE_PX = 1680;
+export function defaultType(widthPx) {
+  return widthPx >= WIDE_TYPE_PX ? 2 : 1;
+}
+
 /** The rail's switches as a first visit has them. */
 export const DEFAULT_LAYERS = Object.freeze({
   small: { belt: true, neo: true, trojans: true, outer: true, comets: true, colours: false },

@@ -12,7 +12,7 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExtern
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { dailyEarthInfo } from '../scene/clouds';
 import { useClock, useClockValue, type SimClock } from './clock';
-import { TYPE_KEY, parseType, readStore, writeStore } from './remember.js';
+import { typeStep } from './type-step';
 import type { Mission } from './mission';
 import { BARYS, BARY_BY_KEY, BODIES, BODY_BY_KEY, isBary, isPlanetMoon, systemOf, type BaryKey, type BodyKey, type FocusKey, type MoonKey } from '../scene/catalogue';
 import { moonSource, moonKernel } from '../physics/moons.js';
@@ -310,7 +310,8 @@ export function TimeControls({ clock, mission, consoleOpen, onToggleConsole, fol
 export function RailGroup({ title, note, children }: { title: string; note: string; children: ReactNode }) {
   const phone = useContext(PhoneContext);
   if (!phone) {
-    return <><h2 className="strip split"><span>{title}</span><span title="shown">On</span></h2>{children}</>;
+    // The rows say ON or OFF themselves: the strip holds only the group's name.
+    return <><h2 className="strip">{title}</h2>{children}</>;
   }
   return (
     <details className="section rail-group">
@@ -382,24 +383,16 @@ function LandingSitesRail({ on, onToggle, current, onFly }: SitesRail) {
 }
 
 // The console's type size: three latching keys, as a panel's dimmer has
-// detents. 1 suits a laptop's layout; 3 reaches the readability standard's
-// sizes at a desk (DESIGN.md, Typography). Kept for this browser.
-const TYPE_LOCAL = (() => { try { return window.localStorage; } catch { return undefined; } })();
+// detents (also + and -). 1 suits a laptop's layout; 3 reaches the
+// readability standard's sizes at a desk (DESIGN.md, Typography).
 function TypeKeys() {
-  const [step, setStep] = useState<1 | 2 | 3>(() => parseType(readStore(TYPE_LOCAL, TYPE_KEY)));
-  const choose = (n: 1 | 2 | 3) => {
-    setStep(n);
-    if (n === 1) delete document.documentElement.dataset.type; else document.documentElement.dataset.type = String(n);
-    writeStore(TYPE_LOCAL, TYPE_KEY, String(n));
-    // The sky's canvas and the panels' widths follow the new sizes.
-    window.dispatchEvent(new Event('resize'));
-  };
+  const step = useSyncExternalStore(typeStep.subscribe, typeStep.get);
   return (
     <div className="type-keys" role="radiogroup" aria-labelledby="type-label">
       <span className="engraved" id="type-label">Type</span>
       {([1, 2, 3] as const).map((n) => (
-        <button key={n} type="button" className="key small" role="radio" aria-checked={step === n} onClick={() => choose(n)}
-          title={n === 1 ? 'Type to fit a laptop' : n === 2 ? 'Larger type' : 'Type at the readability standard\'s sizes (NASA-STD-3001): wider panels'}>{n}</button>
+        <button key={n} type="button" className="key small" role="radio" aria-checked={step === n} onClick={() => typeStep.set(n)} aria-keyshortcuts="+ -"
+          title={(n === 1 ? 'Type to fit a laptop' : n === 2 ? 'Larger type' : 'Type at the readability standard\'s sizes (NASA-STD-3001): wider panels') + ' (+ and - step it)'}>{n}</button>
       ))}
     </div>
   );
