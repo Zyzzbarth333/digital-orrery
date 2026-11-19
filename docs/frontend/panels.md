@@ -58,6 +58,8 @@ letters face the sky on both sides.
   does above 1680 px), and the 3D view keeps the body clear of it. With the
   plate pinned it docks over the plate up to 1680 px, as before.
 
+![The console at 1440 px: before, docked over the plate; after, hanging over the sky's right edge beside R1's spine, the Earth moved clear of it](panels-console.jpg)
+
 ### Motion
 
 Only the pointer's peek moves: 240 ms in and 180 ms out, a transform on
@@ -109,12 +111,13 @@ reduced motion. Small bodies, satellites, landing sites and spacecraft keep
 their own rules for crowding (`.quiet`, names on hover) and are drawn at
 rank 0 unless focused.
 
-![The overview at 1440 px: before, every name at one strength; after, the planets on plates, the asteroids light, Mercury's and Venus's names faded under the Sun's](labels-before-after.jpg)
+![Jupiter's system at 1440 px: before, the inner moons' names hidden under Jupiter's; after, Jupiter's name on its plate, the moons on theirs, and the inner moons' names faded under Jupiter's](labels-before-after.jpg)
 
 ## Checked
 
-- Screenshots on the Intel UHD and the RTX 5070 Ti at 1440 × 900 and
-  1920 × 1080 through `scripts/lib/chromium.mjs` (the images above).
-- `npm run bench:frames` before and after on both GPUs: in the pull request.
+- Screenshots on the Intel UHD at 1440 × 900 and 1920 × 1080 through
+  `scripts/lib/chromium.mjs` (the images above), main against this change.
+- The NVIDIA screenshots and `npm run bench:frames` on both GPUs are in
+  the pull request.
 - `remember.test.mjs`: pins read back as written, a bad field falls back
   alone, both stowed by default.
