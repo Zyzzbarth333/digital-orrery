@@ -23,7 +23,7 @@ export const REPO = 'Zyzzbarth333/digital-orrery';
 export const SETS = {
   textures: { dir: 'textures', source: 'python/textures (surface maps, stars), pipelines/*.build.mjs' },
   ephemeris: { dir: 'ephemeris', source: 'c/ CSPICE fitters (DE442, moons, asteroids, Earth orientation)' },
-  models: { dir: 'models', source: 'NASA 3D Resources, NASA/JPL Eyes on the Solar System (docs/credits.md)' },
+  models: { dir: 'models', source: 'NASA 3D Resources, NASA/JPL Eyes on the Solar System and Eyes on the Earth (docs/credits.md)' },
   data: { dir: 'data', source: 'pipelines/*.fetch.mjs (CelesTrak, SBDB, NOAA, Horizons and others)' },
   missions: { dir: 'missions', source: 'pipelines/missions.build.mjs, pipelines/artemis*.export.mjs' },
   trajbrowser: { dir: 'trajbrowser', source: 'pipelines/trajbrowser.fetch.mjs (NASA Ames Trajectory Browser)' },
