@@ -47,6 +47,7 @@ import { quatToMatrix } from '../physics/rigidbody.js';
 import { stageAttitude } from '../physics/craftAttitude.js';
 import type { CraftView } from '../scene/craftLayer';
 import { modelNote, ATTITUDE_NOTE, type CraftModelSpec, type ModelPose, type StackShape } from '../scene/craftModels';
+import { missionModelKey, LICIACUBE, PROBE_MODELS } from '../scene/probeModels';
 import { bodyAxesEqj } from '../physics/orientation.js';
 import { vnbToInertial } from '../physics/attitude.js';
 import { propagate } from '../physics/orbital.js';
@@ -526,23 +527,47 @@ export class Mission {
   // What a craft is drawn as close up, its axes, and whether it burns.
   private modelOf(c: Craft, s: { r: number[]; v: number[] }, vP: number[], attitude: CraftView['attitude']): CraftView['model'] {
     const R = this.real.get(c.id), firing = c.thrusting();
-    let spec: CraftModelSpec;
-    if (R) {
-      if (!R.entryId && R.m.data.craftModel) return undefined;      // a real craft the app has no model of
-      spec = { kind: R.separated ? 'capsule' : 'orion' };
-    } else {
-      const sh = this.shapes.get(c.id);
-      spec = sh ? { kind: 'stack', shape: sh.shape, from: sh.from } : { kind: 'box' };
-    }
+    const spec = this.specOf(c);
+    if (!spec) return undefined;                                     // a real craft the app has no model of
     if (attitude) return { spec, axes: attitude.axes, firing };
     // No attitude carried: nose along the burn while one fires, else along
     // the velocity about the primary; +z as near the orbit's pole as is
-    // square to it.
+    // square to it. (A probe's model turns itself: craftModels.ts.)
     const vr = [s.v[0] - vP[0], s.v[1] - vP[1], s.v[2] - vP[2]];
-    const x = (firing && this.burnAxis(c)) || unit(vr);
+    const burn = firing ? this.burnAxis(c) : null;
+    const x = burn || unit(vr);
     const P = this.primary(c), rP = P ? P.eph.position(c.clockT) : [0, 0, 0];
     const h = cross([s.r[0] - rP[0], s.r[1] - rP[1], s.r[2] - rP[2]], vr);
-    return { spec, axes: axesAlong(x, h).map(eqjToEclFast) as [V3, V3, V3], firing };
+    return { spec, axes: axesAlong(x, h).map(eqjToEclFast) as [V3, V3, V3], firing, burn: R && burn ? eqjToEclFast(burn) : undefined };
+  }
+  // What a craft is drawn as close up: a real craft by NASA's model of it
+  // (probeModels.ts) or Orion; ours by its stack or the box; null for a
+  // real craft the app has no model of.
+  private specOf(c: Craft): CraftModelSpec | null {
+    const R = this.real.get(c.id);
+    if (R) {
+      const key = missionModelKey(R.m.data.craft);
+      if (key) return { kind: 'probe', key };
+      if (!R.entryId && R.m.data.craftModel) return null;
+      return { kind: R.separated ? 'capsule' : 'orion' };
+    }
+    const sh = this.shapes.get(c.id);
+    return sh ? { kind: 'stack', shape: sh.shape, from: sh.from } : { kind: 'box' };
+  }
+  // LICIACube, the CubeSat DART releases (its file's 'LICIACube release'):
+  // for an hour after, moving off DART at the speed that balances DART's
+  // recoil for its 14 kg (probeModels.ts), the other way, turned as DART
+  // is. Nothing on any other craft.
+  private releasedOf(c: Craft, rEcl: V3, axes: [V3, V3, V3] | undefined): ModelPose[] | undefined {
+    const R = this.real.get(c.id);
+    const rel = R?.m.data.craft === 'DART' ? (R.m.burns as { key: string; mps: number; intervals: number[][] }[]).find((b) => b.key === 'LICIACube release') : undefined;
+    if (!rel || !R) return undefined;
+    const iv = rel.intervals[0], dt = c.clockT - kernelSeconds(new Date(iv[0]));
+    if (!(dt >= 0 && dt < 3600)) return undefined;
+    const cm = R.m.data.craftModel as { dryMass: number; fuel: number };
+    const vRel = (rel.mps * (cm.dryMass + cm.fuel) / LICIACUBE.massKg + rel.mps) / 1000;   // km/s, apart
+    const d = eqjToEclFast(unit([iv[2], iv[3], iv[4]]));
+    return [{ key: `c${c.id}-licia`, spec: { kind: 'cubesat' }, rEcl: [rEcl[0] - d[0] * vRel * dt, rEcl[1] - d[1] * vRel * dt, rEcl[2] - d[2] * vRel * dt], axes: axes ?? [[1, 0, 0], [0, 1, 0], [0, 0, 1]], firing: false }];
   }
 
   // The direction (EQJ unit) of the burn firing at the clock, if any.
@@ -560,10 +585,13 @@ export class Mission {
 
   // What the plate says of a craft's model, or null when it has none.
   modelNote(c: Craft): string | null {
-    const R = this.real.get(c.id);
-    if (R && !R.entryId && R.m.data.craftModel) return 'Not modelled: drawn as its marker only. Its shape is not in the app.';
-    const sh = this.shapes.get(c.id);
-    const spec: CraftModelSpec = R ? { kind: R.separated ? 'capsule' : 'orion' } : sh ? { kind: 'stack', shape: sh.shape, from: sh.from } : { kind: 'box' };
+    const R = this.real.get(c.id), spec = this.specOf(c);
+    if (!spec) return 'Not modelled: drawn as its marker only. Its shape is not in the app.';
+    if (spec.kind === 'probe') {
+      const engine = PROBE_MODELS[spec.key].thrust ? ' While a burn fires its main engine turns along it, its arrays as near the Sun as that lets them.' : ' Its burns are not drawn on the model.';
+      const licia = R?.m.data.craft === 'DART' ? ` ${modelNote({ kind: 'cubesat' })}` : '';
+      return `${modelNote(spec)}${engine}${licia}`;
+    }
     return `${modelNote(spec)} ${c.att ? ATTITUDE_NOTE.carried : R ? ATTITUDE_NOTE.orion : ATTITUDE_NOTE.point}`;
   }
   // The same for a climbing craft (the ROCKET tab's launch from the pad).
@@ -610,6 +638,7 @@ export class Mission {
         const T = ro?.ref ? quatToMatrix(ro.ref) : null;
         attitude = { axes: [col(0), col(1), col(2)], target: T ? eqjToEclFast([T[0][0], T[1][0], T[2][0]]) : null, firing: c.thrusting() };
       }
+      const model = c.crashed ? undefined : this.modelOf(c, s, vP, attitude);
       return {
         id: c.id, name: c.name, rEcl: eqjToEclFast(s.r), primaryEcl: eqjToEclFast(rP),
         conicEcl: path.conic, trailEcl: path.trail.points, pathVersion: path.version,
@@ -617,7 +646,8 @@ export class Mission {
         thrusting: c.thrusting(), crashed: c.crashed, selected: c.id === this.snap.selected,
         flown: R && (E || centre === 'sun') ? { pointsEcl: R.refEcl, originEcl: E ? eqjToEclFast(E.eph.position(c.clockT)) : [0, 0, 0] } : undefined,
         attitude,
-        model: c.crashed ? undefined : this.modelOf(c, s, vP, attitude),
+        model,
+        pieces: c.crashed ? undefined : this.releasedOf(c, eqjToEclFast(s.r), model?.axes),
       };
     });
   }

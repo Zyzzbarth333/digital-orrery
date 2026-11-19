@@ -26,16 +26,19 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { ktx2Loader } from './ktx2';
+import { PROBE_MODELS, type Axis } from './probeModels';
 
-export type AssetKey = 'orion' | 'saturn-v';
+export type AssetKey = 'orion' | 'saturn-v' | `probe:${string}`;
 
 // A loaded model, in metres along the body axes (+x the nose, as the
 // simple models): its parts, each a group of shared meshes. Orion: 'cm'
 // and 'sm'. Saturn V: 'stage0', 'stage1', … from the base, and the
 // cuts' heights (m from the base). base: x of the lowest point, aft.
-export interface Asset { parts: Map<string, THREE.Group>; cuts?: number[]; base: number; span: number }
+// A probe: 'all', and box, its bounds in the body axes (m).
+export interface Asset { parts: Map<string, THREE.Group>; cuts?: number[]; base: number; span: number; box?: THREE.Box3 }
 
-const URL_OF: Record<AssetKey, string> = { orion: 'models/orion/artemis_ii.gltf', 'saturn-v': 'models/saturn-v.glb' };
+const URL_OF: Record<string, string> = { orion: 'models/orion/artemis_ii.gltf', 'saturn-v': 'models/saturn-v.glb' };
+const urlOf = (key: AssetKey) => (key.startsWith('probe:') ? `models/probes/${PROBE_MODELS[key.slice(6)].file}` : URL_OF[key]);
 const state = new Map<AssetKey, Asset | 'loading' | 'failed'>();
 
 // The asset if loaded; else starts loading it (once) and returns null.
@@ -108,9 +111,10 @@ function splitAlongX(g: THREE.BufferGeometry, cuts: number[]): (THREE.BufferGeom
 }
 
 async function load(key: AssetKey, cuts: number[]): Promise<Asset> {
-  const url = `${import.meta.env.BASE_URL}${URL_OF[key]}`;
+  const url = `${import.meta.env.BASE_URL}${urlOf(key)}`;
   const { scene } = await loader().loadAsync(url);
   const upToX = new THREE.Matrix4().makeRotationZ(-Math.PI / 2);     // +y to +x
+  if (key.startsWith('probe:')) return probe(key.slice(6), scene);
   if (key === 'orion') {
     // In metres as published, its origin at the adapter's joint; the crew
     // module is every child node above 0.3 m (its heat shield's base, 0.4).
@@ -145,4 +149,42 @@ async function load(key: AssetKey, cuts: number[]): Promise<Asset> {
     m.geometry.dispose();
   }
   return { parts, cuts, base: 0, span: L };
+}
+
+// A unit vector along a model axis.
+export function axisVec(a: Axis): THREE.Vector3 {
+  const v = new THREE.Vector3();
+  v.setComponent('xyz'.indexOf(a[1]), a[0] === '-' ? -1 : 1);
+  return v;
+}
+
+// A probe: the model turned so its Sun (or Earth) axis is +x and its up
+// +z, scaled so the part its published figure measures spans that figure,
+// and centred on its bounds.
+function probe(key: string, scene: THREE.Object3D): Asset {
+  const P = PROBE_MODELS[key];
+  const fx = axisVec((P.sun ?? P.earth)!), fz = axisVec(P.up), fy = new THREE.Vector3().crossVectors(fz, fx);
+  // Rows are the model's axes as body x, y, z: the rotation model -> body.
+  const rot = new THREE.Matrix4().set(fx.x, fx.y, fx.z, 0, fy.x, fy.y, fy.z, 0, fz.x, fz.y, fz.z, 0, 0, 0, 0, 1);
+  scene.updateMatrixWorld(true);
+  let s = 1;
+  if (P.scale) {
+    const sc = P.scale, b = new THREE.Box3();
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      if (sc.part === null || m.name === sc.part || mats.some((x) => x.name === sc.part)) b.expandByObject(m);
+    });
+    const ext = b.max[sc.axis] - b.min[sc.axis];
+    if (ext > 0) s = sc.m / ext;
+  }
+  const scaled = new THREE.Matrix4().multiplyMatrices(rot, new THREE.Matrix4().makeScale(s, s, s));
+  const meshes = baked(scene, scaled), box = new THREE.Box3();
+  for (const m of meshes) { m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox!); }
+  const c = box.getCenter(new THREE.Vector3());
+  const all = new THREE.Group();
+  for (const m of meshes) { m.geometry.translate(-c.x, -c.y, -c.z); all.add(m); }
+  box.translate(c.negate());
+  return { parts: new Map([['all', all]]), base: box.min.x, span: box.max.x - box.min.x, box };
 }

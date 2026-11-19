@@ -28,6 +28,8 @@ import { parseMonth, segmentAt, stateIn } from '../physics/spacecraft.js';
 import { getJson } from '../physics/fetchData.js';
 import { orbitTrailMaterial } from './orbitTrail';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
+import { probeModelKey } from './probeModels';
+import type { ModelPose } from './craftModels';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000, DAY = 86400e3;
@@ -156,6 +158,20 @@ export class SpacecraftLayer {
     if (!s || !o) return null;
     const r = eqjToEcl(s.r) as V3;
     return [o[0] + r[0], o[1] + r[1], o[2] + r[2]];
+  }
+
+  // Whether the focused craft's model was drawn this frame (its marker's
+  // square is then hidden, as a satellite's is).
+  modelled = false;
+  // The focused craft's close-up model this frame, if NASA publishes one
+  // (probeModels.ts): drawn only for the craft the camera is on, so a
+  // model loads only once the camera is there and close (craftModels.ts).
+  // Its axes are its pointing, worked out where it is drawn.
+  modelPose(t: number): ModelPose | null {
+    const key = this.focusKey, m = key && probeModelKey(key);
+    const r = m ? this.positionKm(key, t) : null;
+    if (!m || !r) return null;
+    return { key: `probe:${key}`, spec: { kind: 'probe', key: m }, rEcl: r, axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], firing: false };
   }
 
   setFocus(key: string | null): void {
@@ -288,6 +304,7 @@ export class SpacecraftLayer {
       const x = Math.round(((ndc.x + 1) / 2) * w * px) / px, y = Math.round(((1 - ndc.y) / 2) * h * px) / px;
       const quiet = !focused && placed.some(([qx, qy]) => Math.abs(qx - x) < 70 && Math.abs(qy - y) < 12);
       el.classList.toggle('quiet', quiet);
+      el.classList.toggle('modelled', focused && this.modelled);
       if (!quiet) placed.push([x, y]);
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
