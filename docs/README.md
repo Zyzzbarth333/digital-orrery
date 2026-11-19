@@ -67,6 +67,8 @@ for the slow parts.
 
 [ADR-0001: a hosted site, data out of git, and tidier boundaries](adr/0001-data-physics-and-boundaries.md): the decision on how the repository is split.
 
+[ADR-0002 (proposed): a streamed, true-scale Earth near the ground, and an assembly bay for rockets](adr/0002-streamed-terrain-and-assembly-bay.md): tiled elevation and imagery near the surface, and a part-by-part rocket builder, with their sources, licences, phases and gates.
+
 [Simulation techniques and tools review](physics/simulation-review.md):
 desk research on Julia and SciML, rocketry tools, astrodynamics simulators
 and numerical techniques, atmospheric entry and real-time simulation in
