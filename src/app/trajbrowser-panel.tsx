@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { transfer } from '../physics/trajsearch.js';
 import { helioStateEcl } from '../physics/ephemeris.js';
+import { getJson } from '../physics/fetchData.js';
 
 export interface TbTransfer { depMs: number; arrMs: number; c3: number; injectionDv: number; postDv: number; route: string }
 interface TbBody { spk: number; muKm3s2: number; radiusKm: number; rPeriKm: number }
@@ -40,8 +41,7 @@ export function TrajBrowserPanel({ dest, destName, tof, onWindow, onFly }: {
   const [sel, setSel] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}trajbrowser/planets.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(setData).catch((e) => setError(String(e)));
+    getJson(`${import.meta.env.BASE_URL}trajbrowser/planets.json`).then(setData).catch((e) => setError(String(e)));
   }, []);
   useEffect(() => setSel(null), [dest, kind]);
 

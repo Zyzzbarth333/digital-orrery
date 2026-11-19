@@ -25,6 +25,7 @@
 import * as THREE from 'three';
 import { eqjToEcl } from '../physics/ephemeris.js';
 import { parseMonth, segmentAt, stateIn } from '../physics/spacecraft.js';
+import { getJson } from '../physics/fetchData.js';
 import { orbitTrailMaterial } from './orbitTrail';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
 
@@ -106,9 +107,7 @@ export class SpacecraftLayer {
 
   private async load(): Promise<void> {
     try {
-      const r = await fetch(`${this.baseUrl}data/spacecraft/index.json`);
-      if (!r.ok) throw new Error(`index.json: HTTP ${r.status}`);
-      const ix = await r.json() as Index;
+      const ix = await getJson(`${this.baseUrl}data/spacecraft/index.json`, 'index.json') as Index;
       if (this.disposed) return;
       this.index = ix;
       for (const c of ix.craft) if (c.days > 0) this.makeMarker(c);

@@ -50,6 +50,7 @@ import { bodyAxesEqj } from '../physics/orientation.js';
 import { vnbToInertial } from '../physics/attitude.js';
 import { propagate } from '../physics/orbital.js';
 import { dot, cross, norm, unit } from '../physics/vec.js';
+import { getJson } from '../physics/fetchData.js';
 
 const MU_EARTH = 398600.4355;
 // Heights about the Earth are measured from its equatorial radius (WGS-84),
@@ -348,11 +349,7 @@ export class Mission {
   // ---------------- real missions ----------------
 
   async fetchReal(id: string): Promise<RealMission> {
-    const get = async (name: string) => {
-      const res = await fetch(`${import.meta.env.BASE_URL}missions/${name}.json`);
-      if (!res.ok) throw new Error(`mission ${name}: HTTP ${res.status}`);
-      return res.json();
-    };
+    const get = (name: string) => getJson(`${import.meta.env.BASE_URL}missions/${name}.json`, `mission ${name}`);
     const data = await get(id);
     // A plan flown beside a real mission takes that mission's flown path.
     if (data.flownFrom) data.flown = (await get(data.flownFrom)).flown;
