@@ -25,19 +25,19 @@ population as its swatch instead.
 
 ## The data
 
-- **Fetching** (`npm run fetch:smallbodies`, `src/physics/smallbodies.fetch.mjs`):
+- **Fetching** (`npm run fetch:smallbodies`, `pipelines/smallbodies.fetch.mjs`):
   the SBDB query API [2] at full precision, cached in
   `~/.cache/digital-orrery/sbdb-full` (47 MB), pages of 20,000, two seconds
   apart. The API's default output is rounded for display (Ceres's a to
   2.766 au, angles to 0.01°), tens of thousands of kilometres off, so full
   precision is asked for.
-- **The named ones** (`src/physics/smallbodies.horizons.mjs`): their
+- **The named ones** (`pipelines/smallbodies.horizons.mjs`): their
   osculating elements at the shared epoch, 2026-01-01 00:00 TT, from JPL
   Horizons [3]. SBDB's solution for some of them is years old (Bennu's from
   2011, Halley's from 1967), and two-body motion from then is millions of
   kilometres off by 2026.
 - **Building** (`npm run build:smallbodies`,
-  `src/physics/smallbodies.build.mjs`): every orbit is carried to the
+  `pipelines/smallbodies.build.mjs`): every orbit is carried to the
   shared epoch by two-body motion and packed into 16 bytes:
   - a (float32), e (uint16);
   - i, node, peri, M (uint16, in 0.0055° steps);

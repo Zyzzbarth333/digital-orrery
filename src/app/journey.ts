@@ -46,20 +46,9 @@ const defaultArrival = (p: Stop, body: string, alt: number, kind: string) => def
 export type { Journey, Waypoint };
 export interface Vehicle { payload: number; booster: 'solid' | 'storable' | 'hydrolox'; upper: 'solid' | 'storable' | 'hydrolox'; isp1: number | null; isp2: number | null; eps1: number; eps2: number; n: number | null }
 
-export interface JourneyArcView { central: string; pts: V3[]; leg: number; t1: number; t2: number }
-export interface JourneyMarkView { central: string; at: V3; label: string; dv: number; kind: string; ms: number; id?: string; frame?: { T: V3; N: V3; R: V3 }; b?: [number, number] }
-export interface JourneyView { version: number; arcs: JourneyArcView[]; marks: JourneyMarkView[]; flown: { central: string; pts: V3[] } | null; selected: string | null }
-
-// What the scene's handles do to the journey (journeyLayer.ts).
-export interface JourneyHandlers {
-  select(id: string | null): void;
-  nudge(id: string, axis: 'pro' | 'nor' | 'rad', dKmS: number): void;
-  move(id: string, ms: number): void;
-  add(leg: number, ms: number): void;
-  remove(id: string): void;
-  aim(id: string, bT: number, bR: number): void;
-  release(): void;
-}
+// The scene's views of a journey and its handles' actions (src/types/journey.ts).
+import type { JourneyArcView, JourneyMarkView, JourneyView, JourneyHandlers } from '../types/journey';
+export type { JourneyArcView, JourneyMarkView, JourneyView, JourneyHandlers };
 
 export interface KernelCheck { state: 'idle' | 'flying' | 'done' | 'failed'; reply?: FlightReply; forVersion?: number; error?: string }
 

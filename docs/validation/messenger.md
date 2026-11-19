@@ -13,8 +13,8 @@ Mercury orbit, with the app's kernel against JHU/APL's reconstruction:
 - the six flybys, and the orbit MOI reached;
 - the app's mission file, flown as the app flies it.
 
-`npm test` runs `src/physics/missions.validate.mjs`
-(`node src/physics/missions.validate.mjs messenger` for this one). The
+`npm test` runs `validation/missions.validate.mjs`
+(`node validation/missions.validate.mjs messenger` for this one). The
 numbers below are from November 2026.
 
 ## Why MESSENGER

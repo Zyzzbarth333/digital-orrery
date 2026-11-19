@@ -3,7 +3,7 @@
 // NASA's Trajectory Browser in the PLANNER tab. NASA Ames's Mission Design
 // Division publishes the lowest-delta-v transfers to each planet
 // (https://trajbrowser.arc.nasa.gov); public/trajbrowser/planets.json holds
-// them for 2026-2040 (src/physics/trajbrowser.fetch.mjs). Beside each, our
+// them for 2026-2040 (pipelines/trajbrowser.fetch.mjs). Beside each, our
 // own transfer between the same two dates (src/physics/trajsearch.js: the
 // Lambert arc, up to two revolutions, with NASA's conventions), so the two
 // can be compared. A row can set the porkchop to its window, or be flown.

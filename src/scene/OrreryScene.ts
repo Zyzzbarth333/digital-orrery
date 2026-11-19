@@ -32,7 +32,7 @@ import { bodyAxesEqj } from '../physics/orientation.js';
 import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
 import { moonTablesVersion, wantMoonTables } from '../physics/moonTables.js';
 import { baryStateEqj } from '../physics/barycentres.js';
-import type { SimClock } from '../app/clock';
+import type { SceneClock } from '../types/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, systemOf, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, setRingPlane, setUmbraTable, shadowAxes } from './bodyMaterial';
 import { EARTH_OCCULTING_KM, umbraTable } from '../physics/umbra.js';
@@ -46,7 +46,7 @@ import { CraftLayer, type CraftView } from './craftLayer';
 import { SurfacePatch } from './surfacePatch';
 import { clampAboveSurface } from '../physics/surfaceClamp.js';
 import { JourneyLayer } from './journeyLayer';
-import type { JourneyView, JourneyHandlers } from '../app/journey';
+import type { JourneyView, JourneyHandlers } from '../types/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { IrregularMoonLayer, type IrregularPlanet } from './irregularMoons';
 import { SatelliteLayer } from './satellites';
@@ -558,7 +558,7 @@ export class OrreryScene {
   // terminator, pi/2 the terminator edge-on (applied on the next frame).
   viewFromSun(phase = 0.35): void { this.sunViewPending = true; this.sunViewPhase = phase; }
 
-  constructor(private container: HTMLElement, private overlay: HTMLElement, private clock: SimClock) {
+  constructor(private container: HTMLElement, private overlay: HTMLElement, private clock: SceneClock) {
     // HDR (post.ts): the scene renders linear light into a half-float
     // target (4x multisampled below 1.5 device pixels per CSS pixel; above
     // that the pixels are small enough), and one final pass mixes in the

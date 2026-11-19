@@ -1028,7 +1028,7 @@ Local files are given as repo-relative paths or as `~/` paths on the author's ma
 
 [72] NESC Bodies. [Online]. Available: https://nescacademy.nasa.gov/flightsim/2015/bodies
 
-[73] `src/physics/nesc.fetch.mjs`, `src/physics/nesc.test.mjs` (repo).
+[73] `pipelines/nesc.fetch.mjs`, `src/physics/nesc.test.mjs` (repo).
 
 [74] tudat (archived). [Online]. Available: https://github.com/tudat-team/tudat
 
@@ -1258,7 +1258,7 @@ Local files are given as repo-relative paths or as `~/` paths on the author's ma
 
 [187] MDN EXT_disjoint_timer_query. [Online]. Available: https://developer.mozilla.org/en-US/docs/Web/API/EXT_disjoint_timer_query
 
-[188] `src/physics/artemis1.fetch.mjs`, the Artemis II design notes and `src/physics/environment.js` (repo).
+[188] `pipelines/artemis1.fetch.mjs`, the Artemis II design notes and `src/physics/environment.js` (repo).
 
 [189] Rea, McNamara & Kane, AAS 24-174 (slides). [Online]. Available: https://ntrs.nasa.gov/api/citations/20240001314/downloads/AAS_24_174_Orion_Artemis_I_Entry_Performance.pptx
 

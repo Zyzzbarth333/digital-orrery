@@ -17,7 +17,7 @@
 
 import { spawn } from 'node:child_process';
 import os from 'node:os';
-import { MISSIONS as MISSION_DATA } from '../src/physics/missions.data.mjs';
+import { MISSIONS as MISSION_DATA } from '../validation/missions.data.mjs';
 
 const JOURNEY = 'src/physics/journey.test.mjs';
 // The journey cases that fly for longest, in parts of their own (CASE 12's
@@ -42,19 +42,19 @@ const FILES = [
   'src/physics/kernelClient.test.mjs', 'src/physics/barycentres.test.mjs', 'src/physics/deTable.test.mjs',
   'src/physics/corona.test.mjs', 'src/physics/rings.test.mjs', 'src/physics/discs.test.mjs', 'src/physics/umbra.test.mjs',
   'src/physics/satellites.test.mjs', 'src/physics/passes.test.mjs', 'src/physics/spacecraft.test.mjs',
-  'src/physics/artemis2.validate.mjs', 'src/physics/artemis1.validate.mjs',
-  ...MISSIONS.map((id) => `src/physics/missions.validate.mjs ${id}`),
+  'validation/artemis2.validate.mjs', 'validation/artemis1.validate.mjs',
+  ...MISSIONS.map((id) => `validation/missions.validate.mjs ${id}`),
 ];
 
 // Seconds each took on its own (docs/performance.md), so the longest start
 // first and the short ones fill in around them; unlisted, a second.
 const SECONDS = {
-  [`${JOURNEY} 17`]: 58, [`${JOURNEY} 12`]: 58, [`${JOURNEY} 20 21`]: 51, 'src/physics/artemis1.validate.mjs': 43,
-  'src/physics/missions.validate.mjs messenger': 37, 'src/physics/artemis2.validate.mjs': 29,
+  [`${JOURNEY} 17`]: 58, [`${JOURNEY} 12`]: 58, [`${JOURNEY} 20 21`]: 51, 'validation/artemis1.validate.mjs': 43,
+  'validation/missions.validate.mjs messenger': 37, 'validation/artemis2.validate.mjs': 29,
   [`${JOURNEY} 5`]: 28, [`${JOURNEY} 15 16 8`]: 32, 'src/physics/entry.test.mjs': 24,
-  'src/physics/missions.validate.mjs lro': 24, 'src/physics/attitude.test.mjs': 23,
+  'validation/missions.validate.mjs lro': 24, 'src/physics/attitude.test.mjs': 23,
   [`${JOURNEY} 9 10`]: 21, 'src/physics/kernelClient.test.mjs': 20, 'src/physics/environment.test.mjs': 19,
-  'src/physics/craft.test.mjs': 17, 'src/physics/nesc.test.mjs': 12, 'src/physics/missions.validate.mjs juno2013': 10,
+  'src/physics/craft.test.mjs': 17, 'src/physics/nesc.test.mjs': 12, 'validation/missions.validate.mjs juno2013': 10,
   'src/physics/trajsearch.test.mjs': 10, 'src/physics/warp.test.mjs': 4,
 };
 

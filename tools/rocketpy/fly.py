@@ -2,7 +2,7 @@
 
 Reads src/physics/fixtures/rocket_xcheck.json (the vehicles as OpenRocket
 flew them: stages, thrust curves, masses, drag against Mach; written by
-src/physics/rocket.openrocket.mjs) and writes
+pipelines/rocket.openrocket.mjs) and writes
 src/physics/fixtures/rocketpy_xcheck.json: each vehicle's apogee, time to
 apogee and top speed in RocketPy's point-mass ("3 DOF") mode, flown calm and
 straight up from sea level on the equator in the standard atmosphere.

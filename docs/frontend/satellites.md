@@ -41,7 +41,7 @@ These are SGP4's own mean elements, not an osculating ellipse: they give
 the right positions only through SGP4 [3], [4].
 
 **The snapshot.** `npm run fetch:satellites`
-([`satellites.fetch.mjs`](../../src/physics/satellites.fetch.mjs)) makes
+([`satellites.fetch.mjs`](../../pipelines/satellites.fetch.mjs)) makes
 nine queries, each of a kind CelesTrak's GP documentation gives [2]:
 
 | Query | What | Objects, 18 Nov 2026 |
@@ -589,7 +589,7 @@ holds seven of those passes in detail.
   1 mm, from the pole to geostationary height.
 
 `npm run fetch:satellites-horizons`
-([`satellites.horizons.mjs`](../../src/physics/satellites.horizons.mjs))
+([`satellites.horizons.mjs`](../../pipelines/satellites.horizons.mjs))
 rebuilds the Horizons fixture from the current snapshot's ISS.
 
 ## Performance
