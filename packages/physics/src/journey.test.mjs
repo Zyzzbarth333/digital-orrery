@@ -1316,9 +1316,9 @@ if (header('CASE 22: what the ledger pays for and what it credits: landings, fly
     { id: 1, body: 'venus', kind: 'flyby', altKm: 16000, dateMs: D('1990-02-10T00:00:00Z') }, { id: 2, body: 'earth', kind: 'flyby', altKm: 960, dateMs: D('1990-12-08T00:00:00Z') }] });
   const [cv, ce] = g.credits.filter((c) => c.kind === 'assist'), fv = g.flybys[0], fe = g.flybys[1];
   const vIn = g.legs[0].arcs.at(-1), vInHelio = J.relState('venus', 'sun', fv.ms).v.map((x, i) => x + g.legs[0].vinfArr[i]), vOutHelio = g.legs[1].arcs[0].v1;
-  for (const c of g.credits) console.log(`  ${c.label}: +${c.helioDv.toFixed(3)} km/s heliocentric, credit ${c.creditDv.toFixed(3)}: ${c.note}`);
+  for (const c of g.credits) console.log(`  ${c.label}: +${c.gainDv.toFixed(3)} km/s ${J.assistFrame(c.about)}, credit ${c.creditDv.toFixed(3)}: ${c.note}`);
   check('the Earth flyby at the end, unpowered: its credit is 2 v_inf sin(delta/2), free, and adds nothing to the total', ce && fe.dv === 0 && near(ce.creditDv, 2 * fe.vinf * Math.sin(fe.delta / 2), 1e-9) && /free \(unpowered\)/.test(ce.note));
-  check('the Venus flyby, powered: its heliocentric change is the arcs\' velocity out less in, the credit that less its burn, and the burn\'s note says why it is paid', vIn && near(cv.helioDv, norm(vOutHelio.map((x, i) => x - vInHelio[i])), 1e-6) && near(cv.creditDv, cv.helioDv - fv.dv, 1e-12) && /makes up the difference/.test(g.burns.find((b) => b.kind === 'flyby').note));
+  check('the Venus flyby, powered: its heliocentric change is the arcs\' velocity out less in, the credit that less its burn, and the burn\'s note says why it is paid', vIn && near(cv.gainDv, norm(vOutHelio.map((x, i) => x - vInHelio[i])), 1e-6) && near(cv.creditDv, cv.gainDv - fv.dv, 1e-12) && /makes up the difference/.test(g.burns.find((b) => b.kind === 'flyby').note));
   check('the total is the burns alone: the credits are shown, not subtracted', near(g.totalDv, g.burns.reduce((a, b) => a + b.dv, 0), 1e-12) && g.creditDv > 0);
 }
 
@@ -1365,6 +1365,57 @@ if (header('CASE 24: a flyby of a moon via its planet, near 180 degrees round th
   const be = J.solveLeg({ body: 'earth', kind: 'orbit', altKm: 200 }, { body: 'io', kind: 'flyby', altKm: 400 }, D('2027-11-30T00:00:00Z'), D('2045-01-01T00:00:00Z'), { via: 'bielliptic' });
   const cr = J.solveJourney({ ...j, start: { body: 'earth', kind: 'craft', dateMs: j.start.dateMs, state: J.relState('earth', 'sun', D('2027-11-28T00:00:00Z')) } }).legs[0];
   check('a bi-elliptic leg and a craft\'s own leg to Io keep the excess velocity about Io too', be.ok && be.moonArr && cr.ok && cr.geometry === 'craft' && cr.moonArr);
+}
+
+if (header('CASE 25: a moon\'s flyby turns the excess velocity about the moon: the turn, the B-plane, the gain about the planet')) {
+  // A leg to a planet's moon from another planet is solved about the Sun
+  // to the planet, so its vinfArr is about the planet: the speed at the
+  // edge of the planet's sphere, which the moon's pull does not see. The
+  // flyby turns the excess about the moon (journey.js moonArr, three-level
+  // patched conics), as the flight already aimed it. The record was worked
+  // out from the planet's: for Earth to an Io flyby, GO said "Io +0.86
+  // km/s heliocentric free", neither the turn about Io nor a heliocentric
+  // change. Each flyby here against the hyperbola's own formulas (Curtis
+  // eqs. (8.71), (8.75), Sec. 8.9): e = 1 + rp v^2 / mu, delta =
+  // 2 asin(1/e), gain = 2 v sin(delta/2), B = rp sqrt(1 + 2 mu / (rp v^2)).
+  const hyp = (v, mu, rp) => { const d = 2 * Math.asin(1 / (1 + rp * v * v / mu)); return { delta: d, gain: 2 * v * Math.sin(d / 2), B: rp * Math.sqrt(1 + 2 * mu / (rp * v * v)) }; };
+  const flybyCheck = (what, j, moon, planet) => {
+    const s = J.solveJourney(j), L = s.legs[0], f = s.flybys[0], M = J.bodyInfo(moon), c = s.credits.find((x) => x.kind === 'assist');
+    const v = norm(L.moonArr.vinf), h = hyp(v, M.mu, f.rp), was = hyp(norm(L.vinfArr), M.mu, f.rp);
+    console.log(`  ${what}: v_inf ${v.toFixed(3)} km/s about ${M.name} (${norm(L.vinfArr).toFixed(3)} about ${J.bodyInfo(planet).name}); turned ${(f.delta / deg).toFixed(3)} deg, ${f.gain.toFixed(4)} km/s ${J.assistFrame(f.about)}, B ${Math.hypot(f.bT, f.bR).toFixed(1)} km (from the planet's excess it was ${(was.delta / deg).toFixed(2)} deg, ${was.gain.toFixed(3)} km/s); ledger: ${c.note}`);
+    check(`${what}: the flyby's v_inf is the excess about ${M.name}, its turn, gain and B-plane radius the hyperbola's for it (to 1e-9), the gain about ${J.bodyInfo(planet).name}, credited in full (unpowered)`,
+      near(f.vinf, v, 1e-12) && near(f.delta, h.delta, 1e-9) && near(f.gain, h.gain, 1e-9) && near(Math.hypot(f.bT, f.bR), h.B, 1e-6) && f.about === planet && c.about === planet && near(c.gainDv, f.gain, 0) && near(c.creditDv, f.gain, 0) && f.dv === 0);
+    check(`${what}: the ledger and the credit say "about ${J.bodyInfo(planet).name}", not heliocentric`, new RegExp(`change about ${J.bodyInfo(planet).name}`).test(c.note) && !/heliocentric/.test(c.note) && J.assistFrame(f.about) === `about ${J.bodyInfo(planet).name}`);
+    return { s, f, h, was };
+  };
+  // CASE 24's dates: the pad 30 Nov 2027, Io 12 Apr 2031, 400 km up.
+  const io = { start: { body: 'earth', kind: 'pad', altKm: 200, dateMs: D('2027-11-30T16:38:29.937Z'), latDeg: 28.5 }, waypoints: [{ id: 1, body: 'io', kind: 'flyby', altKm: 400, stayDays: 0, dateMs: D('2031-04-12T08:07:36.666Z') }] };
+  const a = flybyCheck('Earth to an Io flyby', io, 'io', 'jupiter');
+  check('the Io flyby: 8.64 km/s about Io turned 3.98 deg for 0.600 km/s about Jupiter (it was 8.45 deg and 0.86 km/s from the 5.81 about Jupiter)', near(a.f.vinf, 8.637, 1e-3) && near(a.f.delta / deg, 3.979, 1e-3) && near(a.f.gain, 0.5997, 1e-4) && near(a.was.gain, 0.856, 1e-3));
+  // CASE 17's Europa flyby: Earth orbit 1 Jan 2027, the porkchop option.
+  let eu = { start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2027-01-01T00:00:00Z') }, waypoints: [{ id: 1, body: 'europa', kind: 'flyby', altKm: 500, dateMs: D('2030-01-01T00:00:00Z') }] };
+  eu = J.applyOption(eu, 0, J.legOptions(eu, 0).options.find((x) => x.type === 'porkchop'));
+  const b = flybyCheck('CASE 17\'s Europa flyby', eu, 'europa', 'jupiter');
+  check('the Europa flyby: 24.17 km/s about Europa, nearly head on, turned 0.30 deg for 0.128 km/s about Jupiter (it was 4.55 deg and 0.49 km/s from the 6.13 about Jupiter)', near(b.f.vinf, 24.166, 1e-3) && near(b.f.delta / deg, 0.304, 1e-3) && near(b.f.gain, 0.1283, 1e-4) && near(b.was.gain, 0.487, 1e-3));
+  // The assist option for the leg says the same.
+  const opt = J.legOptions(io, 0, { search: false }).options.find((x) => x.type === 'assist');
+  check('the leg\'s assist option carries the excess about Io and the frame of its gain', opt && near(opt.vinf, a.f.vinf, 0) && near(opt.gain, a.f.gain, 0) && opt.about === 'jupiter');
+
+  // Joined: on from the Io flyby to Europa orbit five days later, a leg
+  // about Jupiter whose excess leaving Io is about Io already. The powered
+  // flyby joins the two excesses about Io (before, Jupiter's 5.81 km/s in
+  // against Io's own out). A dear join, on dates not chosen for it: what
+  // is checked is the frame, not the mission.
+  const jn = J.solveJourney({ ...io, waypoints: [...io.waypoints, { id: 2, body: 'europa', kind: 'orbit', altKm: 300, dateMs: io.waypoints[0].dateMs + 5 * DAY_MS }] });
+  const fj = jn.flybys[0], vin = jn.legs[0].moonArr.vinf, vout = jn.legs[1].vinfDep, pj = X.poweredFlyby({ vinfIn: vin, vinfOut: vout, mu: J.bodyInfo('io').mu, rpMin: J.bodyInfo('io').radius + 400 });
+  const turn = Math.acos(dot(unit(vin), unit(vout)));
+  console.log(`  joined to Europa orbit: v_inf ${fj.vinf.toFixed(3)} in, ${fj.vinfOut.toFixed(3)} out about Io, ${(turn / deg).toFixed(1)} deg apart; powered ${(fj.dv * 1000).toFixed(0)} m/s (${(fj.periapsisDv * 1000).toFixed(0)} at periapsis, ${(fj.steerDv * 1000).toFixed(0)} steered); ${fj.gain.toFixed(2)} km/s ${J.assistFrame(fj.about)}`);
+  check('the Io flyby joined to a leg about Jupiter: both excesses about Io, the burn the powered flyby\'s between them, the gain their difference', jn.legs[1].central === 'jupiter' && near(fj.vinf, norm(vin), 0) && near(fj.vinfOut, norm(vout), 0) && near(fj.dv, pj.dv, 1e-12) && near(fj.gain, norm(vout.map((x, i) => x - vin[i])), 1e-6) && fj.about === 'jupiter');
+
+  // A planet's flyby stays heliocentric (CASE 22's Galileo pair).
+  const g = J.solveJourney({ start: { body: 'earth', kind: 'pad', altKm: 200, dateMs: D('1989-10-18T00:00:00Z') }, waypoints: [
+    { id: 1, body: 'venus', kind: 'flyby', altKm: 16000, dateMs: D('1990-02-10T00:00:00Z') }, { id: 2, body: 'earth', kind: 'flyby', altKm: 960, dateMs: D('1990-12-08T00:00:00Z') }] });
+  check('a planet\'s flyby is still a heliocentric change, and its excess the leg\'s own', g.flybys.every((f) => f.about === 'sun') && g.credits.filter((c) => c.kind === 'assist').every((c) => /heliocentric change/.test(c.note)) && near(g.flybys[0].vinf, norm(g.legs[0].vinfArr), 0));
 }
 
 // A case named that isn't in the file is a failure, so a part of npm test

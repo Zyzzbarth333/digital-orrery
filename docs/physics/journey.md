@@ -459,7 +459,8 @@ The planet pays for it: its orbit changes by an immeasurable amount. An
 engine would have to burn $|\Delta\mathbf v_\odot|$ for the same change.
 
 So the ledger shows each flyby as a credit line ("Gravity assist at
-Venus"): the heliocentric change, and the credit, which is that change less
+Venus"): the heliocentric change (for a moon, the change about its planet:
+below), and the credit, which is that change less
 the flyby's own burn, $|\Delta\mathbf v_\odot| - \Delta v_\text{burn}$.
 The flyby's leg readout has an Assist row, and GO's Flybys row lists what
 each one gives. The credits are summed beside the total ("Assists"), not
@@ -479,6 +480,53 @@ When the legs are solved in order, a leg that leaves a flyby prefers arcs
 whose departure excess speed matches the arrival's. A chain of flybys then
 picks arcs that join. Each option for such a leg is costed with the flyby
 it needs.
+
+#### A moon's flyby: the excess about the moon
+
+A leg to a planet's moon from another planet is solved about the Sun to
+the planet, so its arrival excess velocity $\mathbf v_{\infty,\text{in}}$
+is about the planet. That is the craft's velocity at the edge of the
+planet's sphere of influence, which the moon's pull never sees. Down the
+planet's well the craft meets the moon at the moon's distance, and its
+velocity there less the moon's own is the excess about the moon
+(three-level patched conics, `moonEnd`, as [Leaving a moon by where it
+is](#leaving-a-moon-by-where-it-is) works it out for a departure). The
+flyby turns that one, so every flyby number uses the excess velocity about
+the body flown by (`excessIn`, `excessOut`): the leg's `moonArr.vinf`
+arriving via the planet, the next leg's `moonDep.vinf` leaving via it, and
+a leg's own excess when it stays in the planet's system (Io to Europa).
+The turn, the B-plane aim, the periapsis of a powered flyby, its burn,
+the gain, the credit, a resonant return's clock angle and the matching
+excess speed a leg leaving the flyby prefers all take it. The flight
+already aimed the flyby by it (`periapsisOffset`).
+
+The gain is then the change in the craft's velocity about the planet: the
+moon's own velocity cancels, as the planet's does about the Sun. A change
+of velocity is the same vector in any frame, but the craft is on an orbit
+about the planet there, and that is the orbit it changes, so the ledger
+and GO name it so ("0.60 km/s of change about Jupiter"). A planet's
+(or a small body's) flyby stays heliocentric. Each flyby records the body
+its gain is about (`about`: the Sun, or the moon's planet), and the
+credit carries it with the gain (`gainDv`).
+
+For Earth to an Io flyby 400 km up (leaving the pad 30 November 2027,
+at Io 12 April 2031, CASE 24's dates), the arrival excess is 5.81 km/s
+about Jupiter and 8.64 km/s about Io. Io's pull ($\mu$ = 5,960 km³/s²,
+$r_p$ = 2,221 km) turns the 8.64 km/s by 3.98°, a change of 0.600 km/s
+about Jupiter. Taken from the 5.81 km/s about Jupiter, the old record
+said 8.45° and "0.86 km/s heliocentric": neither the turn about Io nor a
+heliocentric change. CASE 17's Europa flyby (500 km up, the porkchop
+option from Earth orbit on 1 January 2027) meets Europa at 24.17 km/s,
+nearly head on, and is turned only 0.30°, 0.128 km/s about Jupiter; the
+old record had 4.55° and 0.49 km/s from the 6.13 km/s about Jupiter.
+`journey.test.mjs` CASE 25 checks both against the hyperbola's own
+formulas above.
+
+One case still turns the planet's excess: a flyby of a moon **aimed by
+hand** whose next leg leaves the moon via its planet. Its outgoing excess
+about the moon would have to be carried back out of the planet's well to
+an excess about the planet (the inverse of `moonEnd`), which is not
+worked out yet (Limits).
 
 ### The parking orbit's plane
 
@@ -851,8 +899,9 @@ burn of the leg), its flight time and its departure:
   the best day in the stay (above).
 - **The gravity assist:** for a leg that ends at a flyby, not an
   alternative but the flyby's numbers: the turn, the periapsis, the B-plane
-  aim, the heliocentric change it gives, $|\mathbf v_{\infty,\text{out}} -
-  \mathbf v_{\infty,\text{in}}|$, and the burn it needs.
+  aim, the change it gives, $|\mathbf v_{\infty,\text{out}} -
+  \mathbf v_{\infty,\text{in}}|$ (heliocentric for a planet, about the
+  planet for its moon), and the burn it needs.
 
 Choosing an option re-times the journey to it. The leg leaves at the
 option's departure (the stay before it, or the start date, takes up the
@@ -1474,7 +1523,8 @@ The table's other two stations:
     tenth of the plan;
   - **windows** and **delta-v:** from the lamps;
   - **flybys:** none underground, with what each one gives (its
-    heliocentric change, and for a powered one, its burn and credit); or
+    heliocentric change, or for a moon its change about the planet, and
+    for a powered one, its burn and credit); or
     N/A, unlit, when the journey has none (a lamp with nothing to report
     stays dark);
   - **landings** (only when there is one): how each is paid for: the
@@ -1720,6 +1770,7 @@ orbits, waits 454 days.
 | Leaving 9 to 29 Nov 2026 | the direct arc and the broken plane | never dearer than either; its burn 0 m/s where it takes over, 73 at most; under 30 m/s a day |
 | Lunar orbit to Mars, stays of 18 to 30 days | smoothness; the broken plane | the excess speed's second difference at most 4.3 m/s (under 20); 0 to 46 m/s saved at the mean phase; cheaper on the day on 12 of 13 |
 | A craft's own first leg at 180.4°: from near the Earth, its orbit tilted 1°, to Mars orbit on 20 Aug 2027 | Abilleira [5]; Lawden [6]; the craft's orbit plane; two-body; the full-model flight | direct 12.72 km/s, tilted 14.3°; broken plane 5.474, its first arc in the craft's plane to 10⁻⁶°; the plan's deep-space burn 5.471; leaving 9 to 29 Nov never dearer than either and smooth; flown with 86 m/s of corrections, Mars 1.8 km off, against the direct arc's 973 (112 and 687 before the aims at a planet left its bending to it) |
+| A moon's flyby via its planet: Earth to Io (400 km, CASE 24's dates) and CASE 17's Europa flyby (500 km); Io joined to Europa orbit 5 d later; Galileo's pair | the hyperbola about the moon, Curtis eqs. (8.71), (8.75) and Sec. 8.9 [1], on the excess about the moon (`moonArr`) | Io: 8.637 km/s turned 3.979°, 0.5997 km/s about Jupiter, B 2,300 km, each to 10⁻⁹ (from the 5.81 about Jupiter it was 8.45° and 0.856 "heliocentric"); Europa: 24.166 km/s, 0.304°, 0.1283 km/s (was 4.55°, 0.487); the join powered between the two excesses about Io; a planet's flyby still heliocentric |
 
 ## Limits
 
@@ -1757,6 +1808,11 @@ orbits, waits 454 days.
   craft's first leg (from its own state) gets it only to a body about the
   same central body: from a craft in Earth orbit to the Moon, it is
   direct.
+- **A moon's flyby aimed by hand, left via its planet:** the aimed turn
+  is of the excess about the planet, not the moon (above), until the
+  turned excess about the moon is carried back out of the planet's well.
+  Unaimed, and aimed on a leg that stays in the planet's system, it is the
+  moon's.
 - **A capture or departure at a planet's moon:** near impulsive, as
   priced, so the flight's burns there are hard (122 to 130 m/s², 12 to 13
   g, at Europa). A real craft with a smaller engine would pay gravity
