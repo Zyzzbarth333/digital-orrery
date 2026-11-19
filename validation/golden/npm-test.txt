@@ -50,7 +50,8 @@ ok 8 a live clock comes back live
 ok 9 storage that throws is no storage
 ok 10 the TYPE step reads back as 1, 2 or 3, and anything else is 1
 ok 11 with no TYPE chosen, a wide screen starts at step 2 and a laptop at 1
-11 passed
+ok 12 pins: stowed by default, saved pins read back, a bad field falls back alone
+12 passed
 
 >>> node src/app/stores.test.mjs
 JourneyStore: a worker reply for an older version is dropped

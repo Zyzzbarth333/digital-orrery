@@ -182,9 +182,12 @@ $-1$), $\tau = 0.25$ and $a_0 = 0.12$.
 ## Labels
 
 A label is hidden when its body is behind a nearer body's disc, and a moon's
-label when it sits on its planet's marker. Names that would overprint keep
-the focused body's first, then the larger body's; the smaller body keeps its
-marker and shows its name on hover.
+label when it sits on its planet's marker (unless it is the focus or pointed
+at). The labels rank themselves: the focus and the body pointed at (its
+label, or its row in the rail) at full strength, the focus's parent and moons
+next, the rest lighter ([panels.md](panels.md#labels-in-the-sky)). Names that
+would overprint keep the higher rank's first, then the larger body's; the
+other fades under it, and is full again when pointed at.
 
 ## What a click shows
 

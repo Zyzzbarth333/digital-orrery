@@ -252,6 +252,16 @@ export class OrreryScene {
   private nearOrbits = new Map<BodyKey, NearOrbit>();
   private labels = new Map<BodyKey, HTMLDivElement>();
   private baryLabels = new Map<BaryKey, HTMLDivElement>();
+  // The labels' ranks (DESIGN.md, Labels in the sky): the focus and the
+  // body pointed at (its label, or its rail row: setHover) at full
+  // strength, the focus's parent and moons next, the rest lighter.
+  private hoverKey: FocusKey | null = null;
+  private nearFor: FocusKey | null = null;
+  private near = new Set<FocusKey>();
+  // A label's box, estimated from its name: Michroma's capitals with their
+  // tracking advance about 1 em; the size is the sky labels' (--t-sky),
+  // read again at each resize (a TYPE step resizes).
+  private skyPx = 11;
   private baryPos = new Map<BaryKey, THREE.Vector3>(BARYS.map((b) => [b.key, new THREE.Vector3()]));
   private ssbLinePos = new THREE.Vector3();
   refFrame: Frame = 'sun';
@@ -816,6 +826,25 @@ export class OrreryScene {
     this.onFocusChange(key);
   }
 
+  // The body a rail row or a label is pointed at, or null: its label is
+  // drawn at full strength, over the rest.
+  setHover(key: FocusKey | null): void { this.hoverKey = key; }
+
+  // The focus's own: its parent, its moons and its barycentre; a
+  // barycentre's are its body's, and the body itself.
+  private nearOf(focus: FocusKey): Set<FocusKey> {
+    if (this.nearFor === focus) return this.near;
+    const centre: BodyKey = isBary(focus) ? BARY_BY_KEY[focus].of : focus;
+    const near = new Set<FocusKey>();
+    if (centre !== focus) near.add(centre);
+    const parent = BODY_BY_KEY[centre].parent;
+    if (parent) near.add(parent);
+    for (const b of BODIES) if (b.parent === centre) near.add(b.key);
+    for (const b of BARYS) if (b.of === centre && b.key !== focus) near.add(b.key);
+    this.nearFor = focus;
+    return this.near = near;
+  }
+
   // Stop a flight where it is (Escape).
   stopFlight(): void { this.rig.interrupt(); }
 
@@ -1083,6 +1112,7 @@ export class OrreryScene {
     if (!w || !h) return;
     this.viewW = w;
     this.viewH = h;
+    this.skyPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--t-sky')) || 11;
     // The overlay fills the sky (inset 0), so its label layers share the size.
     this.irregulars?.setViewSize(w, h);
     this.satellites?.setViewSize(w, h);
@@ -1758,7 +1788,16 @@ export class OrreryScene {
       const rPx = (b.radiusKm / UNIT_KM / p.length()) * pxPerRad;
       if (rPx > 4) discs.push([((ndc.x + 1) / 2) * w, ((1 - ndc.y) / 2) * h, rPx, p.length()]);
     }
-    const named: { el: HTMLDivElement; x: number; y: number; key: FocusKey; r: number }[] = [];
+    const named: { el: HTMLDivElement; x: number; y: number; key: FocusKey; r: number; rank: number }[] = [];
+    const focus = this.target === null ? this.focus : null, hover = this.hoverKey;
+    const near = this.nearOf(this.focus);
+    // 3 the focus, 2 the body pointed at, 1 the focus's own, 0 the rest.
+    const rank = (k: FocusKey) => (k === focus ? 3 : k === hover ? 2 : near.has(k) ? 1 : 0);
+    const tier = (el: HTMLDivElement, k: FocusKey, r: number) => {
+      el.classList.toggle('focused', r === 3);
+      el.classList.toggle('hovered', r === 2);
+      el.classList.toggle('near', r === 1 && k !== this.focus);
+    };
     for (const b of BODIES) {
       const el = this.labels.get(b.key)!;
       const p = this.meshes.get(b.key)!.position;
@@ -1771,9 +1810,10 @@ export class OrreryScene {
       const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
       screen.set(b.key, [x, y]);
       // A moon that sits on top of its planet's marker is hidden until the
-      // camera is close enough to separate them (unless it is the focus).
+      // camera is close enough to separate them (unless it is the focus or
+      // pointed at).
       const ps = b.parent && b.parent !== 'sun' ? screen.get(b.parent) : undefined;
-      if (ps && b.key !== this.focus && Math.hypot(x - ps[0], y - ps[1]) < 14) {
+      if (ps && b.key !== this.focus && b.key !== hover && Math.hypot(x - ps[0], y - ps[1]) < 14) {
         el.style.display = 'none'; continue;
       }
       // A body behind a nearer body's disc is out of sight: so is its label.
@@ -1782,13 +1822,14 @@ export class OrreryScene {
       }
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
-      named.push({ el, x, y, key: b.key, r: b.radiusKm });
+      const r = rank(b.key);
+      named.push({ el, x, y, key: b.key, r: b.radiusKm, rank: r });
       el.classList.toggle('resolved', radiusPx > 4);
       if (b.key === 'earth') this.earthResolved = radiusPx > 3;
       // Not for a body only glimpsed in a flight (the Moon, leaving the
       // Earth for Mars: 37 MB): the flight's goal loads from its start.
       if (radiusPx > 3 && (!this.rig.flying || b.key === this.focus)) this.loadSurfaces(b.key);
-      el.classList.toggle('focused', b.key === this.focus && this.target === null);
+      tier(el, b.key, r);
     }
     // Barycentres: hidden while they sit on their body's marker (unless
     // focused). They are drawn over discs, the Sun's or a planet's, that
@@ -1798,23 +1839,25 @@ export class OrreryScene {
       const ndc = this.tmp.copy(this.baryPos.get(b.key)!).project(this.camera);
       if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
       const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
-      const focused = b.key === this.focus && this.target === null;
+      const r = rank(b.key);
       const ps = screen.get(b.of);
-      if (!focused && ps && Math.hypot(x - ps[0], y - ps[1]) < 14) { el.style.display = 'none'; continue; }
+      if (r < 2 && ps && Math.hypot(x - ps[0], y - ps[1]) < 14) { el.style.display = 'none'; continue; }
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;
-      el.classList.toggle('focused', focused);
-      named.push({ el, x, y, key: b.key, r: 0 });
+      tier(el, b.key, r);
+      named.push({ el, x, y, key: b.key, r: 0, rank: r });
     }
-    // Names that would overprint one another: the focus keeps its name, then
-    // the larger body; the smaller keeps only its marker (its name shows on
-    // hover). Boxes are estimated from the name's length at 9 px Michroma.
-    named.sort((a, b) => Number(b.key === this.focus) - Number(a.key === this.focus) || b.r - a.r);
+    // Names that would overprint one another: the higher rank keeps its
+    // name, then the larger body; the other fades under it (app.css
+    // .overlap), there but not in the way, and full again when pointed at.
+    // The focus and the body pointed at never fade.
+    named.sort((a, b) => b.rank - a.rank || b.r - a.r);
     const boxes: [number, number, number, number][] = [];
+    const em = this.skyPx, half = Math.ceil(0.75 * em) + 1;
     for (const n of named) {
-      const box: [number, number, number, number] = [n.x, n.y - 9, n.x + 22 + 9 * n.key.length, n.y + 9];
-      const hit = boxes.some((o) => box[0] < o[2] && o[0] < box[2] && box[1] < o[3] && o[1] < box[3]);
-      n.el.classList.toggle('quiet', hit);
+      const box: [number, number, number, number] = [n.x, n.y - half, n.x + 24 + em * (n.el.textContent?.length ?? 4), n.y + half];
+      const hit = n.rank < 2 && boxes.some((o) => box[0] < o[2] && o[0] < box[2] && box[1] < o[3] && o[1] < box[3]);
+      n.el.classList.toggle('overlap', hit);
       if (!hit) boxes.push(box);
     }
   }

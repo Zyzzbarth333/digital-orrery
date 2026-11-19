@@ -4,7 +4,7 @@
 // Run: node src/app/remember.test.mjs
 
 import assert from 'node:assert/strict';
-import { DEFAULT_LAYERS, defaultType, parseLayers, parseType, parseView, readStore, resumeTime, writeStore, clearStore } from './remember.js';
+import { DEFAULT_LAYERS, DEFAULT_PINS, defaultType, parsePins, parseLayers, parseType, parseView, readStore, resumeTime, writeStore, clearStore } from './remember.js';
 
 let n = 0;
 const ok = (name, fn) => { fn(); n++; console.log(`ok ${n} ${name}`); };
@@ -95,6 +95,13 @@ ok('with no TYPE chosen, a wide screen starts at step 2 and a laptop at 1', () =
   assert.equal(defaultType(1680), 2);
   assert.equal(defaultType(1440), 1);
   assert.equal(defaultType(390), 1);
+});
+
+ok('pins: stowed by default, saved pins read back, a bad field falls back alone', () => {
+  assert.deepEqual(parsePins(null), { rail: false, plate: false });
+  assert.deepEqual(parsePins('nonsense'), DEFAULT_PINS);
+  assert.deepEqual(parsePins('{"rail":true,"plate":true}'), { rail: true, plate: true });
+  assert.deepEqual(parsePins('{"rail":"yes","plate":true,"junk":true}'), { rail: false, plate: true });
 });
 
 console.log(`${n} passed`);
