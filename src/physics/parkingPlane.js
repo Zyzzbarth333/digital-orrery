@@ -19,13 +19,10 @@
 
 import { asymptoteVelocities, rotate } from './transfers.js';
 import { addJ2, zonalTerms } from './zonal.js';
+import { dot, cross, norm, unit } from './vec.js';
 
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const unit = (a) => scale(a, 1 / norm(a));
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 // The node's mean rate from the body's oblateness, for an orbit of
 // semi-major axis a, eccentricity e and inclination i to the body's equator

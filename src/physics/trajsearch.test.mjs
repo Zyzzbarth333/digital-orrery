@@ -102,7 +102,7 @@ header('CASE 2: the shape the portfolio reuses');
   check('transfer() returns a plain object of numbers (its branch a name, v_inf a 3-vector)', t && typeof t === 'object' && Object.entries(t).every(([k, v]) => (k === 'branch' ? typeof v === 'string' : k === 'vinfDepVec' ? v.length === 3 && v.every(Number.isFinite) : typeof v === 'number' && Number.isFinite(v))));
   const r = searchTransfers({ ...opts, launchStartMs: Date.UTC(2026, 0, 1), launchEndMs: Date.UTC(2027, 0, 1), tofMinDays: 120, tofMaxDays: 450 });
   check('searchTransfers() returns { optima: plain objects, evaluated }', Array.isArray(r.optima) && r.optima.every((x) => Object.getPrototypeOf(x) === Object.prototype) && Number.isInteger(r.evaluated));
-  check('the module imports nothing but orbital.js', !/from '(?!\.\/orbital\.js')/.test(fs.readFileSync(new URL('./trajsearch.js', import.meta.url), 'utf8')));
+  check('the module imports nothing but orbital.js and vec.js', !/from '(?!\.\/(orbital|vec)\.js')/.test(fs.readFileSync(new URL('./trajsearch.js', import.meta.url), 'utf8')));
   check('a result carries no Date or class instances (structured-clone and JSON safe)', JSON.parse(JSON.stringify(t)).totalDv === t.totalDv && typeof t.branch === 'string');
 }
 

@@ -9,6 +9,7 @@
 import { useSyncExternalStore } from 'react';
 import { solveJourney as solveJs, journeyPath, registerSmallBodies, defaultArrival as defaultArrivalJs, bodyInfo, legOptions, applyOption, aimNode as aimNodeJs, ledgerLines as ledgerLinesJs, type Journey, type Waypoint } from '../physics/journey.js';
 import type { FlightRequest, FlightReply, ProfilesReply, LegProfile } from './journey.worker';
+import { getJson } from '../physics/fetchData.js';
 
 type V3 = [number, number, number];
 const DAY_MS = 86400e3;
@@ -90,9 +91,7 @@ export class JourneyStore {
     if (this.smallLoaded) return;
     this.smallLoaded = true;
     try {
-      const r = await fetch(`${baseUrl}data/smallbodies.json`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const meta = await r.json();
+      const meta = await getJson(`${baseUrl}data/smallbodies.json`);
       registerSmallBodies(meta.named);
       this.named = meta.named;
       this.notify();

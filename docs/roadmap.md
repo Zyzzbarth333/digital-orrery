@@ -81,13 +81,13 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 ## Performance and tooling
 
 - [ ] Faster journey tests: the Europa round trip (case 17) alone takes about 70 s.
-- [ ] From the code audit of 19 Nov 2026:
-  - one `src/physics/vec.js` for the `dot`, `cross` and `norm` copied into about 40 files (two of which use `norm` to mean normalise);
-  - one focus target in the scene in place of five fields cleared by hand in eight `focusOn*` methods;
-  - `Readout`, `Row` and `fmtGroup` in their own module, ending the import cycles between `panels.tsx` and two plates;
-  - tests for the `Mission` and `JourneyStore` stores (stale worker replies, a failed fetch);
-  - `// @ts-check` on the files that cross the worker boundary;
-  - one `getJson` for the six loaders that each check `r.ok` their own way.
+- [x] From the code audit of 19 Nov 2026:
+  - [x] one `src/physics/vec.js` for the `dot`, `cross` and `norm` copied into about 40 files (two of which use `norm` to mean normalise);
+  - [x] one focus target in the scene in place of five fields cleared by hand in eight `focusOn*` methods;
+  - [x] `Readout`, `Row` and `fmtGroup` in their own module, ending the import cycles between `panels.tsx` and two plates;
+  - [x] tests for the `Mission` and `JourneyStore` stores (stale worker replies, a failed fetch);
+  - [x] `// @ts-check` on the files that cross the worker boundary;
+  - [x] one `getJson` for the six loaders that each check `r.ok` their own way.
 - [ ] Time the gravity field at twice the pixel density and in a 4K window, and skip bodies whose pull is below a stated tolerance ([performance](performance.md)).
 - [ ] Trim the compressed maps' downloads near a body, which roughly double (the Moon's 25 MB against 5.5) ([textures](frontend/textures.md)).
 - [ ] Let `npm run bench:frames` settle its zoom at twice the pixel density, where the Earth and belt scenes now drop every sample ([performance](performance.md)).

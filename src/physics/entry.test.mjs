@@ -12,15 +12,12 @@ import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs, stepCraft } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
 import { earthFixedAt, makeEnvironment } from './environment.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
 const header = (s) => { console.log('='.repeat(60)); console.log(s); console.log('='.repeat(60)); };
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const unit = (a) => { const n = norm(a); return a.map((x) => x / n); };
 const D2R = Math.PI / 180;
 
 header('THE LIFT: across the air, up at no bank, toward the orbit normal at +90 degrees');

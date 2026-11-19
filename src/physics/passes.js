@@ -41,6 +41,7 @@ import { gmst1982, R1, R2, R3 } from './earthRotation.js';
 import { eopAt } from './eop.js';
 import { helioStateEqj } from './ephemeris.js';
 import { J2000_UTC_MS } from './timescale.js';
+import { dot } from './vec.js';
 
 const DEG = Math.PI / 180;
 const AS2R = DEG / 3600;
@@ -49,7 +50,6 @@ const E2 = WGS84_F * (2 - WGS84_F);
 
 const mul = (a, b) => a.map((row) => [0, 1, 2].map((j) => row[0] * b[0][j] + row[1] * b[1][j] + row[2] * b[2][j]));
 const transpose = (a) => [0, 1, 2].map((i) => [a[0][i], a[1][i], a[2][i]]);
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 /**
  * A place on the Earth: its ITRF position (km) and the local east, north

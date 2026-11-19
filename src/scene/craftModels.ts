@@ -40,6 +40,7 @@ import { material, M_TO_RENDER, SHOW_PX, EARTH_BOND_ALBEDO, R_EARTH_KM, type Fin
 import { partsFrom } from '../physics/stackShape.js';
 import { asset, axisVec, type Asset } from './craftAssets';
 import { PROBE_MODELS, LICIACUBE, LICIACUBE_NOTE, probeNote, type Axis } from './probeModels';
+import { dot } from '../physics/vec.js';
 
 type V3 = [number, number, number];
 const AU_KM = 1.495978707e8;
@@ -363,7 +364,6 @@ function build(spec: CraftModelSpec): Built {
 const sigOf = (s: CraftModelSpec) => (s.kind === 'stack' ? `stack:${s.shape.key}:${s.from}:${s.to ?? ''}` : s.kind === 'probe' ? `probe:${s.key}` : s.kind);
 const fullSig = (s: CraftModelSpec) => `${sigOf(s)}${assetOf(s) ? ':asset' : ''}`;
 
-const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const toRender = (a: number[], out: THREE.Vector3) => out.set(a[0], a[2], -a[1]);
 
 export interface ModelLight {

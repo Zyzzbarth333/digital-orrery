@@ -8,6 +8,7 @@
 import './deNode.js';                 // DE442's Earth and Moon, as in the app
 import { advance, createState, accelHeliocentric, heliocentricEnergy } from './nbody.js';
 import { propagate, rvToElements } from './orbital.js';
+import { norm } from './vec.js';
 
 const MU_SUN = 1.32712440041279e11;
 const AU = 149597870.7;
@@ -17,7 +18,6 @@ function check(name, ok) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
   if (!ok) failures++;
 }
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const noBodies = () => [];
 const header = (s) => { console.log('='.repeat(60)); console.log(s); console.log('='.repeat(60)); };

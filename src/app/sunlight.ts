@@ -5,7 +5,7 @@
 // the umbra's and penumbra's true cones): lit, a partial eclipse with the
 // share of the Sun left, or in eclipse in a body's umbra.
 
-import type { Row } from './panels';
+import type { Row } from './readout';
 import { BODIES, BODY_BY_KEY, maxRadiusKm, type BodyKey } from '../scene/catalogue';
 import { bodyState } from '../scene/OrreryScene';
 import { sunlight } from '../physics/discs.js';

@@ -29,6 +29,7 @@
 
 import * as THREE from 'three';
 import { sunFraction } from '../physics/satellites.js';
+import { dot, cross, unit } from '../physics/vec.js';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000;
@@ -192,14 +193,11 @@ function build(kind: ModelKind): Built {
   return { group, pivots, mats: [...mats.values()] };
 }
 
-const norm = (a: V3): V3 => { const n = Math.hypot(a[0], a[1], a[2]); return [a[0] / n, a[1] / n, a[2] / n]; };
-const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 // The LVLH axes of a state (J2000 km, km/s): x ram, y = z x x, z nadir.
 export function lvlhAxes(r: V3, v: V3): [V3, V3, V3] {
-  const z = norm([-r[0], -r[1], -r[2]]);
-  const h = norm(cross(r, v));                 // the orbit's pole
+  const z = unit([-r[0], -r[1], -r[2]]);
+  const h = unit(cross(r, v));                 // the orbit's pole
   const y: V3 = [-h[0], -h[1], -h[2]];
   return [cross(y, z), y, z];
 }

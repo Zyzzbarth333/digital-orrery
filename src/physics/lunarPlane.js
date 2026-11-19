@@ -61,12 +61,9 @@ import { geopotential, normFactor } from './geopotential.js';
 import { bodyAxesEqj } from './orientation.js';
 import { helioStateEqj } from './ephemeris.js';
 import { bodyConstants, MU_SUN } from './bodies.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 export const GRAIL_FIELD = GRAIL;
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => { const k = 1 / norm(a); return [a[0] * k, a[1] * k, a[2] * k]; };
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 // P_n(0): 0 for odd n, (-1)^(n/2) (n-1)!! / n!! for even n.
 function legendreAtZero(n) {

@@ -17,14 +17,13 @@ import { createState, advance } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
+import { cross, norm, unit } from './vec.js';
 const bet = JSON.parse(fs.readFileSync(new URL('./fixtures/artemis2_bet.json', import.meta.url)));
 const rows = bet.states.map((s) => ({ ms: Date.parse(s[0]), r: s.slice(2, 5), v: s.slice(5, 8) }));
 const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
 const EARTH = sys.bodiesAt(0).findIndex((b) => b.key === 'earth');
 const kt = (ms) => kernelSeconds(new Date(ms));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]), unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const EPS = 23.4392911 * Math.PI / 180, K = [0, -Math.sin(EPS), Math.cos(EPS)];   // ecliptic north in EQJ
 const ARCS = [
   ['2026-04-03T00:02:48.802Z', '2026-04-05T01:20:00Z'], ['2026-04-05T01:50:00Z', '2026-04-06T03:00:00Z'],

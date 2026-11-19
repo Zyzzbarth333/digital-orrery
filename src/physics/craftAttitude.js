@@ -43,12 +43,10 @@ import { propagate } from './orbital.js';
 import { density } from './atmosphere.js';
 import { bodyAxesEqj } from './orientation.js';
 import { EARTH_ROTATION } from './environment.js';
+import { dot, norm, unit } from './vec.js';
 
 const D2R = Math.PI / 180;
 const G0 = 9.80665;                      // m/s^2, standard gravity (as craft.js's)
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 // The app's own craft: 1.5 t (1,000 kg dry and 500 kg of propellant) in a
 // 2 by 2 by 3 m box, long along the thrust axis, so I = m (b^2 + c^2) / 12
