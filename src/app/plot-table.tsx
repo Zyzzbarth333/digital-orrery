@@ -83,7 +83,8 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
         <div className="plot-stations" role="tablist" aria-label="Stations">
           {STATIONS.map(([k, label, title]) => <button key={k} role="tab" aria-selected={station === k} aria-controls={`station-${k}`} className="key tab" title={title} onClick={() => setStation(k)}>{label}</button>)}
         </div>
-        <span className="plot-route">{j.waypoints.length ? `${store.title()} · ${store.dates()}` : 'Add a waypoint to begin'}</span>
+        <span className="plot-route">{j.waypoints.length ? `${store.title()} · ${store.dates()}`
+          : store.autoPlan ? 'No journey yet: choose a departure on the porkchop, or add a waypoint' : 'No journey yet: add a waypoint to begin'}</span>
         <span className="spacer" />
         <div className="plot-lamps" aria-live="polite">
           {lamps.map((l) => <div key={l.key} className={`plot-lamp ${l.level}`} title={l.text}><span>{LAMP_NAME[l.key] ?? l.key}</span><b>{l.text}</b></div>)}
@@ -377,6 +378,8 @@ function Scope({ store, cursor }: { store: JourneyStore; cursor: number }) {
       <canvas ref={cv} className="scope-canvas" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel}
         aria-label={`Plotting scope: the journey from above the ecliptic about ${nameOf(frame)}, on ${iso(cursor)}. A click on an arc adds a burn node; its numbers can be typed in the panel on the right.`} />
       <div className="scope-date" aria-hidden="true">{iso(cursor)}</div>
+      {/* Before there is a journey the glass would be blank: say what draws here. */}
+      {!store.journey.waypoints.length && <p className="scope-empty">The journey draws here: each leg's arc, the planets where the craft meets them, and its burns. Add a waypoint on the left, or pick a departure on the porkchop.</p>}
       {phase && <PhaseReadout ph={phase} />}
       <div className="scope-keys">
         <button className="key small" aria-pressed={compressed} onClick={() => setCompressed(!compressed)} title="Squeeze the radius (square root) so inner and outer planets both fit">Compressed</button>
@@ -457,6 +460,7 @@ function Ledger({ store, lamps }: { store: JourneyStore; lamps: Lamp[] }) {
         </>
       )}
       <h3 className="strip">Lamps</h3>
+      {!lamps.length && <p className="hint">Dark until there is a journey to check: each lamp then says what it found.</p>}
       <ul className="lamp-list">{lamps.map((l) => <li key={l.key} className={l.level}><span><span className="sr-only">{{ go: 'Go: ', caution: 'Caution: ', warn: 'Warning: ', off: '' }[l.level]}</span><b>{LAMP_NAME[l.key] ?? l.key}</b> {l.text}</span></li>)}</ul>
     </>
   );

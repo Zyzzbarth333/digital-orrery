@@ -15,6 +15,8 @@ export interface KeptClock { timeMs: number; rate: number; playing: boolean }
 export interface KeptView { focus: string; on: string | null; cam: KeptCam | null; clock: KeptClock | null; savedAt: number | null }
 export const VIEW_KEY: string;
 export const LAYERS_KEY: string;
+export const TYPE_KEY: string;
+export function parseType(text: string | null): 1 | 2 | 3;
 export const DEFAULT_LAYERS: Readonly<Layers>;
 export function readStore(storage: Storage | undefined, key: string): string | null;
 export function writeStore(storage: Storage | undefined, key: string, value: string): void;

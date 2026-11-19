@@ -4,7 +4,7 @@
 // Run: node src/app/remember.test.mjs
 
 import assert from 'node:assert/strict';
-import { DEFAULT_LAYERS, parseLayers, parseView, readStore, resumeTime, writeStore, clearStore } from './remember.js';
+import { DEFAULT_LAYERS, parseLayers, parseType, parseView, readStore, resumeTime, writeStore, clearStore } from './remember.js';
 
 let n = 0;
 const ok = (name, fn) => { fn(); n++; console.log(`ok ${n} ${name}`); };
@@ -82,6 +82,12 @@ ok('storage that throws is no storage', () => {
   assert.equal(readStore(good, 'k'), 'v');
   clearStore(good, 'k');
   assert.equal(readStore(good, 'k'), null);
+});
+
+ok('the TYPE step reads back as 1, 2 or 3, and anything else is 1', () => {
+  assert.equal(parseType('2'), 2);
+  assert.equal(parseType('3'), 3);
+  for (const bad of [null, '', '1', '4', '1.5', 'large', '0']) assert.equal(parseType(bad), 1);
 });
 
 console.log(`${n} passed`);
