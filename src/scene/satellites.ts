@@ -874,12 +874,19 @@ export class SatelliteLayer {
     return view;
   }
 
+  // The overlay's size in CSS pixels, from the scene's resize(), so the
+  // labels need not read clientWidth each frame (which forces a layout after
+  // other layers' style writes). 0 until it is set: then the overlay is read.
+  private viewW = 0;
+  private viewH = 0;
+  setViewSize(w: number, h: number): void { this.viewW = w; this.viewH = h; }
+
   // ----- Labels -----
   // The named ones' markers, placed where SGP4 puts them: hidden behind the
   // Earth, beyond the camera's reach (a station within 60,000 km, the rest
   // while the camera is within 200,000 km of the Earth) or on another label.
   private label(camera: THREE.Camera): void {
-    const w = this.overlay.clientWidth, h = this.overlay.clientHeight, px = window.devicePixelRatio || 1;
+    const w = this.viewW || this.overlay.clientWidth, h = this.viewH || this.overlay.clientHeight, px = window.devicePixelRatio || 1;
     const placed: [number, number][] = [];
     const cam = this.cam, e = this.earth;
     const M = temeToEqj(this.timeMs);

@@ -514,13 +514,20 @@ export class SmallBodyLayer {
     m.invExposure.value = level;
   }
 
+  // The overlay's size in CSS pixels, from the scene's resize(), so the
+  // labels need not read clientWidth each frame (which forces a layout after
+  // other layers' style writes). 0 until it is set: then the overlay is read.
+  private viewW = 0;
+  private viewH = 0;
+  setViewSize(w: number, h: number): void { this.viewW = w; this.viewH = h; }
+
   // The named bodies' markers at their projected positions, rounded to
   // whole device pixels; hidden when their population is, behind the
   // camera, or within a few pixels of another label.
   private label(_renderer: THREE.WebGLRenderer, camera: THREE.Camera): void {
     // The overlay's size and the screen's pixel ratio, as craftLayer.ts
     // places its markers.
-    const w = this.overlay.clientWidth, h = this.overlay.clientHeight, px = window.devicePixelRatio || 1;
+    const w = this.viewW || this.overlay.clientWidth, h = this.viewH || this.overlay.clientHeight, px = window.devicePixelRatio || 1;
     const scale = AU_KM / UNIT_KM, [cx, cy, cz] = this.camAu;
     const placed: [number, number][] = [];
     for (const b of this.named) {
