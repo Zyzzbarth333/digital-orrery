@@ -50,12 +50,12 @@ import { Craft } from './craft.js';
 import { createKernelHost, stepCraft, KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { solarSystemBodies } from './bodies.js';
 import { helioStateEqj } from './ephemeris.js';
+import { dot, norm } from './vec.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
 const header = (s) => { console.log('='.repeat(72)); console.log(s); console.log('='.repeat(72)); };
 const R2D = 180 / Math.PI, D2R = Math.PI / 180;
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const angDiff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 const fx = JSON.parse(fs.readFileSync(new URL('./fixtures/nesc_orbital.json', import.meta.url)));
@@ -449,12 +449,11 @@ header('8. THE NODE AUTO-TURN');
     for (let t = T0 + dt; t <= T0 + tEnd + 1e-9; t += dt) {
       frame(pm, t); frame(sx, t);
       if (settledBy === null && sx.att.locked && sx.att.mode === 'node') settledBy = t - T0;
-      if (axisErr === null && sx.executing) axisErr = Math.acos(Math.min(1, dot3(sx.bodyAxis, sx.executing.burn.nodeDir))) * R2D;
+      if (axisErr === null && sx.executing) axisErr = Math.acos(Math.min(1, dot(sx.bodyAxis, sx.executing.burn.nodeDir))) * R2D;
     }
     const turnNote = sx.log.find((x) => /° to the node, /.test(x.text));
     return { pm, sx, predicted, settledBy, axisErr, turnAt: turnNote ? turnNote.t - T0 : null, d: dist(pm.kState.r, sx.kState.r) * 1e3 };
   };
-  const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const a = run(0.25, 3600, 3700);
   console.log(`  1/4 s frames: turn began ${(3600 - a.turnAt).toFixed(2)} s before the node (AUTO_MARGIN slewTime + AUTO_PAD = ${a.predicted.toFixed(2)} s), locked ${(3600 - a.settledBy).toFixed(2)} s before it`);
   console.log(`  burning ${a.axisErr?.toExponential(1)} deg off the node's direction; ${a.d.toFixed(3)} m from the point-mass twin after; mode now ${a.sx.att.mode}; thrusters ${(a.sx.att.rcsSpent * 1e3).toFixed(1)} g`);

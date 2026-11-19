@@ -21,13 +21,11 @@
 //     asymptoteVelocities, moonExcess, moonRoots   the hyperbola about the planet from the moon's place
 //     swingbyMargin                      the charge on a swing-by that comes near the planet
 
+import { dot, cross, norm, unit } from './vec.js';
+
 const TWO_PI = 2 * Math.PI;
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const unit = (a) => scale(a, 1 / norm(a));
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 
 // Speed at radius r on an orbit of semi-major axis a (vis-viva, Curtis 2.81).

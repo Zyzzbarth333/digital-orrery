@@ -1,3 +1,4 @@
+// @ts-check
 // src/physics/kernelHost.js
 //
 // The spacecraft side of the physics kernel, as message handling: it owns the
@@ -45,6 +46,35 @@ import { solarSystemBodies } from './bodies.js';
 import { ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { makeEnvironment } from './environment.js';
 
+// The messages above, as types for the checker (// @ts-check here, in
+// kernelClient.js, kernel.worker.js and craft.js).
+/**
+ * @typedef {{ t0: number, t1: number, dir: number[], F: number, m0: number, mdot: number,
+ *   frame?: string, about?: string, scripted?: boolean, mass0?: number, massFlow?: number,
+ *   aimed?: boolean, last?: number[] }} Burn
+ *   A finite burn; last is the orbital-frame direction it last had (kept
+ *   on the burn object while it is flown).
+ * @typedef {{ mass: number, [field: string]: unknown }} CraftEnv
+ *   The craft as environment.js sees it (mass, area, cr, cd, earth, ...).
+ * @typedef {{ id: number, version: number, r: number[], v: number[], t: number, tEnd: number,
+ *   primary?: string | null, thrust?: number[] | null, burns?: Burn[], env?: CraftEnv | null,
+ *   maxSteps?: number }} CraftRequest
+ * @typedef {ReturnType<typeof stepCraft>} CraftResult
+ * @typedef {{ id: number, version: number, error: string }} CraftFailure
+ * @typedef {{ r: number[], v: number[], t0: number, T: number, target: number[], burns?: Burn[],
+ *   dv0?: number[] | null, rounds?: number, damped?: boolean, env?: CraftEnv | null,
+ *   envJ?: CraftEnv | null, spread?: number }} AimRequest
+ * @typedef {{ dv: number[], miss: number, after: number }} AimResult
+ * @typedef {{ type: 'step', crafts: CraftRequest[], budgetMs?: number }} StepMessage
+ * @typedef {{ type: 'aim', id: number } & AimRequest} AimMessage
+ * @typedef {StepMessage | AimMessage} KernelMessage
+ * @typedef {{ type: 'stepped', crafts: (CraftResult | CraftFailure)[], ms: number }} SteppedReply
+ * @typedef {{ type: 'aimed', id: number, result: AimResult | null, error?: string }} AimedReply
+ * @typedef {{ type: 'error', error: string }} ErrorReply
+ * @typedef {SteppedReply | AimedReply | ErrorReply} KernelReply
+ * @typedef {ReturnType<typeof solarSystemBodies>} BodySet
+ */
+
 // Kernel time zero: 2000-01-01 12:00 UTC. Only a reference; every time is a
 // difference from it.
 export const KERNEL_EPOCH_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
@@ -52,8 +82,9 @@ export const DEFAULT_MAX_STEPS = 20000;
 
 // A direction given as [prograde, in-plane, normal] in the orbital frame of
 // relative position r and velocity v, as an EQJ unit vector.
+/** @param {number[]} dir @param {number[]} r @param {number[]} v @returns {number[]} */
 export function vnbDirection(dir, r, v) {
-  const n = (a) => Math.hypot(a[0], a[1], a[2]);
+  const n = (/** @type {number[]} */ a) => Math.hypot(a[0], a[1], a[2]);
   const vn = n(v), V = [v[0] / vn, v[1] / vn, v[2] / vn];
   const h = [r[1] * v[2] - r[2] * v[1], r[2] * v[0] - r[0] * v[2], r[0] * v[1] - r[1] * v[0]], hn = n(h);
   const N = [h[0] / hn, h[1] / hn, h[2] / hn];
@@ -66,10 +97,12 @@ export function vnbDirection(dir, r, v) {
 // is a second the craft flies, as the bodies' ephemerides count it. (Counted
 // in UTC seconds, a craft lost a second against the bodies at each one.)
 const TT0 = ttSeconds(KERNEL_EPOCH_MS);
+/** @param {Date} date */
 export function kernelSeconds(date) {
   return ttSeconds(date.getTime()) - TT0;
 }
 // The UTC instant (ms) of kernel time t.
+/** @param {number} t */
 export function kernelMs(t) {
   return utcMsAtTt(TT0 + t);
 }
@@ -78,6 +111,7 @@ export function kernelMs(t) {
 // the same for every t between the same two of their sorted distinct
 // edges: 2k for t on the k-th edge, 2k + 1 for t in the open interval just
 // below it (2n + 1 above the last of n), -1 for a t that is not a number.
+/** @param {{ t0: number, t1: number }[]} list @returns {(t: number) => number} */
 function edgeSegments(list) {
   const e = [...new Set(list.flatMap((b) => [b.t0, b.t1]))].sort((x, y) => x - y);
   return (t) => {
@@ -92,14 +126,15 @@ function edgeSegments(list) {
 // The Sun as a burn's body: the origin, still.
 export const SUN_AT_ORIGIN = Object.freeze({
   key: 'sun', r: [0, 0, 0],
-  eph: { position: (t, out = [0, 0, 0]) => { out[0] = out[1] = out[2] = 0; return out; }, velocity: (t, out = [0, 0, 0]) => { out[0] = out[1] = out[2] = 0; return out; } },
+  eph: { position: (/** @type {number} */ t, out = [0, 0, 0]) => { out[0] = out[1] = out[2] = 0; return out; }, velocity: (/** @type {number} */ t, out = [0, 0, 0]) => { out[0] = out[1] = out[2] = 0; return out; } },
 });
 
 // deadline: a performance.now() time (ms) to stop by (nbody.js advance).
+/** @param {BodySet} sys @param {CraftRequest} req @param {number | null} [deadline] */
 export function stepCraft(sys, req, deadline = null) {
   // NaN does not throw anywhere in the kernel: it would integrate quietly and
   // come back as a 'complete' NaN state. Refuse it here instead.
-  const finite = (a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+  const finite = (/** @type {unknown} */ a) => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
   if (!finite(req.r) || !finite(req.v) || !Number.isFinite(req.t) || !Number.isFinite(req.tEnd) ||
       (req.thrust && !finite(req.thrust))) {
     throw new Error('non-finite craft state, time or thrust');
@@ -107,7 +142,7 @@ export function stepCraft(sys, req, deadline = null) {
   // A body by key, a moon or planet whether or not its system is split; or
   // the Sun, at the origin of the heliocentric frame the hooks see (a deep-
   // space burn is steered about it).
-  const bodyOf = (key, t) => (key === 'sun' ? SUN_AT_ORIGIN : sys.bodyAt ? sys.bodyAt(key, t) : sys.bodiesAt(t).find((x) => x.key === key));
+  const bodyOf = (/** @type {string | undefined} */ key, /** @type {number} */ t) => (key === 'sun' ? SUN_AT_ORIGIN : sys.bodyAt ? sys.bodyAt(key, t) : sys.bodiesAt(t).find((/** @type {{ key: string }} */ x) => x.key === key));
   const burns = (req.burns || []).filter((b) => b.t1 > req.t && b.t0 < req.tEnd);
   for (const b of burns) {
     if (![b.t0, b.t1, b.F, b.m0, b.mdot].every(Number.isFinite) || !finite(b.dir) || !(b.m0 - b.mdot * (b.t1 - b.t0) > 0)) {
@@ -115,7 +150,7 @@ export function stepCraft(sys, req, deadline = null) {
     }
     if (b.frame === 'vnb' && !bodyOf(b.about, req.t)) throw new Error(`bad burn: no body '${b.about}' to steer about`);
   }
-  const state = createState(req.r, req.v, req.t);
+  const state = /** @type {{ t: number, r: number[], v: number[], primary: string | null }} */ (createState(req.r, req.v, req.t));
   state.primary = req.primary ?? null;
   const th = req.thrust;
   const constant = th && (th[0] !== 0 || th[1] !== 0 || th[2] !== 0);
@@ -130,14 +165,16 @@ export function stepCraft(sys, req, deadline = null) {
   // burn is hundreds of 5-second intervals, and scanning them all at every
   // stage was a tenth of a steered burn's time.
   const segmentOf = edgeSegments(burns);
+  /** @type {Burn[][]} */
   const onCache = [], vb = [0, 0, 0];
-  const burnsOn = (mid) => {
+  const burnsOn = (/** @type {number} */ mid) => {
     const k = segmentOf(mid);
     if (k >= 0 && onCache[k]) return onCache[k];
     const on = burns.filter((b) => mid >= b.t0 && mid < b.t1);
     if (k >= 0) onCache[k] = on;
     return on;
   };
+  /** @type {(t: number, mid: number, out: number[], r?: number[], v?: number[]) => number[]} */
   const thrustAt = (t, mid, out, r, v) => {
     out[0] = out[1] = out[2] = 0;
     if (constant) { out[0] = th[0]; out[1] = th[1]; out[2] = th[2]; }
@@ -166,10 +203,11 @@ export function stepCraft(sys, req, deadline = null) {
   // massFlow: a craft with a scriptIsp); otherwise they are skipped.
   // massFrom(t): which of those it is at t, as { b, m0, md } for a burn on
   // then, or { m } for a mass held between burns.
+  /** @type {(t: number) => { b?: Burn, m0?: number, md?: number, m?: number }} */
   const massFrom = (t) => {
-    let next = null, last = null;
+    let next = /** @type {{ t0: number, m: number } | null} */ (null), last = /** @type {{ t1: number, m: number } | null} */ (null);
     for (const b of burns) {
-      const m0 = b.scripted ? b.mass0 : b.m0, md = b.scripted ? b.massFlow : b.mdot;
+      const m0 = b.scripted ? b.mass0 : b.m0, md = /** @type {number} */ (b.scripted ? b.massFlow : b.mdot);   // given with mass0
       if (m0 === undefined) continue;
       if (t >= b.t0 && t < b.t1) return { b, m0, md };
       if (b.t0 >= t && (!next || b.t0 < next.t0)) next = { t0: b.t0, m: m0 };
@@ -177,18 +215,19 @@ export function stepCraft(sys, req, deadline = null) {
     }
     if (next) return { m: next.m };
     if (last) return { m: last.m };
-    return { m: req.env.mass };
+    return { m: /** @type {CraftEnv} */ (req.env).mass };   // asked only by env, so there is one
   };
+  /** @type {ReturnType<typeof massFrom>[]} */
   const massCache = [];
-  const massAt = (t) => {
+  const massAt = (/** @type {number} */ t) => {
     const k = segmentOf(t);
     let w = k >= 0 ? massCache[k] : null;
     if (!w) { w = massFrom(t); if (k >= 0) massCache[k] = w; }
-    return w.b ? w.m0 - w.md * (t - w.b.t0) : w.m;
+    return /** @type {number} */ (w.b ? /** @type {number} */ (w.m0) - /** @type {number} */ (w.md) * (t - w.b.t0) : w.m);
   };
   const env = req.env ? makeEnvironment(sys, { ...req.env, massAt }) : null;
   const thrusting = constant || burns.length;
-  const extraAccel = (thrusting || env) ? (t, r, out, mid, v) => {
+  const extraAccel = (thrusting || env) ? (/** @type {number} */ t, /** @type {number[]} */ r, /** @type {number[]} */ out, /** @type {number} */ mid, /** @type {number[]} */ v) => {
     if (thrusting) thrustAt(t, mid, out, r, v); else { out[0] = out[1] = out[2] = 0; }
     if (env) env(t, r, v, out, mid);
     return out;
@@ -254,16 +293,19 @@ export function stepCraft(sys, req, deadline = null) {
 // RealMission.aimStep adds it to its burn), solved for as that push rather
 // than an impulse: aimed two minutes ahead of a burn of an hour (DART's
 // terminal guidance), the two differ by kilometres.
+/** @param {BodySet} sys @param {AimRequest} aim @returns {AimResult | null} */
 export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds = 4, damped = false, env = null, envJ = env, spread = 0 }) {
-  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-  const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  /** @type {(a: number[], b: number[]) => number[]} */
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (/** @type {number[]} */ a, /** @type {number[]} */ b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const det3 = (/** @type {number[][]} */ m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
   const list = burns.filter((b) => !b.aimed && b.t1 > t0 && b.t0 < T);
   // The craft flown to T with the correction dv: at once, or spread.
+  /** @type {(dv: number[], e?: CraftEnv | null) => number[] | null} */
   const fly = (dv, e = env) => {
     const n = Math.hypot(dv[0], dv[1], dv[2]);
-    const push = spread > 0 && n > 0 ? [{ t0, t1: t0 + spread, dir: dv.map((x) => x / n), F: n * 1000 / spread, m0: 1, mdot: 0, scripted: true }] : [];
+    const push = spread > 0 && n > 0 ? [{ t0, t1: t0 + spread, dir: dv.map((/** @type {number} */ x) => x / n), F: n * 1000 / spread, m0: 1, mdot: 0, scripted: true }] : [];
     const res = stepCraft(sys, { id: 0, version: 0, r: [...r], v: spread > 0 ? [...v] : add3(v, dv), t: t0, tEnd: T, primary: null, burns: [...list.map((b) => ({ ...b })), ...push], maxSteps: 1e6, ...(e ? { env: e } : {}) });
-    return res.complete && !res.events.some((e) => e.type === 'impact') ? res.r : null;
+    return res.complete && !res.events.some((/** @type {{ type: string }} */ e) => e.type === 'impact') ? res.r : null;
   };
   const plain = fly([0, 0, 0]);
   const miss0 = plain ? Math.hypot(...sub3(plain, target)) : Infinity;
@@ -281,7 +323,8 @@ export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds
     if (!baseJ) break;
     const cols = [0, 1, 2].map((j) => { const dd = [...dv]; dd[j] += h; const q = fly(dd, envJ); return q && sub3(q, baseJ).map((d) => d / h); });
     if (cols.some((c) => !c)) break;
-    const A = [0, 1, 2].map((i) => [cols[0][i], cols[1][i], cols[2][i]]), D = det3(A);
+    // None is null (just above).
+    const A = [0, 1, 2].map((i) => [/** @type {number[][]} */ (cols)[0][i], /** @type {number[][]} */ (cols)[1][i], /** @type {number[][]} */ (cols)[2][i]]), D = det3(A);
     if (!(Math.abs(D) > 0)) break;
     let step = [0, 1, 2].map((k) => det3(A.map((row, i) => row.map((val, c) => (c === k ? -miss[i] : val)))) / D);
     let next = null, after = Infinity;
@@ -300,24 +343,26 @@ export function aimTo(sys, { r, v, t0, T, target, burns = [], dv0 = null, rounds
 }
 
 export function createKernelHost() {
+  /** @type {BodySet | null} */
   let sys = null;
   return {
+    /** @param {KernelMessage} msg @returns {KernelReply} */
     handle(msg) {
       if (!sys) sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
       if (msg && msg.type === 'aim') {
         try {
           return { type: 'aimed', id: msg.id, result: aimTo(sys, msg) };
         } catch (err) {
-          return { type: 'aimed', id: msg.id, result: null, error: String(err && err.message || err) };
+          return { type: 'aimed', id: msg.id, result: null, error: String(err && /** @type {Error} */ (err).message || err) };
         }
       }
-      if (!msg || msg.type !== 'step') return { type: 'error', error: `unknown message ${msg && msg.type}` };
-      const t0 = Date.now(), share = msg.budgetMs > 0 ? msg.budgetMs / msg.crafts.length : null;
+      if (!msg || msg.type !== 'step') return { type: 'error', error: `unknown message ${msg && /** @type {{ type?: string }} */ (msg).type}` };
+      const t0 = Date.now(), share = /** @type {number} */ (msg.budgetMs) > 0 ? /** @type {number} */ (msg.budgetMs) / msg.crafts.length : null;
       const crafts = msg.crafts.map((req) => {
         try {
-          return stepCraft(sys, req, share === null ? null : performance.now() + share);
+          return stepCraft(/** @type {BodySet} */ (sys), req, share === null ? null : performance.now() + share);
         } catch (err) {
-          return { id: req.id, version: req.version, error: String(err && err.message || err) };
+          return { id: req.id, version: req.version, error: String(err && /** @type {Error} */ (err).message || err) };
         }
       });
       return { type: 'stepped', crafts, ms: Date.now() - t0 };

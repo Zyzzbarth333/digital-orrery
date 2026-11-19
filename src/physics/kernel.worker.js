@@ -1,3 +1,4 @@
+// @ts-check
 // src/physics/kernel.worker.js
 //
 // Runs the spacecraft kernel off the render thread. All the logic is in
@@ -23,7 +24,7 @@ self.onmessage = async (e) => {
   try {
     reply = host.handle(e.data);
   } catch (err) {
-    reply = { type: 'error', error: String(err && err.stack || err) };
+    reply = { type: 'error', error: String(err && /** @type {Error} */ (err).stack || err) };
   }
   self.postMessage(reply);
 };

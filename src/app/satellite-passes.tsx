@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useClockValue, type SimClock } from './clock';
-import { Readout, type Row } from './panels';
+import { Readout, type Row } from './readout';
 import { siteOf, lookAt } from '../physics/passes.js';
 import type { PassRequest } from './passes.worker';
 import type { GroundTrack } from '../scene/groundTrack';

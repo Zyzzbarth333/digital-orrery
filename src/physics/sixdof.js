@@ -32,10 +32,10 @@
 
 import { geopotential } from './geopotential.js';
 import { quatNormalize, quatToMatrix, matVec, matTVec, invert3, attitudeRates } from './rigidbody.js';
+import { cross } from './vec.js';
 
 export { geopotential };
 
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 // The point-mass gravity-gradient torque (body axes, N m) on a body of
 // inertia I (kg m^2) at r (m) from a centre of gravitational parameter mu

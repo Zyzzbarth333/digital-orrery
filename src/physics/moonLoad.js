@@ -9,16 +9,15 @@
 // built locally (public/ephemeris/moons-extra), so its absence is quiet.
 
 import { parseMoonChunk, setMoonChunkLoader } from './moonTables.js';
+import { getBuffer } from './fetchData.js';
 
 export function installMoonLoader({ onMiss = false } = {}) {
   setMoonChunkLoader(async (path) => {
     const optional = path.includes('moons-extra/');
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL}${path}`);
-      if (optional && !res.ok) return null;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // An optional year that is not there fails here, quietly (below).
+      const buf = await getBuffer(`${import.meta.env.BASE_URL}${path}`);
       // A dev server answers a missing file with the app's index.html.
-      const buf = await res.arrayBuffer();
       if (optional && new Uint8Array(buf, 0, 1)[0] === 0x3c) return null;
       return parseMoonChunk(buf);
     } catch (err) {

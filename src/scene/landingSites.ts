@@ -22,6 +22,7 @@
 import * as THREE from 'three';
 import { eqjToEcl } from '../physics/ephemeris.js';
 import { LANDING_SITES, SITE_BY_KEY, siteBody, onSmallBody, siteFixedKm, siteNormal, siteRadii, type LandingSite } from '../physics/landingSites.js';
+import { dot, cross, norm, unit } from '../physics/vec.js';
 
 type Vec3 = [number, number, number];
 const UNIT_KM = 1000;
@@ -40,9 +41,6 @@ const PRIORITY = DRAWN.map((s, i) => ({ s, rank: (s.kind === 'crewed' ? 0 : 1) *
 const SITE_BODIES = [...new Set(DRAWN.map(siteBody))];
 const REACH_KM = Object.fromEntries(SITE_BODIES.map((b) => [b, SHOW_RADII * Math.max(...siteRadii(DRAWN.find((s) => siteBody(s) === b)!)!)]));
 
-const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a: Vec3): Vec3 => { const n = Math.hypot(a[0], a[1], a[2]); return [a[0] / n, a[1] / n, a[2] / n]; };
-const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const turn = (p: Vec3, [X, Y, Z]: Vec3[]): Vec3 => [0, 1, 2].map((i) => p[0] * X[i] + p[1] * Y[i] + p[2] * Z[i]) as Vec3;
 
 export interface SiteFrame { P: Vec3; E: Vec3; N: Vec3; U: Vec3 }
@@ -55,9 +53,9 @@ export type SitePlace = (body: string) => { r: Vec3; axes: Vec3[] } | null;
 // Up is the ellipsoid's normal; east the pole crossed with up.
 export function siteFrame(site: LandingSite, centre: Vec3, axesEcl: Vec3[]): SiteFrame {
   const p = turn(siteFixedKm(site) as Vec3, axesEcl);
-  const U = norm(turn(siteNormal(site) as Vec3, axesEcl));
+  const U = unit(turn(siteNormal(site) as Vec3, axesEcl));
   const e = cross(axesEcl[2], U);
-  const E = Math.hypot(e[0], e[1], e[2]) > 1e-9 ? norm(e) : axesEcl[1];   // at a pole, the body's +Y
+  const E = norm(e) > 1e-9 ? unit(e) : axesEcl[1];   // at a pole, the body's +Y
   const N = cross(U, E);
   return { P: [centre[0] + p[0], centre[1] + p[1], centre[2] + p[2]], E, N, U };
 }

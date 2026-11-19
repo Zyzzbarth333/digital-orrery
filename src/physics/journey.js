@@ -47,15 +47,12 @@ import { moonPlaneTrack, moonEccentricityTrack } from './lunarPlane.js';
 import { PLANETS } from '../utils/constants.js';
 import { nelderMead } from './trajsearch.js';
 import * as X from './transfers.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 const DAY = 86400, DAY_MS = 86400e3, AU = 149597870.7, TWO_PI = 2 * Math.PI;
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => scale(a, 1 / norm(a));
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const Z = [0, 0, 1];
 
 // ---------------- bodies ----------------

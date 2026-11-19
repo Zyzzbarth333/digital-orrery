@@ -14,6 +14,8 @@
 // in the equator and then, for an inclined ring, along its own plane from
 // its node (a "dogleg" longitude).
 
+import { cross, unit } from './vec.js';
+
 const D = Math.PI / 180;
 
 // --------------------------------------------------------------- Uranus
@@ -279,14 +281,12 @@ export function ringPlaneAt(ring, jd) {
   return { i: Math.asin(asini / a) / D, node: O0 + Odot * (jd - URANUS_EPOCH_JD) };
 }
 
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0] / l, a[1] / l, a[2] / l]; };
 
 /** The reference direction of ring longitudes: the ascending node of the
  * equator (whose pole is P, the system's angular momentum) on the J2000
  * Earth equator, and the direction 90 deg ahead of it. */
 export function equatorNode(pole) {
-  const N = norm(cross([0, 0, 1], pole));
+  const N = unit(cross([0, 0, 1], pole));
   return { N, Q: cross(pole, N) };
 }
 

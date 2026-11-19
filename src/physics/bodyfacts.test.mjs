@@ -14,12 +14,12 @@ import {
   spinRate, siderealDays, obliquity, solarDays, density, escapeSpeed,
   sunRotationDays, galacticYears, sunFromBarycentreKm,
 } from './bodyfacts.js';
+import { norm } from './vec.js';
 
 let n = 0;
 const ok = (name, fn) => { fn(); n++; console.log(`ok ${n} ${name}`); };
 const near = (got, want, tol, what) => assert.ok(Math.abs(got - want) <= tol, `${what}: ${got} against ${want} (±${tol})`);
 const date = new Date(Date.UTC(2026, 10, 14));
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const sub = (a, b) => a.map((x, i) => x - b[i]);
 
 // The state the tilt is measured against: heliocentric, the Moon's about

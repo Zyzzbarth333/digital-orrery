@@ -1,3 +1,4 @@
+// @ts-check
 // src/physics/kernelClient.js
 //
 // Main-thread side of the spacecraft kernel. Runs kernelHost in a Web Worker
@@ -24,6 +25,12 @@
 // load, not a dead Worker, and has its own, longer timeout.
 
 import { createKernelHost } from './kernelHost.js';
+/** @import { CraftRequest, CraftResult, CraftFailure, AimRequest, AimResult, AimedReply, KernelReply } from './kernelHost.js' */
+/**
+ * @typedef {{ buildRequest(): CraftRequest | null, applyResult(res: CraftResult | CraftFailure): void, dropped?(): void }} KernelCraft
+ *   What tick() steps (src/physics/craft.js's Craft).
+ * @typedef {ReturnType<typeof createKernelHost>} KernelHost
+ */
 
 export class KernelClient {
   // budgetMs: the Worker's time per request. replyTimeoutMs: how long a
@@ -35,43 +42,50 @@ export class KernelClient {
   // (a fetch that hangs), from the Worker's start. createWorker: makes the
   // Worker (a stand-in in Node's checks); Vite bundles kernel.worker.js only
   // from the literal new Worker(new URL(...)) below.
+  /** @param {{ useWorker?: boolean, budgetMs?: number, replyTimeoutMs?: number, aimTimeoutMs?: number, loadTimeoutMs?: number, createWorker?: (() => Worker) | null }} [options] */
   constructor({ useWorker = true, budgetMs = 200, replyTimeoutMs = 15000, aimTimeoutMs = 60000, loadTimeoutMs = 120000, createWorker = null } = {}) {
     this.busy = false;
     this.sentAt = 0;
     this.startedAt = performance.now();
+    /** @type {number | null} */
     this.readyAt = null;         // when the Worker said its tables are in
     this.loadTimeoutMs = loadTimeoutMs;
     this.budgetMs = budgetMs;
     this.replyTimeoutMs = replyTimeoutMs;
     this.aimTimeoutMs = aimTimeoutMs;
     this.heardAt = 0;            // the Worker's last message, or the last aim sent
+    /** @type {Map<number, KernelCraft>} */
     this.inflight = new Map();
+    /** @type {Map<number, (result: AimResult | null) => void>} */
     this.aiming = new Map();     // id -> resolve, for aim requests
     this.aimId = 0;
     this.lastMs = 0;            // kernel time for the last batch
     this.mode = 'main-thread';
+    /** @type {KernelHost | null} */
     this.host = null;
+    /** @type {Worker | null} */
     this.worker = null;
     if (useWorker && (createWorker || typeof Worker !== 'undefined')) {
       try {
         this.worker = createWorker ? createWorker() : new Worker(new URL('./kernel.worker.js', import.meta.url), { type: 'module' });
-        this.worker.onmessage = (e) => {
+        this.worker.onmessage = (/** @type {MessageEvent<KernelReply | { type: 'ready' }>} */ e) => {
           const type = e.data && e.data.type;
           this.heardAt = performance.now();
           if (type === 'ready') this.readyAt = performance.now();
-          else if (type === 'aimed') this.onAimed(e.data);
-          else this.onReply(e.data);
+          else if (type === 'aimed') this.onAimed(/** @type {AimedReply} */ (e.data));
+          else this.onReply(/** @type {KernelReply} */ (e.data));
         };
         this.worker.onerror = (e) => this.fallBack(`worker error: ${e.message || e}`);
         this.worker.onmessageerror = () => this.fallBack('worker reply could not be read');
         this.mode = 'worker';
       } catch (err) {
-        this.fallBack(`worker unavailable: ${err.message || err}`);
+        this.fallBack(`worker unavailable: ${/** @type {Error} */ (err).message || err}`);
       }
     }
     if (!this.worker) this.host = createKernelHost();
   }
 
+  /** @param {string} reason */
   fallBack(reason) {
     console.warn(`KernelClient: ${reason}; running the kernel on the main thread`);
     if (this.worker) this.worker.terminate();
@@ -90,6 +104,7 @@ export class KernelClient {
 
   // crafts: objects with id, buildRequest(), applyResult(res) and dropped()
   // (src/physics/craft.js).
+  /** @param {Iterable<KernelCraft>} crafts @returns {boolean} */
   tick(crafts) {
     if (this.busy) {
       // A Worker that never answers would otherwise freeze every craft. A
@@ -101,12 +116,13 @@ export class KernelClient {
       if (this.worker && this.readyAt === null) {
         if (now - this.startedAt > this.loadTimeoutMs) this.fallBack(`worker tables not loaded in ${this.loadTimeoutMs / 1000} s`);
         else return false;
-      } else if (this.worker && now - Math.max(this.sentAt, this.readyAt, this.heardAt) > (this.aiming.size ? this.aimTimeoutMs : this.replyTimeoutMs)) {
+      } else if (this.worker && now - Math.max(this.sentAt, /** @type {number} */ (this.readyAt), this.heardAt) > (this.aiming.size ? this.aimTimeoutMs : this.replyTimeoutMs)) {
         this.fallBack(`no reply in ${this.aiming.size ? this.aimTimeoutMs : this.replyTimeoutMs} ms, the worker looks stuck`);
       } else {
         return false;
       }
     }
+    /** @type {CraftRequest[]} */
     const reqs = [];
     this.inflight.clear();
     for (const craft of crafts) {
@@ -120,17 +136,19 @@ export class KernelClient {
     if (this.worker) {
       this.worker.postMessage(msg);
     } else {
+      /** @type {KernelReply} */
       let reply;
       try {
-        reply = this.host.handle(msg);
+        reply = /** @type {KernelHost} */ (this.host).handle(/** @type {import('./kernelHost.js').StepMessage} */ (msg));
       } catch (err) {
-        reply = { type: 'error', error: String(err && err.message || err) };
+        reply = { type: 'error', error: String(err && /** @type {Error} */ (err).message || err) };
       }
       this.onReply(reply);
     }
     return true;
   }
 
+  /** @param {KernelReply | null | undefined} reply */
   onReply(reply) {
     this.busy = false;
     if (!reply || reply.type !== 'stepped') {
@@ -156,19 +174,21 @@ export class KernelClient {
   // with the steps; without a worker, worked out here at once, and a throw
   // there answers null as the worker's failure does (it runs inside the
   // frame loop, mission.ts).
+  /** @param {AimRequest} req @returns {Promise<AimResult | null>} */
   aim(req) {
-    const id = ++this.aimId, msg = { type: 'aim', id, ...req };
+    const id = ++this.aimId, msg = /** @type {import('./kernelHost.js').AimMessage} */ ({ type: 'aim', id, ...req });
     if (!this.worker) {
       try {
-        return Promise.resolve(this.host.handle(msg).result ?? null);
+        return Promise.resolve(/** @type {AimedReply} */ (/** @type {KernelHost} */ (this.host).handle(msg)).result ?? null);
       } catch (err) {
-        console.warn(`KernelClient: aim failed: ${err && err.message || err}`);
+        console.warn(`KernelClient: aim failed: ${err && /** @type {Error} */ (err).message || err}`);
         return Promise.resolve(null);
       }
     }
     this.heardAt = performance.now();
-    return new Promise((resolve) => { this.aiming.set(id, resolve); this.worker.postMessage(msg); });
+    return new Promise((resolve) => { this.aiming.set(id, resolve); /** @type {Worker} */ (this.worker).postMessage(msg); });
   }
+  /** @param {AimedReply} reply */
   onAimed(reply) {
     const resolve = this.aiming.get(reply.id);
     this.aiming.delete(reply.id);
