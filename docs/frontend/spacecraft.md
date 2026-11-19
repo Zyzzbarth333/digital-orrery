@@ -124,9 +124,14 @@ loads the clock's month (and the next or last near its ends), 0.1 to
   index (21 kB) when it first takes focus, lists the craft under **Beyond
   Earth**, and switches the layer on if it is off ("Spacecraft shown"). The camera flies
   500 km out (or the distance last zoomed to), follows it and can come to
-  within 20 m. A day without data hands the camera back to the body in view.
+  within 20 m. If the craft's month of data has not arrived, the flight
+  waits for it, and choosing anything else meanwhile calls it off. Coming
+  from elsewhere to a sunlit craft, the camera arrives on its Sun side, a
+  little off the line, so its arrays face the camera lit; in a body's
+  shadow, and when the camera is on the craft already, the angle is kept.
+  A day without data hands the camera back to the body in view.
 - **The plate:** distance from its centre (and height over its mean
-  radius), speed about it, distance from the Sun and the Earth, light time,
+  radius; a craft held about the Sun has the one Sun row, in AU and km), speed about it, distance from the Sun and the Earth, light time,
   its sunlight (lit, a partial eclipse, or in eclipse and whose,
   [lighting](lighting.md#objects-in-shadow)), which trajectory the clock is
   in, Horizons' revision date, and how the app holds it, each with its
