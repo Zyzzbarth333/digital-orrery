@@ -159,11 +159,46 @@ The domain can come first: it is cheap and protects every link.
 
 ## Action items
 
-**Phase A: tidy and pin (no behaviour change)**
-1. [ ] Pin Node: `.nvmrc`, `engines`, and the dev container and CI on the same version.
-2. [ ] Move the offline scripts from `src/physics` into `pipelines/`, and the `*.validate.mjs` checks and their libraries into `validation/`. Update `package.json` and `scripts/test.mjs`.
-3. [ ] Move the `SimClock` type and the journey view types into `src/types/`.
-4. [ ] Gate: `npm run typecheck` and `npm test` pass, and the build output is byte-identical.
+**Phase B already prepares the move.** The manifest's SHA-256 hashes give each file a versioned name that a CDN can cache for ever, and the loaders already take a base URL. Moving the data to R2 is then a change of that base URL, plus an upload step in the deploy workflow.
+
+**Move the data when the first of these happens:**
+- the data passes about 800 MB;
+- Pages bandwidth nears 100 GB a month;
+- the user wants their own domain.
+
+The domain can come first: it is cheap and protects every link.
+
+## Consequences
+
+**Easier:**
+- Anyone can use it from a link, on a phone too.
+- A clone no longer grows by every map rebuild.
+- Data versions are explicit and checked.
+- The physics can later be used from Node.
+
+**Harder:**
+- One more setup step for developers.
+- Data releases to publish and keep.
+- A deploy workflow to keep green.
+
+**Must handle:**
+- **Missing data:** Vite's fallback returns `index.html` for a missing file, which shows up as a confusing JSON parse error. The app must say "run `npm run data`".
+- **The existing 814 MiB history:** the README should suggest `git clone --filter=blob:none` until the history is rewritten.
+
+**To revisit:**
+- Rewriting the history: a separate decision, needing Isaac's explicit approval for that one rewrite, and a bundle backup first.
+- Data outgrowing 1 GB.
+- Publishing the physics.
+- A service.
+- Julia or Python oracles.
+
+## Action items
+
+**Phase A: tidy and pin (no behaviour change)**: done
+1. [x] Pin Node: `.nvmrc`, `engines`, and the dev container and CI on the same version.
+2. [x] Move the offline scripts from `src/physics` into `pipelines/`, and the `*.validate.mjs` checks and their libraries into `validation/`. Update `package.json` and `scripts/test.mjs`.
+3. [x] Move the `SimClock` type and the journey view types into `src/types/`.
+4. [x] Gate: `npm run typecheck` and `npm test` pass, and the build output is byte-identical.
 
 **Phase B: data out of git, and the hosted site**
 1. [ ] Add `public/manifest.json`, listing each file's path, data set, version, size, SHA-256 and source.
