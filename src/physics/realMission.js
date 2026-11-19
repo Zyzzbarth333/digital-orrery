@@ -189,7 +189,7 @@ export class RealMission {
   // kernel worker's, KernelClient.aim); without it the aim is worked out
   // here, at once. With it the craft holds until the answer comes (a later
   // frame finds it in run.answer).
-  /** @param {any} c @param {any} sys @param {any} run @param {boolean} [jumped] @param {((req: object) => Promise<any>) | null} [aimer] */
+  /** @param {any} c @param {any} sys @param {any} run @param {boolean} [jumped] @param {((req: import('./kernelHost.js').AimRequest) => Promise<import('./kernelHost.js').AimResult | null>) | null} [aimer] */
   aimStep(c, sys, run, jumped = false, aimer = null) {
     const aims = this.aims(), at = (i) => kernelSeconds(new Date(aims[i].atMs));
     if (jumped) {

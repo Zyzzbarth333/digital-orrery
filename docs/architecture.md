@@ -66,8 +66,14 @@ digital-orrery/
 │   ├── physics/             # orbital core, n-body kernel and Worker, ephemerides, moons,
 │   │   │                    #   orientation, environment, rocket, journeys, and their tests
 │   │   └── fixtures/        # reference data the tests check against (CSPICE, Horizons, NASA)
+│   ├── types/               # types the scene and the app share (the clock, journey views)
 │   └── utils/constants.js
-├── public/                  # surface maps, star map, ephemeris and small-body tables
+├── pipelines/               # offline scripts that fetch and build the data in public/
+│                            #   (*.fetch, *.build, *.export, *.horizons): npm run fetch:*, build:*
+├── validation/              # the flown-mission checks (Artemis I and II, Juno, DART, LRO,
+│                            #   MESSENGER) and their libraries, run by npm test
+├── public/                  # surface maps, star map, ephemeris and small-body tables,
+│                            #   models: fetched by npm run data, pinned by manifest.json (not in git)
 ├── c/                       # CSPICE programs that write fixtures, the DE442, moon and
 │                            #   asteroid tables, and the Earth orientation samples
 ├── python/                  # SPICE metakernel, kernels (downloaded, not in git), offline

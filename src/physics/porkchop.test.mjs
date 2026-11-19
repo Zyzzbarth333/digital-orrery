@@ -14,6 +14,7 @@ import { lambert } from './orbital.js';
 import { helioStateEqj, helioStateEcl } from './ephemeris.js';
 import { porkchopGrid, transferBetween, range } from './porkchop.js';
 import { GRAVITATIONAL_PARAMETERS, PLANETS } from '../utils/constants.js';
+import { norm } from './vec.js';
 
 const SPICE = JSON.parse(readFileSync(new URL('./fixtures/spice_reference.json', import.meta.url), 'utf8'));
 const DAY = 86400.0;
@@ -22,7 +23,6 @@ function check(name, ok) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
   if (!ok) failures++;
 }
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const diff = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 
 // SPICE epoch strings in the fixture -> UTC Date. J2000 (TDB) is

@@ -96,10 +96,17 @@ html[data-type='3'] {
 html, body, #root { margin: 0; height: 100%; background: var(--bezel); color: var(--ink); font: var(--t-text)/1.45 var(--sans); font-synthesis: none; }
 ::selection { background: var(--phosphor); color: var(--window); }
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-/* Over the dark fields (the plotting table, tag details, the key sheet,
-   FIND's list) the ring is phosphor; ink on the panels (11.9:1), not RUN's
+/* Over the dark fields (tag details, the key sheet, FIND's list, the sky)
+   the ring is phosphor; ink on the panels (11.9:1), not RUN's
    orange, which read 2.8:1 there and is the one orange key's colour. */
-.plot-table :focus-visible, .tag-pop :focus-visible, .key-sheet :focus-visible, .sb-hits :focus-visible, .scene-host :focus-visible { outline-color: var(--phosphor); }
+.tag-pop :focus-visible, .key-sheet :focus-visible, .sb-hits :focus-visible, .scene-host :focus-visible { outline-color: var(--phosphor); }
+/* So does a key on a black strip or in the peek's readout window, where an
+   ink ring read 1.1:1 (docs/ux/accessibility.md). */
+.strip :focus-visible, .peek-values :focus-visible { outline-color: var(--phosphor); }
+/* The plotting table's keys and fields sit on its beige panels (ink); only
+   its scope, timeline, stack and GO board are black (phosphor read 1.1:1
+   on the panels). */
+.plot-scope :focus-visible, .plot-timeline :focus-visible, .stack-scope :focus-visible, .goboard :focus-visible, .porkchop :focus-visible { outline-color: var(--phosphor); }
 .input::placeholder { color: var(--label-dim); opacity: 1; }
 * { scrollbar-width: thin; scrollbar-color: var(--seam-strong) transparent; }
 
@@ -308,7 +315,6 @@ kbd {
   background: var(--window); color: var(--phosphor-dim); box-shadow: inset 0 2px 5px #000, 0 1px 0 var(--sheen);
   font-variant-numeric: tabular-nums; color-scheme: dark;
 }
-.input:focus-visible { outline: 2px solid var(--key); }
 /* A real launcher's published figures, unlit until the user changes one. */
 .input.published { background: var(--lamp-dark); color: var(--label-dim); }
 .input.published.est { outline: 1px dashed var(--label-dim); outline-offset: -4px; }
@@ -427,7 +433,7 @@ kbd {
    ink, so it stands apart by shape and place, not colour. RUN stays the one
    orange key, and a selected key is the dark, pressed-in one. */
 .key.primary { white-space: nowrap; height: 38px; padding: 0 18px; background: linear-gradient(var(--sheen), var(--panel-raised)); color: var(--ink); border: 2px solid var(--ink); box-shadow: 0 2px 0 var(--ink), inset 0 1px 0 var(--white); }
-.key.primary:disabled { background: linear-gradient(var(--panel-raised), var(--key-low)); color: var(--ink-muted); border-color: var(--seam-strong); box-shadow: none; }
+.key.primary:disabled { background: var(--panel-sunk); color: var(--ink-muted); border-color: var(--seam-strong); box-shadow: none; }
 /* ARM: lit caution while a launch is armed (yellow: recheck before acting). */
 /* Armed is a caution state, not a selection: a yellow field with an ink
    legend (about 11:1), unlike the dark pressed-in look of a chosen key. */
@@ -551,7 +557,8 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .tb-table td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--seam); white-space: nowrap; }
 .tb-table tbody tr { cursor: pointer; }
 @media (hover: hover) and (pointer: fine) { .tb-table tbody tr:hover td { background: rgba(18, 17, 16, 0.06); } }
-.tb-table tbody tr:focus-visible { outline: 2px solid var(--key); outline-offset: -2px; }
+.tb-table tbody tr:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.tb-table tbody tr[aria-selected='true']:focus-visible { outline-color: var(--phosphor); }
 .tb-table tbody tr[aria-selected='true'] td { background: var(--window); color: var(--phosphor); }
 
 /* ROCKET tab: one block per stage, wide fields, the ascent plot. */
@@ -622,6 +629,18 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 /* Its keys (CENTRE while panned, HOME) take presses; the rest lets them through to the sky. */
 .view-plate .view-status { display: contents; }
 .view-plate .key { pointer-events: auto; }
+/* The VIEW keys: a step each way and closer or farther, above the plate's
+   row (it grows upward from its corner), laid out as a hand controller's. */
+.view-plate:has(.view-pad) { flex-wrap: wrap; }
+/* VIEW latches pressed while its pad is open, as CONSOLE does. */
+.view-plate .key[aria-expanded='true'] { background: var(--window); color: var(--phosphor); border-color: var(--seam-strong); box-shadow: inset 0 2px 4px #000; }
+.view-pad {
+  order: -1; flex-basis: 100%; display: grid; gap: 4px; justify-content: start;
+  grid-template-columns: repeat(4, auto); grid-template-areas: '. up . in' 'left down right out';
+  padding-bottom: 6px; border-bottom: 1px solid var(--lamp-dark);
+}
+.view-pad .pad-up { grid-area: up; } .view-pad .pad-down { grid-area: down; } .view-pad .pad-left { grid-area: left; }
+.view-pad .pad-right { grid-area: right; } .view-pad .pad-in { grid-area: in; margin-left: 8px; } .view-pad .pad-out { grid-area: out; margin-left: 8px; }
 
 /* Small bodies (src/scene/smallBodies.ts): named ones get a smaller, dimmer
    marker than the planets'; the rail's toggles show their population colour. */
@@ -656,9 +675,12 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .tag-pop.key-sheet { z-index: 60; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, calc(100vw - 32px)); max-height: calc(100vh - 32px); }
 .key-sheet .tag-pop-head { align-items: center; }
 .key-list { display: grid; gap: 6px; margin: 0; }
-.key-list div { display: grid; grid-template-columns: 76px 1fr; gap: var(--u); align-items: baseline; }
+.key-list div { display: grid; grid-template-columns: 96px 1fr; gap: var(--u); align-items: baseline; }
 .key-list dt { display: flex; gap: 3px; }
 .key-list dd { margin: 0; color: var(--phosphor-dim); }
+.key-sheet-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--u); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--lamp-dark); color: var(--phosphor-dim); }
+.key-sheet-switch .key { min-width: 52px; }
+.key-sheet .tag-pop-note { margin-top: 8px; }
 /* The rail foot's "? keys": a key legend that opens the sheet. */
 .foot-key { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { .foot-key:hover { color: var(--ink); } }
@@ -804,6 +826,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
    large recessed scope; the journey's editor left, the ledger right, the
    timeline under them. */
 .plot-table { position: fixed; inset: 0; z-index: 40; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; padding: 8px max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); background: var(--bezel); }
+.plot-table:focus { outline: none; }
 .plot-head { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 12px; background: linear-gradient(var(--panel), var(--panel-low)); }
 .plot-title { margin: 0; font: var(--t-plot-title) var(--display); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); }
 .plot-route { font-size: var(--t-rail); color: var(--ink-muted); }
@@ -955,6 +978,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .body-marker.spacecraft.penumbra, .craft-marker.penumbra { opacity: 0.8; }
 .body-marker.satellite.focused .name { opacity: 1; }
 .body-marker.satellite.modelled .dot { visibility: hidden; }
+.body-marker.spacecraft.modelled .dot { visibility: hidden; }
 .sat-source { margin: 0; padding: calc(0.5 * var(--u)) calc(1.5 * var(--u)) 0; font-size: var(--t-small); color: var(--ink-muted); }
 .sat-source .tag { font: var(--t-tag) var(--mono); border: 1px solid var(--ink); padding: 0 4px; color: var(--ink); }
 .sat-live { display: flex; align-items: center; gap: var(--u); padding: var(--u) calc(1.5 * var(--u)) 0; font-size: var(--t-small); color: var(--ink-muted); }
@@ -1020,6 +1044,12 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .phone .clock .hold { margin-left: 6px; }
 .phone .band .key { height: 40px; min-width: 0; padding: 0 12px; flex: none; }
 .phone .band .find-key { margin-left: auto; }
+/* At 320 px (WCAG 1.4.10's reflow width) the clock's seconds ran under RUN:
+   a smaller window and narrower keys keep all of it in view. */
+@media (max-width: 359px) {
+  .phone .clock { font-size: 13px; padding: 7px 6px; }
+  .phone .band .key { padding: 0 8px; }
+}
 .phone .band .key.master { height: 32px; }
 /* The sky: everything under the band, to the bottom of the screen. */
 .phone .scene-host { position: fixed; left: 0; right: 0; top: var(--band-phone); bottom: 0; height: auto; }
@@ -1066,7 +1096,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 }
 .peek-value { min-width: 0; padding: 4px 8px 5px; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 6px; align-items: center; }
 .peek-value + .peek-value { border-left: 1px solid var(--lamp-dark); }
-.peek-value dt { grid-column: 1; grid-row: 1; font: 9px/1.4 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--label-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peek-value dt { grid-column: 1; grid-row: 1; font: 9px/1.4 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--label-dim); overflow-wrap: break-word; }
 /* The tag sits up beside the label, so the number has the window's width. */
 .peek-value dd { display: contents; }
 .peek-num { grid-column: 1 / -1; grid-row: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--phosphor); font: 14px/1.35 var(--sans); font-variant-numeric: tabular-nums; text-shadow: var(--glow); }
@@ -1076,7 +1106,7 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .peek-value .src-tag.derived { color: var(--phosphor-dim); border-color: var(--label-dim); }
 /* The first-visit touch hint, one line under the values. */
 .peek-hint:empty { display: none; }
-.peek-hint .touch-hint { display: block; margin: 0; font: 11px/1.4 var(--sans); color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.peek-hint .touch-hint { display: block; margin: 0; font: 11px/1.4 var(--sans); color: var(--ink-muted); }
 
 /* What the sheet holds: the plate, then the rail, then time and flight. */
 .phone .plate {

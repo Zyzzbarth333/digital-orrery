@@ -43,7 +43,7 @@ Done items stay ticked so the history reads in one place. When an item is taken,
 - [ ] An eclipse and transit finder: the next events, to jump to ([lighting](frontend/lighting.md)).
 - [ ] A telescope view (a narrow field of view), without which transits and occultations stay below a pixel.
 - [ ] Stratospheric aerosol (GloSSAC) for the Danjon darkening of lunar eclipses; it needs a download.
-- [ ] Real models of the spacecraft beyond Earth orbit and the real missions' other craft (in progress).
+- [x] Real models of the spacecraft beyond Earth orbit and the real missions' other craft (#183).
 - [ ] Light the ground with the sky's own light, from the multiple-scattering table, so the land near the terminator takes the sky's blue ([atmospheres](frontend/atmospheres.md)).
 - [ ] Mars's and Titan's skies, reusing the Earth's view table once their parameters have primary sources ([atmospheres](frontend/atmospheres.md)).
 - [ ] The irregular moons' tables beyond 2000–2049: the kernels cover about 1750–2200, at about 0.5 MB a year ([moons](frontend/moons.md)).
@@ -80,14 +80,17 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 
 ## Performance and tooling
 
+- [ ] [ADR-0001](adr/0001-data-physics-and-boundaries.md): pin Node and tidy the boundaries; move the generated data out of git into immutable release assets with `npm run data`, and host the app on GitHub Pages; then, behind a two-tier verification gate, make the physics a workspace package.
+- [ ] Visual regression baselines of key views (the Earth, Saturn's rings, an eclipse, the phone sheet), with parallax-threejs's harness, so a change that alters the scene's look is caught.
 - [ ] Faster journey tests: the Europa round trip (case 17) alone takes about 70 s.
-- [ ] From the code audit of 19 Nov 2026:
-  - one `src/physics/vec.js` for the `dot`, `cross` and `norm` copied into about 40 files (two of which use `norm` to mean normalise);
-  - one focus target in the scene in place of five fields cleared by hand in eight `focusOn*` methods;
-  - `Readout`, `Row` and `fmtGroup` in their own module, ending the import cycles between `panels.tsx` and two plates;
-  - tests for the `Mission` and `JourneyStore` stores (stale worker replies, a failed fetch);
-  - `// @ts-check` on the files that cross the worker boundary;
-  - one `getJson` for the six loaders that each check `r.ok` their own way.
+- [x] From the code audit of 19 Nov 2026:
+  - [x] one `src/physics/vec.js` for the `dot`, `cross` and `norm` copied into about 40 files (two of which use `norm` to mean normalise);
+  - [x] one focus target in the scene in place of five fields cleared by hand in eight `focusOn*` methods;
+  - [x] `Readout`, `Row` and `fmtGroup` in their own module, ending the import cycles between `panels.tsx` and two plates;
+  - [x] tests for the `Mission` and `JourneyStore` stores (stale worker replies, a failed fetch);
+  - [x] `// @ts-check` on the files that cross the worker boundary;
+  - [x] one `getJson` for the six loaders that each check `r.ok` their own way.
+- [ ] From the second code audit of 19 Nov 2026: one helper for the three Python fetchers' repeated download code; checked `fwrite`, `fclose` and `malloc` in the C table writers; no bare `except Exception` in `python/spice_body_params.py`, so a wrong kernel path errors instead of giving silent `None`s.
 - [ ] Time the gravity field at twice the pixel density and in a 4K window, and skip bodies whose pull is below a stated tolerance ([performance](performance.md)).
 - [ ] Trim the compressed maps' downloads near a body, which roughly double (the Moon's 25 MB against 5.5) ([textures](frontend/textures.md)).
 - [ ] Let `npm run bench:frames` settle its zoom at twice the pixel density, where the Earth and belt scenes now drop every sample ([performance](performance.md)).

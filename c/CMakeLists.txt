@@ -29,7 +29,7 @@ target_compile_definitions(artemis2_ref PRIVATE
 
 # A body's state about another from SPK kernels, as a Horizons-style
 # table, for flyby checks with no Horizons reconstruction
-# (src/physics/flyby.fetch.mjs).
+# (pipelines/flyby.fetch.mjs).
 add_executable(flyby_ref flyby_ref.c)
 target_include_directories(flyby_ref PRIVATE "${CSPICE_ROOT}/include")
 target_link_libraries(flyby_ref PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)
@@ -54,7 +54,7 @@ target_compile_definitions(moon_cheb PRIVATE
   ORRERY_PYTHON_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../python")
 
 # The Earth's orientation for the app (docs/physics/orientation.md):
-# NAIF's ITRF93 sampled for src/physics/eop.build.mjs.
+# NAIF's ITRF93 sampled for pipelines/eop.build.mjs.
 add_executable(earth_orientation earth_orientation.c)
 target_include_directories(earth_orientation PRIVATE "${CSPICE_ROOT}/include")
 target_link_libraries(earth_orientation PRIVATE "${CSPICE_ROOT}/lib/cspice.a" m)

@@ -32,7 +32,7 @@ import { bodyAxesEqj } from '../physics/orientation.js';
 import { systemEqj, moonPositionEqj, MOONS_OF } from '../physics/moons.js';
 import { moonTablesVersion, wantMoonTables } from '../physics/moonTables.js';
 import { baryStateEqj } from '../physics/barycentres.js';
-import type { SimClock } from '../app/clock';
+import type { SceneClock } from '../types/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, systemOf, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
 import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, setRingPlane, setUmbraTable, shadowAxes } from './bodyMaterial';
 import { EARTH_OCCULTING_KM, umbraTable } from '../physics/umbra.js';
@@ -46,7 +46,7 @@ import { CraftLayer, type CraftView } from './craftLayer';
 import { SurfacePatch } from './surfacePatch';
 import { clampAboveSurface } from '../physics/surfaceClamp.js';
 import { JourneyLayer } from './journeyLayer';
-import type { JourneyView, JourneyHandlers } from '../app/journey';
+import type { JourneyView, JourneyHandlers } from '../types/journey';
 import { SmallBodyLayer } from './smallBodies';
 import { IrregularMoonLayer, type IrregularPlanet } from './irregularMoons';
 import { SatelliteLayer } from './satellites';
@@ -186,6 +186,12 @@ export function baryState(key: BaryKey, date: Date): BodyState {
 // The frame orbits and distances are given in: the Sun's centre, or the
 // solar system barycentre (the Sun then has a path of its own about it).
 export type Frame = 'sun' | 'ssb';
+// What the camera is on besides a body (OrreryScene.focusTarget).
+export type FocusTarget =
+  | { kind: 'craft'; id: number }
+  | { kind: 'small'; id: string }
+  | { kind: 'sat'; id: number }
+  | { kind: 'probe'; id: string };
 // The Sun's path about the SSB is drawn over two of Jupiter's years.
 const SUN_PATH_DAYS = 2 * 4332.59;
 // The SSB for orbit lines and the SSB frame, as barycentres.js gives it:
@@ -225,6 +231,14 @@ interface OrbitLine {
   line: THREE.Line;
   epochMs: number;      // centre of the sampled span
   sampledAt: number;    // performance.now() of the last resample
+}
+
+// The camera's azimuth and elevation (cameraRig.ts) on the Sun's side of a
+// point r (heliocentric ecliptic km): toward the Sun, turned phase rad round
+// and lifted lift rad, the elevation kept off the poles.
+function sunwardView(r: readonly number[], phase: number, lift: number): { az: number; el: number } {
+  const d = Math.hypot(r[0], r[1], r[2]);
+  return { az: Math.atan2(-r[1], -r[0]) + phase, el: Math.max(-1.3, Math.min(1.3, Math.asin(-r[2] / d) + lift)) };
 }
 
 export class OrreryScene {
@@ -316,23 +330,26 @@ export class OrreryScene {
   private reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   craftSource: () => CraftView[] = () => [];
   onCraftPick: (id: number) => void = () => {};
-  focusCraftId: number | null = null;
-  // A named asteroid or comet the camera is on (smallBodies.ts), like a
-  // followed craft: `focus` keeps the last body. An irregular moon
-  // (irregularMoons.ts) is one too, as 'irr:<key>'.
-  focusSmall: string | null = null;
+  // What the camera is on, when not its body: one at a time, set only by
+  // setFocusTarget. `focus` keeps the last body meanwhile.
+  //   craft: a followed craft, by id;
+  //   small: a named asteroid or comet (smallBodies.ts), an irregular moon
+  //     as 'irr:<key>' (irregularMoons.ts), or a landing site as
+  //     'site:<key>' (landingSites.ts), about whose own vertical the camera
+  //     then turns, its up that vertical (the frame loop);
+  //   sat: an Earth satellite (satellites.ts), by NORAD id;
+  //   probe: a spacecraft beyond Earth orbit (spacecraftLayer.ts).
+  private target: FocusTarget | null = null;
+  get focusTarget(): FocusTarget | null { return this.target; }
+  get focusCraftId(): number | null { return this.target?.kind === 'craft' ? this.target.id : null; }
+  get focusSmall(): string | null { return this.target?.kind === 'small' ? this.target.id : null; }
+  get focusSat(): number | null { return this.target?.kind === 'sat' ? this.target.id : null; }
+  get focusProbe(): string | null { return this.target?.kind === 'probe' ? this.target.id : null; }
   onSmallPick: (pdes: string) => void = () => {};
-  // A landing site on the Moon is one too, as 'site:<key>' (landingSites.ts):
-  // the camera then turns about the site's own vertical, and its up is
-  // that vertical (the frame loop).
-  // An Earth satellite the camera is on (satellites.ts), by NORAD id.
-  focusSat: number | null = null;
   onSatPick: (id: number) => void = () => {};
   // A debris cloud picked (satellites.ts): the camera is on the Earth.
   onSatCloudPick: (key: string) => void = () => {};
   private satDist: number | null = null;
-  // A spacecraft beyond Earth orbit the camera is on (spacecraftLayer.ts).
-  focusProbe: string | null = null;
   onProbePick: (key: string) => void = () => {};
   private probeDist: number | null = null;
   private craftLayer!: CraftLayer;
@@ -397,10 +414,7 @@ export class OrreryScene {
     const irr = pdes.startsWith('irr:') ? pdes.slice(4) : null;
     if (irr ? !this.irregulars.has(irr) : !this.smallBodies.body(pdes)) return;
     if (this.rig.flying && this.rig.destination.id === `small:${pdes}`) return;
-    this.focusCraftId = null;
-    this.clearSat();
-    this.leaveSite();
-    this.focusSmall = pdes;
+    this.setFocusTarget({ kind: 'small', id: pdes });
     this.smallBodies.setFocus(irr ? null : pdes);
     this.irregulars.setFocus(irr);
     this.rig.flyTo(this.smallAnchor(pdes), Math.max(this.smallRadius(pdes) * 8, 1));
@@ -447,11 +461,7 @@ export class OrreryScene {
     if (this.rig.flying && this.rig.destination.id === `small:${id}`) return;
     const sb = this.siteSmallBody(key);
     if (sb && !this.smallBodies.body(sb)) return;
-    this.focusCraftId = null;
-    this.clearSat();
-    if (this.focusSmall !== null && !this.siteKey()) { this.smallBodies.setFocus(null); this.irregulars.setFocus(null); }
-    if (this.drawnSiteKey() && sb) this.leaveSite();
-    this.focusSmall = id;
+    this.setFocusTarget({ kind: 'small', id });
     this.sites.setFocus(key);
     if (sb) {
       this.smallBodies.setFocus(sb);
@@ -487,17 +497,13 @@ export class OrreryScene {
     this.rig.az = Math.atan2(d[1], d[0]);
     this.rig.el = Math.asin(Math.max(-1, Math.min(1, d[2])));
     this.siteFrom = null;
-    this.sites.setFocus(null);
   }
 
   // Fly to a named satellite: 200 km out, or the distance last zoomed to.
   focusOnSatellite(id: number): void {
     if (!this.satellites.sat(id)) return;
     if (this.rig.flying && this.rig.destination.id === `sat:${id}`) return;
-    this.focusCraftId = null;
-    this.clearSmall();
-    this.satellites.setCloud(null);
-    this.focusSat = id;
+    this.setFocusTarget({ kind: 'sat', id });
     this.satellites.setFocus(id);
     this.rig.flyTo({ id: `sat:${id}`, pos: () => this.satellites.positionKm(id, this.clock.snapshot.timeMs, this.states.earth.r), minDist: 0.02 }, this.satDist ?? 200);
     this.onFlight(this.rig.flying);
@@ -508,9 +514,7 @@ export class OrreryScene {
   focusOnSatCloud(key: string): void {
     const c = this.satellites.cloudView(key);
     if (!c) return;
-    this.focusCraftId = null;
-    this.clearSmall();
-    this.clearSat();
+    this.setFocusTarget(null);
     this.focus = 'earth';
     this.loadSurfaces('earth');
     this.satellites.setCloud(key);
@@ -519,31 +523,47 @@ export class OrreryScene {
     this.onFocusChange('earth');
     this.onSatCloudPick(key);
   }
-  private clearSat(): void {
+  // The one way the camera's target changes: the last one is no longer
+  // drawn as focused in its layer (a site's frame is left, too), and a
+  // picked debris cloud is let go. The caller marks the new one.
+  private setFocusTarget(next: FocusTarget | null): void {
+    this.probeTicket++;                 // a flight waiting on a probe's place is called off
+    const was = this.target;
+    if (was?.kind === 'small') { this.leaveSite(); this.smallBodies.setFocus(null); this.irregulars.setFocus(null); }
+    else if (was?.kind === 'sat') this.satellites.setFocus(null);
+    else if (was?.kind === 'probe') this.spacecraft.setFocus(null);
     this.satellites.setCloud(null);
-    if (this.focusSat !== null) { this.focusSat = null; this.satellites.setFocus(null); }
-    if (this.focusProbe !== null) { this.focusProbe = null; this.spacecraft.setFocus(null); }
+    this.target = next;
   }
   // Fly to a spacecraft beyond Earth orbit: 500 km out, or the distance last
-  // zoomed to. Shares the satellites' focus slot (clearSat clears both).
-  focusOnProbe(key: string): void {
+  // zoomed to, arriving on its sunlit side (the probes' models face their
+  // arrays to the Sun). A craft whose month of data has not arrived has no
+  // place yet, and a flight there would be handed back on its first frame:
+  // the flight waits for it, unless another focus is chosen meanwhile.
+  // waited: the place has been waited for (a day without data flies, and is
+  // handed back, as before).
+  private probeTicket = 0;
+  focusOnProbe(key: string, waited = false): void {
     if (!this.spacecraft.probe(key)) return;
     if (this.rig.flying && this.rig.destination.id === `probe:${key}`) return;
-    this.focusCraftId = null;
-    this.clearSmall();
-    this.clearSat();
-    this.focusProbe = key;
+    const now = () => this.clock.snapshot.timeMs;
+    const r = this.spacecraft.positionKm(key, now());
+    if (!r && !waited) {
+      const ticket = ++this.probeTicket;
+      void this.spacecraft.placed(key, now).then(() => { if (ticket === this.probeTicket) this.focusOnProbe(key, true); });
+      return;
+    }
+    // Arriving from elsewhere at a sunlit craft, the camera turns to its
+    // Sun side, a little off the line (as viewFromSun's), so the arrays face
+    // it lit. Not in a body's shadow (the Sun's side is the planet then),
+    // and not when the camera is on this craft already (the angle is the
+    // user's).
+    const turn = r && this.focusProbe !== key && this.sunlightAt(r).nu > 0 ? sunwardView(r, 0.35, 0.25) : undefined;
+    this.setFocusTarget({ kind: 'probe', id: key });
     this.spacecraft.setFocus(key);
-    this.rig.flyTo({ id: `probe:${key}`, pos: () => this.spacecraft.positionKm(key, this.clock.snapshot.timeMs), minDist: 0.02 }, this.probeDist ?? 500);
+    this.rig.flyTo({ id: `probe:${key}`, pos: () => this.spacecraft.positionKm(key, now()), minDist: 0.02 }, this.probeDist ?? 500, turn);
     this.onFlight(this.rig.flying);
     this.onProbePick(key);
-  }
-  private clearSmall(): void {
-    if (this.focusSmall === null) return;
-    this.leaveSite();
-    this.focusSmall = null;
-    this.smallBodies.setFocus(null);
-    this.irregulars.setFocus(null);
   }
 
   private craftAnchor(id: number): Anchor {
@@ -566,7 +586,7 @@ export class OrreryScene {
   // terminator, pi/2 the terminator edge-on (applied on the next frame).
   viewFromSun(phase = 0.35): void { this.sunViewPending = true; this.sunViewPhase = phase; }
 
-  constructor(private container: HTMLElement, private overlay: HTMLElement, private clock: SimClock) {
+  constructor(private container: HTMLElement, private overlay: HTMLElement, private clock: SceneClock) {
     // HDR (post.ts): the scene renders linear light into a half-float
     // target (4x multisampled below 1.5 device pixels per CSS pixel; above
     // that the pixels are small enough), and one final pass mixes in the
@@ -580,6 +600,10 @@ export class OrreryScene {
     this.scale = new RenderScale(dpr, new URLSearchParams(location.search).get('scale') === 'fixed');
     this.renderer.toneMapping = TONE_MAPPING;
     this.renderer.setClearColor(0x000000, 1);
+    // A text alternative for the drawing (WCAG 1.1.1): what it is, and where
+    // its contents can be read; the view plate says what it is on.
+    this.renderer.domElement.setAttribute('role', 'img');
+    this.renderer.domElement.setAttribute('aria-label', 'The 3D sky: the Sun, planets, moons and craft at their true places for the clock\'s time. The rail lists them, and the plate reads out the one in view.');
     container.appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(45, 1, NEAR_MAX, 1e10);
@@ -767,9 +791,7 @@ export class OrreryScene {
 
   // Follow a craft: fly to it, or (immediate) start there.
   focusOnCraft(id: number, immediate = false): void {
-    this.clearSmall();
-    this.clearSat();
-    this.focusCraftId = id;
+    this.setFocusTarget({ kind: 'craft', id });
     const d = this.craftDist ?? 2.0e4;
     if (immediate) this.rig.jumpTo(this.craftAnchor(id), d);
     else this.rig.flyTo(this.craftAnchor(id), d);
@@ -781,10 +803,8 @@ export class OrreryScene {
   // changes nothing.
   focusOn(key: FocusKey): void {
     if (this.rig.flying && this.rig.destination.id === `body:${key}`) return;
-    const reframe = key === this.focus && this.focusCraftId === null && this.focusSmall === null && this.focusSat === null && this.focusProbe === null;
-    this.focusCraftId = null;
-    this.clearSmall();
-    this.clearSat();
+    const reframe = key === this.focus && this.target === null;
+    this.setFocusTarget(null);
     this.focus = key;
     if (!isBary(key)) this.loadSurfaces(key);   // start now: the flight hides the upload
     this.rig.flyTo(this.bodyAnchor(key), this.arrivalDist(key, reframe));
@@ -801,9 +821,7 @@ export class OrreryScene {
   home(): void {
     this.userRadii = null;
     this.sunDist = null;
-    this.focusCraftId = null;
-    this.clearSmall();
-    this.clearSat();
+    this.setFocusTarget(null);
     this.focus = 'sun';
     this.rig.flyTo(this.bodyAnchor('sun'), HOME.dist, { az: HOME.az, el: HOME.el });
     this.onFlight(this.rig.flying);
@@ -845,7 +863,7 @@ export class OrreryScene {
   private restoreSmall(on: string, cam: { az: number; el: number; dist: number; pan: Vec3 } | null): boolean {
     const irr = on.startsWith('irr:') ? on.slice(4) : null, site = on.startsWith('site:') ? on.slice(5) : null;
     if (irr ? !this.irregulars.has(irr) : site ? !SITE_BY_KEY[site] : !this.smallBodies.body(on)) return false;
-    this.focusSmall = on;
+    this.setFocusTarget({ kind: 'small', id: on });
     const sb = site ? this.siteSmallBody(site) : null;
     if (sb && !this.smallBodies.body(sb)) return false;
     this.smallBodies.setFocus(irr || (site && !sb) ? null : sb ?? on);
@@ -994,6 +1012,12 @@ export class OrreryScene {
   private camDist = 1.6e9;
 
   // Back onto the focus after a pan (a double-click, C, or the view plate's key).
+  // A step of the view from a key or the view plate's pad, so turning and
+  // zooming need no drag, wheel or pinch (WCAG 2.1.1, 2.5.1, 2.5.7):
+  // turn by radians (as a drag would), or zoom by a factor (as the wheel).
+  turn(dAz: number, dEl: number): void { this.rig.rotate(dAz, dEl); }
+  zoomStep(factor: number): void { this.zoomBy(factor); }
+
   recentre(): void {
     this.rig.recentre();
     this.notifyPan();
@@ -1273,17 +1297,16 @@ export class OrreryScene {
       else if (this.smallBodies.body(r.on.startsWith('site:') ? this.siteSmallBody(r.on.slice(5)) ?? '' : r.on)) { this.restoreOn = null; this.restoreSmall(r.on, r.cam); }
     }
     if (this.sunViewPending && this.focus !== 'sun') {
-      const b = this.states[this.focus].r;
-      const d = Math.hypot(b[0], b[1], b[2]);
-      this.rig.az = Math.atan2(-b[1], -b[0]) + this.sunViewPhase;
-      this.rig.el = Math.asin(-b[2] / d) + 0.15;
+      const v = sunwardView(this.states[this.focus].r, this.sunViewPhase, 0.15);
+      this.rig.az = v.az; this.rig.el = v.el;
       this.sunViewPending = false;
     }
     // Camera position in km (ecliptic): about the pivot (cameraRig.ts). A
     // followed craft that is gone hands the camera back to the focus body.
     if (!this.rig.update(dtReal)) {
-      this.focusCraftId = null;
-      this.clearSat();                  // a satellite SGP4 can no longer place
+      // A craft gone, or a satellite SGP4 can no longer place; a small body
+      // stays the target, as before.
+      if (this.target?.kind !== 'small') this.setFocusTarget(null);
       this.onFocusChange(this.focus);   // the app stops showing FOLLOW
       this.rig.flyTo(this.bodyAnchor(this.focus), this.arrivalDist(this.focus, false));
       this.rig.update(0);
@@ -1357,7 +1380,9 @@ export class OrreryScene {
     }
 
     this.craftLayer.setView(this.viewH / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
-    this.craftLayer.place(crafts, cam, UNIT_KM, { sunEcl: this.states.sun.r as Vec3, earthEcl: this.states.earth.r as Vec3 });
+    const probe = this.focusProbe !== null ? this.spacecraft.modelPose(tMs) : null;
+    this.craftLayer.place(crafts, cam, UNIT_KM, { sunEcl: this.states.sun.r as Vec3, earthEcl: this.states.earth.r as Vec3 }, probe ? [probe] : []);
+    this.spacecraft.modelled = probe !== null && this.craftLayer.shownKey(probe.key);
     const journey = this.journeySource();
     this.journeyLayer.place(journey, this.journeyCentral, cam, UNIT_KM, dist);
 
@@ -1388,6 +1413,7 @@ export class OrreryScene {
       if (fm) this.shadowOn(fm.material as THREE.ShaderMaterial, fm.position, Math.max(fm.scale.x, fm.scale.y, fm.scale.z), this.meshes.get('sun')!.position);
     }
     this.satellites.setView(this.viewH / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
+    this.satellites.craftLit = this.craftLayer.modelsLit;
     this.satellites.update(tMs, cam, this.states.earth.r, 1 / this.renderer.toneMappingExposure, this.adapt, this.states.moon.r);
     this.groundTrack.update(tMs, this.meshes.get('earth'), 1 / this.renderer.toneMappingExposure);
     this.spacecraft.update(tMs, cam, 1 / this.renderer.toneMappingExposure);
@@ -1751,7 +1777,7 @@ export class OrreryScene {
       el.classList.toggle('resolved', radiusPx > 4);
       if (b.key === 'earth') this.earthResolved = radiusPx > 3;
       if (radiusPx > 3) this.loadSurfaces(b.key);
-      el.classList.toggle('focused', b.key === this.focus && this.focusCraftId === null && this.focusSmall === null && this.focusSat === null && this.focusProbe === null);
+      el.classList.toggle('focused', b.key === this.focus && this.target === null);
     }
     // Barycentres: hidden while they sit on their body's marker (unless
     // focused). They are drawn over discs, the Sun's or a planet's, that
@@ -1761,7 +1787,7 @@ export class OrreryScene {
       const ndc = this.tmp.copy(this.baryPos.get(b.key)!).project(this.camera);
       if (ndc.z > 1 || ndc.z < -1) { el.style.display = 'none'; continue; }
       const x = Math.round(((ndc.x + 1) / 2) * w * dpr) / dpr, y = Math.round(((1 - ndc.y) / 2) * h * dpr) / dpr;
-      const focused = b.key === this.focus && this.focusCraftId === null && this.focusSmall === null && this.focusSat === null && this.focusProbe === null;
+      const focused = b.key === this.focus && this.target === null;
       const ps = screen.get(b.of);
       if (!focused && ps && Math.hypot(x - ps[0], y - ps[1]) < 14) { el.style.display = 'none'; continue; }
       el.style.display = '';
@@ -1783,6 +1809,7 @@ export class OrreryScene {
   }
 
   dispose(): void {
+    this.probeTicket++;
     cancelAnimationFrame(this.raf);
     window.removeEventListener('keydown', this.onKey);
     this.container.removeEventListener('wheel', this.onWheel);

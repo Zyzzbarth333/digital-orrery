@@ -550,6 +550,7 @@ int main(int argc, char **argv) {
     for (int tries = 0;; tries++) {
       const int k = c->k, n = c->n;
       coef[mi] = malloc(sizeof(double) * (size_t)ny * k * 3 * n);
+      if (!coef[mi]) { fprintf(stderr, "%d: out of memory at %d x %d\n", m->id, k, n); return 1; }
       worst[mi] = worstV[mi] = jumpR[mi] = jumpV[mi] = 0;
       for (int y = y0; y < y1; y++) {
         const double a = year_et(y), len = (year_et(y + 1) - a) / k;
@@ -574,6 +575,10 @@ int main(int argc, char **argv) {
         }
       }
       if (worst[mi] <= tol_of(m, tol)) break;
+      /* Twelve refits (k up to 64 times its start) is far past any moon so far:
+         past them the tolerance is out of reach, so stop rather than double k
+         until malloc fails. */
+      if (tries >= 12) { fprintf(stderr, "%d: %d x %d still misses by %.3f km; giving up\n", m->id, k, n, worst[mi]); free(coef[mi]); return 1; }
       fprintf(stderr, "%d: %d x %d misses by %.3f km; ", m->id, k, n, worst[mi]);
       free(coef[mi]);
       /* Rounding to Float32 may be what misses, past a few tries. */

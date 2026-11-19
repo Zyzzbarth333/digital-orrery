@@ -32,6 +32,7 @@
 //   ganymede Juno's and Galileo's dipole (Weber et al. 2022).
 
 import { IGRF, JRM33, CASSINI11 } from './magnetic.data.js';
+import { cross, unit } from './vec.js';
 
 const DEG = Math.PI / 180;
 export const MAGNETIC_BODIES = ['mercury', 'earth', 'jupiter', 'saturn', 'uranus', 'neptune', 'ganymede'];
@@ -449,7 +450,7 @@ export function dipoleFrame(model) {
   const { m } = model.dipole;
   const M = Math.hypot(m[0], m[1], m[2]), u = [m[0] / M, m[1] / M, m[2] / M];
   const ref = Math.abs(u[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
-  const e1 = norm(cross(ref, u));
+  const e1 = unit(cross(ref, u));
   return { u, e1, e2: cross(u, e1) };
 }
 
@@ -478,8 +479,6 @@ export function rayToSurface(c, d, { eq, pol }) {
   const t = (-B + Math.sqrt(B * B - 4 * A * C)) / (2 * A);
   return [c[0] + t * d[0], c[1] + t * d[1], c[2] + t * d[2]];
 }
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (v) => { const n = Math.hypot(v[0], v[1], v[2]); return [v[0] / n, v[1] / n, v[2] / n]; };
 
 // ---- Earth: geodetic coordinates, and north-east-down components ----
 //

@@ -50,6 +50,7 @@ they come from, and how each part is checked.
 ## Usability
 
 [UX review](ux/review.md): personas, scenarios and a heuristic evaluation of the console, with what was fixed.
+[Accessibility audit](ux/accessibility.md): the console against WCAG 2.2 AA, each finding with its criterion, fix and status.
 [Think-aloud test kit](ux/think-aloud/README.md): scenarios, script, consent and recording sheet for testing with people.
 [UX research](ux/research.md) and the [overhaul plan](ux/overhaul-plan.md): what space-sim and planetarium UIs, panel design, camera navigation, sky rendering and WebGL performance research say, and the November 2026 overhaul built on it.
 
@@ -63,6 +64,8 @@ result. The flown missions in detail: [Artemis I](validation/artemis1.md),
 for the slow parts.
 
 ## Background
+
+[ADR-0001: a hosted site, data out of git, and tidier boundaries](adr/0001-data-physics-and-boundaries.md): the decision on how the repository is split.
 
 [Simulation techniques and tools review](physics/simulation-review.md):
 desk research on Julia and SciML, rocketry tools, astrodynamics simulators

@@ -95,6 +95,15 @@ run](#a-long-run)), and the ISS
   median over `--rounds` (3); each round's numbers, with the 90th
   percentile and the worst frame, go to stderr, and all of them to
   `--json FILE`. `--size` (1920x1080) and `--dpr` (1) set the viewport.
+- **Framing.** Each scenario's camera distance is set with wheel events
+  over the sky (`zoomTo` in `scripts/lib/chromium.mjs`). The page receives
+  the wheel's delta divided by the device pixel ratio, and the browser may
+  scale it further, so the first event measures how far one unit of
+  wheel zooms on this page. The rest use that rate, and up to four more
+  close the gap to within 0.5 %; a step the camera's limits stop ends it.
+  Until 19 November 2026 it assumed the scene's own rate,
+  exp(0.0015 Δy), so at DPR 2 every zoom fell short of its tolerance and
+  every sample was left out, at phone size as at 1920 × 1080.
 - **A busy machine.** Under heavy load the page can stall for seconds:
   its camera flight never ends, or it draws a handful of frames while
   timed. Such a sample is loaded afresh up to `--retries` times (2), then
@@ -156,6 +165,30 @@ the most self time, `--skip` leaves steps out, and `--json` keeps every
 sample. It holds the GPU lock and caps its browser as `bench:frames`
 does.
 
+### A phone's view
+
+The phone layout ([phone](frontend/phone.md)) draws the sky full-screen
+under its band: at 390 × 844 and DPR 2 the canvas is 780 × 1584 pixels,
+about 60 % of a 1920 × 1080 frame at DPR 1. Frame cost and gap, median
+ms, two rounds:
+
+| Scenario | Intel frame | Intel gap | NVIDIA frame | NVIDIA gap |
+| --- | ---: | ---: | ---: | ---: |
+| Earth close-up, 20,000 km | 16.9 | 17.5 | 6.2 | 16.7 |
+| The asteroid belt, 9 × 10⁸ km | 12.7 | 16.7 | 4.2 | 16.7 |
+| Craft in LEO (6-DOF), 0.4 km | 16.1 | 17.1 | 5.1 | 16.7 |
+| Craft in LEO (6-DOF), 3,000 km | 17.6 | 18.4 | 4.9 | 16.7 |
+| Craft in LEO (point), 0.4 km | 15.9 | 16.8 | 4.9 | 16.6 |
+| Craft in LEO (point), 3,000 km | 16.2 | 16.9 | 4.8 | 16.7 |
+
+`npm run bench:frames -- --gpu intel,nvidia --size 390x844 --dpr 2
+--rounds 2`, 19 November 2026, load average 3–5. The emulated screen has
+a mouse, not a touch screen, so the sheet sits at peek and the camera's
+offset is the one a phone gets there. On the Intel GPU the Earth and the
+craft cost about a whole 60 Hz frame (16–18 ms), so the gap stretches to
+17–18 ms; the belt fits with 4 ms to spare. On the RTX every scene fits
+with 10 ms or more.
+
 ## The test suite
 
 `npm test` (`scripts/test.mjs`) runs every check file in its own Node
@@ -173,7 +206,7 @@ files run in parts:
   A case named that the file doesn't have fails, so a part can't silently
   run nothing.
 - **`missions.validate.mjs`, by mission**, as it already took them:
-  `node src/physics/missions.validate.mjs messenger`.
+  `node validation/missions.validate.mjs messenger`.
 
 `npm test -- journey` runs only the parts whose command contains
 `journey`. With more processors, `TEST_JOBS=8 npm test` is faster still:
@@ -727,8 +760,9 @@ ms, 1920 × 1080:
 Three rounds, interleaved, under load averages of 9–13 at DPR 1 and 3–53
 (once 104) at DPR 2. At DPR 2 the Earth and belt scenes could not be timed
 in either build: the harness's zoom never settled within its tolerance, so
-every sample was left out. The NVIDIA overview at DPR 2 is a few frames'
-noise at 4–6 ms; at DPR 1 the two are level.
+every sample was left out (since fixed, under [Measuring](#measuring)).
+The NVIDIA overview at DPR 2 is a few frames' noise at 4–6 ms; at DPR 1
+the two are level.
 
 Sampling a compressed texture reads a quarter of the bytes, but none of
 these scenes is limited by texture reads, so frame time is unchanged within

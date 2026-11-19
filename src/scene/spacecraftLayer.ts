@@ -25,8 +25,11 @@
 import * as THREE from 'three';
 import { eqjToEcl } from '../physics/ephemeris.js';
 import { parseMonth, segmentAt, stateIn } from '../physics/spacecraft.js';
+import { getBuffer, getJson } from '../physics/fetchData.js';
 import { orbitTrailMaterial } from './orbitTrail';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
+import { probeModelKey } from './probeModels';
+import type { ModelPose } from './craftModels';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000, DAY = 86400e3;
@@ -67,6 +70,7 @@ export class SpacecraftLayer {
   private index: Index | null = null;
   private loading: Promise<void> | null = null;
   private months = new Map<string, Month | 'loading' | 'missing'>();
+  private fetching = new Map<string, Promise<void>>();     // a month's fetch, while it runs
   private markers = new Map<string, HTMLDivElement>();
   private paths = new Map<string, Path>();
   private toRenderM = eqjToRenderMatrix();
@@ -106,9 +110,7 @@ export class SpacecraftLayer {
 
   private async load(): Promise<void> {
     try {
-      const r = await fetch(`${this.baseUrl}data/spacecraft/index.json`);
-      if (!r.ok) throw new Error(`index.json: HTTP ${r.status}`);
-      const ix = await r.json() as Index;
+      const ix = await getJson(`${this.baseUrl}data/spacecraft/index.json`, 'index.json') as Index;
       if (this.disposed) return;
       this.index = ix;
       for (const c of ix.craft) if (c.days > 0) this.makeMarker(c);
@@ -129,11 +131,30 @@ export class SpacecraftLayer {
       if (!this.index.months.includes(key)) { this.months.set(key, 'missing'); return null; }
       this.months.set(key, 'loading');
       const base = `${this.baseUrl}data/spacecraft/${key}`;
-      void Promise.all([fetch(`${base}.json`).then((r) => r.json()), fetch(`${base}.bin`).then((r) => r.arrayBuffer())])
+      this.fetching.set(key, Promise.all([getJson(`${base}.json`, `${key}.json`), getBuffer(`${base}.bin`, `${key}.bin`)])
         .then(([json, bin]) => { this.months.set(key, parseMonth(json, bin)); this.resample(); })
-        .catch((err) => { console.warn(`spacecraft ${key} not loaded: ${err}`); this.months.delete(key); });
+        .catch((err) => { console.warn(`spacecraft ${key} not loaded: ${err}`); this.months.delete(key); })
+        .finally(() => this.fetching.delete(key)));
     }
     return null;
+  }
+
+  // Resolves once a craft has a place at now() (true), or false once its
+  // month has arrived with no state that day, is missing or failed to load,
+  // fetching the index and the month if need be. A state whose centre has
+  // no place yet (the scene before its first frame) is waited for, 10 s at
+  // most.
+  async placed(key: string, now: () => number): Promise<boolean> {
+    await this.loadIndex();
+    for (let i = 0; i < 100 && !this.disposed; i++) {
+      const t = now();
+      if (this.positionKm(key, t)) return true;
+      const wait = this.fetching.get(new Date(t).toISOString().slice(0, 7));
+      if (wait) { await wait; continue; }
+      if (!this.stateAbout(key, t)) return false;
+      await new Promise((ok) => setTimeout(ok, 100));
+    }
+    return false;
   }
 
   // A craft's state about its own centre at t (UTC ms), J2000 equatorial,
@@ -157,6 +178,20 @@ export class SpacecraftLayer {
     if (!s || !o) return null;
     const r = eqjToEcl(s.r) as V3;
     return [o[0] + r[0], o[1] + r[1], o[2] + r[2]];
+  }
+
+  // Whether the focused craft's model was drawn this frame (its marker's
+  // square is then hidden, as a satellite's is).
+  modelled = false;
+  // The focused craft's close-up model this frame, if NASA publishes one
+  // (probeModels.ts): drawn only for the craft the camera is on, so a
+  // model loads only once the camera is there and close (craftModels.ts).
+  // Its axes are its pointing, worked out where it is drawn.
+  modelPose(t: number): ModelPose | null {
+    const key = this.focusKey, m = key && probeModelKey(key);
+    const r = m ? this.positionKm(key, t) : null;
+    if (!m || !r) return null;
+    return { key: `probe:${key}`, spec: { kind: 'probe', key: m }, rEcl: r, axes: [[1, 0, 0], [0, 1, 0], [0, 0, 1]], firing: false };
   }
 
   setFocus(key: string | null): void {
@@ -289,6 +324,7 @@ export class SpacecraftLayer {
       const x = Math.round(((ndc.x + 1) / 2) * w * px) / px, y = Math.round(((1 - ndc.y) / 2) * h * px) / px;
       const quiet = !focused && placed.some(([qx, qy]) => Math.abs(qx - x) < 70 && Math.abs(qy - y) < 12);
       el.classList.toggle('quiet', quiet);
+      el.classList.toggle('modelled', focused && this.modelled);
       if (!quiet) placed.push([x, y]);
       el.style.display = '';
       el.style.transform = `translate(${x}px, ${y}px)`;

@@ -252,7 +252,8 @@ export function FindField({ api, inputId = 'find' }: { api: FindApi; inputId?: s
           })}
         </div>
       )}
-      <span id={`${id}-status`} className="sb-search-status" role="status">{status}</span>
+      {/* The count is for screen readers (WCAG 4.1.3): the list shows it. */}
+      <span id={`${id}-status`} className="sb-search-status" role="status">{status}{shown && <span className="sr-only">{`${hits.length} ${hits.length === 1 ? 'match' : 'matches'}`}</span>}</span>
     </div>
   );
 }

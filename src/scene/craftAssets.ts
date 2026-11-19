@@ -13,6 +13,10 @@
 //   published 363 ft long and 33 ft across, and cut at the stages' joints
 //   (stackShape.js) so each falls away as it separates: a triangle goes
 //   with the stage its centre lies in.
+// - The ISS and Hubble: NASA/JPL-Caltech's models from NASA's Eyes on the
+//   Earth (probeModels.ts SATELLITE_MODELS), turned into the body axes,
+//   scaled and centred like a probe's, but with their nodes kept so their
+//   arrays can turn (satelliteModels.ts).
 //
 // Each loads the first time its craft is close enough to draw (craftModels
 // asks), never before; until then, and if it fails, the craft is drawn by
@@ -26,16 +30,21 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { ktx2Loader } from './ktx2';
+import { PROBE_MODELS, SATELLITE_MODELS, type Axis, type ProbeModel, type SatModel } from './probeModels';
 
-export type AssetKey = 'orion' | 'saturn-v';
+export type AssetKey = 'orion' | 'saturn-v' | `probe:${string}` | `sat:${'iss' | 'hubble'}`;
 
 // A loaded model, in metres along the body axes (+x the nose, as the
 // simple models): its parts, each a group of shared meshes. Orion: 'cm'
 // and 'sm'. Saturn V: 'stage0', 'stage1', … from the base, and the
 // cuts' heights (m from the base). base: x of the lowest point, aft.
-export interface Asset { parts: Map<string, THREE.Group>; cuts?: number[]; base: number; span: number }
+// A probe: 'all', and box, its bounds in the body axes (m). A satellite:
+// 'all', its nodes kept (by their names, as three makes them).
+export interface Asset { parts: Map<string, THREE.Group>; cuts?: number[]; base: number; span: number; box?: THREE.Box3 }
 
-const URL_OF: Record<AssetKey, string> = { orion: 'models/orion/artemis_ii.gltf', 'saturn-v': 'models/saturn-v.glb' };
+const URL_OF: Record<string, string> = { orion: 'models/orion/artemis_ii.gltf', 'saturn-v': 'models/saturn-v.glb' };
+const urlOf = (key: AssetKey) => (key.startsWith('probe:') ? `models/probes/${PROBE_MODELS[key.slice(6)].file}`
+  : key.startsWith('sat:') ? `models/satellites/${SATELLITE_MODELS[key.slice(4) as 'iss' | 'hubble'].file}` : URL_OF[key]);
 const state = new Map<AssetKey, Asset | 'loading' | 'failed'>();
 
 // The asset if loaded; else starts loading it (once) and returns null.
@@ -108,9 +117,11 @@ function splitAlongX(g: THREE.BufferGeometry, cuts: number[]): (THREE.BufferGeom
 }
 
 async function load(key: AssetKey, cuts: number[]): Promise<Asset> {
-  const url = `${import.meta.env.BASE_URL}${URL_OF[key]}`;
+  const url = `${import.meta.env.BASE_URL}${urlOf(key)}`;
   const { scene } = await loader().loadAsync(url);
   const upToX = new THREE.Matrix4().makeRotationZ(-Math.PI / 2);     // +y to +x
+  if (key.startsWith('probe:')) return probe(key.slice(6), scene);
+  if (key.startsWith('sat:')) return satellite(SATELLITE_MODELS[key.slice(4) as 'iss' | 'hubble'], scene);
   if (key === 'orion') {
     // In metres as published, its origin at the adapter's joint; the crew
     // module is every child node above 0.3 m (its heat shield's base, 0.4).
@@ -145,4 +156,111 @@ async function load(key: AssetKey, cuts: number[]): Promise<Asset> {
     m.geometry.dispose();
   }
   return { parts, cuts, base: 0, span: L };
+}
+
+// A unit vector along a model axis.
+export function axisVec(a: Axis): THREE.Vector3 {
+  const v = new THREE.Vector3();
+  v.setComponent('xyz'.indexOf(a[1]), a[0] === '-' ? -1 : 1);
+  return v;
+}
+
+// The rotation model -> body: the model axes fx, fz as body x and z (rows
+// are the model's axes as body x, y, z).
+function frame(fx: THREE.Vector3, fz: THREE.Vector3): THREE.Matrix4 {
+  const fy = new THREE.Vector3().crossVectors(fz, fx);
+  return new THREE.Matrix4().set(fx.x, fx.y, fx.z, 0, fy.x, fy.y, fy.z, 0, fz.x, fz.y, fz.z, 0, 0, 0, 0, 1);
+}
+
+// The scale that makes the part a published figure measures span it.
+function scaleOf(sc: ProbeModel['scale'], scene: THREE.Object3D): number {
+  if (!sc) return 1;
+  scene.updateMatrixWorld(true);
+  const b = new THREE.Box3();
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const mats = Array.isArray(m.material) ? m.material : [m.material];
+    if (sc.part === null || m.name === sc.part || mats.some((x) => x.name === sc.part)) b.expandByObject(m);
+  });
+  const ext = b.max[sc.axis] - b.min[sc.axis];
+  return ext > 0 ? sc.m / ext : 1;
+}
+
+// A probe: the model turned so its Sun (or Earth) axis is +x and its up
+// +z, scaled so the part its published figure measures spans that figure,
+// and centred on its bounds.
+function probe(key: string, scene: THREE.Object3D): Asset {
+  const P = PROBE_MODELS[key];
+  const rot = frame(axisVec((P.sun ?? P.earth)!), axisVec(P.up)), s = scaleOf(P.scale, scene);
+  const scaled = new THREE.Matrix4().multiplyMatrices(rot, new THREE.Matrix4().makeScale(s, s, s));
+  const meshes = baked(scene, scaled), box = new THREE.Box3();
+  for (const m of meshes) { m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox!); }
+  const c = box.getCenter(new THREE.Vector3());
+  const all = new THREE.Group();
+  for (const m of meshes) { m.geometry.translate(-c.x, -c.y, -c.z); all.add(m); }
+  box.translate(c.negate());
+  return { parts: new Map([['all', all]]), base: box.min.x, span: box.max.x - box.min.x, box };
+}
+
+// The triangles of a mesh whose centres (in the scene's frame) pass a test,
+// as a geometry in the scene's frame, and the rest left in the mesh.
+function splitOff(m: THREE.Mesh, test: (c: THREE.Vector3) => boolean): THREE.BufferGeometry | null {
+  const g = m.geometry as THREE.BufferGeometry, pos = g.getAttribute('position'), idx = g.getIndex();
+  const n = idx ? idx.count : pos.count, at = (k: number) => (idx ? idx.getX(k) : k);
+  const W = m.matrixWorld, a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const out: number[] = [], keep: number[] = [];
+  for (let k = 0; k < n; k += 3) {
+    const i = at(k), j = at(k + 1), l = at(k + 2);
+    a.fromBufferAttribute(pos, i).applyMatrix4(W); b.fromBufferAttribute(pos, j).applyMatrix4(W); c.fromBufferAttribute(pos, l).applyMatrix4(W);
+    (test(a.add(b).add(c).divideScalar(3)) ? out : keep).push(i, j, l);
+  }
+  if (!out.length) return null;
+  const split = g.clone(); split.setIndex(out); split.applyMatrix4(W);
+  const rest = g.clone(); rest.setIndex(keep); m.geometry = rest;
+  return split;
+}
+
+// A satellite: its nodes kept, Hubble's arrays split off into a node of
+// their own, turned into the body axes, scaled and centred on its bounds.
+function satellite(P: SatModel, scene: THREE.Object3D): Asset {
+  const s = scaleOf(P.scale, scene);
+  scene.updateMatrixWorld(true);
+  if (P.arrays) {
+    const A = P.arrays, k = 'xyz'.indexOf(A.axis), cells = new THREE.Box3();
+    scene.traverse((o) => { if ((o as THREE.Mesh).isMesh && o.name === A.cells) cells.expandByObject(o); });
+    const pivot = new THREE.Group();
+    pivot.name = A.node;
+    pivot.position.copy(cells.getCenter(new THREE.Vector3())).setComponent(k, 0);
+    const meshes: THREE.Mesh[] = [];
+    scene.traverse((o) => { if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh); });
+    for (const m of meshes) {
+      const g = splitOff(m, (c) => Math.abs(c.getComponent(k)) > A.beyond);
+      if (!g) continue;
+      g.translate(-pivot.position.x, -pivot.position.y, -pivot.position.z);
+      const part = new THREE.Mesh(g, m.material);
+      part.name = `${m.name}_${A.node}`;
+      pivot.add(part);
+    }
+    scene.add(pivot);
+  }
+  for (const name of P.hide ?? []) { const o = scene.getObjectByName(name); if (o) o.visible = false; }
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    (Array.isArray(m.material) ? m.material : [m.material]).forEach(tame);
+    m.userData.shared = true;
+  });
+  // The model in the body axes, scaled, then moved to centre its bounds.
+  const inner = new THREE.Group();
+  inner.add(scene);
+  inner.quaternion.setFromRotationMatrix(frame(axisVec(P.x), axisVec(P.z)));
+  inner.scale.setScalar(s);
+  const all = new THREE.Group();
+  all.add(inner);
+  all.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(all), c = box.getCenter(new THREE.Vector3());
+  inner.position.copy(c).negate();
+  box.translate(c.negate());
+  return { parts: new Map([['all', all]]), base: box.min.x, span: box.max.x - box.min.x, box };
 }

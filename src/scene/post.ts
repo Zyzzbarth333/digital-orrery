@@ -184,5 +184,7 @@ export class HdrPipeline {
   dispose(): void {
     this.target.dispose();
     for (const m of this.mips) m.dispose();
+    this.quad.geometry.dispose();
+    for (const m of [this.downMat, this.upMat, this.finalMat]) m.dispose();
   }
 }

@@ -7,7 +7,7 @@
 // (satellite-passes.tsx). Each value carries its source tag.
 
 import { useClock, type SimClock } from './clock';
-import { Readout, fmtGroup, type Row } from './panels';
+import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { eclToEqj } from '../physics/ephemeris.js';

@@ -20,6 +20,7 @@
 
 import * as Astronomy from 'astronomy-engine';
 import { eqjToEcl } from './ephemeris.js';
+import { cross, unit } from './vec.js';
 
 const BODY = {
   sun: Astronomy.Body.Sun, mercury: Astronomy.Body.Mercury, venus: Astronomy.Body.Venus,
@@ -59,8 +60,6 @@ export function spinAxisEcl(key, date) {
   return eqjToEcl([ax.north.x * s, ax.north.y * s, ax.north.z * s]);
 }
 
-const unit = (v) => { const n = Math.hypot(v[0], v[1], v[2]); return [v[0] / n, v[1] / n, v[2] / n]; };
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const angle = (a, b) => Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) / DEG;
 
 /** Axial tilt, deg: the spin axis against the orbit normal r × v (any frame

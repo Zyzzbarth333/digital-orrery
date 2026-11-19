@@ -32,6 +32,7 @@ import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS, createKernelHost, kernelSeconds } from './kernelHost.js';
 import * as LD from './landing.js';
 import { Craft } from './craft.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 let failures = 0;
 function check(name, ok) { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; }
@@ -50,7 +51,6 @@ const header = (s) => {
 const near = (x, ref, tol) => Math.abs(x - ref) <= tol;
 const rel = (x, ref) => Math.abs(x / ref - 1);
 const deg = Math.PI / 180, DAY = 86400, DAY_MS = 86400e3;
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const MU_E = 398600;                                   // Curtis Table A.2
 
 if (header('CASE 1: orbit changes about one body (Curtis chapter 6)')) {
@@ -626,8 +626,7 @@ if (header('CASE 12: near 180 degrees round the Sun, the broken plane (Abilleira
   // angle phi on from the break at a height beta above the plane is
   // sin d = sin beta / sin phi (Napier's rules for the right spherical
   // triangle).
-  const D = Date.parse, dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], unit = (a) => a.map((x) => x / norm(a));
+  const D = Date.parse;
   const sub = (a, b) => a.map((x, i) => x - b[i]);
   const scale3 = (a, k) => a.map((x) => x * k);
   const mm = (stay, via) => ({ start: { body: 'earth', kind: 'orbit', altKm: 200, dateMs: D('2026-10-20T00:00:00Z') }, waypoints: [
@@ -694,8 +693,8 @@ if (header('CASE 13: the deep-space burn, against primer vector theory (Lawden 1
   // as a small change in position, so along each arc it is fixed by its two
   // ends through the arc's state transition matrix (here by central
   // differences of propagate: an oracle apart from the planner's search).
-  const D = Date.parse, dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  const add = (a, b) => a.map((x, i) => x + b[i]), sub = (a, b) => a.map((x, i) => x - b[i]), sc = (a, k) => a.map((x) => x * k), unit = (a) => sc(a, 1 / norm(a));
+  const D = Date.parse;
+  const add = (a, b) => a.map((x, i) => x + b[i]), sub = (a, b) => a.map((x, i) => x - b[i]), sc = (a, k) => a.map((x) => x * k);
   const mv = (M, v) => M.map((r) => dot(r, v));
   const inv3 = (m) => { const [a, b, c] = m[0], [d, e, f] = m[1], [g, h, i] = m[2]; const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
     return [[A, -(b * i - c * h), b * f - c * e], [B, a * i - c * g, -(a * f - c * d)], [C, -(a * h - b * g), a * e - b * d]].map((r) => r.map((x) => x / det)); };
@@ -1052,8 +1051,7 @@ if (header("CASE 18: a craft's own first leg near 180 degrees round the Sun (Abi
   // flown as CASE 12's and 13's legs between bodies are: a broken plane
   // whose first arc keeps the craft's own orbit plane, or a deep-space
   // burn from it (Lawden's optimal impulse, CASE 13), where it costs less.
-  const D = Date.parse, dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], unit = (a) => a.map((x) => x / norm(a));
+  const D = Date.parse;
   const sub = (a, b) => a.map((x, i) => x - b[i]);
   // (Rodrigues' rotation of v about the unit axis k by t.)
   const rot = (v, k, t) => { const c = Math.cos(t), s = Math.sin(t), x = cross(k, v); return v.map((vi, i) => vi * c + x[i] * s + k[i] * dot(k, v) * (1 - c)); };

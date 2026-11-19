@@ -19,6 +19,7 @@ import {
 import { moonPositionEqj } from './moons.js';
 import { bodyAxesEqj } from './orientation.js';
 import { MOON_DATA } from './moons.data.js';
+import { dot } from './vec.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -73,7 +74,6 @@ check(angle(fp, iau) < 0.01, `the IAU pole the scene uses is French et al.'s wit
 const pole = iau.map((x) => -x);
 const { N } = equatorNode(pole);
 const ax = ringAxes(pole, 0.06, 90);
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 check(Math.abs(N[2]) < 1e-12 && Math.abs(angle(ax.n, pole) - 0.06) < 1e-9 && Math.abs(dot(ax.X, ax.Y)) < 1e-12,
   'longitudes start at the equator\'s node on the Earth equator; a ring at i = 0.06 deg tilts 0.06 deg about its node');
 // Periapse precession over a year: 2.7619579 deg/day takes it 288.8 deg on

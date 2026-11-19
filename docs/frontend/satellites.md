@@ -41,7 +41,7 @@ These are SGP4's own mean elements, not an osculating ellipse: they give
 the right positions only through SGP4 [3], [4].
 
 **The snapshot.** `npm run fetch:satellites`
-([`satellites.fetch.mjs`](../../src/physics/satellites.fetch.mjs)) makes
+([`satellites.fetch.mjs`](../../pipelines/satellites.fetch.mjs)) makes
 nine queries, each of a kind CelesTrak's GP documentation gives [2]:
 
 | Query | What | Objects, 18 Nov 2026 |
@@ -385,42 +385,82 @@ geostationary satellite hardly moves over the ground at all.
 
 Far off, a satellite is a point and its marker. Once the satellite the
 camera is on spans 3 pixels, it is drawn as a small model at its true
-size, and its marker's dot gives way ([`satelliteModels.ts`](../../src/scene/satelliteModels.ts)):
+size, and its marker's dot gives way ([`satelliteModels.ts`](../../src/scene/satelliteModels.ts)).
+The ISS and Hubble are NASA/JPL-Caltech's models from NASA's Eyes on the
+Earth [20], [21], under the JPL Image Use Policy; each loads the first
+time the camera is on it and close enough, and until then a simple model
+built at the published sizes stands in. No free model of Tiangong is
+published, so it is built in code, and its plate says so
+([`probeModels.ts`](../../src/scene/probeModels.ts) `SATELLITE_MODELS`,
+[`craftAssets.ts`](../../src/scene/craftAssets.ts)):
 
 | | Model | Its sizes |
 | --- | --- | --- |
-| ISS | the integrated truss, eight array wings on four alpha joints, the pressurised modules as cylinders, Kibo and Columbus out to the sides | the truss 94 m, the arrays' wingspan 109 m and 73 m tip to tip across each pair, the pressurised modules 67 m end to end, from NASA [14]; the wings' width (about 12 m) and the modules' (4.2 m) are taken to fit them |
-| Tiangong | the Tianhe core along the flight direction, Wentian and Mengtian at its two side ports in a T, each lab's two wings at its far end | Tianhe 16.6 m by 4.2 m, the labs 17.9 m by 4.2 m, the labs' wings 27 m long and over 110 m² each, from the station's designers [15], [16]; the wings' width, 4.1 m, is the area over the length |
-| Hubble | a tube with its aperture forward, two arrays out to the sides | 13.2 m by 4.2 m, the arrays 2.45 m by 7.56 m, from ESA [17] (NASA gives 4.3 m and 2.44 by 7.54 m [18]) |
+| ISS | Eyes' ISS [20]: 264,809 triangles, its alpha and beta joints kept as nodes | scaled to the 109 m across its arrays NASA gives [14] (112 m as modelled) |
+| Tiangong | built in code: the Tianhe core along the flight direction, Wentian and Mengtian at its two side ports in a T, each lab's two wings at its far end | Tianhe 16.6 m by 4.2 m, the labs 17.9 m by 4.2 m, the labs' wings 27 m long and over 110 m² each, from the station's designers [15], [16]; the wings' width, 4.1 m, is the area over the length |
+| Hubble | Eyes' Hubble [21]: 21,117 triangles | scaled to the 13.2 m length ESA gives [17] |
 | any other | a stand-in: a 2 m bus with an Earth-facing antenna and two wings 12 m across | not its own shape, and the plate says so |
 
-The radiators and the ISS's Russian segment's own arrays are left out,
-and Tianhe's own smaller wings, since moved to the labs.
+The simple models that stand in until the Eyes models load are built at
+the published sizes: the ISS's truss 94 m, its arrays' wingspan 109 m and
+73 m tip to tip across each pair, the pressurised modules 67 m end to
+end [14]; Hubble 13.2 m by 4.2 m with arrays 2.45 m by 7.56 m [17] (NASA
+gives 4.3 m and 2.44 by 7.54 m [18]).
 
-**Attitude.** Each model flies in the local vertical, local horizontal
-(LVLH) frame of its SGP4 state: x along the horizontal part of the
-velocity (the ram direction), z down to the Earth's centre, y opposite
-the orbit's angular momentum. That is the ISS's usual attitude (+XVV,
-its truss across the orbit plane). Tiangong's is not published; it is
-drawn in the same frame. The arrays turn about the body's y axis to face
-the Sun as nearly as one axis can, as the ISS's alpha joints do. Hubble
-points wherever its observing schedule says, which the app does not
-have: it is drawn along its flight direction, its arrays turned to the
-Sun, and its plate says so.
+The Eyes models come as glTF with their textures and geometry in separate
+files, 26.7 MB and 6.9 MB. Each is packed into one GLB in
+`public/models/satellites`, 15.0 MB and 1.7 MB: the textures as WebP at
+quality 90, the normals as bytes (`KHR_mesh_quantization`), and the
+tangents dropped, since three works them out per pixel from the normal
+maps. The positions are as published.
 
-**Light.** Each face is Lambertian, ρEμ₀ with E the sunlight at the
-Earth relative to 1 AU, as the bodies are lit; dimmed by the share of
-the Sun the Earth and the Moon leave it (`sunFraction`, as the points);
-and filled from below by
-Earthshine, the Earth's Bond albedo 0.30 times a downward face's view
-factor $(R_\oplus/r)^2$ times how high the Sun stands under the
-satellite. The cells have a small glint. The model is built in metres
-and placed camera-relative, so float32 holds it to well under a
-millimetre at 20 m.
+The ISS model shows the station as it was about 2020: Pirs where Nauka
+has been since July 2021, and none of Nauka, Prichal, the Bishop airlock
+or the roll-out arrays (iROSA) added since. Its outside payloads come
+and go with the date, on the dates Eyes gives [24]: RapidScat from
+October 2014 to March 2018, ECOSTRESS from July 2018, OCO-3 from May
+2019, COWVR and TEMPEST from December 2021 and EMIT from July 2022. A
+stray 2 m cube inside its Unity node is hidden. Tiangong's model leaves
+out Tianhe's own smaller wings, since moved to the labs.
+
+**Attitude.** The ISS and Tiangong fly in the local vertical, local
+horizontal (LVLH) frame of their SGP4 state: x along the horizontal part
+of the velocity (the ram direction), z down to the Earth's centre, y
+opposite the orbit's angular momentum. That is the ISS's usual attitude
+(+XVV, its truss across the orbit plane). Tiangong's is not published;
+it is drawn in the same frame. The ISS's arrays turn as Eyes turns them
+[24]: each pair of wings on its alpha joint about the truss, then each
+wing on its beta gimbal about its own length, each to bring the cells as
+near the Sun as its axis lets. Its radiators and the Russian segment's
+arrays stay as modelled. Tiangong's wings turn about the body's y axis.
+
+Hubble points wherever its observing schedule says, which the app does
+not have. It is drawn at its nominal roll [22], [23]: its optical axis
+V1 along or against its flight direction, whichever is farther from the
+Sun (so never within 90°; Hubble keeps more than 62.5° [22]), and rolled
+so the Sun lies in the half-plane of +V1 and +V3, square to V2, the axis
+its arrays turn about. The arrays then face the Sun squarely. Its wings
+are not nodes of their own in the model, so every triangle more than
+2.3 m from the tube's axis along V2 (the wings and their masts) is split
+off at load into one node that turns about V2.
+
+**Light.** The simple models' faces are Lambertian, ρEμ₀ with E the
+sunlight at the Earth relative to 1 AU, as the bodies are lit; dimmed by
+the share of the Sun the Earth and the Moon leave it (`sunFraction`, as
+the points); and filled from below by Earthshine, the Earth's Bond
+albedo 0.30 times a downward face's view factor $(R_\oplus/r)^2$ times
+how high the Sun stands under the satellite. The cells have a small
+glint. The Eyes models keep their own materials, three's physically
+based ones, lit by the same Sun and Earthshine as two directional lights
+(their metal turned down to a quarter, as the probes' are: nothing
+around them to reflect). The models are built in metres and placed
+camera-relative, so float32 holds them to well under a millimetre at
+20 m.
 
 | | |
 | --- | --- |
-| ![The ISS from 180 m in sunlight: the long truss with its eight blue-black array wings turned to the Sun, the modules below it, the plate showing its speed 7.668 km/s inertial and 7.362 km/s over the ground](satellite-model-iss.jpg) | ![Tiangong from 110 m over the Earth's day side: the T of the core and two labs, the labs' long wings at their ends](satellite-model-tiangong.jpg) |
+| ![The ISS from 250 m in sunlight over the Earth's limb: NASA/JPL-Caltech's Eyes model, its eight array wings each turned to the Sun on their alpha and beta joints, the plate showing its height 415.8 km](satellite-model-iss.jpg) | ![Hubble from 40 m: NASA/JPL-Caltech's Eyes model at its nominal roll, its tube pointed away from the Sun and its two arrays turned square to it](satellite-model-hubble.jpg) |
+| ![Tiangong from 110 m over the Earth's day side, built in code: the T of the core and two labs, the labs' long wings at their ends](satellite-model-tiangong.jpg) | |
 
 ## Passes over a place
 
@@ -605,7 +645,7 @@ holds seven of those passes in detail.
   1 mm, from the pole to geostationary height.
 
 `npm run fetch:satellites-horizons`
-([`satellites.horizons.mjs`](../../src/physics/satellites.horizons.mjs))
+([`satellites.horizons.mjs`](../../pipelines/satellites.horizons.mjs))
 rebuilds the Horizons fixture from the current snapshot's ISS.
 
 ## Performance
@@ -661,3 +701,13 @@ Nor do the passes and the ground track
 [18] NASA, "About Hubble." [Online]. Available: https://science.nasa.gov/mission/hubble/overview/about-hubble/
 
 [19] O. Montenbruck and E. Gill, *Satellite Orbits: Models, Methods and Applications*. Berlin, Germany: Springer, 2000, doi: 10.1007/978-3-642-58351-3.
+
+[20] NASA/JPL-Caltech, "ISS" 3D model, *NASA's Eyes on the Earth*, fetched 19 Nov. 2026, under the JPL Image Use Policy. [Online]. Available: https://eyes.nasa.gov/assets/static/models/sc_iss/ISS_stationary.gltf
+
+[21] NASA/JPL-Caltech, "Hubble" 3D model, *NASA's Eyes on the Earth*, fetched 19 Nov. 2026, under the JPL Image Use Policy. [Online]. Available: https://eyes.nasa.gov/assets/static/models/sc_hubble/Hubble.gltf
+
+[22] Space Telescope Science Institute, "HST Primer: Pointing, orientation, and roll constraints," in *The Hubble Space Telescope Primer for Cycle 34*. Baltimore, MD, USA: STScI. [Online]. Available: https://hst-docs.stsci.edu/hsp/the-hubble-space-telescope-primer-for-cycle-34/hst-primer-pointing-orientation-and-roll-constraints
+
+[23] Space Telescope Science Institute, "HST Primer: System overview," in *The Hubble Space Telescope Primer for Cycle 34*. Baltimore, MD, USA: STScI. [Online]. Available: https://hst-docs.stsci.edu/hsp/the-hubble-space-telescope-primer-for-cycle-34/hst-primer-system-overview
+
+[24] NASA/JPL-Caltech, *NASA's Eyes on the Earth*, its ISS entity: the attitude, the alpha and beta joints' Sun pointing and the outside payloads' dates, fetched 19 Nov. 2026. [Online]. Available: https://eyes.nasa.gov/apps/earth/

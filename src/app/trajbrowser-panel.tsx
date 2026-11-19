@@ -3,7 +3,7 @@
 // NASA's Trajectory Browser in the PLANNER tab. NASA Ames's Mission Design
 // Division publishes the lowest-delta-v transfers to each planet
 // (https://trajbrowser.arc.nasa.gov); public/trajbrowser/planets.json holds
-// them for 2026-2040 (src/physics/trajbrowser.fetch.mjs). Beside each, our
+// them for 2026-2040 (pipelines/trajbrowser.fetch.mjs). Beside each, our
 // own transfer between the same two dates (src/physics/trajsearch.js: the
 // Lambert arc, up to two revolutions, with NASA's conventions), so the two
 // can be compared. A row can set the porkchop to its window, or be flown.
@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { transfer } from '../physics/trajsearch.js';
 import { helioStateEcl } from '../physics/ephemeris.js';
+import { getJson } from '../physics/fetchData.js';
 
 export interface TbTransfer { depMs: number; arrMs: number; c3: number; injectionDv: number; postDv: number; route: string }
 interface TbBody { spk: number; muKm3s2: number; radiusKm: number; rPeriKm: number }
@@ -40,8 +41,7 @@ export function TrajBrowserPanel({ dest, destName, tof, onWindow, onFly }: {
   const [sel, setSel] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}trajbrowser/planets.json`).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(setData).catch((e) => setError(String(e)));
+    getJson(`${import.meta.env.BASE_URL}trajbrowser/planets.json`).then(setData).catch((e) => setError(String(e)));
   }, []);
   useEffect(() => setSel(null), [dest, kind]);
 

@@ -6,10 +6,12 @@ import { Sheet, type Stop } from './sheet';
 import { Peek } from './peek';
 import { CraftPeek } from './mission-panel';
 import { SimClock } from './clock';
-import { SceneView } from '../scene/SceneView';
+import { SceneView, type ViewStep } from '../scene/SceneView';
 import { BodyRail, Plate, RATES, TimeBand, TimeControls, craftById } from './panels';
 import { best, PER_GROUP, type FindApi, type FindHit } from './find';
 import { KeySheet } from './key-sheet';
+import { OWN_KEYS, shortcuts } from './shortcuts';
+import { installArrowGroups } from './arrow-groups';
 import { typeStep } from './type-step';
 import { FlightConsole, type ConsoleTab } from './console';
 import { Mission } from './mission';
@@ -145,6 +147,8 @@ export function App() {
   const side = useMedia(SIDE_QUERY) && phone;
   // The sheet always opens at peek, even after a refresh that restores the view.
   const [stop, setStop] = useState<Stop>('peek');
+  // Leaving the phone layout lowers it, so coming back starts at peek too.
+  useEffect(() => { if (!phone) setStop('peek'); }, [phone]);
   // How much of the sky the sheet covers at rest, for the camera's offset.
   const [cover, setCover] = useState({ bottom: 0, right: 0 });
   // Where the view plate and the touch hint go on a phone (the sheet's top
@@ -268,6 +272,14 @@ export function App() {
     window.addEventListener('pagehide', keep);
     return () => { clearInterval(timer); window.removeEventListener('pagehide', keep); };
   }, [clock, focus]);
+  // A step of the view: the plate's pad, Shift and the arrows, [ and ].
+  const VIEW_TURN = Math.PI / 12, VIEW_ZOOM = 1.25;
+  const viewStep = (s: ViewStep) => {
+    const sc = scene.current;
+    if (!sc) return;
+    if (s === 'in' || s === 'out') sc.zoomStep(s === 'in' ? 1 / VIEW_ZOOM : VIEW_ZOOM);
+    else sc.turn(s === 'left' ? VIEW_TURN : s === 'right' ? -VIEW_TURN : 0, s === 'up' ? -VIEW_TURN : s === 'down' ? VIEW_TURN : 0);
+  };
   // HOME: the view a first visit opens on (the clock and the switches stay as they are).
   const goHome = () => {
     setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus('sun');
@@ -445,19 +457,27 @@ export function App() {
 
   // Keyboard: Space runs or pauses, left/right step the rate, up/down move
   // through the bodies, N jumps to now, M opens the console, / finds, + and
-  // - step the type and ? lists these (key-sheet.tsx). Ignored while a form control has focus.
+  // - step the type and ? lists these (key-sheet.tsx). Ignored while a form
+  // control has focus, for a key a focused control handled itself (an arrow
+  // in a radio group, arrow-groups.ts), for Space on a focused control (a
+  // switch toggles on Space), and, but for Escape, when the ?
+  // sheet's switch has turned them off (shortcuts.ts, WCAG 2.1.4).
+  useEffect(() => installArrowGroups(), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       // On a phone, Escape lowers the sheet to peek first (FIND's field
       // included, once its list is closed).
-      if (e.key === 'Escape' && phone && stop !== 'peek' && !e.defaultPrevented) {
+      if (e.key === 'Escape' && phone && stop !== 'peek') {
         setStop('peek'); (document.activeElement as HTMLElement | null)?.blur?.(); e.preventDefault(); return;
       }
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (e.altKey || e.ctrlKey || e.metaKey || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (e.key === ' ' && (e.target as Element | null)?.closest?.(OWN_KEYS)) return;
       // Escape stops a flight first (the scene handles that), then closes
       // the console.
-      if (e.key === 'Escape') { if (!e.defaultPrevented && consoleOpen) closeConsole(); return; }
+      if (e.key === 'Escape') { if (consoleOpen) closeConsole(); return; }
+      if (!shortcuts.get()) return;
       if (e.key === 'm' || e.key === 'M') { setConsoleOpen(!consoleOpen); e.preventDefault(); return; }
       // / finds (the rail's FIND field); ? lists the keys (the sheet closes itself).
       if (e.key === '/') { if (!journey.plotOpen) { openFind(); e.preventDefault(); } return; }
@@ -465,6 +485,9 @@ export function App() {
       // + and - step the TYPE size (type-step.ts); = and _ are the same keys unshifted.
       if (e.key === '+' || e.key === '=') { typeStep.set(typeStep.get() + 1); e.preventDefault(); return; }
       if (e.key === '-' || e.key === '_') { typeStep.set(typeStep.get() - 1); e.preventDefault(); return; }
+      // Shift and the arrows turn the view; [ and ] zoom it out and in.
+      if (e.shiftKey && e.key.startsWith('Arrow')) { viewStep(e.key.slice(5).toLowerCase() as ViewStep); e.preventDefault(); return; }
+      if (e.key === '[' || e.key === ']') { viewStep(e.key === ']' ? 'in' : 'out'); e.preventDefault(); return; }
       // H goes home; C puts the camera back on what it is on after a pan.
       if (e.key === 'h' || e.key === 'H') { goHome(); e.preventDefault(); return; }
       if (e.key === 'c' || e.key === 'C') { scene.current?.recentre(); e.preventDefault(); return; }
@@ -522,10 +545,20 @@ export function App() {
   // match) lowers it to half, its plate at the top over the sky; CONSOLE
   // opens it at half.
   const lastView = useRef(view);
+  // When the user last pressed or typed inside the sheet: a view change
+  // that soon after was their choice there; one that wasn't (a followed
+  // craft ending, a flight finishing) leaves the sheet where it is.
+  const sheetUsed = useRef(0);
+  useEffect(() => {
+    const mark = (e: Event) => { if ((e.target as Element | null)?.closest?.('.sheet')) sheetUsed.current = performance.now(); };
+    window.addEventListener('pointerdown', mark, true);
+    window.addEventListener('keydown', mark, true);
+    return () => { window.removeEventListener('pointerdown', mark, true); window.removeEventListener('keydown', mark, true); };
+  }, []);
   useEffect(() => {
     if (lastView.current === view) return;
     lastView.current = view;
-    if (phone && stop === 'full') {
+    if (phone && stop === 'full' && performance.now() - sheetUsed.current < 2000) {
       if ((document.activeElement as HTMLElement | null)?.closest('.sheet')) (document.activeElement as HTMLElement).blur();
       setStop('half');
     }
@@ -574,7 +607,7 @@ export function App() {
       <SceneView clock={clock} focus={focus} onFocusChange={(k) => { setFollowing(null); setSmall(null); setSat(null); setSatCloud(null); setProbe(null); setFocus(k); }} onReady={onReady}
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={phone ? cover.right : inset} insetBottom={phone ? cover.bottom : 0}
         view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: viewName }}
-        flying={flying} frame={frame} panned={panned} onCentre={() => scene.current?.recentre()} onHome={goHome}
+        flying={flying} frame={frame} panned={panned} onCentre={() => scene.current?.recentre()} onHome={goHome} onView={viewStep}
         plateHost={phone && !side ? plateHost : null} hintHost={phone ? hintHost : null} />
       <TimeBand clock={clock} {...flight} onFind={openFind} />
       {phone ? (

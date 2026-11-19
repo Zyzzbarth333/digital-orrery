@@ -27,9 +27,11 @@ export function FlightConsole({ clock, mission, journey, tab, setTab, onClose, o
     <section className="console screw" aria-label="Flight console">
       <span className="pnl" aria-hidden="true">C1</span>
       <div className="console-head">
+        {/* Only the chosen tab's panel is drawn, so only its tab names it
+            (aria-controls); the arrows move between tabs (arrow-groups.ts). */}
         <div className="tabs" role="tablist" aria-label="Flight console">
           {TABS.map(([k, label]) => (
-            <button key={k} role="tab" id={`ctab-${k}`} aria-selected={tab === k} aria-controls={`cpanel-${k}`} className="key tab"
+            <button key={k} role="tab" id={`ctab-${k}`} aria-selected={tab === k} aria-controls={tab === k ? `cpanel-${k}` : undefined} className="key tab"
               onClick={() => setTab(k)}>{label}</button>
           ))}
         </div>

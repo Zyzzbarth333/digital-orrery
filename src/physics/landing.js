@@ -37,14 +37,11 @@
 // pays for slowing in a gravity field.
 
 import { hohmannCircular } from './transfers.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => scale(a, 1 / norm(a));
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 // The fastest a landing may meet the ground (km/s), over the turning
 // surface: 10 m/s. Faster is a crash, in the kernel's flight and in the

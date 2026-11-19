@@ -7,12 +7,13 @@
 // app holds it. Each value carries its source tag.
 
 import { useClock, type SimClock } from './clock';
-import { Readout, fmtGroup, type Row } from './panels';
+import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek, byLabel } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { PROBE_GROUPS, type Probe, type SpacecraftLayer } from '../scene/spacecraftLayer';
 import { sunlightAt, sunlightRow } from './sunlight';
+import { probeModelKey, probeNote } from '../scene/probeModels';
 
 const AU_KM = 149597870.7, C_KM_S = 299792.458;
 const CENTRE_NAME: Record<string, string> = { sun: 'the Sun', mercury: 'Mercury', venus: 'Venus', earth: 'the Earth', moon: 'the Moon', mars: 'Mars', jupiter: 'Jupiter' };
@@ -37,11 +38,14 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
     const earth = bodyState('earth', new Date(s.timeMs)).r;
     const fromEarth = Math.hypot(helio[0] - earth[0], helio[1] - earth[1], helio[2] - earth[2]);
     const lt = fromEarth / C_KM_S;
+    // A craft held about the Sun has one distance from it: in AU, with the
+    // km beside (two rows would both read "From the Sun").
+    const aboutSun = centre === 'sun';
     rows.push(
       { label: 'Motion', value: 'JPL Horizons', alt: predicted ? 'predicted' : 'fitted to tracking', src: 'Horizons', info: 'probe-legs', detail: leg ? `Horizons' trajectory here: ${leg.name}, ${leg.start} to ${leg.stop} TDB` : undefined },
-      { label: `From ${CENTRE_NAME[centre] ?? centre}`, value: fmtGroup(d, d < 1e5 ? 1 : 0), unit: 'km', alt: radius && c.group !== 'lagrange' && c.group !== 'cruise' ? `${fmtGroup(d - radius, 1)} km above its mean radius` : undefined, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Distance from the centre of the body this craft is held about' },
+      ...(aboutSun ? [] : [{ label: `From ${CENTRE_NAME[centre] ?? centre}`, value: fmtGroup(d, d < 1e5 ? 1 : 0), unit: 'km', alt: radius && c.group !== 'lagrange' && c.group !== 'cruise' ? `${fmtGroup(d - radius, 1)} km above its mean radius` : undefined, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Distance from the centre of the body this craft is held about' } as Row]),
       { label: 'Speed', value: Math.hypot(...st.v).toFixed(3), unit: 'km/s', alt: `about ${CENTRE_NAME[centre] ?? centre}`, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Speed relative to the body it is held about' },
-      { label: 'From the Sun', value: (Math.hypot(...helio) / AU_KM).toFixed(4), unit: 'AU', src: 'Horizons', derived: true, info: 'probe-position' },
+      { label: 'From the Sun', value: (Math.hypot(...helio) / AU_KM).toFixed(4), unit: 'AU', alt: aboutSun ? `${fmtGroup(d)} km` : undefined, src: 'Horizons', derived: true, info: 'probe-position' },
       { label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'Horizons', derived: true, info: 'probe-position', detail: 'less the Earth\'s position (DE442)' },
       { label: 'Light time', value: lt < 60 ? lt.toFixed(3) : lt < 3600 ? (lt / 60).toFixed(2) : (lt / 3600).toFixed(3), unit: lt < 60 ? 's' : lt < 3600 ? 'min' : 'h', src: 'd/c', derived: true, info: 'light-time' },
       sunlightRow(sunlightAt(helio, new Date(s.timeMs))),
@@ -55,6 +59,7 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
     { label: 'Held as', value: c.spacingMin ? `every ${c.spacingMin[0]}–${c.spacingMin[1]} min` : '—', alt: `within ${layer.tolKm} km of Horizons (worst ${c.maxErrKm.toFixed(2)} km)`, src: 'packed', derived: true, info: 'probe-packing' },
   );
   const group = PROBE_GROUPS.find((g) => g.key === c.group);
+  const model = probeModelKey(c.key);
   // The phone's peek: how far from Earth, and how fast.
   usePeek(byLabel(rows, 'From Earth', 'Speed'));
   return (
@@ -69,7 +74,7 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
         <p>{predicted
           ? `The clock is past Horizons' last update of this craft (${c.revised ?? 'no date given'}): its trajectory here is a prediction, and manoeuvres planned since are not in it.`
           : `The clock is before Horizons' last update of this craft (${c.revised}): its trajectory here is fitted to tracking.`} The app places it where Horizons does, and flies none of it. Choose a body in the rail to leave it.</p>
-        <p>Not modelled close up: it stays a marker at any distance. The app draws only its own craft and the ISS, Tiangong and Hubble as models.</p>
+        <p>{model ? probeNote(model) : 'Not modelled close up: NASA publishes no model of it, so it stays a marker at any distance.'}</p>
         {c.conicDays > 0 && <p>On {c.conicDays} of its days Horizons' prediction follows a plain conic, a simplified forecast: its place there is a guide, not a fix.</p>}
       </div>
     </div>

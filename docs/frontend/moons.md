@@ -39,7 +39,7 @@ satellite-ephemeris tables, fitted by `c/moon_cheb.c` into
 `public/ephemeris/moons/`, loaded by `moonLoad.js` in the browser and
 `moonNode.js` under Node), `src/physics/moons.data.js` (the fallback's
 elements and every moon's physical data, written by
-`src/physics/moons.fetch.mjs`), `src/physics/moons.test.mjs` (the checks),
+`pipelines/moons.fetch.mjs`), `src/physics/moons.test.mjs` (the checks),
 and the scene's `systemStates` in `src/scene/OrreryScene.ts`; for the
 kernel, `src/physics/bodies.js` and `src/physics/flyby.test.mjs`.
 
@@ -437,7 +437,7 @@ the only one with a measured GM.
 
 Code: `src/physics/irregularMoons.js` (positions),
 `src/physics/irregularMoons.data.js` (elements, sizes, GMs, discoveries and
-the fitted corrections, written by `src/physics/irregularMoons.fetch.mjs`),
+the fitted corrections, written by `pipelines/irregularMoons.fetch.mjs`),
 `src/physics/irregularMoons.test.mjs`, `src/scene/irregularMoons.ts` (the
 layer) and `src/app/irregular-moon-plate.tsx`.
 
