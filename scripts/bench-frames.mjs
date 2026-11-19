@@ -64,9 +64,9 @@ const ALL_SETS = ['active', 'debris', 'rocket-bodies', 'analyst'];
 // The Moon's landing sites switched on, and Apollo 11's flown to.
 const SITES_ON = '(orrery.sites?.setOn(true), true)';
 const SITE_NEAR = "(orrery.sites.setOn(true), orrery.focusOnSite('apollo11'), true)";
-// A spacecraft beyond Earth flown to, once the layer is on and has the
-// month the clock is in (a flight to a craft with no place yet is dropped).
-const PROBE = (key) => `(async () => { const L = orrery.spacecraft; L.setOn(true); await L.loadIndex(); while (!L.positionKm('${key}', orrery.clock.snapshot.timeMs)) await new Promise((r) => setTimeout(r, 100)); orrery.focusOnProbe('${key}'); return true; })()`;
+// A spacecraft beyond Earth flown to as FIND does: its index loaded, the
+// layer off (the flight waits for the craft's month of data).
+const PROBE = (key) => `(async () => { await orrery.spacecraft.loadIndex(); orrery.focusOnProbe('${key}'); return true; })()`;
 const SCENARIOS = {
   'overview': { label: 'Overview (the Sun)', query: `?focus=sun&${DATE}`, km: 1.6e9 },
   'earth': { label: 'Earth close-up', query: `?focus=earth&${DATE}`, km: 20000 },

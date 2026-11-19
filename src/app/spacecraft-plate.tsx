@@ -38,11 +38,14 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
     const earth = bodyState('earth', new Date(s.timeMs)).r;
     const fromEarth = Math.hypot(helio[0] - earth[0], helio[1] - earth[1], helio[2] - earth[2]);
     const lt = fromEarth / C_KM_S;
+    // A craft held about the Sun has one distance from it: in AU, with the
+    // km beside (two rows would both read "From the Sun").
+    const aboutSun = centre === 'sun';
     rows.push(
       { label: 'Motion', value: 'JPL Horizons', alt: predicted ? 'predicted' : 'fitted to tracking', src: 'Horizons', info: 'probe-legs', detail: leg ? `Horizons' trajectory here: ${leg.name}, ${leg.start} to ${leg.stop} TDB` : undefined },
-      { label: `From ${CENTRE_NAME[centre] ?? centre}`, value: fmtGroup(d, d < 1e5 ? 1 : 0), unit: 'km', alt: radius && c.group !== 'lagrange' && c.group !== 'cruise' ? `${fmtGroup(d - radius, 1)} km above its mean radius` : undefined, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Distance from the centre of the body this craft is held about' },
+      ...(aboutSun ? [] : [{ label: `From ${CENTRE_NAME[centre] ?? centre}`, value: fmtGroup(d, d < 1e5 ? 1 : 0), unit: 'km', alt: radius && c.group !== 'lagrange' && c.group !== 'cruise' ? `${fmtGroup(d - radius, 1)} km above its mean radius` : undefined, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Distance from the centre of the body this craft is held about' } as Row]),
       { label: 'Speed', value: Math.hypot(...st.v).toFixed(3), unit: 'km/s', alt: `about ${CENTRE_NAME[centre] ?? centre}`, src: 'Horizons', derived: true, info: 'probe-position', hint: 'Speed relative to the body it is held about' },
-      { label: 'From the Sun', value: (Math.hypot(...helio) / AU_KM).toFixed(4), unit: 'AU', src: 'Horizons', derived: true, info: 'probe-position' },
+      { label: 'From the Sun', value: (Math.hypot(...helio) / AU_KM).toFixed(4), unit: 'AU', alt: aboutSun ? `${fmtGroup(d)} km` : undefined, src: 'Horizons', derived: true, info: 'probe-position' },
       { label: 'From Earth', value: fmtGroup(fromEarth), unit: 'km', src: 'Horizons', derived: true, info: 'probe-position', detail: 'less the Earth\'s position (DE442)' },
       { label: 'Light time', value: lt < 60 ? lt.toFixed(3) : lt < 3600 ? (lt / 60).toFixed(2) : (lt / 3600).toFixed(3), unit: lt < 60 ? 's' : lt < 3600 ? 'min' : 'h', src: 'd/c', derived: true, info: 'light-time' },
       sunlightRow(sunlightAt(helio, new Date(s.timeMs))),
