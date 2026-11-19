@@ -13,6 +13,7 @@
 
 import { brightLuminance } from './imageStats';
 import { compositeLayers } from './layerComposite.js';
+import { fetchOk } from '../physics/fetchData.js';
 
 // Where a geostationary frame is used: within reachDeg of the satellite's
 // nadir (on the equator at satLon) and where the Sun's elevation's sine
@@ -22,8 +23,7 @@ export interface DecodeRequest { id: number; url: string; premultiply: boolean; 
 export type DecodeReply = { id: number; bitmap: ImageBitmap; whiteLuminance?: number; shares?: number[] } | { id: number; error: string };
 
 async function fetchBitmap(url: string, premultiply: boolean): Promise<ImageBitmap> {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`${url}: ${r.status}`);
+  const r = await fetchOk(url, url);
   return createImageBitmap(await r.blob(), {
     imageOrientation: 'flipY', colorSpaceConversion: 'none', premultiplyAlpha: premultiply ? 'premultiply' : 'none',
   });
