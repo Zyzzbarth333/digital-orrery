@@ -29,6 +29,11 @@ export const SETS = {
   trajbrowser: { dir: 'trajbrowser', source: 'pipelines/trajbrowser.fetch.mjs (NASA Ames Trajectory Browser)' },
 };
 
+// Files under a set's folder that are not part of the published set: the
+// inner moons' tables outside 2020-2035, built locally by
+// `npm run build:moon-tables` (docs/frontend/moons.md), and desktop clutter.
+export const EXCLUDE = [/^ephemeris\/moons-extra\//, /(^|\/)\.DS_Store$/, /(^|\/)Thumbs\.db$/];
+
 export const tagOf = (set, version) => `data-${set}-${version}`;
 export const assetOf = (set, version) => `${set}-${version}.tar.gz`;
 // Where the sets are fetched from: GitHub Releases, or another host with the

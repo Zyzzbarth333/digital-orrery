@@ -5,17 +5,14 @@
 // Run after any pipeline changes a file in public/ (npm run data:manifest);
 // CI's `npm run data -- --verify` fails until the manifest matches the files.
 //
-// The files are the ones git tracks in each set's folder, so optional local
-// extras (public/ephemeris/moons-extra/, gitignored) are left out. Once the
-// sets leave git (ADR-0001, phase B), pass --from-disk to list what is on
-// disk instead.
+// The files are what is on disk in each set's folder (the sets are not in
+// git: ADR-0001, phase B), less the local extras EXCLUDE names, such as
+// public/ephemeris/moons-extra/.
 
-import { execFileSync } from 'node:child_process';
 import { readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { MANIFEST, PUBLIC, REPO, ROOT, SETS, sha256File, versionOf } from '../scripts/lib/data-sets.mjs';
+import { EXCLUDE, MANIFEST, PUBLIC, REPO, ROOT, SETS, sha256File, versionOf } from '../scripts/lib/data-sets.mjs';
 
-const fromDisk = process.argv.includes('--from-disk');
 
 function walk(dir) {
   const out = [];
@@ -27,9 +24,7 @@ function walk(dir) {
 }
 
 function filesOf(dir) {
-  if (fromDisk) return walk(join(PUBLIC, dir)).map((p) => relative(PUBLIC, p));
-  return execFileSync('git', ['ls-files', '-z', `public/${dir}`], { cwd: ROOT, encoding: 'utf8' })
-    .split('\0').filter(Boolean).map((p) => relative('public', p));
+  return walk(join(PUBLIC, dir)).map((p) => relative(PUBLIC, p)).filter((p) => !EXCLUDE.some((re) => re.test(p)));
 }
 
 const sets = {}, files = [];
