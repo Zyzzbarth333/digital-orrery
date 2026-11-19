@@ -34,6 +34,7 @@ import { useSyncExternalStore } from 'react';
 import { Craft } from '../physics/craft.js';
 import { KernelClient } from '../physics/kernelClient.js';
 import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from '../physics/kernelHost.js';
+import type { AimRequest } from '../physics/kernelHost.js';
 import { solarSystemBodies } from '../physics/bodies.js';
 import { helioStateEqj } from '../physics/ephemeris.js';
 import { departureHyperbola } from '../physics/launch.js';
@@ -416,7 +417,7 @@ export class Mission {
     R.lastMs = nowMs;
     // Aimed corrections: the kernel holds at each one's start, where it is
     // worked out from the craft's own state (RealMission.aimStep).
-    if (R.aimed) R.m.aimStep(c, this.sys, R, jumped, (req: object) => this.client.aim(req));
+    if (R.aimed) R.m.aimStep(c, this.sys, R, jumped, (req: object) => this.client.aim(req as AimRequest));
     else if (jumped) c.holdAt = null;
     this.entry(c, R, jumped);
   }
