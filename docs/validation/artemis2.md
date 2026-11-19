@@ -274,7 +274,7 @@ The app flies the same mission:
 ### 6. Our own plan
 
 Can the simulator plan Artemis II itself, without NASA's trajectory, and
-arrive at the same flight? `src/physics/artemis2.design.mjs` (run with
+arrive at the same flight? `validation/artemis2.design.mjs` (run with
 `npm run design:artemis2`, about 20 s) designs the injection burn from:
 - **One input from the data:** the orbit Orion was in ten minutes before
   the burn, which is what the launch delivered.
@@ -377,7 +377,7 @@ left:
   weigh navigation and correction-burn placement.
 - **The entry angle.** Carried down to 121.92 km, the flown entry angle is
   −5.92°. Designing with that instead
-  (`node src/physics/artemis2.design.mjs --flown-entry-angle`) changes
+  (`node validation/artemis2.design.mjs --flown-entry-angle`) changes
   almost nothing: 1,269.4 ft/s from 23:50:22, still 3.6° from the flown
   burn. Entry moves to 23:54:20 against the flown 23:53:31. No ignition
   time fixes that: at a fixed entry angle, the time from the flyby to entry
@@ -426,7 +426,7 @@ missing inputs are information, and the computation is deterministic.
 ## Calibration: what does not help
 
 The remaining error is the steady push. These experiments asked whether
-anything in the app's reach removes it. `src/physics/artemis2.calibrate.mjs`
+anything in the app's reach removes it. `pipelines/artemis2.calibrate.mjs`
 reproduces them; it is not part of `npm test`.
 
 **More bodies.** The kernel already has the Sun, all eight planets and the
@@ -517,9 +517,9 @@ c/build/artemis2_ref src/physics/fixtures/artemis2_burns.json 5 \
   2026-04-02T23:40:00 2026-04-03T00:05:00  2026-04-05T01:15:00 2026-04-05T01:50:00 \
   2026-04-06T02:55:00 2026-04-06T03:15:00  2026-04-07T23:55:00 2026-04-08T00:15:00 \
   2026-04-10T02:45:00 2026-04-10T03:05:00  2026-04-10T18:45:00 2026-04-10T19:05:00
-node src/physics/artemis2.validate.mjs
-node src/physics/artemis2.export.mjs     # the app's mission file
-node src/physics/artemis2.design.mjs     # our own plan, and its mission file
+node validation/artemis2.validate.mjs
+node pipelines/artemis2.export.mjs     # the app's mission file
+node validation/artemis2.design.mjs     # our own plan, and its mission file
 ```
 
 ## Next

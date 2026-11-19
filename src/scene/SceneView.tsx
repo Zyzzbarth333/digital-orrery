@@ -5,13 +5,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { SimClock } from '../app/clock';
+import type { SceneClock } from '../types/clock';
 import { OrreryScene } from './OrreryScene';
 import type { FocusKey } from './catalogue';
 import type { Frame } from './OrreryScene';
 
 interface Props {
-  clock: SimClock;
+  clock: SceneClock;
   focus: FocusKey;
   onFocusChange: (key: FocusKey) => void;
   frame?: Frame;                                         // orbits about the Sun or the SSB

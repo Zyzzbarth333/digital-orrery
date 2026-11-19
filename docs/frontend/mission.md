@@ -100,18 +100,18 @@ last line.
   injection to just before entry: both powered lunar flybys and the
   distant retrograde orbit. Its file, `public/missions/artemis1.json`, is
   written from NASA/JSC navigation's as-flown ephemeris (through JPL
-  Horizons) by `src/physics/artemis1.export.mjs`
+  Horizons) by `pipelines/artemis1.export.mjs`
   (`npm run export:artemis1`, after `npm run fetch:artemis1`).
 - **Artemis II** (April 2026), from ten minutes before translunar
   injection to entry. Its file, `public/missions/artemis2.json`, is
   written from JSC's reconstructed trajectory by
-  `src/physics/artemis2.export.mjs`.
+  `pipelines/artemis2.export.mjs`.
 - **Juno** (August 2012 to November 2013), from five days before its
   first deep-space burn to seven weeks after its Earth flyby. Its file,
   `public/missions/juno2013.json`, is written from JPL's navigation
-  reconstruction (through JPL Horizons) by `src/physics/missions.build.mjs`
+  reconstruction (through JPL Horizons) by `pipelines/missions.build.mjs`
   (`npm run build:missions -- juno2013`), which builds every real mission
-  beyond Artemis from its facts in `src/physics/missions.data.mjs`
+  beyond Artemis from its facts in `validation/missions.data.mjs`
   ([Juno 2012–13](../validation/juno2013.md)).
 - **DART** (August to September 2022), its last five weeks to the impact
   on Dimorphos, ending on the final solution at the published impact
@@ -497,7 +497,7 @@ How the data gets in:
 - **The browser can't be queried from a page.** It answers only form posts
   and sends no cross-origin headers.
 - **So it's fetched ahead of time.** `npm run fetch:trajbrowser`
-  (`src/physics/trajbrowser.fetch.mjs`) fetches its results once and writes
+  (`pipelines/trajbrowser.fetch.mjs`) fetches its results once and writes
   `public/trajbrowser/planets.json`. It's paced 15 s apart and cached in
   `~/.cache/digital-orrery/trajbrowser`, so reruns don't repeat finished
   queries.

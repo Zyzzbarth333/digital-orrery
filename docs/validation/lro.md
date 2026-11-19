@@ -11,8 +11,8 @@ from 18 to 28 June 2009, with the app's kernel against the reconstruction:
   worth there;
 - the app's mission file, flown as the app flies it.
 
-`npm test` runs `src/physics/missions.validate.mjs`
-(`node src/physics/missions.validate.mjs lro` for this one). The numbers
+`npm test` runs `validation/missions.validate.mjs`
+(`node validation/missions.validate.mjs lro` for this one). The numbers
 below are from November 2026.
 
 ## Why LRO

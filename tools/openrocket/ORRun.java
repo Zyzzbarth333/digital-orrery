@@ -1,7 +1,7 @@
 // tools/openrocket/ORRun.java
 //
 // Flies an OpenRocket design headless and writes what the orrery's ROCKET
-// tab needs to fly the same vehicle and compare (src/physics/rocket.openrocket.mjs, then rocket.xcheck.test.mjs):
+// tab needs to fly the same vehicle and compare (pipelines/rocket.openrocket.mjs, then rocket.xcheck.test.mjs):
 // each motor's thrust curve, masses and ignition, each stage's separation,
 // the flight's events, and its history to apogee (thrust, mass, drag
 // coefficient, reference area and more against time) and summary.

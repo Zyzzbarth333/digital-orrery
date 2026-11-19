@@ -11,8 +11,8 @@ navigation team's reconstruction:
 - the impact, against Daly et al.'s time, speed and point;
 - the app's mission file, flown as the app flies it, to Dimorphos.
 
-`npm test` runs `src/physics/missions.validate.mjs`
-(`node src/physics/missions.validate.mjs dart` for this one). The numbers
+`npm test` runs `validation/missions.validate.mjs`
+(`node validation/missions.validate.mjs dart` for this one). The numbers
 below are from November 2026.
 
 ## Why DART

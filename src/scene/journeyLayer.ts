@@ -23,7 +23,7 @@
 // camera does. Lines are drawing aids at a display level (setLevel).
 
 import * as THREE from 'three';
-import type { JourneyView, JourneyHandlers, JourneyMarkView } from '../app/journey';
+import type { JourneyView, JourneyHandlers, JourneyMarkView } from '../types/journey';
 
 type V3 = [number, number, number];
 type P2 = [number, number];

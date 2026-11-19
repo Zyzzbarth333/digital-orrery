@@ -70,7 +70,7 @@ SPK kernels, printed as a Horizons vector table, for the flyby checks
 where Horizons has no reconstruction
 ([docs/validation.md](../docs/validation.md#voyager-2-at-neptune-and-triton)).
 Horizons' Voyager 2 before 29 August 1989 is a patched-conic design
-trajectory, so `src/physics/flyby.fetch.mjs` reads NAIF's reconstruction
+trajectory, so `pipelines/flyby.fetch.mjs` reads NAIF's reconstruction
 of the Uranus and Neptune encounters through it: `vgr2.ura182.bsp`
 (1.0 MB, with URA182's Uranus and five major moons) and `vgr2_nep097.bsp`
 (1.4 MB, with nep097's Neptune and Triton), from
@@ -138,14 +138,14 @@ error over every interval, and the jumps where intervals meet.
 `earth_orientation.c` samples ITRF93 from NAIF's two Earth PCKs, each read
 alone, for the Earth orientation table
 ([docs/physics/orientation.md](../docs/physics/orientation.md#earth));
-`src/physics/eop.build.mjs` fits each day's UT1 − UTC, polar motion and
+`pipelines/eop.build.mjs` fits each day's UT1 − UTC, polar motion and
 nutation corrections to the samples:
 
 ```bash
 cmake --build c/build
 c/build/earth_orientation python/data/kernels/pck/earth_latest_high_prec.bpc \
   python/data/kernels/pck/earth_2026_260806_2126_predict.bpc /tmp/itrf93.bin
-node src/physics/eop.build.mjs /tmp/itrf93.bin
+node pipelines/eop.build.mjs /tmp/itrf93.bin
 ```
 
 The samples file is 26 MB and not kept. The build prints the fit's worst
