@@ -264,8 +264,9 @@ function resetScope(unit) {
 }
 
 // A headless browser on its first page: { proc, cdp, profile, close }.
-// close() is safe to call twice and never throws.
-export async function launch({ gpu = 'intel', width = 1200, height = 750 } = {}) {
+// close() is safe to call twice and never throws. args: more switches
+// (a proxy, for scripts/bench-load.mjs).
+export async function launch({ gpu = 'intel', width = 1200, height = 750, args = [] } = {}) {
   sweepProfiles();
   const profile = mkdtempSync(join(tmpdir(), PROFILE));
   // In scope mode systemd-run becomes the browser (the same pid and
@@ -277,7 +278,7 @@ export async function launch({ gpu = 'intel', width = 1200, height = 750 } = {})
     '--headless=new', '--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist',
     '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
     '--hide-scrollbars', '--mute-audio', `--window-size=${width},${height}`,
-    'about:blank',
+    ...args, 'about:blank',
   ], { env: gpuEnv(gpu), stdio: ['ignore', 'ignore', 'pipe'], detached: true });
   let cdp = null;
   let closed = null;

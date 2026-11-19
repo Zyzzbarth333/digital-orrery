@@ -371,6 +371,52 @@ and loading them used to freeze the page for up to two seconds. Now:
 - **A lost WebGL context** takes these textures with it, so on restore the
   maps load again.
 
+### Over the network
+
+On the live site every map comes over the network, and on a slow link
+the files share it: on a first visit over fast 4G the sky's 0.6 MB
+preview came about 6 s after the first frame, beside the full sky (15 MB) and
+the faint belt (17 MB), and Mars's maps were in 66–82 s after a flight
+there started ([performance](../performance.md#loading-over-the-network)).
+So:
+
+- **A preview first.** A KTX2 map wider than 2048 px shows its 2048-wide
+  levels first. KTX2 stores its levels smallest first, so that small ones
+  can be sent first [24, §3.7]: the first bytes of the file, up to the end
+  of the 2048-wide level, hold every level from it down (Mars's day map:
+  2.1 of 29.5 MB). `ktx2.ts` asks for the first 4 KB (the header and level
+  index), then that much with an HTTP byte range, makes those levels a
+  KTX2 file of their own (`ktx2Range.js`: the size, level index and, for
+  ETC1S, the codebook's image descriptors cut to match) and shows it, then
+  asks for the rest and puts the whole map in its place. No byte is
+  fetched twice, and no file is added: `ktx2Range.test.mjs` checks that a
+  preview transcodes to exactly the levels the whole file does, for UASTC
+  and ETC1S maps. A server that ignores ranges sends the whole file, which
+  loads as before.
+- **One queue** (`src/browser/loadQueue.js`). Previews start at once; the
+  full maps, the full sky, the faint belt and the day's clouds wait until
+  no preview is downloading, then go one at a time: the focused body's,
+  then the sky, then bodies seen, then the belt and clouds. A download
+  gives up its place when its bytes are in, so it decodes while the next
+  one downloads.
+- **All of a body's maps at once.** The day map no longer waits for the
+  relief and night maps.
+- **Only the flight's goal.** A body seen only in passing during a flight
+  (the Moon, leaving the Earth for Mars: 37 MB) loads nothing; once the
+  flight ends, bodies in view load as before.
+- **The app's code alongside the ephemerides.** `main.tsx` waits for the
+  DE442 tables (3 MB) before it runs the app; a `modulepreload` link
+  (`vite.config.js`) now fetches the app's code at the same time.
+- **What is loading is shown**: a readout window at the sky's top left
+  names the most urgent download, its megabytes so far and how many more
+  wait, and is gone when nothing is loading.
+
+![Mars just after a flight over fast 4G: the 2048-wide preview on the planet, and the readout at the top left saying LOADING MARS SURFACE 1.3 / 27.5 MB +5 queued](loading-mars-preview.jpg)
+
+*Mars 1.5 s after a flight from the Earth ended, over a shaped fast 4G
+link (`npm run bench:load`'s proxy): the 2048-wide preview is on, and
+1.3 of the full day map's remaining 27.5 MB are in.*
+
 ### Loading the sky
 
 The field of view is fixed at 45° vertically, so the sky's magnification
