@@ -64,6 +64,9 @@ const ALL_SETS = ['active', 'debris', 'rocket-bodies', 'analyst'];
 // The Moon's landing sites switched on, and Apollo 11's flown to.
 const SITES_ON = '(orrery.sites?.setOn(true), true)';
 const SITE_NEAR = "(orrery.sites.setOn(true), orrery.focusOnSite('apollo11'), true)";
+// A spacecraft beyond Earth flown to, once the layer is on and has the
+// month the clock is in (a flight to a craft with no place yet is dropped).
+const PROBE = (key) => `(async () => { const L = orrery.spacecraft; L.setOn(true); await L.loadIndex(); while (!L.positionKm('${key}', orrery.clock.snapshot.timeMs)) await new Promise((r) => setTimeout(r, 100)); orrery.focusOnProbe('${key}'); return true; })()`;
 const SCENARIOS = {
   'overview': { label: 'Overview (the Sun)', query: `?focus=sun&${DATE}`, km: 1.6e9 },
   'earth': { label: 'Earth close-up', query: `?focus=earth&${DATE}`, km: 20000 },
@@ -78,6 +81,9 @@ const SCENARIOS = {
   // Artemis II's Orion followed from 50 m (a craft's closest): NASA/JPL's model (craftAssets.ts)
   // once it has loaded; a build without it draws the marker.
   'orion-near': { label: 'Orion close up (Artemis II)', query: '?mission=artemis2&t=2026-04-02T03:00Z', km: 0.05, ready: CRAFT },
+  // Webb followed from 50 m: NASA 3D Resources' model (probeModels.ts, 99,000
+  // triangles) once it has loaded; a build without it draws the marker.
+  'probe-near': { label: 'Webb close up (NASA model)', query: `?focus=earth&${DATE}`, km: 0.05, setup: PROBE('jwst'), ready: "orrery.focusProbe === 'jwst'" },
   'sats': { label: 'Earth satellites, all on', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON },
   'sat-near': { label: 'The ISS followed', query: `?focus=earth&${DATE}`, km: 0.1, setup: ISS },
   'sats-all': { label: 'Earth satellites, every set on', query: `?focus=earth&${DATE}`, km: 20000, setup: setsOn(ALL_SETS) },

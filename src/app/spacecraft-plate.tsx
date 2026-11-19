@@ -13,6 +13,7 @@ import { bodyState } from '../scene/OrreryScene';
 import { BODY_BY_KEY, type BodyKey } from '../scene/catalogue';
 import { PROBE_GROUPS, type Probe, type SpacecraftLayer } from '../scene/spacecraftLayer';
 import { sunlightAt, sunlightRow } from './sunlight';
+import { probeModelKey, probeNote } from '../scene/probeModels';
 
 const AU_KM = 149597870.7, C_KM_S = 299792.458;
 const CENTRE_NAME: Record<string, string> = { sun: 'the Sun', mercury: 'Mercury', venus: 'Venus', earth: 'the Earth', moon: 'the Moon', mars: 'Mars', jupiter: 'Jupiter' };
@@ -55,6 +56,7 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
     { label: 'Held as', value: c.spacingMin ? `every ${c.spacingMin[0]}–${c.spacingMin[1]} min` : '—', alt: `within ${layer.tolKm} km of Horizons (worst ${c.maxErrKm.toFixed(2)} km)`, src: 'packed', derived: true, info: 'probe-packing' },
   );
   const group = PROBE_GROUPS.find((g) => g.key === c.group);
+  const model = probeModelKey(c.key);
   // The phone's peek: how far from Earth, and how fast.
   usePeek(byLabel(rows, 'From Earth', 'Speed'));
   return (
@@ -69,7 +71,7 @@ export function SpacecraftPlate({ clock, probe: c, layer }: { clock: SimClock; p
         <p>{predicted
           ? `The clock is past Horizons' last update of this craft (${c.revised ?? 'no date given'}): its trajectory here is a prediction, and manoeuvres planned since are not in it.`
           : `The clock is before Horizons' last update of this craft (${c.revised}): its trajectory here is fitted to tracking.`} The app places it where Horizons does, and flies none of it. Choose a body in the rail to leave it.</p>
-        <p>Not modelled close up: it stays a marker at any distance. The app draws only its own craft and the ISS, Tiangong and Hubble as models.</p>
+        <p>{model ? probeNote(model) : 'Not modelled close up: NASA publishes no model of it, so it stays a marker at any distance.'}</p>
         {c.conicDays > 0 && <p>On {c.conicDays} of its days Horizons' prediction follows a plain conic, a simplified forecast: its place there is a guide, not a fix.</p>}
       </div>
     </div>
