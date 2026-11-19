@@ -1,0 +1,56 @@
+name: Pages
+
+# Builds the app with its pinned data and deploys it to GitHub Pages, at
+# https://zyzzbarth333.github.io/digital-orrery/ (ADR-0001, phase B).
+#
+# Run by hand for now (Actions, Pages, Run workflow). Pages must first be
+# turned on in the repository's settings, with GitHub Actions as its source;
+# once a deploy has worked, add `push: branches: [main]` below.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build with the pinned data
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Data (fetch what git doesn't carry, verify all of it)
+        run: npm run data -- --verify
+      - name: Build for /digital-orrery/
+        run: npm run build
+        env:
+          VITE_BASE: /digital-orrery/
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

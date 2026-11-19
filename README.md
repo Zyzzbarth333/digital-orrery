@@ -86,7 +86,7 @@ The physics is checked against references, and each model's page says how and ho
 
 ### Prerequisites
 
-- Node.js 20.19+ (or 22.12+) and npm; Vite 8 needs one of these
+- Node.js 22.12 or later, and npm (the version is pinned in `.nvmrc`)
 - A modern browser with WebGL support
 
 ### Install and run
@@ -95,10 +95,19 @@ The physics is checked against references, and each model's page says how and ho
 git clone https://github.com/Zyzzbarth333/digital-orrery.git
 cd digital-orrery
 npm install
+npm run data
 npm run dev
 ```
 
-`npm run dev` starts the Vite development server. To produce a production build:
+`npm run data` makes sure `public/` holds the maps, tables, models and catalogues the app loads (547 MB), at the versions `public/manifest.json` pins. It fetches any set that's missing from the project's GitHub Releases and checks every file's SHA-256. `npm run data -- --check` only reports. If the app finds its data missing, it says so in the sky.
+
+The repository's history is large (about 800 MB) while the data is still in git. A partial clone fetches past versions of files only when they're needed:
+
+```bash
+git clone --filter=blob:none https://github.com/Zyzzbarth333/digital-orrery.git
+```
+
+The dev container runs `npm install && npm run data` for you. `npm run dev` starts the Vite development server. To produce a production build:
 
 ```bash
 npm run build

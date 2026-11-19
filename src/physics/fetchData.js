@@ -10,6 +10,9 @@
 export async function fetchOk(url, what) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(what ? `${what}: HTTP ${r.status}` : `HTTP ${r.status}`);
+  // The dev server answers a missing file with the app's index.html and a
+  // 200: for a data file that means it isn't there (npm run data fetches it).
+  if (!/\.html?($|\?)/.test(url) && (r.headers?.get?.('content-type') ?? '').includes('text/html')) throw new Error(`${what ? `${what}: ` : ''}${url} is missing (run npm run data)`);
   return r;
 }
 
