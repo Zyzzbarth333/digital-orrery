@@ -96,6 +96,26 @@ const SAT_SHOWN: Record<SatLayerKey, string> = {
 const PROBE_WHERE = Object.fromEntries(PROBE_GROUPS.map((g) => [g.key,
   g.key === 'cruise' ? 'in cruise' : g.key === 'lagrange' ? 'near Sun-Earth L1 or L2' : g.key === 'moon' ? 'at the Moon' : `at ${g.label}`])) as Record<Probe['group'], string>;
 
+// A memoised object with workers, started once React keeps it and disposed
+// once nothing holds it: replaced by a hot reload of this file (Fast
+// Refresh runs useMemo again, so each reload made a Mission whose kernel
+// worker ran on for good) or unmounted. StrictMode's development double
+// render builds one it throws away, which is never started (its workers
+// start lazily), and its double effect runs the cleanup and then the
+// set-up again on the same object at once, so the cleanup only lets go,
+// and the object is disposed a task later if no set-up has taken it back.
+const held = new Map<object, number>();
+function useLifetime(obj: { start?(): void; dispose(): void }): void {
+  useEffect(() => {
+    held.set(obj, (held.get(obj) ?? 0) + 1);
+    obj.start?.();
+    return () => {
+      held.set(obj, (held.get(obj) ?? 1) - 1);
+      setTimeout(() => { if (!held.get(obj)) { held.delete(obj); obj.dispose(); } }, 0);
+    };
+  }, [obj]);
+}
+
 export function App() {
   const init = useMemo(initialState, []);
   const clock = useMemo(() => {
@@ -159,6 +179,8 @@ export function App() {
   // window.orrery), for headless checks of the craft's state.
   if (new URLSearchParams(window.location.search).has('debug')) (window as unknown as { mission: Mission }).mission = mission;
   const journey = useMemo(() => new JourneyStore(init.timeMs), [init]);
+  useLifetime(mission);
+  useLifetime(journey);
   const scene = useRef<OrreryScene | null>(null);
   // The plotting table covers the sky, which pauses behind it.
   useJourney(journey);

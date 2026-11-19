@@ -130,6 +130,22 @@ ISS's track) is not lost. satellite.js's own reader rounds it to the whole
 millisecond for SDP4's lunar-solar setup. That moves a deep-space state
 by up to 35 mm in the verification set: the "deep-space" tolerance below.
 
+**The resonance integrator.** For the 12- and 24-hour orbits SDP4
+integrates the resonance terms in 720-minute steps from the epoch [4].
+Vallado's code keeps where the integrator got to (`atime`, `xli`, `xni`)
+on the record, so each call carries on from the last. satellite.js 7.1.0's
+`sgp4` drops them, so every call integrated from the epoch again, and its
+cost grew with the clock's distance from the epoch: 2,200 steps a call
+three years on. The layer places its named satellites every frame on the
+main thread, so a clock run years ahead slowed every frame with the layer
+on ([performance](../performance.md#a-long-run)). `sgp4.js` wraps `sgp4`:
+for a resonant deep-space record it runs the same steps first and keeps
+where they stop, and satellite.js's integrator then takes up from there
+with none left to take. The states are the same to the last bit
+(`satellites.test.mjs` compares them with satellite.js's own at times
+years either side of the epoch, out of order), and three years on a call
+costs about 80 times less.
+
 ### From TEME to J2000
 
 SGP4 gives positions in TEME, the true equator and mean equinox of date:

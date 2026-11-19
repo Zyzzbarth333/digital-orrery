@@ -18,6 +18,8 @@
 import { readFileSync } from 'node:fs';
 import { ommFromTle, satrecOf, stateTeme, stateEqj, temeToEqj, apply, parseGpCsv, epochMs, inShadow, sunFraction, meanOrbit, groundSpeeds, R_EARTH_KM } from './satellites.js';
 import { earthFixedMatrix } from './earthRotation.js';
+import { sgp4 } from './sgp4.js';
+import { sgp4 as sgp4Unwrapped } from 'satellite.js';
 
 let failed = 0;
 function check(ok, what) {
@@ -226,6 +228,43 @@ console.log("The Earth's and the Moon's shadows (cones)");
   const s = [Math.cos(L), Math.cos(eps) * Math.sin(L), Math.sin(eps) * Math.sin(L)];
   for (let m = 0; m < 93; m += 0.5, n++) if (inShadow(stateEqj(sat, sat.epochMs + m * 60e3).r, s)) dark++;
   check(dark / n >= 0 && dark / n < 0.42, `ISS in shadow for ${(dark / n * 100).toFixed(0)} % of an orbit`);
+}
+
+// ----- SDP4's resonance integrator kept between calls (sgp4.js) -----
+// The wrapped sgp4 against satellite.js's own, which integrates from the
+// epoch at every call: the same states to the last bit for each 12- and
+// 24-hour orbit in Vallado's set, at times years either side of the epoch
+// taken out of order (a time warp, a reversal, a jump), and a call three
+// years on costs a few steps, not 2,200.
+console.log('SDP4 resonance kept between calls (sgp4.js)');
+{
+  const { cases } = fixture('sgp4_verification.json');
+  const recs = cases.map((c) => satrecOf(ommFromTle(c.l1, c.l2)).rec).filter((r) => r.method === 'd' && r.irez !== 0 && !r.error);
+  const times = [0, 360, 719, 720, 721, 1440 * 30, 1440 * 365 * 3, 1440 * 365 * 3 + 1, 1440 * 365 * 3 + 5000, 1440 * 365,
+    -1440 * 200, -1440 * 200 - 719.5, -100, 1440 * 365 * 3 - 0.25, 1440 * 365 * 10, 1440 * 365 * 9.5, 12345.678];
+  let same = 0, total = 0, worst = 0;
+  for (const r of recs) {
+    for (const t of times) {
+      const a = sgp4(r, t), b = sgp4Unwrapped({ ...r, atime: 0 }, t);
+      total++;
+      if (!a.position || !b.position) { if (!a.position === !b.position) same++; continue; }
+      const d = dist([a.position.x, a.position.y, a.position.z], [b.position.x, b.position.y, b.position.z]);
+      worst = Math.max(worst, d);
+      if (d === 0 && a.velocity.x === b.velocity.x && a.velocity.y === b.velocity.y && a.velocity.z === b.velocity.z) same++;
+    }
+  }
+  check(recs.length >= 8, `${recs.length} resonant deep-space orbits in the set (12 h and 24 h)`);
+  check(same === total, `the same state as satellite.js from the epoch, ${same} of ${total} (worst ${worst} km)`);
+  // A frame's worth of calls three years on, a frame (16 ms) apart.
+  const r = recs[0], t0 = 1440 * 365 * 3, n = 300;
+  sgp4(r, t0);
+  let w = performance.now();
+  for (let i = 0; i < n; i++) sgp4(r, t0 + i * 0.0167 / 60 * 3600);
+  w = performance.now() - w;
+  let u = performance.now();
+  for (let i = 0; i < n; i++) sgp4Unwrapped({ ...r, atime: 0 }, t0 + i * 0.0167 / 60 * 3600);
+  u = performance.now() - u;
+  check(w * 20 < u, `three years on, ${n} calls take ${w.toFixed(1)} ms kept against ${u.toFixed(1)} ms from the epoch`);
 }
 
 if (failed) { console.log(`\n${failed} satellite check(s) failed`); process.exit(1); }
