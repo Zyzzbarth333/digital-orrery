@@ -19,11 +19,11 @@ import { ORION_CRAFT, ORION_ENTRIES, orionFor } from './orion.js';
 import { createKernelHost, KERNEL_EPOCH_MS, kernelSeconds } from './kernelHost.js';
 import { solarSystemBodies } from './bodies.js';
 import { propagate } from './orbital.js';
+import { norm } from './vec.js';
 
 let failures = 0;
 function check(name, ok) { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; }
 const header = (s) => { console.log('='.repeat(60)); console.log(s); console.log('='.repeat(60)); };
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const H = 3600, DAY = 86400, R_EI = 6378.137 + 121.92;
 

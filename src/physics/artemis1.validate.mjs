@@ -20,13 +20,13 @@ import { advance } from './nbody.js';
 import { helioStateEqj } from './ephemeris.js';
 import { makeEnvironment } from './environment.js';
 import { ORION_CRAFT, ORION_ENGINE } from './orion.js';
+import { dot, norm } from './vec.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
 const header = (s) => { console.log('='.repeat(72)); console.log(s); console.log('='.repeat(72)); };
 const fx = JSON.parse(fs.readFileSync(new URL('./fixtures/artemis1.json', import.meta.url)));
 const row = (s) => ({ ms: Date.parse(s[0]), r: s.slice(1, 4), v: s.slice(4, 7) });
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const hhmm = (ms) => new Date(ms).toISOString().slice(5, 19).replace('T', ' ');
 const FT = 0.3048, MILE = 1.609344, RE = 6378.137;
@@ -127,7 +127,6 @@ const M0 = 26000, REF = 1.3 * 92 / M0;
 const dark = makeEnvironment(sys, { mass: M0, area: 92, cr: 0 });
 const held = makeEnvironment(sys, { mass: M0, area: 92, cr: 1.3 });
 const falling = makeEnvironment(sys, { mass: M0, area: 92, cr: 1.3, massAt: (t) => M0 * ratioAt(t) });
-const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const errs = arcs.map(([a, b]) => {
   const e0 = sub(coast(a, b.ms, dark).r, b.r);
   return {
@@ -140,7 +139,7 @@ const errs = arcs.map(([a, b]) => {
 });
 // The strength that best fits all the arcs at once, mass falling or held
 // (least squares), and the rms and worst there.
-const fit = (k) => { const k2 = errs.reduce((s, x) => s + dot3(x[k], x[k]), 0); return -errs.reduce((s, x) => s + dot3(x.e0, x[k]), 0) / k2; };
+const fit = (k) => { const k2 = errs.reduce((s, x) => s + dot(x[k], x[k]), 0); return -errs.reduce((s, x) => s + dot(x.e0, x[k]), 0) / k2; };
 const at = (k, scale) => errs.map((x) => norm([x.e0[0] + scale * x[k][0], x.e0[1] + scale * x[k][1], x.e0[2] + scale * x[k][2]]) * 1000);
 const stat = (v) => ({ worst: Math.max(...v), rms: Math.sqrt(v.reduce((s, x) => s + x * x, 0) / v.length) });
 const kHeld = fit('held'), kFall = fit('falling');
@@ -155,7 +154,7 @@ console.log(`  the app's Orion (Cr A/m ${(appScale * REF * 1000).toFixed(2)}e-3 
 // Arc by arc, the strength each wants with the mass held grows as the mass
 // falls: the long arcs (over 8 h) before the outbound flyby against those
 // after the return flyby.
-const want = errs.filter((x) => x.hours > 8).map((x) => ({ ...x, k: -dot3(x.e0, x.held) / dot3(x.held, x.held) }));
+const want = errs.filter((x) => x.hours > 8).map((x) => ({ ...x, k: -dot(x.e0, x.held) / dot(x.held, x.held) }));
 const mean = (v) => v.reduce((s, x) => s + x, 0) / v.length;
 const early = want.filter((x) => x.mid < Date.parse('2022-11-21T12:44Z')), late = want.filter((x) => x.mid > Date.parse('2022-12-05T16:43Z'));
 const grew = mean(late.map((x) => x.k)) / mean(early.map((x) => x.k)), shrank = mean(early.map((x) => x.ratio)) / mean(late.map((x) => x.ratio));

@@ -27,6 +27,8 @@
 // clears it; recentre() eases it back onto the target with the same spring
 // as the settle.
 
+import { norm } from '../physics/vec.js';
+
 type Vec3 = [number, number, number];
 
 export interface Anchor {
@@ -47,7 +49,6 @@ const ZOOM_TAU = 0.09;        // s: the wheel's zoom eases in over about a quart
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a: Vec3, k: number): Vec3 => [a[0] * k, a[1] * k, a[2] * k];
-const norm = (a: Vec3) => Math.hypot(a[0], a[1], a[2]);
 
 const easeInOut = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 const easeOut = (x: number) => 1 - (1 - x) ** 3;

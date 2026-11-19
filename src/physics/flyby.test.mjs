@@ -29,6 +29,7 @@ import { MAJOR_MOONS_OF as MOONS_OF, systemEqjAtTt } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
 import { helioStateEqjAtTt, ttSeconds, utcMsAtTt } from './ephemeris.js';
 import { zonalTerms } from './zonal.js';
+import { dot, unit } from './vec.js';
 
 let failed = 0;
 const check = (ok, msg) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${msg}`); if (!ok) failed++; };
@@ -604,21 +605,19 @@ header("CASE 5: a moon's degree-2 field (J2 and C22), and Jupiter's zonals to J1
 {
   // Ganymede's field about tilted axes, against central differences of
   // U = -(mu R^2 J2 / 2)(3 z^2 / r^5 - 1 / r^3) + 3 mu R^2 C22 (x^2 - y^2) / r^5.
-  const unit = (v) => { const n = Math.hypot(...v); return v.map((x) => x / n); };
   const Z = unit([0.2, -0.3, 1]), X0 = unit([1, 0.4, 0.1]);
-  const dotp = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  const X = unit(X0.map((x, i) => x - dotp(X0, Z) * Z[i]));
+  const X = unit(X0.map((x, i) => x - dot(X0, Z) * Z[i]));
   const Y = [Z[1] * X[2] - Z[2] * X[1], Z[2] * X[0] - Z[0] * X[2], Z[0] * X[1] - Z[1] * X[0]];
   const b = { mu: 9887.83, j2: 133.0e-6, c22: 39.56e-6, rJ2: 2631.2, pole: Z, axisX: X, axisY: Y };
   const U = (d) => {
-    const r2 = dotp(d, d), r = Math.sqrt(r2), x = dotp(d, X), y = dotp(d, Y), z = dotp(d, Z), R2 = b.rJ2 * b.rJ2;
+    const r2 = dot(d, d), r = Math.sqrt(r2), x = dot(d, X), y = dot(d, Y), z = dot(d, Z), R2 = b.rJ2 * b.rJ2;
     return -(b.mu * R2 * b.j2 / 2) * (3 * z * z / r ** 5 - 1 / r ** 3) + 3 * b.mu * R2 * b.c22 * (x * x - y * y) / r ** 5;
   };
   const { addJ2 } = await import('./zonal.js');
   let worst = 0;
   for (const d of [[3000, 1000, 500], [-2000, 2500, -1500], [500, -400, 3200], [4000, 0, 0]]) {
     const a = [0, 0, 0];
-    addJ2(d[0], d[1], d[2], dotp(d, d), b, a);
+    addJ2(d[0], d[1], d[2], dot(d, d), b, a);
     const g = [0, 1, 2].map((i) => { const h = 1e-3, p = [...d], m = [...d]; p[i] += h; m[i] -= h; return (U(p) - U(m)) / (2 * h); });
     worst = Math.max(worst, Math.hypot(a[0] - g[0], a[1] - g[1], a[2] - g[2]) / Math.hypot(...g));
   }
@@ -632,7 +631,7 @@ header("CASE 5: a moon's degree-2 field (J2 and C22), and Jupiter's zonals to J1
     const J = { mu: Jb.mu, j2: Jb.j2, rJ2: Jb.rJ2, zn: Jb.zn, pole: Z };
     const Jn = { 2: J.j2, ...Object.fromEntries(J.zn.map((t) => [t.n, t.J])) };
     const UJ = (d) => {
-      const r = Math.hypot(...d), s = dotp(d, Z) / r;
+      const r = Math.hypot(...d), s = dot(d, Z) / r;
       let P0 = 1, P1 = s, U = 0;
       for (let n = 2; n <= 12; n++) {
         const P2 = ((2 * n - 1) * s * P1 - (n - 1) * P0) / n; P0 = P1; P1 = P2;
@@ -644,8 +643,8 @@ header("CASE 5: a moon's degree-2 field (J2 and C22), and Jupiter's zonals to J1
     // Points 1.05 to 1.6 Jupiter radii out, where every term to J12 acts.
     for (const d of [[60000, 40000, 20000], [-50000, 30000, -55000], [10000, -20000, 74000], [76000, 0, 0], [-30000, -60000, 40000]]) {
       const a = [0, 0, 0], a4 = [0, 0, 0];
-      addJ2(d[0], d[1], d[2], dotp(d, d), J, a);
-      addJ2(d[0], d[1], d[2], dotp(d, d), { ...J, zn: J.zn.filter((t) => t.n <= 4) }, a4);
+      addJ2(d[0], d[1], d[2], dot(d, d), J, a);
+      addJ2(d[0], d[1], d[2], dot(d, d), { ...J, zn: J.zn.filter((t) => t.n <= 4) }, a4);
       const g = [0, 1, 2].map((i) => { const h = 0.01, p = [...d], m = [...d]; p[i] += h; m[i] -= h; return (UJ(p) - UJ(m)) / (2 * h); });
       worstJ = Math.max(worstJ, Math.hypot(a[0] - g[0], a[1] - g[1], a[2] - g[2]) / Math.hypot(...g));
       worst6 = Math.max(worst6, Math.hypot(a[0] - a4[0], a[1] - a4[1], a[2] - a4[2]) / Math.hypot(...g));
@@ -661,11 +660,11 @@ header("CASE 5: a moon's degree-2 field (J2 and C22), and Jupiter's zonals to J1
     const J = { key: 'j', r: [0, 0, 0], rJ2: 71492, tide: { k2: 0.565, raisers: ['m'] } };
     const list = [J, moon], rm = Math.hypot(...moon.r), u = moon.r.map((x) => x / rm);
     const K = J.tide.k2 * moon.mu * J.rJ2 ** 5 / rm ** 3;
-    const V = (d) => { const r = Math.hypot(...d); return K * (P2(dotp(d, u) / r) + 0.5 * P2(dotp(d, moon.pole) / r)) / r ** 3; };
+    const V = (d) => { const r = Math.hypot(...d); return K * (P2(dot(d, u) / r) + 0.5 * P2(dot(d, moon.pole) / r)) / r ** 3; };
     let worstT = 0;
     for (const d of [[80000, 20000, 10000], [-60000, 90000, -30000], [10000, -20000, 120000]]) {
       const a = [0, 0, 0];
-      addTide(d[0], d[1], d[2], dotp(d, d), J, list, a);
+      addTide(d[0], d[1], d[2], dot(d, d), J, list, a);
       const g = [0, 1, 2].map((i) => { const h = 1, p = [...d], m = [...d]; p[i] += h; m[i] -= h; return (V(p) - V(m)) / (2 * h); });
       worstT = Math.max(worstT, Math.hypot(a[0] - g[0], a[1] - g[1], a[2] - g[2]) / Math.hypot(...g));
     }
@@ -675,8 +674,8 @@ header("CASE 5: a moon's degree-2 field (J2 and C22), and Jupiter's zonals to J1
   const sys = solarSystemBodies({ epochMs: Date.UTC(2026, 10, 12) });
   const G = sys.bodyAt('ganymede', 0), Jc = sys.bodyAt('jupiter', 0);
   const toJ = Jc.r.map((x, i) => x - G.r[i]), toJn = Math.hypot(...toJ);
-  check(G.c22 > 0 && Math.abs(dotp(G.axisX, toJ) / toJn - 1) < 1e-6 && Math.abs(dotp(G.axisX, G.pole)) < 1e-12,
-    `Ganymede's x axis points at Jupiter (cos ${(dotp(G.axisX, toJ) / toJn).toFixed(9)}), its z along its orbit's pole`);
+  check(G.c22 > 0 && Math.abs(dot(G.axisX, toJ) / toJn - 1) < 1e-6 && Math.abs(dot(G.axisX, G.pole)) < 1e-12,
+    `Ganymede's x axis points at Jupiter (cos ${(dot(G.axisX, toJ) / toJn).toFixed(9)}), its z along its orbit's pole`);
 }
 
 console.log(failed ? `\nflyby: ${failed} check(s) FAILED` : '\nflyby: all checks passed');

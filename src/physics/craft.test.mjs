@@ -15,13 +15,12 @@ import { escapeStart, departureHyperbola } from './launch.js';
 import { propagate, rvToElements, hohmann } from './orbital.js';
 import { transferBetween } from './porkchop.js';
 import { GRAVITATIONAL_PARAMETERS as GM, PLANETS } from '../utils/constants.js';
+import { norm, unit } from './vec.js';
 
 let failures = 0;
 function check(name, ok) { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; }
 const header = (s) => { console.log('='.repeat(60)); console.log(s); console.log('='.repeat(60)); };
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const diff = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const unit = (a) => { const n = norm(a); return a.map((x) => x / n); };
 const AU = 149597870.7, DAY = 86400, MU_E = 398600.4355;
 
 const START = new Date('2026-11-04T00:00:00Z');

@@ -36,6 +36,7 @@ import type { FlowFrame, FlowPlane } from '../scene/gravityFlow';
 import type { MagneticKey } from '../scene/magnetic';
 import { PhoneContext } from './phone';
 import { usePeek, byLabel } from './peek';
+import { norm } from '../physics/vec.js';
 
 const AU_KM = 149597870.7;
 const C_KM_S = 299792.458;
@@ -51,7 +52,6 @@ export const RATES: { label: string; rate: number }[] = [
   { label: '1 yr/s', rate: 365.25 * 86400 },
 ];
 
-const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
 const sub3 = (a: number[], b: number[]) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 // Formatters are built once: toLocaleString builds a new one on every call,
 // and the plate formats a dozen numbers ten times a second.

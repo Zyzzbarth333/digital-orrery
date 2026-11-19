@@ -12,11 +12,11 @@ import { helioStateEqj } from './ephemeris.js';
 import { earthFixedMatrix } from './earthRotation.js';
 import { createState, advance } from './nbody.js';
 import { bodyAxesEqj } from './orientation.js';
+import { norm } from './vec.js';
 
 let failures = 0;
 const check = (name, ok) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; };
 const header = (s) => { console.log('='.repeat(72)); console.log(s); console.log('='.repeat(72)); };
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
 const kt = (ms) => kernelSeconds(new Date(ms));
 

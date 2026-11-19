@@ -33,6 +33,7 @@ import { bodyAxesEqj } from './orientation.js';
 import { vnbDirection, SUN_AT_ORIGIN } from './kernelHost.js';
 import { CraftAttitude } from './craftAttitude.js';
 import { thrustAxis } from './attitude.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 export const G0 = 9.80665;                 // m/s^2, for Isp
 const MAX_CARRY_S = 30 * 86400;
@@ -43,11 +44,7 @@ const ENTRY_INTERFACE_R = 6378.137 + 121.92;
 const AIR_CARRY_S = 2;
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
 let nextId = 1;
 

@@ -18,6 +18,8 @@ import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS, kernelSeconds, aimTo, stepCraft } from './kernelHost.js';
 import { makeEnvironment } from './environment.js';
 import { helioStateEqj } from './ephemeris.js';
+import { dot, cross, norm, unit } from './vec.js';
+export { dot, cross, norm, unit };
 
 dns.setDefaultResultOrder('ipv4first');
 const API = 'https://ssd.jpl.nasa.gov/api/horizons.api';
@@ -27,10 +29,6 @@ export const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
 export const kt = (ms) => kernelSeconds(new Date(ms));
 export const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 export const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-export const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-export const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-export const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-export const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
 export const opts = { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7 };
 
 // Horizons' code for a centre the app knows.

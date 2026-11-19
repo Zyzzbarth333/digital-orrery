@@ -43,15 +43,12 @@ import { makeEnvironment } from './environment.js';
 import { aimingRadius } from './transfers.js';
 import { bodyAxesEqj } from './orientation.js';
 import { deorbitDv, designBraking, designTerminal, designAscent, planCapture, DESCENT_PERIAPSIS_KM, TOUCHDOWN_SPEED } from './landing.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 const DAY = 86400;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => scale(a, 1 / norm(a));
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const Z = [0, 0, 1];
 // The bodies the kernel pulls with: the planets, the Moon and the planets'
 // major moons (bodies.js splits a planet's system near it), so each of
