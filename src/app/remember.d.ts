@@ -16,6 +16,7 @@ export interface KeptView { focus: string; on: string | null; cam: KeptCam | nul
 export const VIEW_KEY: string;
 export const LAYERS_KEY: string;
 export const TYPE_KEY: string;
+export const SHORTCUTS_KEY: string;
 export function parseType(text: string | null): 1 | 2 | 3;
 export const WIDE_TYPE_PX: number;
 export function defaultType(widthPx: number): 1 | 2;

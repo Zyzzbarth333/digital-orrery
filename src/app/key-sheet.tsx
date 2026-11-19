@@ -3,9 +3,11 @@
 // The ? sheet: every keyboard shortcut App.tsx handles, in a small readout
 // window drawn over everything (styled as the source tags' detail). ? or
 // Escape closes it, as does a press outside it or its Close key; focus
-// goes back to where it was.
+// goes back to where it was. Its switch turns the single-key shortcuts off
+// and on (shortcuts.ts).
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { shortcuts } from './shortcuts';
 
 export const SHORTCUTS: [string[], string][] = [
   [['Space'], 'Run or hold time'],
@@ -15,6 +17,9 @@ export const SHORTCUTS: [string[], string][] = [
   [['M'], 'Open or close the flight console'],
   [['H'], 'Home: back to the opening view'],
   [['C'], 'Centre the view on the focus after a pan'],
+  [['Shift', '←', '→'], 'Turn the view (or the sky\'s VIEW keys)'],
+  [['Shift', '↑', '↓'], 'Tilt the view'],
+  [['[', ']'], 'Zoom the view out or in'],
   [['/'], 'Find any body, satellite or spacecraft'],
   [['+', '−'], 'Larger or smaller type (the rail foot\'s TYPE keys)'],
   [['↑', '↓', 'Enter'], 'In FIND: move through the matches, fly to the marked one'],
@@ -30,6 +35,7 @@ export function KeySheet({ onClose }: { onClose: () => void }) {
   const sheet = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  const on = useSyncExternalStore(shortcuts.subscribe, shortcuts.get);
   useEffect(() => {
     const back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     sheet.current?.focus();
@@ -37,7 +43,7 @@ export function KeySheet({ onClose }: { onClose: () => void }) {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       const typing = tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA';
-      if (e.key === 'Escape' || (e.key === '?' && !typing)) { e.preventDefault(); e.stopPropagation(); close.current(); }
+      if (e.key === 'Escape' || (e.key === '?' && !typing && shortcuts.get())) { e.preventDefault(); e.stopPropagation(); close.current(); }
     };
     const onDown = (e: PointerEvent) => {
       const t = e.target as Element;
@@ -67,7 +73,12 @@ export function KeySheet({ onClose }: { onClose: () => void }) {
           </div>
         ))}
       </dl>
-      <p className="tag-pop-note">Ignored while typing in a field. Drag to turn the view; scroll to zoom.</p>
+      <div className="key-sheet-switch">
+        <span id="shortcuts-label">Single-key shortcuts</span>
+        <button type="button" className="key small" role="switch" aria-checked={on} aria-labelledby="shortcuts-label" data-shortcuts-switch
+          onClick={() => shortcuts.set(!on)} title={on ? 'Turn the keys above off (Esc still works)' : 'Turn the keys above back on'}>{on ? 'On' : 'Off'}</button>
+      </div>
+      <p className="tag-pop-note">Ignored while typing in a field. Off, only Esc works; the rail's ? keys button opens this sheet. Drag to turn the view; scroll to zoom.</p>
     </div>
   );
 }

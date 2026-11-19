@@ -432,7 +432,17 @@ body never closes it.
 A small window in the sky's lower left names what the camera is on, with
 two cues for the mode: FOCUS and a ring for a body, FOLLOW and a diamond for
 a craft, as their markers are drawn in the sky. During a flight the glyph
-lights and the plate reads EN ROUTE · Esc stop.
+lights and the plate reads EN ROUTE · Esc stop. Its VIEW key latches open
+a small pad above it, laid out as a hand controller's: UP, DOWN, LEFT and
+RIGHT turn the view a step, IN and OUT zoom, so nothing needs a drag or a
+pinch.
+
+### Focus
+
+The focus ring is 2 px of ink, 2 px out (10.7:1 on the panel), and
+phosphor wherever the control sits on black: the plotting table's scope, timeline, stack and GO board, a tag's
+detail, the key sheet, FIND's list, the sky, the nomenclature strips and
+the peek's readout window. Fields take the same ring as keys.
 
 ### Annunciator
 
