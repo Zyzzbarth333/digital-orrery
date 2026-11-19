@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/javascript-node:20-bullseye
+FROM mcr.microsoft.com/devcontainers/javascript-node:22-bookworm
 
 # Install additional OS packages if needed
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \

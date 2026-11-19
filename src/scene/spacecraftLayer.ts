@@ -25,7 +25,7 @@
 import * as THREE from 'three';
 import { eqjToEcl } from '../physics/ephemeris.js';
 import { parseMonth, segmentAt, stateIn } from '../physics/spacecraft.js';
-import { getJson } from '../physics/fetchData.js';
+import { getBuffer, getJson } from '../physics/fetchData.js';
 import { orbitTrailMaterial } from './orbitTrail';
 import { BODY_BY_KEY, type BodyKey } from './catalogue';
 import { probeModelKey } from './probeModels';
@@ -131,7 +131,7 @@ export class SpacecraftLayer {
       if (!this.index.months.includes(key)) { this.months.set(key, 'missing'); return null; }
       this.months.set(key, 'loading');
       const base = `${this.baseUrl}data/spacecraft/${key}`;
-      this.fetching.set(key, Promise.all([fetch(`${base}.json`).then((r) => r.json()), fetch(`${base}.bin`).then((r) => r.arrayBuffer())])
+      this.fetching.set(key, Promise.all([getJson(`${base}.json`, `${key}.json`), getBuffer(`${base}.bin`, `${key}.bin`)])
         .then(([json, bin]) => { this.months.set(key, parseMonth(json, bin)); this.resample(); })
         .catch((err) => { console.warn(`spacecraft ${key} not loaded: ${err}`); this.months.delete(key); })
         .finally(() => this.fetching.delete(key)));

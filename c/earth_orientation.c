@@ -2,7 +2,7 @@
  * earth_orientation.c
  *
  * Samples NAIF's ITRF93 Earth orientation (the J2000 -> ITRF93 rotation of
- * the binary Earth PCKs) for src/physics/eop.build.mjs, which fits each
+ * the binary Earth PCKs) for pipelines/eop.build.mjs, which fits each
  * day's Earth orientation parameters to it with the app's own IAU 1976/1980
  * model (earthRotation.js) and writes public/ephemeris/earth-orientation-*.bin.
  *

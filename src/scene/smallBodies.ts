@@ -37,6 +37,7 @@ import { exactOrbit, positionAu, diameterFromH, parseIndex, searchIndex, decodeO
 import { ttMinusUtc } from '../physics/timescale.js';
 import { BeltHaze } from './beltHaze';
 import { makeBodyMaterial } from './bodyMaterial';
+import { getBuffer, getJson, getText } from '../physics/fetchData.js';
 
 const AU_KM = 149597870.7, TAU = 2 * Math.PI;
 // The points of the bodies SB441's table covers (Ceres, Vesta, Eris and the
@@ -241,8 +242,7 @@ export class SmallBodyLayer {
 
   private async load(baseUrl: string): Promise<void> {
     try {
-      const get = (f: string) => fetch(`${baseUrl}data/${f}`).then((r) => { if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`); return r.arrayBuffer(); });
-      const [bin, meta] = await Promise.all([get('smallbodies.bin'), fetch(`${baseUrl}data/smallbodies.json`).then((r) => r.json())]);
+      const [bin, meta] = await Promise.all([getBuffer(`${baseUrl}data/smallbodies.bin`, 'smallbodies.bin'), getJson(`${baseUrl}data/smallbodies.json`, 'smallbodies.json')]);
       if (this.disposed) return;
       this.show(bin);
       this.named = meta.named;
@@ -252,7 +252,7 @@ export class SmallBodyLayer {
       // Then the faint main belt, about 1.45 million more: too faint to see
       // one by one, so they are drawn as a haze from their real orbits.
       try {
-        this.haze.setBodies(await get('smallbodies-belt.bin'));
+        this.haze.setBodies(await getBuffer(`${baseUrl}data/smallbodies-belt.bin`, 'smallbodies-belt.bin'));
       } catch (err) { console.warn(`faint main belt not loaded: ${err}`); }
     } catch (err) {
       console.warn(`small bodies not loaded: ${err}`);
@@ -279,8 +279,7 @@ export class SmallBodyLayer {
   private index: ReturnType<typeof parseIndex> | null = null;
   private indexLoad: Promise<ReturnType<typeof parseIndex> | null> | null = null;
   loadIndex(): Promise<ReturnType<typeof parseIndex> | null> {
-    this.indexLoad ??= fetch(`${this.baseUrl}data/smallbodies-index.txt`)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+    this.indexLoad ??= getText(`${this.baseUrl}data/smallbodies-index.txt`)
       .then((t) => { const ix = parseIndex(t); this.index = ix.count === this.count ? ix : null; return this.index; })
       .catch((err) => { console.warn(`small-body index not loaded: ${err}`); this.indexLoad = null; return null; });
     return this.indexLoad;

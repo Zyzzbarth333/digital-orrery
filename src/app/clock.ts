@@ -6,16 +6,11 @@
 // ten times a second so the panels never cost a frame.
 
 import { useSyncExternalStore } from 'react';
+import type { ClockState, SceneClock } from '../types/clock';
 
-export interface ClockState {
-  timeMs: number;        // sim time, UTC milliseconds since 1970
-  rate: number;          // sim seconds per real second
-  playing: boolean;
-  jumps: number;         // times the clock was set rather than run
-  lastJump: { fromMs: number; toMs: number } | null;   // the latest set, for BACK
-}
+export type { ClockState };
 
-export class SimClock {
+export class SimClock implements SceneClock {
   private state: ClockState;
   private listeners = new Set<() => void>();
   private lastNotify = 0;

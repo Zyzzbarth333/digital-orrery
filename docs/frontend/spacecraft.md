@@ -12,7 +12,7 @@ these have no element sets.)
 
 Code: [`src/physics/spacecraft.js`](../../src/physics/spacecraft.js) (the
 packing and the filling-in),
-[`spacecraft.fetch.mjs`](../../src/physics/spacecraft.fetch.mjs) (the
+[`spacecraft.fetch.mjs`](../../pipelines/spacecraft.fetch.mjs) (the
 fetch), [`src/scene/spacecraftLayer.ts`](../../src/scene/spacecraftLayer.ts)
 (drawing), [`spacecraft-rail.tsx`](../../src/app/spacecraft-rail.tsx) and
 [`spacecraft-plate.tsx`](../../src/app/spacecraft-plate.tsx).

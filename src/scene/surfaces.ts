@@ -22,6 +22,7 @@ import { applySurfaceMaps } from './bodyMaterial';
 import type { DecodeReply, DecodeRequest } from './decode.worker';
 import type { SkyDetailEntry } from './skyDetail';
 import { blockRowBytes, initKtx2, ktx2Ready, loadKtx2, type CompressedLevels } from './ktx2';
+import { getBuffer, getJson } from '../physics/fetchData.js';
 
 export interface SurfaceEntry {
   day?: string;                 // path under textures/
@@ -56,16 +57,12 @@ export async function loadManifest(): Promise<Manifest | null> {
   }
 }
 
-export async function loadBinary(path: string): Promise<ArrayBuffer> {
-  const r = await fetch(BASE + path);
-  if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return r.arrayBuffer();
+export function loadBinary(path: string): Promise<ArrayBuffer> {
+  return getBuffer(BASE + path, path);
 }
 
-export async function loadJson<T>(path: string): Promise<T> {
-  const r = await fetch(BASE + path);
-  if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return (await r.json()) as T;
+export function loadJson<T>(path: string): Promise<T> {
+  return getJson(BASE + path, path) as Promise<T>;
 }
 
 // Uploads maps to the GPU a few megabytes per frame, at the top of the
