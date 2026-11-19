@@ -307,8 +307,13 @@ export class OrreryScene {
   setInsetRight(px: number): void { this.insetGoal = px; }
   setInsetBottom(px: number): void { this.insetBottomGoal = px; }
   // The sky's size in CSS pixels, as resize() last measured it.
+  // The sky's size in CSS pixels, from resize(). The frame reads these, not
+  // the container's clientWidth and clientHeight, which force the browser to
+  // lay out again after the label layers have written their styles.
   private viewW = 1;
   private viewH = 1;
+  // Read once: a live MediaQueryList follows the setting as it changes.
+  private reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   craftSource: () => CraftView[] = () => [];
   onCraftPick: (id: number) => void = () => {};
   focusCraftId: number | null = null;
@@ -974,7 +979,7 @@ export class OrreryScene {
   // so the point under it stays under it at the pivot's depth.
   private panPixels(dx: number, dy: number): void {
     if (!dx && !dy) return;
-    const h = this.container.clientHeight || 1;
+    const h = this.viewH;
     const kmPerPx = (this.camDist * 2 * Math.tan((this.camera.fov * Math.PI) / 360)) / h;
     const m = this.camera.matrixWorld.elements;
     // The camera's right and up (render frame) in the ecliptic: render
@@ -1047,6 +1052,10 @@ export class OrreryScene {
     if (!w || !h) return;
     this.viewW = w;
     this.viewH = h;
+    // The overlay fills the sky (inset 0), so its label layers share the size.
+    this.irregulars?.setViewSize(w, h);
+    this.satellites?.setViewSize(w, h);
+    this.smallBodies?.setViewSize(w, h);
     this.renderer.setSize(w, h, false);
     this.renderer.getDrawingBufferSize(this.buffer);
     this.post.setSize(this.buffer.x, this.buffer.y, this.renderer.getPixelRatio());
@@ -1229,7 +1238,7 @@ export class OrreryScene {
     const ratio = this.scale.frame(now, now - this.lastFrame);
     if (ratio !== null) { this.renderer.setPixelRatio(ratio); this.resize(); }
     if (this.inset !== this.insetGoal || this.insetBottom !== this.insetBottomGoal) {
-      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduced = this.reduceMotion.matches;
       const ease = (x: number, goal: number) => reduced || Math.abs(x - goal) < 0.5 ? goal : x + (goal - x) * (1 - Math.exp(-dtReal / 0.08));
       this.inset = ease(this.inset, this.insetGoal);
       this.insetBottom = ease(this.insetBottom, this.insetBottomGoal);
@@ -1368,7 +1377,7 @@ export class OrreryScene {
       const sinLat = te[2] * up.x + te[5] * up.y + te[8] * up.z, [a, , c] = BODY_BY_KEY.earth.radiiKm;
       const hKm = d - (a * c) / Math.hypot(c * Math.sqrt(1 - sinLat * sinLat), a * sinLat);
       setStarTwinkle(this.starPoints, hKm < 30 ? hKm : null, hKm < 30 ? up : null,
-        now / 1000, matchMedia('(prefers-reduced-motion: reduce)').matches);
+        now / 1000, this.reduceMotion.matches);
     }
     this.smallBodies.update(tMs, cam, 1 / this.renderer.toneMappingExposure, this.adapt);
     this.irregulars.update(tMs, cam, (p: IrregularPlanet) => this.states[p].r, 1 / this.renderer.toneMappingExposure,
@@ -1377,17 +1386,17 @@ export class OrreryScene {
     for (const fm of [this.smallBodies.focusSphere, this.irregulars.focusSphere]) {
       if (fm) this.shadowOn(fm.material as THREE.ShaderMaterial, fm.position, Math.max(fm.scale.x, fm.scale.y, fm.scale.z), this.meshes.get('sun')!.position);
     }
-    this.satellites.setView(this.container.clientHeight / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
+    this.satellites.setView(this.viewH / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
     this.satellites.update(tMs, cam, this.states.earth.r, 1 / this.renderer.toneMappingExposure, this.adapt, this.states.moon.r);
     this.groundTrack.update(tMs, this.meshes.get('earth'), 1 / this.renderer.toneMappingExposure);
     this.spacecraft.update(tMs, cam, 1 / this.renderer.toneMappingExposure);
     this.guides.update({ camera: this.camera, states: this.states, cam, meshes: this.meshes, materials: this.materials,
       // A barycentre has no surface, axis or pulls of its own: no focus for the guides.
-      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
+      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.viewW, height: this.viewH,
       level: 1 / this.renderer.toneMappingExposure, date, pivot: f });
     this.guides.render(this.renderer);
     this.magnetic.update({ camera: this.camera, meshes: this.meshes, materials: this.materials,
-      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.container.clientWidth, height: this.container.clientHeight,
+      focus: this.focusCraftId === null && !isBary(this.focus) ? this.focus : null, width: this.viewW, height: this.viewH,
       level: 1 / this.renderer.toneMappingExposure, date, running: this.clock.snapshot.playing });
 
     this.smallBodies.renderHaze(this.renderer, this.camera);
@@ -1396,10 +1405,10 @@ export class OrreryScene {
     this.surfacePatch.update(SurfacePatch.nearest(this.meshes, (k) => k === 'sun'));
     this.post.render(this.renderer, this.scene, this.camera);
     this.placeLabels();
-    this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
-    this.spacecraft.label(this.camera, this.container.clientWidth, this.container.clientHeight);
-    this.sites.update(cam, (b) => (this.states[b as BodyKey]?.r as Vec3 | undefined) ?? null, this.sitePlace, this.camera, this.container.clientWidth, this.container.clientHeight);
-    this.journeyLayer.label(this.journeyCentral, cam, UNIT_KM, this.camera, this.container.clientWidth, this.container.clientHeight);
+    this.craftLayer.label(crafts, cam, UNIT_KM, this.camera, this.viewW, this.viewH);
+    this.spacecraft.label(this.camera, this.viewW, this.viewH);
+    this.sites.update(cam, (b) => (this.states[b as BodyKey]?.r as Vec3 | undefined) ?? null, this.sitePlace, this.camera, this.viewW, this.viewH);
+    this.journeyLayer.label(this.journeyCentral, cam, UNIT_KM, this.camera, this.viewW, this.viewH);
   };
 
   // Turn the camera's up towards `goal` (ecliptic): at once with reduced
@@ -1412,7 +1421,7 @@ export class OrreryScene {
     const g = toRender(goal, this.tmp2).normalize();
     const angle = this.viewUp.angleTo(g);
     if (angle < 1e-6) return;
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduced = this.reduceMotion.matches;
     const axis = new THREE.Vector3().crossVectors(this.viewUp, g);
     if (axis.lengthSq() < 1e-12) toRender([-offset[0], -offset[1], -offset[2]], axis);
     this.viewUp.applyAxisAngle(axis.normalize(), reduced ? angle : angle * (1 - Math.exp(-dt / 0.25)));
@@ -1450,7 +1459,7 @@ export class OrreryScene {
     // The Sun's disc in frame would blind an eye to faint stars outright;
     // it is tempered to a third so the overview keeps a sky.
     let light = 0.35 * this.sunVisible * Math.max(0, Math.min(1, (35 - thetaSun) / 20));
-    const h = this.container.clientHeight, w = this.container.clientWidth;
+    const h = this.viewH, w = this.viewW;
     const pxPerRad = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
     for (const b of BODIES) {
       if (b.key === 'sun') continue;
@@ -1699,7 +1708,7 @@ export class OrreryScene {
   // Markers and labels at each body's projected position. The dot hides once
   // the body itself is bigger than a few pixels.
   private placeLabels(): void {
-    const w = this.container.clientWidth, h = this.container.clientHeight;
+    const w = this.viewW, h = this.viewH;
     const pxPerRad = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
     const dpr = window.devicePixelRatio || 1;     // the screen's pixels, not the render scale
     const screen = new Map<BodyKey, [number, number]>();

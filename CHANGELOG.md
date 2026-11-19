@@ -7,6 +7,7 @@ once it has releases. Until then, everything sits under Unreleased.
 ## Unreleased
 
 ### The project
+- The scene reads its own size once per resize, not about twenty times a frame, and the reduced-motion setting once, not three times a frame: the browser now restyles the page once a frame instead of twice on the Earth view. The saving is under 0.05 ms a frame, and frame times are unchanged within noise on both GPUs (this pull request).
 - The 6-DOF craft's frame-cost check in `attitude.test.mjs` no longer fails by chance when `npm test` runs files side by side: it compares the CPU time of each frame with its point-mass twin's, and takes the median ratio (tolerance 1.1), instead of the wall clock's average against a 0.5 ms margin (this pull request).
 - One [roadmap](docs/roadmap.md) lists what comes next: the accuracy roadmap from the Physics and accuracy page, merged with the follow-ups each piece of work left, by area (this pull request).
 - `npm test` takes 146 s instead of 461 s on a shared machine. It runs the check files four at a time, with the journey and mission validations in parts, and prints each file's output whole and in order. MESSENGER's blind replay stops a day past the Earth flyby, where it is already lost. Every check prints the same tolerance and value as before ([docs/performance.md](docs/performance.md#the-test-suite), this pull request).

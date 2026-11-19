@@ -351,10 +351,17 @@ export class IrregularMoonLayer {
     u.invExposure.value = level;
   }
 
+  // The overlay's size in CSS pixels, from the scene's resize(), so the
+  // labels need not read clientWidth each frame (which forces a layout after
+  // other layers' style writes). 0 until it is set: then the overlay is read.
+  private viewW = 0;
+  private viewH = 0;
+  setViewSize(w: number, h: number): void { this.viewW = w; this.viewH = h; }
+
   // Labels for the moons near the camera (and the focused one), in whole
   // device pixels, hidden behind the camera or over another label.
   private label(camera: THREE.Camera): void {
-    const w = this.overlay.clientWidth, h = this.overlay.clientHeight, px = window.devicePixelRatio || 1;
+    const w = this.viewW || this.overlay.clientWidth, h = this.viewH || this.overlay.clientHeight, px = window.devicePixelRatio || 1;
     const placed: [number, number][] = [];
     const pxPerRad = h / (2 * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360));
     // Only the moons placed this frame, and those shown last frame (to hide).
