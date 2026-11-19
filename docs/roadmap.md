@@ -43,7 +43,7 @@ Done items stay ticked so the history reads in one place. When an item is taken,
 - [ ] An eclipse and transit finder: the next events, to jump to ([lighting](frontend/lighting.md)).
 - [ ] A telescope view (a narrow field of view), without which transits and occultations stay below a pixel.
 - [ ] Stratospheric aerosol (GloSSAC) for the Danjon darkening of lunar eclipses; it needs a download.
-- [ ] Real models of the spacecraft beyond Earth orbit and the real missions' other craft (in progress).
+- [x] Real models of the spacecraft beyond Earth orbit and the real missions' other craft (#183).
 - [ ] Light the ground with the sky's own light, from the multiple-scattering table, so the land near the terminator takes the sky's blue ([atmospheres](frontend/atmospheres.md)).
 - [ ] Mars's and Titan's skies, reusing the Earth's view table once their parameters have primary sources ([atmospheres](frontend/atmospheres.md)).
 - [ ] The irregular moons' tables beyond 2000–2049: the kernels cover about 1750–2200, at about 0.5 MB a year ([moons](frontend/moons.md)).
@@ -80,6 +80,8 @@ From a design critique of the console on 18 Nov 2026 (28/40 against Nielsen's te
 
 ## Performance and tooling
 
+- [ ] [ADR-0001](adr/0001-data-physics-and-boundaries.md): tidy the boundaries (`pipelines/`, `validation/`, shared types), move the generated data out of git into versioned release assets with `npm run data`, then make the physics its own package behind a verification gate.
+- [ ] Visual regression baselines of key views (the Earth, Saturn's rings, an eclipse, the phone sheet), with parallax-threejs's harness, so a change that alters the scene's look is caught.
 - [ ] Faster journey tests: the Europa round trip (case 17) alone takes about 70 s.
 - [x] From the code audit of 19 Nov 2026:
   - [x] one `src/physics/vec.js` for the `dot`, `cross` and `norm` copied into about 40 files (two of which use `norm` to mean normalise);

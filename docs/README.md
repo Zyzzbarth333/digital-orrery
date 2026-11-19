@@ -64,6 +64,8 @@ for the slow parts.
 
 ## Background
 
+[ADR-0001: data out of git, physics as its own package](adr/0001-data-physics-and-boundaries.md): the decision on how the repository is split.
+
 [Simulation techniques and tools review](physics/simulation-review.md):
 desk research on Julia and SciML, rocketry tools, astrodynamics simulators
 and numerical techniques, atmospheric entry and real-time simulation in
