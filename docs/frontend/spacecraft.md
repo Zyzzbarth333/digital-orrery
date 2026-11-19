@@ -132,6 +132,10 @@ loads the clock's month (and the next or last near its ends), 0.1 to
   in, Horizons' revision date, and how the app holds it, each with its
   source tag. In a body's penumbra its marker dims a little, in its umbra
   more.
+- **Not modelled close up:** each stays a marker at any distance, and its
+  plate says so. Only the app's own craft and rockets
+  ([close-up models](mission.md#close-up-models)) and the ISS, Tiangong
+  and Hubble ([satellites](satellites.md#close-up-models)) have models.
 
 ## Performance
 

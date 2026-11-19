@@ -1356,7 +1356,8 @@ export class OrreryScene {
       n.line.visible = this.orbits.get(n.key)!.line.visible;
     }
 
-    this.craftLayer.place(crafts, cam, UNIT_KM);
+    this.craftLayer.setView(this.viewH / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
+    this.craftLayer.place(crafts, cam, UNIT_KM, { sunEcl: this.states.sun.r as Vec3, earthEcl: this.states.earth.r as Vec3 });
     const journey = this.journeySource();
     this.journeyLayer.place(journey, this.journeyCentral, cam, UNIT_KM, dist);
 

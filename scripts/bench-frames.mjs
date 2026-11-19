@@ -75,6 +75,9 @@ const SCENARIOS = {
   'craft-warp': { label: 'Craft in LEO (6-DOF) at 1 d/s', query: `?craft=orbit,400,51.6&${DATE}`, km: 3000, ready: CRAFT, rate: 86400 },
   'point-near': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 0.4, ready: CRAFT },
   'point-far': { label: 'Craft in LEO (point)', query: `?craft=orbit,400,51.6,point&${DATE}`, km: 3000, ready: CRAFT },
+  // Artemis II's Orion followed from 50 m (a craft's closest): NASA/JPL's model (craftAssets.ts)
+  // once it has loaded; a build without it draws the marker.
+  'orion-near': { label: 'Orion close up (Artemis II)', query: '?mission=artemis2&t=2026-04-02T03:00Z', km: 0.05, ready: CRAFT },
   'sats': { label: 'Earth satellites, all on', query: `?focus=earth&${DATE}`, km: 20000, setup: SATS_ON },
   'sat-near': { label: 'The ISS followed', query: `?focus=earth&${DATE}`, km: 0.1, setup: ISS },
   'sats-all': { label: 'Earth satellites, every set on', query: `?focus=earth&${DATE}`, km: 20000, setup: setsOn(ALL_SETS) },

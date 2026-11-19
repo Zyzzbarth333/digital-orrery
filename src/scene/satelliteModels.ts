@@ -32,12 +32,12 @@ import { sunFraction } from '../physics/satellites.js';
 
 type V3 = [number, number, number];
 const UNIT_KM = 1000;
-const M_TO_RENDER = 1e-3 / UNIT_KM;
+export const M_TO_RENDER = 1e-3 / UNIT_KM;
 // The model shows when its largest size spans this many pixels, and the
 // marker's dot gives way to it.
-const SHOW_PX = 3;
-const EARTH_BOND_ALBEDO = 0.30;   // (NASA Earth fact sheet)
-const R_EARTH_KM = 6371.0;
+export const SHOW_PX = 3;
+export const EARTH_BOND_ALBEDO = 0.30;   // (NASA Earth fact sheet)
+export const R_EARTH_KM = 6371.0;
 
 export type ModelKind = 'iss' | 'tiangong' | 'hubble' | 'generic';
 const MODEL_OF: Record<number, ModelKind> = { 25544: 'iss', 48274: 'tiangong', 20580: 'hubble' };
@@ -101,10 +101,14 @@ const FINISH = {
   silver: { albedo: [0.62, 0.63, 0.65], glint: 0.15 },    // Hubble's aluminised blankets
   cells: { albedo: [0.06, 0.08, 0.16], glint: 0.35 },     // solar cells under cover glass, blue-black
   dark: { albedo: [0.08, 0.08, 0.08], glint: 0 },          // the aperture, a shadowed bay
+  carbon: { albedo: [0.05, 0.05, 0.055], glint: 0.08 },   // bare carbon composite, black
+  avcoat: { albedo: [0.12, 0.09, 0.07], glint: 0 },       // a charred ablative heat shield
 } as const;
-type Finish = keyof typeof FINISH;
+export type Finish = keyof typeof FINISH;
 
-function material(f: Finish): THREE.ShaderMaterial {
+// One finish's material: the Lambertian faces, Sun and Earthshine
+// uniforms as update() sets them (craftModels.ts shares it).
+export function material(f: Finish): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     vertexShader: vertex, fragmentShader: fragment, side: THREE.DoubleSide,
     uniforms: {

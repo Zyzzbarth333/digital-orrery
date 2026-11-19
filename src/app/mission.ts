@@ -45,6 +45,10 @@ import { conicPoints, eqjToEclFast, Trail } from '../scene/craftPaths';
 import { quatToMatrix } from '../physics/rigidbody.js';
 import { stageAttitude } from '../physics/craftAttitude.js';
 import type { CraftView } from '../scene/craftLayer';
+import { modelNote, ATTITUDE_NOTE, type CraftModelSpec, type ModelPose, type StackShape } from '../scene/craftModels';
+import { bodyAxesEqj } from '../physics/orientation.js';
+import { vnbToInertial } from '../physics/attitude.js';
+import { propagate } from '../physics/orbital.js';
 
 const MU_EARTH = 398600.4355;
 // Heights about the Earth are measured from its equatorial radius (WGS-84),
@@ -59,7 +63,9 @@ type V3 = [number, number, number];
 // (m^2), and for its attitude its diameter (m; else from the area, a
 // circle's) and the full propellant load of its stages (capacity, kg; else
 // the fuel), which size its tank (craftAttitude.js stageAttitude).
-export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number; diameter?: number; capacity?: number }
+// shape: the stack's shape for the scene (stackShape.js) and stage the
+// index of its lowest stage still attached at cutoff.
+export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?: number; thrust?: number; isp?: number; diameter?: number; capacity?: number; shape?: StackShape; stage?: number }
 export type DepartureDirection = 'prograde' | 'retrograde' | 'outward' | 'inward';
 
 export interface MissionSnapshot { version: number; selected: number | null }
@@ -70,7 +76,11 @@ export type RealBurns = 'all' | 'first';
 // ascentTrack): geocentric J2000 states from liftoff to engine cutoff. The
 // craft that reaches orbit is built at the start, so the camera following
 // the climb follows it on; it joins the kernel at cutoff.
-interface Ascent { craft: Craft; liftoffMs: number; cutoffMs: number; track: { ms: number; r: V3; v: V3 }[]; pathEcl: V3[]; flownEcl: V3[]; shown: number; version: number }
+// For the scene's model: the stack's shape, its separations (s after
+// liftoff), the Earth's axes at liftoff (rows: the Earth-fixed axes in
+// J2000), and lift: how far below the ascent's sphere (rocket.js's
+// equatorial radius) the ground at the pad lies (km).
+interface Ascent { craft: Craft; liftoffMs: number; cutoffMs: number; track: { ms: number; r: V3; v: V3 }[]; pathEcl: V3[]; flownEcl: V3[]; shown: number; version: number; shape: StackShape | null; seps: number[]; axes0: number[][]; lift: number }
 // aimed: the corrections are aimed from the craft (RealMission.aimCorrection)
 // rather than replayed as flown; aimNext: the next of m.aims() to aim.
 // entryId: the mission's Orion entry (orion.js), if it has one; separated:
@@ -94,6 +104,38 @@ const ORION = ORION_CRAFT;
 const norm = (a: number[]) => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: number[]): V3 => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
 const cross = (a: number[], b: number[]): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dot3 = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+// The Earth's spin (rad/s, WGS-84) about its pole (the third Earth-fixed
+// axis, a row of bodyAxesEqj's matrix), as a J2000 vector.
+const OMEGA_EARTH = 7.292115e-5;
+const omegaOf = (A: number[][]): V3 => [A[2][0] * OMEGA_EARTH, A[2][1] * OMEGA_EARTH, A[2][2] * OMEGA_EARTH];
+// The ground's radius under r (J2000 km) on the WGS-84 ellipsoid, A the
+// Earth's axes then.
+function groundRadius(r: number[], A: number[][]): number {
+  const a = R_EARTH_EQ, b = 6356.752, sinc = dot3(r, A[2]) / norm(r), cosc = Math.sqrt(Math.max(0, 1 - sinc * sinc));
+  return (a * b) / Math.hypot(b * cosc, a * sinc);
+}
+// Body axes with +x along x and +z as near s as is square to it (or any
+// square direction when s is along x).
+function axesAlong(x: number[], s: number[]): [V3, V3, V3] {
+  const X = unit(x);
+  let side = s;
+  if (!(norm(side) > 0) || Math.abs(dot3(unit(side), X)) > 0.99) side = Math.abs(X[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  const d = dot3(side, X), Z = unit([side[0] - d * X[0], side[1] - d * X[1], side[2] - d * X[2]]);
+  return [X, cross(Z, X), Z];
+}
+// A climbing stack's axes (ecliptic): nose along its velocity through the
+// air, the Earth's turning taken off (straight up on the pad); +z along
+// the launch plane's normal.
+function ascentAxes(r: number[], v: number[], timeMs: number): [V3, V3, V3] {
+  const A = bodyAxesEqj('earth', new Date(timeMs)) as number[][];
+  const w = cross(omegaOf(A), r), va = [v[0] - w[0], v[1] - w[1], v[2] - w[2]];
+  const x = norm(va) > 1e-3 ? va : r;
+  return axesAlong(x, cross(r, v)).map(eqjToEclFast) as [V3, V3, V3];
+}
+// A spent stage is drawn for this long after it separates (s).
+const SPENT_S = 60;
 
 export class Mission {
   readonly sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
@@ -203,21 +245,29 @@ export class Mission {
   private stateCraft(timeMs: number, rGeo: number[], vGeo: number[], name: string, props: LaunchProps): Craft {
     const E = helioStateEqj('earth', new Date(timeMs));
     const r = [0, 1, 2].map((i) => rGeo[i] + E.r[i]) as V3, v = [0, 1, 2].map((i) => vGeo[i] + E.v[i]) as V3;
-    const { diameter, capacity, ...craft } = props;
+    const { diameter, capacity, shape, stage, ...craft } = props;
     const d = diameter ?? Math.sqrt(4 * props.area / Math.PI);
     const attitude = this.sixdof ? stageAttitude({ dryMass: props.dryMass, fuel: props.fuel, capacity, diameter: d, isp: props.isp }) : null;
-    return new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, attitude, ...craft });
+    const c = new Craft({ name, r, v, t: kernelSeconds(new Date(timeMs)), sys: this.sys, attitude, ...craft });
+    if (shape) this.shapes.set(c.id, { shape, from: stage ?? 0 });
+    return c;
   }
+  // A ROCKET-tab craft's stack, for its model: the shape and its lowest
+  // stage still attached.
+  private shapes = new Map<number, { shape: StackShape; from: number }>();
 
   // The same launch flown from the pad: the craft climbs along track
   // (seconds after liftoff, geocentric J2000 km and km/s, its last state the
   // cutoff) from liftoffMs, and becomes the orbiting craft at cutoff.
-  launchAscent(liftoffMs: number, track: { t: number; r: number[]; v: number[] }[], name: string, props: LaunchProps): Craft {
+  // seps: the ascent's stage separations (s after liftoff), for the model.
+  launchAscent(liftoffMs: number, track: { t: number; r: number[]; v: number[] }[], name: string, props: LaunchProps, seps: number[] = []): Craft {
     const end = track[track.length - 1];
     const cutoffMs = liftoffMs + end.t * 1000;
     const craft = this.stateCraft(cutoffMs, end.r, end.v, name, props);
     const pts = track.map((p) => ({ ms: liftoffMs + p.t * 1000, r: p.r as V3, v: p.v as V3 }));
-    this.ascents.push({ craft, liftoffMs, cutoffMs, track: pts, pathEcl: pts.map((p) => eqjToEclFast(p.r)), flownEcl: [], shown: -1, version: 0 });
+    const axes0 = bodyAxesEqj('earth', new Date(liftoffMs)) as number[][];
+    this.ascents.push({ craft, liftoffMs, cutoffMs, track: pts, pathEcl: pts.map((p) => eqjToEclFast(p.r)), flownEcl: [], shown: -1, version: 0,
+      shape: props.shape ?? null, seps, axes0, lift: norm(pts[0].r) - groundRadius(pts[0].r, axes0) });
     this.snap = { ...this.snap, selected: craft.id };
     this.emit(true);
     return craft;
@@ -227,7 +277,13 @@ export class Mission {
   // liftoff), interpolated in its track.
   private ascentAt(a: Ascent, timeMs: number): { r: V3; v: V3; i: number } {
     const T = a.track;
-    if (timeMs <= T[0].ms) return { r: T[0].r, v: T[0].v, i: 0 };
+    if (timeMs <= T[0].ms) {
+      // On the pad it turns with the Earth: Earth-fixed at liftoff's place.
+      const A = bodyAxesEqj('earth', new Date(timeMs)) as number[][], A0 = a.axes0, r0 = T[0].r;
+      const e = [0, 1, 2].map((k) => A0[k][0] * r0[0] + A0[k][1] * r0[1] + A0[k][2] * r0[2]);
+      const r = [0, 1, 2].map((i) => A[0][i] * e[0] + A[1][i] * e[1] + A[2][i] * e[2]) as V3;
+      return { r, v: cross(omegaOf(A), r), i: 0 };
+    }
     let i = 1;
     while (i < T.length - 1 && T[i].ms < timeMs) i++;
     const p = T[i - 1], q = T[i], f = Math.min(1, (timeMs - p.ms) / (q.ms - p.ms || 1));
@@ -427,17 +483,98 @@ export class Mission {
       const timeMs = this.lastTimeMs;
       const s = this.ascentAt(a, timeMs);
       if (s.i !== a.shown) { a.flownEcl = [...a.pathEcl.slice(0, s.i + 1)]; a.shown = s.i; a.version++; }
-      const rel = eqjToEclFast(s.r);
+      // The ascent is flown over a sphere of the equatorial radius: the
+      // vehicle is drawn lowered to the ground at the pad, the offset going
+      // to nothing by cutoff, where the kernel takes the state as flown.
+      const sec = (timeMs - a.liftoffMs) / 1000, T = (a.cutoffMs - a.liftoffMs) / 1000;
+      const drop = a.lift * Math.max(0, 1 - Math.max(0, sec) / T);
+      const lower = (r: number[]): V3 => { const k = 1 - drop / norm(r); return [r[0] * k, r[1] * k, r[2] * k]; };
+      const rG = lower(s.r);
+      const rel = eqjToEclFast(rG);
       const t = kernelSeconds(new Date(timeMs));
       const earth = this.sys.bodyAt('earth', t);
       const rE: number[] = earth ? earth.eph.position(t) : [0, 0, 0];
-      const rEcl = eqjToEclFast([s.r[0] + rE[0], s.r[1] + rE[1], s.r[2] + rE[2]]);
+      const rEcl = eqjToEclFast([rG[0] + rE[0], rG[1] + rE[1], rG[2] + rE[2]]);
+      const firing = timeMs >= a.liftoffMs;
+      let model: CraftView['model'], pieces: ModelPose[] | undefined;
+      if (a.shape) {
+        const from = a.seps.filter((x) => x <= sec).length;
+        model = { spec: { kind: 'stack', shape: a.shape, from }, axes: ascentAxes(rG, s.v, timeMs), firing };
+        pieces = this.spentStages(a, sec, rE, lower);
+      }
       return {
         id: a.craft.id, name: a.craft.name, rEcl, primaryEcl: eqjToEclFast(rE),
         conicEcl: a.pathEcl, trailEcl: [...a.flownEcl, rel], pathVersion: a.version * 2 + 1,
-        thrusting: timeMs >= a.liftoffMs, crashed: false, selected: a.craft.id === this.snap.selected,
+        thrusting: firing, crashed: false, selected: a.craft.id === this.snap.selected, model, pieces,
       };
     });
+  }
+
+  // The stages dropped in the last minute, falling away: each coasts on
+  // from where it separated (two-body about the Earth, air left out),
+  // turned as it was then, its engines out.
+  // lower: the ground offset the stack is drawn with now, so they fall
+  // from where it is drawn.
+  private spentStages(a: Ascent, sec: number, rE: number[], lower: (r: number[]) => V3): ModelPose[] {
+    const out: ModelPose[] = [];
+    a.seps.forEach((ts, i) => {
+      const dt = sec - ts;
+      if (!(dt >= 0 && dt < SPENT_S) || !a.shape) return;
+      const s = this.ascentAt(a, a.liftoffMs + ts * 1000);
+      const p = propagate(s.r, s.v, dt, MU_EARTH) as { r: number[]; v: number[] };
+      const r = lower(p.r);
+      out.push({ key: `c${a.craft.id}-s${i}`, spec: { kind: 'stack', shape: a.shape, from: i, to: i + 1 }, rEcl: eqjToEclFast([r[0] + rE[0], r[1] + rE[1], r[2] + rE[2]]), axes: ascentAxes(s.r, s.v, a.liftoffMs + ts * 1000), firing: false });
+    });
+    return out;
+  }
+
+  // What a craft is drawn as close up, its axes, and whether it burns.
+  private modelOf(c: Craft, s: { r: number[]; v: number[] }, vP: number[], attitude: CraftView['attitude']): CraftView['model'] {
+    const R = this.real.get(c.id), firing = c.thrusting();
+    let spec: CraftModelSpec;
+    if (R) {
+      if (!R.entryId && R.m.data.craftModel) return undefined;      // a real craft the app has no model of
+      spec = { kind: R.separated ? 'capsule' : 'orion' };
+    } else {
+      const sh = this.shapes.get(c.id);
+      spec = sh ? { kind: 'stack', shape: sh.shape, from: sh.from } : { kind: 'box' };
+    }
+    if (attitude) return { spec, axes: attitude.axes, firing };
+    // No attitude carried: nose along the burn while one fires, else along
+    // the velocity about the primary; +z as near the orbit's pole as is
+    // square to it.
+    const vr = [s.v[0] - vP[0], s.v[1] - vP[1], s.v[2] - vP[2]];
+    const x = (firing && this.burnAxis(c)) || unit(vr);
+    const P = this.primary(c), rP = P ? P.eph.position(c.clockT) : [0, 0, 0];
+    const h = cross([s.r[0] - rP[0], s.r[1] - rP[1], s.r[2] - rP[2]], vr);
+    return { spec, axes: axesAlong(x, h).map(eqjToEclFast) as [V3, V3, V3], firing };
+  }
+
+  // The direction (EQJ unit) of the burn firing at the clock, if any.
+  private burnAxis(c: Craft): V3 | null {
+    const t = c.clockT;
+    const b = (c.burns as { t0: number; t1: number; dir: number[] }[]).find((x) => x.t0 <= t && t < x.t1)
+      ?? (c.script as { t0: number; t1: number; dir: number[]; frame?: string; about?: string }[]).find((x) => x.t0 <= t && t < x.t1);
+    if (!b) return null;
+    const sc = b as { frame?: string; about?: string; dir: number[] };
+    if (sc.frame !== 'vnb') return unit(b.dir);
+    const B = sc.about ? this.sys.bodyAt(sc.about, t) : null, s = c.displayState();
+    const rB = B ? B.eph.position(t) : [0, 0, 0], vB = B ? B.eph.velocity(t) : [0, 0, 0];
+    return vnbToInertial(b.dir, [s.r[0] - rB[0], s.r[1] - rB[1], s.r[2] - rB[2]], [s.v[0] - vB[0], s.v[1] - vB[1], s.v[2] - vB[2]]) as V3;
+  }
+
+  // What the plate says of a craft's model, or null when it has none.
+  modelNote(c: Craft): string | null {
+    const R = this.real.get(c.id);
+    if (R && !R.entryId && R.m.data.craftModel) return 'Not modelled: drawn as its marker only. Its shape is not in the app.';
+    const sh = this.shapes.get(c.id);
+    const spec: CraftModelSpec = R ? { kind: R.separated ? 'capsule' : 'orion' } : sh ? { kind: 'stack', shape: sh.shape, from: sh.from } : { kind: 'box' };
+    return `${modelNote(spec)} ${c.att ? ATTITUDE_NOTE.carried : R ? ATTITUDE_NOTE.orion : ATTITUDE_NOTE.point}`;
+  }
+  // The same for a climbing craft (the ROCKET tab's launch from the pad).
+  ascentNote(): string | null {
+    const a = this.ascents[0];
+    return a?.shape ? `${modelNote({ kind: 'stack', shape: a.shape, from: 0 })} Flown nose along its velocity through the air, as the ascent flies it.` : null;
   }
 
   private craftViews(): CraftView[] {
@@ -485,6 +622,7 @@ export class Mission {
         thrusting: c.thrusting(), crashed: c.crashed, selected: c.id === this.snap.selected,
         flown: R && (E || centre === 'sun') ? { pointsEcl: R.refEcl, originEcl: E ? eqjToEclFast(E.eph.position(c.clockT)) : [0, 0, 0] } : undefined,
         attitude,
+        model: c.crashed ? undefined : this.modelOf(c, s, vP, attitude),
       };
     });
   }

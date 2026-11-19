@@ -307,6 +307,88 @@ scene, so it keeps that size at any distance. A craft's marker is shown
 by its depth in front of the camera, not its projected depth: followed
 from under a kilometre, the marker used to vanish behind the near plane.
 
+## Close-up models
+
+Far off, a craft is its marker. Once the craft spans 3 pixels, it is
+drawn as a model at its true size, as the ISS, Tiangong and Hubble are
+([satellites](satellites.md#close-up-models)), and its marker's glyph
+gives way. Orion and the Saturn V are NASA's own models, the rest are
+built in code at their published sizes. The attitude indicator keeps its axes and the dashed stalk,
+but drops its wireframe box and plume, which the model now shows
+([`craftModels.ts`](../../src/scene/craftModels.ts), the stacks'
+shapes in [`stackShape.js`](../../src/physics/stackShape.js)). The
+MISSION tab's CLOSE UP section says what is modelled and what is not.
+
+| Craft | Model | Its sizes |
+| --- | --- | --- |
+| Orion (Artemis I and II, and our own Artemis II plan) | NASA/JPL-Caltech's Artemis II model from NASA's Eyes on the Solar System [11]: the crew module, the European Service Module and its four wings, textured as flown; after separation the crew module alone, heat shield first | the model's own, in metres: the crew module 5.08 m across and 3.36 m high, as NASA gives it (5 m and 3.35 m [2]); the wings about 20.9 m tip to tip, where NASA gives 18.9 m [2]. The stand-in, while the model loads: the crew module and service module at NASA's sizes (4.79 m with the adapter, 7.9 m for the two [2]), each wing three 2 by 2 m panels, nearly 7 m long [3], [4], the ESM's main body about 2 m [4]; its body's width (4.1 m), the backshell and the bell taken to fit |
+| The MISSION tab's craft | a 2 by 2 by 3 m box in gold foil, long along the thrust axis, with an engine bell aft | the box its attitude is sized for ([attitude](#attitude)) |
+| Saturn V (ROCKET tab) | NASA's model from NASA 3D Resources [12], cut at the stages' joints below; while it loads, the S-IC, S-II and S-IVB, the instrument unit, the spacecraft-LM adapter, the service module, the command module and the escape tower as cylinders and cones | the model is stretched to the whole's 363 ft and the S-IC's 33 ft (it is 7 % longer for its width than the real one). The joints and the stand-in: the S-IC 138 by 33 ft, the S-IVB 58.4 ft by 21 ft 8 in, the adapter 28 ft tapering from 22 ft to 12 ft 10 in [5]; the S-II 24.8 m long [6] and 33 ft across; the instrument unit 3.0 by 21.7 ft [7]; the whole 363 ft [8]. The 16.5 m the total leaves above the adapter is split here between the service module, the command module and the tower |
+| Falcon 9 (both presets) | two stages and the standard fairing, built in code: the first stage's nine bells, four stowed legs and four grid fins, the black interstage | 70 m with both stages, the interstage and the fairing, 3.66 m across; the fairing 5.2 m across and 13.2 m high [9]. SpaceX gives no stage lengths: the 56.8 m below the fairing is split by the stages' propellant volumes (45.0 and 11.8 m) |
+| Electron | two stages, the kick stage and the fairing, in black carbon composite | 18 m long and 1.2 m across, the fairing 1.2 by 2.5 m, the kick stage 405 mm [10]; the stages split as Falcon 9's (12.5 and 2.6 m) |
+| Your own stack, or a changed preset | its stages and a fairing | worked out: each stage's tanks hold its propellant at its class's density (`craftAttitude.js` `STAGE_DENSITY`) in the stack's diameter, plus a diameter for domes and engine; the fairing 1.5 diameters long |
+
+Every engine's bells, Falcon 9's legs and grid fins are drawn to fit,
+and the plate says so; the fairings' seams and the pad's tower are left
+out. Neither SpaceX nor Rocket Lab publishes a free model.
+
+**The real models** ([`craftAssets.ts`](../../src/scene/craftAssets.ts))
+load the first time their craft is close enough to draw, never before:
+Orion's is 112,000 triangles, Draco-compressed, with 30 KTX2 textures (24
+MB in all, through the same transcoder as the planets' maps); the Saturn
+V's is 35,000 triangles in 0.9 MB. Until one has loaded, or if it cannot
+(a browser without the KTX2 formats), the model built in code stands in.
+The Saturn V is cut where the stages join: each triangle goes with the
+stage its centre lies in, so each stage still falls away when it
+separates. Their materials are three.js's physically based ones, lit by
+the Sun and the Earthshine as two directional lights (π times the built
+models' irradiance, three's Lambertian term being the albedo over π).
+With nothing round them to reflect, their metal is turned down to a
+quarter, and glass is off: it would render the scene a second time.
+Orion's wings stay as modelled; they do not turn to the Sun. The real missions'
+other craft (Juno, DART, LRO, MESSENGER) have no model and stay markers,
+as the spacecraft beyond Earth do; their plates say so.
+
+**Attitude.** A craft carrying an attitude is turned by it, nose along
+the thrust axis. Orion as the app flies a real mission carries none: it
+is drawn nose along its velocity about its primary, and along the burn
+while a scripted burn fires; a point-mass craft along its velocity. Each
+of Orion's wings turns about its own length to face the Sun as nearly as
+one axis can (the real ones gimbal on two), so a wing whose length points
+near the Sun is seen edge on.
+
+**On the pad and climbing.** The ascent is flown over a sphere of the
+equatorial radius (`rocket.js`), about 5 km above the ground at Kennedy.
+The stack is drawn lowered to the ground at the pad, on the WGS-84
+ellipsoid, and the offset falls to nothing by engine cutoff, where the
+kernel takes the state as flown (about 10 m/s, unseen). Before liftoff it
+turns with the Earth, fixed where the ascent starts. Climbing, its nose
+is along its velocity through the air (the Earth's turning taken off),
+straight up on the pad, as the ascent flies it. At each separation the
+spent stage drops off the stack and is drawn falling away for a minute:
+it coasts on from where it separated on a two-body arc about the Earth,
+turned as it was, while the rest of the stack burns on. Once in orbit,
+the craft is drawn as what is left: the stage burning at cutoff and the
+payload.
+
+**The plume.** While its engine burns a model has a plume aft: two soft
+additive cones, three diameters long, at a fixed radiance. It shows what
+is firing, not how bright an exhaust is or how it spreads in thin air.
+
+**Light.** As the satellites' models: Lambertian by the Sun at its
+distance from the Sun, dimmed by the share of its disc the bodies leave
+(`OrreryScene.sunlightAt`, their penumbral cones), and filled by the
+Earthshine on faces turned to the Earth. Within 100 km of the ground,
+where the cones (taken at the equatorial radius) do not hold, the Sun is
+hidden as it sets below the horizon, across its disc.
+
+| | |
+| --- | --- |
+| ![Orion close up, before: the marker and its name over the stars](craft-model-orion-before.jpg) | ![Orion close up, after: NASA/JPL-Caltech's Artemis II model, the crew module and the service module with its four textured wings, the engine's plume lit](craft-model-orion.jpg) |
+| ![A Saturn V on the pad at Kennedy, before: only the marker and its name against the blue sky](craft-model-saturn-before.jpg) | ![The same Saturn V on the pad, after: NASA's model, from the S-IC's fins to the escape tower](craft-model-saturn-pad.jpg) |
+| ![The Saturn V climbing in its first minute, nose along its velocity, the plume lit under the S-IC](craft-model-saturn-climb.jpg) | ![The S-II and S-IVB above the atmosphere after the S-IC has dropped, the S-II's plume lit](craft-model-saturn-sep.jpg) |
+| ![Falcon 9's second stage and fairing 106 km up, 2 min 38 s after liftoff, its plume lit over the clouds](craft-model-falcon-sep.jpg) | |
+
 ## The readout
 
 | Value | Tag | What it is |
@@ -442,3 +524,25 @@ How the data gets in:
 ## References
 
 [1] NASA Ames Research Center, Mission Design Division, "Trajectory Browser." [Online]. Available: https://trajbrowser.arc.nasa.gov/
+
+[2] NASA, "Orion by the numbers," Jan. 2026. [Online]. Available: https://www.nasa.gov/wp-content/uploads/2026/01/orion-by-the-numbers-2026b.pdf
+
+[3] NASA, "European Service Module," Orion reference, updated Sep. 2026. [Online]. Available: https://www.nasa.gov/reference/european-service-module/
+
+[4] European Space Agency, "European Service Module." [Online]. Available: https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration/Orion/European_Service_Module
+
+[5] NASA, Saturn V/Apollo press kit, Washington, DC, USA, 1967, NTRS 19670031260. [Online]. Available: https://ntrs.nasa.gov/citations/19670031260
+
+[6] R. E. Bilstein, *Stages to Saturn: A Technological History of the Apollo/Saturn Launch Vehicles*, NASA SP-4206. Washington, DC, USA: NASA, 1980, ch. 7. [Online]. Available: https://history.nasa.gov/SP-4206/ch7.htm
+
+[7] NASA Marshall Space Flight Center, "Saturn V flight manual, SA-503," MSFC-MAN-503, Nov. 1968. [Online]. Available: https://history.nasa.gov/afj/ap08fj/pdf/sa503-flightmanual.pdf
+
+[8] Smithsonian National Air and Space Museum, "Rocket, liquid fuel, launch vehicle, Saturn V," inv. A19790128000. [Online]. Available: https://airandspace.si.edu/collection-objects/rocket-liquid-fuel-launch-vehicle-saturn-v/nasm_A19790128000
+
+[9] Space Exploration Technologies Corp., *Falcon User's Guide*, May 2025, sec. 2. [Online]. Available: https://www.spacex.com/assets/media/falcon-users-guide-2025-05-09.pdf
+
+[10] Rocket Lab, *Launch: Payload User's Guide*, v7.0, pp. 12, 17. [Online]. Available: https://rocketlabusa.com/assets/Electron-Payload-User-Guide-7.0-v6.pdf
+
+[11] NASA/JPL-Caltech, "Artemis II" 3D model, *NASA's Eyes on the Solar System*, Oct. 2026, under the JPL Image Use Policy. [Online]. Available: https://eyes.nasa.gov/assets/static/models/sc_artemis/artemis_ii.gltf
+
+[12] NASA/M. D. Carbajal, "Saturn V" 3D model, *NASA 3D Resources*, Apr. 2025. [Online]. Available: https://science.nasa.gov/3d-resources/saturn-v/

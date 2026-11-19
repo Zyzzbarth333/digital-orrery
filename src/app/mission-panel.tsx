@@ -320,6 +320,16 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
         )}
 
         </details>
+        {(() => {
+          // What the scene draws it as close up (craftModels.ts).
+          const note = mission.modelNote(c);
+          return note && (
+            <details className="section">
+            <summary className="strip"><span>Close up</span><span className="sum-note">{note.startsWith('Not modelled') ? 'its marker only' : 'a model at its true size'}</span></summary>
+            <p className="hint">{note}</p>
+            </details>
+          );
+        })()}
         <details className="section">
         <summary className="strip"><span>Log</span><span className="sum-note">{c.log.length ? `${c.log.length} · ${c.log[c.log.length - 1].text}` : 'nothing yet'}</span></summary>
         <ol className="log">
@@ -356,6 +366,7 @@ export function MissionPanel({ clock, mission, onFocusCraft }: { clock: SimClock
           <tr><th scope="row">Climbing</th><td className="value">{ascent.name}<span className="alt">{ascent.t < 0 ? `liftoff in ${Math.ceil(-ascent.t)} s` : `T+${Math.floor(ascent.t / 60)}:${String(Math.floor(ascent.t % 60)).padStart(2, '0')} · ${ascent.h.toFixed(1)} km up · ${ascent.v.toFixed(3)} km/s`}; in orbit at engine cutoff</span></td><td className="src"><SourceTag src="ascent" info="ascent-climb" /></td></tr>
         </tbody></table>
       )}
+      {ascent && mission.ascentNote() && <p className="hint">{mission.ascentNote()}</p>}
       {readout}
       <details className="section" open={!c && !ascent}>
       <summary className="strip"><span>Real missions</span><span className="sum-note">{REAL_MISSIONS.find((m) => m.id === realId)?.label ?? ''}</span></summary>
