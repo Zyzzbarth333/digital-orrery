@@ -244,7 +244,8 @@ export class JourneyStore {
   plotOpen = typeof location !== 'undefined' && location.hash === '#plot';
   setPlotOpen(on: boolean): void {
     this.plotOpen = on;
-    try { history.replaceState(null, '', on ? '#plot' : location.pathname + location.search); } catch { /* not in a page */ }
+    // The state is kept: the phone sheet marks its history entry there (sheet.tsx).
+    try { history.replaceState(history.state, '', on ? '#plot' : location.pathname + location.search); } catch { /* not in a page */ }
     this.notify();
   }
   // The rocket the STACK station sizes (staging.js), kept here so GO reads it.
