@@ -125,6 +125,8 @@ export function App() {
   const side = useMedia(SIDE_QUERY) && phone;
   // The sheet always opens at peek, even after a refresh that restores the view.
   const [stop, setStop] = useState<Stop>('peek');
+  // Leaving the phone layout lowers it, so coming back starts at peek too.
+  useEffect(() => { if (!phone) setStop('peek'); }, [phone]);
   // How much of the sky the sheet covers at rest, for the camera's offset.
   const [cover, setCover] = useState({ bottom: 0, right: 0 });
   // Where the view plate and the touch hint go on a phone (the sheet's top

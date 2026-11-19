@@ -1,7 +1,7 @@
 // src/physics/orbital.js
 //
-// Orbital-mechanics core for digital-orrery. Pure ES module: no imports, no
-// three.js, no dependencies. Operates on plain 3-element number arrays [x,y,z]
+// Orbital-mechanics core for digital-orrery. Pure ES module: no three.js, no
+// dependencies beyond vec.js. Operates on plain 3-element number arrays [x,y,z]
 // and plain numbers.
 //
 // Units (consistent throughout): distance km, velocity km/s, time s,
@@ -21,17 +21,13 @@
 const TWO_PI = 2.0 * Math.PI;
 
 // ---------------- small vector helpers (plain arrays) ----------------
+import { dot, cross } from './vec.js';
+
 function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
 function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
 function scale(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
-function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
-function cross(a, b) {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
-}
+// The length as a square root of the dot product, not vec.js's Math.hypot:
+// several times faster, for the Lambert solver's loops.
 function norm(a) { return Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]); }
 function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
 

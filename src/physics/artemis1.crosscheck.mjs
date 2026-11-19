@@ -31,11 +31,11 @@ import { makeEnvironment } from './environment.js';
 import { tdbSeconds } from './timescale.js';
 import { massAfterBurns } from './artemis1.lib.mjs';
 import { ORION_CRAFT, ORION_ENGINE } from './orion.js';
+import { norm } from './vec.js';
 
 dns.setDefaultResultOrder('ipv4first');
 const fx = JSON.parse(fs.readFileSync(new URL('./fixtures/artemis1.json', import.meta.url)));
 const row = (s) => ({ ms: Date.parse(s[0]), r: s.slice(1, 4), v: s.slice(4, 7) });
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const line = (s) => console.log(`${'='.repeat(72)}\n${s}\n${'='.repeat(72)}`);
 let failures = 0;

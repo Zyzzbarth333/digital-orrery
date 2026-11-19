@@ -201,10 +201,32 @@ export function Sheet({ stop, onStop, side, label, peek, children, onRest, above
       if (pushed.current) { pushed.current = false; latest.current.onStop('peek'); }
     };
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      // Gone above peek (the window left the phone layout): its entry goes
+      // too, so Back isn't left with a step that does nothing.
+      if (pushed.current && history.state?.orrerySheet) { pushed.current = false; history.back(); }
+    };
   }, []);
 
   // ---- the drag ------------------------------------------------------------
+  // The pointer is captured only once a press becomes a drag (so a tap still
+  // clicks what it lands on); a press released off the sheet before then
+  // never reaches onPointerUp, so the window lets it go instead, or it would
+  // hold drag.current, and with it every later drag and refit, for good.
+  const letGo = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId || d.on) return;
+    drag.current = null;
+    if (Math.abs(current() - geom.current.y[shown.current]) >= 1) go(shown.current, 300);
+  };
+  useEffect(() => {
+    const up = (e: PointerEvent) => letGo(e);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || drag.current) return;
     const t = e.target as Element;

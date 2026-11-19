@@ -8,7 +8,7 @@
 // as the clock runs, with its source tag, as on the bodies' plate.
 
 import { useClock, type SimClock } from './clock';
-import { Readout, fmtGroup, type Row } from './panels';
+import { Readout, fmtGroup, type Row } from './readout';
 import { usePeek } from './peek';
 import { bodyState } from '../scene/OrreryScene';
 import { BODIES, BODY_BY_KEY, type BodyKey, type FocusKey } from '../scene/catalogue';
@@ -17,6 +17,7 @@ import { eclToEqj } from '../physics/ephemeris.js';
 import { spinRate } from '../physics/spin.js';
 import { soiRadius, hillRadius, lagrangePoints } from '../physics/gravityGuides.js';
 import { rvToElements } from '../physics/orbital.js';
+import { norm } from '../physics/vec.js';
 
 type V3 = [number, number, number];
 const DEG = 180 / Math.PI;
@@ -26,9 +27,8 @@ const AU_KM = 149597870.7;
 export interface GuidePick { cls: string; text: string; title: string; focus: FocusKey }
 
 const sub = (a: readonly number[], b: readonly number[]): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const len = (a: readonly number[]) => Math.hypot(a[0], a[1], a[2]);
 const crossV = (a: readonly number[], b: readonly number[]): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const angle = (a: readonly number[], b: readonly number[]) => Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (len(a) * len(b))))) * DEG;
+const angle = (a: readonly number[], b: readonly number[]) => Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (norm(a) * norm(b))))) * DEG;
 // A body named at the start of a tag's text or title ("Earth L1", "Sun 5.9 mm/s²", "Mars's north pole").
 const named = (s: string): BodyKey | null => BODIES.filter((b) => s.startsWith(`${b.name} `) || s.startsWith(`${b.name}'s`) || s.startsWith(`${b.name}–`))
   .sort((a, b) => b.name.length - a.name.length)[0]?.key ?? null;
@@ -111,7 +111,7 @@ export function GuidePlate({ clock, pick }: { clock: SimClock; pick: GuidePick }
     if (!sk || !pk || !name) return <Unknown pick={pick} />;
     const P = bodyState(pk, date), S = bodyState(sk, date), gp = BODY_BY_KEY[pk].gm!, gs = BODY_BY_KEY[sk].gm!;
     const L = lagrangePoints(P.r, S.r, sub(S.v, P.v), gp, gs);
-    const at = L[name] as V3, dS = len(sub(at, S.r)), dP = len(sub(at, P.r));
+    const at = L[name] as V3, dS = norm(sub(at, S.r)), dP = norm(sub(at, P.r));
     const stable = (name === 'L4' || name === 'L5') && L.mu < 0.0385;
     const rows: Row[] = [
       { label: `From ${BODY_BY_KEY[sk].name}`, value: km(dS), unit: kmUnit(dS), src: 'DE442', derived: true, info: 'guide-lagrange' },
@@ -125,8 +125,8 @@ export function GuidePlate({ clock, pick }: { clock: SimClock; pick: GuidePick }
   if (cls.includes('pull')) {
     const from = named(pick.text), on = pick.focus as BodyKey;
     if (!from || !BODY_BY_KEY[on]) return <Unknown pick={pick} />;
-    const d = len(sub(bodyState(from, date).r, bodyState(on, date).r)), a = BODY_BY_KEY[from].gm! / (d * d), g = accel(a);
-    const sunA = on === 'sun' ? null : BODY_BY_KEY.sun.gm! / len(bodyState(on, date).r) ** 2;
+    const d = norm(sub(bodyState(from, date).r, bodyState(on, date).r)), a = BODY_BY_KEY[from].gm! / (d * d), g = accel(a);
+    const sunA = on === 'sun' ? null : BODY_BY_KEY.sun.gm! / norm(bodyState(on, date).r) ** 2;
     const rows: Row[] = [
       { label: 'Pull', value: g.value, unit: g.unit, alt: 'GM / d²', src: 'DE442', derived: true, info: 'guide-pull' },
       { label: 'Distance', value: km(d), unit: kmUnit(d), src: 'DE442', info: 'guide-pull' },
@@ -159,7 +159,7 @@ export function OrbitPlate({ clock, body }: { clock: SimClock; body: BodyKey }) 
   const periodS = 2 * Math.PI * Math.sqrt(el.a ** 3 / mu), days = periodS / 86400;
   const sunParent = o.pk === 'sun';
   const [pName, aName] = sunParent ? ['Perihelion', 'Aphelion'] : ['Periapsis', 'Apoapsis'];
-  const r = len(o.r);
+  const r = norm(o.r);
   // A planet's or the Moon's state is DE442's; the other moons' are JPL's own satellite ephemerides.
   const eph = sunParent || body === 'moon' ? 'DE442' : 'JPL';
   const rows: Row[] = [
@@ -169,7 +169,7 @@ export function OrbitPlate({ clock, body }: { clock: SimClock; body: BodyKey }) 
     { label: pName, value: km(peri), unit: kmUnit(peri), alt: `${aName.toLowerCase()} ${km(apo)} ${kmUnit(apo)}`, src: eph, derived: true, info: 'orbit-osculating' },
     { label: 'Inclination', value: (el.i * DEG).toFixed(4), unit: '°', alt: 'to the ecliptic of J2000', src: eph, derived: true, info: 'orbit-osculating' },
     { label: 'Period', value: days < 2 ? (days * 24).toFixed(3) : fmtGroup(days, 2), unit: days < 2 ? 'h' : 'd', alt: days > 700 ? `${(days / 365.25).toFixed(2)} years` : 'of this ellipse', src: eph, derived: true, info: 'orbit-osculating' },
-    { label: 'Now', value: km(r), unit: kmUnit(r), alt: `from ${o.p.name}; ${len(o.v).toFixed(3)} km/s`, src: eph, info: 'orbit-osculating' },
+    { label: 'Now', value: km(r), unit: kmUnit(r), alt: `from ${o.p.name}; ${norm(o.v).toFixed(3)} km/s`, src: eph, info: 'orbit-osculating' },
   ];
   return <Head title={`${o.b.name}'s orbit`} kind={`Orbit line · ${sunParent ? 'about the Sun' : `about ${o.p.name}`}`} rows={rows}
     notes={['The ellipse its position and velocity would follow about its parent alone now (osculating elements); the line is drawn from the ephemeris itself, so it strays from this ellipse as the others pull.', `Choose ${o.b.name} in the rail to go there, or a body to leave this.`]} />;

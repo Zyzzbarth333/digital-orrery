@@ -32,6 +32,7 @@ import { createState, advance } from './nbody.js';
 import { solarSystemBodies } from './bodies.js';
 import { KERNEL_EPOCH_MS, kernelSeconds, kernelMs } from './kernelHost.js';
 import { helioStateEqj } from './ephemeris.js';
+import { norm } from './vec.js';
 
 dns.setDefaultResultOrder('ipv4first');
 const API = 'https://ssd.jpl.nasa.gov/api/horizons.api';
@@ -91,7 +92,6 @@ const rows = flown.map((s) => ({ ms: Date.parse(s[0]), r: s.slice(1, 4), v: s.sl
 const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
 const kt = (ms) => kernelSeconds(new Date(ms));
 const opts = { bodiesAt: sys.bodiesAt, muSun: sys.muSun, maxSteps: 1e7 };
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
 const minute = [];
 for (let i = 0; i + 1 < rows.length; i++) {
   const e0 = helioStateEqj('earth', new Date(rows[i].ms));

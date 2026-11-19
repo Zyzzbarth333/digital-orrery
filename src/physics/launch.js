@@ -16,8 +16,9 @@
 //
 // Pure: plain arrays, heliocentric J2000 equatorial (EQJ) km and km/s.
 
+import { dot, cross, norm, unit } from './vec.js';
+
 export function escapeStart({ planetR, planetV, vInf, mu, radius, muSun }) {
-  const norm = (a) => Math.hypot(a[0], a[1], a[2]);
   const vi = norm(vInf);
   const dir = vi > 0 ? vInf.map((x) => x / vi) : planetV.map((x) => x / norm(planetV));
   const soi = mu > 0 ? norm(planetR) * Math.pow(mu / muSun, 0.4) : 0;
@@ -52,10 +53,6 @@ export function escapeStart({ planetR, planetV, vInf, mu, radius, muSun }) {
 //
 // Pure: plain arrays, heliocentric J2000 equatorial (EQJ) km and km/s.
 export function departureHyperbola({ planetR, planetV, vInf, mu, rp, pole = [0, 0, 1], planeAngle = 0 }) {
-  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-  const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-  const unit = (a) => { const n = norm(a); return a.map((x) => x / n); };
   const vi = norm(vInf);
   if (!(vi > 0) || !(mu > 0) || !(rp > 0)) throw new Error('departureHyperbola needs v_inf > 0, mu > 0 and rp > 0');
   const u = vInf.map((x) => x / vi);

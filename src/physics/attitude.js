@@ -76,6 +76,7 @@
 
 import { makeModel, gravityGradientTorque, aeroTorque } from './sixdof.js';
 import { quatMul, quatConj, quatNormalize, quatToMatrix, matrixToQuat, matVec, matTVec } from './rigidbody.js';
+import { dot, cross, norm, unit } from './vec.js';
 
 export const CONTROL_PERIOD = 0.1;     // s, the controller's sample time
 export const POSITION_TIME = 0.4;      // s, T_p: the final approach's time constant (critically damped with the 0.1 s sampling)
@@ -89,10 +90,6 @@ export const MODES = ['off', 'inertial', 'prograde', 'retrograde', 'normal', 'an
 // (vnbDirection's frame; in-plane is velocity x normal, outward).
 export const MODE_VNB = { prograde: [1, 0, 0], retrograde: [-1, 0, 0], radial: [0, 1, 0], antiradial: [0, -1, 0], normal: [0, 0, 1], antinormal: [0, 0, -1] };
 
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => Math.hypot(a[0], a[1], a[2]);
-const unit = (a) => { const n = norm(a); return [a[0] / n, a[1] / n, a[2] / n]; };
 
 // The orbital frame of relative r, v: V along the velocity, N the orbit
 // normal, I = V x N (outward in the plane).
