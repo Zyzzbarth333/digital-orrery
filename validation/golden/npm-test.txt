@@ -226,8 +226,13 @@ elevation files
   ok   Venus: Maxwell Montes high (Magellan)
   ok   Moon: the South Pole-Aitken basin low, the far-side highlands high (LOLA)
   ok   Mercury: Caloris floor below its rim (MESSENGER)
+craft ground track
+  ok   a station: reaches its inclination, each orbit about 23 deg further west
+  ok   geostationary: stays over one longitude
+  ok   a polar lunar orbit passes over both poles
+  ok   a suborbital hop ends at its impact, an escape at the sphere of influence
 
-10 passed, 0 failed
+14 passed, 0 failed
 
 >>> node src/physics/orbital.test.mjs
 ============================================================

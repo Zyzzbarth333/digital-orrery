@@ -3,8 +3,8 @@
 // The chart's linework and lettering, drawn in a 2D canvas over the raster
 // (docs/frontend/chart.md#lettering): the graticule, the sheet grid with
 // its codes and names, the IAU names sized by the feature's diameter, the
-// landing sites, and on the Earth the launch sites, the ground track and
-// the atlas grid; then the sheet's furniture: the border's figures, the
+// landing sites, the console's craft's ground track, and on the Earth the
+// launch sites, the satellite's ground track and the atlas grid; then the sheet's furniture: the border's figures, the
 // scale bar and the north arrow. Ink on the paper's halo, as a printed
 // chart is, so it reads on the dark maria and the pale highlands alike.
 // It returns what can be pointed at (names, sites, pads, sheets), with
@@ -16,12 +16,16 @@ import type { Sheet } from './sheets';
 
 const D = Math.PI / 180;
 export const INK = '#1d1b16', HALO = 'rgba(233, 227, 214, 0.88)', ENGRAVE = '#70220d', PAPER = '#e9e3d6';
-const TRACK = '#ffb22e', TRACK_EDGE = '#121110';
+// The tracks as the 3D view draws them: a satellite's pale amber, its pass
+// and place bright amber; the console's craft amber, as its conic is.
+const AMBER = '#ffb22e', PALE = '#ecd9b0', TRACK_EDGE = '#121110';
 
 export interface Feature { name: string; type: string; lat: number; lon: number; diamKm: number; id: number }   // lat, lon rad
 export interface SiteMark { key: string; name: string; lat: number; lon: number; kind: string }
 export interface PadMark { key: string; name: string; pad: string; lat: number; lon: number }
-export interface Track { line: [number, number][]; nowIndex: number; pass: [number, number][] | null; place: [number, number] | null; name: string }
+// A ground track (lat, lon rad): solid to nowIndex, dashed ahead. impact:
+// where a craft's two-body orbit meets the ground.
+export interface Track { kind: 'sat' | 'craft'; line: [number, number][]; nowIndex: number; pass: [number, number][] | null; place: [number, number] | null; name: string; impact: [number, number] | null }
 export interface Hit { kind: 'name' | 'site' | 'pad' | 'sheet'; key: string; label: string; x: number; y: number; w: number; h: number }
 
 export interface OverlayInput {
@@ -33,7 +37,7 @@ export interface OverlayInput {
   features: readonly Feature[];
   sheets: readonly Sheet[]; sheetNames: Record<string, string>;
   siteMarks: readonly SiteMark[]; padMarks: readonly PadMark[];
-  track: Track | null;
+  tracks: readonly Track[];
   hover: string | null;
   regional: ReadonlySet<string>;                             // Gazetteer type codes lettered as regions
   reserved: readonly { x: number; y: number; w: number; h: number }[];   // canvas px kept clear (the scale bar, the north arrow)
@@ -174,20 +178,20 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, o: OverlayInput): Hit
       for (const s of o.sheets) if (!s.polar) polyline(ctx, v, [[s.south * D, s.west * D], [s.north * D, s.west * D]]);
     }
 
-    // ---- the ground track's line: the last quarter orbit solid, the next
-    // orbits dashed, the pass over the chosen place bright
-    const t = o.track;
-    if (t) {
-      const line = (pts: [number, number][], dash: number[], w: number) => {
+    // ---- the ground tracks' lines: the satellite's last quarter orbit
+    // solid, what is ahead dashed, the pass over the chosen place bright
+    for (const t of o.tracks) {
+      const line = (pts: [number, number][], dash: number[], w: number, colour: string) => {
         ctx.setLineDash(dash);
         ctx.lineWidth = w + 2.5; ctx.strokeStyle = TRACK_EDGE; polyline(ctx, v, pts, 1 * D);
-        ctx.lineWidth = w; ctx.strokeStyle = TRACK; polyline(ctx, v, pts, 1 * D);
+        ctx.lineWidth = w; ctx.strokeStyle = colour; polyline(ctx, v, pts, 1 * D);
         ctx.setLineDash([]);
       };
+      const colour = t.kind === 'craft' ? AMBER : PALE;
       ctx.lineCap = 'round';
-      line(t.line.slice(0, t.nowIndex + 1), [], 1.75);
-      line(t.line.slice(t.nowIndex), [7, 5], 1.75);
-      if (t.pass) line(t.pass, [], 3.5);
+      if (t.nowIndex > 0) line(t.line.slice(0, t.nowIndex + 1), [], 1.75, colour);
+      line(t.line.slice(t.nowIndex), [7, 5], 1.75, colour);
+      if (t.pass) line(t.pass, [], 3.5, AMBER);
       ctx.lineCap = 'butt';
     }
 
@@ -222,25 +226,34 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, o: OverlayInput): Hit
       hits.push({ kind: 'pad', key, label: `${p.name} ${p.pad}`, x: X + x - 8, y: Y + y - 8, w: 16, h: 16 });
       if (!port.inset) labels.push({ text: `${p.name} ${p.pad}`, x, y, key, kind: 'pad' });
     }
-    if (t?.place) for (const [x, y] of places(v, t.place[0], t.place[1])) {
-      ctx.fillStyle = TRACK; ctx.strokeStyle = TRACK_EDGE; ctx.lineWidth = 1.5;
-      ctx.fillRect(x - 4, y - 4, 8, 8); ctx.strokeRect(x - 4, y - 4, 8, 8);
-    }
-    const now = t?.line[t.nowIndex];
-    if (t && now) for (const [x, y] of places(v, now[0], now[1])) {
-      ctx.beginPath(); ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y); ctx.lineTo(x, y + 7); ctx.lineTo(x - 7, y); ctx.closePath();
-      ctx.fillStyle = TRACK; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = TRACK_EDGE; ctx.stroke();
-      take(x - 8, y - 8, 16, 16);
-      if (!port.inset) {
-        // Its name to the right, else the left, where nothing is.
-        ctx.font = `12px ${FONT.display}`; ctx.textBaseline = 'middle'; ctx.fillStyle = INK;
-        const text = spaced(ctx, t.name.toUpperCase(), 0.1), w = ctx.measureText(text).width + 4;
-        const right = free(x + 10, y - 8, w, 16);
-        if (right || free(x - 10 - w, y - 8, w, 16)) {
-          ctx.textAlign = right ? 'left' : 'right';
-          halo(ctx, text, right ? x + 11 : x - 11, y); take(right ? x + 10 : x - 10 - w, y - 8, w, 16);
+    for (const t of o.tracks) {
+      if (t.place) for (const [x, y] of places(v, t.place[0], t.place[1])) {
+        ctx.fillStyle = AMBER; ctx.strokeStyle = TRACK_EDGE; ctx.lineWidth = 1.5;
+        ctx.fillRect(x - 4, y - 4, 8, 8); ctx.strokeRect(x - 4, y - 4, 8, 8);
+      }
+      // Where a craft's orbit meets the ground: the chart's cross for an impact, lit.
+      if (t.impact) for (const [x, y] of places(v, t.impact[0], t.impact[1])) {
+        ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5);
+        ctx.lineWidth = 4.5; ctx.strokeStyle = TRACK_EDGE; ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = AMBER; ctx.stroke();
+        take(x - 6, y - 6, 12, 12);
+      }
+      const now = t.line[t.nowIndex];
+      if (now) for (const [x, y] of places(v, now[0], now[1])) {
+        ctx.beginPath(); ctx.moveTo(x, y - 7); ctx.lineTo(x + 7, y); ctx.lineTo(x, y + 7); ctx.lineTo(x - 7, y); ctx.closePath();
+        ctx.fillStyle = t.kind === 'craft' ? AMBER : PALE; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = TRACK_EDGE; ctx.stroke();
+        take(x - 8, y - 8, 16, 16);
+        if (!port.inset) {
+          // Its name to the right, else the left, where nothing is and whole on the chart.
+          ctx.font = `12px ${FONT.display}`; ctx.textBaseline = 'middle'; ctx.fillStyle = INK;
+          const text = spaced(ctx, t.name.toUpperCase(), 0.1), w = ctx.measureText(text).width + 4;
+          const fits = (lx: number) => whole(lx, y - 8, w, 16) && free(lx, y - 8, w, 16);
+          const right = fits(x + 10);
+          if (right || fits(x - 10 - w)) {
+            ctx.textAlign = right ? 'left' : 'right';
+            halo(ctx, text, right ? x + 11 : x - 11, y); take(right ? x + 10 : x - 10 - w, y - 8, w, 16);
+          }
+          spaced(ctx, '', 0);
         }
-        spaced(ctx, '', 0);
       }
     }
 

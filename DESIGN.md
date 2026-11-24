@@ -586,10 +586,12 @@ sheet's code in B612 Mono and its name in small Michroma capitals; feature
 names are B612 in four sizes by the feature's size on the chart, regions in
 Michroma's wide capitals; landing sites are small ink glyphs (a square for
 a crewed landing, a triangle for a lander or rover, a cross for a crash or
-an estimate), launch pads solid triangles. The one lit thing is the ground
-track: amber on a window-black edge, solid behind the satellite and dashed
-ahead, the satellite its diamond, the chosen place an amber square, as the
-3D view draws them. The polar insets are discs in a window-black rim. Never
+an estimate), launch pads solid triangles. The lit things are the ground
+tracks, on a window-black edge, as the 3D view draws them: a satellite's
+pale amber, solid behind it and dashed ahead, its next pass over the chosen
+place bright amber and the place an amber square; the console's craft's
+amber, as its conic is, dashed ahead, the craft an amber diamond and an
+amber cross where its orbit would meet the ground. The polar insets are discs in a window-black rim. Never
 the film-map or game-map look: no compass-rose flourishes, no decorative
 borders, no faux paper texture.
 

@@ -10,7 +10,8 @@
 // Solar System Treks' do. On the Earth it is a planning map: the plate's
 // satellite's ground track, the launch sites, an atlas grid, and a road
 // atlas look (land tinted by height, the sea from pale to deep blue by
-// ETOPO 2022's depths).
+// ETOPO 2022's depths). On any body the console's craft about it has its
+// ground track too, along its two-body orbit.
 //
 // The sky is paused behind it (OrreryScene.setChart) and the chart draws
 // with the same renderer, so the 3D view's frame costs nothing more. The
@@ -35,8 +36,10 @@ import { drawOverlay, drawFurniture, type Feature, type Hit, type OverlayInput, 
 import { inverse, wrapPi, type Proj, type View } from '../chart/projection';
 import { SHEET_SETS, allSheets, sheetAt } from '../chart/sheets';
 import { LAUNCH_SITES } from '../chart/launchSites';
+import { craftTrackOf } from '../chart/craftTrack';
 import { SourceTag } from './source-tag';
 import type { SimClock } from './clock';
+import type { CraftOrbit } from './mission';
 
 const D = Math.PI / 180;
 const DEBUG = new URLSearchParams(window.location.search).has('debug');
@@ -76,7 +79,7 @@ const REGIONAL = /^(Planitia|Terra|Regio|Mare|Oceanus|Vastitas|Planum|Tessera|Al
 // ---- the layers, kept for this browser (one set for the Earth, one for the rest)
 type LayerKey = 'colour' | 'relief' | 'elevation' | 'night' | 'grid' | 'sheets' | 'names' | 'sites' | 'track' | 'pads' | 'atlas';
 type Layers = Record<LayerKey, boolean>;
-const BODY_DEFAULT: Layers = { colour: true, relief: true, elevation: false, night: false, grid: true, sheets: true, names: true, sites: true, track: false, pads: false, atlas: false };
+const BODY_DEFAULT: Layers = { colour: true, relief: true, elevation: false, night: false, grid: true, sheets: true, names: true, sites: true, track: true, pads: false, atlas: false };
 const EARTH_DEFAULT: Layers = { colour: true, relief: true, elevation: false, night: true, grid: true, sheets: false, names: false, sites: false, track: true, pads: true, atlas: false };
 const STORE = 'orrery.chart.v1';
 function readLayers(): { body: Layers; earth: Layers } {
@@ -96,7 +99,7 @@ const LAYER_KEYS: { key: LayerKey; label: string; title: string }[] = [
   { key: 'sheets', label: 'Sheets', title: 'The standard map sheets (quadrangles)' },
   { key: 'names', label: 'Names', title: 'The IAU\'s feature names, sized by the feature' },
   { key: 'sites', label: 'Sites', title: 'Where craft have landed' },
-  { key: 'track', label: 'Track', title: 'The ground track of the satellite on the plate' },
+  { key: 'track', label: 'Track', title: 'The ground track of the satellite on the plate, and of the console\'s craft' },
   { key: 'pads', label: 'Pads', title: 'Orbital launch sites' },
   { key: 'atlas', label: 'Atlas', title: 'The road atlas look: land tinted by height, the sea by depth, and an atlas grid' },
 ];
@@ -139,8 +142,10 @@ const fmtM = (m: number) => `${m < 0 ? '−' : ''}${Math.abs(Math.round(m)).toLo
 
 interface Readout { lat: number; lon: number; elev: number | null; fine: boolean; sheet: string | null; hit: Hit | null }
 
-export default function ChartView({ scene, body, clock, phone, insetRight, insetBottom, onClose, onSite }: {
+export default function ChartView({ scene, body, clock, phone, insetRight, insetBottom, craft, onClose, onSite }: {
   scene: OrreryScene; body: BodyKey; clock: SimClock; phone: boolean; insetRight: number; insetBottom: number;
+  // The console's craft about its primary (Mission.craftOrbit), read each frame.
+  craft?: () => CraftOrbit | null;
   onClose: () => void; onSite: (key: string) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -161,6 +166,7 @@ export default function ChartView({ scene, body, clock, phone, insetRight, inset
   const [readout, setReadout] = useState<Readout | null>(null);
   const [exag, setExag] = useState(1);
   const [trackName, setTrackName] = useState<string | null>(null);
+  const [craftName, setCraftName] = useState<string | null>(null);
   const name = BODY_BY_KEY[body]?.name ?? body;
 
   // Everything the frame loop reads, without re-rendering React.
@@ -170,6 +176,7 @@ export default function ChartView({ scene, body, clock, phone, insetRight, inset
     elev: null as Elevation | null, features: [] as Feature[], layers, proj, phone,
     pointers: new Map<number, { x: number; y: number }>(), pinch: 0,
     track: null as { sat: unknown; t: number; line: [number, number][]; nowIndex: number } | null,
+    craftTrack: null as { key: string; line: [number, number][]; impact: [number, number] | null } | null,
   });
   const st = S.current;
   st.layers = layers; st.proj = proj; st.phone = phone; st.features = features;
@@ -313,24 +320,27 @@ export default function ChartView({ scene, body, clock, phone, insetRight, inset
   const hasMap = scene.hasDayMap(body);
   const has = {
     colour: hasMap && colourIn, relief: !!index?.elevation, elevation: !!index?.elevation, night: true, grid: true,
-    sheets: !!sheetSet, names: !!index?.names, sites: siteMarks.length > 0, track: earth, pads: earth, atlas: earth && !!index?.elevation,
+    sheets: !!sheetSet, names: !!index?.names, sites: siteMarks.length > 0, track: earth || craftName !== null, pads: earth, atlas: earth && !!index?.elevation,
   };
   const available = (k: LayerKey) => (k === 'colour' ? hasMap : has[k]);
 
   // What the draw reads that React holds, refreshed each render, so the
   // scene's hook is set once and the canvas never blanks between draws.
-  const live = useRef({ index, sheets, siteMarks, padMarks, regionalCodes, radiusKm, has, trackName, body, earth });
-  live.current = { index, sheets, siteMarks, padMarks, regionalCodes, radiusKm, has, trackName, body, earth };
+  const live = useRef({ index, sheets, siteMarks, padMarks, regionalCodes, radiusKm, has, trackName, craftName, craft, body, earth });
+  live.current = { index, sheets, siteMarks, padMarks, regionalCodes, radiusKm, has, trackName, craftName, craft, body, earth };
   useEffect(() => {
     let last = 0;
     const draw = () => {
       const c = ink.current, v = st.view;
       if (!c || !v) return;
-      const { index, sheets, siteMarks, padMarks, regionalCodes, radiusKm, has, trackName, body, earth } = live.current;
+      const { index, sheets, siteMarks, padMarks, regionalCodes, radiusKm, has, trackName, craftName, craft, body, earth } = live.current;
       const L = st.layers, t = clock.snapshot.timeMs, wall = performance.now();
-      // The clock moves the night side and the satellite: a satellite's
-      // diamond a few seconds of sim time, the terminator a minute.
-      const dt = Math.abs(t - st.lastT), tracked = earth && L.track && !!scene.groundTrack?.shown.sat;
+      // The console's craft, while it orbits this body (its TRACK key shows on any body then).
+      const co0 = craft?.() ?? null, co = co0 && co0.primary === body ? co0 : null;
+      if ((co?.name ?? null) !== craftName) { live.current.craftName = co?.name ?? null; setCraftName(co?.name ?? null); st.dirty = true; }
+      // The clock moves the night side, the satellite and the craft: their
+      // diamonds a few seconds of sim time, the terminator a minute.
+      const dt = Math.abs(t - st.lastT), tracked = L.track && ((earth && !!scene.groundTrack?.shown.sat) || !!co);
       const moving = ((tracked && dt > 3e3) || (L.night && dt > 60e3)) && wall - st.lastWall > 120;
       if (!st.dirty && !moving) return;
       st.dirty = false; st.lastT = t; st.lastWall = wall;
@@ -356,8 +366,8 @@ export default function ChartView({ scene, body, clock, phone, insetRight, inset
         }
         el.want(want);
       }
-      // The ground track, while the plate has a satellite.
-      let track: Track | null = null;
+      // The ground tracks: the plate's satellite's, by SGP4, and the craft's.
+      const tracks: Track[] = [];
       if (earth && L.track) {
         const g = scene.groundTrack?.shown;
         if (g?.sat) {
@@ -379,9 +389,16 @@ export default function ChartView({ scene, body, clock, phone, insetRight, inset
             passLine = pts;
           }
           const nm = sat.omm.OBJECT_NAME ?? 'Satellite';
-          track = { line, nowIndex, pass: passLine, place: g.site ? [g.site.lat * D, g.site.lon * D] : null, name: nm };
+          tracks.push({ kind: 'sat', line, nowIndex, pass: passLine, place: g.site ? [g.site.lat * D, g.site.lon * D] : null, name: nm, impact: null });
           if (trackName !== nm) { live.current.trackName = nm; setTrackName(nm); }
         } else if (trackName) { live.current.trackName = null; setTrackName(null); }
+      }
+      if (L.track && co) {
+        // Again only once the craft has moved or burned.
+        const k = `${co.id}|${co.timeMs}|${co.r.join()}|${co.v.join()}`;
+        if (st.craftTrack?.key !== k) st.craftTrack = { key: k, ...craftTrackOf(co, body, radiusKm) };
+        const ct = st.craftTrack;
+        tracks.push({ kind: 'craft', line: ct.line, nowIndex: 0, pass: null, place: null, name: co.name, impact: ct.impact });
       }
       const ctx = c.getContext('2d')!;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -397,7 +414,7 @@ export default function ChartView({ scene, body, clock, phone, insetRight, inset
         ports: P, frame: f, radiusKm, lonStyle: earth || body === 'moon' ? 'ew' : 'east',
         grid: L.grid, names: L.names && has.names, sites: L.sites && has.sites, sheetsOn: L.sheets && has.sheets,
         pads: earth && L.pads, atlas: earth && L.atlas,
-        features: st.features, sheets, sheetNames: index?.sheets?.names ?? {}, siteMarks, padMarks, track, hover: st.hover, regional: regionalCodes,
+        features: st.features, sheets, sheetNames: index?.sheets?.names ?? {}, siteMarks, padMarks, tracks, hover: st.hover, regional: regionalCodes,
         // The scale bar (bottom left) and, in simple cylindrical, the north arrow (top right).
         reserved: [{ x: f.x, y: f.y + f.h - 40, w: 240, h: 40 }, ...(v.proj === 'eq' ? [{ x: f.x + f.w - 50, y: f.y, w: 50, h: 64 }] : [])],
       };
@@ -512,7 +529,7 @@ export default function ChartView({ scene, body, clock, phone, insetRight, inset
   const dp = st.view ? Math.max(1, Math.min(4, Math.ceil(Math.log10(Math.max(1, st.view.scale * D))) + 1)) : 2;
   const lonStyle = earth || body === 'moon' ? 'ew' : 'east';
   const projName = proj === 'eq' ? 'Simple cylindrical' : proj === 'n' ? 'Polar stereographic · north' : 'Polar stereographic · south';
-  const keys = LAYER_KEYS.filter((k) => (earth ? !['sheets', 'names', 'sites'].includes(k.key) : !['track', 'pads', 'atlas'].includes(k.key)));
+  const keys = LAYER_KEYS.filter((k) => (earth ? !['sheets', 'names', 'sites'].includes(k.key) : !['pads', 'atlas'].includes(k.key) && (k.key !== 'track' || has.track)));
   const rampCss = (stops: [number, string][]) => `linear-gradient(to right, ${stops.map(([t, c]) => `${c} ${(t * 100).toFixed(1)}%`).join(', ')})`;
   const tick = (m: number) => `${m / 1000}`;
   const lo = e ? Math.round((e.p1M - 0.04 * (e.p99M - e.p1M)) / 1000) * 1000 : 0, hi = e ? Math.round((e.p99M + 0.04 * (e.p99M - e.p1M)) / 1000) * 1000 : 0;
@@ -566,6 +583,7 @@ export default function ChartView({ scene, body, clock, phone, insetRight, inset
           {e && layers.relief && <span className="note">Relief ×{exag.toFixed(exag < 10 ? 1 : 0)}, lit from the upper left</span>}
           {e && <SourceTag src={e.tag} info="chart-elevation" detail={`${e.source}, heights above ${e.datum}. ${e.credit}`} />}
           {earth && layers.track && <span className="note">{trackName ? <>Track: {trackName}<SourceTag src="SGP4" info="chart-track" derived /></> : 'Track: choose a satellite (rail, Satellites)'}</span>}
+          {layers.track && craftName && <span className="note">Craft: {craftName}, two-body<SourceTag src="2-body" info="chart-craft-track" derived /></span>}
           {!e && <span className="note">No global elevation model for {name}: colour, grid and names only</span>}
           {layers.colour && CLOUDS.has(body) && <span className="note">Colour: the cloud tops, not the ground</span>}
         </div>
