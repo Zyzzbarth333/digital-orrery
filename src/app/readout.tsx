@@ -41,6 +41,7 @@ export const HINTS: Record<string, string> = {
   'Axial tilt': 'Angle between the spin axis and the orbit\'s axis (obliquity)',
   'Mean density': 'Mass over volume',
   'Escape speed': 'Speed needed at the surface to leave for good, without further push',
+  'Dust': 'The dust in Mars\'s air that sol: column optical depth from orbiters\' maps (1999 to 2022), drawn as a haze over the surface',
   'Clouds': 'The weather drawn on the Earth: GOES\'s view of the Americas and the Pacific every 10 minutes, about an hour behind, and NASA\'s daily true-colour image everywhere else',
   'At the equator': 'The Sun is gas: its equator turns faster than its poles',
   'Near the poles': 'The Sun is gas: its poles turn slower than its equator',

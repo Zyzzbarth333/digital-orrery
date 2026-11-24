@@ -44,6 +44,12 @@
    "files": 3,
    "bytes": 3306458,
    "source": "python/textures/sky.py (Hipparcos, IAU WGSN names, BSC5, d3-celestial constellations)"
+  },
+  "marsdust": {
+   "version": "6aa33460c01f",
+   "files": 14,
+   "bytes": 60958163,
+   "source": "pipelines/marsdust.build.mjs (Montabone et al., Mars dust climatology v2, LMD)"
   }
  },
  "files": [
@@ -5110,6 +5116,90 @@
    "set": "sky",
    "bytes": 2945095,
    "sha256": "03072a92ec659d2071f34b884e406d70554f64cc0298ad7ba1cf1d13f2039448"
+  },
+  {
+   "path": "marsdust/index.json",
+   "set": "marsdust",
+   "bytes": 2963,
+   "sha256": "d6276408c5a7469d2065ce7974d9355be4bdcc1c9caa0103fd061b8d2063ac96"
+  },
+  {
+   "path": "marsdust/my24.bin",
+   "set": "marsdust",
+   "bytes": 3182400,
+   "sha256": "4e5d52fdb5ecd2a4efb69e2ba77bbb885358204756f66c45e6ec53c9da5bcf06"
+  },
+  {
+   "path": "marsdust/my25.bin",
+   "set": "marsdust",
+   "bytes": 4816800,
+   "sha256": "61a7f6f62c4411868404fc09ec339ad91280576bac51bfc34104aecdb91f5717"
+  },
+  {
+   "path": "marsdust/my26.bin",
+   "set": "marsdust",
+   "bytes": 4816800,
+   "sha256": "938ca5d52e8c32179667b23674602b21d50b73db08c94a124632179c73742c46"
+  },
+  {
+   "path": "marsdust/my27.bin",
+   "set": "marsdust",
+   "bytes": 4809600,
+   "sha256": "c6a8b9f994d4b94fd10b02745de8c6dac18b4dd29c2284823a025ca670809071"
+  },
+  {
+   "path": "marsdust/my28.bin",
+   "set": "marsdust",
+   "bytes": 4816800,
+   "sha256": "0289f07b29125f4cc835859319d41a32c22f2912f0e6c178fa8272b021fe3c43"
+  },
+  {
+   "path": "marsdust/my29.bin",
+   "set": "marsdust",
+   "bytes": 4809600,
+   "sha256": "b4a78fa85427121f7c1bc79282a52040a0801323619181c3bc06f5ac716889b0"
+  },
+  {
+   "path": "marsdust/my30.bin",
+   "set": "marsdust",
+   "bytes": 4816800,
+   "sha256": "5f5b6fb47116a808ba412915b454fee760fa804d4161645ca54012b731347a22"
+  },
+  {
+   "path": "marsdust/my31.bin",
+   "set": "marsdust",
+   "bytes": 4816800,
+   "sha256": "3dd32378c7e4b9427ef40446d1be8bb37e0128884a5551ed862e57da6f5dc71f"
+  },
+  {
+   "path": "marsdust/my32.bin",
+   "set": "marsdust",
+   "bytes": 4809600,
+   "sha256": "5433db08a40ac3fe26cfa404506fcb72e3372f47cd9cb2857351fa8edc5140fd"
+  },
+  {
+   "path": "marsdust/my33.bin",
+   "set": "marsdust",
+   "bytes": 4816800,
+   "sha256": "bcac930e3bda1d1a572d57eacb3792c577f2631f18f84bd18365d9807f9bd7ca"
+  },
+  {
+   "path": "marsdust/my34.bin",
+   "set": "marsdust",
+   "bytes": 4809600,
+   "sha256": "e23ae4a7a06b435632c227d8b2e51b6630f9617623fbd5c7ed703fcad4227b54"
+  },
+  {
+   "path": "marsdust/my35.bin",
+   "set": "marsdust",
+   "bytes": 4816800,
+   "sha256": "c0f3f26c7761a269e3f7b00ce5264d874a8f8aa268b2d06f5f29935e6f08f90f"
+  },
+  {
+   "path": "marsdust/my36.bin",
+   "set": "marsdust",
+   "bytes": 4816800,
+   "sha256": "c5ad37713e0674460d1906040aadbcf7ef4bed72d8e2da9a793e28bc120f9550"
   }
  ]
 }

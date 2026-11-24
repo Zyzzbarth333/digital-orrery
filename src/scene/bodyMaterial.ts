@@ -22,6 +22,11 @@
 //   maps share one layout: equirectangular, u = 0 at -180 deg east longitude,
 //   v = 0 at the south pole. Relief comes from a normal map made from real
 //   elevation, in east-north-up components, at true scale.
+// - Mars's dust (docs/frontend/mars-dust.md): the sol's column optical depth
+//   veils the map by the light it takes out of the direct path down and up,
+//   1 - exp(-tau (1/mu0 + 1/mu) / 2), in the hue of the map's own
+//   dust-covered ground at the body's mean reflectance, so the veil is
+//   thickest at the limb and the terminator and lit only by the Sun.
 //
 // All positions are in render units relative to the camera (the floating
 // origin), so they stay small near the camera where shadows matter.
@@ -148,6 +153,9 @@ uniform sampler2D dayMap;     uniform float useDay;
 uniform sampler2D normalMap;  uniform float useNormal;
 uniform sampler2D nightMap;   uniform float useNight; uniform float nightLevel;
 uniform sampler2D cloudMap;   uniform float useCloud; uniform float cloudScale;
+uniform sampler2D dustMap;    uniform float useDust;  uniform float dustTau;  // visible tau at byte 255
+uniform vec2 dustUvShift;     // the dust grid's first value against a texel centre
+uniform vec3 dustRefl;        // the veil's reflectance (linear RGB)
 uniform float invExposure;    // 1 / renderer exposure, for display-level emission
 uniform sampler2D ringMap;    uniform float useRing;   // rings' optical depth, for their shadow
 uniform float ringInner;      uniform float ringOuter; // render units
@@ -201,13 +209,24 @@ void main() {
     cloudCover = c.a * clamp((dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)) - 0.25) * 2.5, 0.0, 1.0);
     refl = mix(refl, cloudRefl, c.a);
   }
+  // Mars's dust: the share of the direct light the column takes out on the
+  // way down and up (its slant paths averaged), replaced by the dust's own
+  // reflectance. The grid is coarse (3 deg): no mipmaps, so no seam.
+  float dustVeil = 0.0;
+  if (useDust > 0.5) {
+    float b = texture2D(dustMap, uv + dustUvShift).r;
+    float tau = dustTau * b * b;
+    float m = 0.5 / max(dot(nGeo, v), 0.05) + 0.5 / max(dot(nGeo, s), 0.05);
+    dustVeil = 1.0 - exp(-tau * m);
+    refl = mix(refl, dustRefl, dustVeil);
+  }
 
   // Shading normal: the map's east-north-up slope about the ellipsoid's own
   // normal (up), rotated into the scene.
   vec3 n = nGeo;
   if (useNormal > 0.5) {
     vec3 enu = sampleMap(normalMap, uv).xyz * 2.0 - 1.0;
-    enu.xy *= (1.0 - cloudCover);                    // clouds hide the relief
+    enu.xy *= (1.0 - max(cloudCover, dustVeil));     // clouds and dust hide the relief
     vec3 up = toBody * nGeo;
     vec3 east = normalize(vec3(-up.y, up.x, 0.0) + vec3(1e-6, 0.0, 0.0));
     vec3 north = cross(up, east);
@@ -331,6 +350,7 @@ export function makeBodyMaterial(colour: number, geometricAlbedo: number, airles
       normalMap: { value: blank }, useNormal: { value: 0 },
       nightMap: { value: blank }, useNight: { value: 0 }, nightLevel: { value: 0.5 },
       cloudMap: { value: blank }, useCloud: { value: 0 }, cloudScale: { value: 1 },
+      dustMap: { value: blank }, useDust: { value: 0 }, dustTau: { value: 0 }, dustRefl: { value: new THREE.Color() }, dustUvShift: { value: new THREE.Vector2() },
       invExposure: { value: 1 },
       ringMap: { value: blank }, useRing: { value: 0 }, ringInner: { value: 0 }, ringOuter: { value: 0 },
       ringCentre: { value: new THREE.Vector3() }, ringPole: { value: new THREE.Vector3(0, 0, 1) },
@@ -369,6 +389,19 @@ export function applyAtmosphere(m: THREE.ShaderMaterial, a: AtmosphereParams, gr
 // No daily mosaic: also unbind the old one, whose GL texture is about to be
 // deleted (binding a deleted texture is a WebGL error on every draw).
 export function clearCloud(m: THREE.ShaderMaterial): void { m.uniforms.useCloud.value = 0; m.uniforms.cloudMap.value = blank; }
+
+// Mars's dust haze (marsDust.ts): the sol's map, its visible optical depth
+// at byte 255, and the veil's hue (linear, at unit luminance), drawn at the
+// body's mean surface reflectance (1.5 p, as the map is scaled to), so a
+// disc hidden by dust keeps the planet's geometric albedo. Null takes it off.
+export function applyDust(m: THREE.ShaderMaterial, map: THREE.Texture | null, visibleTauAt255 = 0, uvShift: [number, number] = [0, 0], hue: [number, number, number] = [1, 1, 1]): void {
+  const u = m.uniforms;
+  if (!map) { u.useDust.value = 0; u.dustMap.value = blank; return; }
+  const k = scaleFor(m, 1);
+  (u.dustRefl.value as THREE.Color).setRGB(k * hue[0], k * hue[1], k * hue[2]);
+  u.dustMap.value = map; u.useDust.value = 1; u.dustTau.value = visibleTauAt255;
+  (u.dustUvShift.value as THREE.Vector2).set(uvShift[0], uvShift[1]);
+}
 
 // The rings' shadow on a planet or one of its moons; their plane (the
 // planet's centre and pole) is set each frame (setRingPlane).

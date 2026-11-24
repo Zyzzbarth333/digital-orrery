@@ -103,6 +103,9 @@ const SCENARIOS = {
   'neptune': { label: 'Neptune and its rings', query: `?focus=neptune&${DATE}`, km: 250000 },
   'moon': { label: 'Moon close-up', query: `?focus=moon&${DATE}`, km: 20000 },
   'lunar-eclipse': { label: 'The Moon in the Earth\'s shadow (2025-09-07)', query: '?focus=moon&t=2025-09-07T18:11Z', km: 20000 },
+  // Mars in the 2018 global dust storm, its dust haze in (a build without
+  // it times Mars's surface alone).
+  'mars-dust': { label: 'Mars in the 2018 dust storm', query: '?focus=mars&t=2018-07-10T12:00Z', km: 14000, ready: '!orrery.marsDust || !!orrery.marsDust.texture' },
   'axes': { label: 'Spin axes on (Earth)', query: `?focus=earth&${DATE}`, km: 40000, setup: "(orrery.guides.set('axes', true), true)" },
   'magnetic': { label: 'Magnetic field on (Jupiter), pulses running', query: `?focus=jupiter&${DATE}`, km: 2.5e6, setup: "(orrery.magnetic.set('magnetic', true), true)" },
   // The landing sites' layer on (a build without it times the Moon alone),

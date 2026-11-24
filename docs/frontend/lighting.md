@@ -280,6 +280,11 @@ A Lambert sphere's full disc averages 2/3 of its centre, hence $1.5p$. A
 Lommel-Seeliger disc at full phase is uniform, which is why the full Moon
 looks flat and has no darkened limb.
 
+Mars's dust veils its map before this law lights it: the sol's optical
+depth mixes the surface toward the dust's hue at the same mean reflectance,
+$1.5p$, so the haze is lit by the Sun alone and the disc keeps its albedo
+([Mars dust](mars-dust.md#drawing-the-haze)).
+
 ## Eclipses
 
 Every surface point checks the bodies that can shadow it: its parent other

@@ -8,7 +8,9 @@ conversion), `src/scene/surfaces.ts`, `bodyMaterial.ts`, `rings.ts`,
 ## Credits
 
 All NASA, USGS and NOAA products are US-government public domain; the
-credit lines are the ones each source asks for. Solar System Scope maps
+credit lines are the ones each source asks for. The Mars dust maps are
+CC BY-SA 3.0, share-alike: the baked `marsdust` set keeps that licence
+and says what was changed ([Mars dust](mars-dust.md#licence)). Solar System Scope maps
 ([solarsystemscope.com/textures](https://www.solarsystemscope.com/textures/) [1])
 are [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and need their
 attribution, with a link to the licence; the app's Credits list gives both.
@@ -22,6 +24,7 @@ attribution, with a link to the licence; the app's Credits list gives both.
 | Moon | Colour (8192×4096) and elevation (16 px/deg) | CGI Moon Kit: LRO LROC colour, LOLA LDEM | NASA's Scientific Visualization Studio |
 | Mars | Colour (8192×4096) | Viking MDIM 2.1 colour mosaic, USGS map server | NASA/JPL, USGS Astrogeology |
 | Mars | Elevation (16 px/deg) | MOLA MEGDR, PDS Geosciences Node | NASA/GSFC MOLA Science Team |
+| Mars | Dust haze for the sim date, one 3° map per sol, MY 24 to 36 ([Mars dust](mars-dust.md)) | Mars dust climatology v2, kriged column dust optical depth, LMD; re-encoded to one byte per value and split by sol | L. Montabone et al. (Icarus 251, 2015; JGR Planets 125, 2020), LMD, [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); the baked set is CC BY-SA 3.0 too |
 | Mercury | Colour (8192×4096) | MESSENGER MDIS colour, USGS map server | NASA/JHUAPL/Carnegie Institution of Washington, USGS Astrogeology |
 | Pluto | Mosaic (8192×4096) | New Horizons LORRI/MVIC, USGS map server | NASA/JHUAPL/SwRI, USGS Astrogeology |
 | Jupiter | Global map (3601×1801) | Cassini PIA07782 | NASA/JPL/Space Science Institute |
