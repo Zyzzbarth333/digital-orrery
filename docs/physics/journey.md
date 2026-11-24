@@ -265,6 +265,45 @@ CASE 17's Europa flyby on the porkchop dates (there 22 Jul 2031) is
 another: its way on reaches 3,098 km from Jupiter's centre, and it now
 reads NO GO too.
 
+### From a planet's orbit to its moon
+
+A leg from a planet's parking orbit to one of its moons used to leave from
+the cheapest free point on a ring in the moon's plane. The flight then
+waited for the craft to come round to that point, up to a turn (41 h at
+344,000 km over Jupiter), and reached the moon's place well after the
+moon. GO's stop in Jupiter orbit before an Io flyby (What to change) left
+910 min late, missed Io by 17,441 km and needed 5.15 km/s of corrections.
+
+Now, where the stop was reached by a capture, the plan leaves from where
+the craft is (`journey.js parkedContext`, `parkingPlane.js`
+`flownParking` and `parkedAt`):
+- **the capture as the flight flies it:** the hyperbola from the way in,
+  in the plane of the way in and the ecliptic's north, into the circular
+  orbit at its periapsis, at the planned mean radius;
+- **flown on in the planet's zonal field** for ten turns, as the kernel has
+  it (J2, and the giant planets' J4 and J6). Its node and its argument of
+  latitude move at mean rates that put the craft anywhere in the stay. Over
+  17 days 36,000 km over Jupiter, J2 alone moves it 0.7 of a turn from
+  where two-body motion would. Flown with J2 alone, the rates are
+  first-order theory's to 0.05 % (the node, Curtis eq. (4.52)) and 0.2 %
+  (the argument of latitude, $n[1 + \tfrac34 J_2 (R/a)^2 (8\cos^2 i - 2)]$);
+- **the leg's porkchop** tries a departure every sixth of a turn, since
+  where the craft is sets the price.
+
+The flight phases the craft over the stay (`journeyFlight.js`, 'phase'):
+a turn and a half after the capture, and again half way, it measures how
+far the craft is from the plan's place on the orbit. It then makes a
+tangential burn onto a phasing orbit that gains or loses that angle in
+as many whole turns as the stay allows, and the burn back. At departure it
+takes, within half a turn of the planned time, the point on its own orbit
+that costs least onto the arc to the moon's place at the arrival.
+
+From Jupiter orbit 344,000 km up to the late Io flyby, the first pass
+finds the craft 64.6° off (the capture came hours early) and the second
+0.9°. It leaves 178 min from the planned time for 2.19 km/s (the plan's
+1.57), and reaches Io for 1.02 km/s of corrections in all, against 5.15.
+It does not fly GO yet (Limits).
+
 ### Near 180 degrees: the broken plane
 
 Lambert's arc lies in the plane of its two ends and the central body. When
@@ -1659,19 +1698,22 @@ cloud tops" and offers:
 
 Each total is the plan solved again. Leaving on 27 Dec 2028 flies GO: Io
 0.1 km off the planned periapsis, for 0.29 km/s of corrections. The stop in
-Jupiter orbit does not fly GO yet: it misses Io by 17,441 km and needs
-5.15 km/s of corrections, and so does every height it tries (Limits).
+Jupiter orbit is priced from where the craft is on its parking orbit
+(From a planet's orbit to its moon). It does not fly GO yet: it reaches Io
+for 1.02 km/s of corrections, where it used to miss Io by 17,441 km for
+5.15, but comes in 400 km low and hits it (Limits).
 
 In the app the same: NO GO, RE-PLAN on the new date, GO. RE-PLAN on the
-stop in Jupiter orbit gives the priced total, 14.17 km/s, and the kernel
-misses Io by 13,568 km. (The app prices the stop 0.04 km/s below Node,
-and the depth below the cloud tops 3 km less.)
+stop in Jupiter orbit gives the priced total, 15.72 km/s, and the board
+reads "The kernel's craft hits Io", with a higher pass and another day at
+Jupiter to try. (The app puts the way on past Io 3 km higher than Node,
+67,702 km below the cloud tops against 67,705.)
 
 ![The GO board for Earth to an Io flyby a day late: Trajectory reads NO GO, "The kernel's craft hits Jupiter", "Io is reached through Jupiter's gravity: past Io, the approach falls on to 67,702 km below its cloud tops", with RE-PLAN to stop in Jupiter orbit 344,000 km up first (14.17 km/s) or to leave Earth on 2028-12-27 (6.25 km/s)](../images/go-board-io-flyby-late.jpg)
 
 ![After RE-PLAN to leave Earth on 2028-12-27: every row GO, every waypoint within 0.1 km of the plan for 292 m/s of corrections](../images/go-board-io-flyby-late-new-date.jpg)
 
-![After RE-PLAN to stop in Jupiter orbit first: Trajectory NO GO, the kernel misses a waypoint by 13,568 km, and Windows and Delta-v NO GO at 14.17 km/s against the budget of 8](../images/go-board-io-flyby-late-jupiter-stop.jpg)
+![After RE-PLAN to stop in Jupiter orbit first: Trajectory NO GO, "The kernel's craft hits Io", the pass planned 400 km up and flown 400 km lower, with RE-PLAN to leave Jupiter on 2032-01-10 or raise the pass to 1,300 km; Windows and Delta-v NO GO at 15.72 km/s against the budget of 8](../images/go-board-io-flyby-late-jupiter-stop.jpg)
 
 ![The GO board for Earth to Io orbit against a budget of 8 km/s: Windows and Delta-v read NO GO, each with RE-PLAN to leave Earth on 2029-01-05 (13.11 km/s, 0.59 less) and SET to raise the budget](../images/go-board-io-orbit.jpg)
 
@@ -1948,13 +1990,22 @@ The delta-v map has its own checks (`dvMap.test.mjs`): every reference line agai
 
 ## Limits
 
-- **From a planet's orbit to its moon:** the leg leaves from a free point
-  on the orbit, and the flight waits for the craft to come round to it, up
-  to the orbit's period (41.5 h at 344,000 km over Jupiter). On a leg of a
-  few days to the moon, that wait reaches the moon's place well after the
-  moon. GO's stop in Jupiter orbit before Io misses Io by thousands of
-  kilometres for this reason. The leg is to be timed from where the craft
-  is on its orbit after the capture and the stay.
+- **From a planet's orbit to its moon:** the leg leaves from where the
+  plan has the craft on its parking orbit, and the flight phases it there
+  (Flying it, "From a planet's orbit to its moon"). It does not fly GO
+  from Jupiter orbit to Io yet, for two reasons in the flight's arrivals:
+  - **at the planet:** the B-plane aims and radius-only trims bring the
+    capture hours early, a third of a turn round and 6 degrees out of the
+    planned plane. The phasing takes up the turn, not the plane, so the
+    departure costs more than planned (2.19 km/s against 1.57 at 344,000
+    km). A point aim two days out puts it right but costs 2 to 2.9 km/s;
+  - **at the moon:** on a leg of hours there is one aim, without the moon's
+    pull, and at under 2 km/s Io's pull bends the way in on to its
+    surface. A point aim with Io's pull finds no burn.
+
+  The GO board's 50 km miss is also strict for a capture hundreds of
+  thousands of kilometres out (the flight's own trouble is the larger of
+  50 km and 2 % of the periapsis): 76 to 718 km off reads as a miss.
 - **Patched conics:** the planets' centres are the ends of each leg, and
   the Sun alone pulls along it. The kernel's corrections close the gap,
   and the flown journey's corrections are part of its delta-v as flown.
