@@ -153,6 +153,12 @@ export const TAG_INFO = {
     tex: [],
     source: 'NASA GIBS / EOSDIS: GOES-East and GOES-West ABI GeoColor (NOAA, via NASA SPoRT); VIIRS corrected reflectance on NOAA-21, NOAA-20 and Suomi NPP; MODIS on Terra',
   },
+  'mars-dust': {
+    what: 'How much dust was in Mars\'s air that sol: the column dust optical depth at 9.3 µm (thermal infrared absorption), mapped every sol from the orbiters\' retrievals and kriged to fill the gaps between their tracks, on a 3° grid. The scene draws it as a haze that takes the share of the light the dust would take out of the direct path down and up, at 2.6 times this depth in visible light, in the hue of the map\'s dust-covered ground at Mars\'s mean reflectance: thickest at the limb, and an upper bound, since dust scatters forward and keeps some of the surface\'s contrast.',
+    tex: ['V = 1 - e^{-2.6\\,\\tau\\,(1/\\mu_0 + 1/\\mu)/2}'],
+    where: 'τ: the map\'s optical depth where the surface is; μ₀, μ: the cosines of the Sun\'s and the camera\'s angles from the vertical. Outside MY 24 to MY 36 nothing is drawn',
+    source: 'Mars dust climatology v2: Montabone et al., Icarus 251 (2015) and JGR Planets 125 (2020), from MGS TES, Mars Odyssey THEMIS and MRO MCS; LMD, CC BY-SA 3.0 · docs/frontend/mars-dust.md',
+  },
   albedo: {
     what: 'How bright the full disc is, against a white disc of the same size.',
     tex: [],

@@ -12,6 +12,8 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExtern
 import { loadManifest, type Manifest } from '../scene/surfaces';
 import { dailyEarthInfo } from '../scene/clouds';
 import { cloudsRow } from './clouds-row';
+import { marsDustInfo } from '../scene/marsDust';
+import { dustRow } from './dust-row';
 import { useClock, useClockValue, type SimClock } from './clock';
 import { formatUtc, parseUtc, stepAt } from './clock-entry';
 import { typeStep } from './type-step';
@@ -745,6 +747,7 @@ function Credits() {
     if (m.rings?.saturn) items.push(["Saturn's rings", m.rings.saturn.credit]);
     if (m.stars) items.push(['Sky', m.stars.credit]);
   }
+  items.push(['Mars dust', 'Mars dust climatology v2 (Montabone et al. 2015, 2020; LMD), from TES, THEMIS and MCS: CC BY-SA 3.0. Changes: the kriged daily maps resampled to one byte per cell (the square root of the optical depth) and split by sol; the baked files are CC BY-SA 3.0 too']);
   items.push(['Daily Earth', 'NASA GIBS / EOSDIS: Terra MODIS, Suomi NPP and NOAA-20 and -21 VIIRS corrected reflectance; GOES-East and GOES-West ABI GeoColor (NOAA, via NASA SPoRT)']);
   items.push(['Moon orbits', "JPL's satellite ephemerides (mar099s, jup365, sat441, sat415, ura184, nep098, plu060) for 2000–2049; outside that, JPL Solar System Dynamics' planetary satellite mean elements fitted to JPL Horizons, and astronomy-engine for the Galilean moons"]);
   // CC BY 4.0 asks for a link to the licence and, where practical, to the
@@ -813,6 +816,7 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
   const fromEarth = norm([st.r[0] - earth.r[0], st.r[1] - earth.r[1], st.r[2] - earth.r[2]]);
   const ownGm = b.planetGm ?? b.gm;
   const clouds = useSyncExternalStore(dailyEarthInfo.subscribe, dailyEarthInfo.get);
+  const dust = useSyncExternalStore(marsDustInfo.subscribe, marsDustInfo.get);
   const rows: Row[] = [];
   // Every planet, Pluto and the Moon come from DE442's table where it covers
   // the date (2000-2050), else from astronomy-engine; a planet's moon rides on
@@ -890,6 +894,8 @@ export function DataPlate({ clock, focus, frame = 'sun' }: { clock: SimClock; fo
     const row = cloudsRow(clouds);
     if (row) rows.push(row);
   }
+  // Mars's dust: the sol's map of the dust climatology, or no observation.
+  if (focus === 'mars' && dust) rows.push(dustRow(dust));
   if (focus !== 'sun' && (b.gm || pm)) {
     // The period of the osculating orbit at this instant, from the state:
     // a = 1 / (2/r - v^2/mu), with mu = the Sun's GM plus the body's (the

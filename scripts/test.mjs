@@ -27,7 +27,7 @@ const JOURNEY_PARTS = [['17'], ['12'], ['20', '21'], ['5'], ['15', '16', '8'], [
 const MISSIONS = Object.keys(MISSION_DATA);
 
 const FILES = [
-  'scripts/lib/chromium.test.mjs', 'src/app/tex.test.mjs', 'src/scene/ktx2.test.mjs', 'src/scene/ktx2Range.test.mjs', 'src/browser/loadQueue.test.mjs', 'src/scene/layerComposite.test.mjs', 'src/app/craft-state.test.mjs', 'src/app/remember.test.mjs', 'src/app/stores.test.mjs', 'src/app/clouds-row.test.mjs', 'src/app/clock-entry.test.mjs', 'src/scene/sky.test.mjs',
+  'scripts/lib/chromium.test.mjs', 'src/app/tex.test.mjs', 'src/scene/ktx2.test.mjs', 'src/scene/ktx2Range.test.mjs', 'src/browser/loadQueue.test.mjs', 'src/scene/layerComposite.test.mjs', 'src/app/craft-state.test.mjs', 'src/app/remember.test.mjs', 'src/app/stores.test.mjs', 'src/app/clouds-row.test.mjs', 'src/app/dust-row.test.mjs', 'src/app/clock-entry.test.mjs', 'src/scene/sky.test.mjs',
   'packages/physics/src/orbital.test.mjs', 'packages/physics/src/porkchop.test.mjs', 'packages/physics/src/nbody.test.mjs',
   'packages/physics/src/orientation.test.mjs', 'packages/physics/src/surfaceClamp.test.mjs', 'packages/physics/src/bodyfacts.test.mjs',
   'src/browser/craft.test.mjs', 'packages/physics/src/warp.test.mjs', 'packages/physics/src/trajsearch.test.mjs',
@@ -40,7 +40,7 @@ const FILES = [
   'packages/physics/src/gravityFlow.test.mjs', 'packages/physics/src/magnetic.test.mjs', 'packages/physics/src/aurora.test.mjs',
   'packages/physics/src/moons.test.mjs', 'packages/physics/src/landingSites.test.mjs', 'packages/physics/src/irregularMoons.test.mjs', 'packages/physics/src/flyby.test.mjs', 'packages/physics/src/remedies.test.mjs', 'packages/physics/src/dvMap.test.mjs',
   'src/browser/kernelClient.test.mjs', 'packages/physics/src/barycentres.test.mjs', 'packages/physics/src/deTable.test.mjs', 'src/browser/dataLoad.test.mjs',
-  'packages/physics/src/corona.test.mjs', 'packages/physics/src/rings.test.mjs', 'packages/physics/src/discs.test.mjs', 'packages/physics/src/umbra.test.mjs',
+  'packages/physics/src/corona.test.mjs', 'packages/physics/src/rings.test.mjs', 'packages/physics/src/discs.test.mjs', 'packages/physics/src/umbra.test.mjs', 'packages/physics/src/marsTime.test.mjs',
   'packages/physics/src/satellites.test.mjs', 'packages/physics/src/passes.test.mjs', 'packages/physics/src/spacecraft.test.mjs',
   'validation/artemis2.validate.mjs', 'validation/artemis1.validate.mjs',
   ...MISSIONS.map((id) => `validation/missions.validate.mjs ${id}`),

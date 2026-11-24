@@ -145,7 +145,7 @@ npm run build       # the production build
 
 ## Credits
 
-The app is built on public data: JPL's DE442, satellite ephemerides and Small-Body Database; NAIF's SPICE kernels; NASA, USGS and ESA maps and star catalogues; Solar System Scope's planet maps ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)); NOAA's relief; CelesTrak's element sets; and NASA's and JPL's mission trajectories. [docs/credits.md](docs/credits.md) credits every source, map, font and library, with a link to each and its licence.
+The app is built on public data: JPL's DE442, satellite ephemerides and Small-Body Database; NAIF's SPICE kernels; NASA, USGS and ESA maps and star catalogues; Solar System Scope's planet maps ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)); NOAA's relief; LMD's Mars dust maps (Montabone et al., [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/), which the baked dust data set keeps); CelesTrak's element sets; and NASA's and JPL's mission trajectories. [docs/credits.md](docs/credits.md) credits every source, map, font and library, with a link to each and its licence.
 
 ## Contributing
 

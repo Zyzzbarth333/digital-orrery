@@ -43,6 +43,7 @@ jobs:
             public/data
             public/missions
             public/trajbrowser
+            public/marsdust
           key: data-${{ hashFiles('public/manifest.json') }}
       - name: Data (fetched from its releases, verified against the manifest)
         run: npm run data -- --verify

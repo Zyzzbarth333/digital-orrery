@@ -30,6 +30,7 @@ if (!yes) { console.log('\nNothing changed. Run with --yes to publish.'); proces
 
 mkdirSync(cache, { recursive: true });
 for (const [set, { version, source }] of todo) {
+  const licence = SETS[set]?.licence;
   const file = join(cache, assetOf(set, version));
   const list = m.files.filter((f) => f.set === set).map((f) => f.path);
   // Packed from the manifest's own list, so nothing outside it ships.
@@ -37,7 +38,7 @@ for (const [set, { version, source }] of todo) {
   console.log(`  ${assetOf(set, version)}: ${(statSync(file).size / 1e6).toFixed(1)} MB packed`);
   execFileSync('gh', ['release', 'create', tagOf(set, version), file, '--repo', REPO,
     '--title', `Data: ${set} ${version}`,
-    '--notes', `The ${set} data set (public/${SETS[set]?.dir ?? set}/), version ${version}, pinned by public/manifest.json. Made by ${source}. Fetched by \`npm run data\`; never replaced or deleted, since older commits pin it.`,
+    '--notes', `The ${set} data set (public/${SETS[set]?.dir ?? set}/), version ${version}, pinned by public/manifest.json. Made by ${source}. Fetched by \`npm run data\`; never replaced or deleted, since older commits pin it.${licence ? `\n\n${licence}` : ''}`,
     '--latest=false'], { stdio: 'inherit' });
   rmSync(file, { force: true });
 }

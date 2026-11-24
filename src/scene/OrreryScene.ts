@@ -34,7 +34,7 @@ import { moonTablesVersion, wantMoonTables } from '@digital-orrery/physics/moonT
 import { baryStateEqj } from '@digital-orrery/physics/barycentres.js';
 import type { SceneClock } from '../types/clock';
 import { BODIES, BODY_BY_KEY, BARYS, BARY_BY_KEY, isBary, isPlanetMoon, maxRadiusKm, systemOf, type BaryKey, type BodyKey, type FocusKey } from './catalogue';
-import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyRingShadow, applySurfaceMaps, clearCloud, setRingPlane, setUmbraTable, shadowAxes } from './bodyMaterial';
+import { makeBodyMaterial, MAX_OCCLUDERS, applyAtmosphere, applyDust, applyRingShadow, applySurfaceMaps, clearCloud, setRingPlane, setUmbraTable, shadowAxes } from './bodyMaterial';
 import { EARTH_OCCULTING_KM, umbraTable } from '@digital-orrery/physics/umbra.js';
 import { sunlight } from '@digital-orrery/physics/discs.js';
 import { makeRings, tauTexture, MAX_RING_CASTERS, type RingProfile } from './rings';
@@ -43,6 +43,7 @@ import { jdFromTt } from '@digital-orrery/physics/rings.js';
 import { makeStarPoints, makeStars, resetStars, setStarScale, setStarTwinkle } from './stars';
 import { SkyLayer } from './skyLayer';
 import { DailyEarth } from './clouds';
+import { DUST_COLOUR, MarsDust } from './marsDust';
 import { CraftLayer, type CraftView } from './craftLayer';
 import { SurfacePatch } from './surfacePatch';
 import { clampAboveSurface } from '@digital-orrery/physics/surfaceClamp.js';
@@ -283,6 +284,8 @@ export class OrreryScene {
   private atmospheres = new Map<BodyKey, THREE.Mesh>();
   private unloadedSurfaces = new Set<BodyKey>();
   private earthMapsIn = false;          // the Earth's maps are up (the clouds wait for them)
+  readonly marsDust = new MarsDust(import.meta.env.BASE_URL);
+  private marsMapsIn = false;           // Mars's maps are up (its dust waits for them)
   private earthResolved = false;
   private glare = new SunGlare();
   private post: HdrPipeline;
@@ -681,6 +684,13 @@ export class OrreryScene {
       if (tex) applySurfaceMaps(m, { cloud: tex, cloudWhiteLuminance: this.dailyEarth.whiteLuminance });
       else clearCloud(m);
     };
+    this.marsDust.onChange = (tex) => {
+      const ix = this.marsDust.index;
+      // A texel's centre is at u = (i + 0.5) / nLon, the value at lon0 + i step.
+      const g = ix?.grid;
+      const shift: [number, number] = g ? [(-180 + g.step / 2 - g.lon0) / 360, (-90 + g.step / 2 - g.lat0) / 180] : [0, 0];
+      applyDust(this.materials.get('mars')!, tex, ix ? ix.maxCdod * ix.visible : 0, shift, DUST_COLOUR);
+    };
     void loadManifest().then((m) => {
       this.manifest = m;
       if (!m) return;
@@ -794,6 +804,7 @@ export class OrreryScene {
   private reloadMaps(): void {
     this.surfaces.reset();
     this.dailyEarth.reset();
+    this.marsDust.reset();
     const m = this.manifest;
     if (!m) return;
     for (const key of Object.keys(m.bodies) as BodyKey[]) this.unloadedSurfaces.add(key);
@@ -928,7 +939,7 @@ export class OrreryScene {
     if (!this.manifest || !this.unloadedSurfaces.has(key)) return;
     this.unloadedSurfaces.delete(key);
     void this.surfaces.apply(key, this.manifest.bodies[key]!, this.materials.get(key)!, new Date(this.clock.snapshot.timeMs))
-      .then(() => { if (key === 'earth') this.earthMapsIn = true; })
+      .then(() => { if (key === 'earth') this.earthMapsIn = true; if (key === 'mars') this.marsMapsIn = true; })
       .catch(() => this.unloadedSurfaces.add(key));   // a lost context: load again on the next sighting
   }
 
@@ -1390,6 +1401,8 @@ export class OrreryScene {
     // The day's clouds (16 MB from NASA GIBS) once the Earth's own maps are
     // in: before them, the mosaic took the link from the Earth's maps.
     if (this.earthResolved && this.earthMapsIn) this.dailyEarth.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
+    // Mars's dust for the sol (7 kB a sol), once its maps are in.
+    if (this.marsMapsIn) this.marsDust.update(tMs, this.clock.snapshot.playing ? this.clock.snapshot.rate : 0);
     this.updateOrbits(tMs, now);
     this.updateNearOrbits(tMs);
 

@@ -125,6 +125,25 @@ cloudsRow: the Earth plate's Clouds row
 
 13 passed, 0 failed
 
+>>> node src/app/dust-row.test.mjs
+mapFor: the map for a date
+  PASS  half a sol into map 395 of MY 34 is that map, its sol 396
+  PASS  15 June 2018, the global dust storm: MY 34, Ls 193
+  PASS  the first map of MY 24 is its sol 227; before it, none
+  PASS  the last map of a year ends where its sols do
+  PASS  a year with no file has none (MY 37, 2023)
+cdodOf, mapStats: the bytes decoded
+  PASS  byte 255 is the top of the encoding, 0 is clear
+  PASS  the mean of a uniform map is its value
+  PASS  the mean weights cells by area: a dusty pole counts for little
+dustRow: the plate
+  PASS  a drawn sol gives its optical depth, sol, Ls and source
+  PASS  a clear sol keeps two decimals
+  PASS  outside the maps: no observation for this date
+  PASS  too fast: not drawn
+
+12 passed, 0 failed
+
 >>> node src/app/clock-entry.test.mjs
 reading what is typed, as UTC
   PASS  the clock's own text
@@ -3109,6 +3128,20 @@ The Earth's shadow at the Moon
 The shadow's size
   PASS  with the 87 km layer: umbra 0.7390 deg (0.7400), penumbra 1.2679 deg (1.2691)
   PASS  without it the umbra is 0.7255 deg, 1.8 % small
+
+all passed
+
+>>> node src/physics/marsTime.test.mjs
+Ls by the series
+  PASS  6 Jan 2000 00:00 UTC: Ls 277.18759 deg (Mars24: 277.18758)
+  PASS  against DE442 and the IAU pole, April 1999 to 2022 every 5.3 days: within 0.0116 deg
+Mars years
+  PASS  MY 24, 34 and 37 began 1998-07-14, 2017-05-05, 2022-12-26
+  PASS  a Mars year is 668.60, 668.58, 668.59 sols (668.6)
+  PASS  a second after MY 34 began: MY 34, sol 0, Ls 0
+  PASS  a second before: MY 33, sol 668.59
+  PASS  15 June 2018, the global dust storm: MY 34, Ls 193.4 deg
+  PASS  MY 34 Ls 250 is 2018-09-14
 
 all passed
 

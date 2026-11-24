@@ -28,6 +28,12 @@ export const SETS = {
   missions: { dir: 'missions', source: 'pipelines/missions.build.mjs, pipelines/artemis*.export.mjs' },
   trajbrowser: { dir: 'trajbrowser', source: 'pipelines/trajbrowser.fetch.mjs (NASA Ames Trajectory Browser)' },
   sky: { dir: 'sky', source: 'python/textures/sky.py (Hipparcos, IAU WGSN names, BSC5, d3-celestial constellations)' },
+  // Share-alike: the baked maps keep the source's licence, its credit and a
+  // note of the changes, which the release notes carry (licence).
+  marsdust: {
+    dir: 'marsdust', source: 'pipelines/marsdust.build.mjs (Montabone et al., Mars dust climatology v2, LMD)',
+    licence: 'Licence: CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0/), as its source, not the code\'s MIT. Source: Mars dust climatology v2, the kriged daily column dust optical depth maps, MY 24 to MY 36, by L. Montabone, F. Forget, E. Millour et al. (Icarus 251, 65-95, 2015, doi:10.1016/j.icarus.2014.12.034; JGR Planets 125, 2020, doi:10.1029/2019JE006111), Laboratoire de Météorologie Dynamique, https://www-mars.lmd.jussieu.fr/mars/dust_climatology/. Changes: each sol\'s map reordered from the south pole and 180 W, encoded as one byte per cell (the square root of the optical depth), only complete maps kept, one file per Mars year; marsdust/index.json says the same.',
+  },
 };
 
 // Files under a set's folder that are not part of the published set: the

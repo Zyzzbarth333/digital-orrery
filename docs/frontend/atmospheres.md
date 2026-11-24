@@ -193,7 +193,9 @@ terminator reddens; at a thin crescent only the sunlit limb glows.
 - Other atmospheres. Mars (dust-dominated, butterscotch by day, blue at
   sunset), Venus, Titan and the giants need parameters from primary
   sources; the published Mars values found so far are a rendering
-  approximation, not measurements, so Mars waits.
+  approximation, not measurements, so Mars waits. Mars's recorded dust is
+  drawn on the surface instead, as a veil from each sol's measured optical
+  depth ([Mars dust](mars-dust.md)).
 
 ## References
 

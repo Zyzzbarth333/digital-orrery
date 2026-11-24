@@ -35,6 +35,7 @@
     "build:textures": "python3 python/textures/build_textures.py && python3 python/textures/build_ktx2.py",
     "build:smallbodies": "node pipelines/smallbodies.build.mjs",
     "build:pck": "node pipelines/pck.build.mjs",
+    "build:marsdust": "node pipelines/marsdust.build.mjs",
     "fetch:moons": "node pipelines/moons.fetch.mjs",
     "fetch:irregular-moons": "node pipelines/irregularMoons.fetch.mjs",
     "build:moon-tables": "cmake -S c -B c/build -DCMAKE_BUILD_TYPE=Release && cmake --build c/build --target moon_cheb && mkdir -p public/ephemeris/moons-extra && c/build/moon_cheb public/ephemeris/moons 0.5 2000 2050 public/ephemeris/moons-extra 2020 2036",

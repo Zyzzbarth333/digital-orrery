@@ -46,6 +46,7 @@ they come from, and how each part is checked.
 | [Earth satellites](frontend/satellites.md) | 16,892 active satellites from CelesTrak's GP elements, SGP4 via satellite.js, TEME to J2000, the GPU's points, the named ones' orbits, search and data plate; checked against Vallado's verification set and Horizons |
 | [Atmospheres](frontend/atmospheres.md) | Rayleigh, Mie and ozone single scattering along the view ray, sunlight reddening on the ground, checks |
 | [The interactive sky](frontend/interactive-sky.md) | Picking a star and its plate, constellation lines and names, FIND for stars; every catalogue's licence, and the later steps (boundaries, deep sky, a ground view) |
+| [Mars dust](frontend/mars-dust.md) | Each sol's dust haze over Mars from the LMD dust climatology (Montabone et al., MY 24 to 36, CC BY-SA 3.0): Mars's calendar, the bake, the haze in the lighting model, the plate's Dust row, checks |
 | [Surface maps, rings, stars and daily Earth](frontend/textures.md) | Every source and its credit, map layout, relief from elevation, night lights, GIBS daily imagery, the Cassini ring profile, the star map |
 | [The other planets' rings](frontend/rings.md) | Jupiter's, Uranus's and Neptune's rings from occultations and ring tables: orbits, arcs, dust and forward scattering, and drawing rings narrower than a pixel |
 
