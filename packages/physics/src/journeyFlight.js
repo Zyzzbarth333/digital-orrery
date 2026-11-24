@@ -75,7 +75,7 @@ import { dot, cross, norm, unit } from './vec.js';
  *   | { kind: 'approach', ms: number, body: string, rp: number, wayOutEqj?: number[], untilMs?: number, planeTurn?: PlaneTurn, planeHold?: number[] }
  *   | ArriveEvent
  *   | { kind: 'point', ms: number, waypoint: number, offsetEqj: number[], body: string }
- *   | { kind: 'capture' | 'rendezvous', ms: number, body: string, rp: number }} PlanEvent
+ *   | { kind: 'capture' | 'rendezvous', ms: number, body: string, rp: number, parked?: { t0: number, rc: number, orbit: any } }} PlanEvent
  */
 /** @typedef {{ start: { r: number[], v: number[], ms: number } | null, events: PlanEvent[], unsupported: string[] }} Plan */
 /** @typedef {{ dt: number, d: number[], m: number, T: number, rb: number, vb: number, aimedKm?: number, offMs?: number }} DepartBurn */
@@ -362,6 +362,9 @@ export function planFlight(sol) {
     // (Leaving a moon for another planet: clear of the planet.)
     const clearP = leg.central === P.body ? Math.min(0.1 * dur, 2 * 3600e3) : Math.max(Math.min(0.1 * dur, 2 * 3600e3), 1.5 * crossing(leg.endA ?? P.body, leg.vinfDep));
     const tIn = without ? crossing(Q.body, vinQ) : 0;
+    // A capture the next leg leaves from where the craft is on its orbit.
+    const parkedQ = /** @type {{ t0: number, rc: number, orbit: any } | undefined} */ (/** @type {any} */ (Q).parked);
+    const parkedNext = parkedQ && without && !viaMoon && Q.kind === 'orbit' && sol.legs[k + 1]?.parkedDep ? parkedQ : null;
     // Burn nodes dragged onto the leg are flown as planned (their burns as
     // planned vectors); the aims come after the last of them, so the flight
     // keeps the shape given and corrects only what is left.
@@ -421,6 +424,32 @@ export function planFlight(sol) {
         if (bent) aims[0].farTo = { ms: second, offsetEqj: ecl(bent(second)) };
         aims.push({ kind: 'aim', ms: second, ...targetAt(second) });
       }
+      // Into a parking orbit the next leg leaves from where the craft is on
+      // it (journey.js parkedAt), the capture must come where and when the
+      // plan has it. The B-plane aims and the radius trims set the
+      // periapsis radius alone, and the kernel's way in is not the patched
+      // conics': at Jupiter the craft came to its periapsis up to a third
+      // of a turn round from the plan's place (112 degrees at 200,000 km
+      // up), and the departure cost up to 1.9 times the plan's. So two aims at the
+      // planned periapsis point itself, with the planet's pull: one just
+      // before the trims, where it is cheap (60 m/s at Jupiter, 59 days
+      // out, against 2 to 2.9 km/s from two days out), and one a twentieth
+      // of the sphere crossing out (five days at Jupiter) for what the
+      // trims leave.
+      // (The first at the planned hyperbola's point a hundredth of the
+      // crossing before the periapsis, a day at Jupiter: aimed at the
+      // periapsis itself from two months out, a craft hours late on its
+      // way in is a million kilometres off it, on another branch of the
+      // swing, and Newton's steps did not converge.)
+      if (parkedNext && vinQ) {
+        const mu = bodyInfo(Q.body).mu, rpU = unit(off), vp = unit(sub(vinQ, scale(rpU, dot(vinQ, rpU))));
+        const lead = 0.01 * tIn, far = propagate(off, scale(vp, Math.sqrt(dot(vinQ, vinQ) + 2 * mu / norm(off))), -lead / 1000, mu);
+        /** @type {[number, number[], number][]} */
+        const pts = [[leg.arrMs - 0.6 * tIn - 3600e3, far ? far.r : off, far ? leg.arrMs - lead : leg.arrMs], [leg.arrMs - 0.05 * tIn, off, leg.arrMs]];
+        for (const [ms, at, arrive] of pts) {
+          if (ms > first + 0.02 * dur && ms < arrive - 2 * 3600e3) aims.push({ kind: 'aim', ms, ...target, offsetEqj: ecl(at), arrive, without: null });
+        }
+      }
     }
     // (An aim that does not converge is trouble only if it is the leg's
     // last: the next corrects what it leaves.)
@@ -439,7 +468,7 @@ export function planFlight(sol) {
     // Home to the central body: how far the craft is from the aimed point.
     if (leg.ringArr) events.push({ kind: 'point', ms: arriveMs, waypoint: k, offsetEqj: ecl(aimOff), body: leg.central });
     const QB = bodyInfo(Q.body);
-    if (Q.kind === 'orbit' || (Q.kind === 'land' && (!QB.atmosphere || !KERNEL.has(Q.body)))) events.push({ kind: KERNEL.has(Q.body) ? 'capture' : 'rendezvous', ms: leg.arrMs, body: Q.body, rp: norm(off) });
+    if (Q.kind === 'orbit' || (Q.kind === 'land' && (!QB.atmosphere || !KERNEL.has(Q.body)))) events.push({ kind: KERNEL.has(Q.body) ? 'capture' : 'rendezvous', ms: leg.arrMs, body: Q.body, rp: norm(off), ...(parkedNext ? { parked: parkedNext } : {}) });
     // Landing: flown down from the low orbit on an airless body; through
     // an atmosphere, from the perigee pass (in the window, before it; home
     // to a central body, its arc ends there); on a body without the
@@ -1215,10 +1244,48 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
         const res = stepCraft(sys, { id: 0, version: 0, r: s.r, v: s.v, t: s.t, tEnd: t, primary: null, burns: out.burns, maxSteps: 2e6, ...(env ? { env } : {}) });
         return res.complete && !res.events.some((/** @type {KernelEvent} */ q) => q.type === 'impact') ? orbitShape(e.body, { r: res.r, v: res.v, t: res.t }) : null;
       };
+      let turned = /** @type {{ from: number, to: number, yaw: number } | null} */ (null);
       if (cap) {
-        const half = cap.dur / 2;
-        for (const [i, p] of cap.pitch.entries()) out.burns.push({ t0: tb + i * half, t1: tb + (i + 1) * half, dir: [-Math.cos(p), Math.sin(p), 0], F: accel, m0: 1, mdot: 0, scripted: true, frame: 'vnb', about: e.body });
-        tEnd = tb + cap.dur; flownDv = cap.dv;
+        // The two halves yawed by y out of the plane, each longer by
+        // 1 / cos y so the braking in the plane is as planned.
+        /** @param {number} y */
+        const halves = (y) => cap.pitch.map((/** @type {number} */ p, /** @type {number} */ i) => ({ t0: tb + (i * cap.dur) / 2 / Math.cos(y), t1: tb + ((i + 1) * cap.dur) / 2 / Math.cos(y), dir: [-Math.cos(p) * Math.cos(y), Math.sin(p) * Math.cos(y), Math.sin(y)], F: accel, m0: 1, mdot: 0, scripted: true, frame: 'vnb', about: e.body }));
+        let yaw = 0;
+        // Into a parking orbit the next leg leaves from where the craft is
+        // on it: the plan's plane (journey.js parkedAt). The point aims put
+        // the periapsis at the plan's, but the plane holds the kernel's way
+        // in too, up to degrees from the patched conics' (0.8 to 2.9 at
+        // Jupiter, 414,000 to 106,000 km from its centre), and a turn of the
+        // circular orbit later costs its speed times the angle (Curtis eq.
+        // (6.20): 0.2 to 1.7 km/s there). The capture's periapsis lies in
+        // both planes, so the turn is cheapest in the capture burn itself
+        // (6 to 150 m/s).
+        // Secant on the yaw, by side runs through the burn, for the angle of
+        // the orbit's normal about the position to the plan's.
+        const pk = e.parked;
+        if (pk) {
+          /** @param {number} y */
+          const err = (y) => {
+            const hb = halves(y), t1 = hb[hb.length - 1].t1 + 1;
+            const res = stepCraft(sys, { id: 0, version: 0, r: s.r, v: s.v, t: s.t, tEnd: t1, primary: null, burns: [...out.burns, ...hb], maxSteps: 2e6, ...(env ? { env } : {}) });
+            if (!res.complete || res.events.some((/** @type {KernelEvent} */ q) => q.type === 'impact')) return null;
+            const Bt = bodyState(e.body, res.t), r1 = sub(res.r, Bt.r), n = unit(cross(r1, sub(res.v, Bt.v))), ru = unit(r1);
+            const want = parkedAt(pk.orbit, (kernelMs(res.t) - pk.t0) / 1000, pk.rc, B.mu), nw = unit(ecl(cross(want.r, want.v)));
+            const nt = unit(sub(nw, scale(ru, dot(nw, ru))));
+            return Math.atan2(dot(cross(n, nt), ru), dot(n, nt));
+          };
+          const g0 = err(0);
+          if (g0 !== null && Math.abs(g0) > 1e-5) {
+            let y0 = 0, f0 = g0, y1 = 0.05 * Math.sign(g0), f1 = err(y1);
+            for (let i = 0; i < 8 && f1 !== null && Math.abs(f1) > 1e-5 && f1 !== f0; i++) {
+              const y2 = Math.max(-0.5, Math.min(0.5, y1 - (f1 * (y1 - y0)) / (f1 - f0)));
+              y0 = y1; f0 = f1; y1 = y2; f1 = err(y1);
+            }
+            if (f1 !== null && Math.abs(f1) < Math.abs(g0)) { yaw = y1; turned = { from: Math.abs(g0), to: Math.abs(f1), yaw }; }
+          }
+        }
+        out.burns.push(...halves(yaw));
+        tEnd = tb + cap.dur / Math.cos(yaw); flownDv = cap.dv / Math.cos(yaw);
         // Then the Hohmann transfer to the planned radius, as the mean one:
         // in the body's J2 field the osculating radius swings by kilometres
         // round each turn, so a transfer of a few kilometres is worked out
@@ -1245,8 +1312,8 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       }
       // The orbit it leaves, from the last burn's end (on a side run).
       const orbit = flownDv > 0 ? shapeAt(tEnd + 1) : null;
-      out.captures.push({ body: e.body, dv: flownDv, impulsive: Math.max(0, dv), steered: !!cap, pitchDeg: cap ? cap.pitch.map((/** @type {number} */ p) => p * 180 / Math.PI) : null, hohmann: moved, rc, ...(orbit ? { a: orbit.aMean, e: orbit.e } : {}) });
-      out.log.push(`capture at ${e.body}: ${(flownDv * 1000).toFixed(0)} m/s (impulsive ${(Math.max(0, dv) * 1000).toFixed(0)}), ${cap ? `steered from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''} (pitch ${cap.pitch.map((/** @type {number} */ p) => (p * 180 / Math.PI).toFixed(1)).join(' then ')} deg)${moved ? `, then Hohmann from a mean ${moved.from.toFixed(1)} km for ${(moved.dv * 1000).toFixed(1)} m/s` : ''}` : `retrograde from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''}`}${orbit ? `; the orbit's mean a ${orbit.aMean.toFixed(1)} km (planned ${rc.toFixed(1)}), e ${orbit.e.toFixed(4)}` : ''}`);
+      out.captures.push({ body: e.body, dv: flownDv, impulsive: Math.max(0, dv), steered: !!cap, pitchDeg: cap ? cap.pitch.map((/** @type {number} */ p) => p * 180 / Math.PI) : null, hohmann: moved, rc, ...(orbit ? { a: orbit.aMean, e: orbit.e } : {}), ...(turned ? { yawDeg: turned.yaw * 180 / Math.PI } : {}) });
+      out.log.push(`capture at ${e.body}: ${(flownDv * 1000).toFixed(0)} m/s (impulsive ${(Math.max(0, dv) * 1000).toFixed(0)}), ${cap ? `steered from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''} (pitch ${cap.pitch.map((/** @type {number} */ p) => (p * 180 / Math.PI).toFixed(1)).join(' then ')} deg)${turned ? `, yawed ${(turned.yaw * 180 / Math.PI).toFixed(2)} deg to the plan's plane (${(turned.from * 180 / Math.PI).toFixed(2)} to ${(turned.to * 180 / Math.PI).toFixed(3)} deg off)` : ''}${moved ? `, then Hohmann from a mean ${moved.from.toFixed(1)} km for ${(moved.dv * 1000).toFixed(1)} m/s` : ''}` : `retrograde from ${rp.toFixed(0)} km${accel > PLAN_ACCEL ? ` at ${accel.toFixed(0)} m/s^2` : ''}`}${orbit ? `; the orbit's mean a ${orbit.aMean.toFixed(1)} km (planned ${rc.toFixed(1)}), e ${orbit.e.toFixed(4)}` : ''}`);
       continue;
     }
     flyTo(t);

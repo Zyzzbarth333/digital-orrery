@@ -1340,8 +1340,16 @@ CASE 27: from a planet's parking orbit to its moon, left from where the craft is
   PASS  parkedAt at the start is the start, to a kilometre
   Jupiter orbit 344,000 km up for 32.57 d, then Io: leaves from where the craft is, 1574 m/s; 15.72 km/s in all
   PASS  the leg to Io leaves from the craft's place on its parking orbit at the departure (to a metre), for the burn from the craft's velocity there
-  flown: phase at jupiter: -64.6 deg off where the plan has the craft; 8 turns on a phasing orbit, 2 x 127.9 m/s; phase at jupiter: -0.9 deg off where the plan has the craft; 7 turns on a phasing orbit, 2 x 2.1 m/s; depart jupiter: 2188 m/s, 178 min from the planned time, 36.2 deg from the planned point (the plan's 1574); corrections 1.02 km/s; hits io
-  PASS  flown: the craft phased to within 2 degrees of the plan's place by the second pass, leaving within 4 h of the planned time, for under 1.5 km/s of corrections in all (5.15 waiting for the craft to come round)
+  flown: phase at jupiter: 0.0 deg off where the plan has the craft; 8 turns on a phasing orbit, 2 x 0.1 m/s; phase at jupiter: 7.3 deg off where the plan has the craft; 7 turns on a phasing orbit, 2 x 17.0 m/s; depart jupiter: 1625 m/s, 13 min from the planned time, 1.0 deg from the planned point (the plan's 1574); corrections 0.94 km/s; hits io
+  PASS  flown: the craft phased in two passes to the plan's place, leaving within an hour of the planned time for within 5 % of the planned burn, for under 1.5 km/s of corrections in all (5.15 waiting for the craft to come round)
+============================================================
+CASE 28: into a parking orbit the next leg leaves from, the capture where and when the plan has it
+============================================================
+  200,000 km up: 2 point aims; capture at jupiter: 9510 m/s (impulsive 9493), steered from 269901 km (pitch -2.2 then -2.5 deg), yawed 2.44 deg to the plan's plane (0.89 to 0.000 deg off); Jupiter 10 km off; the first phase pass 0.2 deg; depart jupiter: 2310 m/s, 6 min from the planned time, 1.4 deg from the planned point (the plan's 2305)
+  PASS  200,000 km up: two aims at the planned periapsis, the capture within 50 km of its radius and yawed (2.44 deg) into the plan's plane to 0.01 degrees, the craft within 2 degrees of the plan's place after it, and the departure within an hour and 5 % of the plan's
+  344,000 km up: 2 point aims; capture at jupiter: 7875 m/s (impulsive 7865), steered from 413900 km (pitch -1.0 then -1.1 deg), yawed 2.15 deg to the plan's plane (0.80 to 0.000 deg off); Jupiter 11 km off; the first phase pass 0.0 deg; depart jupiter: 1625 m/s, 13 min from the planned time, 1.0 deg from the planned point (the plan's 1574)
+  PASS  344,000 km up: two aims at the planned periapsis, the capture within 50 km of its radius and yawed (2.15 deg) into the plan's plane to 0.01 degrees, the craft within 2 degrees of the plan's place after it, and the departure within an hour and 5 % of the plan's
+  PASS  a capture as the last stop is aimed as before: no point aims, no plan's plane to yaw into
 RESULT: all checks PASSED
 
 >>> node src/physics/nesc.test.mjs
@@ -2918,7 +2926,7 @@ CASE 5: a real hit: the kernel's craft passes Io a day late and falls into Jupit
     Stop in Jupiter orbit first, 344,000 km up: 15.72 km/s, +9.33
     Leave Earth 2028-12-27 instead: 6.25 km/s, -0.14
   PASS  options: a stop in Jupiter orbit before the Io flyby, and another departure date; each solves at the total it states
-  Stop in Jupiter orbit first, 344,000 km up, flown: hit; Jupiter 430.9 km off, Io 400.0 km off; corrections 1.02 km/s; hits io
+  Stop in Jupiter orbit first, 344,000 km up, flown: hit; Jupiter 10.7 km off, Io 400.0 km off; corrections 0.94 km/s; hits io
   Leave Earth 2028-12-27 instead, flown: go; Io 0.1 km off; corrections 0.29 km/s
 RESULT: all checks PASSED
 
