@@ -73,6 +73,10 @@ export interface LaunchProps { dryMass: number; fuel: number; area: number; cr?:
 export type DepartureDirection = 'prograde' | 'retrograde' | 'outward' | 'inward';
 
 export interface MissionSnapshot { version: number; selected: number | null }
+// A craft about its primary (Mission.craftOrbit): J2000 equatorial km and
+// km/s at timeMs (UTC), the primary's GM (km^3/s^2) and the sphere (km) its
+// conic is drawn within.
+export interface CraftOrbit { id: number; name: string; primary: string; timeMs: number; r: number[]; v: number[]; mu: number; rMax: number }
 export type RealBurns = 'all' | 'first';
 // plan: the simulator's own design flown beside the real path (its file
 // takes the flown path from another, flownFrom), not the real craft.
@@ -228,6 +232,23 @@ export class Mission {
     return key && key !== 'sun' ? this.sys.bodyAt(key, c.clockT) : null;
   }
   primaryVelocity(c: Craft): number[] { const P = this.primary(c); return P ? P.eph.velocity(c.clockT) : [0, 0, 0]; }
+
+  // A craft (the one followed, else the console's) about its primary at
+  // its clock, for the chart's ground track (chart-view.tsx): J2000
+  // equatorial km and km/s, the primary's GM, and the sphere it is drawn
+  // within. null with no craft, about the Sun, landed or crashed.
+  craftOrbit(id: number | null = null): CraftOrbit | null {
+    const c = id === null ? this.selected : this.crafts.find((x) => x.id === id) ?? null;
+    if (!c || c.crashed || c.landed) return null;
+    const P = this.primary(c);
+    if (!P) return null;
+    const s = c.displayState(), rP = P.eph.position(c.clockT), vP = P.eph.velocity(c.clockT);
+    return {
+      id: c.id, name: c.name, primary: c.kState.primary as string, timeMs: kernelMs(c.clockT), mu: P.mu,
+      r: [s.r[0] - rP[0], s.r[1] - rP[1], s.r[2] - rP[2]], v: [s.v[0] - vP[0], s.v[1] - vP[1], s.v[2] - vP[2]],
+      rMax: this.paths.get(c.id)?.rMax || Infinity,
+    };
+  }
 
   // A launch from the planner: remember where it is going and when.
   setPlan(c: Craft, target: string, name: string, arrivalMs: number): void {

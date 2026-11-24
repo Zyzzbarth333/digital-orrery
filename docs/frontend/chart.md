@@ -9,6 +9,7 @@ switch as NASA's Solar System Treks' do [1]. On the Earth it doubles as a
 planning map: the ground track of the satellite on the plate, the orbital
 launch sites, an atlas grid round the border, and a road-atlas look with
 land tinted by height and the sea from pale to deep blue by its real depth.
+On any body, a craft flown in the console has its ground track too.
 
 ![Mars on the chart: the Viking colour mosaic with MOLA relief, the graticule, the MC quadrangles with their codes, the IAU names and the landing sites, and both poles as insets](chart-mars.jpg)
 
@@ -52,7 +53,8 @@ border, in the console's own look ([DESIGN.md](../../DESIGN.md#the-chart-view)).
 | SHEETS | the standard map sheets, with their codes and names |
 | NAMES | the IAU's names |
 | SITES | the app's landing sites; a pressed site opens its plate |
-| TRACK, PADS, ATLAS | on the Earth: the ground track, the launch sites, and the road-atlas look |
+| TRACK | the ground tracks: on the Earth the plate's satellite's, and on any body the console's craft's while it orbits that body ([the craft](#the-craft)) |
+| PADS, ATLAS | on the Earth: the launch sites and the road-atlas look |
 | 3D | back to the sky |
 
 A key with nothing to show for the body is unavailable (flat, with the
@@ -285,10 +287,10 @@ rather than guessed.
   ([satellites](satellites.md)), turned into the Earth's frame (TEME to
   ITRF by GMST and polar motion) and taken down the ellipsoid's normal to a
   geodetic latitude, the stretch behind solid and the stretch ahead dashed,
-  amber on a window-black edge so it reads on land, sea and ice. The next
-  pass over the place chosen on the plate is drawn brighter, and the place
-  as an amber square. A craft of our own flown in the console has no track
-  here yet.
+  pale amber on a window-black edge so it reads on land, sea and ice, as
+  the 3D view draws it. The next pass over the place chosen on the plate is
+  bright amber, and the place an amber square. A craft of our own has its
+  track beside it ([the craft](#the-craft)).
 - **Launch sites (PADS).** The 25 pads in use for orbital launches, one or
   two a site, from Jonathan McDowell's General Catalog of Artificial Space
   Objects (GCAT) [20], its launch points table read on 25 November 2026:
@@ -304,11 +306,13 @@ rather than guessed.
   colours.
 - **Night (NIGHT)** is on by default on the Earth.
 
-![The Earth with the ISS's ground track: a quarter orbit behind solid, one and a half ahead dashed, its next pass over the chosen place in Europe bright, the ISS as an amber diamond, the launch pads and the night side](chart-earth-track.jpg)
+![The Earth with two ground tracks: the ISS's in pale amber, a quarter orbit behind solid and one and a half ahead dashed, its next pass over the chosen place in Europe bright amber; a craft launched from the console into a 550 km orbit at 28.5° in amber, dashed ahead; the launch pads and the night side](chart-earth-track.jpg)
 
-*The ISS on the Earth's chart (Intel GPU), chosen with FIND: its next pass
-over the plate's place (Greenwich) is the bright stretch over Europe; the
-night side is at the clock's time.*
+*The ISS on the Earth's chart (NVIDIA GPU), chosen with FIND: its next
+pass over the plate's place (Greenwich) is the bright stretch over Europe.
+Orbiter 1, flown from the console in a 550 km orbit at 28.5°, has its
+two-body track in amber beside it ([the craft](#the-craft)). The night side
+is at the clock's time.*
 
 ![The Earth in the atlas look: land tinted by height, the sea by its depth from ETOPO 2022, an atlas grid lettered A to X and numbered 1 to 12 round the border, with the ISS's track and the launch pads](chart-earth-atlas.jpg)
 
@@ -316,6 +320,52 @@ night side is at the clock's time.*
 with the atlas grid round the border; Kennedy is in square G5.*
 
 The Earth has no IAU names, so its chart has no NAMES or SHEETS layer.
+
+## The craft
+
+The console's craft (the one followed, else the one the console shows) has
+its ground track on the chart of the body it orbits: the Earth's after a
+launch, the Moon's or Mars's once it is caught there. Following a craft
+makes its primary the chart's body, so K from a craft in lunar orbit opens
+the Moon. TRACK then shows on that body's keys, and the legend names the
+craft beside a `2-body` source tag.
+
+- **What is drawn.** The point under the craft along its two-body orbit
+  about the body, the osculating conic the 3D view draws in amber: the
+  path it would follow if every other force stopped now. It is propagated
+  from the craft's state at the clock by the universal-variable Kepler
+  solution ([two-body](../physics/two-body.md)) [21, Algorithms 3.3 and 3.4], from
+  now to one and a half orbits ahead, at most two days, in steps of a
+  degree of the craft's motion about the body (the angle swept,
+  $h / r^2$ per second, at most ten minutes), so a perigee pass is drawn as
+  finely as an apogee.
+- **Into the body's frame.** Each point is turned into the body-fixed
+  frame by the body's axes in J2000 at the clock (the Earth's by
+  precession, nutation, sidereal time and polar motion; the rest by their
+  IAU rotation models [22]) and the body's spin since, its rate taken from
+  its axes an hour apart. Over two days the pole's drift and any change in
+  the spin are under a hundredth of a degree, the Moon's libration the
+  most. The Earth's latitudes are geodetic (WGS 84), as its maps and the
+  satellites' tracks are; the other bodies' are planetocentric, as their
+  maps are.
+- **How it looks.** Amber, dashed ahead, on the window-black edge, the
+  craft an amber diamond with its name: the 3D view's craft colour, so it
+  never reads as the satellite's pale track. Where the orbit meets the
+  ground the line ends at an amber cross: the impact the two-body orbit
+  would make, with no air. Leaving the body's sphere of influence ends it
+  too.
+- **When it is redrawn.** As the satellite's, once the clock has moved
+  3 s of sim time; each redraw takes the craft's state then, so a burn
+  shows within those 3 s.
+
+![The Moon with a craft in a polar orbit 100 km up: its amber track runs up one meridian, across the north pole, down the opposite meridian and across the south pole, through both polar insets, with the craft's diamond and name on the equator](chart-moon-craft.jpg)
+
+*A craft in a circular polar orbit 100 km over the Moon (NVIDIA GPU): one
+and a half orbits ahead, about three hours, under which the Moon turns
+only 1.6°, so each pass runs almost straight up a meridian and crosses the
+poles along the chart's top and bottom edges, as a polar track does in
+simple cylindrical. TRACK shows on the Moon's keys only while a craft
+orbits it.*
 
 ## Performance
 
@@ -325,11 +375,13 @@ The Earth has no IAU names, so its chart has no NAMES or SHEETS layer.
   opens. `npm run bench:frames` on both GPUs, main against the branch,
   found no change ([results](../performance.md#the-chart-view)).
 - **The chart draws only when something changes:** the view, a layer, the
-  data, the pointer, or the clock by 3 s of sim time while a satellite is
-  tracked and 60 s while the night side is shown (at most every 120 ms). The
+  data, the pointer, or the clock by 3 s of sim time while a satellite or
+  a craft is tracked and 60 s while the night side is shown (at most every 120 ms). The
   sky's frame loop calls it each frame and it returns at once otherwise. A
   redraw at 1920 × 1080 takes 9 to 12 ms on the Intel GPU for a whole body
   and about 20 ms zoomed in onto the fine tiles; 3 to 10 ms on the RTX.
+  A craft's track adds 1.3 ms on the CPU (542 points for a low orbit's
+  one and a half turns), worked out again only when the craft has moved.
 - **Memory.** The 4 px/deg grid is 2 MB on the GPU; the tile array, made
   once the first tile is wanted, 33 MB. The colour map is the 3D view's own.
 
@@ -360,6 +412,11 @@ of the height and pans east and west, and zooms out to the whole body.*
 - Names are placed at their features' centres; a printed chart places each
   by hand.
 - The Galilean moons' sheets are not drawn ([above](#sheet-grids)).
+- The craft's track is its two-body orbit: the Earth's oblateness (J2,
+  which turns a low orbit's plane by several degrees a day), the air, the
+  Sun's and other bodies' pulls and any burn to come are left out, so it
+  drifts from the path the kernel flies over its two days. A climbing
+  craft has no track until engine cutoff.
 
 ## Rebuilding
 
@@ -418,3 +475,7 @@ in bands of rows.
 [19] R. M. Batson et al., "Mapping the Galilean satellites of Jupiter with Voyager data," *Photogramm. Eng. Remote Sens.*, vol. 46, no. 10, pp. 1303–1312, 1980.
 
 [20] J. C. McDowell, "General Catalog of Artificial Space Objects," release 1.8.9, launch points table, 2026. [Online]. Available: https://planet4589.org/space/gcat (CC BY 4.0)
+
+[21] H. D. Curtis, *Orbital Mechanics for Engineering Students*, 4th ed. Oxford, U.K.: Butterworth-Heinemann (Elsevier), 2020.
+
+[22] B. A. Archinal *et al.*, "Report of the IAU Working Group on Cartographic Coordinates and Rotational Elements: 2015," *Celest. Mech. Dyn. Astron.*, vol. 130, no. 3, Art. no. 22, 2018, doi: 10.1007/s10569-017-9805-5.

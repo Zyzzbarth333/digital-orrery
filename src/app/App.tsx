@@ -238,10 +238,13 @@ export function App() {
   const satView = sat !== null ? scene.current?.satellites.sat(sat) ?? null : null;
   // The chart view (chart-view.tsx, K; docs/frontend/chart.md): a flat
   // chart of the body in view (a landing site's body; the Earth for a
-  // satellite or a debris cloud), in the sky's cell, the sky paused behind it.
+  // satellite or a debris cloud; a followed craft's primary), in the sky's
+  // cell, the sky paused behind it.
   const [chartOn, setChartOn] = useState(false);
+  const followPrimary = useSyncExternalStore(mission.subscribe, () => (craftById(mission, following)?.craft.kState?.primary as string | undefined) ?? null);
   const chartBody: BodyKey | null = (() => {
     if (sat !== null || satCloud !== null) return 'earth';
+    if (followPrimary && followPrimary !== 'sun' && followPrimary in BODY_BY_KEY) return followPrimary as BodyKey;
     if (siteView) { const b = siteBody(siteView); return b in BODY_BY_KEY ? (b as BodyKey) : null; }
     const k = systemOf(focus);        // a barycentre's own body
     return k === 'sun' ? null : k;
@@ -709,7 +712,7 @@ export function App() {
           <Suspense fallback={null}>
             <ChartView scene={scene.current} body={chartBody} clock={clock} phone={phone} insetRight={phone ? cover.right : inset} insetBottom={phone ? cover.bottom : 0}
               onClose={() => { setChartOn(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.chart-key')?.focus()); }}
-              onSite={(key) => scene.current?.focusOnSite(key)} />
+              craft={() => mission.craftOrbit(following)} onSite={(key) => scene.current?.focusOnSite(key)} />
           </Suspense>
         ) : null} />
       <TimeBand clock={clock} {...flight} onFind={openFind} />

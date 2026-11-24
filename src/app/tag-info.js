@@ -299,6 +299,12 @@ export const TAG_INFO = {
     where: 'W polar motion, θ Greenwich mean sidereal time (UT1); the element set\'s own epoch and accuracy apply',
     source: 'Vallado et al., AIAA 2006-6753 (SGP4); CelesTrak elements · docs/frontend/satellites.md, docs/frontend/chart.md',
   },
+  'chart-craft-track': {
+    what: 'The point under the console\'s craft along its two-body orbit about the body (the osculating conic the 3D view draws, the path it would follow if every other force stopped now), from now to one and a half orbits ahead, at most two days, ending at a cross where that orbit meets the ground. A burn, drag, or another body\'s pull moves it; the kernel flies the craft itself.',
+    tex: ['\\mathbf r(t) = f\\,\\mathbf r_0 + g\\,\\mathbf v_0', '\\mathbf r_\\text{fixed} = R_3(\\omega\\,\\Delta t)\\,A\\,\\mathbf r(t)'],
+    where: 'f, g the Lagrange coefficients by universal variables; A the body\'s axes in J2000 now, ω its spin rate; the Earth\'s latitude geodetic (WGS 84), the rest planetocentric',
+    source: 'Curtis, Orbital Mechanics for Engineering Students, 4th ed., Algorithms 3.3 and 3.4 (universal variables) · docs/physics/two-body.md, docs/frontend/chart.md#the-craft',
+  },
   // Guides and orbit lines (guide-plate.tsx)
   'guide-axis': {
     what: 'The body\'s spin axis: its north pole (IAU: the pole on the north side of the solar system\'s invariable plane) in J2000 right ascension and declination now, how long it takes to turn once against the stars, and how far the axis leans from its orbit\'s pole.',
