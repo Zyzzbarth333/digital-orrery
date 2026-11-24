@@ -1233,16 +1233,22 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
           if (k2) k = k2;
         }
       }
-      // Down a planet's well to its moon, every trial run of an aim at the
-      // moon may fall into the planet: the runs fly the planet's pull, and
-      // a course straight at a moon inside the planet's capture radius
-      // (about 700,000 km for Jupiter at 6 km/s: Io's and Europa's orbits lie
-      // inside it) meets the planet first. Then the aim is at the planet's
-      // B-plane point for the planned way in instead, without the planet,
-      // as at a planet; the next aim at the moon starts from a course that
-      // clears the planet.
-      if (!k && e.planetB && e.central === 'sun') {
+      // Down a planet's well to its moon, the trial runs of an aim at the
+      // moon fly the planet's pull, and a course straight at a moon inside
+      // the planet's capture radius meets the planet first: at 6 km/s about
+      // 700,000 km for Jupiter (Io's and Europa's orbits lie inside it), at
+      // 3 km/s 700,000 km for Saturn (Mimas to Rhea) and 180,000 km for
+      // Uranus (Miranda). When every run falls in, the aim finds no burn;
+      // when the run with no burn clears it and every correction falls in,
+      // it keeps no burn at all and comes no nearer. Either way the aim is then at
+      // the planet's B-plane point for the planned way in instead, without
+      // the planet, as at a planet; the next aim at the moon starts from a
+      // course that clears the planet.
+      const stuck = !k || (k.after > AIM_CONVERGED_KM && norm(k.dv) === 0);
+      if (stuck && e.planetB && e.central === 'sun') {
         const B = e.planetB, TB = kernelSeconds(new Date(B.periMs)), P0 = bodyState(B.body, s.t);
+        /** @type {typeof k} */
+        let kf = null;
         if (norm(sub(s.r, P0.r)) < sphereOfInfluence(B.body)) {
           // Inside the planet's sphere the way in is already bent, and the
           // planet's pull is the guide: a two-body arc about it to the aim
@@ -1250,17 +1256,17 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
           const PT = posAt(sys, B.body, Tk);
           for (const pro of [true, false]) {
             const arcP = lambert(sub(s.r, P0.r), sub(target, PT), Tk - s.t, B.mu, pro);
-            k = arcP && aimTo(e.without ? without(e.without) : sys, { r: s.r, v: s.v, t0: s.t, T: Tk, target, burns: future, dv0: sub(arcP.v1, sub(s.v, P0.v)), rounds: 8, damped: true, env, envJ: env && cheapEnv });
-            if (k) break;
+            kf = arcP && aimTo(e.without ? without(e.without) : sys, { r: s.r, v: s.v, t0: s.t, T: Tk, target, burns: future, dv0: sub(arcP.v1, sub(s.v, P0.v)), rounds: 8, damped: true, env, envJ: env && cheapEnv });
+            if (kf) break;
           }
-          if (k) out.log.push(`aim at ${e.body}: the trial runs fell into ${bodyInfo(B.body).name}; from an arc about it instead`);
+          if (kf) { k = kf; out.log.push(`aim at ${e.body}: the trial runs fell into ${bodyInfo(B.body).name}; from an arc about it instead`); }
         } else if (TB - s.t > 3600) {
           // Further out, the planet's B-plane point for the planned way in,
           // without the planet, as at a planet (bentAim).
           const pt = add(posAt(sys, B.body, TB), bentAim(B.offsetEqj, B.vinEqj, B.rp, B.mu, B.periMs)(kernelMs(s.t)));
           const arcP = lambert(s.r, pt, TB - s.t, sys.muSun, true);
-          k = aimTo(without(B.body), { r: s.r, v: s.v, t0: s.t, T: TB, target: pt, burns: future, dv0: arcP ? sub(arcP.v1, s.v) : null, rounds: 8, damped: true, env, envJ: env && cheapEnv });
-          if (k) out.log.push(`aim at ${e.body}: the trial runs fell into ${bodyInfo(B.body).name}; at its B-plane instead`);
+          kf = aimTo(without(B.body), { r: s.r, v: s.v, t0: s.t, T: TB, target: pt, burns: future, dv0: arcP ? sub(arcP.v1, s.v) : null, rounds: 8, damped: true, env, envJ: env && cheapEnv });
+          if (kf && kf.after < AIM_CONVERGED_KM) { k = kf; out.log.push(`aim at ${e.body}: the trial runs fell into ${bodyInfo(B.body).name}; at its B-plane instead`); }
         }
       }
       if (!k) { out.log.push(`aim at ${e.body} failed`); out.trouble.push(`the aim at ${bodyInfo(e.body).name} found no burn`); continue; }

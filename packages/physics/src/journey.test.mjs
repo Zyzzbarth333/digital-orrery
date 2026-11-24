@@ -1421,29 +1421,36 @@ if (header('CASE 25: a moon\'s flyby turns the excess velocity about the moon: t
   check('a planet\'s flyby is still a heliocentric change, and its excess the leg\'s own', g.flybys.every((f) => f.about === 'sun') && g.credits.filter((c) => c.kind === 'assist').every((c) => /heliocentric change/.test(c.note)) && near(g.flybys[0].vinf, norm(g.legs[0].vinfArr), 0));
 }
 
-if (header('CASE 26: down Jupiter\'s well to its moon when the aims\' trial runs all fall into Jupiter, and a last flyby that falls on into it')) {
-  // A leg to a moon of Jupiter is aimed at the moon, its trial runs flown
-  // with Jupiter (journeyFlight.js). At about 6 km/s Jupiter takes any
-  // straight course that passes within about 700,000 km of it, so a run with no
-  // correction, or a first guess straight at Io or Europa, can fall into it;
-  // then aimTo had no run to start from and every aim at the moon failed.
-  // The craft flew on to Jupiter's centre and hit it, and the GO board said
+if (header('CASE 26: down a planet\'s well to its moon when the aims\' trial runs fall into the planet, and a last flyby that falls on into it')) {
+  // A leg to a planet's moon is aimed at the moon, its trial runs flown
+  // with the planet (journeyFlight.js). A planet takes any straight course
+  // within its capture radius (at 6 km/s about 700,000 km for Jupiter,
+  // wider than Io's and Europa's orbits; at 3 km/s about as wide for
+  // Saturn, Mimas to Rhea), so a run with no correction, or a first guess
+  // straight at the moon, can fall into it; then aimTo found no burn (or,
+  // when only the corrections fell in, kept none) and every aim at the
+  // moon failed. The craft flew on into the planet, and the GO board said
   // it had drifted in (remedies.js). Of 775 flights from the pad to Io,
-  // Europa, Ganymede, Callisto and Titan (porkchop dates for six starts, the
-  // arrival moved by up to two days), 50 hit Jupiter that way, none Saturn.
-  // Now a failed aim at the moon aims at Jupiter's B-plane for the planned
-  // way in instead (inside its sphere, from an arc about it). Two of the 50:
+  // Europa, Ganymede, Callisto and Titan, 50 hit Jupiter that way; of 471
+  // to the moons of Mars, Saturn, Uranus and Neptune, 3 hit Saturn. Now
+  // such an aim aims at the planet's B-plane for the planned way in
+  // instead (inside its sphere, from an arc about it). Three of the 53:
   const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
   const pad = (dep) => ({ body: 'earth', kind: 'pad', altKm: 200, dateMs: D(dep), latDeg: 28.5 });
-  const fly = (j) => { const s = J.solveJourney(j), p = planFlight(s), f = flyJourney(sys, p); return { s, p, f, a: f.arrivals[0], fell: f.log.filter((l) => /fell into Jupiter/.test(l)).length }; };
+  const fly = (j) => { const s = J.solveJourney(j), p = planFlight(s), f = flyJourney(sys, p); return { s, p, f, a: f.arrivals[0], fell: f.log.filter((l) => /fell into (Jupiter|Saturn)/.test(l)).length }; };
   const trips = [
     ['Io orbit, two days after the porkchop arrival from a June 2027 start', { start: pad('2027-12-03T16:30:27.435Z'), waypoints: [{ id: 1, body: 'io', kind: 'orbit', altKm: 400, stayDays: 3, dateMs: D('2031-05-21T11:43:51.891Z') }] }],
     ['a Europa flyby on the porkchop dates from a January 2028 start', { start: pad('2028-12-26T16:34:18.157Z'), waypoints: [{ id: 1, body: 'europa', kind: 'flyby', altKm: 500, stayDays: 0, dateMs: D('2032-01-05T19:19:04.308Z') }] }],
+    // Saturn takes any straight course within about 700,000 km at 3 km/s,
+    // Mimas to Rhea. Here the run with no correction clears Saturn but
+    // every correction falls in, so the aim kept no burn at all and came
+    // no nearer (595,700 km), and the craft hit Saturn.
+    ['Rhea orbit, 12 h after the porkchop arrival from a November 2026 start', { start: pad('2027-06-30T04:18:48.662Z'), waypoints: [{ id: 1, body: 'rhea', kind: 'orbit', altKm: 400, stayDays: 3, dateMs: D('2033-05-26T22:49:52.284Z') }] }],
   ];
   for (const [what, j] of trips) {
     const { p, f, a, fell } = fly(j);
-    console.log(`  ${what}: ${fell} aim(s) at Jupiter's B-plane; ${f.impact ? `hits ${f.impact.body}` : `${J.bodyInfo(a.body).name} passed ${a.missKm.toFixed(1)} km off the planned periapsis`}; corrections ${(f.correctionsDv * 1000).toFixed(0)} m/s`);
-    check(`${what}: an aim whose runs fall into Jupiter aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble`, fell > 0 && !f.impact && a.missKm < 5 && f.correctionsDv < 0.5 && flightTrouble(p, f).length === 0);
+    console.log(`  ${what}: ${fell} aim(s) at the planet's B-plane; ${f.impact ? `hits ${f.impact.body}` : `${J.bodyInfo(a.body).name} passed ${a.missKm.toFixed(1)} km off the planned periapsis`}; corrections ${(f.correctionsDv * 1000).toFixed(0)} m/s`);
+    check(`${what}: an aim whose runs fall into the planet aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble`, fell > 0 && !f.impact && a.missKm < 5 && f.correctionsDv < 0.5 && flightTrouble(p, f).length === 0);
   }
 
   // CASE 24's Io flyby a day later: Io half way round, between the craft

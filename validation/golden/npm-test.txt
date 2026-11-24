@@ -1316,12 +1316,14 @@ CASE 25: a moon's flyby turns the excess velocity about the moon: the turn, the 
   PASS  the Io flyby joined to a leg about Jupiter: both excesses about Io, the burn the powered flyby's between them, the gain their difference
   PASS  a planet's flyby is still a heliocentric change, and its excess the leg's own
 ============================================================
-CASE 26: down Jupiter's well to its moon when the aims' trial runs all fall into Jupiter, and a last flyby that falls on into it
+CASE 26: down a planet's well to its moon when the aims' trial runs fall into the planet, and a last flyby that falls on into it
 ============================================================
-  Io orbit, two days after the porkchop arrival from a June 2027 start: 2 aim(s) at Jupiter's B-plane; Io passed 0.1 km off the planned periapsis; corrections 377 m/s
-  PASS  Io orbit, two days after the porkchop arrival from a June 2027 start: an aim whose runs fall into Jupiter aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble
-  a Europa flyby on the porkchop dates from a January 2028 start: 2 aim(s) at Jupiter's B-plane; Europa passed 0.1 km off the planned periapsis; corrections 407 m/s
-  PASS  a Europa flyby on the porkchop dates from a January 2028 start: an aim whose runs fall into Jupiter aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble
+  Io orbit, two days after the porkchop arrival from a June 2027 start: 2 aim(s) at the planet's B-plane; Io passed 0.1 km off the planned periapsis; corrections 377 m/s
+  PASS  Io orbit, two days after the porkchop arrival from a June 2027 start: an aim whose runs fall into the planet aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble
+  a Europa flyby on the porkchop dates from a January 2028 start: 2 aim(s) at the planet's B-plane; Europa passed 0.1 km off the planned periapsis; corrections 407 m/s
+  PASS  a Europa flyby on the porkchop dates from a January 2028 start: an aim whose runs fall into the planet aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble
+  Rhea orbit, 12 h after the porkchop arrival from a November 2026 start: 1 aim(s) at the planet's B-plane; Rhea passed 0.0 km off the planned periapsis; corrections 334 m/s
+  PASS  Rhea orbit, 12 h after the porkchop arrival from a November 2026 start: an aim whose runs fall into the planet aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble
   a day late: the plan's way on reaches 0.032 Jupiter radii, after Io; flown on to 2031-04-13T12:17; Io passed 0.1 km off; hits jupiter 2.93 h after Io
   PASS  a day late, the plan's way on falls inside Jupiter after Io; the flight passes Io within 5 km, flies on and hits Jupiter within 4 h
   PASS  on CASE 24's dates the way on clears Jupiter, and the flight ends an hour past Io as before
