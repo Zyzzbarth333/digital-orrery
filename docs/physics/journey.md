@@ -1649,6 +1649,17 @@ Each total is the plan solved again. Leaving on 27 Dec 2028 flies GO: Io
 Jupiter orbit does not fly GO yet: it misses Io by 17,441 km and needs
 5.15 km/s of corrections, and so does every height it tries (Limits).
 
+In the app the same: NO GO, RE-PLAN on the new date, GO. RE-PLAN on the
+stop in Jupiter orbit gives the priced total, 14.17 km/s, and the kernel
+misses Io by 13,568 km. (The app prices the stop 0.04 km/s below Node,
+and the depth below the cloud tops 3 km less.)
+
+![The GO board for Earth to an Io flyby a day late: Trajectory reads NO GO, "The kernel's craft hits Jupiter", "Io is reached through Jupiter's gravity: past Io, the approach falls on to 67,702 km below its cloud tops", with RE-PLAN to stop in Jupiter orbit 344,000 km up first (14.17 km/s) or to leave Earth on 2028-12-27 (6.25 km/s)](../images/go-board-io-flyby-late.jpg)
+
+![After RE-PLAN to leave Earth on 2028-12-27: every row GO, every waypoint within 0.1 km of the plan for 292 m/s of corrections](../images/go-board-io-flyby-late-new-date.jpg)
+
+![After RE-PLAN to stop in Jupiter orbit first: Trajectory NO GO, the kernel misses a waypoint by 13,568 km, and Windows and Delta-v NO GO at 14.17 km/s against the budget of 8](../images/go-board-io-flyby-late-jupiter-stop.jpg)
+
 ![The GO board for Earth to Io orbit against a budget of 8 km/s: Windows and Delta-v read NO GO, each with RE-PLAN to leave Earth on 2029-01-05 (13.11 km/s, 0.59 less) and SET to raise the budget](../images/go-board-io-orbit.jpg)
 
 ![The GO board for a Mars flyby planned 0 km up: Trajectory reads NO GO, "The pass at Mars is planned 0 km up; the kernel's flight came in 3 km lower and hit it", with RE-PLAN to raise the pass to 200 km at the same 3.63 km/s](../images/go-board-mars-flyby-0.jpg)
