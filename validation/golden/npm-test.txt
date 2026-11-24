@@ -2847,6 +2847,59 @@ CASE 4: inserting a stop, and the launch row
   PASS  a parking orbit inside the air: raised to 120 km, priced
 RESULT: all checks PASSED
 
+>>> node src/physics/dvMap.test.mjs
+============================================================
+CASE 1: the reference lines
+============================================================
+    earth:surface>earth:leo 7.73 aerobraking not counted
+    earth:leo>earth:escape 3.20 (3.20 from LEO)
+    earth:leo>moon:transfer 3.11 (3.11 from LEO)
+    moon:transfer>moon:orbit 0.81
+    moon:orbit>moon:surface 1.60
+    earth:escape>mercury:transfer 2.34 (5.55 from LEO)
+    mercury:transfer>mercury:orbit 7.57
+    mercury:orbit>mercury:surface 2.87
+    earth:escape>venus:transfer 0.28 (3.48 from LEO)
+    venus:transfer>venus:orbit 3.26
+    venus:orbit>venus:surface 6.99 aerobraking not counted
+    earth:escape>mars:transfer 0.39 (3.59 from LEO)
+    mars:transfer>mars:orbit 2.09
+    mars:orbit>mars:surface 3.39 aerobraking not counted
+    earth:escape>jupiter:transfer 3.10 (6.30 from LEO)
+    jupiter:transfer>jupiter:orbit 17.09
+    earth:escape>saturn:transfer 4.08 (7.28 from LEO)
+    saturn:transfer>saturn:orbit 10.51
+    earth:escape>uranus:transfer 4.78 (7.98 from LEO)
+    uranus:transfer>uranus:orbit 6.50
+    earth:escape>neptune:transfer 5.05 (8.25 from LEO)
+    neptune:transfer>neptune:orbit 6.94
+  PASS  LEO to escape 3.20; surface to LEO 7.73, the circular speed 300 km up
+  PASS  the Moon 3.11 / 0.81 / 1.60
+  PASS  Mars 3.59 from LEO / 2.09 / 3.39
+  PASS  Venus 3.48 / 3.26
+  PASS  Mercury 5.55 / 7.57 / 2.87
+  PASS  Jupiter 6.30 / 17.09; Saturn 7.28 / 10.51
+  PASS  a planet's transfer line is the departure from LEO less escape
+  PASS  the giants have no surface; Earth, Venus and Mars landings are aerobraking not counted, the Moon's and Mercury's are not
+  PASS  every route has a transfer and a low orbit, every line joins two stations
+============================================================
+CASE 2: a journey on the map
+============================================================
+    earth:leo>earth:escape 3.226 + 3.202
+    earth:escape>mars:transfer 0.567 + 0.123 + 1.511
+    mars:transfer>mars:orbit 2.067 + 4.831
+  PASS  it solves
+  PASS  the lines and the burns off the map add up to the planner's total
+  PASS  leaving: escape from the 200 km parking orbit on the LEO-escape line, the rest on the Mars transfer line
+  PASS  the capture at Mars on its capture line, and the way home on the same lines
+  PASS  nothing off the map; the stops: LEO, low Mars orbit
+  PASS  to the Moon: all of the departure on the LEO-Moon line, none on escape
+  PASS  the Moon landing: the descent from 100 km on the surface line, the capture on the capture line
+  PASS  a Mars landing is an entry: its surface line is there at 0, and no capture
+  PASS  Earth, Venus flyby, Mars: the departure on the Venus line, the Mars capture off the map, the sum holds
+
+All passed.
+
 >>> node src/physics/kernelClient.test.mjs
 ============================================================
 CASE 1: Artemis II's entry at a day a second, through the Worker
