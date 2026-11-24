@@ -41,6 +41,7 @@ import { solarSystemBodies, KERNEL_BODIES } from './bodies.js';
 import { MAJOR_MOONS_OF } from './moons.js';
 import { accelHeliocentric } from './nbody.js';
 import { makeEnvironment } from './environment.js';
+import { parkedAt } from './parkingPlane.js';
 import { aimingRadius } from './transfers.js';
 import { bodyAxesEqj } from './orientation.js';
 import { deorbitDv, designBraking, designTerminal, designAscent, planCapture, DESCENT_PERIAPSIS_KM, TOUCHDOWN_SPEED } from './landing.js';
@@ -56,7 +57,7 @@ import { dot, cross, norm, unit } from './vec.js';
 /** @typedef {{ n0: number[], pole: number[], f1: number[], f2: number[], rate: number, stayS: number }} PlaneTurn */
 /** @typedef {{ wayOut?: number[], untilMs?: number, planeHold?: number[], planeTurn?: PlaneTurn }} OffsetInfo */
 /** @typedef {{ kind: 'depart', ms: number, body: string, vinfEqj: number[], rp: number, via: string | null, waitDays?: number, reaim: Reaim | null, aimPlanet?: number, aimAt?: AimTarget }} DepartEvent */
-/** @typedef {{ kind: 'depart-ring', ms: number, body: string, dv: number, dirEqj: number[] }} DepartRingEvent */
+/** @typedef {{ kind: 'depart-ring', ms: number, body: string, dv: number, dirEqj: number[], to?: string, arrMs?: number }} DepartRingEvent */
 /** @typedef {{ body: string, offsetEqj: number[], vinEqj: number[], rp: number, mu: number, periMs: number }} PlanetB  a planet's B-plane point for a moon's way in (planetBPlane) */
 /** @typedef {{ kind: 'aim', ms: number, body: string, offsetEqj: number[], arrive: number, without: string | null, central: string, farTo?: { ms: number, offsetEqj: number[] }, planetB?: PlanetB, last?: boolean, replane?: { rp: number, wayOutEqj: number[], untilMs?: number } }} AimEvent */
 /** @typedef {{ kind: 'arrive', ms: number, body: string, waypoint: number, plannedRp: number, central: boolean, windowMs: number, onToMs?: number }} ArriveEvent */
@@ -69,6 +70,7 @@ import { dot, cross, norm, unit } from './vec.js';
  *   | DepartEvent
  *   | DepartRingEvent
  *   | { kind: 'impulse-rel', ms: number, body: string, vinfEqj: number[] }
+ *   | { kind: 'phase', ms: number, body: string, parked: { t0: number, rc: number, orbit: any }, untilMs: number }
  *   | AimEvent
  *   | { kind: 'approach', ms: number, body: string, rp: number, wayOutEqj?: number[], untilMs?: number, planeTurn?: PlaneTurn, planeHold?: number[] }
  *   | ArriveEvent
@@ -287,7 +289,20 @@ export function planFlight(sol) {
       // has chosen the day.)
       if (leg.vinfDep && KERNEL.has(P.body)) events.push(departEv = { kind: 'depart', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep), rp: bodyInfo(P.body).radius + P.altKm, via, ...(via ? { waitDays: 0 } : {}),
         reaim: leg.geometry === 'between' && !leg.resonance ? (leg.mid ? { central: leg.central, from: leg.endA ?? P.body, toEqj: ecl(leg.mid.r), arrMs: leg.mid.ms } : { central: leg.central, from: leg.endA ?? P.body, to: leg.endB ?? Q.body, arrMs: leg.arrMs }) : null });
-      else if (leg.ringDep) events.push({ kind: 'depart-ring', ms: leg.depMs, body: P.body, dv: leg.depDv, dirEqj: ecl(unit(leg.ringDep)) });
+      else if (leg.ringDep) {
+        events.push({ kind: 'depart-ring', ms: leg.depMs, body: P.body, dv: leg.depDv, dirEqj: ecl(unit(leg.ringDep)), ...(leg.parkedDep ? { to: Q.body, arrMs: leg.arrMs } : {}) });
+        // From a parking orbit the plan captured into: the craft phased on
+        // it, after the capture has settled (a turn and a half), to where
+        // the plan has it at the departure (journey.js parkedAt).
+        const parked = /** @type {{ t0: number, rc: number, orbit: any } | undefined} */ (/** @type {any} */ (P).parked);
+        const T = 2 * Math.PI * Math.sqrt((parked?.rc ?? 0) ** 3 / bodyInfo(P.body).mu);
+        // Twice: what the first leaves (the phasing orbit's own zonal
+        // motion, two-body timing), the second takes out.
+        if (leg.parkedDep && parked) {
+          const t1 = P.arrMs + 1.5 * T * 1000, mid = (t1 + leg.depMs) / 2;
+          events.push({ kind: 'phase', ms: t1, body: P.body, parked, untilMs: mid }, { kind: 'phase', ms: mid + 0.5 * T * 1000, body: P.body, parked, untilMs: leg.depMs });
+        }
+      }
       else if (leg.vinfDep) events.push({ kind: 'impulse-rel', ms: leg.depMs, body: P.body, vinfEqj: ecl(leg.vinfDep) });
     }
     // Aimed corrections to the planned periapsis (the bi-elliptic leg's
@@ -925,6 +940,70 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       const { r: rNow, v: vNow } = rel(e.body, s.t), offDeg = Math.asin(Math.min(1, Math.abs(dot(unit(cross(rNow, vNow)), unit(departWant(e, s.t)))))) * 180 / Math.PI;
       burn(tb, best.d, best.m, null, null, accel);
       out.log.push(`depart ${e.body}: ${(best.m * 1000).toFixed(0)} m/s${accel > PLAN_ACCEL ? ` (at ${accel.toFixed(0)} m/s^2)` : ''}, ${((tb - kernelSeconds(new Date(e.ms))) / 3600).toFixed(1)} h after the planned time${best.offMs !== undefined ? ` (the excess about ${bodyInfo(e.via).name} first matched to ${best.offMs.toFixed(1)} m/s${best.aimedKm !== undefined ? `, then aimed to ${best.aimedKm.toFixed(0)} km` : ''})` : ''}${bestAt !== t0 && onDay ? ` (${(onDay * 1000).toFixed(0)} m/s on the planned day)` : ''}${from ? `; from an orbit of mean a ${from.aMean.toFixed(1)} km, e ${from.e.toFixed(4)}` : ''}, the plane ${offDeg.toFixed(2)} deg off the way out`);
+      continue;
+    }
+    if (e.kind === 'phase') {
+      // The craft on its parking orbit, against where the plan has it (the
+      // capture comes at the flown periapsis, hours from the planned one at
+      // Jupiter, so the craft can be a third of a turn off): a tangential
+      // burn onto a phasing orbit, N turns on it, and the burn back, so that
+      // it gains or loses that angle before the departure (two-body, the
+      // most turns the stay allows: the cheapest). What is left the
+      // departure's own arc takes up.
+      flyTo(t);
+      const { r, v, B } = rel(e.body, s.t), n = unit(cross(r, v)), mu = B.mu, rr = norm(r);
+      const want = ecl(parkedAt(e.parked.orbit, (kernelMs(s.t) - e.parked.t0) / 1000, e.parked.rc, mu).r);
+      const w = sub(want, scale(n, dot(want, n)));
+      const off = Math.atan2(dot(cross(unit(r), unit(w)), n), dot(unit(r), unit(w)));
+      // (The orbit's own semi-major axis and period, not the circle's at
+      // this radius: the capture leaves it a little eccentric.)
+      const a = 1 / (2 / rr - dot(v, v) / mu), T = 2 * Math.PI * Math.sqrt(a ** 3 / mu), N = Math.floor((kernelSeconds(new Date(e.untilMs)) - s.t - 0.5 * T) / T);
+      if (N < 1 || Math.abs(off) < 1e-4) { out.log.push(`phase at ${e.body}: ${(off * 180 / Math.PI).toFixed(2)} deg off, left to the departure`); continue; }
+      const Tp = T - off / (2 * Math.PI) * T / N, ap = a * (Tp / T) ** (2 / 3);
+      const dv = Math.sqrt(mu * (2 / rr - 1 / ap)) - norm(v), sg = Math.sign(dv), t1 = s.t + durOf(Math.abs(dv)) / 2;
+      if (2 * ap - rr < bodyInfo(e.body).radius + 100) { out.log.push(`phase at ${e.body}: ${(off * 180 / Math.PI).toFixed(1)} deg off, no phasing orbit clears the planet`); continue; }
+      burn(t1, [sg, 0, 0], Math.abs(dv), 'vnb', e.body);
+      burn(t1 + N * Tp, [-sg, 0, 0], Math.abs(dv), 'vnb', e.body);
+      out.correctionsDv = (out.correctionsDv ?? 0) + 2 * Math.abs(dv);
+      out.log.push(`phase at ${e.body}: ${(off * 180 / Math.PI).toFixed(1)} deg off where the plan has the craft; ${N} turns on a phasing orbit, 2 x ${(Math.abs(dv) * 1000).toFixed(1)} m/s`);
+      continue;
+    }
+    if (e.kind === 'depart-ring' && e.to && e.arrMs) {
+      // From a parking orbit the plan captured into (journey.js parkedAt):
+      // at the planned time, from where the craft is, onto the arc to the
+      // moon's place at the arrival (Lambert about the planet, the cheaper
+      // way round), the burn centred there. (Waiting for the craft to come
+      // round to a point, up to a turn, reached the moon's place late.)
+      // Within half a turn of the planned time, the point on the craft's
+      // own orbit that costs least (its plane and phase are the flown ones,
+      // a few degrees from the plan's): 48 times, then golden section.
+      const mu = bodyInfo(e.body).mu, here = rel(e.body, s.t), T = 2 * Math.PI * Math.sqrt((1 / (2 / norm(here.r) - dot(here.v, here.v) / mu)) ** 3 / mu);
+      flyTo(Math.max(s.t, t - T / 2 - durOf(e.dv)));
+      const { r, v } = rel(e.body, s.t), t0 = s.t;
+      const Ta = kernelSeconds(new Date(e.arrMs)), M = bodyState(e.to, Ta), Pl = bodyState(e.body, Ta), r2 = sub(M.r, Pl.r);
+      /** @param {number} tc */
+      const leave = (tc) => {
+        const c = propagate(r, v, tc - t0, mu);
+        if (!c) return null;
+        let best = null;
+        for (const pro of [true, false]) {
+          const arc = lambert(c.r, r2, Ta - tc, mu, pro), d = arc && sub(arc.v1, c.v);
+          if (d && (!best || norm(d) < norm(best.dv))) best = { dv: d, c, tc };
+        }
+        return best;
+      };
+      const lo0 = Math.max(t0 + durOf(e.dv) / 2, t - T / 2), hi0 = t + T / 2;
+      let bi = null;
+      for (let i = 0; i <= 48; i++) { const x = leave(lo0 + ((hi0 - lo0) * i) / 48); if (x && (!bi || norm(x.dv) < norm(bi.dv))) bi = x; }
+      if (!bi) { out.log.push(`depart ${e.body}: no arc to ${e.to}`); out.trouble.push(`the departure from ${bodyInfo(e.body).name} found no arc`); continue; }
+      let lo = Math.max(lo0, bi.tc - (hi0 - lo0) / 48), hi = Math.min(hi0, bi.tc + (hi0 - lo0) / 48);
+      const gr = (Math.sqrt(5) - 1) / 2, cost = (/** @type {number} */ x) => { const q = leave(x); return q ? norm(q.dv) : Infinity; };
+      for (let i = 0; i < 30; i++) { const a = hi - gr * (hi - lo), b = lo + gr * (hi - lo); if (cost(a) < cost(b)) hi = b; else lo = a; }
+      const g = leave((lo + hi) / 2);
+      if (g && norm(g.dv) < norm(bi.dv)) bi = g;
+      burn(bi.tc, bi.dv, norm(bi.dv));
+      const off = Math.acos(Math.max(-1, Math.min(1, dot(unit(bi.c.r), unit(e.dirEqj))))) * 180 / Math.PI;
+      out.log.push(`depart ${e.body}: ${(norm(bi.dv) * 1000).toFixed(0)} m/s, ${((bi.tc - t) / 60).toFixed(0)} min from the planned time, ${off.toFixed(1)} deg from the planned point (the plan's ${(e.dv * 1000).toFixed(0)})`);
       continue;
     }
     if (e.kind === 'depart-ring') {

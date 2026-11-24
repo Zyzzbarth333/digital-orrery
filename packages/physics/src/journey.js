@@ -42,7 +42,7 @@ import { MOON_KEYS, moonStateEqj } from './moons.js';
 import { MOON_DATA } from './moons.data.js';
 import { bodyConstants, MU_SUN, ZONAL } from './bodies.js';
 import { bodyAxesEqj } from './orientation.js';
-import { nodeRate, flownNodeRate, turnPlane, leaveCircularDv, planeAngle } from './parkingPlane.js';
+import { nodeRate, flownNodeRate, turnPlane, leaveCircularDv, planeAngle, flownParking, parkedAt } from './parkingPlane.js';
 import { moonPlaneTrack, moonEccentricityTrack } from './lunarPlane.js';
 import { PLANETS } from './constants.js';
 import { nelderMead } from './trajsearch.js';
@@ -246,6 +246,40 @@ const MOON_PLANE_DEGREE = 30;
 // 5 % of J2's pull.
 const PLANE_TIDE_MAX = 0.05;
 const clamp1 = (x) => Math.max(-1, Math.min(1, x));
+
+// The parking orbit at stop k that leg k leaves for the planet's own moon,
+// as the flight captures into it: the hyperbola from the way in, in the
+// plane the flight gives it with no way out to hold (journeyFlight.js
+// periapsisOffset: the way in and the ecliptic's north), into the circular
+// orbit at its periapsis, at the planned mean radius; flown on in the
+// planet's zonal field (flownParking). { t0, rc, orbit }, or null: no
+// capture before the stay, a leg that is not to the planet's moon, or a
+// body with no zonal field.
+const parkedCache = new Map();
+function parkedContext(S, legs, k) {
+  const P = S[k], Q = S[k + 1], inLeg = legs[k - 1];
+  if (k === 0 || P.kind !== 'orbit' || !Q || !inLeg?.ok || !inLeg.vinfArr || inLeg.ringArr || inLeg.moonArr || inLeg.geometry === 'local' || inLeg.geometry === 'craft') return null;
+  if (legGeometry(P.body, Q.body, isResonant(P, Q)).kind !== 'fromCentral') return null;
+  const B = bodyInfo(P.body), z = ZONAL[P.body];
+  if (!z) return null;
+  const rp = B.radius + P.altKm, vin = inLeg.vinfArr;
+  const key = `${P.body}|${rp}|${P.arrMs}|${vin.map((x) => x.toFixed(12)).join(',')}`;
+  if (parkedCache.has(key)) return parkedCache.get(key);
+  const uin = unit(vin), zp = sub([0, 0, 1], scale(uin, uin[2]));
+  const n0 = norm(zp) > 1e-9 ? unit(zp) : [1, 0, 0];
+  const uout = X.rotate(uin, n0, X.turnAngle(rp, norm(vin), B.mu)), d = unit(sub(uin, uout));
+  const pole = unit(eqjToEcl(bodyAxesEqj(P.body, new Date(P.arrMs))[2]));
+  // Started circular at the periapsis point, its mean semi-major axis is
+  // not rp (J2's terms within a turn), so the start is moved by that and
+  // the orbit flown again (as planeContext).
+  const fly = (r0) => flownParking({ mu: B.mu, j2: z.j2, jn: z.jn ?? null, R: z.rJ2, pole, r: scale(d, r0), v: scale(unit(cross(n0, d)), Math.sqrt(B.mu / r0)) });
+  let r0 = rp, orbit = fly(r0);
+  for (let it = 0; it < 2 && Math.abs(orbit.aMean - rp) > 1e-3; it++) { r0 -= orbit.aMean - rp; orbit = fly(r0); }
+  const ctx = { t0: P.arrMs, rc: rp, orbit };
+  if (parkedCache.size > 500) parkedCache.clear();
+  parkedCache.set(key, ctx);
+  return ctx;
+}
 
 // What the plane at stop k (the stop leg k leaves) is priced from: the
 // capture's way in and plane, the planet's pole, the orbit, and the rate's
@@ -615,6 +649,21 @@ export function solveLeg(P, Q, depMs, arrMs, { via = 'lambert', revs, branch, ma
   const n = unit(cross(mT.r, mT.v)), u1 = unit(mT.r), u2 = cross(n, u1), rc = C.radius + centralStop.altKm;
   const vcirc = (r) => scale(unit(cross(n, r)), Math.sqrt(mu / norm(r)));
   const M = bodyInfo(moonKey);
+  // Leaving a parking orbit the plan has captured into (P.parked,
+  // parkedContext): from where the craft is on it at depMs, not a free
+  // point. The flight leaves from there (journeyFlight.js), where it used
+  // to wait up to a turn for the craft to come round to a free point, and
+  // reached the moon's place well after the moon.
+  if (g.kind === 'fromCentral' && P.parked) {
+    const st = parkedAt(P.parked.orbit, (depMs - P.parked.t0) / 1000, P.parked.rc, mu);
+    const s = bestArc(st.r, mT.r, tof, mu, (v1, v2) => norm(sub(v1, st.v)) + arriveCost(Q, norm(sub(v2, mT.v)), M), 0);
+    if (!s) return { ...out, error: 'no Lambert arc between these dates' };
+    out.arcs.push({ r1: st.r, v1: s.v1, t1: depMs, t2: arrMs, mu });
+    out.depDv = norm(sub(s.v1, st.v));
+    out.vinfArr = sub(s.v2, mT.v); out.arrDv = arriveCost(Q, norm(out.vinfArr), M);
+    out.ringDep = st.r; out.parkedDep = true;
+    return { ...out, ok: true, revs: 0 };
+  }
   const f = (phi) => {
     const rRing = ringPoint(rc, u1, u2, phi);
     const r1 = g.kind === 'fromCentral' ? rRing : mT.r, r2 = g.kind === 'fromCentral' ? mT.r : rRing;
@@ -1030,6 +1079,10 @@ export function solveJourney(journey, { maxRevs = 0 } = {}) {
     const P = S[k - 1], Q = S[k];
     Q.arrMs += shift; Q.depMs += shift;
     const w = journey.waypoints[k - 1];
+    // A stay in a planet's orbit before its moon: where the craft is on it
+    // (P.parked, set only there).
+    const parked = parkedContext(S, legs, k - 1);
+    if (parked) P.parked = parked;
     let leg;
     if (P.kind === 'craft' && k === 1) leg = solveCraftLeg(P, Q, P.depMs, Q.arrMs, { via: w.via ?? 'lambert', revs: w.revs });
     else {
@@ -1491,7 +1544,10 @@ export function legOptions(journey, k, { search = true } = {}) {
     // (Leaving a moon via its planet, a departure every day: its phase
     // ripples the price over a month.)
     const span = g.kind === 'between' ? Math.min(win.synodic / DAY, 800) : 30;
-    const tH = h.tof / DAY, o = porkchopSearch(P, Q, g, earliest, fixed, tH * 0.5, tH * 1.6, legDv, span, g.viaA || g.viaB ? Math.ceil(span) : null);
+    // (From a parking orbit the plan has captured into, where the craft is
+    // on it sets the price: a departure every sixth of a turn.)
+    const parkedN = P.parked ? Math.min(2000, Math.ceil((span * DAY) / (X.orbitPeriod(mu, P.parked.rc) / 6))) : null;
+    const tH = h.tof / DAY, o = porkchopSearch(P, Q, g, earliest, fixed, tH * 0.5, tH * 1.6, legDv, span, parkedN ?? (g.viaA || g.viaB ? Math.ceil(span) : null));
     if (o) options.push(o);
   }
 

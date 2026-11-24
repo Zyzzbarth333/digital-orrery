@@ -22,6 +22,7 @@ import { propagate, lambert } from './orbital.js';
 import { planFlight, flyJourney, flightTrouble, JOURNEY_CRAFT, JOURNEY_ENV } from './journeyFlight.js';
 import * as F from './feasibility.js';
 import * as PP from './parkingPlane.js';
+import { withStop } from './remedies.js';
 import * as LP from './lunarPlane.js';
 import { ZONAL } from './bodies.js';
 import { geopotential } from './geopotential.js';
@@ -1459,6 +1460,48 @@ if (header('CASE 26: down Jupiter\'s well to its moon when the aims\' trial runs
   // On CASE 24's own dates the way on clears Jupiter: flown as before.
   const onTime = planFlight(J.solveJourney({ ...late, waypoints: [{ ...late.waypoints[0], dateMs: D('2031-04-12T08:07:36.666Z') }] }));
   check('on CASE 24\'s dates the way on clears Jupiter, and the flight ends an hour past Io as before', !onTime.events.find((e) => e.kind === 'arrive').onToMs);
+}
+
+if (header('CASE 27: from a planet\'s parking orbit to its moon, left from where the craft is on it')) {
+  // The leg from a planet's orbit to its moon left from the cheapest free
+  // point on a ring in the moon's plane, and the flight waited up to a
+  // turn for the craft to come round to it: from Jupiter orbit 344,000 km
+  // up (a 41-hour turn) it left 910 min late and missed Io by 17,441 km
+  // for 5.15 km/s of corrections (remedies.test.mjs CASE 5's stop in
+  // Jupiter orbit first). The plan now leaves from where the craft is on
+  // its orbit (journey.js parkedContext: the capture as the flight flies
+  // it, flown on in the planet's zonal field, parkingPlane.js
+  // flownParking), and the flight phases the craft on its orbit to that
+  // place over the stay.
+  const B = J.bodyInfo('jupiter'), z = ZONAL.jupiter, pole = [0, 0, 1], sub = (p, q) => p.map((x, i) => x - q[i]);
+  // The zonal rates against first-order J2 theory (Curtis eq. (4.52) for
+  // the node; the argument of latitude n [1 + (3/4) J2 (R/a)^2 (8 cos^2 i
+  // - 2)], the mean anomaly's and the perigee's rates together), J2 alone,
+  // 200,000 km over Jupiter at 5 degrees to its equator.
+  const a = B.radius + 200000, inc = 5 * deg, vc = Math.sqrt(B.mu / a);
+  const o = PP.flownParking({ mu: B.mu, j2: z.j2, R: z.rJ2, pole, r: [a, 0, 0], v: [0, vc * Math.cos(inc), vc * Math.sin(inc)] });
+  const n = Math.sqrt(B.mu / o.aMean ** 3), k = z.j2 * (z.rJ2 / o.aMean) ** 2, uTheory = n * (1 + 0.75 * k * (8 * Math.cos(inc) ** 2 - 2)), nodeTheory = PP.nodeRate(B.mu, z.j2, z.rJ2, o.aMean, 0, inc);
+  console.log(`  flown 10 turns, J2 alone: node ${(o.nodeRate / nodeTheory).toFixed(4)} of eq. (4.52); the argument of latitude's excess over n ${((o.uRate - n) / (uTheory - n)).toFixed(4)} of first-order theory`);
+  check('the parking orbit flown in the zonal field: its node and its argument of latitude move at first-order J2 theory\'s rates, within 1 % of J2\'s share', Math.abs(o.nodeRate / nodeTheory - 1) < 0.01 && Math.abs((o.uRate - n) / (uTheory - n) - 1) < 0.01);
+  const back = PP.parkedAt(o, 0, a, B.mu);
+  check('parkedAt at the start is the start, to a kilometre', norm(sub(back.r, [a, 0, 0])) < 1);
+
+  // remedies.test.mjs CASE 5's real hit, and its stop in Jupiter orbit
+  // first, 344,000 km up (as the GO board offers it).
+  const late = { start: { body: 'earth', kind: 'pad', altKm: 200, dateMs: D('2027-11-30T16:38:29.937Z'), latDeg: 28.5 }, waypoints: [{ id: 1, body: 'io', kind: 'flyby', altKm: 400, stayDays: 0, dateMs: D('2031-04-13T08:07:36.666Z') }] };
+  const j = withStop(late, 0, { body: 'jupiter', kind: 'orbit', altKm: 344000, stayDays: 3 }), s = J.solveJourney(j), L = s.legs[1], P = s.stops[1];
+  const at = PP.parkedAt(P.parked.orbit, (L.depMs - P.parked.t0) / 1000, P.parked.rc, B.mu);
+  console.log(`  Jupiter orbit 344,000 km up for ${((L.depMs - P.arrMs) / DAY_MS).toFixed(2)} d, then Io: leaves from where the craft is, ${(L.depDv * 1000).toFixed(0)} m/s; ${s.totalDv.toFixed(2)} km/s in all`);
+  check('the leg to Io leaves from the craft\'s place on its parking orbit at the departure (to a metre), for the burn from the craft\'s velocity there', L.parkedDep && norm(sub(L.ringDep, at.r)) < 1e-3 && Math.abs(L.depDv - norm(sub(L.arcs[0].v1, at.v))) < 1e-9);
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS }), f = flyJourney(sys, planFlight(s));
+  const phases = f.log.filter((l) => l.startsWith('phase at jupiter')), dep = f.log.find((l) => l.startsWith('depart jupiter')) ?? '';
+  const offs = phases.map((l) => Math.abs(Number(/: (-?[\d.]+) deg off/.exec(l)?.[1]))), lateMin = Math.abs(Number(/, (-?\d+) min from the planned time/.exec(dep)?.[1]));
+  console.log(`  flown: ${phases.join('; ')}; ${dep}; corrections ${(f.correctionsDv).toFixed(2)} km/s; ${f.impact ? `hits ${f.impact.body}` : 'no impact'}`);
+  check('flown: the craft phased to within 2 degrees of the plan\'s place by the second pass, leaving within 4 h of the planned time, for under 1.5 km/s of corrections in all (5.15 waiting for the craft to come round)', phases.length === 2 && offs[1] < 2 && lateMin < 240 && f.correctionsDv < 1.5);
+  // (It does not fly GO yet: the capture comes a third of a turn and 6
+  // degrees off the plan's, so the departure costs more than planned, and
+  // on the 31-hour leg to Io the one aim, without Io's pull, leaves the
+  // way in on to Io. Both are the flight's arrival, not the phasing.)
 }
 
 // A case named that isn't in the file is a failure, so a part of npm test

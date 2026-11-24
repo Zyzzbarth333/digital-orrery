@@ -16,6 +16,13 @@
 //   leaveCircularDv(n, r, mu, vinf)     the cheapest single burn from a
 //                                       circular orbit onto an asymptote
 //   turnPlane(n, pole, angle)           a plane's normal after its node turns
+//   flownParking({ mu, j2, jn, R, pole, r, v })
+//                                       a circular parking orbit flown in the
+//                                       body's zonal field for ten turns: the
+//                                       mean rates of its node and of the
+//                                       craft's argument of latitude
+//   parkedAt(p, dt)                     where the craft is on that orbit dt
+//                                       seconds on (r, v about the body)
 
 import { asymptoteVelocities, rotate } from './transfers.js';
 import { addJ2, zonalTerms } from './zonal.js';
@@ -102,6 +109,71 @@ export function flownNodeRate({ mu, j2, jn = null, R, pole, r, v, turns = 10, st
 // A plane's normal n after its node has turned by `angle` about the pole
 // (the J2 secular motion keeps the inclination: the plane turns rigidly).
 export const turnPlane = (n, pole, angle) => rotate(n, unit(pole), angle);
+
+// A circular parking orbit from (r, v) (about the body), flown in the
+// body's zonal field as the kernel has it (as flownNodeRate) for `turns`
+// turns: the mean rates of its node about the pole and of the craft's
+// argument of latitude (the angle from the ascending node), and its mean
+// semi-major axis. Over a stay of many turns the zonal terms move the
+// craft along the orbit a long way from where two-body motion puts it
+// (J2 alone, about 3 J2 (R/a)^2 of a turn a turn: 0.7 of a turn in 17 days
+// 36,000 km over Jupiter), so a departure timed by the craft's place on the
+// orbit needs these rates. An orbit within a milliradian of the equator
+// has no node to speak of: its argument of latitude is then the angle
+// about the pole from a fixed direction. Returns { nodeRate, uRate (rad/s),
+// aMean, i, node0, u0, pole, e1, e2, equatorial, retro }.
+export function flownParking({ mu, j2, jn = null, R, pole, r, v, turns = 10, steps = 240 }) {
+  const p = unit(pole), e1 = unit(Math.abs(p[2]) < 0.9 ? cross(p, [0, 0, 1]) : cross(p, [1, 0, 0])), e2 = cross(p, e1);
+  const h0 = unit(cross(r, v)), cosI = Math.max(-1, Math.min(1, dot(h0, p))), equatorial = Math.sqrt(1 - cosI * cosI) < 1e-3;
+  const body = { mu, j2, rJ2: R, pole: p, ...(jn ? { zn: zonalTerms(jn, R) } : {}) };
+  const acc = (x) => {
+    const d2 = dot(x, x), f = -mu / (d2 * Math.sqrt(d2)), out = [f * x[0], f * x[1], f * x[2]];
+    addJ2(x[0], x[1], x[2], d2, body, out);
+    return out;
+  };
+  // The node and the argument of latitude of the state (x, u).
+  const angles = (x, u) => {
+    const h = unit(cross(x, u));
+    if (equatorial) { const hx = cosI > 0 ? cross(p, e1) : cross(e1, p); return { node: 0, lat: Math.atan2(dot(x, hx), dot(x, e1)) }; }
+    const N = unit(cross(p, h)), M = cross(h, N);
+    return { node: Math.atan2(dot(N, e2), dot(N, e1)), lat: Math.atan2(dot(x, M), dot(x, N)) };
+  };
+  const a0 = 1 / (2 / norm(r) - dot(v, v) / mu), T = 2 * Math.PI * Math.sqrt(a0 ** 3 / mu), dt = T / steps;
+  let x = r.slice(), u = v.slice(), aSum = 0;
+  const start = angles(x, u);
+  let prev = start, node = 0, lat = 0;
+  for (let s = 0; s < turns * steps; s++) {
+    const k1v = acc(x), k1x = u;
+    const k2v = acc(x.map((q, m) => q + 0.5 * dt * k1x[m])), k2x = u.map((q, m) => q + 0.5 * dt * k1v[m]);
+    const k3v = acc(x.map((q, m) => q + 0.5 * dt * k2x[m])), k3x = u.map((q, m) => q + 0.5 * dt * k2v[m]);
+    const k4v = acc(x.map((q, m) => q + dt * k3x[m])), k4x = u.map((q, m) => q + dt * k3v[m]);
+    x = x.map((q, m) => q + (dt / 6) * (k1x[m] + 2 * k2x[m] + 2 * k3x[m] + k4x[m]));
+    u = u.map((q, m) => q + (dt / 6) * (k1v[m] + 2 * k2v[m] + 2 * k3v[m] + k4v[m]));
+    const now = angles(x, u), wrap = (d) => d - 2 * Math.PI * Math.round(d / (2 * Math.PI));
+    node += wrap(now.node - prev.node); lat += wrap(now.lat - prev.lat);
+    prev = now;
+    aSum += 1 / (2 / norm(x) - dot(u, u) / mu);
+  }
+  const span = turns * steps * dt;
+  return { nodeRate: node / span, uRate: lat / span, aMean: aSum / (turns * steps), i: Math.acos(cosI), node0: start.node, u0: start.lat, pole: p, e1, e2, equatorial, retro: cosI < 0 };
+}
+
+// Where the craft is on the parking orbit flownParking measured, dt seconds
+// after its start, at radius rc: the node turned at its mean rate, the
+// inclination kept (the J2 secular motion turns the plane rigidly), and the
+// argument of latitude moved at its mean rate. { r, v } about the body.
+export function parkedAt(o, dt, rc, mu) {
+  const { pole: p, e1, e2 } = o;
+  let N, h;
+  if (o.equatorial) { N = e1; h = o.retro ? scale(p, -1) : p; } else {
+    const W = o.node0 + o.nodeRate * dt, c = Math.cos(W), s = Math.sin(W);
+    N = [0, 1, 2].map((m) => c * e1[m] + s * e2[m]);
+    const pN = cross(p, N);
+    h = [0, 1, 2].map((m) => Math.cos(o.i) * p[m] - Math.sin(o.i) * pN[m]);
+  }
+  const M = cross(h, N), U = o.u0 + o.uRate * dt, cu = Math.cos(U), su = Math.sin(U), vc = Math.sqrt(mu / rc);
+  return { r: [0, 1, 2].map((m) => rc * (cu * N[m] + su * M[m])), v: [0, 1, 2].map((m) => vc * (-su * N[m] + cu * M[m])) };
+}
 
 // The cheapest single burn from the circular orbit of radius r and normal
 // n (the way the craft goes round) onto a hyperbola that leaves along vinf
