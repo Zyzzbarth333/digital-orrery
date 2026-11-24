@@ -34,6 +34,9 @@ export class GroundTrack {
   private site: THREE.Points;
   private sat: Sat | null = null;
   private passSpan: TrackPass | null = null;
+  private siteShown: TrackSite | null = null;
+  // What it shows, for the chart's TRACK layer (src/app/chart-view.tsx).
+  get shown(): { sat: Sat | null; site: TrackSite | null; pass: TrackPass | null } { return { sat: this.sat, site: this.siteShown, pass: this.passSpan }; }
   private lastT = NaN;
   private lastWall = 0;
   private parent: THREE.Object3D | null = null;
@@ -63,6 +66,7 @@ export class GroundTrack {
     const changed = sat !== this.sat || pass?.riseMs !== this.passSpan?.riseMs;
     this.sat = sat;
     this.passSpan = pass;
+    this.siteShown = site;
     if (site) {
       const r = siteOf(site.lat, site.lon, site.heightKm).r;
       this.toLocal(r, this.site.geometry.attributes.position.array as Float32Array, 0);

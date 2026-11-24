@@ -3,7 +3,7 @@
 // Hosts the imperative three.js scene in React. The scene owns its render
 // loop; React only mounts it and passes focus changes both ways.
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { SceneClock } from '../types/clock';
 import { OrreryScene } from './OrreryScene';
@@ -31,6 +31,13 @@ interface Props {
   // top edge and the touch hint is a line of its peek: where to put them.
   plateHost?: HTMLElement | null;
   hintHost?: HTMLElement | null;
+  // The chart view (src/app/chart-view.tsx): drawn in the sky's cell while
+  // it is on, the 3D labels and the view plate hidden; onChart opens it
+  // (the plate's CHART key), absent where there is nothing to chart.
+  chart?: ReactNode;
+  chartOn?: boolean;
+  chartName?: string | null;
+  onChart?: () => void;
 }
 
 // The view plate names what the camera is on, with two cues for the mode
@@ -74,7 +81,7 @@ function LoadReadout() {
   );
 }
 
-function ViewPlate({ view, flying, panned, onCentre, onHome, onView }: { view: Props['view']; flying: boolean; panned: boolean; onCentre?: () => void; onHome?: () => void; onView?: (s: ViewStep) => void }) {
+function ViewPlate({ view, flying, panned, onCentre, onHome, onView, onChart, chartName }: { view: Props['view']; flying: boolean; panned: boolean; onCentre?: () => void; onHome?: () => void; onView?: (s: ViewStep) => void; onChart?: () => void; chartName?: string | null }) {
   const [pad, setPad] = useState(false);
   const padId = useId();
   return (
@@ -95,13 +102,15 @@ function ViewPlate({ view, flying, panned, onCentre, onHome, onView }: { view: P
         <button type="button" className="key small" onClick={onCentre} aria-keyshortcuts="C" title={`Put the view back on ${view.name} (C, or double-click the sky)`}>Centre</button>
       )}
       {onHome && <button type="button" className="key small" onClick={onHome} aria-keyshortcuts="H" title="Back to the opening view, the Sun from above the inner planets (H)">Home</button>}
+      <button type="button" className="key small chart-key" onClick={onChart} disabled={!onChart} aria-keyshortcuts="K"
+        title={onChart ? `A flat chart of ${chartName ?? 'the body'}: relief, sheets and names (K)` : `No map of ${chartName ?? 'this'} to chart`}>Chart</button>
       {onView && <button type="button" className="key small" aria-expanded={pad} aria-controls={pad ? padId : undefined} onClick={() => setPad(!pad)}
         title="Keys to turn and zoom the view without dragging (also Shift and the arrows, [ and ])">View</button>}
     </div>
   );
 }
 
-export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, insetBottom = 0, view, flying = false, frame = 'sun', panned = false, onCentre, onHome, onView, plateHost = null, hintHost = null }: Props) {
+export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, insetRight = 0, insetBottom = 0, view, flying = false, frame = 'sun', panned = false, onCentre, onHome, onView, plateHost = null, hintHost = null, chart = null, chartOn = false, chartName = null, onChart }: Props) {
   const hostRef = useRef<HTMLElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<OrreryScene | null>(null);
@@ -157,13 +166,14 @@ export function SceneView({ clock, focus, onFocusChange, onReady, onFrame, inset
 
   return (
     // The sky is the page's main content (a landmark a screen reader can jump to).
-    <main className="scene-host" ref={hostRef} onPointerDown={seen} aria-label="Sky">
+    <main className="scene-host" ref={hostRef} onPointerDown={seen} aria-label={chartOn ? 'Chart' : 'Sky'} data-chart={chartOn || undefined}>
       <div className="scene-overlay" ref={overlayRef} />
+      {chart}
       {!failed && <LoadReadout />}
       {hint && !failed && hintHost && createPortal(<p className="touch-hint">Tap a name to fly there · drag to turn · two fingers to pan and zoom</p>, hintHost)}
-      {!failed && (plateHost
-        ? createPortal(<ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} onView={onView} />, plateHost)
-        : <ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} onView={onView} />)}
+      {!failed && !chartOn && (plateHost
+        ? createPortal(<ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} onView={onView} onChart={onChart} chartName={chartName} />, plateHost)
+        : <ViewPlate view={view} flying={flying} panned={panned} onCentre={onCentre} onHome={onHome} onView={onView} onChart={onChart} chartName={chartName} />)}
       {missing.length > 0 && (
         <div className="scene-error caution" role="alert">
           The app's data is missing here ({missing.join(', ')}). In a clone, run “npm run data” to fetch it, then reload.
