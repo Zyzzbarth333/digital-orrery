@@ -796,6 +796,13 @@ export const TAG_INFO = {
     where: 'r_p: the radius of the orbit before (the waypoint\'s altitude); the flight\'s own descent costs more (gravity losses, about 15 % at the Moon)',
     source: 'Curtis, 4th ed., eq. 8.58 (Example 8.10) · docs/physics/journey.md',
   },
+  // dvMap.js referenceMap (transfers.js hohmannCircular, departureDv, captureDv)
+  'dv-map': {
+    what: 'The delta-v map\'s reference lines: ideal circular coplanar orbits from the planner\'s own body data, a Hohmann transfer between them, each burn at periapsis, no gravity or steering losses and no aerobraking. Leaving the Earth is one burn in a 300 km orbit, of which escape is the first share; arriving, a capture into a circular orbit 10 % of the radius up; landing, that orbit\'s circular speed.',
+    tex: ['v_\\infty = \\left|\\sqrt{\\frac{\\mu_\\odot}{a_1}}\\left(\\sqrt{\\frac{2 a_2}{a_1 + a_2}} - 1\\right)\\right|', '\\Delta v = \\sqrt{v_\\infty^2 + \\frac{2\\mu}{r_p}} - \\sqrt{\\frac{\\mu}{r_p}}', '\\Delta v_\\text{land} = \\sqrt{\\mu / r_p}'],
+    where: 'a₁, a₂: the two orbits\' semi-major axes (the Earth\'s and the body\'s; about the Earth, the Moon\'s mean distance); r_p: the parking orbit\'s or the low orbit\'s radius; v∞ = 0 is escape; for your dates the lines take the planner\'s own burns instead',
+    source: 'Curtis, 4th ed., §6.2 (Hohmann), eqs. 8.40 and 8.58 · docs/physics/journey.md#the-delta-v-map',
+  },
   'journey-total': {
     what: 'Every burn of the journey added up, and from its first departure to its last arrival.',
     tex: ['\\Delta v = \\sum \\Delta v_\\text{burn}'],

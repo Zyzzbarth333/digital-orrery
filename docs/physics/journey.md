@@ -11,6 +11,7 @@ The code:
 - **`packages/physics/src/journey.js`:** legs, chaining, options and drawing.
 - **`packages/physics/src/journeyFlight.js`:** the kernel's flight.
 - **`packages/physics/src/staging.js`:** the rocket.
+- **`packages/physics/src/dvMap.js`:** the delta-v map.
 - **The app side:** `src/app/journey.ts` holds the store,
   `src/app/journey-panel.tsx` the panel, `src/app/journey.worker.ts` runs
   the kernel off the page's thread, and `src/scene/journeyLayer.ts` draws
@@ -1602,6 +1603,96 @@ and lamps) with the key to the table. The porkchop and NASA's list are in
 the table, under the journey's editor. A `?plan=` link opens the table
 with that porkchop computed.
 
+## The delta-v map
+
+The table's MAP station (`src/app/plot-map.tsx`) draws the solar system as
+a metro map of delta-v (`packages/physics/src/dvMap.js`). Each station is a
+state a craft can be in, and each line the delta-v between two, in km/s.
+- **The Earth's trunk**, down the left: the ground, low Earth orbit
+  (300 km) and escape (C3 = 0).
+- **The Moon's line** leaves from low Earth orbit: its transfer, a low
+  orbit and the surface.
+- **Each planet's line** leaves from escape: the Hohmann transfer to it, a
+  low orbit, and the surface for Mercury, Venus and Mars (the giants have
+  none).
+
+![The MAP station for an Earth to Mars journey, for your dates: the Mars line priced from the planner's solution (0.46 from escape, 2.04 to capture), the other lines dim and dotted as the reference, and the readout for the capture at Mars](../images/dv-map-dates.jpg)
+
+### The reference
+
+`referenceMap()` takes the planner's own body data (`journey.js bodyInfo`,
+`bodies.js MU_SUN`) and these assumptions, which the map's footnote and
+source tag state:
+- circular, coplanar orbits, at each planet's semi-major axis (the Moon's
+  mean distance, 384,400 km, about the Earth);
+- a Hohmann transfer between them [1, Sec. 6.2], whose two burns about the
+  Sun are the excess speeds v∞ at either end [1, Sec. 8.2–8.3];
+- every burn at periapsis, impulsive: no gravity or steering losses;
+- leaving the Earth, one burn in a 300 km circular orbit [1, Eq. 8.40];
+- arriving, a capture into a circular orbit 10 % of the body's radius up
+  [1, Eq. 8.58];
+- landing, that orbit's circular speed (an ideal powered descent), and the
+  same again to lift off;
+- no aerobraking. The Earth's, Venus's and Mars's landing lines carry a †,
+  "aerobraking not counted": through the air the planner itself counts a
+  landing as free, so the map's figure is what an engine alone would pay.
+
+Departing the Earth is one burn, so a planet's line from escape is its
+rest: the burn from low orbit less escape's share (escape speed less
+circular speed, 3.20 km/s at 300 km). Mars's transfer reads 0.39 from
+escape, 3.59 from low orbit. Burnt from escape itself, the rest would cost
+the whole v∞ (2.94 km/s for Mars); deep in the well the Oberth effect
+makes it 0.39. The Moon's transfer is the Hohmann transfer about the Earth
+out to its distance, and its excess speed there is the Moon's circular
+speed less the transfer's at apogee.
+
+| Line | Δv (km/s) |
+| --- | ---: |
+| Earth surface › LEO (†) | 7.73 |
+| LEO › Earth escape | 3.20 |
+| LEO › Moon transfer › low orbit › surface | 3.11 · 0.81 · 1.60 |
+| Mercury: from LEO · capture · landing | 5.55 · 7.57 · 2.87 |
+| Venus: from LEO · capture · landing (†) | 3.48 · 3.26 · 6.99 |
+| Mars: from LEO · capture · landing (†) | 3.59 · 2.09 · 3.39 |
+| Jupiter: from LEO · capture | 6.30 · 17.09 |
+| Saturn: from LEO · capture | 7.28 · 10.51 |
+| Uranus: from LEO · capture | 7.98 · 6.50 |
+| Neptune: from LEO · capture | 8.25 · 6.94 |
+
+The giants' captures are large because their low orbits are deep in their
+wells: 10 % of Jupiter's radius is 6,991 km up.
+
+### For your dates
+
+With a journey that solves, "For your dates" prices the same lines from
+the planner's solution for its dates (`journeyMap(journey, sol)`). Each of
+the solution's burns goes on the line it flies, where its leg runs between
+the Earth and a body on the map:
+- **leaving the Earth:** the escape share of the departure, from the
+  parking orbit's own height, on the LEO–escape line, and the rest on the
+  route's transfer line (all of it, to the Moon);
+- **mid-course, deep-space and node burns:** on the transfer line;
+- **at the body:** the capture on its capture line, and an airless
+  landing's powered descent on its surface line. Leaving it, and back at
+  the Earth, the same lines the other way.
+
+A landing through air reads 0 on its surface line, as the planner's entry.
+A line flown twice (out and home) adds both burns, listed in the readout
+with their dates. Burns no line holds (a leg between two other bodies, a
+flyby's burn, an orbit change, a body off the map) are listed under "Not
+on the map", so the lines and that list add up to the journey's total.
+Lines the journey does not fly stay at the reference, dim and dotted.
+
+A click (or Enter) on a line or station picks it. The readout beside the
+map says what the line costs and why, and its PLOT key adds the station
+as the journey's next stop (a transfer as a flyby, a low orbit as an
+orbit, a surface as a landing) and opens PLOT. The key needs a deliberate
+second press, so a tap while scrolling the map on a phone changes nothing.
+On a phone the map is one column under the head, and a picked line's
+readout is held at the foot of the screen, its key in reach.
+
+![The MAP station on a 390 px phone, the Mars landing line picked: 3.39 km/s, aerobraking not counted, and PLOT MARS LANDING](../images/dv-map-phone.jpg)
+
 ## The flags
 
 `packages/physics/src/feasibility.js` answers whether the journey can be flown, and
@@ -1675,6 +1766,9 @@ orbits, waits 454 days.
   tag. Burn nodes and flyby aims are the shaping marks above.
 
 ## Validation (`journey.test.mjs`)
+
+The delta-v map has its own checks (`dvMap.test.mjs`): every reference line against the figures above, the transfer line against the departure from LEO less escape worked by hand, and journeys (to Mars and home, a Moon landing, a Mars landing, Earth–Venus–Mars) whose lines and off-map burns add up to the planner's total to 10⁻⁹ km/s.
+
 
 | Check | Reference | Result |
 | --- | --- | --- |

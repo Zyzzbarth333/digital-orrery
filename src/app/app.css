@@ -1089,6 +1089,55 @@ details.section > summary > span:first-child { flex: none; white-space: nowrap; 
 .go-fixes li > span { color: var(--phosphor); }
 .go-fixes .key { min-width: 84px; }
 .go-station > .keys-row { background: linear-gradient(var(--panel), var(--panel-low)); padding: 10px 14px; }
+
+/* MAP: the delta-v map (plot-map.tsx), a recessed window with the
+   readout panel beside it. Each line in its body's swatch colour, its
+   delta-v in phosphor; stations are window-black dots ringed in sheen,
+   filled amber where the journey stops. */
+.map-station { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 8px; min-height: 100%; }
+.map-window { background: var(--window); border-radius: 2px; box-shadow: inset 0 3px 10px #000, 0 1px 0 var(--sheen); padding: 14px 12px; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.dv-map { display: block; max-width: 100%; overflow: visible; }
+.dvm-trunk { fill: none; stroke: #b9ad92; stroke-width: 5; stroke-linecap: round; }
+.dvm-line, .dvm-stop { cursor: pointer; outline: none; }
+.dvm-hit { fill: none; stroke: transparent; stroke-width: 24; pointer-events: stroke; }
+circle.dvm-hit { fill: transparent; stroke: none; pointer-events: all; }
+.dvm-track { fill: none; stroke-width: 5; stroke-linecap: round; }
+.dvm-halo { fill: none; stroke: var(--sheen); stroke-width: 10; stroke-linecap: round; }
+.dvm-line.off .dvm-track { stroke-dasharray: 2 7; opacity: 0.55; }
+.dvm-line.off .dvm-dv { fill: #8d877a; }
+.dvm-dv { fill: var(--phosphor); font: var(--t-tag) var(--mono); font-variant-numeric: tabular-nums; }
+.dvm-dot { fill: var(--window); stroke: var(--sheen); stroke-width: 2.5; }
+.dvm-stop.visited .dvm-dot { fill: var(--phosphor); stroke: var(--phosphor); }
+.dvm-stop.sel .dvm-dot { stroke: var(--phosphor); stroke-width: 4; }
+.dvm-name { fill: var(--phosphor-dim); font: 11px var(--display); letter-spacing: 0.08em; }
+.dvm-sub { fill: #b9ad92; font: var(--t-tag) var(--sans); }
+.dvm-line:focus-visible .dvm-halo, .dvm-line:focus-visible .dvm-track { stroke-width: 8; }
+.dvm-line:focus-visible .dvm-dv, .dvm-stop:focus-visible .dvm-name { text-decoration: underline; fill: var(--phosphor); }
+.dvm-stop:focus-visible .dvm-dot { stroke: var(--phosphor); stroke-width: 4; }
+@media (hover: hover) and (pointer: fine) { .dvm-line:hover .dvm-track { stroke-width: 7; } .dvm-stop:hover .dvm-dot { stroke: var(--phosphor); } }
+.dvm-foot { margin: 10px 0 0; max-width: 72ch; font: var(--t-small)/1.4 var(--sans); color: var(--phosphor-dim); align-self: stretch; }
+.map-side { background: linear-gradient(var(--panel), var(--panel-low)); padding: 10px 14px; overflow-y: auto; }
+.map-side > .strip { margin: 0 -14px var(--u); }
+.map-side .key.mode[aria-pressed='true'] { background: var(--window); color: var(--phosphor); border-color: var(--window); box-shadow: inset 0 2px 4px #000; transform: translateY(1px); }
+.map-side .keys-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: var(--u); }
+.dvm-read { display: grid; gap: 6px; margin: var(--u) 0; padding: 10px 12px; background: var(--window); border-radius: 2px; box-shadow: inset 0 2px 6px #000; color: var(--phosphor-dim); font: var(--t-text)/1.4 var(--sans); }
+.dvm-read b { font: var(--t-label) var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--phosphor); font-weight: 400; }
+.dvm-read p { margin: 0; }
+.dvm-big { color: var(--phosphor); font: var(--t-clock) var(--sans); font-variant-numeric: tabular-nums; }
+.dvm-big small { font: var(--t-small) var(--sans); color: var(--phosphor-dim); }
+.dvm-parts { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font: var(--t-small) var(--sans); }
+.dvm-parts span { font: var(--t-tag) var(--mono); color: #b9ad92; }
+.dvm-parts li.ref { color: #b9ad92; }
+.map-side > .dvm-parts { color: var(--ink); }
+.map-side > .dvm-parts span { color: var(--ink-muted); }
+@media (max-width: 1100px) {
+  .map-station { grid-template-columns: minmax(0, 1fr); }
+}
+/* On a phone the readout follows a picked line up the screen, held at the
+   foot of the table, so its PLOT key is in reach without scrolling. */
+@media (max-width: 720px) {
+  .map-side.picked { position: sticky; bottom: 0; max-height: 46vh; box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.5); }
+}
 @media (max-width: 1100px) {
   .stack-station { grid-template-columns: minmax(0, 1fr); }
   .stack-scope { grid-template-columns: minmax(0, 1fr); justify-items: center; }
