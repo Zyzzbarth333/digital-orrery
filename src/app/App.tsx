@@ -184,6 +184,9 @@ export function App() {
   // window.orrery), for headless checks of the craft's state.
   if (new URLSearchParams(window.location.search).has('debug')) (window as unknown as { mission: Mission }).mission = mission;
   const journey = useMemo(() => new JourneyStore(init.timeMs), [init]);
+  // And the plotting table's journey as window.journey, so a check can set
+  // a journey to the second (scripts/check-remedy.mjs).
+  if (new URLSearchParams(window.location.search).has('debug')) (window as unknown as { journey: JourneyStore }).journey = journey;
   useLifetime(mission);
   useLifetime(journey);
   const scene = useRef<OrreryScene | null>(null);
