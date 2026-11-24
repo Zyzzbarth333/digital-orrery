@@ -212,6 +212,23 @@ the arrow keys step the part under the caret
 
 19 passed, 0 failed
 
+>>> node src/chart/chart.test.mjs
+sheet grids
+  ok   known places on their sheets
+  ok   each set has its sheets once, tiling the sphere
+projections
+  ok   forward and inverse agree
+  ok   polar views: 0 deg down from the north pole, up from the south; east anticlockwise round the north
+elevation files
+  ok   decoder undoes the encoder, extremes and no data included
+  ok   Mars: Olympus Mons high, Hellas low (MOLA)
+  ok   Earth: Everest high, the Challenger Deep low (ETOPO 2022)
+  ok   Venus: Maxwell Montes high (Magellan)
+  ok   Moon: the South Pole-Aitken basin low, the far-side highlands high (LOLA)
+  ok   Mercury: Caloris floor below its rim (MESSENGER)
+
+10 passed, 0 failed
+
 >>> node src/physics/orbital.test.mjs
 ============================================================
 CASE 1: Circular LEO propagation

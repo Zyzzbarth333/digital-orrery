@@ -1,6 +1,6 @@
 // src/app/App.tsx
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { PHONE_QUERY, SIDE_QUERY, PhoneContext, useMedia } from './phone';
 import { Sheet, type Stop } from './sheet';
 import { Peek } from './peek';
@@ -26,7 +26,7 @@ import { BARYS, BODIES, BARY_BY_KEY, BODY_BY_KEY, focusName, isBary, systemOf, t
 import { SMALL_BODY_GROUPS, type Named, type SmallBodyGroup } from '../scene/smallBodies';
 import { SB_GROUPS } from '@digital-orrery/physics/smallBodies.js';
 import { IRREGULAR_MOONS, irregularMoon } from '../scene/irregularMoons';
-import { LANDING_SITES, SITE_BY_KEY } from '@digital-orrery/physics/landingSites.js';
+import { LANDING_SITES, SITE_BY_KEY, siteBody } from '@digital-orrery/physics/landingSites.js';
 import { LandingSitePlate, siteBodyName } from './landing-site-plate';
 import { GuidePlate, OrbitPlate, type GuidePick } from './guide-plate';
 import { StarPlate } from './star-plate';
@@ -37,6 +37,8 @@ import { SatellitePlate, SatCloudPlate } from './satellite-plate';
 import { SpacecraftRail, type SpacecraftApi } from './spacecraft-rail';
 import { SpacecraftPlate } from './spacecraft-plate';
 import { PROBE_GROUPS, type Probe } from '../scene/spacecraftLayer';
+// The chart view (chart-view.tsx), loaded the first time it is opened.
+const ChartView = lazy(() => import('./chart-view'));
 import { LAYERS_KEY, VIEW_KEY, clearStore, parseLayers, parseView, readStore, resumeTime, writeStore } from './remember.js';
 
 // What a refresh comes back to (remember.js, docs/frontend/camera.md#across-a-refresh):
@@ -231,6 +233,18 @@ export function App() {
     latest: () => scene.current?.satellites.fetchLatest() ?? Promise.resolve('The scene is not ready'),
   };
   const satView = sat !== null ? scene.current?.satellites.sat(sat) ?? null : null;
+  // The chart view (chart-view.tsx, K; docs/frontend/chart.md): a flat
+  // chart of the body in view (a landing site's body; the Earth for a
+  // satellite or a debris cloud), in the sky's cell, the sky paused behind it.
+  const [chartOn, setChartOn] = useState(false);
+  const chartBody: BodyKey | null = (() => {
+    if (sat !== null || satCloud !== null) return 'earth';
+    if (siteView) { const b = siteBody(siteView); return b in BODY_BY_KEY ? (b as BodyKey) : null; }
+    const k = systemOf(focus);        // a barycentre's own body
+    return k === 'sun' ? null : k;
+  })();
+  const chartable = !!chartBody && !!scene.current?.hasDayMap(chartBody);
+  useEffect(() => { if (chartOn && !chartable) setChartOn(false); }, [chartOn, chartable]);
   const cloudView = satCloud !== null ? scene.current?.satellites.cloudView(satCloud) ?? null : null;
   // A spacecraft beyond Earth orbit the camera is on, by key: it shares the
   // satellite's place on the plate.
@@ -548,6 +562,8 @@ export function App() {
       // H goes home; C puts the camera back on what it is on after a pan.
       // T types a date and time into the clock (panels.tsx ClockWindow).
       if (e.key === 't' || e.key === 'T') { document.querySelector<HTMLButtonElement>('.clock-entry')?.click(); e.preventDefault(); return; }
+      // K switches to the chart of the body in view and back (chart-view.tsx).
+      if (e.key === 'k' || e.key === 'K') { if (chartOn) setChartOn(false); else if (chartable) setChartOn(true); e.preventDefault(); return; }
       if (e.key === 'h' || e.key === 'H') { goHome(); e.preventDefault(); return; }
       if (e.key === 'c' || e.key === 'C') { scene.current?.recentre(); e.preventDefault(); return; }
       const s = clock.snapshot;
@@ -569,7 +585,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clock, focus, consoleOpen, small, sat, satCloud, probe, journey, phone, stop]);
+  }, [clock, focus, consoleOpen, small, sat, satCloud, probe, journey, phone, stop, chartOn, chartable]);
 
   const view = [focus, small, sat, satCloud, probe, following].join('|');
   const viewKey = useRef(view);
@@ -684,7 +700,15 @@ export function App() {
         onFrame={(t, jumps) => mission.frame(t, jumps)} insetRight={phone ? cover.right : inset} insetBottom={phone ? cover.bottom : 0}
         view={following !== null ? { kind: 'follow', name: followName } : { kind: 'focus', name: viewName }}
         flying={flying} frame={frame} panned={panned} onCentre={() => scene.current?.recentre()} onHome={goHome} onView={viewStep}
-        plateHost={phone && !side ? plateHost : null} hintHost={phone ? hintHost : null} />
+        plateHost={phone && !side ? plateHost : null} hintHost={phone ? hintHost : null}
+        chartOn={chartOn} chartName={chartBody ? BODY_BY_KEY[chartBody].name : null} onChart={chartable ? () => setChartOn(true) : undefined}
+        chart={chartOn && chartBody && scene.current ? (
+          <Suspense fallback={null}>
+            <ChartView scene={scene.current} body={chartBody} clock={clock} phone={phone} insetRight={phone ? cover.right : inset} insetBottom={phone ? cover.bottom : 0}
+              onClose={() => { setChartOn(false); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('.chart-key')?.focus()); }}
+              onSite={(key) => scene.current?.focusOnSite(key)} />
+          </Suspense>
+        ) : null} />
       <TimeBand clock={clock} {...flight} onFind={openFind} />
       {phone ? (
         <Sheet stop={stop} onStop={setStop} side={side} label="Readouts and controls" aboveRef={setPlateHost}

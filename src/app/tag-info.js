@@ -265,6 +265,40 @@ export const TAG_INFO = {
     where: 'n̂ the site\'s vertical (the ellipsoid\'s normal), ŝ the direction from the body to the Sun (DE442), both in J2000',
     source: 'JPL DE442; the body\'s orientation (orientation.js) · docs/frontend/landing-sites.md',
   },
+  // The chart view (src/chart, docs/frontend/chart.md)
+  'chart-elevation': {
+    what: 'The ground\'s height under the pointer above the elevation model\'s datum, interpolated between the four nearest cells of the finest grid loaded: 16 px/deg (the 4 px/deg grid until its tile is in). Each cell is the mean of the source\'s heights over it, so a peak or a pit narrower than a cell reads lower or shallower than the source\'s own maximum or minimum.',
+    tex: ['h = (1-a)(1-b)\\,h_{00} + a(1-b)\\,h_{10} + (1-a)b\\,h_{01} + ab\\,h_{11}'],
+    where: 'a, b the pointer\'s place between the cell centres east and south; a cell with no data (Magellan\'s gaps on Venus) leaves the height unknown',
+    source: 'MOLA MEGDR (NASA/GSFC); LOLA LDEM (NASA/GSFC, via NASA SVS); the USGS MESSENGER global DEM 665 m v2; the USGS Magellan global topography 4,641 m; NOAA NCEI ETOPO 2022 · docs/frontend/chart.md',
+  },
+  'chart-coords': {
+    what: 'The point under the pointer: latitude and east longitude on the body\'s sphere, in the frame its maps are made in (the IAU frame; the Moon\'s mean-Earth/polar-axis frame; on the Earth, WGS 84 geodetic latitude). Simple cylindrical takes them straight from the screen; a polar view inverts the stereographic projection.',
+    tex: ['\\phi = \\phi_0 + \\frac{y}{s},\\ \\ \\lambda = \\lambda_0 + \\frac{x}{s}', '\\rho = \\frac{r}{s} = 2\\tan\\frac{c}{2},\\ \\ \\phi = \\pm\\left(\\frac{\\pi}{2} - c\\right)'],
+    where: 's the chart\'s scale (px per radian), x, y from the view\'s centre (or r from the pole), c the angle from the pole',
+    source: 'J. P. Snyder, Map Projections: A Working Manual, USGS Prof. Paper 1395, 1987, §§12, 21 · docs/frontend/chart.md',
+  },
+  'chart-sheet': {
+    what: 'The standard map sheet the point is on: Mars\'s 30 MC quadrangles and Mercury\'s 15 H and Venus\'s 62 V at 1:5,000,000, the Moon\'s 144 Lunar Astronautical Charts at 1:1,000,000. The layouts were checked against the quadrangle the Gazetteer files each named feature under: all 13,693 fall in their sheet but 11 of Mars\'s on a sheet\'s edge.',
+    tex: [],
+    source: 'IAU WGPSN and USGS Astrogeology, Gazetteer of Planetary Nomenclature (quad_code, quad_name) · docs/frontend/chart.md#sheet-grids',
+  },
+  'chart-names': {
+    what: 'The IAU\'s approved names, lettered where the feature is at least about 30 px across on the chart (a crater\'s diameter; for an albedo feature, which has none, as if 600 km), larger for a larger feature, the regions (planitiae, terrae, maria and the like) in wide capitals. Where two would overprint, the larger feature keeps its name.',
+    tex: [],
+    source: 'IAU WGPSN and USGS Astrogeology, Gazetteer of Planetary Nomenclature, centre points (planetarynames.wr.usgs.gov) · docs/frontend/chart.md',
+  },
+  'chart-pads': {
+    what: 'Launch pads in use for orbital launches, one or two per site: geodetic latitude and longitude (WGS 84) to 0.0001° for most, 0.02° at Plesetsk.',
+    tex: [],
+    source: 'J. McDowell, General Catalog of Artificial Space Objects, launch points (planet4589.org), CC BY 4.0 · docs/frontend/chart.md#the-earth',
+  },
+  'chart-track': {
+    what: 'The point under the satellite from a quarter of an orbit ago to one and a half ahead, by SGP4 from its element set as the 3D view\'s track is: along the ellipsoid\'s normal, geodetic latitude, the next pass over the chosen place brighter.',
+    tex: ['\\mathbf r_\\text{ITRF} = W\\,R_3(\\theta_\\text{GMST})\\,\\mathbf r_\\text{TEME}'],
+    where: 'W polar motion, θ Greenwich mean sidereal time (UT1); the element set\'s own epoch and accuracy apply',
+    source: 'Vallado et al., AIAA 2006-6753 (SGP4); CelesTrak elements · docs/frontend/satellites.md, docs/frontend/chart.md',
+  },
   // Guides and orbit lines (guide-plate.tsx)
   'guide-axis': {
     what: 'The body\'s spin axis: its north pole (IAU: the pole on the north side of the solar system\'s invariable plane) in J2000 right ascension and declination now, how long it takes to turn once against the stars, and how far the axis leans from its orbit\'s pole.',
