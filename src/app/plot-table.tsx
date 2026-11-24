@@ -18,7 +18,8 @@
 //   what the budget leaves it (a click there leaves on that date), the
 //   plan's legs and stays, and the time cursor.
 // Its look is the console's (DESIGN.md): the scope is a recessed readout
-// window grown large, amber on window black.
+// window grown large, amber on window black. Its MAP station (plot-map.tsx)
+// is the delta-v map, whose stations can be set as PLOT's next stop.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SimClock } from './clock';
@@ -28,6 +29,7 @@ import { JourneyPanel } from './journey-panel';
 import { PorkchopPanel } from './planner-panel';
 import { StackStation } from './plot-stack';
 import { GoStation } from './plot-go';
+import { MapStation } from './plot-map';
 import { SourceTag } from './source-tag';
 import { stateOf, bodyInfo, applyOption, legPhase } from '@digital-orrery/physics/journey.js';
 import { assess } from '@digital-orrery/physics/feasibility.js';
@@ -60,8 +62,8 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
     return out;
   }, [store.version, store.kernel, store.budget, profilesFresh, store.profiles]);
   const [cursor, setCursor] = useState(() => sol.startMs);
-  const [station, setStation] = useState<'plot' | 'stack' | 'go'>('plot');
-  const STATIONS: ['plot' | 'stack' | 'go', string, string][] = [['plot', 'Plot', 'The journey, its windows and burn nodes'], ['stack', 'Stack', 'The rocket it needs, and real launchers beside it'], ['go', 'Go', 'The go/no-go poll, and committing to the orrery']];
+  const [station, setStation] = useState<'map' | 'plot' | 'stack' | 'go'>('plot');
+  const STATIONS: ['map' | 'plot' | 'stack' | 'go', string, string][] = [['map', 'Map', 'The delta-v map: what each step between orbits costs'], ['plot', 'Plot', 'The journey, its windows and burn nodes'], ['stack', 'Stack', 'The rocket it needs, and real launchers beside it'], ['go', 'Go', 'The go/no-go poll, and committing to the orrery']];
   useEffect(() => { if (!(cursor >= sol.startMs && cursor <= sol.endMs)) setCursor(sol.startMs); }, [sol.startMs, sol.endMs]);
 
   // Escape closes the table (back to the sky).
@@ -121,6 +123,7 @@ export function PlotTable({ store, clock, mission, onFlown }: { store: JourneySt
         </div>
         <Timeline store={store} cursor={cursor} setCursor={setCursor} />
       </>}
+      {station === 'map' && <div className="plot-station" id="station-map" role="tabpanel" aria-labelledby="station-tab-map"><MapStation store={store} onPlot={() => setStation('plot')} /></div>}
       {station === 'stack' && <div className="plot-station" id="station-stack" role="tabpanel" aria-labelledby="station-tab-stack"><StackStation store={store} /></div>}
       {station === 'go' && <div className="plot-station" id="station-go" role="tabpanel" aria-labelledby="station-tab-go"><GoStation store={store} clock={clock} mission={mission} onFlown={onFlown} /></div>}
     </div>
