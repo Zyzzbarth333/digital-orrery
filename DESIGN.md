@@ -302,6 +302,14 @@ plotting table, kept out of the panel palette:
 - **The sky:** `#5f7f99` constellation lines, `#8fa9bf` their names and the
   Sky rail's lamps; the chosen star's ring is phosphor amber, open at four
   points so it never covers the star.
+- **The chart view's tints** (docs/frontend/chart.md): a body's heights from
+  indigo `#24204a` through `#2c4a7c`, teal `#2f7a86`, `#5e9c6c`, `#a8b25e`,
+  sand `#d8b878` and `#ead2a8` to cream `#f8f1e4`, its lightness rising with
+  height so higher always reads lighter (no rainbow); the Earth's land from
+  lowland green `#6a9e5b` through `#c4c67f`, tan `#dcc083` and browns
+  `#bf9260`, `#9c7658` to snow `#f6f3ef`, and its sea from shallows
+  `#d6eef4` through `#74b3d4` and `#255693` to the deeps `#0c1d3d`. The paper
+  is panel-raised `#e9e3d6`; the sheet grid is engraving oxblood.
 - **Plotting-table lamps:** go `#1f3a1b`, caution `#4a3c0e` and warn
   `#4b130b` fields, with **lamp-ink-off** `#c9bfa6` for an unlit lamp's
   legend (6.5:1 on lamp-dark, so it reads lit or unlit); `#3a3328` for the
@@ -557,6 +565,33 @@ numerals, an engraved label above, and the unit beside.
   can be seen, and an UP NOW window while it is above the horizon.
 - **Radiation belts:** pale teal (`#7fb8c9`) shells along the L-shells,
   brightest where seen edge-on so the belt reads as a volume.
+
+### The chart view
+
+PNL K1 (docs/frontend/chart.md): a printed chart laid in the sky's window,
+switched to from the 3D view by K or the view plate's CHART key. A strip of
+sheet metal across the top carries the body's name in Michroma and the
+projection, then the projection keys (N · EQ · S, a radio set like the
+console's tabs), the layer keys (latching: window black with an amber
+legend while on, as CONSOLE does) and 3D, back to the sky. The chart sits on
+a paper border (panel-raised) with its figures in B612; below, a strip with
+the recessed readout window (amber numerals: latitude, longitude, height,
+sheet and the name under the pointer, each with its source tag) and the
+legend (the tint ramp with its heights, the relief's exaggeration).
+
+On the chart itself everything is printed, not lit: ink on a halo of the
+paper, so it reads on dark maria and pale highlands alike. The graticule is
+a hairline of ink at a third; the sheet grid is engraving oxblood, each
+sheet's code in B612 Mono and its name in small Michroma capitals; feature
+names are B612 in four sizes by the feature's size on the chart, regions in
+Michroma's wide capitals; landing sites are small ink glyphs (a square for
+a crewed landing, a triangle for a lander or rover, a cross for a crash or
+an estimate), launch pads solid triangles. The one lit thing is the ground
+track: amber on a window-black edge, solid behind the satellite and dashed
+ahead, the satellite its diamond, the chosen place an amber square, as the
+3D view draws them. The polar insets are discs in a window-black rim. Never
+the film-map or game-map look: no compass-rose flourishes, no decorative
+borders, no faux paper texture.
 
 ### Navigation
 

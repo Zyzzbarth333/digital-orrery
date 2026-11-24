@@ -383,6 +383,28 @@ export class OrreryScene {
     this.paused = on;
     if (!on) this.lastFrame = performance.now();
   }
+  // The chart view (src/chart, docs/frontend/chart.md): while it is up the
+  // sky is not drawn either, and each frame calls its draw instead, with
+  // the maps still uploading; it draws at the screen's full pixel ratio,
+  // and the sky gets its own back after.
+  private chart: ((now: number) => void) | null = null;
+  setChart(draw: ((now: number) => void) | null): void {
+    if (this.chart === draw) return;
+    this.chart = draw;
+    this.renderer.setPixelRatio(draw ? Math.min(window.devicePixelRatio, 2) : this.scale.ratio);
+    this.resize();
+    if (!draw) this.lastFrame = performance.now();
+  }
+  // A body's day map as the 3D view draws it (the Earth's for the clock's
+  // month), loading it if it is not yet: for the chart's COLOUR layer.
+  chartMap(key: BodyKey): Promise<THREE.Texture> | null {
+    const e = this.manifest?.bodies[key];
+    const path = e?.dayMonthly ? e.dayMonthly[new Date(this.clock.snapshot.timeMs).getUTCMonth()] : e?.day;
+    if (!path) return null;
+    focusLoads(key);
+    return this.surfaces.load(path, true, { label: `${BODY_BY_KEY[key]?.name ?? key} surface`, tag: key });
+  }
+  hasDayMap(key: BodyKey): boolean { const e = this.manifest?.bodies[key]; return !!(e?.day || e?.dayMonthly); }
   // What dragging its nodes and aims does (the app's JourneyStore).
   journeyHandlers: JourneyHandlers | null = null;
   private journeyLayer!: JourneyLayer;
@@ -1363,12 +1385,14 @@ export class OrreryScene {
 
   private frame = (now: number): void => {
     this.raf = requestAnimationFrame(this.frame);
-    // Paused (the plotting table covers the sky): the clock and the mission
-    // run on, nothing is drawn, and the render-scale budget sees no frame.
-    if (this.paused) {
+    // Paused (the plotting table covers the sky) or charting: the clock and
+    // the mission run on, the sky is not drawn, and the render-scale budget
+    // sees no frame. The chart draws itself, and the maps keep uploading.
+    if (this.paused || this.chart) {
       this.clock.tick((now - this.lastFrame) / 1000);
       this.lastFrame = now;
       this.onFrame(this.clock.snapshot.timeMs, this.clock.snapshot.jumps);
+      if (this.chart && !this.paused) { this.uploader.step(); this.chart(now); }
       return;
     }
     this.uploader.step();

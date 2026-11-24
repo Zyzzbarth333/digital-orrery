@@ -50,6 +50,12 @@
    "files": 14,
    "bytes": 60958163,
    "source": "pipelines/marsdust.build.mjs (Montabone et al., Mars dust climatology v2, LMD)"
+  },
+  "charts": {
+   "version": "027e5f22e0ab",
+   "files": 185,
+   "bytes": 78461685,
+   "source": "python/charts/build_charts.py (MOLA, LOLA, MESSENGER and Magellan DEMs, ETOPO 2022, the IAU/USGS Gazetteer)"
   }
  },
  "files": [
@@ -5200,6 +5206,1116 @@
    "set": "marsdust",
    "bytes": 4816800,
    "sha256": "c5ad37713e0674460d1906040aadbcf7ef4bed72d8e2da9a793e28bc120f9550"
+  },
+  {
+   "path": "charts/callisto/names.json",
+   "set": "charts",
+   "bytes": 6024,
+   "sha256": "1220f14407fe458c383fcde6f787f53f431e58c7b1769b08b5867e923bcc41ee"
+  },
+  {
+   "path": "charts/charon/names.json",
+   "set": "charts",
+   "bytes": 955,
+   "sha256": "88671e19904e15a5d856afbd996c5606b384f422f9c2b324a6613c34de142698"
+  },
+  {
+   "path": "charts/deimos/names.json",
+   "set": "charts",
+   "bytes": 303,
+   "sha256": "7af42a592880d4829ba405a6ae65faa69a9d92000ba6fa1e34886366d127631b"
+  },
+  {
+   "path": "charts/dione/names.json",
+   "set": "charts",
+   "bytes": 4290,
+   "sha256": "f6cb3eb02a9c1bf042adf5b285b738a2c72f627e1563fa8bc8ff1520d0fe0ba3"
+  },
+  {
+   "path": "charts/earth/elev-16/0-0.bin.gz",
+   "set": "charts",
+   "bytes": 409507,
+   "sha256": "9d5a101a498c7b1f334fffaf2cdea1a8cb7a608616d0ad409053f01747c4ff5d"
+  },
+  {
+   "path": "charts/earth/elev-16/0-1.bin.gz",
+   "set": "charts",
+   "bytes": 410355,
+   "sha256": "330070e4a0fb37940d181469b602326f468d2d339c1a1068120d47184d3bffe2"
+  },
+  {
+   "path": "charts/earth/elev-16/0-2.bin.gz",
+   "set": "charts",
+   "bytes": 410509,
+   "sha256": "a544f16242a9618247587ab155f7c466c49c8c391394843341d36d3ad2862ab1"
+  },
+  {
+   "path": "charts/earth/elev-16/0-3.bin.gz",
+   "set": "charts",
+   "bytes": 436217,
+   "sha256": "3c237d2bb6ed5cc37d662865f9473f79e852b7fd1463508124365bacffe3167a"
+  },
+  {
+   "path": "charts/earth/elev-16/0-4.bin.gz",
+   "set": "charts",
+   "bytes": 396414,
+   "sha256": "62876e4d04ba1bf00ff49aaab29c5053506d97237a791b1d1e522a2219482605"
+  },
+  {
+   "path": "charts/earth/elev-16/0-5.bin.gz",
+   "set": "charts",
+   "bytes": 338316,
+   "sha256": "ab6996a3b30435450dc7ff3e9da13c585346d0b581f04c3d488da22d1eb7722e"
+  },
+  {
+   "path": "charts/earth/elev-16/0-6.bin.gz",
+   "set": "charts",
+   "bytes": 422999,
+   "sha256": "7d3e3dadcdfa04ddd23abf1c15294c2166cef3c83fe6ee8878dfda4565748221"
+  },
+  {
+   "path": "charts/earth/elev-16/0-7.bin.gz",
+   "set": "charts",
+   "bytes": 398179,
+   "sha256": "311d1f455723193d843b53bc655472db7cbdacbad0e84a75558ca7d76eb82113"
+  },
+  {
+   "path": "charts/earth/elev-16/1-0.bin.gz",
+   "set": "charts",
+   "bytes": 549339,
+   "sha256": "3e3f1695435f72de64c35b4afbfefd4048b04bbf515803c09187d304ce39a905"
+  },
+  {
+   "path": "charts/earth/elev-16/1-1.bin.gz",
+   "set": "charts",
+   "bytes": 538921,
+   "sha256": "100b5398e58fce80c781dc0f71ce37f00005f3346758bf2d0619f967b3590333"
+  },
+  {
+   "path": "charts/earth/elev-16/1-2.bin.gz",
+   "set": "charts",
+   "bytes": 524143,
+   "sha256": "babe97c76b6623b8f769fc3b3bdf906801e3784ffe7934e752473dbe90fe6c5b"
+  },
+  {
+   "path": "charts/earth/elev-16/1-3.bin.gz",
+   "set": "charts",
+   "bytes": 538449,
+   "sha256": "3c2386799f70751098b2c9a26e7058a4be82000da787e72619f7f16410b63723"
+  },
+  {
+   "path": "charts/earth/elev-16/1-4.bin.gz",
+   "set": "charts",
+   "bytes": 466780,
+   "sha256": "fc75e339786e42858f858d8b8c3b9aa9fec92bc8f2d004d6538c46190b8943a1"
+  },
+  {
+   "path": "charts/earth/elev-16/1-5.bin.gz",
+   "set": "charts",
+   "bytes": 502907,
+   "sha256": "eb0570028fc33ea3e123cd645c274939b5cd057e41bdb63418df80cc6cfe8ef3"
+  },
+  {
+   "path": "charts/earth/elev-16/1-6.bin.gz",
+   "set": "charts",
+   "bytes": 554291,
+   "sha256": "0f72ed8b4d5849cc244fe7f3bf46ecbddafc22309e5fb196a39b59d6eaafe89a"
+  },
+  {
+   "path": "charts/earth/elev-16/1-7.bin.gz",
+   "set": "charts",
+   "bytes": 568485,
+   "sha256": "e6a8f90cbdefe024fd76295c832994411a350c48f6a2c814ddaddc09be945f4c"
+  },
+  {
+   "path": "charts/earth/elev-16/2-0.bin.gz",
+   "set": "charts",
+   "bytes": 573970,
+   "sha256": "671adf586e5a445069260dcda92155a6007ee7851abbe36c178f4c774c0c6dba"
+  },
+  {
+   "path": "charts/earth/elev-16/2-1.bin.gz",
+   "set": "charts",
+   "bytes": 554480,
+   "sha256": "413db1c06b076ae39fe266f82bbd3dddbb424769eaf044a98ca43f95934e5a42"
+  },
+  {
+   "path": "charts/earth/elev-16/2-2.bin.gz",
+   "set": "charts",
+   "bytes": 500163,
+   "sha256": "9ff0f13e11a384805625413303d214f96167d7d7a6530fe019aa5d4595fe5a9a"
+  },
+  {
+   "path": "charts/earth/elev-16/2-3.bin.gz",
+   "set": "charts",
+   "bytes": 551222,
+   "sha256": "6ae0820b17a79da871429db9beb8f84c0a21bd2da7dce3334310245a798c4692"
+  },
+  {
+   "path": "charts/earth/elev-16/2-4.bin.gz",
+   "set": "charts",
+   "bytes": 496342,
+   "sha256": "f72ca31ea907b8a8955ce0af1f4df65b0b495a11162c589d9c547686adde6397"
+  },
+  {
+   "path": "charts/earth/elev-16/2-5.bin.gz",
+   "set": "charts",
+   "bytes": 573733,
+   "sha256": "2d88337729705baa2864b87188555242f0a6ad9343e5584821d237dc28f64e31"
+  },
+  {
+   "path": "charts/earth/elev-16/2-6.bin.gz",
+   "set": "charts",
+   "bytes": 523104,
+   "sha256": "7c42a039382ba2385971a2e0d431b903be393c783d82114be7963c797c99b09f"
+  },
+  {
+   "path": "charts/earth/elev-16/2-7.bin.gz",
+   "set": "charts",
+   "bytes": 527461,
+   "sha256": "2b18806c8045893af85a9b2bc83b620f314e5ea8fe3cfbf6b109b1f8c8c81737"
+  },
+  {
+   "path": "charts/earth/elev-16/3-0.bin.gz",
+   "set": "charts",
+   "bytes": 419837,
+   "sha256": "9d323898f8ace493f75f1b759460054205da23d90e2fec5e0675dd2dda8a4aae"
+  },
+  {
+   "path": "charts/earth/elev-16/3-1.bin.gz",
+   "set": "charts",
+   "bytes": 404310,
+   "sha256": "7ecf616b98f16af24ecd7e9b77b62da2327e0145b24383eb99ced2557328af99"
+  },
+  {
+   "path": "charts/earth/elev-16/3-2.bin.gz",
+   "set": "charts",
+   "bytes": 393710,
+   "sha256": "abf688c5a1323cdf27f593b1fe0b5ad9db4c1a9168b71f1dcdc277f6192e561c"
+  },
+  {
+   "path": "charts/earth/elev-16/3-3.bin.gz",
+   "set": "charts",
+   "bytes": 402242,
+   "sha256": "e4b3be44606b82c31de8f72621ad0bb52773d563dff23eff873e6771fe8b1bb0"
+  },
+  {
+   "path": "charts/earth/elev-16/3-4.bin.gz",
+   "set": "charts",
+   "bytes": 388785,
+   "sha256": "adcc690098090e79be0973e79be0b003dda9dbb924d91f3bd0470847b435dc3d"
+  },
+  {
+   "path": "charts/earth/elev-16/3-5.bin.gz",
+   "set": "charts",
+   "bytes": 357256,
+   "sha256": "9cd7a21d561490fd1612b0d28fdeb8fe3797afb4c48da3e36152956aeac53cb0"
+  },
+  {
+   "path": "charts/earth/elev-16/3-6.bin.gz",
+   "set": "charts",
+   "bytes": 340133,
+   "sha256": "f44bd882ba96a05e299f10d116e163c538ee006ddd8fdb6a1c1ba1bb61f05395"
+  },
+  {
+   "path": "charts/earth/elev-16/3-7.bin.gz",
+   "set": "charts",
+   "bytes": 421164,
+   "sha256": "41fc63839e9f997d7e58c3d5537e9948b031a29093a121524099ffedfc02a06d"
+  },
+  {
+   "path": "charts/earth/elev-4.bin.gz",
+   "set": "charts",
+   "bytes": 1126963,
+   "sha256": "f41b686b2658eeed541ca3f1884c0bc9e85d5d2a8489c16787002e40c5b3eb10"
+  },
+  {
+   "path": "charts/enceladus/names.json",
+   "set": "charts",
+   "bytes": 4157,
+   "sha256": "8ae8a522cf8a798ef3573fa025803af7a48b4f41f341878bf32e7b34a3574269"
+  },
+  {
+   "path": "charts/europa/names.json",
+   "set": "charts",
+   "bytes": 6057,
+   "sha256": "9d671f4dfd6404d2537c6b510717b71d3cd5e6c1537b1602bc9e54000b4b8027"
+  },
+  {
+   "path": "charts/ganymede/names.json",
+   "set": "charts",
+   "bytes": 8657,
+   "sha256": "1989f488a06ac12bc2e4c291932eb8413f6af4aaea1791da84347f7ba671dca8"
+  },
+  {
+   "path": "charts/iapetus/names.json",
+   "set": "charts",
+   "bytes": 3088,
+   "sha256": "bc6a92494786a06c85fb7689b61d47423e5c12b4975fc57cdac59c5b6ed21df8"
+  },
+  {
+   "path": "charts/index.json",
+   "set": "charts",
+   "bytes": 14048,
+   "sha256": "012b4cb8694227aeb9f7e42f877b493c8f7322eebdbca4812d409e8effe91f7a"
+  },
+  {
+   "path": "charts/io/names.json",
+   "set": "charts",
+   "bytes": 12904,
+   "sha256": "276fcab29bbc4c3ea77e31e985357e74df8d8cd45179831f9838f6bffe71c471"
+  },
+  {
+   "path": "charts/mars/elev-16/0-0.bin.gz",
+   "set": "charts",
+   "bytes": 387215,
+   "sha256": "014488b0a7b2ca2fb2b0ee645ead22f22b601a3648623a7dbcb5416dfbfe74a2"
+  },
+  {
+   "path": "charts/mars/elev-16/0-1.bin.gz",
+   "set": "charts",
+   "bytes": 385517,
+   "sha256": "eacff079edfdb1ca1b6fbc9c0d08c5553bf9ac661c9229be6f9cee28a5450cb3"
+  },
+  {
+   "path": "charts/mars/elev-16/0-2.bin.gz",
+   "set": "charts",
+   "bytes": 392314,
+   "sha256": "49ef8246b48f3b2a765ca7d40c6178aed4b7f488b80778bb3db7dabd893f1dc9"
+  },
+  {
+   "path": "charts/mars/elev-16/0-3.bin.gz",
+   "set": "charts",
+   "bytes": 385678,
+   "sha256": "1ea6cfce98e3a2055957012891b7f29974d732f4d872a02a82fa8dd2405ea326"
+  },
+  {
+   "path": "charts/mars/elev-16/0-4.bin.gz",
+   "set": "charts",
+   "bytes": 391774,
+   "sha256": "64f78c6f366840116454fec10d7b81761478d31276bbb9a6caedb5e8159a20c5"
+  },
+  {
+   "path": "charts/mars/elev-16/0-5.bin.gz",
+   "set": "charts",
+   "bytes": 381660,
+   "sha256": "43d316bc4c6de78cca0d67cdec301a035d5ebad2810d0a55c1eab909e91a5469"
+  },
+  {
+   "path": "charts/mars/elev-16/0-6.bin.gz",
+   "set": "charts",
+   "bytes": 369352,
+   "sha256": "9c74373b9881123f667b2b73cc961995f0c4eef8acf08150f016833b2c18f998"
+  },
+  {
+   "path": "charts/mars/elev-16/0-7.bin.gz",
+   "set": "charts",
+   "bytes": 385278,
+   "sha256": "bac860745075c4aae5889897bd8fe10339ec5f4cdadb04c8eb0653778b99654a"
+  },
+  {
+   "path": "charts/mars/elev-16/1-0.bin.gz",
+   "set": "charts",
+   "bytes": 443328,
+   "sha256": "bee34e9d6fea7fbbffdbcef564a944743901544fc572eb03415a86cd05782aeb"
+  },
+  {
+   "path": "charts/mars/elev-16/1-1.bin.gz",
+   "set": "charts",
+   "bytes": 462859,
+   "sha256": "260bbe76718d7745dc459b5eaabe5cc003442fffccc046f8a5d8dbf9955372d0"
+  },
+  {
+   "path": "charts/mars/elev-16/1-2.bin.gz",
+   "set": "charts",
+   "bytes": 496243,
+   "sha256": "4fc6013a8fd8e607245e0a750f3968dab4b86fe1c6c842d8b7ca20252d922efa"
+  },
+  {
+   "path": "charts/mars/elev-16/1-3.bin.gz",
+   "set": "charts",
+   "bytes": 513458,
+   "sha256": "8364824c37f6bbc7257ea1b4c0f65cc063cbfd72c29e764deee0d4b477f8de8c"
+  },
+  {
+   "path": "charts/mars/elev-16/1-4.bin.gz",
+   "set": "charts",
+   "bytes": 546976,
+   "sha256": "6d3de0caf029a48a3354a14c8781de34d7e3c64be7ad35620abd2cd311981c7e"
+  },
+  {
+   "path": "charts/mars/elev-16/1-5.bin.gz",
+   "set": "charts",
+   "bytes": 532323,
+   "sha256": "2748cbe14d81e470fff5a3438ab21a4fcc9322bfaf2bbe1661a15d9ab92a62ae"
+  },
+  {
+   "path": "charts/mars/elev-16/1-6.bin.gz",
+   "set": "charts",
+   "bytes": 456917,
+   "sha256": "f7feadcc1c1a467f7006a0762d9b820bf14ec0046be815b3e991d5b856ac5f53"
+  },
+  {
+   "path": "charts/mars/elev-16/1-7.bin.gz",
+   "set": "charts",
+   "bytes": 447236,
+   "sha256": "316a01d8d97a9eb25e77695e06ded31da63a116d226069a375609a0e0a3e3071"
+  },
+  {
+   "path": "charts/mars/elev-16/2-0.bin.gz",
+   "set": "charts",
+   "bytes": 532223,
+   "sha256": "ca9f3ccf99bf394a554caa99bd5e318078760d2ac68386ae5b0db38d0e236bd2"
+  },
+  {
+   "path": "charts/mars/elev-16/2-1.bin.gz",
+   "set": "charts",
+   "bytes": 488317,
+   "sha256": "04b8189fa0a6095e70e216ec54afe829183dcbaa1491a02c41c05e72462c1c12"
+  },
+  {
+   "path": "charts/mars/elev-16/2-2.bin.gz",
+   "set": "charts",
+   "bytes": 534879,
+   "sha256": "fddedfa946d635b6b65c7f179d1703139920cdbafca8b97d8d401f72bc9159b2"
+  },
+  {
+   "path": "charts/mars/elev-16/2-3.bin.gz",
+   "set": "charts",
+   "bytes": 559796,
+   "sha256": "571c8d66fe348b135a6d5451c048a95e7cc8462898cbd7f41c3c177607f7e2f0"
+  },
+  {
+   "path": "charts/mars/elev-16/2-4.bin.gz",
+   "set": "charts",
+   "bytes": 535815,
+   "sha256": "3ccc2fb863088ec11e981859302bd95c6e58d95351fe1aca424f32885eca025d"
+  },
+  {
+   "path": "charts/mars/elev-16/2-5.bin.gz",
+   "set": "charts",
+   "bytes": 554817,
+   "sha256": "fc17078816195d0ffbb7157f60ef0c3da5ff9abacb1f7b08eb58e82d9626d477"
+  },
+  {
+   "path": "charts/mars/elev-16/2-6.bin.gz",
+   "set": "charts",
+   "bytes": 540698,
+   "sha256": "ae5d57e57b53f9c0e1cdb45004edf7c5ffaf9ce2bfd2b0caecbc971ee2c96331"
+  },
+  {
+   "path": "charts/mars/elev-16/2-7.bin.gz",
+   "set": "charts",
+   "bytes": 543333,
+   "sha256": "448c2b8a8d06c77258d67cf056b1c02a6761a9865b2c0dacf1b0f28c16610a27"
+  },
+  {
+   "path": "charts/mars/elev-16/3-0.bin.gz",
+   "set": "charts",
+   "bytes": 442954,
+   "sha256": "78ff9ba4b3c9481e5cbf9e9c87983a935c3ffc9588fa83e17983072e54c4ea22"
+  },
+  {
+   "path": "charts/mars/elev-16/3-1.bin.gz",
+   "set": "charts",
+   "bytes": 441843,
+   "sha256": "a7a340741dc7cee78de7372ffdc190fe753be2dc86cdd2aeed905acf1db496f3"
+  },
+  {
+   "path": "charts/mars/elev-16/3-2.bin.gz",
+   "set": "charts",
+   "bytes": 478031,
+   "sha256": "4e3deb31d85afabba83fe6671a92be543774a7416667e1b86f480f8fa95fe806"
+  },
+  {
+   "path": "charts/mars/elev-16/3-3.bin.gz",
+   "set": "charts",
+   "bytes": 468227,
+   "sha256": "e958aa209f1d626b45fc234c37a78c88f467e8066924e7a785ac0353cbc67098"
+  },
+  {
+   "path": "charts/mars/elev-16/3-4.bin.gz",
+   "set": "charts",
+   "bytes": 455734,
+   "sha256": "bf57ac934724d6fbd31c6484b927160513f886f60670df8e4fce55e4fcdd678d"
+  },
+  {
+   "path": "charts/mars/elev-16/3-5.bin.gz",
+   "set": "charts",
+   "bytes": 454551,
+   "sha256": "5c98014333c9b4f1c007eada97dd11097590b9e3eab75e6dde97d0e03a3710be"
+  },
+  {
+   "path": "charts/mars/elev-16/3-6.bin.gz",
+   "set": "charts",
+   "bytes": 468558,
+   "sha256": "2ace5467e7e735d32f767785f3ba5514d339d1dd7770f4aa0dfcea43178c1fb5"
+  },
+  {
+   "path": "charts/mars/elev-16/3-7.bin.gz",
+   "set": "charts",
+   "bytes": 445593,
+   "sha256": "6f3ed8f17f91c6ee61e295d0b10752e1ee74447afad001978f96c5bfdef25739"
+  },
+  {
+   "path": "charts/mars/elev-4.bin.gz",
+   "set": "charts",
+   "bytes": 1085132,
+   "sha256": "d98762bcb72b5e32785d108fa8e5985d8c314640e8815852183430ca78f0a7c2"
+  },
+  {
+   "path": "charts/mars/names.json",
+   "set": "charts",
+   "bytes": 90475,
+   "sha256": "fdb0d4da6ecdaeceeab07ec1d7a7d457b451c1a2d34fd28d7ba329c13a1aeee7"
+  },
+  {
+   "path": "charts/mercury/elev-16/0-0.bin.gz",
+   "set": "charts",
+   "bytes": 353040,
+   "sha256": "1a2e386a704dd0d824f3cee0180b42874a690d8aa96b811730e2cb0f8b497fa8"
+  },
+  {
+   "path": "charts/mercury/elev-16/0-1.bin.gz",
+   "set": "charts",
+   "bytes": 361506,
+   "sha256": "cc790716b560c7f40a929b8669c1361b50e21d00be04dccd96ad641395ce8c0a"
+  },
+  {
+   "path": "charts/mercury/elev-16/0-2.bin.gz",
+   "set": "charts",
+   "bytes": 363659,
+   "sha256": "9291b8b400b0a884eac2db35b10a579c6065d065914adafc6d6b70fcf3682c29"
+  },
+  {
+   "path": "charts/mercury/elev-16/0-3.bin.gz",
+   "set": "charts",
+   "bytes": 379052,
+   "sha256": "fafafad802788a698f2b134c6a92fecb59c4434d1cad4033ed90a35296e158d3"
+  },
+  {
+   "path": "charts/mercury/elev-16/0-4.bin.gz",
+   "set": "charts",
+   "bytes": 389991,
+   "sha256": "eb0e726bd2176b0a9391c076d2f4c4997247a8cb88f82198a339bd44a87a099d"
+  },
+  {
+   "path": "charts/mercury/elev-16/0-5.bin.gz",
+   "set": "charts",
+   "bytes": 384629,
+   "sha256": "3a812ec3a70e353cb8733049b0d1146052bb21016af794acd8afc4e106e8ff8d"
+  },
+  {
+   "path": "charts/mercury/elev-16/0-6.bin.gz",
+   "set": "charts",
+   "bytes": 378751,
+   "sha256": "511b47dac73934abfb206c35763363df977f5b9cc4c92808f040626aa95a8159"
+  },
+  {
+   "path": "charts/mercury/elev-16/0-7.bin.gz",
+   "set": "charts",
+   "bytes": 360441,
+   "sha256": "96501fb862f1b21a0188c99b9efd74e67761c1ecd3201882e129ef569fa3b8da"
+  },
+  {
+   "path": "charts/mercury/elev-16/1-0.bin.gz",
+   "set": "charts",
+   "bytes": 434296,
+   "sha256": "0b79cf4a2a3f37df677ac921776795d675ed53d6ada0bdf72ebb7dcadaffd796"
+  },
+  {
+   "path": "charts/mercury/elev-16/1-1.bin.gz",
+   "set": "charts",
+   "bytes": 432569,
+   "sha256": "69d51d460156fc5df3045748d21732ba7cc66613e056961e5bdba3392bfb9e18"
+  },
+  {
+   "path": "charts/mercury/elev-16/1-2.bin.gz",
+   "set": "charts",
+   "bytes": 435897,
+   "sha256": "e1f21af7e73bf18dc13f05bf28fdfaa1b1deabe8145025e30e2e9fccd82e88dc"
+  },
+  {
+   "path": "charts/mercury/elev-16/1-3.bin.gz",
+   "set": "charts",
+   "bytes": 411526,
+   "sha256": "661c17e0edc1f7616fff9eaf46ab5501e18c18e7890567433adea197ec970288"
+  },
+  {
+   "path": "charts/mercury/elev-16/1-4.bin.gz",
+   "set": "charts",
+   "bytes": 426685,
+   "sha256": "bbd32c2748546cda330289a93af5f5dd9b8c2485c9e0c3d2f39db690f9a97784"
+  },
+  {
+   "path": "charts/mercury/elev-16/1-5.bin.gz",
+   "set": "charts",
+   "bytes": 442078,
+   "sha256": "dcf25f03b15c3a416d9aa9887d0ddb93baa1b46c29f76081ddd5d79c86cf5b77"
+  },
+  {
+   "path": "charts/mercury/elev-16/1-6.bin.gz",
+   "set": "charts",
+   "bytes": 451644,
+   "sha256": "bb8cdc7cd108283b6c06ff5407137e998d7787799a7432a0bf1d090d88168b63"
+  },
+  {
+   "path": "charts/mercury/elev-16/1-7.bin.gz",
+   "set": "charts",
+   "bytes": 441314,
+   "sha256": "5e8b199a99e5eae725e4f29aeba27d0e0a9cd24dfd89dd95aa3bf72334b313d1"
+  },
+  {
+   "path": "charts/mercury/elev-16/2-0.bin.gz",
+   "set": "charts",
+   "bytes": 447089,
+   "sha256": "5e0e0923338d23f923e67a5ff7bb1f2b35c8a0844dd0682ebae398e25f993499"
+  },
+  {
+   "path": "charts/mercury/elev-16/2-1.bin.gz",
+   "set": "charts",
+   "bytes": 450168,
+   "sha256": "8d25daf75e7c975ac8838e7227596fe1097f20dcb8a9b1c51664717e33c14755"
+  },
+  {
+   "path": "charts/mercury/elev-16/2-2.bin.gz",
+   "set": "charts",
+   "bytes": 449380,
+   "sha256": "fe095c48be40e2fe02bea76945878fcd80ab0b8b996c78a2371c0319283aa3d4"
+  },
+  {
+   "path": "charts/mercury/elev-16/2-3.bin.gz",
+   "set": "charts",
+   "bytes": 437574,
+   "sha256": "cb1dff32c3a3c8eac2f0c18af70355d0104763aec483b1d4dca4efc825d44955"
+  },
+  {
+   "path": "charts/mercury/elev-16/2-4.bin.gz",
+   "set": "charts",
+   "bytes": 455676,
+   "sha256": "0112a1b9f9ae8ac4dcd69770850b53b4952e5c1b7ba13a7f96ef2bf15c96bf9e"
+  },
+  {
+   "path": "charts/mercury/elev-16/2-5.bin.gz",
+   "set": "charts",
+   "bytes": 445291,
+   "sha256": "6a73b477d8d0ff5674c46fe1d82e95cb71818b87815b32bb370b31088943af7d"
+  },
+  {
+   "path": "charts/mercury/elev-16/2-6.bin.gz",
+   "set": "charts",
+   "bytes": 442137,
+   "sha256": "ba68ed3e1f6306650ec8d77fd25432d3082f78048c783f6003d15734cc84eb34"
+  },
+  {
+   "path": "charts/mercury/elev-16/2-7.bin.gz",
+   "set": "charts",
+   "bytes": 454689,
+   "sha256": "163f2e250f9eee492d6b206a0cb52db28036519dc2bf12b2ac846c88bbfed716"
+  },
+  {
+   "path": "charts/mercury/elev-16/3-0.bin.gz",
+   "set": "charts",
+   "bytes": 382052,
+   "sha256": "d3cc9d96fe12e4896682dd72a83958ff26ae9ee6cf3c627e5f18ccad67f3a242"
+  },
+  {
+   "path": "charts/mercury/elev-16/3-1.bin.gz",
+   "set": "charts",
+   "bytes": 380676,
+   "sha256": "d6dff15ab4842954b3e1caf04f784318b030d873e077e6cfa29b8c30b7616f1f"
+  },
+  {
+   "path": "charts/mercury/elev-16/3-2.bin.gz",
+   "set": "charts",
+   "bytes": 392017,
+   "sha256": "8267d8055b10506a935b12da82a953f961c19e0bb0845404603ff9959593064d"
+  },
+  {
+   "path": "charts/mercury/elev-16/3-3.bin.gz",
+   "set": "charts",
+   "bytes": 386496,
+   "sha256": "4e326d3f2630f62d11633135589fa8bff208559d5930059953e5c4c796836b69"
+  },
+  {
+   "path": "charts/mercury/elev-16/3-4.bin.gz",
+   "set": "charts",
+   "bytes": 373262,
+   "sha256": "bf5f80406a04c62ccbeeebc0eeae083ee29e254806c20463bd41798520a83e52"
+  },
+  {
+   "path": "charts/mercury/elev-16/3-5.bin.gz",
+   "set": "charts",
+   "bytes": 387980,
+   "sha256": "a0230fe0dfeddb8fed2f2ccda1179ca449a03d12229edaf729044b0c0495ed57"
+  },
+  {
+   "path": "charts/mercury/elev-16/3-6.bin.gz",
+   "set": "charts",
+   "bytes": 389094,
+   "sha256": "30a71419beec8ce5452d4b5df2d0bb8543283f32a7864c8c57fbcdfda67838bd"
+  },
+  {
+   "path": "charts/mercury/elev-16/3-7.bin.gz",
+   "set": "charts",
+   "bytes": 382976,
+   "sha256": "45c1af63ed8210f2a5eebb5083c1204496c34514f1fce6ae5c650a60d62faa7d"
+  },
+  {
+   "path": "charts/mercury/elev-4.bin.gz",
+   "set": "charts",
+   "bytes": 1195464,
+   "sha256": "4ad30495394feefb5cc5b01022883adb19203dd51d0bafe29132c8f599e91538"
+  },
+  {
+   "path": "charts/mercury/names.json",
+   "set": "charts",
+   "bytes": 27647,
+   "sha256": "01c46fc4487d3aed2c4e3c599fce1ccf08f0927d02f4d3893266f1f516a31f36"
+  },
+  {
+   "path": "charts/mimas/names.json",
+   "set": "charts",
+   "bytes": 1980,
+   "sha256": "77dc5c93f028d74528af5bf88bcbbdfd24c9beaaee4274cb1e41808701347478"
+  },
+  {
+   "path": "charts/moon/elev-16/0-0.bin.gz",
+   "set": "charts",
+   "bytes": 477311,
+   "sha256": "fad610950f51dae28116d61bde7da7e6b5a75b97bd4791fd28e7d27512fba64b"
+  },
+  {
+   "path": "charts/moon/elev-16/0-1.bin.gz",
+   "set": "charts",
+   "bytes": 478344,
+   "sha256": "1213cd32ae6184f121b826fdfa90bb230de8749ada583fb331036ea5e109e675"
+  },
+  {
+   "path": "charts/moon/elev-16/0-2.bin.gz",
+   "set": "charts",
+   "bytes": 450431,
+   "sha256": "fdf5c1f66b38bce661dd585143e9a83ac84095bef911d981a591d292e88f8362"
+  },
+  {
+   "path": "charts/moon/elev-16/0-3.bin.gz",
+   "set": "charts",
+   "bytes": 428984,
+   "sha256": "3f08733944cd5cd2fdcd7e69444902de3aa88b41fd85b8f6d4522d1ec8eb73fe"
+  },
+  {
+   "path": "charts/moon/elev-16/0-4.bin.gz",
+   "set": "charts",
+   "bytes": 433913,
+   "sha256": "547227112de9df20a6eabbc357ed766544a7fc33de910c140ebdc50cde46a6df"
+  },
+  {
+   "path": "charts/moon/elev-16/0-5.bin.gz",
+   "set": "charts",
+   "bytes": 474129,
+   "sha256": "12f397c0e498913139c4f867dc498169541e378363f678be92eb92394cca0568"
+  },
+  {
+   "path": "charts/moon/elev-16/0-6.bin.gz",
+   "set": "charts",
+   "bytes": 488128,
+   "sha256": "01e94498ed17ea8aa1a93a32d57c39aeb8ff55329e4b701ee9a11da630dd0452"
+  },
+  {
+   "path": "charts/moon/elev-16/0-7.bin.gz",
+   "set": "charts",
+   "bytes": 484814,
+   "sha256": "58172142102bbdfa590b48e78913e5fa74189d53f5e40e180d81de126ca71593"
+  },
+  {
+   "path": "charts/moon/elev-16/1-0.bin.gz",
+   "set": "charts",
+   "bytes": 556321,
+   "sha256": "93ffc5cf75d448e39d2be0f0e47ac3ecd404d761537c274d08b0541774c58a15"
+  },
+  {
+   "path": "charts/moon/elev-16/1-1.bin.gz",
+   "set": "charts",
+   "bytes": 555064,
+   "sha256": "3e0f6fc0bd581690667cb8a9d464fb71e45b33b9723edbac6509cf03c0cc9d06"
+  },
+  {
+   "path": "charts/moon/elev-16/1-2.bin.gz",
+   "set": "charts",
+   "bytes": 424162,
+   "sha256": "19ba2f3b68e06de4fcffa3e2e8245798760f9416609ec682f02664f4dff904e1"
+  },
+  {
+   "path": "charts/moon/elev-16/1-3.bin.gz",
+   "set": "charts",
+   "bytes": 388745,
+   "sha256": "52e22cb1cc16ca24ef868a56a6c7a52c4fac1d528abb3707035580f1be403fdc"
+  },
+  {
+   "path": "charts/moon/elev-16/1-4.bin.gz",
+   "set": "charts",
+   "bytes": 449159,
+   "sha256": "146dab21d4f54a95df581aa522c76160d5fa0f1142da6a19494467de2059027f"
+  },
+  {
+   "path": "charts/moon/elev-16/1-5.bin.gz",
+   "set": "charts",
+   "bytes": 515947,
+   "sha256": "549285d77efd237ef24335a9e0df9cf7043d696702ac9e40b82e5828e698fd7c"
+  },
+  {
+   "path": "charts/moon/elev-16/1-6.bin.gz",
+   "set": "charts",
+   "bytes": 542471,
+   "sha256": "20d23c97702bc88edaafe418d7deae563f16997af6f016be22ef4d813068fac4"
+  },
+  {
+   "path": "charts/moon/elev-16/1-7.bin.gz",
+   "set": "charts",
+   "bytes": 557088,
+   "sha256": "5d277f0bfe680e93987f283cacb8829f3e1eb01b7a8e038bd90bbd44c6e5962c"
+  },
+  {
+   "path": "charts/moon/elev-16/2-0.bin.gz",
+   "set": "charts",
+   "bytes": 547829,
+   "sha256": "49ead31cce41f3366487a17163cc5c5f6679667eedc35f23c067e665d6ecb1b1"
+  },
+  {
+   "path": "charts/moon/elev-16/2-1.bin.gz",
+   "set": "charts",
+   "bytes": 552965,
+   "sha256": "62d85822f9839e27ec563c3901ac8efe5b1f1386ab7c13e6b73e7798868b0a23"
+  },
+  {
+   "path": "charts/moon/elev-16/2-2.bin.gz",
+   "set": "charts",
+   "bytes": 520963,
+   "sha256": "1885ec7142982fb7e8073e653e12b577c394b7a430c7db2da1b553762f6b54f9"
+  },
+  {
+   "path": "charts/moon/elev-16/2-3.bin.gz",
+   "set": "charts",
+   "bytes": 461286,
+   "sha256": "13913f07f60fd4717494b08dbe9d247f22cfb12e11759cba87d3e39aac56aebb"
+  },
+  {
+   "path": "charts/moon/elev-16/2-4.bin.gz",
+   "set": "charts",
+   "bytes": 526851,
+   "sha256": "2095fc2366f676e7702a843aa593631e10e4680d15029aa9fb2f6e58b92efeaf"
+  },
+  {
+   "path": "charts/moon/elev-16/2-5.bin.gz",
+   "set": "charts",
+   "bytes": 522857,
+   "sha256": "f9b2203ab1ef96903f4954d7005d42b09e504a9fcf811e0997a1493ec4b392bd"
+  },
+  {
+   "path": "charts/moon/elev-16/2-6.bin.gz",
+   "set": "charts",
+   "bytes": 542346,
+   "sha256": "009442e321a5db3d0bda2a4969f3ec2a40cb15746d5c21410a082e62cfeaee64"
+  },
+  {
+   "path": "charts/moon/elev-16/2-7.bin.gz",
+   "set": "charts",
+   "bytes": 550563,
+   "sha256": "40755829f5cd033d8b9e3db990477f4001431ee1e3325c972a83d80cd2b50039"
+  },
+  {
+   "path": "charts/moon/elev-16/3-0.bin.gz",
+   "set": "charts",
+   "bytes": 465974,
+   "sha256": "39a14b69215d8d03be2b8f33cebb25461bd20303773d7e4d3611c45ee8a7fe86"
+  },
+  {
+   "path": "charts/moon/elev-16/3-1.bin.gz",
+   "set": "charts",
+   "bytes": 473998,
+   "sha256": "363afad47be360c0fec2c44ebfe2db346b04fffa8e96b65d9d0173968142b4aa"
+  },
+  {
+   "path": "charts/moon/elev-16/3-2.bin.gz",
+   "set": "charts",
+   "bytes": 468940,
+   "sha256": "4e0ddbd4e7c87947c503b2fa0c0a427b2d921d029be9aa1231f4f5e430790211"
+  },
+  {
+   "path": "charts/moon/elev-16/3-3.bin.gz",
+   "set": "charts",
+   "bytes": 462490,
+   "sha256": "bc4908e56ab4d71290d576388de291e8fd10a066c0949307156cdd2569775511"
+  },
+  {
+   "path": "charts/moon/elev-16/3-4.bin.gz",
+   "set": "charts",
+   "bytes": 464016,
+   "sha256": "e4c9f3b9d17d1ce4bb902bd6f2e1543c107e333bce4fe57178647aa0cf281b6d"
+  },
+  {
+   "path": "charts/moon/elev-16/3-5.bin.gz",
+   "set": "charts",
+   "bytes": 466109,
+   "sha256": "70af4441e7870297733e35ac83e52be59ddcb676a731baf4415e7030ac4295cb"
+  },
+  {
+   "path": "charts/moon/elev-16/3-6.bin.gz",
+   "set": "charts",
+   "bytes": 456961,
+   "sha256": "f53ba954c2f957ae5e6c7e69f1b4c69fc10add3253512246fd960ee8bf57909c"
+  },
+  {
+   "path": "charts/moon/elev-16/3-7.bin.gz",
+   "set": "charts",
+   "bytes": 460987,
+   "sha256": "3fe7cc4b23a9d4be96ae85089ce23fd44dad75dc95c5e5c1b4e6e844cea08ca8"
+  },
+  {
+   "path": "charts/moon/elev-4.bin.gz",
+   "set": "charts",
+   "bytes": 1302064,
+   "sha256": "2b4d5c2237480fa87476d1c76fdf54276e720c2e936171566a3b4a8c6456d2a5"
+  },
+  {
+   "path": "charts/moon/names.json",
+   "set": "charts",
+   "bytes": 402597,
+   "sha256": "145dfc08d0b323053672276a3859b32715be6f55f687060dd8a44c3e3233aef1"
+  },
+  {
+   "path": "charts/phobos/names.json",
+   "set": "charts",
+   "bytes": 1078,
+   "sha256": "307b513dd6ead5aa810378e0ac8bb024f2856aee0259541ddcd29a5f0cefbe5a"
+  },
+  {
+   "path": "charts/pluto/names.json",
+   "set": "charts",
+   "bytes": 3918,
+   "sha256": "15d24ffc2a71aa5f6c2b8094d4a9f6fa33f471635fb3caa39a8fd42ab46886ae"
+  },
+  {
+   "path": "charts/rhea/names.json",
+   "set": "charts",
+   "bytes": 5854,
+   "sha256": "93b34c1ffca118527feb056d5bf053aeff139a3e78cfb02d210d4ad2f431d680"
+  },
+  {
+   "path": "charts/tethys/names.json",
+   "set": "charts",
+   "bytes": 2473,
+   "sha256": "66f26e22b5fdfdaa971331e1563cddf0ee8e7a2e4f524d21735412241707614b"
+  },
+  {
+   "path": "charts/triton/names.json",
+   "set": "charts",
+   "bytes": 3001,
+   "sha256": "2edfd95399affcdfd50dd2cf1d4d071114c8c969903f3b442cb16ad8c6880acd"
+  },
+  {
+   "path": "charts/venus/elev-16/0-0.bin.gz",
+   "set": "charts",
+   "bytes": 440959,
+   "sha256": "27fc86c36819d0cd7a1f92f5c8fa406cacc4ab59faa62e63ea502694c362b0fe"
+  },
+  {
+   "path": "charts/venus/elev-16/0-1.bin.gz",
+   "set": "charts",
+   "bytes": 400219,
+   "sha256": "82af52a5ac8e8e5ff95c7d366fd9a4471d0ec9460a4c76da045c7cfec2a340b8"
+  },
+  {
+   "path": "charts/venus/elev-16/0-2.bin.gz",
+   "set": "charts",
+   "bytes": 378773,
+   "sha256": "0760f7bf380d68655fe084a8bbffbd5c169c48cb78acd76626bb45509ea4ca42"
+  },
+  {
+   "path": "charts/venus/elev-16/0-3.bin.gz",
+   "set": "charts",
+   "bytes": 355196,
+   "sha256": "1a001bbe5438fded96b495b31924284bd494541b1a653f35f7536d5e77f22c48"
+  },
+  {
+   "path": "charts/venus/elev-16/0-4.bin.gz",
+   "set": "charts",
+   "bytes": 412626,
+   "sha256": "a689028952510b3d107e235ac8a0662f47312406e32c5f1e118c95f256f150e1"
+  },
+  {
+   "path": "charts/venus/elev-16/0-5.bin.gz",
+   "set": "charts",
+   "bytes": 432711,
+   "sha256": "351c5351234dcc8e436114becc54b1178fbf35cf190a02c43a33172ac16e4008"
+  },
+  {
+   "path": "charts/venus/elev-16/0-6.bin.gz",
+   "set": "charts",
+   "bytes": 348408,
+   "sha256": "51bd2c420db2bd085e52555495a046260956531a047a8c002baf7412ab4be69e"
+  },
+  {
+   "path": "charts/venus/elev-16/0-7.bin.gz",
+   "set": "charts",
+   "bytes": 388908,
+   "sha256": "778aaf1cc1baebb60ab9fa175661741fac23b0b0ef22c8aadb772f90f9d4b061"
+  },
+  {
+   "path": "charts/venus/elev-16/1-0.bin.gz",
+   "set": "charts",
+   "bytes": 534276,
+   "sha256": "76d0f667eb6fdb7e232b388df9ee5919379d66575d974e276a98922cee8a076a"
+  },
+  {
+   "path": "charts/venus/elev-16/1-1.bin.gz",
+   "set": "charts",
+   "bytes": 508722,
+   "sha256": "618925906479ab6e17c46c48e23012bf57227091a7b68eef5e3a3d0f9dafbb1b"
+  },
+  {
+   "path": "charts/venus/elev-16/1-2.bin.gz",
+   "set": "charts",
+   "bytes": 491957,
+   "sha256": "03613992886e1e0cfce21d88930bd5862f57299ec1ccb83f563696849cf9c98a"
+  },
+  {
+   "path": "charts/venus/elev-16/1-3.bin.gz",
+   "set": "charts",
+   "bytes": 415298,
+   "sha256": "ef074219b283c6c22b97d7ab952f5628ca6d320ed46fd0972eaf2b41d8266af5"
+  },
+  {
+   "path": "charts/venus/elev-16/1-4.bin.gz",
+   "set": "charts",
+   "bytes": 468313,
+   "sha256": "9af6e5bf64f7c864e0dd17df87673a7d3e25ab1356e5f55d6314cabced527513"
+  },
+  {
+   "path": "charts/venus/elev-16/1-5.bin.gz",
+   "set": "charts",
+   "bytes": 513905,
+   "sha256": "58b4e866106b20e12d4325befac5e8aec5baeeebe063721204340646ebdb1188"
+  },
+  {
+   "path": "charts/venus/elev-16/1-6.bin.gz",
+   "set": "charts",
+   "bytes": 497245,
+   "sha256": "815ac7fc5846cd7f493fc0fc180a303d6d50532dcdcb0974fceaed348dbeace1"
+  },
+  {
+   "path": "charts/venus/elev-16/1-7.bin.gz",
+   "set": "charts",
+   "bytes": 501778,
+   "sha256": "58c8a6d7ef19356d5f57c4bf36de6a9d2b88a55aea52b4e1114b85d7aaf80dd4"
+  },
+  {
+   "path": "charts/venus/elev-16/2-0.bin.gz",
+   "set": "charts",
+   "bytes": 495071,
+   "sha256": "66b32bcbfe20aa5f37f3818b4e2325ca1e4361d314b2f370c986c1946032abf3"
+  },
+  {
+   "path": "charts/venus/elev-16/2-1.bin.gz",
+   "set": "charts",
+   "bytes": 473310,
+   "sha256": "f3abcfd8fb48b4565e81cd99d733eae51de9a27db535190f2517a9a43ef50a99"
+  },
+  {
+   "path": "charts/venus/elev-16/2-2.bin.gz",
+   "set": "charts",
+   "bytes": 470753,
+   "sha256": "c14b674a885223f7ce326c619f9f9b5665fb43e6d2809052584f9054d6810c62"
+  },
+  {
+   "path": "charts/venus/elev-16/2-3.bin.gz",
+   "set": "charts",
+   "bytes": 438961,
+   "sha256": "a653ea5e86a3a054c186db345ba993c052d497d704bba11bdad7b0efc7257898"
+  },
+  {
+   "path": "charts/venus/elev-16/2-4.bin.gz",
+   "set": "charts",
+   "bytes": 454187,
+   "sha256": "14fbb2e8d45e35c45f5213e37f2f1c46e57fdc16569c91ddff2b1c665dc3d247"
+  },
+  {
+   "path": "charts/venus/elev-16/2-5.bin.gz",
+   "set": "charts",
+   "bytes": 488541,
+   "sha256": "6cea969ff74a8ad5e7717d6cd1cfa81595d20284311b94add12ab3350a6478ee"
+  },
+  {
+   "path": "charts/venus/elev-16/2-6.bin.gz",
+   "set": "charts",
+   "bytes": 568228,
+   "sha256": "db8270cb97f3b83ad8b09a4f46222da4a7ef8860510c1603ae4a0b2d173c4052"
+  },
+  {
+   "path": "charts/venus/elev-16/2-7.bin.gz",
+   "set": "charts",
+   "bytes": 525538,
+   "sha256": "329a09053b231a7799f1d90d325b623a7b92e508ede462eb218a49d7c469104b"
+  },
+  {
+   "path": "charts/venus/elev-16/3-0.bin.gz",
+   "set": "charts",
+   "bytes": 350300,
+   "sha256": "bcc1e7970aeed27da25761b8ee3b727edb5ff3865e2738d406fa29f0861f7464"
+  },
+  {
+   "path": "charts/venus/elev-16/3-1.bin.gz",
+   "set": "charts",
+   "bytes": 344321,
+   "sha256": "a814b293de89e4f14be5b5550dea3b71a5254369e0c9b521222fd7b6e9996ea9"
+  },
+  {
+   "path": "charts/venus/elev-16/3-2.bin.gz",
+   "set": "charts",
+   "bytes": 363702,
+   "sha256": "a34df02cd69a48698ba739b857dcd1be872a4a7abcf741a9f9918971605c5f47"
+  },
+  {
+   "path": "charts/venus/elev-16/3-3.bin.gz",
+   "set": "charts",
+   "bytes": 244340,
+   "sha256": "c288356cc1e006544c94cadd4602d00bfdd79445b90523bd52b6fb1f6e26b538"
+  },
+  {
+   "path": "charts/venus/elev-16/3-4.bin.gz",
+   "set": "charts",
+   "bytes": 293922,
+   "sha256": "b1d5287f020480a92dab84bb9ca2e2eca8fb22259da8bcb4caff61a7b67100b2"
+  },
+  {
+   "path": "charts/venus/elev-16/3-5.bin.gz",
+   "set": "charts",
+   "bytes": 246256,
+   "sha256": "20129704759f6c1fa2f39539b49ec938a2141b7b51998d287fb9bd420d2a6a24"
+  },
+  {
+   "path": "charts/venus/elev-16/3-6.bin.gz",
+   "set": "charts",
+   "bytes": 340861,
+   "sha256": "d097e8991cda5eb8508cc03b4ad796b2e22c34ef36ddcbacdd04b95414476dea"
+  },
+  {
+   "path": "charts/venus/elev-16/3-7.bin.gz",
+   "set": "charts",
+   "bytes": 310903,
+   "sha256": "e77b31f1ec3bc7857ffe502929b0741ca30ffc87b37b7776fd6b6480938ab501"
+  },
+  {
+   "path": "charts/venus/elev-4.bin.gz",
+   "set": "charts",
+   "bytes": 998768,
+   "sha256": "f2db9a3948e8491bb36b6c5737189d0bc8001b998f83a9ac53e3578ccc1d330c"
+  },
+  {
+   "path": "charts/venus/names.json",
+   "set": "charts",
+   "bytes": 84299,
+   "sha256": "13a6e19859665b136cdd824b0182d056db58ad78e394e4f0ea7bad10533217ec"
   }
  ]
 }

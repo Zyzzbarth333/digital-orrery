@@ -829,6 +829,48 @@ work; the one new per-frame call, the Moon's axes, takes 3 µs. The low
 view costs about 1 to 2 ms more than the distant one: that is the surface
 patch and the near ground ([camera](frontend/camera.md)), not the layer.
 
+### The chart view
+
+Measured on 25 November 2026 with `npm run bench:frames`: main (`0d5ab3b`,
+#220) against feat/chart-view, production builds, interleaved, headless at
+1920 × 1080 and DPR 1, the default scenarios ([chart](frontend/chart.md)).
+The chart is not open in any of them: this is what the branch costs the 3D
+view. Median frame, ms, median over the rounds:
+
+| Scene | Intel UHD (3 rounds) | RTX 5070 Ti (3 rounds) | RTX 5070 Ti (7 rounds) |
+| --- | ---: | ---: | ---: |
+| Earth from 20,000 km | 15.9 → 15.7 | 3.0 → 7.6 | 7.9 → 4.1 |
+| the asteroid belt | 14.6 → 15.5 | 6.7 → 6.8 | |
+| craft in LEO (6-DOF), 0.4 km | 17.3 → 16.2 | 4.2 → 6.6 | 6.7 → 6.8 |
+| craft in LEO (6-DOF), 3,000 km | 16.7 → 16.6 | 6.9 → 7.5 | |
+| craft in LEO (point), 0.4 km | 15.8 → 15.4 | 5.4 → 3.8 | |
+| craft in LEO (point), 3,000 km | 16.5 → 15.9 | 7.7 → 6.8 | |
+
+No change: on the Intel GPU every scene is within its own round-to-round
+spread (main's craft at 3,000 km ranged 16.2 to 20.3 ms). On the RTX each
+page load settles at about 3 to 4 ms or 7 to 8 ms a frame, on main as on the
+branch, so three rounds swing either way: the Earth read +153 % in three
+rounds and −48 % in seven, its seven samples 3.0 to 8.7 ms on main and 2.7
+to 8.0 ms on the branch. The 3D frame gains one test (`this.chart`), and the
+chart's code is a chunk of its own, fetched the first time it opens.
+
+The chart draws only when something changes: the view, a layer, the data,
+the pointer, or the clock enough to move the night side or the satellite. One
+redraw, the raster and the lettering, timed with `?debug` (a one-pixel read
+waits for the GPU) at 1920 × 1080, median of 30 while zooming by small steps:
+
+| Chart | Intel UHD, whole body | Intel UHD, zoomed in | RTX 5070 Ti, whole body | RTX 5070 Ti, zoomed in |
+| --- | ---: | ---: | ---: | ---: |
+| Mars | 10.3 | 20.1 | 5.5 | 5.7 |
+| Moon | 12.4 | 21.8 | 7.3 | 10.4 |
+| Earth | 8.6 | 18.6 | 3.0 | 5.6 |
+
+Zoomed in, a pixel reads the 16 px/deg tiles: five bilinear heights for the
+relief, each four `texelFetch`es from the texture array, which is what the
+Intel GPU's 20 ms goes on; a drag there runs at about 50 frames a second.
+Halving it (the relief from the four texels a height already reads) is
+left for later.
+
 ### Eclipses, spin axes and field-line pulses
 
 The shadow casters are picked each frame (`pickOccluders`): 0.08 ms for
