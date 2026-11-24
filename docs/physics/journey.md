@@ -298,11 +298,48 @@ as many whole turns as the stay allows, and the burn back. At departure it
 takes, within half a turn of the planned time, the point on its own orbit
 that costs least onto the arc to the moon's place at the arrival.
 
-From Jupiter orbit 344,000 km up to the late Io flyby, the first pass
-finds the craft 64.6° off (the capture came hours early) and the second
-0.9°. It leaves 178 min from the planned time for 2.19 km/s (the plan's
-1.57), and reaches Io for 1.02 km/s of corrections in all, against 5.15.
-It does not fly GO yet (Limits).
+The capture is put where and when the plan has it (`journeyFlight.js`,
+`planFlight` and 'capture'). The aims at a planet are at its B-plane
+point, without its pull, and the trims inside its sphere set the
+periapsis radius alone. The kernel's way in is not the patched conics',
+so the craft reached its periapsis off the plan's place: 112° round at
+200,000 km over Jupiter, 65° at 344,000 km, and out of the plan's plane.
+The phasing took up the turn but not the plane, and the departures cost
+1.92 and 1.39 times the plan's. Into an orbit the next leg leaves from,
+the flight now adds:
+- **two aims at the planned periapsis, with the planet's pull:** one just
+  before the trims (59 days out at Jupiter, about 60 m/s), at the planned
+  hyperbola's point a hundredth of the sphere crossing before the
+  periapsis, and one a twentieth of the crossing out (five days) at the
+  periapsis itself. (Aimed at the periapsis from two months out, a craft
+  hours late is a million kilometres off it on another branch of the
+  swing, and Newton's steps did not converge. From two days out the aim
+  costs 2 to 2.9 km/s.);
+- **the capture yawed into the plan's plane:** the plane holds the
+  kernel's way in too, 0.8 to 2.9° from the plan's at Jupiter. The
+  capture's periapsis lies in both planes, so the steered burn is yawed out
+  of its plane (secant on the yaw, by side runs through the burn) and
+  lengthened so its braking is unchanged: 6 to 150 m/s, where turning the
+  circular orbit afterwards would cost its speed times the angle, 0.2 to
+  1.7 km/s (Curtis eq. (6.20)).
+
+From Jupiter orbit 344,000 km up to the late Io flyby, the capture comes
+11 km from the planned radius, in the plan's plane, and 0.0° from the
+plan's place. (Before, 431 km off and 64.6° round.) The second phasing pass
+takes out 7.3° that Io's pull adds over the stay: the orbit lies 7,700 km
+inside Io's. The craft leaves 13 min from the planned time for 1.63 km/s
+(the plan's 1.57), and reaches Io for 0.94 km/s of corrections in all,
+against 5.15. It still does not fly GO (Limits). At 200,000 km up the
+departure is 2.31 km/s for the plan's 2.31 (CASE 28).
+
+Flown to 13 moons from orbits about Jupiter, Saturn, Uranus, Neptune and
+Mars, every capture comes 0 to 10 km from its planned radius, where it
+came 154 to 3,666 km off, and none of the flights has trouble, where three
+had (Io, Titan and Dione read their planet as missed). At the giant
+planets every departure is within 4 % of its price. (At Mars both
+departures cost well under the plan's, as they did before: 0.58 km/s for
+2.04 to Phobos, 2.27 for 4.02 to Deimos. The plan's price for that leg is
+not right yet: Limits.)
 
 ### Near 180 degrees: the broken plane
 
@@ -1700,7 +1737,7 @@ Each total is the plan solved again. Leaving on 27 Dec 2028 flies GO: Io
 0.1 km off the planned periapsis, for 0.29 km/s of corrections. The stop in
 Jupiter orbit is priced from where the craft is on its parking orbit
 (From a planet's orbit to its moon). It does not fly GO yet: it reaches Io
-for 1.02 km/s of corrections, where it used to miss Io by 17,441 km for
+for 0.94 km/s of corrections, where it used to miss Io by 17,441 km for
 5.15, but comes in 400 km low and hits it (Limits).
 
 In the app the same: NO GO, RE-PLAN on the new date, GO. RE-PLAN on the
@@ -1987,25 +2024,27 @@ The delta-v map has its own checks (`dvMap.test.mjs`): every reference line agai
 | A craft's own first leg at 180.4°: from near the Earth, its orbit tilted 1°, to Mars orbit on 20 Aug 2027 | Abilleira [5]; Lawden [6]; the craft's orbit plane; two-body; the full-model flight | direct 12.72 km/s, tilted 14.3°; broken plane 5.474, its first arc in the craft's plane to 10⁻⁶°; the plan's deep-space burn 5.471; leaving 9 to 29 Nov never dearer than either and smooth; flown with 86 m/s of corrections, Mars 1.8 km off, against the direct arc's 973 (112 and 687 before the aims at a planet left its bending to it) |
 | A moon's flyby via its planet: Earth to Io (400 km, CASE 24's dates) and CASE 17's Europa flyby (500 km); Io joined to Europa orbit 5 d later; Galileo's pair | the hyperbola about the moon, Curtis eqs. (8.71), (8.75) and Sec. 8.9 [1], on the excess about the moon (`moonArr`) | Io: 8.637 km/s turned 3.979°, 0.5997 km/s about Jupiter, B 2,300 km, each to 10⁻⁹ (from the 5.81 about Jupiter it was 8.45° and 0.856 "heliocentric"); Europa: 24.166 km/s, 0.304°, 0.1283 km/s (was 4.55°, 0.487); the join powered between the two excesses about Io; a planet's flyby still heliocentric |
 | Down a planet's well when an aim's trial runs fall into the planet: Io orbit (leaving 3 Dec 2027, there 21 May 2031), a Europa flyby (26 Dec 2028 to 5 Jan 2032) and Rhea orbit (30 Jun 2027 to 26 May 2033); CASE 24's Io flyby a day late, flown on | the plan | each aim that found no burn, or kept none, aims at the planet's B-plane instead; nothing hit, the moon 0.0 to 0.1 km off the planned periapsis (within 5 km), 377, 407 and 334 m/s of corrections (under 0.5 km/s); a day late, Io passed 0.1 km off, then Jupiter hit 2.93 h later (within 4 h), where the plan's way on reaches 2,206 km from its centre; on CASE 24's dates flown as before |
+| Into Jupiter orbit 200,000 and 344,000 km up, then the late Io flyby: the capture | the plan's parking orbit (`parkedAt`) | two aims at the planned periapsis; the capture 10 and 11 km off its radius (within 50 km), yawed 2.44° and 2.15° into the plan's plane (within 0.01°), the craft 0.2° and 0.0° from the plan's place (within 2°; 112° and 65° before); the departure 2,310 and 1,625 m/s against 2,305 and 1,574 (within 5 %; 1.92 and 1.39 times before); Jupiter orbit as the last stop aimed as before |
 
 ## Limits
 
 - **From a planet's orbit to its moon:** the leg leaves from where the
   plan has the craft on its parking orbit, and the flight phases it there
-  (Flying it, "From a planet's orbit to its moon"). It does not fly GO
-  from Jupiter orbit to Io yet, for two reasons in the flight's arrivals:
-  - **at the planet:** the B-plane aims and radius-only trims bring the
-    capture hours early, a third of a turn round and 6 degrees out of the
-    planned plane. The phasing takes up the turn, not the plane, so the
-    departure costs more than planned (2.19 km/s against 1.57 at 344,000
-    km). A point aim two days out puts it right but costs 2 to 2.9 km/s;
-  - **at the moon:** on a leg of hours there is one aim, without the moon's
-    pull, and at under 2 km/s Io's pull bends the way in on to its
-    surface. A point aim with Io's pull finds no burn.
+  (Flying it, "From a planet's orbit to its moon"), and the capture is
+  where and when the plan has it. It does not fly GO from Jupiter orbit
+  344,000 km up to Io yet, for the arrival at the moon: on a leg of hours
+  there is one aim, without the moon's pull, and at under 2 km/s Io's pull
+  bends the way in on to its surface. A point aim with Io's pull finds no
+  burn. The same aim costs 3.1 km/s on a leg from Jupiter orbit 500,000
+  km up to Callisto.
+- **From Mars orbit to Phobos or Deimos:** the plan prices the leg at
+  several times what the flight pays (2.04 km/s against 0.58 to Phobos
+  from 3,000 km up), so the plan's total is too high there.
 
   The GO board's 50 km miss is also strict for a capture hundreds of
   thousands of kilometres out (the flight's own trouble is the larger of
-  50 km and 2 % of the periapsis): 76 to 718 km off reads as a miss.
+  50 km and 2 % of the periapsis). With the point aims the captures come
+  within 50 km; without them, 76 to 718 km off read as a miss.
 - **Patched conics:** the planets' centres are the ends of each leg, and
   the Sun alone pulls along it. The kernel's corrections close the gap,
   and the flown journey's corrections are part of its delta-v as flown.

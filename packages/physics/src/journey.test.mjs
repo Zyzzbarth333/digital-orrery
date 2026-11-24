@@ -1504,11 +1504,42 @@ if (header('CASE 27: from a planet\'s parking orbit to its moon, left from where
   const phases = f.log.filter((l) => l.startsWith('phase at jupiter')), dep = f.log.find((l) => l.startsWith('depart jupiter')) ?? '';
   const offs = phases.map((l) => Math.abs(Number(/: (-?[\d.]+) deg off/.exec(l)?.[1]))), lateMin = Math.abs(Number(/, (-?\d+) min from the planned time/.exec(dep)?.[1]));
   console.log(`  flown: ${phases.join('; ')}; ${dep}; corrections ${(f.correctionsDv).toFixed(2)} km/s; ${f.impact ? `hits ${f.impact.body}` : 'no impact'}`);
-  check('flown: the craft phased to within 2 degrees of the plan\'s place by the second pass, leaving within 4 h of the planned time, for under 1.5 km/s of corrections in all (5.15 waiting for the craft to come round)', phases.length === 2 && offs[1] < 2 && lateMin < 240 && f.correctionsDv < 1.5);
-  // (It does not fly GO yet: the capture comes a third of a turn and 6
-  // degrees off the plan's, so the departure costs more than planned, and
-  // on the 31-hour leg to Io the one aim, without Io's pull, leaves the
-  // way in on to Io. Both are the flight's arrival, not the phasing.)
+  // (Two passes: the orbit, 414,000 km from Jupiter's centre, lies 7,700 km
+  // inside Io's, at the edge of Io's sphere, and Io's pull moves the craft
+  // degrees along it between them, which the second takes out.)
+  const depDv = Number(/: (\d+) m\/s/.exec(dep)?.[1]) / 1000;
+  check('flown: the craft phased in two passes to the plan\'s place, leaving within an hour of the planned time for within 5 % of the planned burn, for under 1.5 km/s of corrections in all (5.15 waiting for the craft to come round)', phases.length === 2 && offs.every(Number.isFinite) && lateMin < 60 && Math.abs(depDv / L.depDv - 1) < 0.05 && f.correctionsDv < 1.5);
+  // (It does not fly GO yet: on the 31-hour leg to Io the one aim, without
+  // Io's pull, leaves the way in on to Io. That is the arrival at the moon,
+  // not the phasing.)
+}
+
+if (header('CASE 28: into a parking orbit the next leg leaves from, the capture where and when the plan has it')) {
+  // The arrival at a planet was aimed at the B-plane point without the
+  // planet and trimmed for the periapsis radius alone. Into an orbit the
+  // next leg leaves from where the craft is (CASE 27), that left the
+  // capture off the plan's place: at Jupiter 200,000 km up 112 degrees
+  // round from it, 344,000 km up 65 degrees, and out of the plan's plane,
+  // and the departures cost 1.92 and 1.39 times the plan's (4,423 m/s for
+  // 2,305, 2,188 for 1,574). Now two aims at the
+  // planned periapsis with the planet's pull, and the capture burn yawed
+  // into the plan's plane.
+  const late = { start: { body: 'earth', kind: 'pad', altKm: 200, dateMs: D('2027-11-30T16:38:29.937Z'), latDeg: 28.5 }, waypoints: [{ id: 1, body: 'io', kind: 'flyby', altKm: 400, stayDays: 0, dateMs: D('2031-04-13T08:07:36.666Z') }] };
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  for (const altKm of [200000, 344000]) {
+    const j = withStop(late, 0, { body: 'jupiter', kind: 'orbit', altKm, stayDays: 3 }), s = J.solveJourney(j), L = s.legs[1], p = planFlight(s), f = flyJourney(sys, p);
+    const pointAims = p.events.filter((e) => e.kind === 'aim' && e.body === 'jupiter' && e.without === null).length;
+    const capLog = f.log.find((l) => l.startsWith('capture at jupiter')) ?? '', planeOff = Number(/ to (-?[\d.]+) deg off\)/.exec(capLog)?.[1]);
+    const cap = f.captures.find((c) => c.body === 'jupiter'), miss = f.arrivals.find((a) => a.body === 'jupiter')?.missKm ?? Infinity;
+    const phase1 = Math.abs(Number(/: (-?[\d.]+) deg off/.exec(f.log.find((l) => l.startsWith('phase at jupiter')) ?? '')?.[1]));
+    const dep = f.log.find((l) => l.startsWith('depart jupiter')) ?? '', depDv = Number(/: (\d+) m\/s/.exec(dep)?.[1]) / 1000, lateMin = Math.abs(Number(/, (-?\d+) min from the planned time/.exec(dep)?.[1]));
+    console.log(`  ${altKm.toLocaleString('en-AU')} km up: ${pointAims} point aims; ${capLog.replace(/, then Hohmann.*/, '')}; Jupiter ${miss.toFixed(0)} km off; the first phase pass ${phase1.toFixed(1)} deg; ${dep}`);
+    check(`${altKm.toLocaleString('en-AU')} km up: two aims at the planned periapsis, the capture within 50 km of its radius and yawed (${cap?.yawDeg?.toFixed(2)} deg) into the plan's plane to 0.01 degrees, the craft within 2 degrees of the plan's place after it, and the departure within an hour and 5 % of the plan's`, pointAims === 2 && miss < 50 && Math.abs(cap?.yawDeg ?? 0) > 0 && planeOff < 0.01 && phase1 < 2 && lateMin < 60 && Math.abs(depDv / L.depDv - 1) < 0.05);
+  }
+  // A capture no leg leaves from where the craft is (the last stop): no
+  // point aims, no yaw.
+  const only = J.solveJourney({ start: late.start, waypoints: [{ id: 1, body: 'jupiter', kind: 'orbit', altKm: 200000, stayDays: 3, dateMs: D('2031-04-10T00:00:00Z') }] }), po = planFlight(only);
+  check('a capture as the last stop is aimed as before: no point aims, no plan\'s plane to yaw into', only.ok && !po.events.some((e) => (e.kind === 'aim' && e.without === null && e.body === 'jupiter') || (e.kind === 'capture' && e.parked)));
 }
 
 // A case named that isn't in the file is a failure, so a part of npm test
