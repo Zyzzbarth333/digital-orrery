@@ -879,7 +879,7 @@ CASE 17: the planets' major moons, flown with their gravity: Europa, Titan
   Titan entry 2034-05-17: 5.226 km/s about Titan; perigee 1000.01 km up against 1000 planned (tolerance 5 km)
   PASS  Earth orbit to Titan, flown: aimed at Titan, an entry at the planned height within 5 km, no trouble
   Europa flyby: europa, europa, europa, europa, europa; closest 2060.8 km from Europa's centre, planned 2060.8 (tolerance 5 km)
-  PASS  a flyby of Europa via Jupiter is aimed at Europa and passes within 5 km of the planned periapsis, no trouble
+  PASS  a flyby of Europa via Jupiter is aimed at Europa and passes within 5 km of the planned periapsis; flown on, it falls into Jupiter as its plan does, and that is its only trouble
 RESULT: all checks PASSED
 
 >>> node src/physics/journey.test.mjs 12
@@ -1298,6 +1298,16 @@ CASE 25: a moon's flyby turns the excess velocity about the moon: the turn, the 
   joined to Europa orbit: v_inf 8.637 in, 7.812 out about Io, 75.8 deg apart; powered 9911 m/s (795 at periapsis, 9117 steered); 10.13 km/s about Jupiter
   PASS  the Io flyby joined to a leg about Jupiter: both excesses about Io, the burn the powered flyby's between them, the gain their difference
   PASS  a planet's flyby is still a heliocentric change, and its excess the leg's own
+============================================================
+CASE 26: down Jupiter's well to its moon when the aims' trial runs all fall into Jupiter, and a last flyby that falls on into it
+============================================================
+  Io orbit, two days after the porkchop arrival from a June 2027 start: 2 aim(s) at Jupiter's B-plane; Io passed 0.1 km off the planned periapsis; corrections 377 m/s
+  PASS  Io orbit, two days after the porkchop arrival from a June 2027 start: an aim whose runs fall into Jupiter aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble
+  a Europa flyby on the porkchop dates from a January 2028 start: 2 aim(s) at Jupiter's B-plane; Europa passed 0.1 km off the planned periapsis; corrections 407 m/s
+  PASS  a Europa flyby on the porkchop dates from a January 2028 start: an aim whose runs fall into Jupiter aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble
+  a day late: the plan's way on reaches 0.032 Jupiter radii, after Io; flown on to 2031-04-13T12:17; Io passed 0.1 km off; hits jupiter 2.93 h after Io
+  PASS  a day late, the plan's way on falls inside Jupiter after Io; the flight passes Io within 5 km, flies on and hits Jupiter within 4 h
+  PASS  on CASE 24's dates the way on clears Jupiter, and the flight ends an hour past Io as before
 RESULT: all checks PASSED
 
 >>> node src/physics/nesc.test.mjs
@@ -2864,6 +2874,18 @@ CASE 4: inserting a stop, and the launch row
   Jupiter orbit 2031-12-22, Io 2032-01-12: 29.87 km/s against 13.68
   PASS  a stop inserted before Io: Jupiter orbit at 70,000 km, then Io after it, both legs solved, in date order
   PASS  a parking orbit inside the air: raised to 120 km, priced
+============================================================
+CASE 5: a real hit: the kernel's craft passes Io a day late and falls into Jupiter
+============================================================
+  flown: hit, jupiter 2.93 h after Io (full model); Io is reached through Jupiter's gravity: past Io, the approach falls on to 67,705 km below its cloud tops
+  PASS  the Trajectory row: a hit on Jupiter, in the full model, Io passed within 5 km
+  PASS  why: "Io is reached through Jupiter's gravity: past Io, the approach falls on to" the depth below the cloud tops (the plan's periapsis less the radius), on the leg to Io
+  trajectory:
+    Stop in Jupiter orbit first, 344,000 km up: 14.21 km/s, +7.81
+    Leave Earth 2028-12-27 instead: 6.25 km/s, -0.14
+  PASS  options: a stop in Jupiter orbit before the Io flyby, and another departure date; each solves at the total it states
+  Stop in Jupiter orbit first, 344,000 km up, flown: miss; Jupiter 430.9 km off, Io 17440.7 km off; corrections 5.15 km/s
+  Leave Earth 2028-12-27 instead, flown: go; Io 0.1 km off; corrections 0.29 km/s
 RESULT: all checks PASSED
 
 >>> node src/physics/dvMap.test.mjs

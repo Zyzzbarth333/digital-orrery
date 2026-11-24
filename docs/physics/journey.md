@@ -209,6 +209,49 @@ the Sun) was then aimed at Jupiter with Io's periapsis offset, 69,309 km
 from Jupiter's centre (its radius is 71,492 km), and hit it. Aimed at Io,
 it passes 0.2 km off the planned 2,221 km periapsis.
 
+Each aim's trial runs fly the planet's pull. At about 6 km/s Jupiter takes
+any straight course that passes within about 700,000 km of its centre,
+wider than Io's and Europa's orbits. So a run with no correction, or the
+first guess (a two-body arc about the Sun straight at the moon), can fall
+into Jupiter. When every run does, the aim had nothing to start from and
+found no burn. Every aim after it failed the same way, the craft flew on
+to Jupiter's centre and hit it, and the GO board said it had drifted in.
+Now an aim at a moon that finds no burn aims at the planet instead:
+- **outside the planet's sphere:** at its B-plane point for the planned way
+  in, without the planet, as at a planet (step 2 of Flying it). That is the
+  hyperbola about the planet that comes in along the leg's excess velocity
+  $\mathbf v$ and passes the moon's place $\mathbf r_m$ at
+  $\mathbf v_{about}$ (`moonArr`). Its angular momentum
+  $\mathbf h = \mathbf r_m \times \mathbf v_{about} = \mathbf B \times
+  \mathbf v$, with $\mathbf B \perp \mathbf v$, gives
+  $\mathbf B = (\mathbf v \times \mathbf h)/v^2$. It is timed to the
+  hyperbola's periapsis, less the bending the planet has given by then;
+- **inside it:** at the moon's point as before, from a two-body arc about
+  the planet, either way round.
+
+The next aim at the moon then starts from a course that clears the planet.
+Only an aim that fails takes this, so flights that worked fly as before.
+In 775 flights from the pad to Io, Europa, Ganymede, Callisto and Titan,
+50 hit Jupiter this way, and none Saturn. These were orbits, landings and
+flybys on the porkchop dates for six starts from Nov 2026 to Mar 2030, the
+arrival moved by up to two days. Flown again, none hits Jupiter: 30 fly GO,
+13 need too many corrections and 5 miss. Most of those 18 have a
+deep-space burn the plan puts inside Jupiter's sphere, 25 days out, and 2
+hit Io itself.
+
+A journey that ends in a flyby of such a moon is flown an hour past it.
+Where the plan's way on falls below the planet's cloud tops (the approach's
+periapsis about the planet after the moon, under its radius), the flight is
+flown on to that periapsis instead, so it meets the planet where the plan
+does. CASE 24's Io flyby a day later (there 13 Apr 2031) is one. Io is half
+way round, between the craft and Jupiter, so both hyperbolas through its
+place dive, and the plan's reaches 2,206 km from Jupiter's centre 3 h after
+Io. The craft passes Io 0.1 km off the planned periapsis and hits Jupiter
+2.93 h later. It read GO.
+CASE 17's Europa flyby on the porkchop dates (there 22 Jul 2031) is
+another: its way on reaches 3,098 km from Jupiter's centre, and it now
+reads NO GO too.
+
 ### Near 180 degrees: the broken plane
 
 Lambert's arc lies in the plane of its two ends and the central body. When
@@ -1594,6 +1637,18 @@ of 8 km/s, reads NO GO on Windows and Delta-v. Leaving Earth on 5 Jan 2029
 instead (13.11 km/s, 0.59 less) and setting the budget to 13.2 km/s takes it
 to GO in two presses.
 
+A real hit: CASE 24's Io flyby a day late (above), flown in the full
+model, hits Jupiter 2.93 h after Io. The board says "Io is reached through
+Jupiter's gravity: past Io, the approach falls on to 67,705 km below its
+cloud tops" and offers:
+- a stop in Jupiter orbit 344,000 km up first, 14.21 km/s (7.81 more);
+- leaving Earth on 27 Dec 2028 instead, 6.25 km/s (0.14 less).
+
+Each total is the plan solved again. Leaving on 27 Dec 2028 flies GO: Io
+0.1 km off the planned periapsis, for 0.29 km/s of corrections. The stop in
+Jupiter orbit does not fly GO yet: it misses Io by 17,441 km and needs
+5.15 km/s of corrections, and so does every height it tries (Limits).
+
 ![The GO board for Earth to Io orbit against a budget of 8 km/s: Windows and Delta-v read NO GO, each with RE-PLAN to leave Earth on 2029-01-05 (13.11 km/s, 0.59 less) and SET to raise the budget](../images/go-board-io-orbit.jpg)
 
 ![The GO board for a Mars flyby planned 0 km up: Trajectory reads NO GO, "The pass at Mars is planned 0 km up; the kernel's flight came in 3 km lower and hit it", with RE-PLAN to raise the pass to 200 km at the same 3.63 km/s](../images/go-board-mars-flyby-0.jpg)
@@ -1865,9 +1920,17 @@ The delta-v map has its own checks (`dvMap.test.mjs`): every reference line agai
 | Lunar orbit to Mars, stays of 18 to 30 days | smoothness; the broken plane | the excess speed's second difference at most 4.3 m/s (under 20); 0 to 46 m/s saved at the mean phase; cheaper on the day on 12 of 13 |
 | A craft's own first leg at 180.4°: from near the Earth, its orbit tilted 1°, to Mars orbit on 20 Aug 2027 | Abilleira [5]; Lawden [6]; the craft's orbit plane; two-body; the full-model flight | direct 12.72 km/s, tilted 14.3°; broken plane 5.474, its first arc in the craft's plane to 10⁻⁶°; the plan's deep-space burn 5.471; leaving 9 to 29 Nov never dearer than either and smooth; flown with 86 m/s of corrections, Mars 1.8 km off, against the direct arc's 973 (112 and 687 before the aims at a planet left its bending to it) |
 | A moon's flyby via its planet: Earth to Io (400 km, CASE 24's dates) and CASE 17's Europa flyby (500 km); Io joined to Europa orbit 5 d later; Galileo's pair | the hyperbola about the moon, Curtis eqs. (8.71), (8.75) and Sec. 8.9 [1], on the excess about the moon (`moonArr`) | Io: 8.637 km/s turned 3.979°, 0.5997 km/s about Jupiter, B 2,300 km, each to 10⁻⁹ (from the 5.81 about Jupiter it was 8.45° and 0.856 "heliocentric"); Europa: 24.166 km/s, 0.304°, 0.1283 km/s (was 4.55°, 0.487); the join powered between the two excesses about Io; a planet's flyby still heliocentric |
+| Down Jupiter's well when an aim's trial runs all fall into Jupiter: Io orbit (leaving 3 Dec 2027, there 21 May 2031) and a Europa flyby (26 Dec 2028 to 5 Jan 2032); CASE 24's Io flyby a day late, flown on | the plan | each aim that found no burn aims at Jupiter's B-plane instead; nothing hit, the moon 0.1 km off the planned periapsis (within 5 km), 377 and 407 m/s of corrections (under 0.5 km/s); a day late, Io passed 0.1 km off, then Jupiter hit 2.93 h later (within 4 h), where the plan's way on reaches 2,206 km from its centre; on CASE 24's dates flown as before |
 
 ## Limits
 
+- **From a planet's orbit to its moon:** the leg leaves from a free point
+  on the orbit, and the flight waits for the craft to come round to it, up
+  to the orbit's period (41.5 h at 344,000 km over Jupiter). On a leg of a
+  few days to the moon, that wait reaches the moon's place well after the
+  moon. GO's stop in Jupiter orbit before Io misses Io by thousands of
+  kilometres for this reason. The leg is to be timed from where the craft
+  is on its orbit after the capture and the stay.
 - **Patched conics:** the planets' centres are the ends of each leg, and
   the Sun alone pulls along it. The kernel's corrections close the gap,
   and the flown journey's corrections are part of its delta-v as flown.

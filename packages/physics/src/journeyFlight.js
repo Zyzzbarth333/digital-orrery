@@ -57,8 +57,9 @@ import { dot, cross, norm, unit } from './vec.js';
 /** @typedef {{ wayOut?: number[], untilMs?: number, planeHold?: number[], planeTurn?: PlaneTurn }} OffsetInfo */
 /** @typedef {{ kind: 'depart', ms: number, body: string, vinfEqj: number[], rp: number, via: string | null, waitDays?: number, reaim: Reaim | null, aimPlanet?: number, aimAt?: AimTarget }} DepartEvent */
 /** @typedef {{ kind: 'depart-ring', ms: number, body: string, dv: number, dirEqj: number[] }} DepartRingEvent */
-/** @typedef {{ kind: 'aim', ms: number, body: string, offsetEqj: number[], arrive: number, without: string | null, central: string, farTo?: { ms: number, offsetEqj: number[] }, last?: boolean, replane?: { rp: number, wayOutEqj: number[], untilMs?: number } }} AimEvent */
-/** @typedef {{ kind: 'arrive', ms: number, body: string, waypoint: number, plannedRp: number, central: boolean, windowMs: number }} ArriveEvent */
+/** @typedef {{ body: string, offsetEqj: number[], vinEqj: number[], rp: number, mu: number, periMs: number }} PlanetB  a planet's B-plane point for a moon's way in (planetBPlane) */
+/** @typedef {{ kind: 'aim', ms: number, body: string, offsetEqj: number[], arrive: number, without: string | null, central: string, farTo?: { ms: number, offsetEqj: number[] }, planetB?: PlanetB, last?: boolean, replane?: { rp: number, wayOutEqj: number[], untilMs?: number } }} AimEvent */
+/** @typedef {{ kind: 'arrive', ms: number, body: string, waypoint: number, plannedRp: number, central: boolean, windowMs: number, onToMs?: number }} ArriveEvent */
 /**
  * The kernel's schedule, one kind of event each (the flight reads its kind).
  * @typedef {{ kind: 'impulse', ms: number, dvEqj: number[], node?: boolean, body?: undefined }
@@ -206,6 +207,19 @@ function bentAim(aimOff, vin, rp, mu, arrMs) {
   };
 }
 
+// Reaching a moon via its planet, the planet's B-plane point for the
+// planned way in: the hyperbola about the planet that comes in along the
+// leg's excess velocity v and passes the moon's place rm at vAbout
+// (journey.js moonArr). Its angular momentum is h = rm x vAbout = B x v,
+// with B perpendicular to v, so B = (v x h) / v^2. With it the hyperbola's
+// periapsis rp and when the craft is there (periMs), for bentAim. EQJ.
+// The fallback aim when an aim at the moon finds no burn.
+/** @param {{ arrMs: number, vinfArr: number[], moonArr: { rm: number[], vAbout: number[], rp: number } }} leg @param {string} planet @returns {PlanetB} */
+function planetBPlane(leg, planet) {
+  const v = leg.vinfArr, M = leg.moonArr, h = cross(M.rm, M.vAbout), mu = bodyInfo(planet).mu;
+  return { body: planet, offsetEqj: ecl(scale(cross(v, h), 1 / dot(v, v))), vinEqj: ecl(v), rp: M.rp, mu, periMs: leg.arrMs + 1000 * timeToPeriapsis(M.rm, M.vAbout, mu) };
+}
+
 // The kernel's schedule for a solved journey. Returns { start: { r, v, ms },
 // events: [...] sorted by time, unsupported: [reasons] }.
 /** @param {Solution} sol @returns {Plan} */
@@ -307,7 +321,7 @@ export function planFlight(sol) {
     }
     /** @param {string} key @param {Vec | null | undefined} vinf */
     const crossing = (key, vinf) => (KERNEL.has(key) && vinf ? sphereOfInfluence(key) / norm(vinf) : 0) * 1000;
-    const target = { body: leg.ringArr ? leg.central : viaMoon ? Q.body : (leg.endB ?? Q.body), offsetEqj: ecl(aimOff), arrive: arriveMs, without, central: leg.central };
+    const target = { body: leg.ringArr ? leg.central : viaMoon ? Q.body : (leg.endB ?? Q.body), offsetEqj: ecl(aimOff), arrive: arriveMs, without, central: leg.central, ...(viaMoon && leg.endB && KERNEL.has(leg.endB) ? { planetB: planetBPlane(leg, leg.endB) } : {}) };
     // At a planet, the B-plane point less the bending the planet has
     // already given the craft by the aim's time (bentAim). (Not about the
     // Earth, at the Moon: there the Earth's pull is most of the bending, and
@@ -401,7 +415,12 @@ export function planFlight(sol) {
     // about the target, where its pull is most of the force).
     if (without) events.push({ kind: 'approach', ms: leg.arrMs - 0.6 * tIn, body: Q.body, rp: norm(off), ...(offInfo.wayOut ? { wayOutEqj: ecl(offInfo.wayOut), untilMs: offInfo.untilMs } : {}), ...(offInfo.planeTurn ? { planeTurn: offInfo.planeTurn } : {}), ...(offInfo.planeHold ? { planeHold: offInfo.planeHold } : {}) });
     const wMs = leg.ringArr ? 0.25 * DAY * 1000 : Math.min(3 * DAY * 1000, Math.max(2 * 3600e3, 0.5 * (crossing(Q.body, vinQ) || DAY * 1000)));
-    events.push({ kind: 'arrive', ms: leg.arrMs, body: Q.body, waypoint: k, plannedRp: norm(off), central: !!leg.ringArr, windowMs: wMs });
+    // A last stop that is a flyby of a moon whose way on falls below its
+    // planet's cloud tops (the approach's periapsis about the planet comes
+    // after the moon, under its radius): flown on to that periapsis, so the
+    // flight meets the planet where the plan does, not an hour past the moon.
+    const pB = target.planetB, fallsOn = pB && Q.kind === 'flyby' && k === sol.legs.length - 1 && !leg.moonArr.ahead && leg.moonArr.rp < bodyInfo(pB.body).radius;
+    events.push({ kind: 'arrive', ms: leg.arrMs, body: Q.body, waypoint: k, plannedRp: norm(off), central: !!leg.ringArr, windowMs: wMs, ...(pB && fallsOn ? { onToMs: pB.periMs + 3600e3 } : {}) });
     // Home to the central body: how far the craft is from the aimed point.
     if (leg.ringArr) events.push({ kind: 'point', ms: arriveMs, waypoint: k, offsetEqj: ecl(aimOff), body: leg.central });
     const QB = bodyInfo(Q.body);
@@ -1214,6 +1233,36 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
           if (k2) k = k2;
         }
       }
+      // Down a planet's well to its moon, every trial run of an aim at the
+      // moon may fall into the planet: the runs fly the planet's pull, and
+      // a course straight at a moon inside the planet's capture radius
+      // (about 700,000 km for Jupiter at 6 km/s: Io's and Europa's orbits lie
+      // inside it) meets the planet first. Then the aim is at the planet's
+      // B-plane point for the planned way in instead, without the planet,
+      // as at a planet; the next aim at the moon starts from a course that
+      // clears the planet.
+      if (!k && e.planetB && e.central === 'sun') {
+        const B = e.planetB, TB = kernelSeconds(new Date(B.periMs)), P0 = bodyState(B.body, s.t);
+        if (norm(sub(s.r, P0.r)) < sphereOfInfluence(B.body)) {
+          // Inside the planet's sphere the way in is already bent, and the
+          // planet's pull is the guide: a two-body arc about it to the aim
+          // point at the moon, either way round, flown with it.
+          const PT = posAt(sys, B.body, Tk);
+          for (const pro of [true, false]) {
+            const arcP = lambert(sub(s.r, P0.r), sub(target, PT), Tk - s.t, B.mu, pro);
+            k = arcP && aimTo(e.without ? without(e.without) : sys, { r: s.r, v: s.v, t0: s.t, T: Tk, target, burns: future, dv0: sub(arcP.v1, sub(s.v, P0.v)), rounds: 8, damped: true, env, envJ: env && cheapEnv });
+            if (k) break;
+          }
+          if (k) out.log.push(`aim at ${e.body}: the trial runs fell into ${bodyInfo(B.body).name}; from an arc about it instead`);
+        } else if (TB - s.t > 3600) {
+          // Further out, the planet's B-plane point for the planned way in,
+          // without the planet, as at a planet (bentAim).
+          const pt = add(posAt(sys, B.body, TB), bentAim(B.offsetEqj, B.vinEqj, B.rp, B.mu, B.periMs)(kernelMs(s.t)));
+          const arcP = lambert(s.r, pt, TB - s.t, sys.muSun, true);
+          k = aimTo(without(B.body), { r: s.r, v: s.v, t0: s.t, T: TB, target: pt, burns: future, dv0: arcP ? sub(arcP.v1, s.v) : null, rounds: 8, damped: true, env, envJ: env && cheapEnv });
+          if (k) out.log.push(`aim at ${e.body}: the trial runs fell into ${bodyInfo(B.body).name}; at its B-plane instead`);
+        }
+      }
       if (!k) { out.log.push(`aim at ${e.body} failed`); out.trouble.push(`the aim at ${bodyInfo(e.body).name} found no burn`); continue; }
       if (k.after > AIM_CONVERGED_KM && e.last) out.trouble.push(`the aim at ${bodyInfo(e.body).name} came no nearer than ${k.after.toFixed(0)} km`);
       const dv = norm(k.dv);
@@ -1321,7 +1370,7 @@ export function flyJourney(sys, plan, { samples = 400, model = 'full', env: envI
       out.log.push(`rendezvous with ${e.body}: ${(norm(v) * 1000).toFixed(0)} m/s`);
     }
   }
-  if (!out.impact && !out.gaveUp) flyTo(Math.max(s.t, tEnd - DAY + 3600, ...watches.map((w) => w.t1)));
+  if (!out.impact && !out.gaveUp) flyTo(Math.max(s.t, tEnd - DAY + 3600, ...watches.map((w) => w.t1), ...watches.map((w) => (w.onToMs ? kernelSeconds(new Date(w.onToMs)) : -Infinity))));
   // missKm: for a flyby or capture, the closest approach less the planned
   // periapsis; home to a central body, the distance from the aimed point.
   out.arrivals = watches.map((w) => ({ waypoint: w.waypoint, body: w.body, closest: w.best, plannedRp: w.plannedRp, missKm: w.pointMiss ?? Math.abs(w.best - w.plannedRp), at: w.at, central: w.central, landed: out.landings.some((l) => l.waypoint === w.waypoint) }));

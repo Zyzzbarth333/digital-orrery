@@ -1039,7 +1039,10 @@ if (header('CASE 17: the planets\' major moons, flown with their gravity: Europa
   // velocity about it, journey.js moonArr), not at Jupiter.
   const fb = fly([{ id: 1, body: 'europa', kind: 'flyby', altKm: 500, dateMs: D('2030-01-01T00:00:00Z') }]);
   console.log(`  Europa flyby: ${fb.p.events.filter((e) => e.kind === 'aim').map((e) => e.body).join(', ')}; closest ${fb.f.arrivals[0].closest.toFixed(1)} km from Europa's centre, planned ${fb.f.arrivals[0].plannedRp.toFixed(1)} (tolerance 5 km)`);
-  check('a flyby of Europa via Jupiter is aimed at Europa and passes within 5 km of the planned periapsis, no trouble', fb.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'europa') && fb.f.arrivals[0].missKm < 5 && fb.trouble.length === 0);
+  // (The plan's way on past Europa falls to 3,098 km from Jupiter's centre,
+  // so the flight is flown on and hits Jupiter, as the plan says: CASE 26.
+  // It used to stop an hour past Europa, with no trouble.)
+  check('a flyby of Europa via Jupiter is aimed at Europa and passes within 5 km of the planned periapsis; flown on, it falls into Jupiter as its plan does, and that is its only trouble', fb.p.events.filter((e) => e.kind === 'aim').every((e) => e.body === 'europa') && fb.f.arrivals[0].missKm < 5 && fb.s.legs[0].moonArr.rp < J.bodyInfo('jupiter').radius && fb.f.impact?.body === 'jupiter' && fb.trouble.join() === 'it hits Jupiter');
 }
 
 if (header("CASE 18: a craft's own first leg near 180 degrees round the Sun (Abilleira 2007; Lawden 1963)")) {
@@ -1416,6 +1419,46 @@ if (header('CASE 25: a moon\'s flyby turns the excess velocity about the moon: t
   const g = J.solveJourney({ start: { body: 'earth', kind: 'pad', altKm: 200, dateMs: D('1989-10-18T00:00:00Z') }, waypoints: [
     { id: 1, body: 'venus', kind: 'flyby', altKm: 16000, dateMs: D('1990-02-10T00:00:00Z') }, { id: 2, body: 'earth', kind: 'flyby', altKm: 960, dateMs: D('1990-12-08T00:00:00Z') }] });
   check('a planet\'s flyby is still a heliocentric change, and its excess the leg\'s own', g.flybys.every((f) => f.about === 'sun') && g.credits.filter((c) => c.kind === 'assist').every((c) => /heliocentric change/.test(c.note)) && near(g.flybys[0].vinf, norm(g.legs[0].vinfArr), 0));
+}
+
+if (header('CASE 26: down Jupiter\'s well to its moon when the aims\' trial runs all fall into Jupiter, and a last flyby that falls on into it')) {
+  // A leg to a moon of Jupiter is aimed at the moon, its trial runs flown
+  // with Jupiter (journeyFlight.js). At about 6 km/s Jupiter takes any
+  // straight course that passes within about 700,000 km of it, so a run with no
+  // correction, or a first guess straight at Io or Europa, can fall into it;
+  // then aimTo had no run to start from and every aim at the moon failed.
+  // The craft flew on to Jupiter's centre and hit it, and the GO board said
+  // it had drifted in (remedies.js). Of 775 flights from the pad to Io,
+  // Europa, Ganymede, Callisto and Titan (porkchop dates for six starts, the
+  // arrival moved by up to two days), 50 hit Jupiter that way, none Saturn.
+  // Now a failed aim at the moon aims at Jupiter's B-plane for the planned
+  // way in instead (inside its sphere, from an arc about it). Two of the 50:
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const pad = (dep) => ({ body: 'earth', kind: 'pad', altKm: 200, dateMs: D(dep), latDeg: 28.5 });
+  const fly = (j) => { const s = J.solveJourney(j), p = planFlight(s), f = flyJourney(sys, p); return { s, p, f, a: f.arrivals[0], fell: f.log.filter((l) => /fell into Jupiter/.test(l)).length }; };
+  const trips = [
+    ['Io orbit, two days after the porkchop arrival from a June 2027 start', { start: pad('2027-12-03T16:30:27.435Z'), waypoints: [{ id: 1, body: 'io', kind: 'orbit', altKm: 400, stayDays: 3, dateMs: D('2031-05-21T11:43:51.891Z') }] }],
+    ['a Europa flyby on the porkchop dates from a January 2028 start', { start: pad('2028-12-26T16:34:18.157Z'), waypoints: [{ id: 1, body: 'europa', kind: 'flyby', altKm: 500, stayDays: 0, dateMs: D('2032-01-05T19:19:04.308Z') }] }],
+  ];
+  for (const [what, j] of trips) {
+    const { p, f, a, fell } = fly(j);
+    console.log(`  ${what}: ${fell} aim(s) at Jupiter's B-plane; ${f.impact ? `hits ${f.impact.body}` : `${J.bodyInfo(a.body).name} passed ${a.missKm.toFixed(1)} km off the planned periapsis`}; corrections ${(f.correctionsDv * 1000).toFixed(0)} m/s`);
+    check(`${what}: an aim whose runs fall into Jupiter aims at its B-plane instead; nothing hit, the moon within 5 km of the planned periapsis, corrections under 0.5 km/s, no trouble`, fell > 0 && !f.impact && a.missKm < 5 && f.correctionsDv < 0.5 && flightTrouble(p, f).length === 0);
+  }
+
+  // CASE 24's Io flyby a day later: Io half way round, between the craft
+  // and Jupiter. Both hyperbolas about Jupiter through Io's place then pass
+  // below its cloud tops; the plan's has its periapsis after Io, 2,206 km
+  // from Jupiter's centre. A flight ended an hour past its last stop, so it
+  // stopped short of the fall and the GO board read GO. A last flyby whose
+  // way on falls into its planet is now flown on to that periapsis.
+  const late = { start: pad('2027-11-30T16:38:29.937Z'), waypoints: [{ id: 1, body: 'io', kind: 'flyby', altKm: 400, stayDays: 0, dateMs: D('2031-04-13T08:07:36.666Z') }] };
+  const { s, p, f, a } = fly(late), L = s.legs[0], arrive = p.events.find((e) => e.kind === 'arrive'), hitMs = f.impact ? KERNEL_EPOCH_MS + f.impact.t * 1000 : NaN;
+  console.log(`  a day late: the plan's way on reaches ${(L.moonArr.rp / J.bodyInfo('jupiter').radius).toFixed(3)} Jupiter radii, ${L.moonArr.ahead ? 'before' : 'after'} Io; flown on to ${new Date(arrive.onToMs).toISOString().slice(0, 16)}; Io passed ${a.missKm.toFixed(1)} km off; ${f.impact ? `hits ${f.impact.body} ${((hitMs - L.arrMs) / 3600e3).toFixed(2)} h after Io` : 'no impact'}`);
+  check('a day late, the plan\'s way on falls inside Jupiter after Io; the flight passes Io within 5 km, flies on and hits Jupiter within 4 h', !L.moonArr.ahead && L.moonArr.rp < J.bodyInfo('jupiter').radius && a.missKm < 5 && f.impact?.body === 'jupiter' && hitMs > L.arrMs && hitMs - L.arrMs < 4 * 3600e3);
+  // On CASE 24's own dates the way on clears Jupiter: flown as before.
+  const onTime = planFlight(J.solveJourney({ ...late, waypoints: [{ ...late.waypoints[0], dateMs: D('2031-04-12T08:07:36.666Z') }] }));
+  check('on CASE 24\'s dates the way on clears Jupiter, and the flight ends an hour past Io as before', !onTime.events.find((e) => e.kind === 'arrive').onToMs);
 }
 
 // A case named that isn't in the file is a failure, so a part of npm test

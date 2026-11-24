@@ -10,6 +10,8 @@ import * as J from './journey.js';
 import * as F from './feasibility.js';
 import { remedies, impactWhy, flightVerdict, withStop } from './remedies.js';
 import { KERNEL_EPOCH_MS } from './kernelHost.js';
+import { planFlight, flyPlanned } from './journeyFlight.js';
+import { solarSystemBodies } from './bodies.js';
 
 let failures = 0;
 function check(name, ok) { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`); if (!ok) failures++; }
@@ -80,6 +82,36 @@ header('CASE 4: inserting a stop, and the launch row');
   const low = { ...j, start: { ...j.start, altKm: 100 } }, sl = J.solveJourney(low);
   const r = remedies(low, sl, { budget: 20, profiles: [], lamps: F.assess(low, sl, { budget: 20 }) });
   check('a parking orbit inside the air: raised to 120 km, priced', r.launch?.options[0]?.journey.start.altKm === 120 && J.solveJourney(r.launch.options[0].journey).ok);
+}
+
+header('CASE 5: a real hit: the kernel\'s craft passes Io a day late and falls into Jupiter');
+{
+  // CASE 24's Io flyby (journey.test.mjs) a day later: Io half way round,
+  // between the craft and Jupiter, so the plan's way on past Io falls to
+  // 2,206 km from Jupiter's centre (journey.test.mjs CASE 26). Flown in the
+  // full model as the app flies it. (Before journey.test.mjs CASE 26's
+  // fixes every Jupiter hit found was the flight's: aims at the moon that
+  // found no burn. None was a plan that meets Jupiter.)
+  const sys = solarSystemBodies({ epochMs: KERNEL_EPOCH_MS });
+  const late = io('flyby', '2031-04-13T08:07:36.666Z'), sl = J.solveJourney(late), LL = sl.legs[0];
+  const fl = flyPlanned(sys, planFlight(sl)), v = flightVerdict(sl, fl), w = impactWhy(sl, fl);
+  console.log(`  flown: ${v.state}, ${fl.impact?.body} ${((KERNEL_EPOCH_MS + fl.impact.t * 1000 - LL.arrMs) / 3600e3).toFixed(2)} h after Io (${fl.model} model); ${w.text}`);
+  check('the Trajectory row: a hit on Jupiter, in the full model, Io passed within 5 km', v.state === 'hit' && v.body === 'jupiter' && fl.model === 'full' && fl.arrivals[0].missKm < 5);
+  check('why: "Io is reached through Jupiter\'s gravity: past Io, the approach falls on to" the depth below the cloud tops (the plan\'s periapsis less the radius), on the leg to Io', w.leg === 0 && w.relation === 'well' && w.clearKm < 0 && Math.abs(w.clearKm - (LL.moonArr.rp - R)) < 1e-6 && w.text === `Io is reached through Jupiter's gravity: past Io, the approach falls on to ${Math.round(R - LL.moonArr.rp).toLocaleString('en-AU')} km below its cloud tops`);
+  const pl = late.waypoints.map((_, k) => F.legProfile(late, k, { sol: sl }));
+  const r = remedies(late, sl, { budget: 8, profiles: pl, lamps: F.assess(late, sl, { budget: 8, profiles: pl }), flight: { impact: fl.impact, arrivals: fl.arrivals, correctionsDv: fl.correctionsDv } });
+  console.log(`  trajectory:\n    ${r.trajectory.options.map(fmt).join('\n    ')}`);
+  const stop = r.trajectory.options.find((o) => o.label.startsWith('Stop in Jupiter orbit first')), date = r.trajectory.options.find((o) => o.label.startsWith('Leave Earth '));
+  check('options: a stop in Jupiter orbit before the Io flyby, and another departure date; each solves at the total it states', stop && stop.journey.waypoints.map((x) => `${x.body} ${x.kind}`).join(', ') === 'jupiter orbit, io flyby' && date
+    && [stop, date].every((o) => { const s = J.solveJourney(o.journey); return s.ok && Math.abs(s.totalDv - o.total) < 1e-9 && Math.abs(o.delta - (o.total - sl.totalDv)) < 1e-9; }));
+  // Each flown. The stop in Jupiter orbit does not fly GO yet: the leg from
+  // a planet's orbit to its moon leaves from a free point on the orbit,
+  // and the flight waits for the craft to come round to it (up to the
+  // orbit's period, 41.5 h at 344,000 km), so it reaches Io's place late.
+  for (const o of [stop, date]) {
+    const s = J.solveJourney(o.journey), f = flyPlanned(sys, planFlight(s)), vv = flightVerdict(s, f);
+    console.log(`  ${o.label}, flown: ${vv.state}; ${f.arrivals.map((a) => `${J.bodyInfo(a.body).name} ${a.missKm.toFixed(1)} km off`).join(', ')}; corrections ${vv.corr.toFixed(2)} km/s${f.impact ? `; hits ${f.impact.body}` : ''}`);
+  }
 }
 
 console.log(failures ? `RESULT: ${failures} check(s) FAILED` : 'RESULT: all checks PASSED');
